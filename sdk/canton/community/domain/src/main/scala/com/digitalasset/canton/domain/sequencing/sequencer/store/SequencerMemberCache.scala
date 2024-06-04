@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 
@@ -35,12 +35,5 @@ class SequencerMemberCache(populate: Traced[Member] => Future[Option[RegisteredM
       } yield result
 
     cache.getIfPresent(member).fold(lookupFromStore)(result => Future.successful(Option(result)))
-  }
-
-  /** Evicts an unauthenticated member from the cache. Used when unregistering unauthenticated members.
-    * @param member member to evict from the cache
-    */
-  def evict(member: UnauthenticatedMemberId): Unit = {
-    cache.invalidate(member)
   }
 }

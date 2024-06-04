@@ -315,14 +315,13 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       warnDelay: FiniteDuration,
       maxRetryDelay: FiniteDuration,
       timeouts: ProcessingTimeout,
-      requiresAuthentication: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ResilientSequencerSubscription[E] = {
     new ResilientSequencerSubscription[E](
       sequencerId,
       startingFrom,
       handler,
-      createSubscription(member, getTransport, requiresAuthentication, protocolVersion),
+      createSubscription(member, getTransport, protocolVersion),
       SubscriptionRetryDelayRule(
         initialDelay,
         warnDelay,
@@ -337,7 +336,6 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
   private def createSubscription[E](
       member: Member,
       getTransport: => UnlessShutdown[SequencerClientTransport],
-      requiresAuthentication: Boolean,
       protocolVersion: ProtocolVersion,
   ): SequencerSubscriptionFactory[E] =
     new SequencerSubscriptionFactory[E] {
@@ -348,8 +346,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
         getTransport
           .map { transport =>
             val subscription =
-              if (requiresAuthentication) transport.subscribe(request, handler)(traceContext)
-              else transport.subscribeUnauthenticated(request, handler)(traceContext)
+              transport.subscribe(request, handler)(traceContext)
             (subscription, transport.subscriptionRetryPolicy)
           }
       }

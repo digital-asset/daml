@@ -141,14 +141,13 @@ object SequencerClientFactory {
           )
           // pluggable send approach to support transitioning to the new async sends
           validatorFactory = new SequencedEventValidatorFactory {
-            override def create(
-                unauthenticated: Boolean
-            )(implicit loggingContext: NamedLoggingContext): SequencedEventValidator =
+            override def create()(implicit
+                loggingContext: NamedLoggingContext
+            ): SequencedEventValidator =
               if (config.skipSequencedEventValidation) {
                 SequencedEventValidator.noValidation(domainId)
               } else {
                 new SequencedEventValidatorImpl(
-                  unauthenticated,
                   domainId,
                   domainParameters.protocolVersion,
                   syncCryptoApi,

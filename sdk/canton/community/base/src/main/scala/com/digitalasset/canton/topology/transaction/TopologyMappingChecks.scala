@@ -410,7 +410,7 @@ class ValidatingTopologyMappingChecks(
     toValidate.mapping.member match {
       case participantId: ParticipantId =>
         ensureParticipantDoesNotHostParties(effective, participantId)
-      case _: UnauthenticatedMemberId | _: AuthenticatedMember => EitherTUtil.unit
+      case _ => EitherTUtil.unit
     }
   }
 

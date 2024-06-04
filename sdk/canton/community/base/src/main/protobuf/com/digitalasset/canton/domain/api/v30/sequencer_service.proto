@@ -69,13 +69,6 @@ service SequencerService {
   // still accept the request internally and therefore emit events later on.
   rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
 
-  // Submit an unauthenticated request to the sequencer.
-  // The behavior is as for SendAsyncVersioned, except that the sender is not authenticated.
-  // (Further details, e.g. about allowed recipients, can be found in the implementation.)
-  //
-  // This method will be discontinued soon.
-  rpc SendAsyncUnauthenticatedVersioned(SendAsyncUnauthenticatedVersionedRequest) returns (SendAsyncUnauthenticatedVersionedResponse);
-
   // Establishes a stream with the server to receive sequenced events from the domain after the given
   // counter. The delivered events will have a sequential counter and monotonically increasing timestamp.
   //
@@ -83,11 +76,6 @@ service SequencerService {
   // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
   // event.topology_timestamp refers to a time before the sequencer has been onboarded.
   rpc SubscribeVersioned(SubscriptionRequest) returns (stream VersionedSubscriptionResponse);
-
-  // Same as SubscribeVersioned except that it lacks authentication for the subscriber.
-  //
-  // This method will be discontinued soon.
-  rpc SubscribeUnauthenticatedVersioned(SubscriptionRequest) returns (stream VersionedSubscriptionResponse);
 
   // Allows a member to acknowledge that they have read all events up to and including the provided timestamp,
   // and that they will never re-read these events again. This information is currently only used for informational
@@ -106,41 +94,6 @@ message SendAsyncVersionedRequest {
   // Contains a versioned SignedContent which itself contains a versioned SubmissionRequest.
   // TODO(i17383): Have exactly one signature instead of multiple signatures.
   bytes signed_submission_request = 1;
-}
-
-message SendAsyncUnauthenticatedVersionedRequest {
-  // Contains a versioned SubmissionRequest
-  bytes submission_request = 1;
-}
-
-message SendAsyncUnauthenticatedVersionedResponse {
-  Error error = 1; // Defined iff the response is an error.
-
-  message Error {
-    oneof reason {
-      // The sequencer couldn't read the request (typically indicates a serialization and/or versioning bug).
-      string request_invalid = 1;
-
-      // The sequencer could read the request but refused to handle it (the request may violate a max size constraint).
-      string request_refused = 2;
-
-      // The sequencer is overloaded and does not have capacity to handle this request.
-      string overloaded = 3;
-
-      // The specified sender is not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
-      string sender_unknown = 4;
-
-      // The sequencer is shutting down so is declining to process new requests
-      string shutting_down = 5;
-
-      // The sequencer is unavailable and can't currently process requests
-      string unavailable = 6;
-
-      // There are one or more recipients that are not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
-      // This message was added in protocol version 1.1, therefore it must not be used by a sequencer operating on Canton 1.0 protocol version.
-      string unknown_recipients = 7;
-    }
-  }
 }
 
 // Changes compared to SendAsyncResponse: added `Internal` and `Generic`. Note: `Generic` is not used yet, it is introduced for upgradability purposes.

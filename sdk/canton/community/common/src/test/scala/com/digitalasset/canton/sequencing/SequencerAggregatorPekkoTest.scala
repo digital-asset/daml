@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Fingerprint, Signature}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
-import com.digitalasset.canton.lifecycle.OnShutdownRunner
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekkoTest.Config
@@ -18,15 +19,7 @@ import com.digitalasset.canton.sequencing.client.TestSequencerSubscriptionFactor
   Failure,
 }
 import com.digitalasset.canton.sequencing.client.TestSubscriptionError.UnretryableError
-import com.digitalasset.canton.sequencing.client.{
-  ResilientSequencerSubscription,
-  SequencedEventTestFixture,
-  SequencedEventValidator,
-  SequencedEventValidatorImpl,
-  SequencerSubscriptionFactoryPekko,
-  TestSequencerSubscriptionFactoryPekko,
-  TestSubscriptionError,
-}
+import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   ActiveSourceTerminated,
@@ -34,7 +27,8 @@ import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   DeadlockTrigger,
   NewConfiguration,
 }
-import com.digitalasset.canton.util.{OrderedBucketMergeConfig, ResourceUtil}
+import com.digitalasset.canton.util.{EitherTUtil, OrderedBucketMergeConfig, ResourceUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -324,14 +318,21 @@ class SequencerAggregatorPekkoTest
       import fixture.*
 
       val validator = new SequencedEventValidatorImpl(
-        // Disable signature checking
-        unauthenticated = true,
         defaultDomainId,
         testedProtocolVersion,
         subscriberCryptoApi,
         loggerFactory,
         timeouts,
-      )
+      ) {
+        override protected def verifySignature(
+            priorEventO: Option[PossiblyIgnoredSerializedEvent],
+            event: OrdinarySerializedEvent,
+            sequencerId: SequencerId,
+            protocolVersion: ProtocolVersion,
+        ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
+          EitherTUtil.unitUS
+      }
+
       val initialCounter = SequencerCounter(10)
       val aggregator = mkAggregatorPekko(validator)
       val ((source, (doneF, health_)), sink) = Source
@@ -371,11 +372,16 @@ class SequencerAggregatorPekkoTest
 
       val events = mkEvents(initialCounter, 4)
       val events1 = events.take(2)
+      // alice reports events 10,11,12,13
       factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*)
+      // bob reports events 10,11
       factoryBob.add(events1.map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
 
+      // events
       val events2 = events.drop(1)
+      // bob reports events 12,13
       factoryBob.add(events2.drop(1).map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
+      // carlos reports events 11,12
       factoryCarlos.add(
         events2.take(2).map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*
       )

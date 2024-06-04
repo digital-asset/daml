@@ -8,8 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 
 trait AbstractSequencerMemberStatus extends Product with Serializable {
   def registeredAt: CantonTimestamp
@@ -165,17 +164,6 @@ final case class SequencerPruningStatus(
     * as in practice a domain will register a IDM, Sequencer and Mediator, this will most likely never occur.
     */
   lazy val safePruningTimestamp: CantonTimestamp = safePruningTimestampFor(now)
-
-  def unauthenticatedMembersToDisable(retentionPeriod: NonNegativeFiniteDuration): Set[Member] =
-    members.foldLeft(Set.empty[Member]) { (toDisable, memberStatus) =>
-      memberStatus.member match {
-        case _: UnauthenticatedMemberId if memberStatus.enabled =>
-          if (now.minus(retentionPeriod.unwrap) > memberStatus.safePruningTimestamp) {
-            toDisable + memberStatus.member
-          } else toDisable
-        case _ => toDisable
-      }
-    }
 
   /** List clients that would need to be disabled to allow pruning at the given timestamp.
     */

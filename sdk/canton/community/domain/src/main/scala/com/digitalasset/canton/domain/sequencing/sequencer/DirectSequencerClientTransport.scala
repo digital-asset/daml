@@ -73,16 +73,6 @@ class DirectSequencerClientTransport(
       .sendAsyncSigned(request)
       .leftMap(SendAsyncClientError.RequestRefused)
 
-  override def sendAsyncUnauthenticatedVersioned(
-      request: SubmissionRequest,
-      timeout: Duration,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
-    ErrorUtil.internalError(
-      new UnsupportedOperationException("Direct client does not support unauthenticated sends")
-    )
-
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
@@ -152,19 +142,6 @@ class DirectSequencerClientTransport(
     }
   }
 
-  override def subscribeUnauthenticated[E](
-      request: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
-  )(implicit traceContext: TraceContext): SequencerSubscription[E] =
-    unsupportedUnauthenticatedSubscription
-
-  private def unsupportedUnauthenticatedSubscription(implicit traceContext: TraceContext): Nothing =
-    ErrorUtil.internalError(
-      new UnsupportedOperationException(
-        "Direct client does not support unauthenticated subscriptions"
-      )
-    )
-
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     // unlikely there will be any errors with this direct transport implementation
     SubscriptionErrorRetryPolicy.never
@@ -206,11 +183,6 @@ class DirectSequencerClientTransport(
 
     SequencerSubscriptionPekko(source, health)
   }
-
-  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    unsupportedUnauthenticatedSubscription
 
   override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
     // unlikely there will be any errors with this direct transport implementation

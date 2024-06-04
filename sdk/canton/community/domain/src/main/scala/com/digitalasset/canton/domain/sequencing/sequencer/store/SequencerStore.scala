@@ -14,14 +14,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  CommitMode,
-  PruningError,
-  SequencerPruningStatus,
-  SequencerSnapshot,
-  WriteNotification,
-}
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -29,7 +23,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencedEvent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
@@ -461,19 +455,6 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
   def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[SequencerMemberId]
-
-  /** Unregister a disabled unauthenticated member.
-    * This should delete the member from the store.
-    */
-  def unregisterUnauthenticatedMember(member: UnauthenticatedMemberId)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
-  /** Evict unauthenticated member from the cache.
-    */
-  final protected def evictFromCache(member: UnauthenticatedMemberId): Unit = {
-    memberCache.evict(member)
-  }
 
   /** Lookup an existing member id for the given member.
     * Will return a cached value if available.

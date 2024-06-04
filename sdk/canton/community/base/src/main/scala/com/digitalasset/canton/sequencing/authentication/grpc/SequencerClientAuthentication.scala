@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{AuthenticatedMember, DomainId, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
@@ -33,7 +33,7 @@ import scala.util.control.NonFatal
   */
 private[grpc] class SequencerClientTokenAuthentication(
     domainId: DomainId,
-    member: AuthenticatedMember,
+    member: Member,
     tokenManagerPerEndpoint: NonEmpty[Map[Endpoint, AuthenticationTokenManager]],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -160,7 +160,7 @@ private[grpc] class SequencerClientTokenAuthentication(
 object SequencerClientTokenAuthentication {
   def apply(
       domainId: DomainId,
-      authenticatedMember: AuthenticatedMember,
+      member: Member,
       obtainTokenPerEndpoint: NonEmpty[
         Map[
           Endpoint,
@@ -186,38 +186,12 @@ object SequencerClientTokenAuthentication {
     }
     new SequencerClientTokenAuthentication(
       domainId,
-      authenticatedMember,
+      member,
       tokenManagerPerEndpoint,
       loggerFactory,
     )
   }
 
-}
-
-class SequencerClientNoAuthentication(domainId: DomainId, member: UnauthenticatedMemberId)
-    extends SequencerClientAuthentication {
-
-  private val metadata: Metadata = {
-    val metadata = new Metadata()
-    metadata.put(Constant.MEMBER_ID_METADATA_KEY, member.toProtoPrimitive)
-    metadata.put(Constant.DOMAIN_ID_METADATA_KEY, domainId.toProtoPrimitive)
-    metadata
-  }
-
-  override def apply[S <: AbstractStub[S]](client: S): S =
-    client.withCallCredentials(callCredentials)
-
-  @VisibleForTesting
-  private[grpc] val callCredentials: CallCredentials = new CallCredentials {
-    override def applyRequestMetadata(
-        requestInfo: CallCredentials.RequestInfo,
-        appExecutor: Executor,
-        applier: CallCredentials.MetadataApplier,
-    ): Unit = applier.apply(metadata)
-    override def thisUsesUnstableApi(): Unit = {
-      // yes, we know - cheers grpc
-    }
-  }
 }
 
 trait SequencerClientAuthentication {

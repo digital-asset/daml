@@ -62,20 +62,9 @@ class GrpcSequencerClientTransportPekko(
 
   override type SubscriptionError = GrpcSequencerSubscriptionError
 
-  override def subscribe(request: SubscriptionRequest)(implicit
+  override def subscribe(subscriptionRequest: SubscriptionRequest)(implicit
       traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    subscribeInternal(request, requiresAuthentication = true)
-
-  override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-      traceContext: TraceContext
-  ): SequencerSubscriptionPekko[SubscriptionError] =
-    subscribeInternal(request, requiresAuthentication = false)
-
-  private def subscribeInternal(
-      subscriptionRequest: SubscriptionRequest,
-      requiresAuthentication: Boolean,
-  )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[SubscriptionError] = {
+  ): SequencerSubscriptionPekko[SubscriptionError] = {
 
     val subscriptionRequestP = subscriptionRequest.toProtoV30
 
@@ -133,9 +122,7 @@ class GrpcSequencerClientTransportPekko(
       )
     }
 
-    val subscriber =
-      if (requiresAuthentication) sequencerServiceClient.subscribeVersioned _
-      else sequencerServiceClient.subscribeUnauthenticatedVersioned _
+    val subscriber = sequencerServiceClient.subscribeVersioned _
 
     mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(_)(_))
   }

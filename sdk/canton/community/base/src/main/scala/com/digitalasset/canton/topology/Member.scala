@@ -9,12 +9,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.RandomOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.util.HexString
 import com.digitalasset.canton.{LedgerParticipantId, LfPartyId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
@@ -53,7 +51,6 @@ object MemberCode {
       case MediatorId.Code.threeLetterId => Right(MediatorId.Code)
       case ParticipantId.Code.threeLetterId => Right(ParticipantId.Code)
       case SequencerId.Code.threeLetterId => Right(SequencerId.Code)
-      case UnauthenticatedMemberId.Code.threeLetterId => Right(UnauthenticatedMemberId.Code)
       case _ => Left(s"Unknown three letter type $code")
     }
 
@@ -75,8 +72,6 @@ sealed trait Member extends Identity with Product with Serializable {
   def code: MemberCode
 
   def description: String
-
-  def isAuthenticated: Boolean
 
   override def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
@@ -102,7 +97,6 @@ object Member {
         case MediatorId.Code => Right(MediatorId(uid))
         case ParticipantId.Code => Right(ParticipantId(uid))
         case SequencerId.Code => Right(SequencerId(uid))
-        case UnauthenticatedMemberId.Code => Right(UnauthenticatedMemberId(uid))
       }
     }
 
@@ -151,35 +145,6 @@ object Member {
 
 }
 
-sealed trait AuthenticatedMember extends Member {
-  override def code: AuthenticatedMemberCode
-  override def isAuthenticated: Boolean = true
-}
-
-sealed trait AuthenticatedMemberCode extends MemberCode
-
-final case class UnauthenticatedMemberId(uid: UniqueIdentifier) extends Member {
-  override def code: MemberCode = UnauthenticatedMemberId.Code
-  override val description: String = "unauthenticated member"
-  override def isAuthenticated: Boolean = false
-}
-
-object UnauthenticatedMemberId {
-  object Code extends MemberCode {
-    val threeLetterId: String3 = String3.tryCreate("UNM")
-  }
-
-  private val RandomIdentifierNumberOfBytes = 20
-
-  def tryCreate(namespace: Namespace)(randomOps: RandomOps): UnauthenticatedMemberId =
-    UnauthenticatedMemberId(
-      UniqueIdentifier.tryCreate(
-        HexString.toHexString(randomOps.generateRandomByteString(RandomIdentifierNumberOfBytes)),
-        namespace.fingerprint.unwrap,
-      )
-    )
-}
-
 final case class DomainId(uid: UniqueIdentifier) extends Identity {
   def unwrap: UniqueIdentifier = uid
   def toLengthLimitedString: String255 = uid.toLengthLimitedString
@@ -218,11 +183,9 @@ object DomainId {
 }
 
 /** A participant identifier */
-final case class ParticipantId(uid: UniqueIdentifier)
-    extends AuthenticatedMember
-    with NodeIdentity {
+final case class ParticipantId(uid: UniqueIdentifier) extends Member with NodeIdentity {
 
-  override def code: AuthenticatedMemberCode = ParticipantId.Code
+  override def code: MemberCode = ParticipantId.Code
 
   override val description: String = "participant"
 
@@ -233,7 +196,7 @@ final case class ParticipantId(uid: UniqueIdentifier)
 }
 
 object ParticipantId {
-  object Code extends AuthenticatedMemberCode {
+  object Code extends MemberCode {
     val threeLetterId: String3 = String3.tryCreate("PAR")
   }
   def apply(identifier: String, namespace: Namespace): ParticipantId =
@@ -314,8 +277,6 @@ object PartyId {
 
 }
 
-sealed trait DomainMember extends AuthenticatedMember
-
 /** @param index uniquely identifies the group, just like [[MediatorId]] for single mediators.
   * @param active the active mediators belonging to the group
   * @param passive the passive mediators belonging to the group
@@ -337,14 +298,14 @@ object MediatorGroup {
   val MediatorGroupIndex = NonNegativeInt
 }
 
-final case class MediatorId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
-  override def code: AuthenticatedMemberCode = MediatorId.Code
+final case class MediatorId(uid: UniqueIdentifier) extends Member with NodeIdentity {
+  override def code: MemberCode = MediatorId.Code
   override val description: String = "mediator"
   override def member: Member = this
 }
 
 object MediatorId {
-  object Code extends AuthenticatedMemberCode {
+  object Code extends MemberCode {
     val threeLetterId = String3.tryCreate("MED")
   }
 
@@ -371,15 +332,15 @@ final case class SequencerGroup(
     threshold: PositiveInt,
 )
 
-final case class SequencerId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
-  override def code: AuthenticatedMemberCode = SequencerId.Code
+final case class SequencerId(uid: UniqueIdentifier) extends Member with NodeIdentity {
+  override def code: MemberCode = SequencerId.Code
   override val description: String = "sequencer"
   override def member: Member = this
 }
 
 object SequencerId {
 
-  object Code extends AuthenticatedMemberCode {
+  object Code extends MemberCode {
     val threeLetterId = String3.tryCreate("SEQ")
   }
 

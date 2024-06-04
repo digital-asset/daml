@@ -1103,13 +1103,6 @@ class SequencerClientTest
     ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
       sendAsync(request.content).mapK(FutureUnlessShutdown.outcomeK)
 
-    override def sendAsyncUnauthenticatedVersioned(
-        request: SubmissionRequest,
-        timeout: Duration,
-    )(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = ???
-
     override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
         implicit traceContext: TraceContext
     ): SequencerSubscription[E] = {
@@ -1133,11 +1126,6 @@ class SequencerClientTest
 
     override protected def loggerFactory: NamedLoggerFactory =
       SequencerClientTest.this.loggerFactory
-
-    override def subscribeUnauthenticated[E](
-        request: SubscriptionRequest,
-        handler: SerializedEventHandler[E],
-    )(implicit traceContext: TraceContext): SequencerSubscription[E] = ???
 
     override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
         traceContext: TraceContext
@@ -1165,10 +1153,6 @@ class SequencerClientTest
         new AlwaysHealthyComponent("sequencer-client-test-source", logger),
       )
     }
-
-    override def subscribeUnauthenticated(request: SubscriptionRequest)(implicit
-        traceContext: TraceContext
-    ): SequencerSubscriptionPekko[SubscriptionError] = subscribe(request)
 
     override def subscriptionRetryPolicyPekko
         : SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
@@ -1268,9 +1252,7 @@ class SequencerClientTest
 
   private class ConstantSequencedEventValidatorFactory(eventValidator: SequencedEventValidator)
       extends SequencedEventValidatorFactory {
-    override def create(
-        unauthenticated: Boolean
-    )(implicit loggingContext: NamedLoggingContext): SequencedEventValidator =
+    override def create()(implicit loggingContext: NamedLoggingContext): SequencedEventValidator =
       eventValidator
   }
 

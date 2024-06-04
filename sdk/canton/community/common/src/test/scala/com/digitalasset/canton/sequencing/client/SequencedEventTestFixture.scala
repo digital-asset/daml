@@ -135,7 +135,6 @@ class SequencedEventTestFixture(
       syncCryptoApi: DomainSyncCryptoClient = subscriberCryptoApi
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl = {
     new SequencedEventValidatorImpl(
-      unauthenticated = false,
       defaultDomainId,
       testedProtocolVersion,
       syncCryptoApi,

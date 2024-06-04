@@ -291,7 +291,6 @@ object SequencerSubscriptionFactoryPekko {
   def fromTransport[E](
       sequencerID: SequencerId,
       transport: SequencerClientTransportPekko.Aux[E],
-      requiresAuthentication: Boolean,
       member: Member,
       protocolVersion: ProtocolVersion,
   ): SequencerSubscriptionFactoryPekko[E] =
@@ -302,8 +301,7 @@ object SequencerSubscriptionFactoryPekko {
           traceContext: TraceContext
       ): SequencerSubscriptionPekko[E] = {
         val request = SubscriptionRequest(member, startingCounter, protocolVersion)
-        if (requiresAuthentication) transport.subscribe(request)
-        else transport.subscribeUnauthenticated(request)
+        transport.subscribe(request)
       }
 
       override val retryPolicy: SubscriptionErrorRetryPolicyPekko[E] =

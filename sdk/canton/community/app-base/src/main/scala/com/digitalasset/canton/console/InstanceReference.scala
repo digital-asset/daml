@@ -4,14 +4,7 @@
 package com.digitalasset.canton.console
 
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
-import com.digitalasset.canton.admin.api.client.commands.{
-  EnterpriseSequencerAdminCommands,
-  EnterpriseSequencerBftAdminCommands,
-  GrpcAdminCommand,
-  PruningSchedulerCommands,
-  SequencerAdminCommands,
-  SequencerPublicCommands,
-}
+import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
@@ -51,7 +44,6 @@ import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBoot
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
@@ -1053,16 +1045,9 @@ abstract class SequencerReference(
         |The command will fail if a client has not yet read and acknowledged some data up to the specified time."""
     )
     def prune_at(timestamp: CantonTimestamp): String = {
-      val status = this.status()
-      val unauthenticatedMembers =
-        status.unauthenticatedMembersToDisable(
-          this.consoleEnvironment.environment.config.parameters.retentionPeriodDefaults.unauthenticatedMembers.toInternal
-        )
-      unauthenticatedMembers.foreach(disable_member)
-      val msg = this.consoleEnvironment.run {
+      this.consoleEnvironment.run {
         runner.adminCommand(EnterpriseSequencerAdminCommands.Prune(timestamp))
       }
-      s"$msg. Automatically disabled ${unauthenticatedMembers.size} unauthenticated member clients."
     }
 
     @Help.Summary(
@@ -1078,10 +1063,7 @@ abstract class SequencerReference(
       if (dryRun) {
         formatDisableDryRun(timestamp, clientsToDisable)
       } else {
-        val authenticatedClientsToDisable = clientsToDisable.members.toSeq.filter(_.isAuthenticated)
-        // There's no need to explicitly disable unauthenticated members
-        // prune will take care of that implicitly
-        authenticatedClientsToDisable.foreach(disable_member)
+        clientsToDisable.members.toSeq.foreach(disable_member)
 
         // check we can now prune for the provided timestamp
         val statusAfterDisabling = status()
@@ -1094,7 +1076,7 @@ abstract class SequencerReference(
 
         val pruneMsg = prune_at(timestamp)
         if (clientsToDisable.members.nonEmpty) {
-          s"$pruneMsg\nDisabled the following authenticated members:${authenticatedClientsToDisable.map(_.toString).sorted.mkString("\n  - ", "\n  - ", "\n")}"
+          s"$pruneMsg\nDisabled the following members:${clientsToDisable.members.toSeq.map(_.toString).sorted.mkString("\n  - ", "\n  - ", "\n")}"
         } else {
           pruneMsg
         }

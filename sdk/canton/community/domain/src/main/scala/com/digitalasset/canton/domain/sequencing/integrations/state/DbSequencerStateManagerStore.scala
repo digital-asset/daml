@@ -30,7 +30,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, RangeUtil}
 import com.digitalasset.canton.version.*
@@ -448,15 +448,6 @@ class DbSequencerStateManagerStore(
 
   def disableMemberDBIO(member: Member): DbAction.WriteOnly[Unit] = for {
     _ <- sqlu"update seq_state_manager_members set enabled = ${false} where member = $member"
-  } yield ()
-
-  def unregisterUnauthenticatedMember(
-      member: UnauthenticatedMemberId
-  ): DbAction.WriteOnly[Unit] = for {
-    _ <-
-      sqlu"delete from seq_state_manager_events where member = $member"
-    _ <-
-      sqlu"delete from seq_state_manager_members where member = $member"
   } yield ()
 
   override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =

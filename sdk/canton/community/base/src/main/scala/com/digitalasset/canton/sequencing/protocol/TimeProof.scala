@@ -130,7 +130,7 @@ object TimeProof {
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    client.sendAsyncUnauthenticatedOrNot(
+    client.sendAsync(
       // we intentionally ask for an empty event to be sequenced to observe the time.
       // this means we can safely share this event without mentioning other recipients.
       batch = Batch.empty(protocolVersion),

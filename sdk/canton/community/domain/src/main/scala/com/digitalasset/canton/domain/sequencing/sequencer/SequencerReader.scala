@@ -246,8 +246,7 @@ class SequencerReader(
         signingSnapshot <- OptionT
           .fromOption[FutureUnlessShutdown](topologySnapshotO)
           .getOrElseF {
-            val warnIfApproximate =
-              (event.counter > SequencerCounter.Genesis) && member.isAuthenticated
+            val warnIfApproximate = event.counter > SequencerCounter.Genesis
             SyncCryptoClient.getSnapshotForTimestampUS(
               syncCryptoApi,
               event.timestamp,
