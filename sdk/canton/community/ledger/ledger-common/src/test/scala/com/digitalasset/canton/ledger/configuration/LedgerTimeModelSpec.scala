@@ -123,10 +123,10 @@ class LedgerTimeModelSpec extends AnyWordSpec with Matchers {
           maxSkew = Duration.ofSeconds(20L),
         ).get
 
-        val ledgerTime = Timestamp.assertFromString("2000-01-01T12:00:00Z")
-        val recordTime = Timestamp.assertFromString("2000-01-01T12:30:00Z")
-        val minRecordTime = Timestamp.assertFromString("2000-01-01T12:29:50Z")
-        val maxRecordTime = Timestamp.assertFromString("2000-01-01T12:30:20Z")
+        val ledgerTime = Timestamp.assertFromInstant(Instant.parse("2000-01-01T12:00:00Z"))
+        val recordTime = Timestamp.assertFromInstant(Instant.parse("2000-01-01T12:30:00Z"))
+        val minRecordTime = Timestamp.assertFromInstant(Instant.parse("2000-01-01T12:29:50Z"))
+        val maxRecordTime = Timestamp.assertFromInstant(Instant.parse("2000-01-01T12:30:20Z"))
 
         val result = timeModel.checkTime(ledgerTime, recordTime)
 
