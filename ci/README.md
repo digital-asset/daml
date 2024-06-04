@@ -83,7 +83,17 @@ This has two important consequences:
 
 The `main` branch is the one that runs for most cron jobs, the one exception
 being the `digital-asset.daml-daily-compat` pipeline which runs every day on
-both the `main` and `main-2.x` branches.
+both the `main` and `main-2.x` branches.  
+
+Note however that the daily-compat `main-2.x` pipeline does not trigger any 
+release build. All snapshots (included `main-2.x` ones) are started by 
+[this job](https://github.com/digital-asset/daml/blob/18e4e155fb94ac153e08b9f7b141910d8e005e7a/ci/cron/daily-compat.yml#L314-L335)
+in the `main` daily-compat pipeline. The job starts two builds of the `snapshot`
+pipeline, with two different commits passed as a parameter. As these builds
+are all run from `main` (even when building `main-2.x`), they can't be easily
+told appart from the [snapshot pipeline page](https://dev.azure.com/digitalasset/daml/_build?definitionId=40). To tell which branch a given build is building: click on the job,
+then consult the `check_for_release`'s `out` step. The `release_tag` variable then
+makes it clear whether this is a 2.x or 3.x build.
 
 ### `main-2.x`
 
@@ -225,3 +235,24 @@ Pipelines despite the naming similarity), or the feature to be added to
 [Bracin].
 
 [Bracin]: https://daml-ci.da-int.net
+
+## Playbook
+
+### When the split_release job fails
+
+When the `split_release` job fails, that's basically unrecoverable (unless it 
+fails on the very first thing it tries to push) because that step is not idempotent.
+In other words, the release is busted, you'll have to make a new one with a new version
+string. This is the reason why we have that `.0.` in the version string.
+
+### Retrying a snapshot that failed because of a flake
+
+Find the commit on `main` from which the `snapshot` or `digital-asset.daml` pipeline was run
+(depending on whether this was a daily snapshot triggered by `daily-compat` or a "manual"
+snapshot triggered by a modification to the `LATEST` file). Click on the red cross indicating
+that the CI failed on that commit. Re-run the relevant pipeline from the "check" page you land
+on.
+
+Sometimes all the pipeline jobs are green because GitHub got the notifications for a
+successful 2.x after it got the notifications for a failed 3.x. In that case there is 
+unfortunately no way to restart the snpashot from github. 
