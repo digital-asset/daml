@@ -44,7 +44,7 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
     val upgradingPackagesMap = upgradingPackages.toMap
-    val deps = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
+    val packagesInTopologicalOrder = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
     val packageMap = getPackageMap(loggingContext.traceContext)
 
     def go(
@@ -55,8 +55,6 @@ class PackageUpgradeValidator(
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
         val supportsUpgrades = pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
-        // TODO: If pkgA-V1 (1.16) and pkgA-V2 (1.16) depend on pkgB (1.15)
-        // the pkgB in V1 and V2 must have the same package id (as defined by its package name + version)
         pkg.metadata match {
           case Some(pkgMetadata) =>
             for {
@@ -66,16 +64,16 @@ class PackageUpgradeValidator(
               res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
             } yield res
           case None =>
-            logger.info(
+            logger.debug(
               s"Package metadata is not defined for ${pkgId}. Skipping upgrade validation."
             )
             go(packageMap, rest)
         }
     }
-    go(packageMap, deps).map(_ => ())
+    go(packageMap, packagesInTopologicalOrder).map(_ => ())
   }
 
-  def validatePackageUpgrade(
+  private def validatePackageUpgrade(
       upgradingPackage: (Ref.PackageId, Ast.Package),
       upgradingPackageMetadata: Ast.PackageMetadata,
       packageMap: PackageMap,
