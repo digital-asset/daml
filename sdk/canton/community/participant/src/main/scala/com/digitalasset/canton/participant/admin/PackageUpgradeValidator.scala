@@ -59,6 +59,10 @@ class PackageUpgradeValidator(
           case Some(pkgMetadata) =>
             for {
               _ <- EitherTUtil.ifThenET(supportsUpgrades)(
+                // This check will look for the closest neighbors of pkgId for the package versioning ordering and
+                // will load them from the DB and decode them. If one were to upload many packages that upgrade each
+                // other, we will end up decoding the same package many times. Some of these cases could be sped up
+                // by a cache depending on the order in which the packages are uploaded.
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
               )
               res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
