@@ -58,8 +58,7 @@ class TestingAdminLedgerClient(
             admin_topology_service.BaseQuery(
               filterStore = None,
               proposals = false,
-              operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
-              filterOperation = false,
+              operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
               timeQuery = admin_topology_service.BaseQuery.TimeQuery
                 .HeadState(com.google.protobuf.empty.Empty()),
               filterSignedKey = "",
