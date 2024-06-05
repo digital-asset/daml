@@ -41,6 +41,7 @@ write_scalatest_runpath(
             "//libs-scala/jwt:tests-lib",
         ],
         runtime_deps = [
+            "//libs-scala/http-test-utils",
             "//libs-scala/jwt",
             "//libs-scala/scalatest-utils",
         ],

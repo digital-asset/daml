@@ -4,10 +4,11 @@
 package com.daml.jwt
 
 import java.net.{URI, URL}
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import java.util.concurrent.TimeUnit
 
-import com.auth0.jwk.UrlJwkProvider
+import com.auth0.jwk.{JwkException, UrlJwkProvider}
+import com.auth0.jwt.algorithms.Algorithm
 import com.google.common.cache.{Cache, CacheBuilder}
 import scalaz.{-\/, Show, \/}
 import scalaz.syntax.show._
@@ -56,9 +57,23 @@ class JwksVerifier(
     .build()
 
   private[this] def getVerifier(keyId: String): Error \/ JwtVerifier = {
-    val jwk = http.get(keyId)
-    val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
-    RSA256Verifier(publicKey, jwtTimestampLeeway)
+    try {
+      val jwk = http.get(keyId)
+      val publicKey = jwk.getPublicKey
+      publicKey match {
+        case rsa: RSAPublicKey => RSA256Verifier(rsa, jwtTimestampLeeway)
+        case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 256 =>
+          ECDSAVerifier(Algorithm.ECDSA256(ec, null), jwtTimestampLeeway)
+        case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 521 =>
+          ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway)
+        case key =>
+          -\/(Error(Symbol("getVerifier"), s"Unsupported public key format ${key.getFormat}"))
+      }
+    } catch {
+      case e: JwkException => -\/(Error(Symbol("getVerifier"), s"Couldn't get jwk from http: $e"))
+      case _: Throwable =>
+        -\/(Error(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
+    }
   }
 
   /** Looks up the verifier for the given keyId from the local cache.
