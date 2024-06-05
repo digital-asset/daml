@@ -115,6 +115,7 @@ final case class Commands(
 final case class DisclosedContract(
     templateId: Ref.TypeConName,
     packageName: Ref.PackageName,
+    packageVersion: Option[Ref.PackageVersion],
     contractId: Lf.ContractId,
     argument: Value,
     createdAt: Timestamp,

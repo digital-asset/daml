@@ -471,7 +471,7 @@ private[update] final class BlockChunkProcessor(
       value.foreach(_.withTraceContext { implicit traceContext =>
         {
           case LedgerBlockEvent.Send(_, signedSubmissionRequest, payloadSize) =>
-            signedSubmissionRequest.content.batch.allRecipients
+            signedSubmissionRequest.content.content.batch.allRecipients
               .foldLeft(RecipientStats()) {
                 case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
                   acc.copy(participants = true)
@@ -482,7 +482,7 @@ private[update] final class BlockChunkProcessor(
                 case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
               }
               .updateMetric(
-                signedSubmissionRequest.content.sender,
+                signedSubmissionRequest.content.content.sender,
                 payloadSize,
                 logger,
                 metrics,

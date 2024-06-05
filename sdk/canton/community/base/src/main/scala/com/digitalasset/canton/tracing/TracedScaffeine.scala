@@ -86,11 +86,7 @@ class TracedAsyncLoadingCache[K, V](
   }
 
   def getUS(key: K)(implicit traceContext: TraceContext): FutureUnlessShutdown[V] = {
-    try
-      FutureUnlessShutdown.outcomeF(underlying.get(TracedKey(key)(traceContext)))
-    catch {
-      case _: AbortedDueToShutdownException => FutureUnlessShutdown.abortedDueToShutdown
-    }
+    FutureUnlessShutdown.transformAbortedF(get(key))
   }
 
   /** @see com.github.blemale.scaffeine.AsyncLoadingCache.getAll

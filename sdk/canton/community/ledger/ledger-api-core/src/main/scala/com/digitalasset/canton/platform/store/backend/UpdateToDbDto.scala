@@ -147,6 +147,7 @@ object UpdateToDbDto {
                     contract_id = create.coid.coid,
                     template_id = templateId,
                     package_name = create.packageName,
+                    package_version = create.packageVersion.map(_.toString()),
                     flat_event_witnesses = stakeholders,
                     tree_event_witnesses = informees,
                     create_argument =
@@ -331,6 +332,7 @@ object UpdateToDbDto {
                   contract_id = assign.createNode.coid.coid,
                   template_id = templateId,
                   package_name = assign.createNode.packageName,
+                  package_version = assign.createNode.packageVersion.map(_.toString()),
                   flat_event_witnesses = flatEventWitnesses,
                   create_argument = createArgument,
                   create_signatories = assign.createNode.signatories.map(_.toString),

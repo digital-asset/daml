@@ -412,8 +412,7 @@ object TopologySynchronisation {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.sequencers.all.forall { sequencer =>
-          val domainId = sequencer.domain_id
+        env.sequencers.all.map(_.domain_id).distinct.forall { domainId =>
           !participant.domains.is_connected(domainId) || {
             val timestamp = participant.testing.fetch_domain_time(domainId)
             partiesWithId.subsetOf(

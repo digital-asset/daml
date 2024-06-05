@@ -36,9 +36,6 @@ trait ComparesLfTransactions {
           TxTree(en.copy(children = ImmArray.empty), en.children.toSeq.map(go)*)
         case rn: LfNodeRollback =>
           TxTree(rn.copy(children = ImmArray.empty), rn.children.toSeq.map(go)*)
-        // do not delete the package version, once protocol version handle it.
-        case cn: LfNodeCreate =>
-          TxTree(cn.copy(packageVersion = None))
         case leafNode: LfLeafOnlyActionNode => TxTree(leafNode)
       }
       tx.roots.toSeq.map(go)

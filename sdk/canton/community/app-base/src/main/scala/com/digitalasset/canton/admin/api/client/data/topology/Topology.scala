@@ -38,7 +38,11 @@ object BaseResult {
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
       protoSequenced <- ProtoConverter.required("sequencer", value.sequenced)
       sequenced <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoSequenced)
-      operation <- TopologyChangeOp.fromProtoV30(value.operation)
+      operation <- ProtoConverter.parseEnum(
+        TopologyChangeOp.fromProtoV30,
+        "operation",
+        value.operation,
+      )
       serial <- PositiveInt
         .create(value.serial)
         .leftMap(e => RefinedDurationConversionError("serial", e.message))

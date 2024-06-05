@@ -24,6 +24,9 @@ service ParticipantRepairService {
 
   // Change the assignation of contracts to the given domain
   rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
+
+  // Purge selected data from deactivated domain
+  rpc PurgeDeactivatedDomain(PurgeDeactivatedDomainRequest) returns (PurgeDeactivatedDomainResponse);
 }
 
 message PurgeContractsRequest {
@@ -119,3 +122,10 @@ message ImportAcsResponse {
   // Mapping from the old contract id to the new contract id
   map<string, string> contract_id_mapping = 1;
 }
+
+message PurgeDeactivatedDomainRequest {
+  // Alias of the deactivated domain to purge data from
+  string domain_alias = 1;
+}
+
+message PurgeDeactivatedDomainResponse {}

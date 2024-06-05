@@ -9,8 +9,7 @@ import com.github.blemale.scaffeine.{Cache, Scaffeine}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Read through async cache with no eviction (as members should be immutable, except for unauthenticated members
-  * that can be evicted when they get unregistered).
+/** Read through async cache with no eviction (as members should be immutable).
   * Members will only be cached if entries are found.
   */
 class SequencerMemberCache(populate: Traced[Member] => Future[Option[RegisteredMember]])(implicit

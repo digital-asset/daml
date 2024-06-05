@@ -210,7 +210,7 @@ class ValidateDisclosedContractsTest
 }
 
 object ValidateDisclosedContractsTest {
-
+  // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
   private val testTxVersion = TransactionVersion.maxVersion
 
   private val validateDisclosedContracts = new ValidateDisclosedContracts
@@ -219,6 +219,7 @@ object ValidateDisclosedContractsTest {
     val templateId: ProtoIdentifier =
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val packageName: String = "pkg-name"
+    val packageVersion: String = "0.1.2"
     val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     private val bob: Ref.Party = Ref.Party.assertFromString("bob")
@@ -253,6 +254,8 @@ object ValidateDisclosedContractsTest {
       ),
     )
     private val packageName: Ref.PackageName = Ref.PackageName.assertFromString(api.packageName)
+    private val packageVersion: Ref.PackageVersion =
+      Ref.PackageVersion.assertFromString(api.packageVersion)
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
@@ -285,6 +288,7 @@ object ValidateDisclosedContractsTest {
         coid = lf.lfContractId,
         templateId = lf.templateId,
         packageName = lf.packageName,
+        packageVersion = Some(lf.packageVersion),
         arg = lf.createArg,
         signatories = api.signatories,
         stakeholders = api.stakeholders,
@@ -297,9 +301,10 @@ object ValidateDisclosedContractsTest {
 
     val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(
       DisclosedContract(
-        templateId,
-        packageName,
-        lfContractId,
+        templateId = templateId,
+        packageName = packageName,
+        packageVersion = Some(packageVersion),
+        contractId = lfContractId,
         argument = createArgWithoutLabels,
         createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
         keyHash = Some(keyHash),

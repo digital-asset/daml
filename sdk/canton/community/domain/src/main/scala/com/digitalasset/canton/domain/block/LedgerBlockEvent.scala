@@ -6,7 +6,11 @@ package com.digitalasset.canton.domain.block
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SenderSigned
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  SenderSigned,
+  SignedOrderingRequest,
+  SignedOrderingRequestOps,
+}
 import com.digitalasset.canton.logging.HasLoggerName
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -14,8 +18,11 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
 }
-import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{
+  BytestringWithCryptographicEvidence,
+  HasCryptographicEvidence,
+}
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfTimestamp, ProtoDeserializationError}
@@ -31,12 +38,13 @@ object LedgerBlockEvent extends HasLoggerName {
 
   final case class Send(
       timestamp: CantonTimestamp,
-      signedSubmissionRequest: SenderSigned[SubmissionRequest],
+      signedOrderingRequest: SignedOrderingRequest,
       originalPayloadSize: Int =
         0, // default is 0 for testing as this value is only used for metrics
-  ) extends LedgerBlockEvent
-
-  final case class Acknowledgment(request: SenderSigned[AcknowledgeRequest])
+  ) extends LedgerBlockEvent {
+    lazy val signedSubmissionRequest = signedOrderingRequest.signedSubmissionRequest
+  }
+  final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent
 
   def fromRawBlockEvent(
@@ -45,7 +53,7 @@ object LedgerBlockEvent extends HasLoggerName {
     blockEvent match {
       case RawBlockEvent.Send(request, microsecondsSinceEpoch) =>
         for {
-          deserializedRequest <- deserializeSignedRequest(protocolVersion)(request)
+          deserializedRequest <- deserializeSignedOrderingRequest(protocolVersion)(request)
           timestamp <- LfTimestamp
             .fromLong(microsecondsSinceEpoch)
             .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
@@ -56,21 +64,32 @@ object LedgerBlockEvent extends HasLoggerName {
         )
     }
 
-  def deserializeSignedRequest(
+  def deserializeSignedOrderingRequest(
       protocolVersion: ProtocolVersion
-  )(
-      submissionRequestBytes: ByteString
-  ): ParsingResult[SenderSigned[SubmissionRequest]] = {
+  )(submissionRequestBytes: ByteString): ParsingResult[SignedOrderingRequest] = {
 
     // TODO(i10428) Prevent zip bombing when decompressing the request
     for {
       sequencerSignedContent <- SignedContent
         .fromByteString(protocolVersion)(submissionRequestBytes)
-      signedOrderingRequest <- deserializeSenderSignedSubmissionRequest(protocolVersion)(
-        sequencerSignedContent
-      )
+      signedOrderingRequest <- sequencerSignedContent
+        .deserializeContent(
+          deserializeOrderingRequestToValueClass(protocolVersion)
+            .andThen(deserializeOrderingRequestSignedContent(protocolVersion))
+        )
     } yield signedOrderingRequest
   }
+  private def deserializeOrderingRequestToValueClass(
+      protocolVersion: ProtocolVersion
+  ): ByteString => ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] =
+    SignedContent.fromByteString(protocolVersion)
+
+  private def deserializeOrderingRequestSignedContent(protocolVersion: ProtocolVersion)(
+      signedContentParsingResult: ParsingResult[SignedContent[BytestringWithCryptographicEvidence]]
+  ): ParsingResult[SenderSigned[SubmissionRequest]] = for {
+    signedContent <- signedContentParsingResult
+    senderSignedRequest <- deserializeSenderSignedSubmissionRequest(protocolVersion)(signedContent)
+  } yield senderSignedRequest
 
   private def deserializeSenderSignedSubmissionRequest[A <: HasCryptographicEvidence](
       protocolVersion: ProtocolVersion

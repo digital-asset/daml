@@ -503,6 +503,7 @@ object ModelConformanceChecker {
         // as contract is an input contract of the underlying transaction.
         coid = actual.coid,
         packageName = unversioned.packageName,
+        packageVersion = unversioned.packageVersion,
         templateId = unversioned.template,
         arg = unversioned.arg,
         signatories = metadata.signatories,
@@ -511,8 +512,7 @@ object ModelConformanceChecker {
         version = instance.contractInstance.version,
       )
       _ <- EitherT.cond[Future](
-        // do not delete the package version, once protocol version handle it.
-        actual.copy(packageVersion = None) == expected,
+        actual == expected,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,
       )

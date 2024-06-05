@@ -58,8 +58,7 @@ class StoreBackedCommandExecutorSpec
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
   val packageName: PackageName = PackageName.assertFromString("pkg-name")
-  private val processedDisclosedContracts = ImmArray(
-  )
+  private val processedDisclosedContracts = ImmArray()
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
@@ -203,6 +202,7 @@ class StoreBackedCommandExecutorSpec
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
+        // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
         LfTransactionVersion.maxVersion,
         ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
       ),
@@ -224,6 +224,7 @@ class StoreBackedCommandExecutorSpec
     val disclosedContract: domain.DisclosedContract = domain.DisclosedContract(
       templateId = identifier,
       packageName = packageName,
+      packageVersion = None,
       contractId = disclosedContractId,
       argument = ValueTrue,
       createdAt = mock[Timestamp],

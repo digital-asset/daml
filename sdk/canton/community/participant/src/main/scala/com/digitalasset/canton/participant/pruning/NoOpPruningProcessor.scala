@@ -12,6 +12,7 @@ import com.digitalasset.canton.participant.Pruning.{
   LedgerPruningError,
   LedgerPruningOnlySupportedInEnterpriseEdition,
 }
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
@@ -24,6 +25,10 @@ trait PruningProcessor extends AutoCloseable {
   def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
       traceContext: TraceContext
   ): EitherT[Future, LedgerPruningError, Option[GlobalOffset]]
+
+  def pruneSelectedDeactivatedDomainStores(
+      domainId: DomainId
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit]
 }
 
 object NoOpPruningProcessor extends PruningProcessor {
@@ -36,6 +41,13 @@ object NoOpPruningProcessor extends PruningProcessor {
       traceContext: TraceContext
   ): EitherT[Future, LedgerPruningError, Option[GlobalOffset]] =
     NoOpPruningProcessor.pruningNotSupportedET
+
+  override def pruneSelectedDeactivatedDomainStores(
+      domainId: DomainId
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
+    NoOpPruningProcessor.pruningNotSupportedETUS
 
   override def close(): Unit = ()
 

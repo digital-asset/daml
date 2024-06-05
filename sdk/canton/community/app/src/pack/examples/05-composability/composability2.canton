@@ -45,6 +45,12 @@ val Bank = participant1.parties.enable("Bank")
 val HouseOwner = participant2.parties.enable("House Owner")
 val Painter = participant3.parties.enable("Painter", waitForDomain = DomainChoice.All)
 
+// Wait until the party enabling has taken effect and has been observed at the participants
+val initialPartyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)
+participant1.parties.await_topology_observed(initialPartyAssignment)
+participant2.parties.await_topology_observed(initialPartyAssignment)
+participant3.parties.await_topology_observed(initialPartyAssignment)
+
 // Enable the house owner on participant 5 and the painter on participant 4
 // This works here because the parties are fresh, i.e., they do not have any contracts yet.
 import com.digitalasset.canton.console.ParticipantReference

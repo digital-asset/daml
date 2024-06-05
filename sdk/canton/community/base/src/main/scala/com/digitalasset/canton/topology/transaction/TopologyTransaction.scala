@@ -54,12 +54,11 @@ object TopologyChangeOp {
 
   def fromProtoV30(
       protoOp: v30.Enums.TopologyChangeOp
-  ): ParsingResult[TopologyChangeOp] =
+  ): ParsingResult[Option[TopologyChangeOp]] =
     protoOp match {
-      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED =>
-        Left(FieldNotSet(protoOp.name))
-      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(Remove)
-      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE => Right(Replace)
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED => Right(None)
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(Some(Remove))
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE => Right(Some(Replace))
       case v30.Enums.TopologyChangeOp.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
     }
 
@@ -213,7 +212,7 @@ object TopologyTransaction
     for {
       mapping <- ProtoConverter.parseRequired(TopologyMapping.fromProtoV30, "mapping", mappingP)
       serial <- ProtoConverter.parsePositiveInt(serialP)
-      op <- TopologyChangeOp.fromProtoV30(opP)
+      op <- ProtoConverter.parseEnum(TopologyChangeOp.fromProtoV30, "operation", opP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TopologyTransaction(op, serial, mapping)(
       rpv,

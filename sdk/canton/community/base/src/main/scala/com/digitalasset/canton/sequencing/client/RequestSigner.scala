@@ -50,17 +50,4 @@ object RequestSigner {
         .leftMap(_.toString)
     }
   }
-
-  /** Request signer for unauthenticated members: never signs anything */
-  object UnauthenticatedRequestSigner extends RequestSigner {
-    override def signRequest[A <: HasCryptographicEvidence](
-        request: A,
-        hashPurpose: HashPurpose,
-        snapshotO: Option[SyncCryptoApi],
-    )(implicit
-        ec: ExecutionContext,
-        traceContext: TraceContext,
-    ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
-      EitherT.leftT("Unauthenticated members do not sign submission requests")
-  }
 }

@@ -74,9 +74,11 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       AuthenticatedContractIdVersionV10.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
     val pkgName = Ref.PackageName.assertFromString("pkgName")
+    val pkgVersion = Some(Ref.PackageVersion.assertFromString("0.1.2"))
     val disclosedContract = ProcessedDisclosedContract(
       templateId = templateId,
       packageName = pkgName,
+      packageVersion = pkgVersion,
       contractId = authenticatedContractId,
       argument = LfValue.ValueNil,
       createdAt = createdAt,
@@ -101,6 +103,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
                 transactionVersion,
                 LfValue.ContractInstance(
                   packageName = pkgName,
+                  packageVersion = pkgVersion,
                   template = templateId,
                   arg = LfValue.ValueNil,
                 ),

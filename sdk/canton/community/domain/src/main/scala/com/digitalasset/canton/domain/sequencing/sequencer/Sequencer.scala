@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -32,13 +31,12 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficCo
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.scaladsl.Source
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** Errors from pruning */
 sealed trait PruningError {
@@ -85,9 +83,8 @@ trait Sequencer
   def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
 
   /** Registers member within the sequencer's persistent state.
-    *  For authenticated member requires it to be known in topology at head.
+    *  The member must be known in topology at head.
     *  Authenticated members are always registered at their first topology tx effective timestamp.
-    *  Unauthenticated members are registered at the current time using sequencer's `clock`.
     *  Idempotent, can be called multiple times for the same member.
     */
   // TODO(#18399): This method is pretty much useless,
@@ -285,11 +282,9 @@ object Sequencer extends HasLoggerName {
     */
   type SequencerSigned[A <: HasCryptographicEvidence] = SignedContent[SenderSigned[A]]
 
-  /** A signed ordering request. This is a double-signed message where the outer signature is the sequencer's,
-    * and the inner signature is the sender's.
-    * The sequencer signature may be introduced and used by the implementation to ensure that the submission
-    * originates from the expected sequencer node. This may be necessary if the implementation is split across
-    * multiple processes.
+  /** Ordering request signed by the sequencer.
+    * Outer signature is the signature of the sequencer that received the submission request.
+    * Inner signature is the signature of the member from which the submission request originated.
     *
     *                            ┌─────────────────┐       ┌────────────┐
     *                            │SenderSigned     │       │Sequencer   │
@@ -310,31 +305,6 @@ object Sequencer extends HasLoggerName {
     *                                                 └─┴─┴──────────────────┘
     */
   type SignedOrderingRequest = SequencerSigned[SubmissionRequest]
-
-  /** Sign a submission request with the sequencer's private key.
-    * This utility may be used by a [[com.digitalasset.canton.domain.sequencing.sequencer.block.BlockOrderer]]
-    * implementation as described in [[SignedOrderingRequest]].
-    */
-  def signOrderingRequest[A <: HasCryptographicEvidence](
-      content: SignedContent[SubmissionRequest],
-      cryptoApi: DomainSnapshotSyncCryptoApi,
-      protocolVersion: ProtocolVersion,
-  )(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SendAsyncError.Internal, SignedOrderingRequest] =
-    for {
-      signed <- SignedContent
-        .create(
-          cryptoApi.pureCrypto,
-          cryptoApi,
-          content,
-          Some(cryptoApi.ipsSnapshot.timestamp),
-          HashPurpose.OrderingRequestSignature,
-          protocolVersion,
-        )
-        .leftMap(error => SendAsyncError.Internal(s"Could not sign ordering request: $error"))
-    } yield signed
 
   implicit class SignedOrderingRequestOps(val value: SignedOrderingRequest) extends AnyVal {
     def signedSubmissionRequest: SignedContent[SubmissionRequest] =

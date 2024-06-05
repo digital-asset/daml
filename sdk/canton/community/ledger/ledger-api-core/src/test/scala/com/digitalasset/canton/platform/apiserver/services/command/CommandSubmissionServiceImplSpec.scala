@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 import com.daml.lf
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, PackageName}
+import com.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.Error as LfError
@@ -216,14 +216,17 @@ class CommandSubmissionServiceImplSpec
         keyHash = None,
         driverMetadata = Bytes.Empty,
         packageName = PackageName.assertFromString("pkg-name"),
+        packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
         signatories = Set(Ref.Party.assertFromString("alice")),
         stakeholders = Set(Ref.Party.assertFromString("alice")),
         keyMaintainers = None,
         keyValue = None,
       )
+
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       packageName = PackageName.assertFromString("pkg-name"),
+      packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
       createdAt = Timestamp.Epoch,
@@ -231,7 +234,8 @@ class CommandSubmissionServiceImplSpec
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      version = TransactionVersion.StableVersions.max,
+      // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
+      version = TransactionVersion.maxVersion,
     )
     val commands = Commands(
       workflowId = None,

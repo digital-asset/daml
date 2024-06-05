@@ -15,16 +15,10 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrUS}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v30.{
-  ExportTopologySnapshotRequest,
-  ExportTopologySnapshotResponse,
-  ListPartyHostingLimitsRequest,
-  ListPartyHostingLimitsResponse,
-  ListPurgeTopologyTransactionRequest,
-  ListPurgeTopologyTransactionResponse,
-}
+import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -35,25 +29,7 @@ import com.digitalasset.canton.topology.store.{
   TimeQuery,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.{
-  AuthorityOf,
-  DecentralizedNamespaceDefinition,
-  DomainParametersState,
-  DomainTrustCertificate,
-  IdentifierDelegation,
-  MediatorDomainState,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantDomainPermission,
-  PartyHostingLimits,
-  PartyToParticipant,
-  PurgeTopologyTransaction,
-  SequencerDomainState,
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-  TopologyMapping,
-  VettedPackages,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -76,8 +52,7 @@ final case class BaseQuery(
     adminProto.BaseQuery(
       filterStore.map(_.toProto),
       proposals,
-      ops.map(_.toProto).getOrElse(TopologyChangeOp.Replace.toProto),
-      filterOperation = true,
+      ops.map(_.toProto).getOrElse(v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED),
       timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitive),
@@ -108,14 +83,14 @@ object BaseQuery {
       proposals = baseQuery.proposals
       filterSignedKey = baseQuery.filterSignedKey
       timeQuery <- TimeQuery.fromProto(baseQuery.timeQuery, "time_query")
-      opsRaw <- TopologyChangeOp.fromProtoV30(baseQuery.operation)
+      operationOp <- TopologyChangeOp.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitive(_))
       filterStore <- baseQuery.filterStore.traverse(TopologyStore.fromProto(_, "filter_store"))
     } yield BaseQuery(
       filterStore,
       proposals,
       timeQuery,
-      if (baseQuery.filterOperation) Some(opsRaw) else None,
+      operationOp,
       filterSignedKey,
       protocolVersion,
     )
