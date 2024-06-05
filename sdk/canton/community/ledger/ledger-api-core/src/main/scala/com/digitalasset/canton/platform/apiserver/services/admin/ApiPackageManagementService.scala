@@ -146,7 +146,7 @@ private[apiserver] object ApiPackageManagementService {
     override def submit(submissionId: Ref.SubmissionId, dar: ByteString)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[state.SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar, None).toScalaUnwrapped
+      packagesWrite.uploadPackages(submissionId, dar).toScalaUnwrapped
 
     override def entries(offset: Option[LedgerOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace

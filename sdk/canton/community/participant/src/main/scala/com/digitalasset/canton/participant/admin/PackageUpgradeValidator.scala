@@ -8,87 +8,38 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
-import com.daml.lf.language.Util.dependenciesInTopologicalOrder
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.PackageUpgradeValidator.PackageMap
 import com.digitalasset.canton.participant.admin.PackageUploader.ErrorValidations
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
-import scalaz.std.either._
-import scalaz.std.option._
+import scalaz.std.either.*
+import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance
-import scalaz.syntax.traverse._
+import scalaz.syntax.traverse.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordering.Implicits.infixOrderingOps
-
-object PackageUpgradeValidator {
-  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
-}
 
 class PackageUpgradeValidator(
-    getPackageMap: TraceContext => PackageMap,
+    getPackageMap: TraceContext => Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
     getLfArchive: TraceContext => Ref.PackageId => Future[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
   def validateUpgrade(
-      upgradingPackages: List[(Ref.PackageId, Ast.Package)]
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] = {
-    val upgradingPackagesMap = upgradingPackages.toMap
-    val packagesInTopologicalOrder = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
-    val packageMap = getPackageMap(loggingContext.traceContext)
-
-    def go(
-        packageMap: PackageMap,
-        deps: List[Ref.PackageId],
-    ): EitherT[Future, DamlError, PackageMap] = deps match {
-      case Nil => EitherT.pure[Future, DamlError](packageMap)
-      case pkgId :: rest =>
-        val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades = pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
-        pkg.metadata match {
-          case Some(pkgMetadata) =>
-            for {
-              _ <- EitherTUtil.ifThenET(supportsUpgrades)(
-                // This check will look for the closest neighbors of pkgId for the package versioning ordering and
-                // will load them from the DB and decode them. If one were to upload many packages that upgrade each
-                // other, we will end up decoding the same package many times. Some of these cases could be sped up
-                // by a cache depending on the order in which the packages are uploaded.
-                validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap)
-              )
-              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
-            } yield res
-          case None =>
-            logger.debug(
-              s"Package metadata is not defined for ${pkgId}. Skipping upgrade validation."
-            )
-            go(packageMap, rest)
-        }
-    }
-    go(packageMap, packagesInTopologicalOrder).map(_ => ())
-  }
-
-  private def validatePackageUpgrade(
       upgradingPackage: (Ref.PackageId, Ast.Package),
       upgradingPackageMetadata: Ast.PackageMetadata,
-      packageMap: PackageMap,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
+    val packageMap = getPackageMap(loggingContext.traceContext)
     val upgradingPackageId = upgradingPackage._1
     val optUpgradingDar = Some(upgradingPackage)
-    logger.info(
-      s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}."
-    )
+    logger.info(s"Uploading DAR file for $upgradingPackageId.")
     existingVersionedPackageId(upgradingPackageMetadata, packageMap) match {
       case Some(uploadedPackageId) =>
         if (uploadedPackageId == upgradingPackageId)

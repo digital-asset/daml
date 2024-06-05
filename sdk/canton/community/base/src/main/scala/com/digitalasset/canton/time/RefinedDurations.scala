@@ -267,19 +267,3 @@ object PositiveSeconds extends RefinedDurationCompanion[PositiveSeconds] {
       s"Duration should be positive and rounded to the second, found: $duration",
     )
 }
-
-object EnrichedDurations {
-  import com.digitalasset.canton.config
-
-  implicit class RichNonNegativeFiniteDurationConfig(duration: config.NonNegativeFiniteDuration) {
-    def toInternal: NonNegativeFiniteDuration = checked(
-      NonNegativeFiniteDuration.tryCreate(duration.asJava)
-    )
-  }
-
-  implicit class RichPositiveFiniteDurationConfig(duration: config.PositiveFiniteDuration) {
-    def toInternal: PositiveFiniteDuration = checked(
-      PositiveFiniteDuration.tryCreate(duration.asJava)
-    )
-  }
-}

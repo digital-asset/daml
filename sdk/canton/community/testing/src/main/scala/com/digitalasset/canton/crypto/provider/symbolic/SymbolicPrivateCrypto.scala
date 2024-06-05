@@ -4,8 +4,11 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.data.EitherT
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.digitalasset.canton.health.ComponentHealthState
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -15,9 +18,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class SymbolicPrivateCrypto(
     pureCrypto: SymbolicPureCrypto,
     override val store: CryptoPrivateStoreExtended,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(
     override implicit val ec: ExecutionContext
-) extends CryptoPrivateStoreApi {
+) extends CryptoPrivateStoreApi
+    with NamedLogging {
 
   private val keyCounter = new AtomicInteger
 
@@ -55,5 +61,7 @@ class SymbolicPrivateCrypto(
       )
     )
 
-  override def close(): Unit = ()
+  override def name: String = "symbolic-private-crypto"
+
+  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
 }

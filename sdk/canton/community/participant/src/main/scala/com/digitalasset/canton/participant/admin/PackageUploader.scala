@@ -91,7 +91,6 @@ class PackageUploader(
   def validateAndStorePackages(
       darPayload: ByteString,
       fileNameO: Option[String],
-      sourceDescriptionO: Option[String],
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
@@ -117,37 +116,29 @@ class PackageUploader(
           darPayload.toByteArray,
         )
       )
-      sourceDescriptionLenLimit <- EitherT.fromEither[FutureUnlessShutdown](
-        String256M
-          .create(sourceDescriptionO.getOrElse(""), Some("package source description"))
-          .leftMap(PackageServiceErrors.InternalError.Generic.apply)
-      )
-      sourceDescription = lengthValidatedNameO
-        .map(_.asString1GB)
-        .getOrElse(sourceDescriptionLenLimit)
       dar <- catchUpstreamErrors(
         DarParser.readArchive(darNameO.getOrElse("package-upload"), stream)
       ).thereafter(_ => stream.close())
       _ = logger.debug(
-        s"Processing package upload of ${dar.all.length} packages from source $sourceDescription"
+        s"Processing package upload of ${dar.all.length} packages${lengthValidatedNameO.map(src => s" from source $src").getOrElse("")}"
       )
       mainPackage <- catchUpstreamErrors(Decode.decodeArchive(dar.main)).map(dar.main -> _)
       dependencies <- dar.dependencies.parTraverse(archive =>
         catchUpstreamErrors(Decode.decodeArchive(archive)).map(archive -> _)
       )
-      allPackages = mainPackage :: dependencies
       _ <- EitherT(
         uploadDarExecutionQueue.executeUnderFailuresUS(
           uploadDarSequentialStep(
             darO = darDescriptorO,
-            packages = allPackages,
-            sourceDescription = sourceDescription,
+            mainPackage = mainPackage,
+            dependencies = dependencies,
+            sourceDescription = lengthValidatedNameO.map(_.asString1GB).getOrElse(String256M("")()),
             submissionId = submissionId,
           ),
           description = "store DAR",
         )
       )
-    } yield allPackages.map(_._2._1)
+    } yield mainPackage._2._1 :: dependencies.map(_._2._1)
   }
 
   // This stage must be run sequentially to exclude the possibility
@@ -155,7 +146,8 @@ class PackageUploader(
   // is happening concurrently with an update of the package resolution map.
   private def uploadDarSequentialStep(
       darO: Option[Dar],
-      packages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
+      mainPackage: (DamlLf.Archive, (LfPackageId, Ast.Package)),
+      dependencies: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
       sourceDescription: String256M,
       submissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[DamlError, Unit]] = {
@@ -183,7 +175,8 @@ class PackageUploader(
           )
         )
         _ = logger.debug(
-          s"Managed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription"
+          s"Managed to upload one or more archives in submissionId $submissionId${if (sourceDescription.str.isEmpty) ""
+            else s" and sourceDescription $sourceDescription"}"
         )
         _ = packagesToStore.foreach {
           case (pkgId, (_, Some(pkgName), Some(pkgVersion))) =>
@@ -196,8 +189,9 @@ class PackageUploader(
       } yield ()
     }
 
-    validatePackages(packages.map(_._2)).semiflatMap { _ =>
-      val result = persist(packages)
+    validatePackages(mainPackage._2, dependencies.map(_._2)).semiflatMap { _ =>
+      val allPackages = mainPackage :: dependencies
+      val result = persist(allPackages)
       handleUploadResult(result, submissionId, sourceDescription)
     }.value
   }
@@ -256,27 +250,36 @@ class PackageUploader(
     }
 
   private def validatePackages(
-      packages: List[(PackageId, Package)]
+      mainPackage: (PackageId, Package),
+      dependencies: List[(PackageId, Package)],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
-          .validatePackages(packages.toMap)
+          .validatePackages((mainPackage :: dependencies).toMap)
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
       _ <-
-        if (enableUpgradeValidation) {
-          packageUpgradeValidator
-            .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
-            .mapK(FutureUnlessShutdown.outcomeK)
-        } else {
-          logger.info(
-            s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
-          )
+        if (enableUpgradeValidation)
+          mainPackage._2.metadata match {
+            case Some(packageMetadata) =>
+              packageUpgradeValidator
+                .validateUpgrade(mainPackage, packageMetadata)(
+                  LoggingContextWithTrace(loggerFactory)
+                )
+                .mapK(FutureUnlessShutdown.outcomeK)
+            case None =>
+              logger.info(
+                s"Package metadata is not defined for ${mainPackage._1}. Skipping upgrade validation."
+              )
+              EitherTUtil.unitUS[DamlError]
+          }
+        else {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
           EitherT.pure[FutureUnlessShutdown, DamlError](())
         }
     } yield ()

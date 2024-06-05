@@ -516,7 +516,6 @@ trait CantonConfig {
 }
 
 private[config] object CantonNodeParameterConverter {
-  import com.digitalasset.canton.time.EnrichedDurations.*
 
   def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General = {
     CantonNodeParameters.General.Impl(

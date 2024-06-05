@@ -187,6 +187,7 @@ final case class MetricsFactory(
         new DomainMetrics(
           MetricsFactory.prefix,
           createUnlabeledMetricsFactory(domainMetricsContext, newRegistry(metricName)),
+          labeledMetricsFactory,
           new DamlGrpcServerMetrics(labeledMetricsFactory, "domain"),
           new DMHealth(labeledMetricsFactory),
         )
@@ -206,6 +207,7 @@ final case class MetricsFactory(
         new SequencerMetrics(
           MetricsFactory.prefix,
           createUnlabeledMetricsFactory(sequencerMetricsContext, newRegistry(metricName)),
+          labeledMetricsFactory,
           new DamlGrpcServerMetrics(labeledMetricsFactory, "sequencer"),
           new DMHealth(labeledMetricsFactory),
         )

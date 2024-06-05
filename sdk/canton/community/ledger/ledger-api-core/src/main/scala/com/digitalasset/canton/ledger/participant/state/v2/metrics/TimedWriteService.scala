@@ -69,13 +69,12 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
       dar: ByteString,
-      sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.uploadPackages,
-      delegate.uploadPackages(submissionId, dar, sourceDescription),
+      delegate.uploadPackages(submissionId, dar),
     )
 
   override def allocateParty(

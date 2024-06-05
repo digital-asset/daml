@@ -148,7 +148,7 @@ class DomainNodeBootstrap(
   override protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService) = {
-    val readiness = DependenciesHealthService("domain", logger, timeouts, Seq(storage))
+    val readiness = DependenciesHealthService("domain", logger, timeouts, Seq(storage, crypto))
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
     (readiness, liveness)
   }

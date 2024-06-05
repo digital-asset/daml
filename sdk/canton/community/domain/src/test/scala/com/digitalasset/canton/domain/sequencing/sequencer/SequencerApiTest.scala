@@ -88,7 +88,7 @@ abstract class SequencerApiTest
       "send a batch to one recipient" in { env =>
         import env.*
         val messageContent = "hello"
-        val sender: MediatorId = mediatorId
+        val sender = DefaultTestIdentities.participant1
         val recipients = Recipients.cc(sender)
 
         val request: SubmissionRequest = createSendRequest(sender, messageContent, recipients)
@@ -97,7 +97,7 @@ abstract class SequencerApiTest
           _ <- valueOrFail(sequencer.registerMember(topologyClientMember))(
             "Register topology client"
           )
-          _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
+          _ <- valueOrFail(sequencer.registerMember(sender))("Register sender")
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
           messages <- readForMembers(List(sender), sequencer)
         } yield {

@@ -12,6 +12,7 @@ object DomainTestMetrics
     extends DomainMetrics(
       MetricName("test"),
       NoOpMetricsFactory,
+      NoOpMetricsFactory,
       new DamlGrpcServerMetrics(NoOpMetricsFactory, "test"),
       new HealthMetrics(NoOpMetricsFactory),
     )

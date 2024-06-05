@@ -113,7 +113,7 @@ class ApiPackageManagementServiceSpec
     "close while uploading dar" in {
       val writeService = mock[state.WritePackagesService]
       when(
-        writeService.uploadPackages(any[Ref.SubmissionId], any[ByteString], any[Option[String]])(
+        writeService.uploadPackages(any[Ref.SubmissionId], any[ByteString])(
           any[TraceContext]
         )
       ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
@@ -255,7 +255,6 @@ object ApiPackageManagementServiceSpec {
     override def uploadPackages(
         submissionId: Ref.SubmissionId,
         dar: ByteString,
-        sourceDescription: Option[String],
     )(implicit
         traceContext: TraceContext
     ): CompletionStage[state.SubmissionResult] = {

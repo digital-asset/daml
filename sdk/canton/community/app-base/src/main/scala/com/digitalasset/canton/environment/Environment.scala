@@ -40,7 +40,6 @@ import com.digitalasset.canton.participant.{
 import com.digitalasset.canton.resource.DbMigrationsFactory
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
@@ -502,6 +501,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           loggerFactory.append(ParticipantNodeBootstrap.LoggerFactoryKeyName, name),
           writeHealthDumpToFile,
           configuredOpenTelemetry,
+          executionContext,
         ),
         testingTimeService,
       )
@@ -526,6 +526,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           loggerFactory.append(DomainNodeBootstrap.LoggerFactoryKeyName, name),
           writeHealthDumpToFile,
           configuredOpenTelemetry,
+          executionContext,
         )
       )
       .valueOr(err => throw new RuntimeException(s"Failed to create domain bootstrap: $err"))
