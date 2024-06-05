@@ -30,7 +30,7 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SenderSigned
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
@@ -43,7 +43,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
   SignedContent,
-  SubmissionRequest,
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.Member
@@ -214,7 +213,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedSubmissionRequest: SenderSigned[SubmissionRequest])(implicit
+    override def send(signedSubmission: SignedOrderingRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =

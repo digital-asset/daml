@@ -41,11 +41,11 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
 
       for {
         result <-
-          keysCache.getUS(10).failed
+          keysCache.getUS(10).unwrap
       } yield {
-        succeed
+        result shouldBe UnlessShutdown.AbortedDueToShutdown
       }
-    }.failOnShutdown
+    }
 
     "Allow entries to be cleared" in {
 

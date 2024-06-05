@@ -46,9 +46,7 @@ message BaseQuery {
 
   com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp operation = 3;
 
-  // TODO(#14048) Decide whether the filter_operation flag is necessary on top of the optional operation field, if not remove
-  // if true, then we'll filter the results according to above defined operation
-  bool filter_operation = 4;
+  reserved 4;
 
   message TimeRange {
     google.protobuf.Timestamp from = 1;

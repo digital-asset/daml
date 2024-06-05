@@ -98,6 +98,12 @@ object ProtoConverter {
   ): ParsingResult[A] =
     protoParser(parseFrom)(value).flatMap(fromProto)
 
+  def parseEnum[A, P](
+      fromProto: P => ParsingResult[Option[A]],
+      field: String,
+      value: P,
+  ): ParsingResult[A] = fromProto(value).sequence.getOrElse(Left(FieldNotSet(field)))
+
   def parseRequiredNonEmpty[A, P](
       fromProto: P => ParsingResult[A],
       field: String,

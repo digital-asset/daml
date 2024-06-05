@@ -229,7 +229,6 @@ object ClockConfig {
 final case class RetentionPeriodDefaults(
     sequencer: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7),
     mediator: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7),
-    unauthenticatedMembers: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(1),
 )
 
 /** Parameters for testing Canton. Use default values in a production environment.

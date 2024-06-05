@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.PackageVersion
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
@@ -222,6 +223,7 @@ object ContractStorageBackend {
   final case class RawCreatedContract(
       templateId: String,
       packageName: String,
+      packageVersion: Option[String],
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -236,13 +238,6 @@ object ContractStorageBackend {
   final case class RawArchivedContract(
       flatEventWitnesses: Set[Party]
   ) extends RawContractState
-
-  class RawContract(
-      val templateId: String,
-      val packageName: String,
-      val createArgument: Array[Byte],
-      val createArgumentCompression: Option[Int],
-  )
 }
 
 trait EventStorageBackend {
@@ -341,6 +336,7 @@ object EventStorageBackend {
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
+      packageVersion: Option[PackageVersion],
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],

@@ -221,6 +221,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
+        package_version = createNode.packageVersion.map(_.toString()),
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -922,6 +923,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
+        package_version = createNode.packageVersion.map(_.toString()),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1126,6 +1128,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
+        package_version = createNode.packageVersion.map(_.toString()),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1191,6 +1194,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
+        package_version = createNode.packageVersion.map(_.toString()),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1331,6 +1335,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             contract_id = createNode.coid.coid,
             template_id = createNode.templateId.toString,
             package_name = createNode.packageName.toString,
+            package_version = createNode.packageVersion.map(_.toString()),
             flat_event_witnesses = Set("signatory", "observer"), // stakeholders
             tree_event_witnesses = Set("signatory", "observer"), // informees
             create_argument = emptyArray,
@@ -1423,6 +1428,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
+        package_version = createNode.packageVersion.map(_.toString()),
         flat_event_witnesses = Set("signatory", "observer", "observer2"),
         create_argument = emptyArray,
         create_signatories = Set("signatory"),

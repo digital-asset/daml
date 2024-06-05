@@ -274,7 +274,6 @@ class GrpcSequencerService(
   )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = {
     val messageId = request.messageId
 
-    // TODO(i2741) properly deal with malicious behaviour
     def refuseUnless(
         sender: Member
     )(condition: Boolean, message: => String): Either[SendAsyncError, Unit] =

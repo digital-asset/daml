@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter, ThereafterAsync}
@@ -72,6 +73,16 @@ object FutureUnlessShutdown {
   }
 
   def never: FutureUnlessShutdown[Nothing] = FutureUnlessShutdown(Future.never)
+
+  /** Can transform a future from [[FutureUnlessShutdownImpl.Ops.failOnShutdownToAbortException]] back
+    * to [[FutureUnlessShutdown]].
+    */
+  def transformAbortedF[V](f: Future[V])(implicit ec: ExecutionContext): FutureUnlessShutdown[V] =
+    apply(f.transform({
+      case Success(value) => Success(UnlessShutdown.Outcome(value))
+      case Failure(AbortedDueToShutdownException(_)) => Success(UnlessShutdown.AbortedDueToShutdown)
+      case Failure(other) => Failure(other)
+    }))
 }
 
 /** Monad combination of `Future` and [[UnlessShutdown]]
@@ -170,7 +181,6 @@ object FutureUnlessShutdownImpl {
     def onShutdown[B >: A](f: => B)(implicit ec: ExecutionContext): Future[B] =
       unwrap.map(_.onShutdown(f))
 
-    @throws[AbortedDueToShutdownException]("if a shutdown signal has been received.")
     def failOnShutdownToAbortException(action: String)(implicit ec: ExecutionContext): Future[A] =
       failOnShutdownTo(AbortedDueToShutdownException(action))
 

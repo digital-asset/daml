@@ -19,6 +19,7 @@ import com.google.protobuf.ByteString
 
 object DisclosedContractCreator {
 
+  // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
   private val testTxVersion = TransactionVersion.maxVersion
 
   private object api {

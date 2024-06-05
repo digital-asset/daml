@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.event.{
 import com.daml.ledger.api.v2.transaction.TreeEvent as PbTreeEvent
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -63,6 +63,7 @@ object Raw {
       val createKeyMaintainers: Array[String],
       val createKeyValueCompression: Compression.Algorithm,
       val driverMetadata: Option[Array[Byte]],
+      val packageVersion: Option[PackageVersion],
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
 
@@ -125,6 +126,7 @@ object Raw {
         createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
         driverMetadata: Option[Array[Byte]],
+        packageVersion: Option[Ref.PackageVersion],
     ) extends Raw.Created[PbFlatEvent](
           raw,
           createArgument,
@@ -133,6 +135,7 @@ object Raw {
           createKeyMaintainers,
           createKeyValueCompression,
           driverMetadata,
+          packageVersion,
         )
         with FlatEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
@@ -160,6 +163,7 @@ object Raw {
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
           driverMetadata: Option[Array[Byte]],
+          packageVersion: Option[PackageVersion],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -179,6 +183,7 @@ object Raw {
           createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
           driverMetadata = driverMetadata,
+          packageVersion = packageVersion,
         )
     }
 
@@ -235,6 +240,7 @@ object Raw {
         createKeyMaintainers: Array[String],
         createKeyValueCompression: Compression.Algorithm,
         driverMetadata: Option[Array[Byte]],
+        packageVersion: Option[Ref.PackageVersion],
     ) extends Raw.Created[PbTreeEvent](
           raw,
           createArgument,
@@ -243,6 +249,7 @@ object Raw {
           createKeyMaintainers,
           createKeyValueCompression,
           driverMetadata,
+          packageVersion,
         )
         with TreeEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
@@ -257,6 +264,7 @@ object Raw {
           contractId: String,
           templateId: Identifier,
           packageName: PackageName,
+          packageVersion: Option[PackageVersion],
           createArgument: Array[Byte],
           createArgumentCompression: Option[Int],
           createSignatories: ArraySeq[String],
@@ -287,6 +295,7 @@ object Raw {
           createKeyMaintainers = createKeyMaintainers,
           createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
           driverMetadata = driverMetadata,
+          packageVersion = packageVersion,
         )
     }
 

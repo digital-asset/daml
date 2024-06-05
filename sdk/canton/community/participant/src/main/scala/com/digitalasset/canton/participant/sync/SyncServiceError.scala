@@ -207,6 +207,27 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   @Explanation(
+    "This error is logged when a sync domain is not inactive."
+  )
+  @Resolution(
+    """If you attempt to purge a domain that has not been deactivated, this error will be emitted.
+      |Please ensure that the specified domain has a status of `Inactive` before attempting to purge it."""
+  )
+  object SyncServiceDomainStatusMustBeInactive
+      extends ErrorCode(
+        "SYNC_SERVICE_DOMAIN_STATUS_MUST_BE_INACTIVE",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Error(domain: DomainAlias, status: DomainConnectionConfigStore.Status)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"$domain has status $status and therefore cannot be purged."
+        )
+        with SyncServiceError
+  }
+
+  @Explanation(
     "This error is logged when a sync domain is disconnected because the participant became passive."
   )
   @Resolution("Fail over to the active participant replica.")

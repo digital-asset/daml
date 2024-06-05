@@ -281,7 +281,7 @@ class DAMLe(
               template = nc.templateId,
               arg = Versioned(nc.version, nc.arg),
               packageName = nc.packageName,
-              packageVersion = None,
+              packageVersion = nc.packageVersion,
             ),
             nc.signatories,
             nc.stakeholders,

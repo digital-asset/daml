@@ -162,7 +162,7 @@ class ReassignmentStreamReader(
         maxParallelIdQueriesLimiter = unassignedEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadUnassignQueries + 1,
         metric = dbMetrics.reassignmentStream.fetchEventUnassignIdsStakeholder,
-        idDbQuery = eventStorageBackend.fetchAssignEventIdsForStakeholder,
+        idDbQuery = eventStorageBackend.fetchUnassignEventIdsForStakeholder,
       )
     val payloadsAssign =
       fetchPayloads(

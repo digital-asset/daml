@@ -5,9 +5,9 @@ package com.digitalasset.canton.platform.store.interfaces
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{PackageName, Party}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value as LfValue
@@ -113,6 +113,7 @@ object TransactionLogUpdate {
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
       packageName: PackageName,
+      packageVersion: Option[Ref.PackageVersion],
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],

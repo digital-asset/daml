@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, PackageName}
+import com.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
@@ -62,6 +62,7 @@ class LedgerTimeAwareCommandExecutorSpec
     ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       packageName = PackageName.assertFromString("pkg-name"),
+      packageVersion = Some(PackageVersion.assertFromString("1.0.0")),
       contractId = cid,
       argument = Value.ValueNil,
       createdAt = Time.Timestamp.Epoch,
@@ -69,7 +70,8 @@ class LedgerTimeAwareCommandExecutorSpec
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      version = TransactionVersion.StableVersions.max,
+      // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
+      version = TransactionVersion.maxVersion,
     )
   )
 

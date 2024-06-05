@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
+import com.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.{Identifier, PackageName, Party}
@@ -15,6 +16,7 @@ class DomainStringIterators(
     val templateIds: Iterator[String],
     val domainIds: Iterator[String],
     val packageNames: Iterator[String],
+    val packageVersions: Iterator[String],
 )
 
 trait InternizingStringInterningView {
@@ -83,6 +85,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
   private val PartyPrefix = "p|"
   private val DomainIdPrefix = "d|"
   private val PackageNamePrefix = "n|"
+  private val PackageVersionPrefix = "v|"
 
   override val templateId: StringInterningDomain[Identifier] =
     StringInterningDomain.prefixing(
@@ -116,13 +119,22 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = _.toString,
     )
 
+  override val packageVersion: StringInterningDomain[PackageVersion] =
+    StringInterningDomain.prefixing(
+      prefix = PackageVersionPrefix,
+      prefixedAccessor = rawAccessor,
+      to = PackageVersion.assertFromString,
+      from = _.toString(),
+    )
+
   override def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)] =
     blocking(synchronized {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
           domainStringIterators.domainIds.map(DomainIdPrefix + _) ++
-          domainStringIterators.packageNames.map(PackageNamePrefix + _)
+          domainStringIterators.packageNames.map(PackageNamePrefix + _) ++
+          domainStringIterators.packageVersions.map(PackageVersionPrefix + _)
 
       val newEntries = RawStringInterning.newEntries(
         strings = allPrefixedStrings,

@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.block.data.{
 }
 import com.digitalasset.canton.domain.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.domain.metrics.BlockMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.InvalidLedgerEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
@@ -170,9 +171,9 @@ class BlockUpdateGeneratorImpl(
 
   private def isAddressingSequencers(event: LedgerBlockEvent): Boolean =
     event match {
-      case Send(_, signedSubmissionRequest, _) =>
+      case Send(_, signedOrderingRequest, _) =>
         val allRecipients =
-          signedSubmissionRequest.content.batch.allRecipients
+          signedOrderingRequest.signedSubmissionRequest.content.batch.allRecipients
         allRecipients.contains(AllMembersOfDomain) ||
         allRecipients.contains(SequencersOfDomain)
       case _ => false

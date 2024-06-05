@@ -91,6 +91,7 @@ class ValidateDisclosedContracts {
           contractId = validatedContractId,
           templateId = templateId,
           packageName = packageName,
+          packageVersion = packageVersion,
           argument = createArg,
           createdAt = createdAt,
           keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),
@@ -99,6 +100,7 @@ class ValidateDisclosedContracts {
           signatories = signatories,
           stakeholders = stakeholders,
           keyValue = contractKeyWithMaintainers.map(_.value),
+          transactionVersion = version,
         )
       }
 }

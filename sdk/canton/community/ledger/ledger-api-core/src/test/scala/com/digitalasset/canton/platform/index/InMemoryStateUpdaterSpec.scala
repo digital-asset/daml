@@ -13,8 +13,9 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{CommittedTransaction, NodeId}
+import com.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
@@ -239,6 +240,7 @@ object InMemoryStateUpdaterSpec {
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             templateId = templateId,
             packageName = packageName,
+            packageVersion = Some(packageVersion),
             commandId = "",
             workflowId = workflowId,
             contractKey = None,
@@ -436,6 +438,7 @@ object InMemoryStateUpdaterSpec {
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
 
   private val packageName = Ref.PackageName.assertFromString("pkg-name")
+  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
 
   private val someCreateNode = {
     val contractId = TransactionBuilder.newCid
@@ -443,10 +446,12 @@ object InMemoryStateUpdaterSpec {
       .create(
         id = contractId,
         packageName = packageName,
+        packageVersion = Some(packageVersion),
         templateId = templateId,
         argument = Value.ValueUnit,
         signatories = Set(party1),
         observers = Set(party2),
+        version = CreateTransactionVersion.Version(TransactionVersion.VDev),
       )
   }
 

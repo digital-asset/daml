@@ -121,6 +121,7 @@ class SubmitRequestValidatorTest
         keyHash = None,
         driverMetadata = Bytes.Empty,
         packageName = Ref.PackageName.assertFromString("package"),
+        packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
         signatories = Set(Ref.Party.assertFromString("party")),
         stakeholders = Set(Ref.Party.assertFromString("party")),
         keyMaintainers = None,
@@ -488,7 +489,8 @@ class SubmitRequestValidatorTest
         when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
           .thenReturn(Right(internal.disclosedContracts))
 
-        val packageMap = Map(packageId -> (packageName, Ref.PackageVersion.assertFromString("1.0")))
+        val packageMap =
+          Map(packageId -> (packageName, Ref.PackageVersion.assertFromString("1.0.0")))
         val validateUpgradingPackageResolutions = new ValidateUpgradingPackageResolutions {
           override def apply(userPackageIdPreferences: Seq[String])(implicit
               contextualizedErrorLogger: ContextualizedErrorLogger

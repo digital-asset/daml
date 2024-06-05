@@ -280,6 +280,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           RepairService.ContractConverter.contractDataToInstance(
             contractData.templateId.toIdentifier,
             contractData.packageName,
+            contractData.packageVersion,
             contractData.createArguments,
             contractData.signatories,
             contractData.observers,
@@ -306,6 +307,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           case (
                 templateId,
                 packageName,
+                packageVersion,
                 createArguments,
                 signatories,
                 observers,
@@ -316,6 +318,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             ContractData(
               TemplateId.fromIdentifier(templateId),
               packageName,
+              packageVersion,
               createArguments,
               signatories,
               observers,

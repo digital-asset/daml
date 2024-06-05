@@ -11,7 +11,9 @@ import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.{
   DefaultChunkSize,
@@ -407,7 +409,7 @@ final class GrpcParticipantRepairService(
     TraceContext.withNewTraceContext { implicit traceContext =>
       // ensure here we don't process migration requests concurrently
       if (!domainMigrationInProgress.getAndSet(true)) {
-        val ret = for {
+        val migratedSourceDomain = for {
           sourceDomainAlias <- EitherT.fromEither[Future](DomainAlias.create(request.sourceAlias))
           conf <- EitherT
             .fromEither[Future](
@@ -426,12 +428,22 @@ final class GrpcParticipantRepairService(
                 Left("Aborted due to shutdown.")
               }
           )
+        } yield sourceDomainAlias
+
+        val response = for {
+          sourceDomain <- EitherTUtil.toFuture(
+            migratedSourceDomain.leftMap(err =>
+              io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException()
+            )
+          )
+          _ <- EitherTUtil
+            .toFutureUnlessShutdown(
+              sync.purgeDeactivatedDomain(sourceDomain).bimap(_.asGrpcError, _ => ())
+            )
+            .asGrpcResponse
         } yield MigrateDomainResponse()
 
-        EitherTUtil
-          .toFuture(
-            ret.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
-          )
+        response
           .andThen { _ =>
             domainMigrationInProgress.set(false)
           }
@@ -446,4 +458,30 @@ final class GrpcParticipantRepairService(
     }
   }
 
+  /* Purge specified deactivated sync-domain and selectively prune domain stores.
+   */
+  override def purgeDeactivatedDomain(
+      request: PurgeDeactivatedDomainRequest
+  ): Future[PurgeDeactivatedDomainResponse] = TraceContext.withNewTraceContext {
+    implicit traceContext =>
+      val res = for {
+        domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
+          DomainAlias
+            .fromProtoPrimitive(request.domainAlias)
+            .leftMap(_.toString)
+            .leftMap(RepairServiceError.InvalidArgument.Error(_))
+        )
+        _ <- sync.purgeDeactivatedDomain(domainAlias)
+
+      } yield ()
+
+      EitherTUtil
+        .toFutureUnlessShutdown(
+          res.bimap(
+            _.asGrpcError,
+            _ => PurgeDeactivatedDomainResponse(),
+          )
+        )
+        .asGrpcResponse
+  }
 }
