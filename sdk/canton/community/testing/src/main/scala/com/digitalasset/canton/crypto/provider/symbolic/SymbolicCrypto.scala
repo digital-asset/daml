@@ -86,7 +86,8 @@ object SymbolicCrypto {
     val pureCrypto = new SymbolicPureCrypto()
     val cryptoPublicStore = new InMemoryCryptoPublicStore
     val cryptoPrivateStore = new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
-    val privateCrypto = new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore)
+    val privateCrypto =
+      new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore, timeouts, loggerFactory)
 
     // Conversion to java keys is not supported by symbolic crypto
     val javaKeyConverter = new JavaKeyConverter {

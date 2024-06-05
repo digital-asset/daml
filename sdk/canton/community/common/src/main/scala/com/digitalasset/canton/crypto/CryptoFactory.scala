@@ -258,6 +258,8 @@ object TinkCrypto {
         storesAndSchemes.signingKeyScheme,
         storesAndSchemes.encryptionKeyScheme,
         cryptoPrivateStoreExtended,
+        timeouts,
+        loggerFactory,
       )
       crypto = new Crypto(
         pureCrypto,
@@ -308,6 +310,8 @@ object JceCrypto {
           storesAndSchemes.signingKeyScheme,
           storesAndSchemes.encryptionKeyScheme,
           cryptoPrivateStoreExtended,
+          timeouts,
+          loggerFactory,
         )
       crypto = new Crypto(
         pureCrypto,

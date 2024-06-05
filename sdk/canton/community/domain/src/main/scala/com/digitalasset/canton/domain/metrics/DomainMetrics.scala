@@ -11,7 +11,11 @@ import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
-import com.digitalasset.canton.metrics.MetricHandle.{MetricsFactory, NoOpMetricsFactory}
+import com.digitalasset.canton.metrics.MetricHandle.{
+  LabeledMetricsFactory,
+  MetricsFactory,
+  NoOpMetricsFactory,
+}
 import com.digitalasset.canton.metrics.{DbStorageMetrics, SequencerClientMetrics}
 import com.google.common.annotations.VisibleForTesting
 
@@ -21,12 +25,15 @@ class SequencerMetrics(
     parent: MetricName,
     @nowarn("cat=deprecation")
     val metricsFactory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
   override val prefix: MetricName = MetricName(parent :+ "sequencer")
 
   override def storageMetrics: DbStorageMetrics = dbStorage
+
+  object blockMetrics extends BlockMetrics(prefix, labeledMetricsFactory)
 
   object sequencerClient extends SequencerClientMetrics(prefix, metricsFactory)
 
@@ -115,6 +122,7 @@ object SequencerMetrics {
   def noop(testName: String) = new SequencerMetrics(
     MetricName(testName),
     NoOpMetricsFactory,
+    NoOpMetricsFactory,
     new DamlGrpcServerMetrics(NoOpMetricsFactory, "sequencer"),
     new HealthMetrics(NoOpMetricsFactory),
   )
@@ -156,6 +164,7 @@ class DomainMetrics(
     val prefix: MetricName,
     @nowarn("cat=deprecation")
     val metricsFactory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
     val grpcMetrics: GrpcServerMetrics,
     val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
@@ -164,11 +173,19 @@ class DomainMetrics(
 
   object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
 
-  object sequencer extends SequencerMetrics(prefix, metricsFactory, grpcMetrics, healthMetrics)
+  object sequencer
+      extends SequencerMetrics(
+        prefix,
+        metricsFactory,
+        labeledMetricsFactory,
+        grpcMetrics,
+        healthMetrics,
+      )
 
   object mediator extends MediatorMetrics(prefix, metricsFactory)
 
   object topologyManager extends IdentityManagerMetrics(prefix, metricsFactory)
+
 }
 
 class MediatorNodeMetrics(

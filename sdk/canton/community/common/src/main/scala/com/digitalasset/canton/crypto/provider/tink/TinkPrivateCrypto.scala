@@ -6,8 +6,11 @@ package com.digitalasset.canton.crypto.provider.tink
 import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.digitalasset.canton.health.ComponentHealthState
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.crypto.tink.KeysetHandle
 import com.google.crypto.tink.aead.AeadKeyTemplates
@@ -23,8 +26,11 @@ class TinkPrivateCrypto private (
     override val defaultSigningKeyScheme: SigningKeyScheme,
     override val defaultEncryptionKeyScheme: EncryptionKeyScheme,
     override protected val store: CryptoPrivateStoreExtended,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(override implicit val ec: ExecutionContext)
-    extends CryptoPrivateStoreApi {
+    extends CryptoPrivateStoreApi
+    with NamedLogging {
 
   override protected val signingOps: SigningOps = pureCrypto
   override protected val encryptionOps: EncryptionOps = pureCrypto
@@ -162,7 +168,9 @@ class TinkPrivateCrypto private (
     } yield keypair
   }
 
-  override def close(): Unit = ()
+  override def name: String = "tink-private-crypto"
+
+  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
 }
 
 object TinkPrivateCrypto {
@@ -171,11 +179,15 @@ object TinkPrivateCrypto {
       defaultSigningKeyScheme: SigningKeyScheme,
       defaultEncryptionKeyScheme: EncryptionKeyScheme,
       privateStore: CryptoPrivateStoreExtended,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): TinkPrivateCrypto =
     new TinkPrivateCrypto(
       pureCrypto,
       defaultSigningKeyScheme,
       defaultEncryptionKeyScheme,
       privateStore,
+      timeouts,
+      loggerFactory,
     )
 }

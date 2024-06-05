@@ -26,7 +26,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerSnapshot,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.util.ShowUtil.*
 

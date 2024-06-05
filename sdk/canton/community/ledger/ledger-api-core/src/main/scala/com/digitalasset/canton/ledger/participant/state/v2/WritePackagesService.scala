@@ -43,7 +43,6 @@ trait WritePackagesService {
   def uploadPackages(
       submissionId: Ref.SubmissionId,
       dar: ByteString,
-      sourceDescription: Option[String],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]

@@ -17,6 +17,8 @@ import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TracerProvider
 
+import scala.concurrent.ExecutionContext
+
 final case class NodeFactoryArguments[
     NodeConfig <: LocalNodeConfig,
     ParameterConfig <: CantonNodeParameters,
@@ -32,6 +34,7 @@ final case class NodeFactoryArguments[
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
     configuredOpenTelemetry: ConfiguredOpenTelemetry,
+    executionContext: ExecutionContext,
 ) {
   val tracerProvider: TracerProvider = TracerProvider.Factory(configuredOpenTelemetry, name)
 

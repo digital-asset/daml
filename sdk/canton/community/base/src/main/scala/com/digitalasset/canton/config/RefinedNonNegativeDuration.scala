@@ -12,6 +12,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
 import com.digitalasset.canton.time.{
   NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal,
+  PositiveFiniteDuration as PositiveFiniteDurationInternal,
   PositiveSeconds as PositiveSecondsInternal,
 }
 import com.digitalasset.canton.util.FutureUtil
@@ -195,6 +196,10 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
   }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: NonNegativeFiniteDurationInternal = checked(
+    NonNegativeFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object NonNegativeFiniteDuration
@@ -257,6 +262,10 @@ final case class PositiveFiniteDuration(underlying: FiniteDuration)
   }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: PositiveFiniteDurationInternal = checked(
+    PositiveFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[PositiveFiniteDuration] {

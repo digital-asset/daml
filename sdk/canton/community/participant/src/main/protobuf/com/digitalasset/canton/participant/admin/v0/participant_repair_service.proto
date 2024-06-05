@@ -29,7 +29,11 @@ service ParticipantRepairService {
   // purge contracts
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
 
+  // migrate contracts from one domain to another
   rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
+
+  // purge deactivated domain
+  rpc PurgeDeactivatedDomain(PurgeDeactivatedDomainRequest) returns (PurgeDeactivatedDomainResponse);
 }
 
 // TODO(i14441): Remove deprecated ACS download / upload functionality
@@ -136,3 +140,9 @@ message ImportAcsRequest {
 }
 
 message ImportAcsResponse {}
+
+message PurgeDeactivatedDomainRequest {
+  string domain_alias = 1;
+}
+
+message PurgeDeactivatedDomainResponse {}

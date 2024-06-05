@@ -286,7 +286,6 @@ class PackageService(
     upload(
       darBytes = payload,
       fileNameO = Some(darName),
-      sourceDescriptionO = None,
       submissionId = LedgerSubmissionId.assertFromString(UUID.randomUUID().toString),
       vetAllPackages = vetAllPackages,
       synchronizeVetting = synchronizeVetting,
@@ -340,7 +339,6 @@ class PackageService(
   def upload(
       darBytes: ByteString,
       fileNameO: Option[String],
-      sourceDescriptionO: Option[String],
       submissionId: LedgerSubmissionId,
       vetAllPackages: Boolean,
       synchronizeVetting: Boolean,
@@ -349,7 +347,6 @@ class PackageService(
       uploadedPackageIds <- packageUploader.value.validateAndStorePackages(
         darPayload = darBytes,
         fileNameO = fileNameO,
-        sourceDescriptionO = sourceDescriptionO,
         submissionId = submissionId,
       )
       _ <- EitherTUtil.ifThenET(vetAllPackages)(

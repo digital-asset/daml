@@ -58,7 +58,6 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig}
 import com.digitalasset.canton.store.IndexedStringStore
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
@@ -131,7 +130,7 @@ class ParticipantNodeBootstrap(
       "participant",
       logger,
       timeouts,
-      criticalDependencies = Seq(storage),
+      criticalDependencies = Seq(storage, crypto),
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
       softDependencies = Seq(

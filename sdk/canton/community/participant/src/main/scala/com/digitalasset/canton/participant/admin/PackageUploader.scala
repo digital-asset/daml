@@ -91,7 +91,6 @@ class PackageUploader(
   def validateAndStorePackages(
       darPayload: ByteString,
       fileNameO: Option[String],
-      sourceDescriptionO: Option[String],
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
@@ -117,19 +116,11 @@ class PackageUploader(
           darPayload.toByteArray,
         )
       )
-      sourceDescriptionLenLimit <- EitherT.fromEither[FutureUnlessShutdown](
-        String256M
-          .create(sourceDescriptionO.getOrElse(""), Some("package source description"))
-          .leftMap(PackageServiceErrors.InternalError.Generic.apply)
-      )
-      sourceDescription = lengthValidatedNameO
-        .map(_.asString1GB)
-        .getOrElse(sourceDescriptionLenLimit)
       dar <- catchUpstreamErrors(
         DarParser.readArchive(darNameO.getOrElse("package-upload"), stream)
       ).thereafter(_ => stream.close())
       _ = logger.debug(
-        s"Processing package upload of ${dar.all.length} packages from source $sourceDescription"
+        s"Processing package upload of ${dar.all.length} packages${lengthValidatedNameO.map(src => s" from source $src").getOrElse("")}"
       )
       mainPackage <- catchUpstreamErrors(Decode.decodeArchive(dar.main)).map(dar.main -> _)
       dependencies <- dar.dependencies.parTraverse(archive =>
@@ -141,7 +132,7 @@ class PackageUploader(
           uploadDarSequentialStep(
             darO = darDescriptorO,
             packages = allPackages,
-            sourceDescription = sourceDescription,
+            sourceDescription = lengthValidatedNameO.map(_.asString1GB).getOrElse(String256M("")()),
             submissionId = submissionId,
           ),
           description = "store DAR",
@@ -183,7 +174,8 @@ class PackageUploader(
           )
         )
         _ = logger.debug(
-          s"Managed to upload one or more archives in submissionId $submissionId and sourceDescription $sourceDescription"
+          s"Managed to upload one or more archives in submissionId $submissionId${if (sourceDescription.str.isEmpty) ""
+            else s" and sourceDescription $sourceDescription"}"
         )
         _ = packagesToStore.foreach {
           case (pkgId, (_, Some(pkgName), Some(pkgVersion))) =>

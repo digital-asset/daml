@@ -619,6 +619,31 @@ object ParticipantAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
 
     }
+
+    final case class PurgeDeactivatedDomain(domainAlias: DomainAlias)
+        extends GrpcAdminCommand[
+          PurgeDeactivatedDomainRequest,
+          PurgeDeactivatedDomainResponse,
+          Unit,
+        ] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: PurgeDeactivatedDomainRequest,
+      ): Future[PurgeDeactivatedDomainResponse] =
+        service.purgeDeactivatedDomain(request)
+
+      override def createRequest(): Either[String, PurgeDeactivatedDomainRequest] =
+        Right(PurgeDeactivatedDomainRequest(domainAlias.toProtoPrimitive))
+
+      override def handleResponse(
+          response: PurgeDeactivatedDomainResponse
+      ): Either[String, Unit] = Right(())
+    }
   }
 
   object Ping {

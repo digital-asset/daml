@@ -89,7 +89,6 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
             .validateAndStorePackages(
               encodeDarArchive(archive_max_stable_LF),
               None,
-              Some("someDescription"),
               submissionId,
             )
             .valueOrFailShutdown("validateAndStorePackages failed")
@@ -133,7 +132,6 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .validateAndStorePackages(
           encodeDarArchive(archive_max_stable_LF),
           None,
-          Some("someDescription"),
           LedgerSubmissionId.assertFromString("sub-1"),
         )
         .valueOrFailShutdown("validateAndStorePackages failed")
@@ -141,10 +139,10 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .headOption
         .value
 
-      // Check PackageDescription persisted with description name instead of DAR file name
       damlPackageStore.listPackages().futureValue should contain only PackageDescription(
         persistedPackageId,
-        String256M("someDescription")(None),
+        // If fileName not provided, the "default" is populated for descriptions
+        sourceDescription = String256M("default")(None),
         packageName = Some(pkgName),
         packageVersion = Some(pkgVersion3),
       )
@@ -183,8 +181,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         val pkgId1 = sut
           .validateAndStorePackages(
             encodeDarArchive(pkg_lf_1_15),
-            None,
-            Some("someDescription"),
+            Some("fileName1"),
             LedgerSubmissionId.assertFromString("sub-1"),
           )
           .valueOrFailShutdown("validateAndStorePackages failed")
@@ -194,8 +191,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         val pkgId2 = sut
           .validateAndStorePackages(
             encodeDarArchive(another_pkg_lf_1_15),
-            None,
-            Some("someDescription"),
+            Some("fileName2"),
             LedgerSubmissionId.assertFromString("sub-1"),
           )
           .valueOrFailShutdown("validateAndStorePackages failed")
@@ -205,8 +201,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         val pkgId3 = sut
           .validateAndStorePackages(
             encodeDarArchive(pkg_lf_1_16),
-            None,
-            Some("someDescription"),
+            Some("fileName3"),
             LedgerSubmissionId.assertFromString("sub-1"),
           )
           .valueOrFailShutdown("validateAndStorePackages failed")
@@ -218,19 +213,19 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         damlPackageStore.listPackages().futureValue should contain theSameElementsAs Seq(
           PackageDescription(
             pkgId1,
-            String256M("someDescription")(None),
+            String256M("fileName1")(None),
             packageName = None,
             packageVersion = None,
           ),
           PackageDescription(
             pkgId2,
-            String256M("someDescription")(None),
+            String256M("fileName2")(None),
             packageName = None,
             packageVersion = None,
           ),
           PackageDescription(
             pkgId3,
-            String256M("someDescription")(None),
+            String256M("fileName3")(None),
             packageName = Some(pkgName),
             packageVersion = Some(pkgVersion1),
           ),
@@ -351,7 +346,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
     val submissionId = LedgerSubmissionId.assertFromString("sub-1")
     val persistedPackageIds = sut
-      .validateAndStorePackages(darPayload, Some("DarFileName"), None, submissionId)
+      .validateAndStorePackages(darPayload, Some("DarFileName"), submissionId)
       .valueOrFailShutdown("validateAndStorePackages failed")
       .futureValue
 
