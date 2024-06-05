@@ -8,6 +8,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
@@ -125,6 +126,7 @@ final case class DisclosedContract(
     keyMaintainers: Option[Set[Ref.Party]],
     keyValue: Option[Value],
     driverMetadata: Bytes,
+    transactionVersion: TransactionVersion,
 ) {
   def toLf: LfDisclosedContract =
     LfDisclosedContract(

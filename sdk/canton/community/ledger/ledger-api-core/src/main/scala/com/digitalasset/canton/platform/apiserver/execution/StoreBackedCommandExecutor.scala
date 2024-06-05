@@ -521,7 +521,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractId = disclosedContract.contractId,
         driverMetadataBytes = disclosedContract.driverMetadata.toByteArray,
         contractInstance = Versioned(
-          unusedTxVersion,
+          disclosedContract.transactionVersion,
           ContractInstance(
             packageName = disclosedContract.packageName,
             packageVersion = disclosedContract.packageVersion,
@@ -536,7 +536,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
                 Versioned(
-                  unusedTxVersion,
+                  disclosedContract.transactionVersion,
                   GlobalKeyWithMaintainers
                     .assertBuild(
                       disclosedContract.templateId,
@@ -568,7 +568,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
               stakeholders = active.stakeholders,
               maybeKeyWithMaintainersVersioned =
                 (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
-                  Versioned(unusedTxVersion, GlobalKeyWithMaintainers(globalKey, maintainers))
+                  Versioned(
+                    active.contractInstance.version,
+                    GlobalKeyWithMaintainers(globalKey, maintainers),
+                  )
                 },
             ),
             recomputedMetadata = recomputedMetadata,

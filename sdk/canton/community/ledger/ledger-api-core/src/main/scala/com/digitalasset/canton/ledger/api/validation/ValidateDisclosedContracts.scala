@@ -100,6 +100,7 @@ class ValidateDisclosedContracts {
           signatories = signatories,
           stakeholders = stakeholders,
           keyValue = contractKeyWithMaintainers.map(_.value),
+          transactionVersion = version,
         )
       }
 }
