@@ -208,6 +208,7 @@ abstract class SequencerClientImpl(
   protected val sequencersTransportState =
     new SequencersTransportState(
       sequencerTransports,
+      testingConfig.sequencerTransportSeed,
       timeouts,
       loggerFactory,
     )

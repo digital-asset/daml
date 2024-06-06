@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
 /** Persisted information about a block as a whole once it has been fully processed.
@@ -66,12 +65,8 @@ final case class BlockEphemeralState(
   ): SequencerSnapshot =
     state.toSequencerSnapshot(
       latestBlock.lastTs,
-      Some(
-        SequencerSnapshot.ImplementationSpecificInfo(
-          "BLOCK",
-          ByteString.copyFrom(scala.math.BigInt(latestBlock.height).toByteArray),
-        )
-      ),
+      latestBlock.height,
+      None,
       protocolVersion,
       trafficPurchaseds,
     )
@@ -105,13 +100,8 @@ object BlockEphemeralState {
   def fromSequencerInitialState(
       initialState: SequencerInitialState
   ): BlockEphemeralState = {
-    val initialHeight =
-      initialState.snapshot.additional
-        .map { additional => BigInt(additional.info.toByteArray).toLong }
-        .getOrElse(UninitializedBlockHeight)
-
     val block = BlockInfo(
-      initialHeight,
+      initialState.snapshot.latestBlockHeight,
       initialState.snapshot.lastTs,
       initialState.latestSequencerEventTimestamp,
     )

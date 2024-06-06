@@ -102,12 +102,12 @@ object SequencerError extends SequencerErrorGroup {
     final case class Error(
         signedSubmissionRequest: SignedContent[SubmissionRequest],
         error: SignatureCheckError,
-        sequencingTimestamp: CantonTimestamp,
-        timestampOfSigningKey: CantonTimestamp,
+        topologyTimestamp: CantonTimestamp,
+        timestampOfSigningKey: Option[CantonTimestamp],
     ) extends Alarm({
           val submissionRequest = signedSubmissionRequest.content
-          s"Sender [${submissionRequest.sender}] of send request [${submissionRequest.messageId}] provided signature from $timestampOfSigningKey that failed to be verified. " +
-            s"Could not sequence at $sequencingTimestamp: $error"
+          s"Sender [${submissionRequest.sender}] of send request [${submissionRequest.messageId}] provided signature from $timestampOfSigningKey that failed to be verified at $topologyTimestamp. " +
+            s"Discarding request. $error"
         })
   }
 
@@ -141,23 +141,6 @@ object SequencerError extends SequencerErrorGroup {
     ) extends Alarm({
           s"Sender [${submissionRequest.sender}] of send request [${submissionRequest.messageId}] has submitted a request " +
             s"to send envelopes to multiple mediators or mediator groups ${submissionRequest.batch.allMediatorRecipients}. " +
-            s"Could not sequence at $sequencingTimestamp"
-        })
-  }
-
-  @Explanation("""
-      |This error indicates that the sequencer has detected that the signed submission request being processed is missing a signature timestamp.
-      |It indicates that the sequencer node that placed the request is not following the protocol as there should always be a defined timestamp.
-      |This request will not get processed.
-      |""")
-  object MissingSubmissionRequestSignatureTimestamp
-      extends AlarmErrorCode("MISSING_SUBMISSION_REQUEST_SIGNATURE_TIMESTAMP") {
-    final case class Error(
-        signedSubmissionRequest: SignedContent[SubmissionRequest],
-        sequencingTimestamp: CantonTimestamp,
-    ) extends Alarm({
-          val submissionRequest = signedSubmissionRequest.content
-          s"Send request [${submissionRequest.messageId}] by sender [${submissionRequest.sender}] is missing a signature timestamp. " +
             s"Could not sequence at $sequencingTimestamp"
         })
   }

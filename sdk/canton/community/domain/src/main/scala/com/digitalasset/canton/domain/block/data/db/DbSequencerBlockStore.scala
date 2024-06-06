@@ -150,26 +150,39 @@ class DbSequencerBlockStore(
       trafficState: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val addMember = sequencerStore.addMemberDBIO(_, _)
-    val addAcks = sequencerStore.acknowledgeDBIO _
     val addEvents = sequencerStore.addEventsDBIO(trafficState)(_)
     val disableMember = sequencerStore.disableMemberDBIO _
 
-    val dbio = DBIO
+    val membersDbio = DBIO
       .seq(
         newMembers.toSeq.map(addMember.tupled) ++
-          acknowledgments.toSeq.map(addAcks.tupled) ++
-          Seq(sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates)) ++
           membersDisabled.map(disableMember): _*
       )
       .transactionally
 
     for {
-      _ <- storage.queryAndUpdate(dbio, functionFullName)
-      _ <- storage.queryAndUpdate(
-        if (enableAdditionalConsistencyChecks) DBIO.seq(events.map(addEvents)*).transactionally
-        else sequencerStore.bulkInsertEventsDBIO(events, trafficState),
-        functionFullName,
-      )
+      _ <- storage.queryAndUpdate(membersDbio, functionFullName)
+      _ <- {
+        // as an optimization, we run the 3 below in parallel by starting at the same time
+        val acksF = storage.queryAndUpdate(
+          sequencerStore.bulkUpdateAcknowledgementsDBIO(acknowledgments),
+          functionFullName,
+        )
+        val inFlightF = storage.queryAndUpdate(
+          sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates),
+          functionFullName,
+        )
+        val eventsF = storage.queryAndUpdate(
+          if (enableAdditionalConsistencyChecks) DBIO.seq(events.map(addEvents)*).transactionally
+          else sequencerStore.bulkInsertEventsDBIO(events, trafficState),
+          functionFullName,
+        )
+        for {
+          _ <- acksF
+          _ <- inFlightF
+          _ <- eventsF
+        } yield ()
+      }
     } yield ()
   }
 

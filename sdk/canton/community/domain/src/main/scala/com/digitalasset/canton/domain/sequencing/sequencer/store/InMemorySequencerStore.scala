@@ -13,6 +13,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore.CheckpointDataAtCounter
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -489,6 +490,7 @@ class InMemorySequencerStore(
     Future.successful(
       SequencerSnapshot(
         lastTs,
+        UninitializedBlockHeight,
         memberCheckpoints.fmap(_.counter),
         internalStatus(lastTs),
         Map.empty,

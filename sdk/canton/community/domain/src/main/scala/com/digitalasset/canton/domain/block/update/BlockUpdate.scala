@@ -118,9 +118,9 @@ sealed trait ChunkEvents extends Product with Serializable {
 final case class UnsignedChunkEvents(
     sender: Member,
     events: EventsForSubmissionRequest,
-    signingSnapshot: SyncCryptoApi,
+    topologyOrSequencingSnapshot: SyncCryptoApi,
     sequencingTimestamp: CantonTimestamp,
-    sequencingSnapshot: SyncCryptoApi,
+    latestSequencerEventTimestamp: Option[CantonTimestamp],
     trafficStates: MapView[Member, SequencedEventTrafficState],
     traceContext: TraceContext,
 ) extends ChunkEvents {

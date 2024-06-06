@@ -17,7 +17,7 @@ import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.Su
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
@@ -36,8 +36,7 @@ private[update] final class SequencedSubmissionsValidator(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit closeContext: CloseContext)
-    extends NamedLogging {
+) extends NamedLogging {
 
   private val submissionRequestValidator =
     new SubmissionRequestValidator(
@@ -82,8 +81,8 @@ private[update] final class SequencedSubmissionsValidator(
     val SequencedSubmission(
       sequencingTimestamp,
       signedSubmissionRequest,
-      sequencingSnapshot,
-      signingSnapshot,
+      topologyOrSequencingSnapshot,
+      topologyTimestampError,
     ) = sequencedSubmissionRequest
 
     implicit val traceContext: TraceContext = sequencedSubmissionRequest.traceContext
@@ -99,8 +98,8 @@ private[update] final class SequencedSubmissionsValidator(
           stateFromPartialResult,
           sequencingTimestamp,
           signedSubmissionRequest,
-          sequencingSnapshot,
-          signingSnapshot,
+          topologyOrSequencingSnapshot,
+          topologyTimestampError,
           latestSequencerEventTimestamp,
         )
       SubmissionRequestValidationResult(newState, outcome, sequencerEventTimestamp) =
@@ -111,7 +110,7 @@ private[update] final class SequencedSubmissionsValidator(
           outcome,
           resultIfNoDeliverEvents = partialResult,
           inFlightAggregationUpdates,
-          sequencingSnapshot,
+          topologyOrSequencingSnapshot,
           sequencingTimestamp,
           sequencerEventTimestamp,
           latestSequencerEventTimestamp,
@@ -169,7 +168,7 @@ private[update] final class SequencedSubmissionsValidator(
       outcome: SubmissionRequestOutcome,
       resultIfNoDeliverEvents: SequencedSubmissionsValidationResult,
       inFlightAggregationUpdates: InFlightAggregationUpdates,
-      sequencingSnapshot: SyncCryptoApi,
+      topologyOrSequencingSnapshot: SyncCryptoApi,
       sequencingTimestamp: CantonTimestamp,
       sequencerEventTimestamp: Option[CantonTimestamp],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
@@ -183,7 +182,6 @@ private[update] final class SequencedSubmissionsValidator(
     val SubmissionRequestOutcome(
       deliverEvents,
       newAggregationO,
-      signingSnapshotO,
       _,
     ) = outcome
 
@@ -213,9 +211,6 @@ private[update] final class SequencedSubmissionsValidator(
             checkpoints = newCheckpoints,
           )
 
-        // If we haven't yet computed a snapshot for signing,
-        // we now get one for the sequencing timestamp
-        val signingSnapshot = signingSnapshotO.getOrElse(sequencingSnapshot)
         for {
           // Update the traffic status of the recipients before generating the events below.
           // Typically traffic state might change even for recipients if a top up becomes effective at that timestamp
@@ -227,16 +222,16 @@ private[update] final class SequencedSubmissionsValidator(
               newState,
               deliverEventsNE.keySet,
               sequencingTimestamp,
-              sequencingSnapshot,
+              topologyOrSequencingSnapshot,
               latestSequencerEventTimestamp,
             )
         } yield {
           val unsignedEvents = UnsignedChunkEvents(
             signedSubmissionRequest.content.sender,
             deliverEventsNE,
-            signingSnapshot,
+            topologyOrSequencingSnapshot,
             sequencingTimestamp,
-            sequencingSnapshot,
+            latestSequencerEventTimestamp,
             trafficUpdatedState.trafficState.view.mapValues(_.toSequencedEventTrafficState),
             traceContext,
           )

@@ -97,10 +97,8 @@ message Envelope {
   bytes content = 1;
   com.digitalasset.canton.protocol.v30.Recipients recipients = 2;
 
-  // The sequencer may reject a request if it contains an invalid signature.
-  // But clients should not trust a sequencer node to verify signatures for them.
-  // If the underlying request has an aggregation rule, then the sequencer must reject the request if it contains an invalid signature.
-  // CURRENT STATE: The signature is only checked, if a topology_timestamp and an aggregation rule are defined.
+  // An honest sequencer rejects the request if it contains an envelope with an invalid signature.
+  // As only honest sequencers verify signatures, clients should not trust a single sequencer node to verify signatures for them.
   repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
 }
 
@@ -184,12 +182,15 @@ message SubmissionRequest {
   // in microseconds of UTC time since Unix epoch
   int64 max_sequencing_time = 5;
 
-  // Optional timestamp of topology snapshot to be used for processing the request
-  // (e.g., validation, signing, resolving group addresses).
-  // If undefined or invalid, the sequencing timestamp will be used instead.
-  // If defined, it must be before or at the sequencing timestamp and by
-  // at most DynamicDomainParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp.
-  // in microseconds of UTC time since Unix epoch
+  // Optional timestamp (in microseconds of UTC time since Unix epoch) of topology snapshot to be used for
+  // processing the request (e.g., validation, signing, resolving group addresses).
+  // If defined, it must meet the following conditions:
+  // (1) it must be before or at the sequencing timestamp,
+  // (2) it must be by at most DynamicDomainParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp,
+  //     where the DynamicDomainParameters are taken from the topology state at topology_timestamp,
+  // (3) the sequencer must have signing keys registered in the topology snapshot.
+  // If defined and invalid, the request is rejected.
+  // If undefined or invalid, the topology snapshot at sequencing time will be used instead.
   google.protobuf.Int64Value topology_timestamp = 6;
 
   // Optional rule used to aggregate requests.

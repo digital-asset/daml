@@ -49,12 +49,14 @@ final case class EphemeralState(
 
   def toSequencerSnapshot(
       lastTs: CantonTimestamp,
+      latestBlockHeight: Long,
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
       protocolVersion: ProtocolVersion,
       trafficPurchaseds: Seq[TrafficPurchased],
   ): SequencerSnapshot =
     SequencerSnapshot(
       lastTs,
+      latestBlockHeight,
       heads,
       status.toSequencerPruningStatus(lastTs),
       inFlightAggregations,

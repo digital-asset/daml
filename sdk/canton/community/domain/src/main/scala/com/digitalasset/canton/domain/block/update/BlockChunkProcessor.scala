@@ -8,6 +8,7 @@ import cats.syntax.alternative.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
@@ -30,6 +31,7 @@ import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.GroupAddressResolver
+import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -240,32 +242,48 @@ private[update] final class BlockChunkProcessor(
         // Warn if we use an approximate snapshot but only after we've read at least one
         val warnIfApproximate = sequencersSequencerCounter.exists(_ > SequencerCounter.Genesis)
         for {
-          sequencingSnapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
-            domainSyncCryptoApi,
-            sequencingTimestamp,
-            latestSequencerEventTimestamp,
-            protocolVersion,
-            warnIfApproximate,
-          )
-          topologySnapshotO <- submissionRequest.content.topologyTimestamp match {
-            case None => FutureUnlessShutdown.pure(None)
-            case Some(topologyTimestamp) if topologyTimestamp <= sequencingTimestamp =>
-              SyncCryptoClient
-                .getSnapshotForTimestampUS(
+          topologySnapshotOrErrO <- submissionRequest.content.topologyTimestamp.traverse(
+            topologyTimestamp =>
+              SequencedEventValidator
+                .validateTopologyTimestampUS(
                   domainSyncCryptoApi,
                   topologyTimestamp,
+                  sequencingTimestamp,
                   latestSequencerEventTimestamp,
                   protocolVersion,
                   warnIfApproximate,
                 )
-                .map(Some(_))
-            case _ => FutureUnlessShutdown.pure(None)
+                .leftMap {
+                  case SequencedEventValidator.TopologyTimestampAfterSequencingTime =>
+                    SequencerErrors.TopologyTimestampAfterSequencingTimestamp(
+                      topologyTimestamp,
+                      sequencingTimestamp,
+                    )
+                  case SequencedEventValidator.TopologyTimestampTooOld(_) |
+                      SequencedEventValidator.NoDynamicDomainParameters(_) =>
+                    SequencerErrors.TopoologyTimestampTooEarly(
+                      topologyTimestamp,
+                      sequencingTimestamp,
+                    )
+                }
+                .value
+          )
+          topologyOrSequencingSnapshot <- topologySnapshotOrErrO match {
+            case Some(Right(topologySnapshot)) => FutureUnlessShutdown.pure(topologySnapshot)
+            case _ =>
+              SyncCryptoClient.getSnapshotForTimestampUS(
+                domainSyncCryptoApi,
+                sequencingTimestamp,
+                latestSequencerEventTimestamp,
+                protocolVersion,
+                warnIfApproximate,
+              )
           }
         } yield SequencedSubmission(
           sequencingTimestamp,
           submissionRequest,
-          sequencingSnapshot,
-          topologySnapshotO,
+          topologyOrSequencingSnapshot,
+          topologySnapshotOrErrO.mapFilter(_.swap.toOption),
         )(traceContext)
       }
     }
@@ -360,16 +378,14 @@ private[update] final class BlockChunkProcessor(
   ): FutureUnlessShutdown[Map[Member, CantonTimestamp]] =
     sequencedSubmissions
       .parFoldMapA { sequencedSubmission =>
-        val SequencedSubmission(sequencingTimestamp, event, sequencingSnapshot, topologySnapshotO) =
+        val SequencedSubmission(sequencingTimestamp, event, topologyOrSequencingSnapshot, _) =
           sequencedSubmission
 
-        def recipientIsKnown(member: Member): Future[Option[Member]] = {
-          sequencingSnapshot.ipsSnapshot
+        def recipientIsKnown(member: Member): Future[Option[Member]] =
+          topologyOrSequencingSnapshot.ipsSnapshot
             .isMemberKnown(member)
             .map(Option.when(_)(member))
-        }
 
-        val topologySnapshot = topologySnapshotO.getOrElse(sequencingSnapshot).ipsSnapshot
         import event.content.sender
         for {
           groupToMembers <- FutureUnlessShutdown.outcomeF(
@@ -377,7 +393,7 @@ private[update] final class BlockChunkProcessor(
               event.content.batch.allRecipients.collect { case groupRecipient: GroupRecipient =>
                 groupRecipient
               },
-              topologySnapshot,
+              topologyOrSequencingSnapshot.ipsSnapshot,
             )
           )
           memberRecipients = event.content.batch.allRecipients.collect {

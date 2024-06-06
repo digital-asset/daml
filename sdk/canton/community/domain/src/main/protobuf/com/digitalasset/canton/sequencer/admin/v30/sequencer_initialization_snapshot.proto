@@ -15,12 +15,13 @@ message SequencerSnapshot {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   int64 latest_timestamp = 1; // in microseconds of UTC time since Unix epoch
-  repeated MemberCounter head_member_counters = 2;
-  SequencerPruningStatus status = 3;
-  ImplementationSpecificInfo additional = 4;
-  repeated InFlightAggregationWithId in_flight_aggregations = 5;
-  repeated MemberTrafficSnapshot traffic_snapshots = 6;
-  repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 7;
+  uint64 last_block_height = 2;
+  repeated MemberCounter head_member_counters = 3;
+  SequencerPruningStatus status = 4;
+  ImplementationSpecificInfo additional = 5;
+  repeated InFlightAggregationWithId in_flight_aggregations = 6;
+  repeated MemberTrafficSnapshot traffic_snapshots = 7;
+  repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 8;
 
   message MemberCounter {
     string member = 1;

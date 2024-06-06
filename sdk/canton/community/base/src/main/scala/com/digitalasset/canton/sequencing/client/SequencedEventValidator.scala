@@ -342,6 +342,9 @@ object SequencedEventValidator extends HasLoggerName {
 
     def snapshotF: F[SyncCryptoApi] = getSnapshotF(
       syncCryptoApi,
+      // As we use topologyTimestamp here (as opposed to sequencingTimestamp),
+      // a valid topologyTimestamp can be used until topologyTimestamp + tolerance.
+      // So a change of tolerance does not negatively impact pending requests.
       topologyTimestamp,
       latestTopologyClientTimestamp,
       protocolVersion,

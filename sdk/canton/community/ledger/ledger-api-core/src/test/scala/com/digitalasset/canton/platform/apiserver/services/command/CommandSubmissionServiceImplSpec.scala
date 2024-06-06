@@ -221,6 +221,8 @@ class CommandSubmissionServiceImplSpec
         stakeholders = Set(Ref.Party.assertFromString("alice")),
         keyMaintainers = None,
         keyValue = None,
+        // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
+        transactionVersion = TransactionVersion.maxVersion,
       )
 
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
