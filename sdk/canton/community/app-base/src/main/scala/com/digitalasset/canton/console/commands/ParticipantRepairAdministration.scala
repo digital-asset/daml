@@ -94,23 +94,32 @@ class ParticipantRepairAdministration(
 
   @Help.Summary("Migrate contracts from one domain to another one.")
   @Help.Description(
-    """This method can be used to migrate all the contracts associated with a domain to a new domain connection.
-         This method will register the new domain, connect to it and then re-associate all contracts on the source
-         domain to the target domain. Please note that this migration needs to be done by all participants
-         at the same time. The domain should only be used once all participants have finished their migration.
-
-         The arguments are:
-         source: the domain alias of the source domain
-         target: the configuration for the target domain
-         """
+    """Migrates all contracts associated with a domain to a new domain.
+        |This method will register the new domain, connect to it and then re-associate all contracts from the source
+        |domain to the target domain. Please note that this migration needs to be done by all participants
+        |at the same time. The target domain should only be used once all participants have finished their migration.
+        |
+        |WARNING: The migration does not start in case of in-flight transactions on the source domain. Forcing the
+        |migration may lead to a ledger fork! Instead of forcing the migration, ensure the source domain has no
+        |in-flight transactions by reconnecting all participants to the source domain, halting activity on these
+        |participants and waiting for the in-flight transactions to complete or time out.
+        |Forcing a migration is intended for disaster recovery when a source domain cannot be recovered anymore.
+        |
+        |The arguments are:
+        |source: the domain alias of the source domain
+        |target: the configuration for the target domain
+        |force: if true, migration is forced ignoring in-flight transactions. Defaults to false.
+        """
   )
   def migrate_domain(
       source: DomainAlias,
       target: DomainConnectionConfig,
+      force: Boolean = false,
   ): Unit = {
     consoleEnvironment.run {
       runner.adminCommand(
-        ParticipantAdminCommands.ParticipantRepairManagement.MigrateDomain(source, target)
+        ParticipantAdminCommands.ParticipantRepairManagement
+          .MigrateDomain(source, target, force = force)
       )
     }
   }

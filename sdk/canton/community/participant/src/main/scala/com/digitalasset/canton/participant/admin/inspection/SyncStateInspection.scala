@@ -559,6 +559,29 @@ final class SyncStateInspection(
     (_eventLogId, _localOffset, publicationTimestamp) = res
   } yield publicationTimestamp
 
+  def hasInFlightSubmissions(
+      domain: DomainAlias
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] = for {
+    domainId <- EitherT.fromEither[Future](
+      getPersistentState(domain).toRight(s"Unknown domain $domain").map(_.domainId.domainId)
+    )
+    earliestInFlightO <-
+      EitherT.right[String](
+        participantNodePersistentState.value.inFlightSubmissionStore.lookupEarliest(domainId)
+      )
+  } yield earliestInFlightO.isDefined
+
+  def hasDirtyRequests(
+      domain: DomainAlias
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] =
+    for {
+      state <- EitherT.fromEither[Future](
+        getPersistentState(domain)
+          .toRight(s"Unknown domain $domain")
+      )
+      count <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
+    } yield count > 0
+
 }
 
 object SyncStateInspection {

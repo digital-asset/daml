@@ -594,6 +594,7 @@ object ParticipantAdminCommands {
     final case class MigrateDomain(
         sourceDomainAlias: DomainAlias,
         targetDomainConfig: CDomainConnectionConfig,
+        force: Boolean,
     ) extends GrpcAdminCommand[MigrateDomainRequest, MigrateDomainResponse, Unit] {
       override type Svc = ParticipantRepairServiceStub
 
@@ -610,6 +611,7 @@ object ParticipantAdminCommands {
           MigrateDomainRequest(
             sourceDomainAlias.toProtoPrimitive,
             Some(targetDomainConfig.toProtoV0),
+            force = Some(force),
           )
         )
 
