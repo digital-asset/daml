@@ -16,10 +16,11 @@ import com.daml.ledger.api.v2.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
   Filters,
-  InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
 }
@@ -71,9 +72,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       templateId: Identifier,
   ): TransactionFilter = {
     val filters = Filters(
-      Some(
-        InclusiveFilters(templateFilters =
-          Seq(TemplateFilter(Some(toApiIdentifier(templateId)), includeCreatedEventBlob = true))
+      Seq(
+        CumulativeFilter(
+          IdentifierFilter.TemplateFilter(
+            TemplateFilter(Some(toApiIdentifier(templateId)), includeCreatedEventBlob = true)
+          )
         )
       )
     )
@@ -86,9 +89,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): TransactionFilter = {
     val filters =
       Filters(
-        Some(
-          InclusiveFilters(
-            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true))
+        Seq(
+          CumulativeFilter(
+            IdentifierFilter.InterfaceFilter(
+              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)
+            )
           )
         )
       )
