@@ -105,6 +105,7 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
               MetricsFactoryType.InMemory(scopedMetricsFactory)
             else MetricsFactoryType.External,
           initializeGlobalOpenTelemetry = false,
+          sequencerTransportSeed = Some(1L),
         ),
       )
 

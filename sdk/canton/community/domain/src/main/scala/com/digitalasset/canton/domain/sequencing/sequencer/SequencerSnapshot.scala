@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.sequencer.admin.v30
@@ -23,6 +24,7 @@ import scala.collection.SeqView
 
 final case class SequencerSnapshot(
     lastTs: CantonTimestamp,
+    latestBlockHeight: Long,
     heads: Map[Member, SequencerCounter],
     status: SequencerPruningStatus,
     inFlightAggregations: InFlightAggregations,
@@ -58,6 +60,7 @@ final case class SequencerSnapshot(
 
     v30.SequencerSnapshot(
       latestTimestamp = lastTs.toProtoPrimitive,
+      lastBlockHeight = latestBlockHeight.toLong,
       headMemberCounters =
         // TODO(#12075) sortBy is a poor man's approach to achieving deterministic serialization here
         //  Figure out whether we need this for sequencer snapshots
@@ -88,6 +91,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 
   def apply(
       lastTs: CantonTimestamp,
+      latestBlockHeight: Long,
       heads: Map[Member, SequencerCounter],
       status: SequencerPruningStatus,
       inFlightAggregations: InFlightAggregations,
@@ -98,6 +102,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
   ): SequencerSnapshot =
     SequencerSnapshot(
       lastTs,
+      latestBlockHeight,
       heads,
       status,
       inFlightAggregations,
@@ -108,6 +113,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 
   def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
     CantonTimestamp.MinValue,
+    UninitializedBlockHeight,
     Map.empty,
     SequencerPruningStatus.Unimplemented,
     Map.empty,
@@ -190,6 +196,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencerSnapshot(
       lastTs,
+      request.lastBlockHeight,
       heads,
       status,
       inFlightAggregations,

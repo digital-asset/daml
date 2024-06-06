@@ -15,6 +15,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
   SequencerMemberStatus,
@@ -921,6 +922,7 @@ class DbSequencerStore(
       val checkpoints = checkpointsAtTimestamp.toMap
       SequencerSnapshot(
         lastTs,
+        UninitializedBlockHeight,
         checkpoints.fmap(_.counter),
         statusAtTimestamp,
         Map.empty,

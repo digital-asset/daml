@@ -9,7 +9,12 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String73
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{
+  DomainSyncCryptoClient,
+  HashPurpose,
+  SyncCryptoApi,
+  SyncCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.*
@@ -200,17 +205,17 @@ class BlockUpdateGeneratorImpl(
     val UnsignedChunkEvents(
       sender,
       events,
-      signingSnapshot,
+      topologyOrSequencingSnapshot,
       sequencingTimestamp,
-      sequencingSnapshot,
+      latestSequencerEventTimestamp,
       trafficStates,
       submissionRequestTraceContext,
     ) = unsignedEvents
     implicit val traceContext: TraceContext = submissionRequestTraceContext
-    val signingTimestamp = signingSnapshot.ipsSnapshot.timestamp
+    val topologyTimestamp = topologyOrSequencingSnapshot.ipsSnapshot.timestamp
     val signedEventsF =
       maybeLowerTopologyTimestampBound match {
-        case Some(bound) if bound > signingTimestamp =>
+        case Some(bound) if bound > topologyTimestamp =>
           // As the required topology snapshot timestamp is older than the lower topology timestamp bound, the timestamp
           // of this sequencer's very first topology snapshot, tombstone the events. This enables subscriptions to signal to
           // subscribers that this sequencer is not in a position to serve the events behind these sequencer counters.
@@ -218,7 +223,7 @@ class BlockUpdateGeneratorImpl(
           // "soon" after initial sequencer onboarding. See #13609
           events.toSeq.parTraverse { case (member, event) =>
             logger.info(
-              s"Sequencing tombstone for ${member.identifier} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $signingTimestamp not available before the bound $bound."
+              s"Sequencing tombstone for ${member.identifier} at ${event.timestamp} and ${event.counter}. Sequencer signing key at $topologyTimestamp not available before the bound $bound."
             )
             // sign tombstones using key valid at sequencing timestamp as event timestamp has no signing key and we
             // are not sequencing the event anyway, but the tombstone
@@ -231,13 +236,22 @@ class BlockUpdateGeneratorImpl(
               protocolVersion,
             )
             for {
+              // Use sequencing snapshot for signing the tombstone,
+              // as the snapshot at topology time does not have signing keys
+              sequencingSnapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
+                domainSyncCryptoApi,
+                sequencingTimestamp,
+                latestSequencerEventTimestamp,
+                protocolVersion,
+                warnIfApproximate = false,
+              )
               signedContent <-
                 SignedContent
                   .create(
                     sequencingSnapshot.pureCrypto,
                     sequencingSnapshot,
                     err,
-                    Some(sequencingSnapshot.ipsSnapshot.timestamp),
+                    Some(topologyTimestamp),
                     HashPurpose.SequencedEventSignature,
                     protocolVersion,
                   )
@@ -257,8 +271,8 @@ class BlockUpdateGeneratorImpl(
             .parTraverse { case (member, event) =>
               SignedContent
                 .create(
-                  signingSnapshot.pureCrypto,
-                  signingSnapshot,
+                  topologyOrSequencingSnapshot.pureCrypto,
+                  topologyOrSequencingSnapshot,
                   event,
                   None,
                   HashPurpose.SequencedEventSignature,
@@ -302,8 +316,8 @@ object BlockUpdateGeneratorImpl {
   private[update] final case class SequencedSubmission(
       sequencingTimestamp: CantonTimestamp,
       submissionRequest: SignedContent[SubmissionRequest],
-      sequencingSnapshot: SyncCryptoApi,
-      topologySnapshotO: Option[SyncCryptoApi],
+      topologyOrSequencingSnapshot: SyncCryptoApi,
+      topologyTimestampError: Option[SequencerDeliverError],
   )(val traceContext: TraceContext)
 
   private[update] final case class RecipientStats(

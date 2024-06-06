@@ -15,7 +15,7 @@ object GroupAddressResolver {
 
   def resolveGroupsToMembers(
       groupRecipients: Set[GroupRecipient],
-      topologySnapshot: TopologySnapshot,
+      topologyOrSequencingSnapshot: TopologySnapshot,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -32,7 +32,7 @@ object GroupAddressResolver {
           else
             for {
               mapping <-
-                topologySnapshot
+                topologyOrSequencingSnapshot
                   .activeParticipantsOfParties(parties.toSeq)
             } yield asGroupRecipientsToMembers(mapping)
         }
@@ -44,7 +44,7 @@ object GroupAddressResolver {
             Future.successful(Map.empty[GroupRecipient, Set[Member]])
           else
             for {
-              groups <- topologySnapshot
+              groups <- topologyOrSequencingSnapshot
                 .mediatorGroupsOfAll(mediatorGroups)
                 .leftMap(_ => Seq.empty[MediatorGroup])
                 .merge
@@ -54,7 +54,7 @@ object GroupAddressResolver {
           if (!groupRecipients.contains(AllMembersOfDomain)) {
             Future.successful(Map.empty[GroupRecipient, Set[Member]])
           } else {
-            topologySnapshot
+            topologyOrSequencingSnapshot
               .allMembers()
               .map(members => Map((AllMembersOfDomain: GroupRecipient, members)))
           }
@@ -65,7 +65,7 @@ object GroupAddressResolver {
           if (useSequencersOfDomain) {
             for {
               sequencers <-
-                topologySnapshot
+                topologyOrSequencingSnapshot
                   .sequencerGroup()
                   .map(
                     _.map(group => (group.active.forgetNE ++ group.passive).toSet[Member])

@@ -237,6 +237,7 @@ class StoreBackedCommandExecutorSpec
       ),
       keyMaintainers = Some(Set(Ref.Party.assertFromString("unexpectedSig"))),
       keyValue = Some(LfValue.ValueTrue),
+      transactionVersion = LfTransactionVersion.StableVersions.max,
     )
 
     def doTest(

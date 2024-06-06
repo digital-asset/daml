@@ -70,6 +70,7 @@ trait SequencerTransportLookup {
 
 class SequencersTransportState(
     initialSequencerTransports: SequencerTransports[?],
+    sequencerTransportSeed: Option[Long],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -77,7 +78,7 @@ class SequencersTransportState(
     with NamedLogging
     with FlagCloseable {
 
-  private val random: Random = new Random(1L)
+  private val random: Random = sequencerTransportSeed.fold(new Random)(new Random(_))
 
   private val closeReasonPromise = Promise[SequencerClient.CloseReason]()
 

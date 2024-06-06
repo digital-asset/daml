@@ -313,6 +313,7 @@ object ValidateDisclosedContractsTest {
         keyValue = Some(keyWithMaintainers.value),
         signatories = api.signatories,
         stakeholders = api.stakeholders,
+        transactionVersion = testTxVersion,
       )
     )
   }
