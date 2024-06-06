@@ -99,9 +99,10 @@ import com.daml.ledger.api.v2.testing.time_service.{
   TimeServiceGrpc,
 }
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
   Filters,
-  InclusiveFilters,
   TemplateFilter,
   TransactionFilter,
 }
@@ -1408,9 +1409,9 @@ object LedgerApiCommands {
         val filter =
           if (templateFilter.nonEmpty) {
             Filters(
-              Some(
-                InclusiveFilters(templateFilters =
-                  templateFilter.map(tId =>
+              templateFilter.map(tId =>
+                CumulativeFilter(
+                  IdentifierFilter.TemplateFilter(
                     TemplateFilter(Some(tId.toIdentifier), includeCreatedEventBlob)
                   )
                 )

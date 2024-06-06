@@ -8,9 +8,10 @@ import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Sour
 import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
+import com.daml.ledger.api.v2.transaction_filter.{CumulativeFilter, TemplateFilter}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
 import com.digitalasset.canton.logging.TracedLogger
@@ -152,26 +153,33 @@ object AcsTxStreams extends NoTracing {
       parties: domain.PartySet,
       contractTypeIds: List[ContractTypeId.Resolved],
   ): lav2.transaction_filter.TransactionFilter = {
-    import lav2.transaction_filter.{Filters, InterfaceFilter, InclusiveFilters}
+    import lav2.transaction_filter.{Filters, InterfaceFilter}
 
     val (templateIds, interfaceIds) = ResolvedQuery.partition(contractTypeIds)
     val filters = Filters(
-      Some(
-        InclusiveFilters(
-          templateFilters = templateIds.map(templateId =>
-            TemplateFilter(
-              templateId = Some(apiIdentifier(templateId)),
-              includeCreatedEventBlob = false,
+      templateIds
+        .map(templateId =>
+          CumulativeFilter(
+            IdentifierFilter.TemplateFilter(
+              TemplateFilter(
+                templateId = Some(apiIdentifier(templateId)),
+                includeCreatedEventBlob = false,
+              )
             )
-          ),
-          interfaceFilters = interfaceIds.map(interfaceId =>
-            InterfaceFilter(
-              interfaceId = Some(apiIdentifier(interfaceId)),
-              includeInterfaceView = true,
-            )
-          ),
+          )
         )
-      )
+        ++
+          interfaceIds
+            .map(interfaceId =>
+              CumulativeFilter(
+                IdentifierFilter.InterfaceFilter(
+                  InterfaceFilter(
+                    interfaceId = Some(apiIdentifier(interfaceId)),
+                    includeInterfaceView = true,
+                  )
+                )
+              )
+            )
     )
 
     lav2.transaction_filter.TransactionFilter(
