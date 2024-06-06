@@ -19,10 +19,10 @@ import com.digitalasset.canton.participant.admin.PackageUpgradeValidator.Package
 import com.digitalasset.canton.participant.admin.PackageUploader.ErrorValidations
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import scalaz.std.either._
-import scalaz.std.option._
+import scalaz.std.either.*
+import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance
-import scalaz.syntax.traverse._
+import scalaz.syntax.traverse.*
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
@@ -44,7 +44,8 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
     val upgradingPackagesMap = upgradingPackages.toMap
-    val packagesInTopologicalOrder = dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
+    val packagesInTopologicalOrder =
+      dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
     val packageMap = getPackageMap(loggingContext.traceContext)
 
     def go(

@@ -85,6 +85,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceDomainDisabledUs,
   SyncServiceDomainDisconnect,
   SyncServiceFailedDomainConnection,
+  SyncServiceUnknownDomain,
 }
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
@@ -781,9 +782,29 @@ class CantonSyncService(
       .replace(config)
       .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias))
 
+  /** Migrates contracts from a source domain to target domain by re-associating them in the participant's persistent store.
+    *
+    * The migration only starts when certain preconditions are fulfilled:
+    * - the participant is disconnected from the source and target domain
+    * - there are neither in-flight submissions nor dirty requests
+    *
+    * You can force the migration in case of in-flight transactions but it may lead to a ledger fork.
+    * Consider:
+    *  - Transaction involving participants P1 and P2 that create a contract c
+    *  - P1 migrates (D1 -> D2) when processing is done, P2 when it is in flight
+    *  - Final state:
+    *    - P1 has the contract on D2 (it was created and migrated)
+    *    - P2 does have the contract because it will not process the mediator verdict
+    *
+    *  Instead of forcing a migration when there are in-flight transactions reconnect all participants to the source domain,
+    *  halt activity and let the in-flight transactions complete or time out.
+    *
+    *  Using the force flag should be a last resort, that is for disaster recovery when the source domain is unrecoverable.
+    */
   def migrateDomain(
       source: DomainAlias,
       target: DomainConnectionConfig,
+      force: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
@@ -827,8 +848,37 @@ class CantonSyncService(
             SyncServiceError.SyncServiceUnknownDomain.Error(source): SyncServiceError
           )
       )
+
+      // Perform all checks whether we can do the migration
       _ <- mustBeOffline(source, sourceDomainId)
       _ <- mustBeOffline(target.domain, targetDomainInfo.domainId)
+
+      hasInFlightSubmissions <- performUnlessClosingEitherU(functionFullName)(
+        stateInspection
+          .hasInFlightSubmissions(source)
+          .leftMap(_ => SyncServiceUnknownDomain.Error(source))
+      )
+      hasDirtyRequests <- performUnlessClosingEitherU(functionFullName)(
+        stateInspection
+          .hasDirtyRequests(source)
+          .leftMap(_ => SyncServiceUnknownDomain.Error(source))
+      )
+
+      _ <-
+        if (force) {
+          if (hasInFlightSubmissions || hasDirtyRequests) {
+            logger.info(
+              s"Ignoring existing in-flight transactions on domain with alias ${source.unwrap} because of forced migration. This may lead to a ledger fork."
+            )
+          }
+          EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
+        } else
+          EitherT.cond[FutureUnlessShutdown](
+            !hasInFlightSubmissions,
+            (),
+            SyncServiceError.SyncServiceDomainMustNotHaveInFlightTransactions.Error(source),
+          )
+
       _ <-
         connectQueue.executeEUS(
           migrationService
@@ -1963,6 +2013,27 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(cause = show"$domain must be disconnected for the given operation")
+        with SyncServiceError
+
+  }
+
+  @Explanation(
+    "This error is emitted when a domain migration is attempted while transactions are still in-flight on the source domain."
+  )
+  @Resolution(
+    """Ensure the source domain has no in-flight transactions by reconnecting participants to the source domain, halting
+      |activity on the participants and waiting for in-flight transactions to complete or time out. Afterwards invoke
+      |`migrate_domain` again. As a last resort, you may force the domain migration ignoring in-flight transactions using
+      |the `force` flag on the command. Be advised, forcing a migration may lead to a ledger fork."""
+  )
+  object SyncServiceDomainMustNotHaveInFlightTransactions
+      extends ErrorCode(
+        "SYNC_SERVICE_DOMAIN_MUST_NOT_HAVE_IN_FLIGHT_TRANSACTIONS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = show"$domain must not have in-flight transactions")
         with SyncServiceError
 
   }

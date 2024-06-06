@@ -35,7 +35,7 @@ import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{EitherTUtil, PathUtils, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,

@@ -644,7 +644,7 @@ final class GrpcParticipantRepairService(
             )
           _ <- EitherT(
             sync
-              .migrateDomain(sourceDomainAlias, conf)
+              .migrateDomain(sourceDomainAlias, conf, force = request.force.getOrElse(false))
               .leftMap(_.asGrpcError.getStatus.getDescription)
               .value
               .onShutdown {

@@ -198,6 +198,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         count56 shouldBe 1
       }
     }
+
     "prune all requests before given timestamp without checks" in {
       val store = mk()
       for {
@@ -208,6 +209,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         totalCount shouldBe 1
       }
     }
+
     "prune all requests before and including given timestamp without checks" in {
       val store = mk()
       for {
@@ -370,6 +372,22 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
           repair4 shouldBe Seq(requests(4))
           repair6 shouldBe Seq.empty
         }
+      }
+    }
+
+    "totalDirtyRequests should count dirty requests" in {
+      val store = mk()
+      for {
+        _ <- setupRequests(store)
+        initialDirtyRequests <- store.totalDirtyRequests()
+        // transition one of the request to the clean state and expect total dirty requests to be decreased by 1
+        _ <- valueOrFail(store.replace(rc, tsWithSecs(1), Clean, Some(tsWithSecs(8))))(
+          "changing one request to the clean state"
+        )
+        totalDirtyRequests <- store.totalDirtyRequests()
+      } yield {
+        initialDirtyRequests shouldBe 2
+        totalDirtyRequests shouldBe 1
       }
     }
   }

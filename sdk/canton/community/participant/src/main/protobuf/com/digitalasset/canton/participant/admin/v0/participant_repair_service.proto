@@ -95,6 +95,9 @@ message MigrateDomainRequest {
   // the target domain connection configuration
   // Required
   DomainConnectionConfig target_domain_connection_config = 2;
+  // Whether to force the migration in spite of risking a potential ledger fork
+  // Optional, defaults to false
+  google.protobuf.BoolValue force = 3;
 }
 message MigrateDomainResponse {}
 
