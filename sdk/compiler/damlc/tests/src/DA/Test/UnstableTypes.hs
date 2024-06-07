@@ -6,7 +6,6 @@ module DA.Test.UnstableTypes (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Data.Bifunctor
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
@@ -41,24 +40,11 @@ main = do
                       , LF.getIsSerializable (LF.dataSerializable ty)
                       ]
               if | "daml-prim" == takeBaseName dalf ->
-                   serializableTypes @?= sort damlPrimTypes
+                   serializableTypes @?= []
                  | "daml-stdlib" `isPrefixOf` takeBaseName dalf ->
-                   serializableTypes @?= sort damlStdlibTypes
+                   serializableTypes @?= []
                  | otherwise ->
                    assertFailure ("Unknown package: " <> show dalf)
               pure ()
         | dalf <- dalfs
         ]
-
--- | This tests that daml-prim only introduces these serializable datatypes
--- (any other serializable datatypes exposed by it are actually from stable packages)
-damlPrimTypes :: [(LF.ModuleName, LF.TypeConName)]
-damlPrimTypes = map (bimap LF.ModuleName LF.TypeConName)
-    [ (["GHC", "Stack", "Types"], ["CallStack"])
-    , (["GHC", "Stack", "Types"], ["SrcLoc"])
-    ]
-
--- | This tests that daml-stdlib introduces no serializable datatypes
--- (any serializable datatypes exposed by it are actually from stable packages)
-damlStdlibTypes :: [(LF.ModuleName, LF.TypeConName)]
-damlStdlibTypes = []

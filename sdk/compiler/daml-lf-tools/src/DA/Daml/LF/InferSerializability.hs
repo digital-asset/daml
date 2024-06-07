@@ -15,21 +15,26 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 
 inferModule :: World -> Version -> Module -> Either String Module
-inferModule world0 version mod0 = do
-  let modName = moduleName mod0
-  let dataTypes = moduleDataTypes mod0
-  let interfaces = NM.namesSet (moduleInterfaces mod0)
-  let eqs =
-        [ (dataTypeCon dataType, serializable, deps)
-        | dataType <- NM.toList dataTypes
-        , let (serializable, deps) =
-                case serializabilityConditionsDataType world0 version (Just $ CurrentModule modName interfaces) dataType of
-                  Left _ -> (False, [])
-                  Right deps0 -> (True, HS.toList deps0)
-        ]
-  case leastFixedPointBy (&&) eqs of
-    Left name -> throwError ("Reference to unknown data type: " ++ show name)
-    Right serializabilities -> do
-      let updateDataType dataType =
-            dataType{dataSerializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities)}
-      pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
+inferModule world0 version mod0 =
+  case moduleName mod0 of
+    -- any type from from the non stable part of the stdlib is unserializable
+    ModuleName ("DA" : _)  -> pure mod0
+    ModuleName ("GHC" : _) -> pure mod0
+    _                      -> do
+      let modName = moduleName mod0
+      let dataTypes = moduleDataTypes mod0
+      let interfaces = NM.namesSet (moduleInterfaces mod0)
+      let eqs =
+            [ (dataTypeCon dataType, serializable, deps)
+            | dataType <- NM.toList dataTypes
+            , let (serializable, deps) =
+                    case serializabilityConditionsDataType world0 version (Just $ CurrentModule modName interfaces) dataType of
+                      Left _ -> (False, [])
+                      Right deps0 -> (True, HS.toList deps0)
+            ]
+      case leastFixedPointBy (&&) eqs of
+        Left name -> throwError ("Reference to unknown data type: " ++ show name)
+        Right serializabilities -> do
+          let updateDataType dataType =
+                dataType{dataSerializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities)}
+          pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
