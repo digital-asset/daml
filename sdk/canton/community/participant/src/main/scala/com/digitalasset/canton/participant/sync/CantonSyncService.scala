@@ -37,7 +37,6 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -697,20 +696,8 @@ class CantonSyncService(
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
-  ): Future[Map[PackageId, PackageDetails]] =
-    packageService.value
-      .listPackages()
-      .map(
-        _.view
-          .map { pkgDesc =>
-            pkgDesc.packageId -> PackageDetails(
-              size = pkgDesc.packageSize.toLong,
-              knownSince = pkgDesc.uploadedAt.underlying,
-              sourceDescription = Some(pkgDesc.sourceDescription.str),
-            )
-          }
-          .toMap
-      )
+  ): Future[Seq[PackageDescription]] =
+    packageService.value.listPackages()
 
   override def getPackageMetadataSnapshot(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

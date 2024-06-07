@@ -9,6 +9,7 @@ import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion;
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,20 +31,22 @@ public final class ContractFilter<Ct> {
 
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
     Filter filter =
-        new InclusiveFilter(
+        new CumulativeFilter(
             Collections.emptyMap(),
             Collections.singletonMap(
-                companion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB));
+                companion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB),
+            Optional.empty());
     return new ContractFilter<>(companion, filter);
   }
 
   public static <Cid, View> ContractFilter<Contract<Cid, View>> of(
       InterfaceCompanion<?, Cid, View> companion) {
     Filter filter =
-        new InclusiveFilter(
+        new CumulativeFilter(
             Collections.singletonMap(
                 companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
-            Collections.emptyMap());
+            Collections.emptyMap(),
+            Optional.empty());
     return new ContractFilter<>(companion, filter);
   }
 

@@ -14,7 +14,6 @@ import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.transaction
-import com.digitalasset.canton.ledger.api.messages.transaction.GetUpdateTreesRequest
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import io.grpc.StatusRuntimeException
 
@@ -83,36 +82,6 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
     }
   }
 
-  def validateTree(
-      req: GetUpdatesRequest,
-      ledgerEnd: ParticipantOffset.Absolute,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[GetUpdateTreesRequest] = {
-
-    for {
-      partial <- commonValidations(req)
-      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
-        "Begin",
-        partial.begin,
-        ledgerEnd,
-      )
-      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
-        "End",
-        partial.end,
-        ledgerEnd,
-      )
-      convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
-    } yield {
-      transaction.GetUpdateTreesRequest(
-        partial.begin,
-        partial.end,
-        convertedFilter,
-        req.verbose,
-      )
-    }
-  }
-
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
@@ -153,10 +122,11 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       transactionFilter: TransactionFilter
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
-      .collectFirst { case (party, Filters(Some(inclusive))) =>
-        invalidArgument(
-          s"$party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
-        )
+      .collectFirst {
+        case (party, Filters(cumulative)) if cumulative.nonEmpty =>
+          invalidArgument(
+            s"$party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
+          )
       }
       .fold(partyValidator.requireKnownParties(transactionFilter.filtersByParty.keys))(Left(_))
 

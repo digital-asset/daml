@@ -62,21 +62,4 @@ package index {
       recordTime: Timestamp,
       workflowId: WorkflowId,
   )
-
-  /** Meta-data of a Daml-LF package
-    *
-    * @param size              : The size of the archive payload, in bytes.
-    *
-    * @param knownSince        : Indicates since when the package is known to
-    *   the backing participant.
-    *
-    * @param sourceDescription : Optional description provided by the backing
-    *   participant describing where it got the package from.
-    */
-  // TODO(#17635): Consider using PackageDescription instead
-  final case class PackageDetails(
-      size: Long,
-      knownSince: Timestamp,
-      sourceDescription: Option[String],
-  )
 }

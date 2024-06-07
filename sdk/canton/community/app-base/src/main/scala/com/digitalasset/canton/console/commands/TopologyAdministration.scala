@@ -377,6 +377,31 @@ class TopologyAdministrationGroup(
         }
     }
 
+    @Help.Summary(
+      "Download the genesis state for a sequencer. This method should be used when performing a major domain upgrade."
+    )
+    @Help.Description(
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major domain upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
+        |filterDomainStore: Must be specified if the genesis state is requested from a participant node.
+        |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
+        |""".stripMargin
+    )
+    def genesis_state(
+        filterDomainStore: String = "",
+        timestamp: Option[CantonTimestamp] = None,
+    ): ByteString = {
+      consoleEnvironment
+        .run {
+          adminCommand(
+            TopologyAdminCommands.Read.GenesisState(
+              filterDomainStore = OptionUtil
+                .emptyStringAsNone(filterDomainStore),
+              timestamp = timestamp,
+            )
+          )
+        }
+    }
+
     @Help.Summary("Find the latest transaction for a given mapping hash")
     @Help.Description(
       """

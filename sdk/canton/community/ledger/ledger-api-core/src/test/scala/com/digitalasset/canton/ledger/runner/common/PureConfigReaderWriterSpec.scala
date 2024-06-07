@@ -16,8 +16,8 @@ import com.digitalasset.canton.platform.config.{
   IndexServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
@@ -86,7 +86,6 @@ class PureConfigReaderWriterSpec
       Some("RateLimitingConfig"),
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexerConfig)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.packageMetadataViewConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.commandServiceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.indexServiceConfig)
   }
@@ -383,28 +382,6 @@ class PureConfigReaderWriterSpec
   it should "not support unknown keys" in {
     val value = "unknown-key=yes\n" + validHaConfigValue
     convert(haConfigConvert, value).left.value.prettyPrint(0) should include("Unknown key")
-  }
-
-  behavior of "PackageMetadataViewConfig"
-
-  val validPackageMetadataViewConfigValue =
-    """
-      |  init-load-parallelism = 16
-      |  init-process-parallelism = 16
-      |  init-takes-too-long-initial-delay = 1 minute
-      |  init-takes-too-long-interval = 10 seconds
-      |  """.stripMargin
-
-  it should "support current defaults" in {
-    val value = validPackageMetadataViewConfigValue
-    convert(packageMetadataViewConfigConvert, value).value shouldBe PackageMetadataViewConfig()
-  }
-
-  it should "not support unknown keys" in {
-    val value = "unknown-key=yes\n" + validPackageMetadataViewConfigValue
-    convert(packageMetadataViewConfigConvert, value).left.value.prettyPrint(0) should include(
-      "Unknown key"
-    )
   }
 
   behavior of "IndexerConfig"

@@ -35,7 +35,7 @@ class GrpcPackageService(
       activePackages <- service.listPackages(OptionUtil.zeroAsNone(request.limit))
     } yield ListPackagesResponse(activePackages.map {
       case protocol.PackageDescription(pid, sourceDescription, _uploadedAt, _size) =>
-        // TODO(#17635): Extend PB package description definition
+        // TODO(#17635): Extend PB package description definition to accommodate uploadedAt and size
         v30.PackageDescription(pid, sourceDescription.unwrap)
     })
   }

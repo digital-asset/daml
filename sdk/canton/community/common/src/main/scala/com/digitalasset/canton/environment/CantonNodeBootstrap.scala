@@ -584,6 +584,7 @@ abstract class CantonNodeBootstrapImpl[
         adminV30.TopologyManagerReadServiceGrpc
           .bindService(
             new GrpcTopologyManagerReadService(
+              member(nodeId),
               sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,

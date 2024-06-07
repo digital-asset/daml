@@ -7,7 +7,7 @@ import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -36,8 +36,8 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
   def append(
       pkgs: List[DamlLf.Archive],
       uploadedAt: CantonTimestamp,
-      sourceDescription: String256M,
-      dar: Option[PackageService.Dar],
+      sourceDescription: String255,
+      dar: PackageService.Dar,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]

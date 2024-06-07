@@ -16,8 +16,8 @@ import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.CantonRequireTypes.String255
+import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -30,7 +30,6 @@ import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
@@ -106,7 +105,7 @@ class PackageServiceTest
     test(env)
   }
 
-  private lazy val cantonExamplesDescription = String256M.tryCreate("CantonExamples")
+  private lazy val cantonExamplesDescription = String255.tryCreate("CantonExamples")
   private lazy val expectedPackageIdsAndState: Seq[PackageDescription] =
     examplePackages
       .map { pkg =>

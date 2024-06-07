@@ -23,10 +23,11 @@ service PackageService {
   // Upload a DAR file and all packages inside to the participant node
   rpc UploadDar(UploadDarRequest) returns (UploadDarResponse);
 
-  // Upload a DAR file and all packages inside to the participant node
+  // Validate a DAR file and all packages inside to the participant node
   rpc ValidateDar(ValidateDarRequest) returns (ValidateDarResponse);
 
   // Remove a package that is not vetted
+  // TODO(#17635): This operation is not safe as it can remove packages still in use by the Ledger API
   rpc RemovePackage(RemovePackageRequest) returns (RemovePackageResponse);
 
   // Enable vetting for all packages pertaining to a specific DAR
@@ -38,6 +39,7 @@ service PackageService {
   rpc UnvetDar(UnvetDarRequest) returns (UnvetDarResponse);
 
   // Remove a DAR that is not needed
+  // TODO(#17635): This operation is not safe as it can remove packages still in use by the Ledger API
   rpc RemoveDar(RemoveDarRequest) returns (RemoveDarResponse);
 
   // Obtain a DAR file by hash -- for inspection & download

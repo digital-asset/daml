@@ -335,6 +335,7 @@ object TestingTimeServiceConfig {
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
+  * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -365,6 +366,7 @@ final case class ParticipantNodeParameterConfig(
     override val useUnifiedSequencer: Boolean = false,
     allowForUnauthenticatedContractIds: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
+    packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

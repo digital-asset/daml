@@ -55,12 +55,12 @@ private[apiserver] final class ApiPackageManagementService private (
     readService
       .listLfPackages()
       .map { pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
+        ListKnownPackagesResponse(pkgs.map { pkgDescription =>
           PackageDetails(
-            pkgId.toString,
-            details.size,
-            Some(TimestampConversion.fromLf(details.knownSince)),
-            details.sourceDescription.getOrElse(""),
+            pkgDescription.packageId.toString,
+            pkgDescription.packageSize.toLong,
+            Some(TimestampConversion.fromLf(pkgDescription.uploadedAt.underlying)),
+            pkgDescription.sourceDescription.toString,
           )
         })
       }
@@ -73,8 +73,7 @@ private[apiserver] final class ApiPackageManagementService private (
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Validating DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
       readService
-        // TODO(#17635): Use proper name for darName
-        .validateDar(dar = request.darFile, darName = "validateDar")
+        .validateDar(dar = request.darFile, darName = "defaultDarName")
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
           case err: SubmissionResult.SynchronousError => Future.failed(err.exception)

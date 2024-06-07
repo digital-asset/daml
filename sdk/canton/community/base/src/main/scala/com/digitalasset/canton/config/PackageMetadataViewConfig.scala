@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.indexer
+package com.digitalasset.canton.config
 
-import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig.{
+import com.digitalasset.canton.config.PackageMetadataViewConfig.{
   DefaultInitLoadParallelism,
   DefaultInitProcessParallelism,
   DefaultInitTakesTooLongInitialDelay,
@@ -24,6 +24,4 @@ object PackageMetadataViewConfig {
   val DefaultInitProcessParallelism: Int = 16
   val DefaultInitTakesTooLongInitialDelay: FiniteDuration = 1.minute
   val DefaultInitTakesTooLongInterval: FiniteDuration = 10.seconds
-
-  val Default = PackageMetadataViewConfig()
 }

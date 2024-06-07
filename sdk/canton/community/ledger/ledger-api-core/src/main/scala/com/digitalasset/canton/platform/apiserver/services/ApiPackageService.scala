@@ -64,7 +64,7 @@ private[apiserver] final class ApiPackageService(
     logger.info(s"Received request to list packages: $request")
     readService
       .listLfPackages()
-      .map(p => ListPackagesResponse(p.keys.toSeq))
+      .map(p => ListPackagesResponse(p.map(_.packageId.toString)))
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
   }
 
@@ -100,16 +100,17 @@ private[apiserver] final class ApiPackageService(
     ) { implicit loggingContext =>
       logger.info(s"Received request for a package status: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
-        readService
-          .listLfPackages()
-          .map { packages =>
-            val result = if (packages.contains(packageId)) {
+        Future {
+          val result =
+            if (
+              readService.getPackageMetadataSnapshot.packageIdVersionMap.keySet.contains(packageId)
+            ) {
               PackageStatus.PACKAGE_STATUS_REGISTERED
             } else {
               PackageStatus.PACKAGE_STATUS_UNSPECIFIED
             }
-            GetPackageStatusResponse(result)
-          }
+          GetPackageStatusResponse(result)
+        }
           .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])
       }
     }

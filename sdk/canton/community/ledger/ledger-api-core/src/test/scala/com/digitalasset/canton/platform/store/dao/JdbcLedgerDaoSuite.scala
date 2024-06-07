@@ -17,7 +17,6 @@ import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.testing.utils.TestModels
@@ -53,18 +52,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
-  private val now = Timestamp.now()
-
   private[this] lazy val dar =
     TestModels.com_daml_ledger_test_ModelTestDar_path
       .pipe(JarResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile)
 
-  protected final lazy val packages: List[(DamlLf.Archive, index.PackageDetails)] =
-    dar.all.map(dar => dar -> index.PackageDetails(dar.getSerializedSize.toLong, now, None))
-
   protected final lazy val packageMap =
-    packages.map { case (archive, _) => archive.getHash -> archive }.toMap
+    dar.all.map { archive => archive.getHash -> archive }.toMap
 
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
   override def loadPackage: PackageId => Future[Option[DamlLf.Archive]] = pkgId =>

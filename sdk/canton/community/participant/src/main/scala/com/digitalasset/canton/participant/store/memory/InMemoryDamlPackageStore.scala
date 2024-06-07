@@ -8,7 +8,7 @@ import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -33,8 +33,8 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
   import DamlPackageStore.*
 
   private val pkgData
-      : concurrent.Map[LfPackageId, (DamlLf.Archive, String256M, CantonTimestamp, Int)] =
-    new ConcurrentHashMap[LfPackageId, (DamlLf.Archive, String256M, CantonTimestamp, Int)].asScala
+      : concurrent.Map[LfPackageId, (DamlLf.Archive, String255, CantonTimestamp, Int)] =
+    new ConcurrentHashMap[LfPackageId, (DamlLf.Archive, String255, CantonTimestamp, Int)].asScala
 
   private val darData: concurrent.Map[Hash, (Array[Byte], String255)] =
     new ConcurrentHashMap[Hash, (Array[Byte], String255)].asScala
@@ -45,14 +45,11 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
   override def append(
       pkgs: List[DamlLf.Archive],
       uploadedAt: CantonTimestamp,
-      sourceDescription: String256M,
-      dar: Option[PackageService.Dar],
+      sourceDescription: String255,
+      dar: PackageService.Dar,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-
-    val pkgIds = pkgs.map(readPackageId)
-
     pkgs.foreach { pkgArchive =>
       val packageId = readPackageId(pkgArchive)
       val packageSize = pkgArchive.getPayload.size()
@@ -71,12 +68,10 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
           .discard
     }
 
-    dar.foreach { dar =>
-      darData.put(dar.descriptor.hash, (dar.bytes.clone(), dar.descriptor.name)).discard
-      val hash = dar.descriptor.hash
-      val pkgS = pkgIds.toSet
-      darPackages.updateWith(hash)(optSet => Some(optSet.fold(pkgS)(_.union(pkgS))))
-    }
+    darData.put(dar.descriptor.hash, (dar.bytes.clone(), dar.descriptor.name)).discard
+    val hash = dar.descriptor.hash
+    val pkgS = pkgs.view.map(readPackageId).toSet
+    darPackages.updateWith(hash)(optSet => Some(optSet.fold(pkgS)(_.union(pkgS)))).discard
 
     FutureUnlessShutdown.unit
   }
@@ -169,5 +164,5 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
 }
 
 object InMemoryDamlPackageStore {
-  val defaultPackageDescription = String256M.tryCreate("default")
+  val defaultPackageDescription = String255.tryCreate("default")
 }

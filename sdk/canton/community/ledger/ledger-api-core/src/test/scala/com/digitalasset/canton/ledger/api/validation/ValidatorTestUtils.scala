@@ -61,7 +61,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
       p shouldEqual party
       filters shouldEqual domain.Filters(
         Some(
-          domain.InclusiveFilters(
+          domain.CumulativeFilter(
             templateFilters =
               expectedTemplates.map(TemplateFilter(_, includeCreatedEventBlob = false)),
             interfaceFilters = Set(
@@ -77,6 +77,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
                 includeCreatedEventBlob = true,
               )
             ),
+            templateWildcardFilter = None,
           )
         )
       )

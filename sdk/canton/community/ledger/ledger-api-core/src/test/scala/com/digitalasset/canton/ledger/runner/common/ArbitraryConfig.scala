@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, *}
-import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
+import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
@@ -179,11 +179,6 @@ object ArbitraryConfig {
     optElement <- Gen.option(element)
   } yield optElement
 
-  val packageMetadataViewConfig = for {
-    initLoadParallelism <- Gen.chooseNum(0, Int.MaxValue)
-    initProcessParallelism <- Gen.chooseNum(0, Int.MaxValue)
-  } yield PackageMetadataViewConfig(initLoadParallelism, initProcessParallelism)
-
   val indexerConfig = for {
     batchingParallelism <- nonNegativeIntGen
     enableCompression <- Gen.oneOf(true, false)
@@ -192,7 +187,6 @@ object ArbitraryConfig {
     maxInputBufferSize <- nonNegativeIntGen
     restartDelay <- nonNegativeFiniteDurationGen
     submissionBatchSize <- Gen.long
-    packageMetadataViewConfig <- packageMetadataViewConfig
   } yield IndexerConfig(
     batchingParallelism = batchingParallelism,
     enableCompression = enableCompression,
@@ -201,7 +195,6 @@ object ArbitraryConfig {
     maxInputBufferSize = maxInputBufferSize,
     restartDelay = restartDelay,
     submissionBatchSize = submissionBatchSize,
-    packageMetadataView = packageMetadataViewConfig,
   )
 
   def genActiveContractsServiceStreamConfig: Gen[ActiveContractsServiceStreamsConfig] =

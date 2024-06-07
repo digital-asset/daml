@@ -8,20 +8,20 @@ import com.daml.ledger.api.v2.TransactionFilterOuterClass;
 public abstract class Filter {
 
   public static Filter fromProto(TransactionFilterOuterClass.Filters filters) {
-    if (filters.hasInclusive()) {
-      return InclusiveFilter.fromProto(filters.getInclusive());
-    } else {
+    if (filters.getCumulativeList().isEmpty()) {
       return NoFilter.instance;
+    } else {
+      return CumulativeFilter.fromProto(filters.getCumulativeList());
     }
   }
 
   public abstract TransactionFilterOuterClass.Filters toProto();
 
   /**
-   * Settings for including an interface in {@link InclusiveFilter}. There are four possible values:
-   * {@link #HIDE_VIEW_HIDE_CREATED_EVENT_BLOB} and {@link #INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB}
-   * and {@link #HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB} and {@link
-   * #INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB}.
+   * Settings for including an interface in {@link CumulativeFilter}. There are four possible
+   * values: {@link #HIDE_VIEW_HIDE_CREATED_EVENT_BLOB} and {@link
+   * #INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB} and {@link #HIDE_VIEW_INCLUDE_CREATED_EVENT_BLOB} and
+   * {@link #INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB}.
    */
   public static enum Interface {
     HIDE_VIEW_HIDE_CREATED_EVENT_BLOB(false, false),
@@ -91,6 +91,34 @@ public abstract class Filter {
     }
 
     Template merge(Template other) {
+      return includeCreatedEventBlob(includeCreatedEventBlob || other.includeCreatedEventBlob);
+    }
+  }
+
+  public static enum Wildcard {
+    INCLUDE_CREATED_EVENT_BLOB(true),
+    HIDE_CREATED_EVENT_BLOB(false);
+    public final boolean includeCreatedEventBlob;
+
+    Wildcard(boolean includeCreatedEventBlob) {
+      this.includeCreatedEventBlob = includeCreatedEventBlob;
+    }
+
+    private static Wildcard includeCreatedEventBlob(boolean includeCreatedEventBlob) {
+      return includeCreatedEventBlob ? INCLUDE_CREATED_EVENT_BLOB : HIDE_CREATED_EVENT_BLOB;
+    }
+
+    public TransactionFilterOuterClass.WildcardFilter toProto() {
+      return TransactionFilterOuterClass.WildcardFilter.newBuilder()
+          .setIncludeCreatedEventBlob(includeCreatedEventBlob)
+          .build();
+    }
+
+    static Wildcard fromProto(TransactionFilterOuterClass.WildcardFilter proto) {
+      return includeCreatedEventBlob(proto.getIncludeCreatedEventBlob());
+    }
+
+    Wildcard merge(Wildcard other) {
       return includeCreatedEventBlob(includeCreatedEventBlob || other.includeCreatedEventBlob);
     }
   }
