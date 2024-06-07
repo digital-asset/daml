@@ -1,19 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf.language
 package iterable
 
 import com.daml.lf.language.Ast._
-import com.daml.lf.validation.Util._
 
-private[validation] object TypeIterable {
+private[lf] object TypeIterable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =
     (tyCon.args.iterator foldLeft (TTyCon(tyCon.tycon): Type))(TApp)
 
-  private[validation] def iterator(typ: Type): Iterator[Type] =
+  private def iterator(typ: Type): Iterator[Type] =
     typ match {
       case TSynApp(_, args) =>
         args.iterator
@@ -27,11 +26,11 @@ private[validation] object TypeIterable {
         fields.values
     }
 
-  private[validation] def iterator(expr0: Expr): Iterator[Type] = {
+  private def iterator(expr0: Expr): Iterator[Type] = {
     expr0 match {
       case ERecCon(tycon, fields @ _) =>
         Iterator(toType(tycon)) ++
-          fields.values.flatMap(iterator(_))
+          fields.iterator.flatMap { case (_, typ) => iterator(typ) }
       case ERecProj(tycon, field @ _, record) =>
         Iterator(toType(tycon)) ++
           iterator(record)
@@ -117,7 +116,7 @@ private[validation] object TypeIterable {
     }
   }
 
-  private[validation] def iterator(update: Update): Iterator[Type] =
+  private def iterator(update: Update): Iterator[Type] =
     update match {
       case UpdatePure(typ, expr) =>
         Iterator(typ) ++ iterator(expr)
@@ -171,13 +170,13 @@ private[validation] object TypeIterable {
           iterator(handler)
     }
 
-  private[validation] def iterator(binding: Binding): Iterator[Type] =
+  private def iterator(binding: Binding): Iterator[Type] =
     binding match {
       case Binding(binder @ _, typ, bound) =>
         Iterator(typ) ++ iterator(bound)
     }
 
-  private[validation] def iterator(scenario: Scenario): Iterator[Type] =
+  private def iterator(scenario: Scenario): Iterator[Type] =
     scenario match {
       case ScenarioPure(typ, expr) =>
         Iterator(typ) ++ iterator(expr)
@@ -199,14 +198,14 @@ private[validation] object TypeIterable {
         ExprIterable.iterator(scenario).flatMap(iterator(_))
     }
 
-  private[validation] def iterator(defn: Definition): Iterator[Type] =
+  private def iterator(defn: Definition): Iterator[Type] =
     defn match {
       case DTypeSyn(params @ _, typ) =>
         Iterator(typ)
       case DDataType(serializable @ _, params @ _, DataRecord(fields)) =>
-        fields.values
+        fields.iterator.map(_._2)
       case DDataType(serializable @ _, params @ _, DataVariant(variants)) =>
-        variants.values
+        variants.iterator.map(_._2)
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
         Iterator.empty
       case DDataType(serializable @ _, params @ _, DataInterface) =>
@@ -216,7 +215,7 @@ private[validation] object TypeIterable {
 
     }
 
-  private[validation] def iterator(x: Template): Iterator[Type] =
+  private def iterator(x: Template): Iterator[Type] =
     x match {
       case Template(
             param @ _,
@@ -235,7 +234,7 @@ private[validation] object TypeIterable {
           implements.values.flatMap(iterator(_))
     }
 
-  private[validation] def iterator(choice: TemplateChoice): Iterator[Type] =
+  private def iterator(choice: TemplateChoice): Iterator[Type] =
     choice match {
       case TemplateChoice(
             name @ _,
@@ -256,7 +255,7 @@ private[validation] object TypeIterable {
           Iterator(retType)
     }
 
-  private[validation] def iterator(key: TemplateKey): Iterator[Type] =
+  private def iterator(key: TemplateKey): Iterator[Type] =
     key match {
       case TemplateKey(typ, body, maintainers) =>
         Iterator(typ) ++
@@ -264,31 +263,31 @@ private[validation] object TypeIterable {
           iterator(maintainers)
     }
 
-  private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
+  private def iterator(impl: TemplateImplements): Iterator[Type] =
     impl match {
       case TemplateImplements(interface, body) =>
         Iterator(TTyCon(interface)) ++ iterator(body)
     }
 
-  private[validation] def iterator(iiBody: InterfaceInstanceBody): Iterator[Type] =
+  private def iterator(iiBody: InterfaceInstanceBody): Iterator[Type] =
     iiBody match {
       case InterfaceInstanceBody(methods, view) =>
         methods.values.iterator.flatMap(iterator) ++ iterator(view)
     }
 
-  private[validation] def iterator(method: InterfaceInstanceMethod): Iterator[Type] =
+  private def iterator(method: InterfaceInstanceMethod): Iterator[Type] =
     method match {
       case InterfaceInstanceMethod(name @ _, value) =>
         iterator(value)
     }
 
-  private[validation] def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
+  private def iterator(coImpl: InterfaceCoImplements): Iterator[Type] =
     coImpl match {
       case InterfaceCoImplements(template, body) =>
         Iterator(TTyCon(template)) ++ iterator(body)
     }
 
-  private[validation] def iterator(interface: DefInterface): Iterator[Type] =
+  private def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
       case DefInterface(requires, _, choices, methods, view, coImplements) =>
         requires.iterator.map(TTyCon) ++
@@ -298,7 +297,7 @@ private[validation] object TypeIterable {
           coImplements.values.flatMap(iterator)
     }
 
-  private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =
+  private def iterator(imethod: InterfaceMethod): Iterator[Type] =
     imethod match {
       case InterfaceMethod(name @ _, retType) =>
         Iterator(retType)
