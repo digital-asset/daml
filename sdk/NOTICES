@@ -1008,9 +1008,11 @@ raw-body 1.1.7 : MIT License
 raw-body 2.5.1 : MIT License
 Raynos/for-each 0.3.3 : MIT License
 rcs/route-parser 0.0.5 : MIT License
+react 17.0.2 : MIT License
 react-autosuggest 10.1.0 : MIT License
-React from Facebook 16.13.1 : MIT License
-React from Facebook 17.0.2 : MIT License
+react-dom 17.0.2 : MIT License
+react-is 16.13.1 : MIT License
+react-is 17.0.2 : MIT License
 reactive-streams 1.0.4 : MIT No Attribution
 reactive-streams-tck 1.0.4 : MIT License
 ReactiveX RxJS 6.6.7 : Apache License 2.0
@@ -12309,7 +12311,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(React from Facebook 16.13.1, React from Facebook 17.0.2, scheduler 0.20.2)
+(react 17.0.2, react-dom 17.0.2, react-is 16.13.1, react-is 17.0.2, scheduler 0.20.2)
 
 MIT License
 
