@@ -563,8 +563,7 @@ class ParticipantNodeBootstrap(
               hashOps = syncCrypto.pureCrypto,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,
-              packageMetadataViewConfig =
-                config.parameters.ledgerApiServer.indexer.packageMetadataView,
+              packageMetadataViewConfig = config.parameters.packageMetadataView,
               packageOps = createPackageOps(syncDomainPersistentStateManager),
               timeouts = parameterConfig.processingTimeouts,
             )

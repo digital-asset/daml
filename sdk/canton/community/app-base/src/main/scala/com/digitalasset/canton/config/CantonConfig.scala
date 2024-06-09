@@ -31,6 +31,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
   SubstitutionError,
 }
 import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
+import com.digitalasset.canton.config.PackageMetadataViewConfig
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
@@ -75,7 +76,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   RateLimitingConfig,
 }
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
-import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig

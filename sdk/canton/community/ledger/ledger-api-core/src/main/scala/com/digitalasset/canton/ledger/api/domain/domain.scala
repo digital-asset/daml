@@ -22,15 +22,27 @@ import scala.collection.immutable
 final case class TransactionFilter(
     filtersByParty: immutable.Map[Ref.Party, Filters],
     filtersForAnyParty: Option[Filters] = None,
-    alwaysPopulateCreatedEventBlob: Boolean = false,
 )
 
-final case class Filters(inclusive: Option[InclusiveFilters])
+final case class Filters(
+    cumulative: Option[CumulativeFilter]
+) //TODO(#19364) remove Option and use the wildcardFilter for party-wildcards
 
 object Filters {
   val noFilter: Filters = Filters(None)
 
-  def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
+  def templateWildcardFilter(includeCreatedEventBlob: Boolean = false): Filters = Filters(
+    Some(
+      CumulativeFilter(
+        templateFilters = Set.empty,
+        interfaceFilters = Set.empty,
+        templateWildcardFilter =
+          Some(TemplateWildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)),
+      )
+    )
+  )
+
+  def apply(cumulative: CumulativeFilter) = new Filters(Some(cumulative))
 }
 
 final case class InterfaceFilter(
@@ -44,6 +56,10 @@ final case class TemplateFilter(
     includeCreatedEventBlob: Boolean,
 )
 
+final case class TemplateWildcardFilter(
+    includeCreatedEventBlob: Boolean
+)
+
 object TemplateFilter {
   def apply(templateId: Ref.Identifier, includeCreatedEventBlob: Boolean): TemplateFilter =
     TemplateFilter(
@@ -52,9 +68,10 @@ object TemplateFilter {
     )
 }
 
-final case class InclusiveFilters(
+final case class CumulativeFilter(
     templateFilters: immutable.Set[TemplateFilter],
     interfaceFilters: immutable.Set[InterfaceFilter],
+    templateWildcardFilter: Option[TemplateWildcardFilter],
 )
 
 sealed abstract class ParticipantOffset extends Product with Serializable

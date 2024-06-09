@@ -184,6 +184,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           cause = s"Wrong domain $wrong"
         )
         with TopologyManagerError
+
+    final case class InvalidFilterStore(filterStore: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"No domain store found for the filter store provided: $filterStore"
+        )
+        with TopologyManagerError
+
+    final case class MultipleDomainStores(filterStore: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Multiple domain stores found for the filter store provided: $filterStore. Specify the entire domainID to avoid ambiguity."
+        )
+        with TopologyManagerError
   }
 
   @Explanation(

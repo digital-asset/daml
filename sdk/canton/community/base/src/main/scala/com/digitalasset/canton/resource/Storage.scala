@@ -878,7 +878,7 @@ object DbStorage {
             poolName,
             numThreads,
             numThreads,
-            queueSize = config.getIntOr("queueSize", 1000),
+            queueSize = config.getIntOr("queueSize", 2000),
             maxConnections = maxConnections,
             registerMbeans = registerMbeans,
             logQueryCost = logQueryCost,
@@ -893,7 +893,7 @@ object DbStorage {
             poolName,
             numThreads,
             numThreads,
-            queueSize = config.getIntOr("queueSize", 1000),
+            queueSize = config.getIntOr("queueSize", 2000),
             maxConnections = maxConnections,
             registerMbeans = registerMbeans,
           )

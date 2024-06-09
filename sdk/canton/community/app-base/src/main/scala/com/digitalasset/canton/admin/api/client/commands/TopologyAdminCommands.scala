@@ -13,8 +13,10 @@ import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.BaseQuery
+import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Domain
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationServiceStub
@@ -566,6 +568,39 @@ object TopologyAdminCommands {
           response: v30.ExportTopologySnapshotResponse
       ): Either[String, ByteString] =
         Right(response.result)
+    }
+
+    final case class GenesisState(
+        filterDomainStore: Option[String],
+        timestamp: Option[CantonTimestamp],
+    ) extends BaseCommand[
+          v30.GenesisStateRequest,
+          v30.GenesisStateResponse,
+          ByteString,
+        ] {
+      override def createRequest(): Either[String, v30.GenesisStateRequest] = {
+        val domainStore = filterDomainStore.traverse(DomainId.fromString)
+        domainStore.flatMap(domainId =>
+          Right(
+            v30.GenesisStateRequest(
+              domainId.map(Domain).map(_.toProto),
+              timestamp.map(_.toProtoTimestamp),
+            )
+          )
+        )
+      }
+
+      override def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.GenesisStateRequest,
+      ): Future[v30.GenesisStateResponse] = service.genesisState(request)
+
+      override def handleResponse(
+          response: v30.GenesisStateResponse
+      ): Either[String, ByteString] =
+        Right(response.genesisStateForSequencer)
+      //  command will potentially take a long time
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
   }
 

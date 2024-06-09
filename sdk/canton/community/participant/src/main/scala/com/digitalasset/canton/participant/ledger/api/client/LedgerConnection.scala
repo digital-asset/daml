@@ -4,9 +4,10 @@
 package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
   Filters,
-  InclusiveFilters,
   TemplateFilter,
   TransactionFilter,
 }
@@ -67,10 +68,8 @@ object LedgerConnection {
       case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
       case (p, ts) =>
         p.toProtoPrimitive -> Filters(
-          Some(
-            InclusiveFilters(
-              templateFilters = ts.map(tf => TemplateFilter(Some(tf), false))
-            )
+          ts.map(tf =>
+            CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tf), false)))
           )
         )
     })

@@ -10,8 +10,11 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String256M}
+import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
+  DarName,
+  setParameterLengthLimitedString,
+}
+import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.crypto.Hash
@@ -42,9 +45,9 @@ class DbDamlPackageStore(
     with DbStore {
 
   import DamlPackageStore.*
+  import DbStorage.Implicits.*
   import storage.api.*
   import storage.converters.*
-  import DbStorage.Implicits.*
 
   // writeQueue is used to protect against concurrent insertions and deletions to/from the `par_dars` or `par_daml_packages` tables,
   // which might otherwise data corruption or constraint violations.
@@ -65,8 +68,8 @@ class DbDamlPackageStore(
 
   private def insertOrUpdatePackages(
       pkgs: List[DamlPackage],
-      darO: Option[DarDescriptor],
-      sourceDescription: String256M,
+      dar: DarDescriptor,
+      sourceDescription: String255,
   )(implicit traceContext: TraceContext): DbAction.All[Unit] = {
     val insertToDamlPackages = {
       val sql = storage.profile match {
@@ -115,7 +118,7 @@ class DbDamlPackageStore(
       DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
         pp >> pkg.packageId
         pp >> (if (sourceDescription.nonEmpty) sourceDescription
-               else String256M.tryCreate("default"))
+               else String255.tryCreate("default"))
         pp >> pkg.data
         pp >> pkg.uploadedAt
         pp >> pkg.packageSize
@@ -123,11 +126,10 @@ class DbDamlPackageStore(
       }
     }
 
-    val insertToDarPackages = darO
-      .map { dar =>
-        val sql = storage.profile match {
-          case _: DbStorage.Profile.Oracle =>
-            """merge /*+ INDEX ( dar_packages (dar_hash_hex package_id) ) */
+    val insertToDarPackages = {
+      val sql = storage.profile match {
+        case _: DbStorage.Profile.Oracle =>
+          """merge /*+ INDEX ( dar_packages (dar_hash_hex package_id) ) */
             |  into par_dar_packages
             |  using (
             |    select
@@ -139,19 +141,18 @@ class DbDamlPackageStore(
             |  when not matched then
             |    insert (dar_hash_hex, package_id)
             |    values (excluded.dar_hash_hex, excluded.package_id)""".stripMargin
-          case _ =>
-            """insert into par_dar_packages (dar_hash_hex, package_id)
+        case _ =>
+          """insert into par_dar_packages (dar_hash_hex, package_id)
             |  values (?, ?)
             |  on conflict do
             |    nothing""".stripMargin
-        }
-
-        DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
-          pp >> (dar.hash.toLengthLimitedHexString: LengthLimitedString)
-          pp >> pkg.packageId
-        }
       }
-      .getOrElse(DBIO.successful(()))
+
+      DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
+        pp >> (dar.hash.toLengthLimitedHexString: LengthLimitedString)
+        pp >> pkg.packageId
+      }
+    }
 
     insertToDamlPackages.andThen(insertToDarPackages)
   }
@@ -159,8 +160,8 @@ class DbDamlPackageStore(
   override def append(
       pkgs: List[DamlLf.Archive],
       uploadedAt: CantonTimestamp,
-      sourceDescription: String256M,
-      dar: Option[PackageService.Dar],
+      sourceDescription: String255,
+      dar: PackageService.Dar,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
@@ -169,11 +170,11 @@ class DbDamlPackageStore(
       pkgs.map(pkg =>
         DamlPackage(readPackageId(pkg), pkg.toByteArray, pkg.getPayload.size(), uploadedAt)
       ),
-      dar.map(_.descriptor),
+      dar.descriptor,
       sourceDescription,
     )
 
-    val writeDar: List[WriteOnly[Int]] = dar.map(dar => appendToDarStore(dar)).toList
+    val writeDar: List[WriteOnly[Int]] = List(appendToDarStore(dar))
 
     // Combine all the operations into a single transaction to avoid partial insertions.
     val writeDarAndPackages = DBIO

@@ -28,17 +28,8 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransaction,
-  StoredTopologyTransactions,
-  TopologyStore,
-}
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-  TopologyMapping,
-}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -196,69 +187,6 @@ class GrpcSequencerAdministrationService(
             )
           )
         },
-      )
-  }
-
-  override def genesisState(request: v30.GenesisStateRequest): Future[v30.GenesisStateResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val result = for {
-      timestampO <- EitherT
-        .fromEither[Future](
-          request.timestamp.traverse(CantonTimestamp.fromProtoTimestamp)
-        )
-        .leftMap(_.toString)
-
-      sequencedTimestamp <- timestampO match {
-        case Some(value) => EitherT.rightT[Future, String](value)
-        case None =>
-          val sequencedTimeF = topologyStore
-            .maxTimestamp()
-            .collect {
-              case Some((sequencedTime, _)) =>
-                Right(sequencedTime.value)
-
-              case None => Left("No sequenced time found")
-            }
-
-          EitherT(sequencedTimeF)
-      }
-
-      // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
-      topologySnapshot <- EitherT.right[String](
-        topologyStore.findEssentialStateAtSequencedTime(
-          SequencedTime(sequencedTimestamp),
-          excludeMappings = Seq(TopologyMapping.Code.TrafficControlState),
-        )
-      )
-      // reset effective time and sequenced time if we are initializing the sequencer from the beginning
-      genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
-        StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
-          topologySnapshot.result.map(stored =>
-            StoredTopologyTransaction(
-              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-              stored.validUntil.map(_ =>
-                EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
-              ),
-              stored.transaction,
-            )
-          )
-        )
-
-    } yield genesisState.toByteString(staticDomainParameters.protocolVersion)
-
-    result
-      .fold[v30.GenesisStateResponse](
-        error =>
-          v30.GenesisStateResponse(
-            v30.GenesisStateResponse.Value.Failure(v30.GenesisStateResponse.Failure(error))
-          ),
-        result =>
-          v30.GenesisStateResponse(
-            v30.GenesisStateResponse.Value.Success(
-              v30.GenesisStateResponse.Success(result)
-            )
-          ),
       )
   }
 

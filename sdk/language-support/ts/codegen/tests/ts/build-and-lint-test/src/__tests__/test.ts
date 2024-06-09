@@ -612,9 +612,9 @@ test("exercise using explicit disclosure", async () => {
         filter: {
           filtersByParty: {
             [ALICE_PARTY]: {
-              inclusive: {
-                templateFilters: [
-                  {
+              cumulative: [
+                {
+                  templateFilter: {
                     templateId: {
                       packageId: buildAndLint.packageId,
                       moduleName: "Main",
@@ -622,8 +622,8 @@ test("exercise using explicit disclosure", async () => {
                     },
                     includeCreatedEventBlob: true,
                   },
-                ],
-              },
+                },
+              ],
             },
           },
         },

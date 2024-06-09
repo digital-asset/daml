@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
-import com.daml.ledger.api.v2.TransactionFilterOuterClass
 import com.google.protobuf.{ByteString, Empty}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -335,29 +334,48 @@ object Generators {
 
   def filtersGen: Gen[v2.TransactionFilterOuterClass.Filters] =
     for {
-      inclusive <- inclusiveGen
+      cumulatives <- cumulativeGen
     } yield v2.TransactionFilterOuterClass.Filters
       .newBuilder()
-      .setInclusive(inclusive)
+      .addAllCumulative(cumulatives.asJava)
       .build()
 
-  def inclusiveGen: Gen[v2.TransactionFilterOuterClass.InclusiveFilters] =
+  def cumulativeGen: Gen[List[v2.TransactionFilterOuterClass.CumulativeFilter]] =
     for {
       templateIds <- Gen.listOf(identifierGen)
       interfaceFilters <- Gen.listOf(interfaceFilterGen)
-    } yield v2.TransactionFilterOuterClass.InclusiveFilters
-      .newBuilder()
-      .addAllTemplateFilters(
-        templateIds
-          .map(templateId =>
-            TransactionFilterOuterClass.TemplateFilter.newBuilder
-              .setTemplateId(templateId)
-              .build
-          )
-          .asJava
-      )
-      .addAllInterfaceFilters(interfaceFilters.asJava)
-      .build()
+      wildcardFilterO <- Gen.option(wildcardFilterGen)
+    } yield {
+      templateIds
+        .map(templateId =>
+          v2.TransactionFilterOuterClass.CumulativeFilter
+            .newBuilder()
+            .setTemplateFilter(
+              v2.TransactionFilterOuterClass.TemplateFilter.newBuilder
+                .setTemplateId(templateId)
+                .build
+            )
+            .build()
+        )
+      ++
+      interfaceFilters
+        .map(interfaceFilter =>
+          v2.TransactionFilterOuterClass.CumulativeFilter
+            .newBuilder()
+            .setInterfaceFilter(interfaceFilter)
+            .build()
+        )
+        ++ (wildcardFilterO match {
+          case Some(wildcardFilter) =>
+            Seq(
+              v2.TransactionFilterOuterClass.CumulativeFilter
+                .newBuilder()
+                .setWildcardFilter(wildcardFilter)
+                .build()
+            )
+          case None => Seq.empty
+        })
+    }
 
   private[this] def interfaceFilterGen: Gen[v2.TransactionFilterOuterClass.InterfaceFilter] =
     Gen.zip(identifierGen, arbitrary[Boolean]).map { case (interfaceId, includeInterfaceView) =>
@@ -365,6 +383,14 @@ object Generators {
         .newBuilder()
         .setInterfaceId(interfaceId)
         .setIncludeInterfaceView(includeInterfaceView)
+        .build()
+    }
+
+  private[this] def wildcardFilterGen: Gen[v2.TransactionFilterOuterClass.WildcardFilter] =
+    arbitrary[Boolean].map { includeBlob =>
+      v2.TransactionFilterOuterClass.WildcardFilter
+        .newBuilder()
+        .setIncludeCreatedEventBlob(includeBlob)
         .build()
     }
 

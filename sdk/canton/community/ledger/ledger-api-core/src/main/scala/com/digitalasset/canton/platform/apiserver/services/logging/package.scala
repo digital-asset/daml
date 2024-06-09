@@ -15,6 +15,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   EventId,
   Filters,
   ParticipantOffset,
+  TemplateWildcardFilter,
   TransactionFilter,
   TransactionId,
 }
@@ -85,10 +86,30 @@ package object logging {
     )
 
   private def filtersToLoggingValue(filters: Filters): LoggingValue =
-    filters.inclusive match {
+    filters.cumulative match {
       case None => LoggingValue.from("all-templates")
-      case Some(inclusiveFilters) =>
-        LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
+      case Some(cumulativeFilter) =>
+        LoggingValue.Nested(
+          LoggingEntries.fromMap(
+            Map(
+              "templates" -> LoggingValue.from(
+                cumulativeFilter.templateFilters.map(_.templateTypeRef)
+              ),
+              "interfaces" -> LoggingValue.from(
+                cumulativeFilter.interfaceFilters.map(_.interfaceId)
+              ),
+            )
+              ++ (cumulativeFilter.templateWildcardFilter match {
+                case Some(TemplateWildcardFilter(includeCreatedEventBlob)) =>
+                  Map(
+                    "all-templates, created_event_blob" -> LoggingValue.from(
+                      includeCreatedEventBlob
+                    )
+                  )
+                case None => Map.empty
+              })
+          )
+        )
     }
 
   private[services] def submissionId(id: String): LoggingEntry =

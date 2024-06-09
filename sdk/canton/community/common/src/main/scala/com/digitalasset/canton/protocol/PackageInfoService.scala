@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.GetResult
@@ -20,7 +20,7 @@ import scala.concurrent.Future
   */
 final case class PackageDescription(
     packageId: LfPackageId,
-    sourceDescription: String256M,
+    sourceDescription: String255,
     uploadedAt: CantonTimestamp,
     packageSize: Int,
 )
@@ -33,7 +33,7 @@ object PackageDescription {
     GetResult
       .createGetTuple4(
         GetResult[LfPackageId],
-        GetResult[String256M],
+        GetResult[String255],
         GetResult[CantonTimestamp],
         GetResult[Int],
       )

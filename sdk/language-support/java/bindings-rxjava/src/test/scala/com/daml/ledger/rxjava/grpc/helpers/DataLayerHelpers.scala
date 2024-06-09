@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractE
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 trait DataLayerHelpers {
 
@@ -51,6 +52,12 @@ trait DataLayerHelpers {
 
   def filterFor(party: String): FiltersByParty =
     new FiltersByParty(
-      Map(party -> (new InclusiveFilter(Map.empty.asJava, Map.empty.asJava): Filter)).asJava
+      Map(
+        party -> (new CumulativeFilter(
+          Map.empty.asJava,
+          Map.empty.asJava,
+          Some(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB).toJava,
+        ): Filter)
+      ).asJava
     )
 }

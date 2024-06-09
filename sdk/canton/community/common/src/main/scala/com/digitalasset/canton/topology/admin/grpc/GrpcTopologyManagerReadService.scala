@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.admin.grpc
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxEitherId
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -18,19 +19,56 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrU
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v30.*
+import com.digitalasset.canton.topology.admin.v30.{
+  ExportTopologySnapshotRequest,
+  ExportTopologySnapshotResponse,
+  GenesisStateRequest,
+  GenesisStateResponse,
+  ListPartyHostingLimitsRequest,
+  ListPartyHostingLimitsResponse,
+  ListPurgeTopologyTransactionRequest,
+  ListPurgeTopologyTransactionResponse,
+  *,
+}
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransaction,
   StoredTopologyTransactions,
   TimeQuery,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.transaction.{
+  AuthorityOf,
+  DecentralizedNamespaceDefinition,
+  DomainParametersState,
+  DomainTrustCertificate,
+  IdentifierDelegation,
+  MediatorDomainState,
+  NamespaceDelegation,
+  OwnerToKeyMapping,
+  ParticipantDomainPermission,
+  PartyHostingLimits,
+  PartyToParticipant,
+  PurgeTopologyTransaction,
+  SequencerDomainState,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
+  VettedPackages,
+  *,
+}
+import com.digitalasset.canton.topology.{
+  DomainId,
+  Member,
+  ParticipantId,
+  TopologyManagerError,
+  UniqueIdentifier,
+  store,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
@@ -138,6 +176,7 @@ object TopologyStore {
 }
 
 class GrpcTopologyManagerReadService(
+    member: Member,
     stores: => Seq[topology.store.TopologyStore[TopologyStoreId]],
     crypto: Crypto,
     topologyClientLookup: TopologyStoreId => Option[DomainTopologyClient],
@@ -165,6 +204,36 @@ class GrpcTopologyManagerReadService(
         EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore.filterString)))
       case None => EitherT.rightT(stores)
     }
+
+  private def collectDomainStore(
+      filterStoreO: Option[TopologyStore]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, CantonError, topology.store.TopologyStore[TopologyStoreId]] = {
+    val domainStores: Either[CantonError, store.TopologyStore[TopologyStoreId]] =
+      filterStoreO match {
+        case Some(filterStore) =>
+          val domainStores = stores.filter { s =>
+            s.storeId.isDomainStore && s.storeId.filterName.startsWith(filterStore.filterString)
+          }
+          domainStores match {
+            case Nil =>
+              TopologyManagerError.WrongDomain.InvalidFilterStore(filterStore.filterString).asLeft
+            case Seq(domainStore) => domainStore.asRight
+            case _ =>
+              TopologyManagerError.WrongDomain.MultipleDomainStores(filterStore.filterString).asLeft
+          }
+
+        case None =>
+          stores.find(_.storeId.isDomainStore) match {
+            case Some(domainStore) => domainStore.asRight
+            case None => TopologyManagerError.InternalError.Other("No domain store found").asLeft
+          }
+      }
+
+    EitherT.fromEither[Future](domainStores)
+
+  }
 
   private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult = {
     val storeProto: adminProto.Store = context.store match {
@@ -737,6 +806,72 @@ class GrpcTopologyManagerReadService(
       }
       res
     }
+
+  override def genesisState(request: GenesisStateRequest): Future[GenesisStateResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result: EitherT[Future, CantonError, GenesisStateResponse] = for {
+      _ <- member match {
+        case _: ParticipantId =>
+          wrapErr(
+            ProtoConverter
+              .required("filter_domain_store", request.filterDomainStore)
+          )
+
+        case _ => EitherT.rightT[Future, CantonError](())
+      }
+      topologyStoreO <- wrapErr(
+        request.filterDomainStore.traverse(TopologyStore.fromProto(_, "filter_domain_store"))
+      )
+      domainTopologyStore <- collectDomainStore(topologyStoreO)
+      timestampO <- wrapErr(
+        request.timestamp
+          .traverse(CantonTimestamp.fromProtoTimestamp)
+      )
+
+      sequencedTimestamp <- timestampO match {
+        case Some(value) => EitherT.rightT[Future, CantonError](value)
+        case None =>
+          val sequencedTimeF = domainTopologyStore
+            .maxTimestamp()
+            .collect {
+              case Some((sequencedTime, _)) =>
+                Right(sequencedTime.value)
+
+              case None =>
+                Left(
+                  TopologyManagerError.InternalError.Other(s"No sequenced time found")
+                )
+            }
+
+          EitherT(sequencedTimeF)
+      }
+
+      // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
+      topologySnapshot <- EitherT.right[CantonError](
+        domainTopologyStore.findEssentialStateAtSequencedTime(
+          SequencedTime(sequencedTimestamp),
+          excludeMappings = Seq(TopologyMapping.Code.TrafficControlState),
+        )
+      )
+      // reset effective time and sequenced time if we are initializing the sequencer from the beginning
+      genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
+        StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
+          topologySnapshot.result.map(stored =>
+            StoredTopologyTransaction(
+              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+              stored.validUntil.map(_ =>
+                EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+              ),
+              stored.transaction,
+            )
+          )
+        )
+
+    } yield GenesisStateResponse(genesisState.toByteString(ProtocolVersion.latest))
+    CantonGrpcUtil.mapErrNew(result)
+  }
 
   override def listPurgeTopologyTransaction(
       request: ListPurgeTopologyTransactionRequest

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref.*
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{Filters, InclusiveFilters}
+import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, Filters, TemplateWildcardFilter}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 
 import scala.collection.View
@@ -19,13 +19,19 @@ import scala.collection.View
   *                                  populated for all the templates,if None then contract arguments
   *                                  for all the parties and for all the templates will be populated
   * @param witnessTemplateProjections per witness party, per template projections
+  * @param templateWildcardCreatedEventBlobParties parties for which the created event blob will be
+  *                                                populated for all the templates, if None then
+  *                                                blobs for all the parties and all the templates
+  *                                                will be populated
   */
 final case class EventProjectionProperties(
     verbose: Boolean,
     templateWildcardWitnesses: Option[Set[String]],
     // Map((witness or wildcard) -> Map(template -> projection)), where a None key denotes a party wildcard
     witnessTemplateProjections: Map[Option[String], Map[Identifier, Projection]] = Map.empty,
-    alwaysPopulateCreatedEventBlob: Boolean = false,
+    templateWildcardCreatedEventBlobParties: Option[Set[String]] = Some(
+      Set.empty
+    ), // TODO(#19364) fuse with the templateWildcardWitnesses into a templateWildcard Projection and potentially include it into the following Map
 ) {
   def render(witnesses: Set[String], templateId: Identifier): Projection = {
     (witnesses.iterator.map(Some(_))
@@ -37,7 +43,8 @@ final case class EventProjectionProperties(
           contractArguments = templateWildcardWitnesses.fold(witnesses.nonEmpty)(parties =>
             witnesses.exists(parties)
           ),
-          createdEventBlob = alwaysPopulateCreatedEventBlob,
+          createdEventBlob = templateWildcardCreatedEventBlobParties
+            .fold(witnesses.nonEmpty)(parties => witnesses.exists(parties)),
         )
       )(_ append _)
   }
@@ -78,12 +85,13 @@ object EventProjectionProperties {
       verbose = verbose,
       templateWildcardWitnesses =
         templateWildcardWitnesses(transactionFilter, alwaysPopulateArguments),
+      templateWildcardCreatedEventBlobParties =
+        templateWildcardCreatedEventBlobParties(transactionFilter),
       witnessTemplateProjections = witnessTemplateProjections(
         transactionFilter,
         interfaceImplementedBy,
         resolveTemplateIds,
       ),
-      alwaysPopulateCreatedEventBlob = transactionFilter.alwaysPopulateCreatedEventBlob,
     )
 
   private def templateWildcardWitnesses(
@@ -103,24 +111,53 @@ object EventProjectionProperties {
       }
     } else
       domainTransactionFilter.filtersForAnyParty match {
-        case Some(Filters(None)) => None
-        case Some(Filters(Some(inclusive)))
-            if inclusive.templateFilters.isEmpty && inclusive.interfaceFilters.isEmpty =>
+        case Some(Filters(None)) =>
+          None
+        case Some(Filters(Some(cumulative))) if cumulative.templateWildcardFilter.isDefined =>
+          None
+        case Some(Filters(Some(cumulative)))
+            if cumulative.templateFilters.isEmpty && cumulative.interfaceFilters.isEmpty && cumulative.templateWildcardFilter.isEmpty =>
           None
         // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
         case _ =>
           Some(
             domainTransactionFilter.filtersByParty.iterator
               .collect {
-                case (party, Filters(None)) => party
-                case (party, Filters(Some(empty)))
-                    if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty =>
+                case (party, Filters(None)) =>
                   party
+                case (party, Filters(Some(cumulative)))
+                    if cumulative.templateWildcardFilter.isDefined =>
+                  party
+                case (party, Filters(Some(empty)))
+                    if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty && empty.templateWildcardFilter.isEmpty =>
+                  party // TODO(#19364) this should not happen
               }
               .map(_.toString)
               .toSet
           )
       }
+
+  private def templateWildcardCreatedEventBlobParties(
+      domainTransactionFilter: domain.TransactionFilter
+  ): Option[Set[String]] =
+    domainTransactionFilter.filtersForAnyParty match {
+      case Some(Filters(Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))))) =>
+        None // include blobs for all templates and all parties
+      // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
+      case _ =>
+        Some(
+          domainTransactionFilter.filtersByParty.iterator
+            .collect {
+              case (
+                    party,
+                    Filters(Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true))))),
+                  ) =>
+                party
+            }
+            .map(_.toString)
+            .toSet
+        )
+    }
 
   private def witnessTemplateProjections(
       domainTransactionFilter: domain.TransactionFilter,
@@ -134,10 +171,10 @@ object EventProjectionProperties {
         domainTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
     (for {
       (partyO, filters) <- partyFilterPairs
-      inclusiveFilters <- filters.inclusive.toList.view
+      cumulativeFilter <- filters.cumulative.toList.view
     } yield {
       val interfaceFilterProjections = for {
-        interfaceFilter <- inclusiveFilters.interfaceFilters.view
+        interfaceFilter <- cumulativeFilter.interfaceFilters.view
         implementor <- interfaceImplementedBy(interfaceFilter.interfaceId).view
       } yield implementor -> Projection(
         interfaces =
@@ -145,7 +182,7 @@ object EventProjectionProperties {
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
         contractArguments = false,
       )
-      val templateProjections = getTemplateProjections(inclusiveFilters, resolveTemplateIds)
+      val templateProjections = getTemplateProjections(cumulativeFilter, resolveTemplateIds)
       val projectionsForParty =
         (interfaceFilterProjections ++ templateProjections)
           .groupMap(_._1)(_._2)
@@ -158,11 +195,11 @@ object EventProjectionProperties {
   }
 
   private def getTemplateProjections(
-      inclusiveFilters: InclusiveFilters,
+      cumulativeFilter: CumulativeFilter,
       resolveTemplateIds: TypeConRef => Set[Identifier],
   ): View[(Identifier, Projection)] =
     for {
-      templateFilter <- inclusiveFilters.templateFilters.view
+      templateFilter <- cumulativeFilter.templateFilters.view
       templateId <- resolveTemplateIds(templateFilter.templateTypeRef).view
     } yield templateId -> Projection(
       interfaces = Set.empty,

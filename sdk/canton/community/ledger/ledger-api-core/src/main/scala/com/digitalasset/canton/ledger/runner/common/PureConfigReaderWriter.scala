@@ -24,8 +24,8 @@ import com.digitalasset.canton.platform.config.{
   TransactionTreeStreamsConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,
@@ -184,12 +184,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
-
-  implicit val packageMetadataViewConfigHint: ProductHint[PackageMetadataViewConfig] =
-    ProductHint[PackageMetadataViewConfig](allowUnknownKeys = false)
-
-  implicit val packageMetadataViewConfigConvert: ConfigConvert[PackageMetadataViewConfig] =
-    deriveConvert[PackageMetadataViewConfig]
 
   implicit val indexerConfigHint: ProductHint[IndexerConfig] =
     ProductHint[IndexerConfig](allowUnknownKeys = false)

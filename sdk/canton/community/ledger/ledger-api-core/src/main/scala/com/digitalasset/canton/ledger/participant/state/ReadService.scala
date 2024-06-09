@@ -8,8 +8,8 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -169,7 +169,7 @@ trait ReadService extends ReportsHealth with InternalStateServiceProvider {
 
   def listLfPackages()(implicit
       traceContext: TraceContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Seq[PackageDescription]] =
     throw new UnsupportedOperationException()
 
   def getLfArchive(packageId: PackageId)(implicit

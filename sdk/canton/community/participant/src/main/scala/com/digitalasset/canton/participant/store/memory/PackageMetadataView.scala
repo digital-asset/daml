@@ -9,14 +9,13 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.archive.Decode
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
-import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.time.Clock

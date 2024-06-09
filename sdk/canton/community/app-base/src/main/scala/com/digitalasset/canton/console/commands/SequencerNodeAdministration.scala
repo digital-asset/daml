@@ -41,26 +41,6 @@ class SequencerSetupGroup(node: SequencerReference) extends ConsoleCommandGroup.
   }
 
   @Help.Summary(
-    "Download the genesis state for a sequencer. This method should be used when performing major upgrades."
-  )
-  @Help.Description(
-    """Download the a topology snapshot which includes all the history for major upgrades. The validFrom and validUntil are set the MinValue.ImmediateSuccessor.
-      |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
-      |""".stripMargin
-  )
-  def genesis_state_for_sequencer(
-      timestamp: Option[CantonTimestamp] = None
-  ): ByteString = {
-    consoleEnvironment.run {
-      runner.adminCommand(
-        EnterpriseSequencerAdminCommands.GenesisState(
-          timestamp = timestamp
-        )
-      )
-    }
-  }
-
-  @Help.Summary(
     "Download the onboarding state for a given sequencer"
   )
   def onboarding_state_for_sequencer(

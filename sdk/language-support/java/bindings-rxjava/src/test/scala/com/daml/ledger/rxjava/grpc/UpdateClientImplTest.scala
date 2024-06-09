@@ -24,6 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 final class UpdateClientImplTest
     extends AnyFlatSpec
@@ -96,12 +97,13 @@ final class UpdateClientImplTest
 
       val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
-          "Alice" -> new data.InclusiveFilter(
+          "Alice" -> new data.CumulativeFilter(
             Map.empty.asJava,
             Map(
               new data.Identifier("p1", "m1", "e1") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
               new data.Identifier("p2", "m2", "e2") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
             ).asJava,
+            None.toJava,
           )
         ).asJava
       )
@@ -114,9 +116,11 @@ final class UpdateClientImplTest
       val request = transactionService.lastUpdatesRequest.get()
       request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
       request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
-      val filter = request.filter.get.filtersByParty
-      filter.keySet shouldBe Set("Alice")
-      filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+      val filterByParty = request.filter.get.filtersByParty
+      filterByParty.keySet shouldBe Set("Alice")
+      filterByParty("Alice").cumulative
+        .flatMap(_.identifierFilter.templateFilter)
+        .toSet shouldBe Set(
         TemplateFilter(
           Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
           includeCreatedEventBlob = false,
@@ -153,12 +157,13 @@ final class UpdateClientImplTest
 
       val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
-          "Alice" -> new data.InclusiveFilter(
+          "Alice" -> new data.CumulativeFilter(
             Map.empty.asJava,
             Map(
               new data.Identifier("p1", "m1", "e1") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
               new data.Identifier("p2", "m2", "e2") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
             ).asJava,
+            None.toJava,
           )
         ).asJava
       )
@@ -171,9 +176,11 @@ final class UpdateClientImplTest
       val request = transactionService.lastUpdatesTreesRequest.get()
       request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
       request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
-      val filter = request.filter.get.filtersByParty
-      filter.keySet shouldBe Set("Alice")
-      filter("Alice").inclusive.get.templateFilters.toSet shouldBe Set(
+      val filterByParty = request.filter.get.filtersByParty
+      filterByParty.keySet shouldBe Set("Alice")
+      filterByParty("Alice").cumulative
+        .flatMap(_.identifierFilter.templateFilter)
+        .toSet shouldBe Set(
         TemplateFilter(
           Some(Identifier("p1", moduleName = "m1", entityName = "e1")),
           includeCreatedEventBlob = false,

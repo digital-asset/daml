@@ -36,6 +36,9 @@ service TopologyManagerReadService {
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
   rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (ExportTopologySnapshotResponse);
+  // Fetch the genesis topology state.
+  // The returned bytestring can be used directly to initialize a sequencer.
+  rpc GenesisState(GenesisStateRequest) returns (GenesisStateResponse);
 }
 
 message BaseQuery {
@@ -296,4 +299,16 @@ message ListAllResponse {
 
 message ExportTopologySnapshotResponse {
   bytes result = 1;
+}
+
+message GenesisStateRequest {
+  // Must be specified if the genesis state is requested from a participant node.
+  Store filter_domain_store = 1;
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message GenesisStateResponse {
+  // versioned stored topology transactions
+  bytes genesis_state_for_sequencer = 1;
 }

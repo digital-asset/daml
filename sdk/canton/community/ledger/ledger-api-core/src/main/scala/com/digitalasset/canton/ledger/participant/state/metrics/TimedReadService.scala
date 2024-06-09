@@ -10,7 +10,6 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.participant.state.index.PackageDetails
 import com.digitalasset.canton.ledger.participant.state.{
   InternalStateService,
   ReadService,
@@ -19,6 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
@@ -69,7 +69,7 @@ final class TimedReadService(delegate: ReadService, metrics: LedgerApiServerMetr
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Seq[PackageDescription]] =
     Timed.future(
       metrics.services.read.listLfPackages,
       delegate.listLfPackages(),

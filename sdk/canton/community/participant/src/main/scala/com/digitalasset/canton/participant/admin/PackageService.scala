@@ -20,7 +20,7 @@ import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Hash, HashOps}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
@@ -40,7 +40,6 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
   PackageMetadataView,
 }
-import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.time.Clock
@@ -79,7 +78,6 @@ class PackageService(
     val packageDependencyResolver: PackageDependencyResolver,
     protected val loggerFactory: NamedLoggerFactory,
     metrics: ParticipantMetrics,
-    // TODO(#17635): wire PackageMetadataView to be used in the Ledger API instead of the existing one
     val packageMetadataView: PackageMetadataView,
     packageOps: PackageOps,
     packageUploader: PackageUploader,
