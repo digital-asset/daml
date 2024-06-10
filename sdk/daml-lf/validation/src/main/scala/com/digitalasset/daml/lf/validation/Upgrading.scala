@@ -423,8 +423,18 @@ case class TypecheckUpgrades(
   }
 
   private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Boolean = {
-    packageMap.get(past.packageId).map(_._1) == packageMap.get(present.packageId).map(_._1) &&
-    past.qualifiedName == present.qualifiedName
+    (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
+      // The two packages have LF versions < 1.16.
+      // They must be the exact same package as LF < 1.16 don't support upgrades.
+      case (None, None) => past.packageId == present.packageId
+      // The two packages have LF versions >= 1.16.
+      // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
+      // topological order, the package version ordering is a proxy for the "upgrades" relationship.
+      case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
+        pastName == presentName && pastVersion <= presentVersion && past.qualifiedName == present.qualifiedName
+      // LF versions < 1.16 and >= 1.16 are not comparable.
+      case (_, _) => false
+    }
   }
 
   @tailrec
