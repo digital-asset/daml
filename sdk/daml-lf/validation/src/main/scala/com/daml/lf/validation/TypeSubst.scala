@@ -5,8 +5,8 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.Name
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.iterable.TypeIterable
 import com.daml.lf.validation.Util._
-import com.daml.lf.validation.iterable.TypeIterable
 
 private[validation] object TypeSubst {
 

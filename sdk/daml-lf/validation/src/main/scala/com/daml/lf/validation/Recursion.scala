@@ -6,7 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Graphs
-import com.daml.lf.validation.iterable.{ExprIterable, TypeIterable}
+import com.daml.lf.language.iterable.{ExprIterable, TypeIterable}
 
 private[validation] object Recursion {
 

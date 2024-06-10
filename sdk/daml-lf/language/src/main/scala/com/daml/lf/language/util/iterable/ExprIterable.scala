@@ -1,13 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf.language
 package iterable
 
 import com.daml.lf.language.Ast._
-import com.daml.lf.validation.Util._
 
-private[validation] object ExprIterable {
+private[lf] object ExprIterable {
   that =>
 
   private[iterable] def iterator(x: Expr): Iterator[Expr] = {
@@ -19,7 +18,7 @@ private[validation] object ExprIterable {
       case ELocation(_, expr) =>
         Iterator(expr)
       case ERecCon(tycon @ _, fields) =>
-        fields.values
+        fields.iterator.map(_._2)
       case ERecProj(tycon @ _, field @ _, record) =>
         Iterator(record)
       case ERecUpd(tycon @ _, field @ _, record, update) =>
@@ -27,7 +26,7 @@ private[validation] object ExprIterable {
       case EVariantCon(tycon @ _, variant @ _, arg) =>
         Iterator(arg)
       case EStructCon(fields) =>
-        fields.values
+        fields.iterator.map(_._2)
       case EStructProj(field @ _, struct) =>
         Iterator(struct)
       case EStructUpd(field @ _, struct, update) =>
