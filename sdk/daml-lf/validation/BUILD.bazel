@@ -166,6 +166,8 @@ da_scala_test_suite(
             "//test-common:upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
             "//test-common:upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
             "//test-common:upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
+            "//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
+            "//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
 
             # Ported from DamlcUpgrades.hs
             "//test-common:upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",

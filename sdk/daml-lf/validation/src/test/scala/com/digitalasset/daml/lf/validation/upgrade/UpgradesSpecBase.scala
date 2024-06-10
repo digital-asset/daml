@@ -601,6 +601,16 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    "Fails when comparing types from packages with different names" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("")
+        ),
+      )
+    }
   }
 }
 
