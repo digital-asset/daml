@@ -607,7 +607,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
         "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
         assertPackageUpgradeCheck(
-          Some("")
+          Some("The upgraded data type A has changed the types of some of its original fields.")
         ),
       )
     }

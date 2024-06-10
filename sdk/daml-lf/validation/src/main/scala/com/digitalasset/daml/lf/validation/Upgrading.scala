@@ -6,10 +6,25 @@ package validation
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import scala.util.{Try, Success, Failure}
-import com.daml.lf.validation.AlphaEquiv
+
+import scala.util.{Failure, Success, Try}
 import com.daml.lf.data.ImmArray
+import com.daml.lf.language.Ast.{
+  TApp,
+  TBuiltin,
+  TForall,
+  TNat,
+  TStruct,
+  TSynApp,
+  TTyCon,
+  TVar,
+  Type,
+  TypeVarName,
+}
 import com.daml.lf.language.LanguageVersion
+
+import scala.annotation.tailrec
+import scala.collection.immutable.Map
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -253,6 +268,18 @@ final case class ModuleWithMetadata(module: Ast.Module) {
 
 }
 
+private case class Env(
+    currentDepth: Int = 0,
+    binderDepthLhs: Map[TypeVarName, Int] = Map.empty,
+    binderDepthRhs: Map[TypeVarName, Int] = Map.empty,
+) {
+  def extend(varName1: TypeVarName, varName2: TypeVarName) = Env(
+    currentDepth + 1,
+    binderDepthLhs + (varName1 -> currentDepth),
+    binderDepthRhs + (varName2 -> currentDepth),
+  )
+}
+
 object TypecheckUpgrades {
 
   sealed abstract class UploadPhaseCheck
@@ -312,24 +339,7 @@ object TypecheckUpgrades {
     Try(t.map(f(_).get).toSeq)
 
   def typecheckUpgrades(
-      present: (
-          Ref.PackageId,
-          Ast.Package,
-          Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      ),
-      pastPackageId: Ref.PackageId,
-      mbPastPkg: Option[(Ast.Package, Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)])],
-  ): Try[Unit] = {
-    mbPastPkg match {
-      case None =>
-        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
-      case Some((pastPkg, pastPkgDeps)) =>
-        val tc = TypecheckUpgrades(Upgrading((pastPackageId, pastPkg, pastPkgDeps), present))
-        tc.check()
-    }
-  }
-
-  def typecheckUpgrades(
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
       present: (
           Ref.PackageId,
           Ast.Package,
@@ -337,23 +347,31 @@ object TypecheckUpgrades {
       pastPackageId: Ref.PackageId,
       mbPastPkg: Option[Ast.Package],
   ): Try[Unit] = {
-    val emptyPackageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty
-    val presentWithNoDeps = (present._1, present._2, emptyPackageMap)
-    val mbPastPkgWithNoDeps = mbPastPkg.map((_, emptyPackageMap))
-    TypecheckUpgrades.typecheckUpgrades(presentWithNoDeps, pastPackageId, mbPastPkgWithNoDeps)
+    mbPastPkg match {
+      case None =>
+        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
+      case Some(pastPkg) =>
+        val (presentPackageId, presentPkg) = present
+        val tc = TypecheckUpgrades(
+          packageMap
+            + (presentPackageId -> (presentPkg.name.get, presentPkg.metadata.get.version))
+            + (pastPackageId -> (pastPkg.name.get, pastPkg.metadata.get.version)),
+          Upgrading((pastPackageId, pastPkg), present),
+        )
+        tc.check()
+    }
   }
 }
 
 case class TypecheckUpgrades(
+    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
     packages: Upgrading[
-      (Ref.PackageId, Ast.Package, Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)])
-    ]
+      (Ref.PackageId, Ast.Package)
+    ],
 ) {
   import TypecheckUpgrades._
 
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
-  private lazy val dependencies
-      : Upgrading[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]] = packages.map(_._3)
 
   private def check(): Try[Unit] = {
     for {
@@ -363,26 +381,8 @@ case class TypecheckUpgrades(
           _package.map(_.modules),
           (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
         )
-      _ <- checkDeps()
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
-  }
-
-  private def checkDeps(): Try[Unit] = {
-    val (_new @ _, existing, _deleted @ _) = extractDelExistNew(dependencies.map(_.values.toMap))
-    tryAll(existing, checkDep).map(_ => ())
-  }
-
-  private def checkDep(dep: (Ref.PackageName, Upgrading[Ref.PackageVersion])): Try[Unit] = {
-    val (depName, depVersions) = dep
-    failIf(
-      depVersions.present < depVersions.past,
-      UpgradeError.DependencyHasLowerVersionDespiteUpgrade(
-        depName,
-        depVersions.present,
-        depVersions.past,
-      ),
-    )
   }
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
@@ -422,8 +422,53 @@ case class TypecheckUpgrades(
     } yield ()
   }
 
+  private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Boolean = {
+    packageMap.get(past.packageId).map(_._1) == packageMap.get(present.packageId).map(_._1) &&
+    past.qualifiedName == present.qualifiedName
+  }
+
+  @tailrec
+  private def alphaEquivList(trips: List[(Env, Type, Type)]): Boolean = trips match {
+    case Nil => true
+    case (env, t1, t2) :: trips =>
+      (t1, t2) match {
+        case (TVar(x1), TVar(x2)) =>
+          env.binderDepthLhs.get(x1).toLeft(t1) == env.binderDepthRhs.get(x2).toLeft(t2) &&
+          alphaEquivList(trips)
+        case (TNat(n1), TNat(n2)) =>
+          n1 == n2 && alphaEquivList(trips)
+        case (TTyCon(c1), TTyCon(c2)) =>
+          checkIdentifiers(c1, c2) && alphaEquivList(trips)
+        case (TApp(f1, a1), TApp(f2, a2)) =>
+          alphaEquivList((env, f1, f2) :: (env, a1, a2) :: trips)
+        case (TBuiltin(b1), TBuiltin(b2)) =>
+          b1 == b2 && alphaEquivList(trips)
+        case (TForall((varName1, kind1), b1), TForall((varName2, kind2), b2)) =>
+          kind1 == kind2 && {
+            val envExtended = env.extend(varName1, varName2)
+            alphaEquivList((envExtended, b1, b2) :: trips)
+          }
+        case (TStruct(fs1), TStruct(fs2)) =>
+          (fs1.names sameElements fs2.names) && {
+            val more = (fs1.values zip fs2.values).map { case (x1, x2) => (env, x1, x2) }
+            alphaEquivList(more ++: trips)
+          }
+        case (TSynApp(f, xs), TSynApp(g, ys)) =>
+          // We treat type synonyms nominally here. If alpha equivalence
+          // fails, we expand all of them and try again.
+          checkIdentifiers(f, g) && xs.length == ys.length && {
+            val more = (xs.iterator zip ys.iterator).map { case (x1, x2) => (env, x1, x2) }
+            alphaEquivList(more ++: trips)
+          }
+        case _ =>
+          false
+      }
+  }
+
+  def alphaEquiv(t1: Type, t2: Type): Boolean = alphaEquivList(List((Env(), t1, t2)))
+
   private def checkType(typ: Upgrading[Ast.Type]): Boolean = {
-    AlphaEquiv.alphaEquiv(unifyTypes(typ.past), unifyTypes(typ.present))
+    alphaEquiv(typ.past, typ.present)
   }
 
   // TODO: https://github.com/digital-asset/daml/pull/18377
@@ -445,19 +490,6 @@ case class TypecheckUpgrades(
       case TopLevel(datatype: Ref.DottedName) =>
         TopLevel(datatype)
     }
-
-  private def unifyTypes(typ: Ast.Type): Ast.Type = {
-    typ match {
-      case Ast.TNat(n) => Ast.TNat(n)
-      case Ast.TSynApp(n, args) => Ast.TSynApp(unifyIdentifier(n), args.map(unifyTypes(_)))
-      case Ast.TVar(n) => Ast.TVar(n)
-      case Ast.TTyCon(con) => Ast.TTyCon(unifyIdentifier(con))
-      case Ast.TBuiltin(bt) => Ast.TBuiltin(bt)
-      case Ast.TApp(fun, arg) => Ast.TApp(unifyTypes(fun), unifyTypes(arg))
-      case Ast.TForall(v, body) => Ast.TForall(v, unifyTypes(body))
-      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(unifyTypes(_)))
-    }
-  }
 
   private def checkKey(
       templateName: Ref.DottedName,
