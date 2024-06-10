@@ -22,7 +22,10 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow
 import com.daml.ledger.client.binding.util.Slf4JLogger
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.{
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
@@ -30,8 +33,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.util.Ctx
 import io.grpc.ManagedChannel
-import io.grpc.netty.NegotiationType.TLS
-import io.grpc.netty.NettyChannelBuilder
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -146,14 +147,9 @@ class LedgerClientBinding(
 object LedgerClientBinding {
 
   def createChannel(host: String, port: Int, sslContext: Option[SslContext]): ManagedChannel = {
-    val builder = NettyChannelBuilder.forAddress(host, port)
-
-    sslContext match {
-      case Some(context) => builder.sslContext(context).negotiationType(TLS)
-      case None => builder.usePlaintext()
-    }
-
-    builder.build()
+    LedgerClientChannelConfiguration(sslContext)
+      .builderFor(host, port)
+      .build()
   }
 
   @nowarn(
