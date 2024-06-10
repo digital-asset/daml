@@ -495,7 +495,11 @@ case class TypecheckUpgrades(
   ): Try[Unit] = {
     val (name, datatype) = nameAndDatatype
     val origin = moduleWithMetadata.map(_.dataTypeOrigin(name))
-    if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
+    if (!datatype.past.serializable || !datatype.present.serializable) {
+      Success(())
+    } else if (
+      unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)
+    ) {
       fail(UpgradeError.RecordChangedOrigin(name, origin))
     } else {
       datatype.map(_.cons) match {
