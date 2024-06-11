@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
 import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2.value.Identifier
-import com.daml.ledger.javaapi.data.FiltersByParty
+import com.daml.ledger.javaapi.data.TransactionFilter
 import io.reactivex.Observable
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -64,7 +64,7 @@ final class UpdateClientImplTest
 
   private val ledgerBegin = data.ParticipantOffset.ParticipantBegin.getInstance()
   private val ledgerEnd = data.ParticipantOffset.ParticipantEnd.getInstance()
-  private val emptyFilter = new FiltersByParty(Map.empty[String, data.Filter].asJava)
+  private val emptyFilter = new TransactionFilter(Map.empty[String, data.Filter].asJava)
 
   behavior of "8.1 TransactionClient.getTransactions"
 
@@ -95,7 +95,7 @@ final class UpdateClientImplTest
       val begin = new data.ParticipantOffset.Absolute("1")
       val end = new data.ParticipantOffset.Absolute("2")
 
-      val transactionFilter = new FiltersByParty(
+      val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
           "Alice" -> new data.CumulativeFilter(
             Map.empty.asJava,
@@ -155,7 +155,7 @@ final class UpdateClientImplTest
       val begin = new data.ParticipantOffset.Absolute("1")
       val end = new data.ParticipantOffset.Absolute("2")
 
-      val transactionFilter = new FiltersByParty(
+      val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
           "Alice" -> new data.CumulativeFilter(
             Map.empty.asJava,

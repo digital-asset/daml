@@ -103,7 +103,7 @@ public final class UpdateClientImpl implements UpdateClient {
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilter filter = contractFilter.transactionFilter(parties);
+    TransactionFilter filter = contractFilter.transactionFilter(Optional.of(parties));
     return getTransactions(begin, filter, verbose, accessToken);
   }
 
