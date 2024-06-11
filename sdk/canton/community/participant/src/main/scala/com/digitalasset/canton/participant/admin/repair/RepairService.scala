@@ -16,7 +16,6 @@ import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
@@ -111,7 +110,6 @@ final class RepairService(
     isConnected: DomainId => Boolean,
     @VisibleForTesting
     private[canton] val executionQueue: SimpleExecutionQueue,
-    futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -585,15 +583,20 @@ final class RepairService(
       }
       .getOrElse(EitherT.rightT(()))
 
-  def ignoreEvents(domain: DomainId, from: SequencerCounter, to: SequencerCounter, force: Boolean)(
-      implicit traceContext: TraceContext
-  ): Either[String, Unit] = {
-    logger.info(s"Ignoring sequenced events from $from to $to (force = $force).")
-    lockAndAwaitEitherTDomainId(
+  def ignoreEvents(
+      domain: DomainId,
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+      force: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, Unit] = {
+    logger.info(s"Ignoring sequenced events from $fromInclusive to $toInclusive (force = $force).")
+    lockEitherTDomainId(
       "repair.skip_messages",
       for {
-        _ <- performIfRangeSuitableForIgnoreOperations(domain, from, force)(
-          _.ignoreEvents(from, to).leftMap(_.toString)
+        _ <- performIfRangeSuitableForIgnoreOperations(domain, fromInclusive, force)(
+          _.ignoreEvents(fromInclusive, toInclusive).leftMap(_.toString)
         )
       } yield (),
       domain,
@@ -638,16 +641,19 @@ final class RepairService(
 
   def unignoreEvents(
       domain: DomainId,
-      from: SequencerCounter,
-      to: SequencerCounter,
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
       force: Boolean,
-  )(implicit traceContext: TraceContext): Either[String, Unit] = {
-    logger.info(s"Unignoring sequenced events from $from to $to (force = $force).")
-    lockAndAwaitEitherTDomainId(
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+    logger.info(
+      s"Unignoring sequenced events from $fromInclusive to $toInclusive (force = $force)."
+    )
+    lockEitherTDomainId(
       "repair.unskip_messages",
       for {
-        _ <- performIfRangeSuitableForIgnoreOperations(domain, from, force)(sequencedEventStore =>
-          sequencedEventStore.unignoreEvents(from, to).leftMap(_.toString)
+        _ <- performIfRangeSuitableForIgnoreOperations(domain, fromInclusive, force)(
+          sequencedEventStore =>
+            sequencedEventStore.unignoreEvents(fromInclusive, toInclusive).leftMap(_.toString)
         )
       } yield (),
       domain,
@@ -1334,7 +1340,7 @@ final class RepairService(
       )
     } yield dp
 
-  private def lockAndAwait[A, B](
+  private def lockAndAwait[B](
       description: String,
       code: => EitherT[Future, String, B],
       domainIds: EitherT[Future, String, Seq[DomainId]],
@@ -1342,8 +1348,22 @@ final class RepairService(
       traceContext: TraceContext
   ): Either[String, B] = {
     logger.info(s"Queuing $description")
+
     // repair commands can take an unbounded amount of time
     parameters.processingTimeouts.unbounded.await(description)(
+      lock(description, code, domainIds).value
+    )
+  }
+
+  private def lock[B](
+      description: String,
+      code: => EitherT[Future, String, B],
+      domainIds: EitherT[Future, String, Seq[DomainId]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, B] = {
+    logger.info(s"Queuing $description")
+    EitherT(
       executionQueue
         .executeE(
           domainIds
@@ -1357,19 +1377,18 @@ final class RepairService(
     )
   }
 
-  private def lockAndAwaitEitherTDomainId[B](
+  private def lockEitherTDomainId[B](
       description: String,
       code: => EitherT[Future, String, B],
       domainId: DomainId,
   )(implicit
       traceContext: TraceContext
-  ): Either[String, B] = {
-    lockAndAwait(
+  ): EitherT[Future, String, B] =
+    lock(
       description,
       code,
       EitherT.pure(Seq(domainId)),
     )
-  }
 
   private def lockAndAwaitEitherTDomainAlias[B](
       description: String,
@@ -1400,7 +1419,7 @@ final class RepairService(
       aliasToUnconnectedDomainId(domainAliases._1),
       aliasToUnconnectedDomainId(domainAliases._2),
     ).tupled
-    lockAndAwait[(DomainId, DomainId), B](
+    lockAndAwait[B](
       description,
       domainIds.flatMap(Function.tupled(code)),
       domainIds.map({ case (d1, d2) => Seq(d1, d2) }),

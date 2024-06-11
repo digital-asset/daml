@@ -130,15 +130,15 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
     counter.get()
   }
 
-  override def ignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
+  override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
       blocking(lock.synchronized {
         for {
-          _ <- appendEmptyIgnoredEvents(from, to)
+          _ <- appendEmptyIgnoredEvents(fromInclusive, toInclusive)
         } yield {
-          setIgnoreStatus(from, to, ignore = true)
+          setIgnoreStatus(fromInclusive, toInclusive, ignore = true)
         }
       })
     }
@@ -188,14 +188,14 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
       eventByTimestamp.addAll(newEvents)
     }
 
-  override def unignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
-      traceContext: TraceContext
+  override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
       blocking(lock.synchronized {
         for {
-          _ <- deleteEmptyIgnoredEvents(from, to)
-        } yield setIgnoreStatus(from, to, ignore = false)
+          _ <- deleteEmptyIgnoredEvents(fromInclusive, toInclusive)
+        } yield setIgnoreStatus(fromInclusive, toInclusive, ignore = false)
       })
     }
 

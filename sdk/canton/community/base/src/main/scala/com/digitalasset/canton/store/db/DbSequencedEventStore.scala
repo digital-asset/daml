@@ -248,13 +248,13 @@ class DbSequencedEventStore(
         }
     }
 
-  override def ignoreEvents(fromInclusive: SequencerCounter, untilInclusive: SequencerCounter)(
-      implicit traceContext: TraceContext
+  override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+      traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
-        _ <- appendEmptyIgnoredEvents(fromInclusive, untilInclusive)
-        _ <- EitherT.right(setIgnoreStatus(fromInclusive, untilInclusive, ignore = true))
+        _ <- appendEmptyIgnoredEvents(fromInclusive, toInclusive)
+        _ <- EitherT.right(setIgnoreStatus(fromInclusive, toInclusive, ignore = true))
       } yield ()
     }
 
@@ -310,13 +310,13 @@ class DbSequencedEventStore(
     )
   }
 
-  override def unignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
-      traceContext: TraceContext
+  override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
-        _ <- deleteEmptyIgnoredEvents(from, to)
-        _ <- EitherT.right(setIgnoreStatus(from, to, ignore = false))
+        _ <- deleteEmptyIgnoredEvents(fromInclusive, toInclusive)
+        _ <- EitherT.right(setIgnoreStatus(fromInclusive, toInclusive, ignore = false))
       } yield ()
     }
 
