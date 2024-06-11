@@ -288,7 +288,7 @@ class UpdateServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.Filters(None)
+            filters shouldEqual domain.CumulativeFilter.templateWildcardFilter()
           }
           req.verbose shouldEqual verbose
         }
@@ -309,7 +309,7 @@ class UpdateServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.Filters(None)
+            filters shouldEqual domain.CumulativeFilter.templateWildcardFilter()
           }
           req.verbose shouldEqual verbose
         }
@@ -379,28 +379,25 @@ class UpdateServiceRequestValidatorTest
         )
         result.map(_.filter.filtersByParty) shouldBe Right(
           Map(
-            party -> domain.Filters(
-              Some(
-                domain.CumulativeFilter(
-                  templateFilters = Set(
-                    domain.TemplateFilter(
-                      TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
-                      true,
-                    )
-                  ),
-                  interfaceFilters = Set(
-                    domain.InterfaceFilter(
-                      interfaceId = Ref.Identifier.assertFromString(
-                        "packageId:includedModule:includedTemplate"
-                      ),
-                      includeView = true,
-                      includeCreatedEventBlob = true,
-                    )
-                  ),
-                  templateWildcardFilter = None,
-                )
+            party ->
+              domain.CumulativeFilter(
+                templateFilters = Set(
+                  domain.TemplateFilter(
+                    TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
+                    true,
+                  )
+                ),
+                interfaceFilters = Set(
+                  domain.InterfaceFilter(
+                    interfaceId = Ref.Identifier.assertFromString(
+                      "packageId:includedModule:includedTemplate"
+                    ),
+                    includeView = true,
+                    includeCreatedEventBlob = true,
+                  )
+                ),
+                templateWildcardFilter = None,
               )
-            )
           )
         )
       }

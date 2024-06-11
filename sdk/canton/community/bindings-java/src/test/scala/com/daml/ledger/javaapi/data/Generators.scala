@@ -321,10 +321,23 @@ object Generators {
   def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
     for {
       filtersByParty <- Gen.mapOf(partyWithFiltersGen)
-    } yield v2.TransactionFilterOuterClass.TransactionFilter
-      .newBuilder()
-      .putAllFiltersByParty(filtersByParty.asJava)
-      .build()
+      filterForAnyPartyO <- Gen.option(filtersGen)
+    } yield {
+
+      filterForAnyPartyO match {
+        case None =>
+          v2.TransactionFilterOuterClass.TransactionFilter
+            .newBuilder()
+            .putAllFiltersByParty(filtersByParty.asJava)
+            .build()
+        case Some(filterForAnyParty) =>
+          v2.TransactionFilterOuterClass.TransactionFilter
+            .newBuilder()
+            .putAllFiltersByParty(filtersByParty.asJava)
+            .setFiltersForAnyParty(filterForAnyParty)
+            .build()
+      }
+    }
 
   def partyWithFiltersGen: Gen[(String, v2.TransactionFilterOuterClass.Filters)] =
     for {

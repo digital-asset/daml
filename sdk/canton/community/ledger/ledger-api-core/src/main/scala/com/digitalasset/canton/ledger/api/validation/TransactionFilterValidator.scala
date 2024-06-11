@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 }
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.std.list.*
@@ -53,7 +54,7 @@ object TransactionFilterValidator {
   // Allow using deprecated Protobuf fields for backwards compatibility
   private def validateFilters(filters: Filters)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.Filters] = {
+  ): Either[StatusRuntimeException, domain.CumulativeFilter] = {
     val extractedFilters = filters.cumulative.map(_.identifierFilter)
     val empties = extractedFilters.filter(_.isEmpty)
     lazy val templateFilters = extractedFilters.collect({ case IdentifierFilter.TemplateFilter(f) =>
@@ -67,22 +68,24 @@ object TransactionFilterValidator {
       f
     })
 
-    if (empties.size == extractedFilters.size) Right(domain.Filters(None))
+    if (empties.size == extractedFilters.size)
+      Right(domain.CumulativeFilter.templateWildcardFilter())
     else {
       for {
+        _ <- validateNonEmptyFilters(
+          templateFilters,
+          interfaceFilters,
+          wildcardFilters,
+        )
         validatedTemplates <-
           templateFilters.toList.traverse(validateTemplateFilter(_))
         validatedInterfaces <-
           interfaceFilters.toList.traverse(validateInterfaceFilter(_))
         wildcardO = mergeWildcardFilters(wildcardFilters)
-      } yield domain.Filters(
-        Some(
-          domain.CumulativeFilter(
-            validatedTemplates.toSet,
-            validatedInterfaces.toSet,
-            wildcardO,
-          )
-        )
+      } yield domain.CumulativeFilter(
+        validatedTemplates.toSet,
+        validatedInterfaces.toSet,
+        wildcardO,
       )
     }
   }
@@ -110,6 +113,23 @@ object TransactionFilterValidator {
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
   }
+
+  private def validateNonEmptyFilters(
+      templateFilters: Seq[TemplateFilter],
+      interfaceFilters: Seq[InterfaceFilter],
+      wildcardFilters: Seq[WildcardFilter],
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Unit] =
+    if (templateFilters.isEmpty && interfaceFilters.isEmpty && wildcardFilters.isEmpty)
+      Left(
+        RequestValidationErrors.InvalidArgument
+          .Reject(
+            "requests with empty template, interface and wildcard filters are not supported"
+          )
+          .asGrpcError
+      )
+    else Right(())
 
   private def mergeWildcardFilters(
       filters: Seq[WildcardFilter]

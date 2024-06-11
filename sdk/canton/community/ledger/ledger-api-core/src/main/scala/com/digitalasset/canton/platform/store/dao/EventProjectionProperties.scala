@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref.*
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, Filters, TemplateWildcardFilter}
+import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TemplateWildcardFilter}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 
 import scala.collection.View
@@ -111,26 +111,14 @@ object EventProjectionProperties {
       }
     } else
       domainTransactionFilter.filtersForAnyParty match {
-        case Some(Filters(None)) =>
-          None
-        case Some(Filters(Some(cumulative))) if cumulative.templateWildcardFilter.isDefined =>
-          None
-        case Some(Filters(Some(cumulative)))
-            if cumulative.templateFilters.isEmpty && cumulative.interfaceFilters.isEmpty && cumulative.templateWildcardFilter.isEmpty =>
-          None
+        case Some(cumulative) if cumulative.templateWildcardFilter.isDefined => None
         // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
         case _ =>
           Some(
             domainTransactionFilter.filtersByParty.iterator
               .collect {
-                case (party, Filters(None)) =>
+                case (party, cumulative) if cumulative.templateWildcardFilter.isDefined =>
                   party
-                case (party, Filters(Some(cumulative)))
-                    if cumulative.templateWildcardFilter.isDefined =>
-                  party
-                case (party, Filters(Some(empty)))
-                    if empty.templateFilters.isEmpty && empty.interfaceFilters.isEmpty && empty.templateWildcardFilter.isEmpty =>
-                  party // TODO(#19364) this should not happen
               }
               .map(_.toString)
               .toSet
@@ -141,7 +129,7 @@ object EventProjectionProperties {
       domainTransactionFilter: domain.TransactionFilter
   ): Option[Set[String]] =
     domainTransactionFilter.filtersForAnyParty match {
-      case Some(Filters(Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))))) =>
+      case Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))) =>
         None // include blobs for all templates and all parties
       // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
       case _ =>
@@ -150,7 +138,7 @@ object EventProjectionProperties {
             .collect {
               case (
                     party,
-                    Filters(Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true))))),
+                    CumulativeFilter(_, _, Some(TemplateWildcardFilter(true))),
                   ) =>
                 party
             }
@@ -170,8 +158,7 @@ object EventProjectionProperties {
       } ++
         domainTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
     (for {
-      (partyO, filters) <- partyFilterPairs
-      cumulativeFilter <- filters.cumulative.toList.view
+      (partyO, cumulativeFilter) <- partyFilterPairs
     } yield {
       val interfaceFilterProjections = for {
         interfaceFilter <- cumulativeFilter.interfaceFilters.view

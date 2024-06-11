@@ -12,8 +12,8 @@ import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
 import com.digitalasset.canton.ledger.api.domain.{
   Commands,
+  CumulativeFilter,
   EventId,
-  Filters,
   ParticipantOffset,
   TemplateWildcardFilter,
   TransactionFilter,
@@ -85,32 +85,28 @@ package object logging {
       )
     )
 
-  private def filtersToLoggingValue(filters: Filters): LoggingValue =
-    filters.cumulative match {
-      case None => LoggingValue.from("all-templates")
-      case Some(cumulativeFilter) =>
-        LoggingValue.Nested(
-          LoggingEntries.fromMap(
-            Map(
-              "templates" -> LoggingValue.from(
-                cumulativeFilter.templateFilters.map(_.templateTypeRef)
-              ),
-              "interfaces" -> LoggingValue.from(
-                cumulativeFilter.interfaceFilters.map(_.interfaceId)
-              ),
-            )
-              ++ (cumulativeFilter.templateWildcardFilter match {
-                case Some(TemplateWildcardFilter(includeCreatedEventBlob)) =>
-                  Map(
-                    "all-templates, created_event_blob" -> LoggingValue.from(
-                      includeCreatedEventBlob
-                    )
-                  )
-                case None => Map.empty
-              })
-          )
+  private def filtersToLoggingValue(filter: CumulativeFilter): LoggingValue =
+    LoggingValue.Nested(
+      LoggingEntries.fromMap(
+        Map(
+          "templates" -> LoggingValue.from(
+            filter.templateFilters.map(_.templateTypeRef)
+          ),
+          "interfaces" -> LoggingValue.from(
+            filter.interfaceFilters.map(_.interfaceId)
+          ),
         )
-    }
+          ++ (filter.templateWildcardFilter match {
+            case Some(TemplateWildcardFilter(includeCreatedEventBlob)) =>
+              Map(
+                "all-templates, created_event_blob" -> LoggingValue.from(
+                  includeCreatedEventBlob
+                )
+              )
+            case None => Map.empty
+          })
+      )
+    )
 
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id

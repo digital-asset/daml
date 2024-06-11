@@ -20,30 +20,9 @@ import scalaz.syntax.tag.*
 import scala.collection.immutable
 
 final case class TransactionFilter(
-    filtersByParty: immutable.Map[Ref.Party, Filters],
-    filtersForAnyParty: Option[Filters] = None,
+    filtersByParty: immutable.Map[Ref.Party, CumulativeFilter],
+    filtersForAnyParty: Option[CumulativeFilter] = None,
 )
-
-final case class Filters(
-    cumulative: Option[CumulativeFilter]
-) //TODO(#19364) remove Option and use the wildcardFilter for party-wildcards
-
-object Filters {
-  val noFilter: Filters = Filters(None)
-
-  def templateWildcardFilter(includeCreatedEventBlob: Boolean = false): Filters = Filters(
-    Some(
-      CumulativeFilter(
-        templateFilters = Set.empty,
-        interfaceFilters = Set.empty,
-        templateWildcardFilter =
-          Some(TemplateWildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)),
-      )
-    )
-  )
-
-  def apply(cumulative: CumulativeFilter) = new Filters(Some(cumulative))
-}
 
 final case class InterfaceFilter(
     interfaceId: Ref.Identifier,
@@ -73,6 +52,17 @@ final case class CumulativeFilter(
     interfaceFilters: immutable.Set[InterfaceFilter],
     templateWildcardFilter: Option[TemplateWildcardFilter],
 )
+
+object CumulativeFilter {
+  def templateWildcardFilter(includeCreatedEventBlob: Boolean = false): CumulativeFilter =
+    CumulativeFilter(
+      templateFilters = Set.empty,
+      interfaceFilters = Set.empty,
+      templateWildcardFilter =
+        Some(TemplateWildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)),
+    )
+
+}
 
 sealed abstract class ParticipantOffset extends Product with Serializable
 
