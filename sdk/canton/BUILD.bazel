@@ -1434,7 +1434,6 @@ proto_jars(
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
     proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
-    scala_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto_java"],
     strip_import_prefix = "community/ledger-api/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [

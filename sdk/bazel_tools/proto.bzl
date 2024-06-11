@@ -197,6 +197,9 @@ def _proto_scala_deps(grpc, proto_deps, java_conversions):
         for label in proto_deps
     ] + ([
         "@maven//:io_grpc_grpc_services",
+    ] if java_conversions else []) + ([
+        "%s_java" % label
+        for label in proto_deps
     ] if java_conversions else [])
 
 def proto_jars(
