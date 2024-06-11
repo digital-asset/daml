@@ -27,6 +27,14 @@ service ParticipantRepairService {
 
   // Purge selected data from deactivated domain
   rpc PurgeDeactivatedDomain(PurgeDeactivatedDomainRequest) returns (PurgeDeactivatedDomainResponse);
+
+
+  // Ignore events that the participant is unable to process
+  rpc IgnoreEvents(IgnoreEventsRequest) returns (IgnoreEventsResponse);
+
+  // Remove the ignored status from sequenced events
+  // This command has no effect on ordinary (i.e., not ignored) events and on events that do not exist.
+  rpc UnignoreEvents(UnignoreEventsRequest) returns (UnignoreEventsResponse);
 }
 
 message PurgeContractsRequest {
@@ -129,3 +137,27 @@ message PurgeDeactivatedDomainRequest {
 }
 
 message PurgeDeactivatedDomainResponse {}
+
+message IgnoreEventsRequest {
+  string domain_id = 1;
+  // sequencer counter of the first event to ignore
+  int64 from_inclusive = 2;
+  // sequencer counter of the last event to ignore
+  int64 to_inclusive = 3;
+  // allow to proceed even if some clean events have sequencer counter greater or equal than `from_inclusive`
+  bool force = 4;
+}
+
+message IgnoreEventsResponse {}
+
+message UnignoreEventsRequest {
+  string domain_id = 1;
+  // sequencer counter of the first event to unignore
+  int64 from_inclusive = 2;
+  // sequencer counter of the last event to unignore
+  int64 to_inclusive = 3;
+  // allow to proceed even if some clean events have sequencer counter greater or equal than `from_inclusive`
+  bool force = 4;
+}
+
+message UnignoreEventsResponse {}

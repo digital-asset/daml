@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
+import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -10,6 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
@@ -20,8 +22,9 @@ import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.util.{ErrorUtil, PekkoUtil}
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.actor.ActorSystem
@@ -47,10 +50,13 @@ abstract class SequencerApiTest
     implicit lazy val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
-    lazy val sequencer: CantonSequencer =
-      SequencerApiTest.this.createSequencer(
+    lazy val sequencer: CantonSequencer = {
+      val sequencer = SequencerApiTest.this.createSequencer(
         topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
       )
+      registerAllTopologyMembers(topologyFactory.topologySnapshot(), sequencer)
+      sequencer
+    }
 
     def topologyFactory: TestingIdentityFactory
 
@@ -175,7 +181,8 @@ abstract class SequencerApiTest
                 include(ExceededMaxSequencingTime.id) or include("Observed Send")
               }) or include("Detected new members without sequencer counter") or
                 include regex "Creating .* at block height None" or
-                include("Subscribing to block source from"))
+                include("Subscribing to block source from") or
+                include("Advancing sim clock"))
             },
           )
         } yield {
@@ -723,6 +730,39 @@ abstract class SequencerApiTest
           }
         }
       }
+
+      "require the member to be enabled to send/read" in { env =>
+        import env.*
+
+        val messageContent = "message-from-disabled-member"
+        val sender = p7.member
+        val recipients = Recipients.cc(sender)
+
+        val request: SubmissionRequest = createSendRequest(sender, messageContent, recipients)
+
+        for {
+          // Need to send first request and wait for it to be processed to get the member registered in BS
+          _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Send async failed")
+          _ <- readForMembers(Seq(p7), sequencer)
+          _ <- sequencer.disableMember(sender).valueOrFail("Disabling member failed")
+          sendError <- sequencer
+            .sendAsyncSigned(sign(request))
+            .leftOrFailShutdown("Send successful, expected error")
+          subscribeError <- sequencer
+            .read(sender, SequencerCounter.Genesis)
+            .leftOrFail("Read successful, expected error")
+        } yield {
+          sendError shouldBe a[SendAsyncError.RequestRefused]
+          sendError.message should (
+            include("is disabled at the sequencer") and
+              include(p7.toString)
+          )
+          subscribeError should matchPattern {
+            case CreateSubscriptionError.MemberDisabled(member) if member == sender =>
+          }
+        }
+
+      }
     }
   }
 }
@@ -884,5 +924,29 @@ trait SequencerApiTestUtils
     }
 
     override def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
+  }
+
+  /** Registers all the members present in the topology snapshot with the sequencer.
+    * Used for unit testing sequencers. During the normal sequencer operation members are registered
+    * via topology subscription or sequencer startup in SequencerRuntime.
+    */
+  def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit = {
+    (for {
+      allMembers <- EitherT.right[Sequencer.RegisterError](headSnapshot.allMembers())
+      _ <- allMembers.toSeq
+        .parTraverse_ { member =>
+          for {
+            firstKnownAtO <- EitherT.right(headSnapshot.memberFirstKnownAt(member))
+            res <- firstKnownAtO match {
+              case Some(firstKnownAt) =>
+                sequencer.registerMemberInternal(member, firstKnownAt)
+              case None =>
+                ErrorUtil.invalidState(
+                  s"Member $member has no first known at time, despite being in the topology"
+                )
+            }
+          } yield res
+        }
+    } yield ()).futureValue
   }
 }

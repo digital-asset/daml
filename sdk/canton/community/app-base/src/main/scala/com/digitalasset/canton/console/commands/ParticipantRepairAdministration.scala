@@ -319,6 +319,63 @@ class ParticipantRepairAdministration(
     }
   }
 
+  @Help.Summary("Mark sequenced events as ignored.")
+  @Help.Description(
+    """This is the last resort to ignore events that the participant is unable to process.
+      |Ignoring events may lead to subsequent failures, e.g., if the event creating a contract is ignored and
+      |that contract is subsequently used. It may also lead to ledger forks if other participants still process
+      |the ignored events.
+      |It is possible to mark events as ignored that the participant has not yet received.
+      |
+      |The command will fail, if marking events between `fromInclusive` and `toInclusive` as ignored would result in a gap in sequencer counters,
+      |namely if `from <= to` and `from` is greater than `maxSequencerCounter + 1`,
+      |where `maxSequencerCounter` is the greatest sequencer counter of a sequenced event stored by the underlying participant.
+      |
+      |The command will also fail, if `force == false` and `from` is smaller than the sequencer counter of the last event
+      |that has been marked as clean.
+      |(Ignoring such events would normally have no effect, as they have already been processed.)"""
+  )
+  def ignore_events(
+      domainId: DomainId,
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+      force: Boolean = false,
+  ): Unit =
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .IgnoreEvents(domainId, fromInclusive, toInclusive, force)
+        )
+      }
+    }
+
+  @Help.Summary("Remove the ignored status from sequenced events.")
+  @Help.Description(
+    """This command has no effect on ordinary (i.e., not ignored) events and on events that do not exist.
+      |
+      |The command will fail, if marking events between `fromInclusive` and `toInclusive` as unignored would result in a gap in sequencer counters,
+      |namely if there is one empty ignored event with sequencer counter between `from` and `to` and
+      |another empty ignored event with sequencer counter greater than `to`.
+      |An empty ignored event is an event that has been marked as ignored and not yet received by the participant.
+      |
+      |The command will also fail, if `force == false` and `from` is smaller than the sequencer counter of the last event
+      |that has been marked as clean.
+      |(Unignoring such events would normally have no effect, as they have already been processed.)"""
+  )
+  def unignore_events(
+      domainId: DomainId,
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+      force: Boolean = false,
+  ): Unit = check(FeatureFlag.Repair) {
+    consoleEnvironment.run {
+      runner.adminCommand(
+        ParticipantAdminCommands.ParticipantRepairManagement
+          .UnignoreEvents(domainId, fromInclusive, toInclusive, force)
+      )
+    }
+  }
 }
 
 abstract class LocalParticipantRepairAdministration(
@@ -381,59 +438,6 @@ abstract class LocalParticipantRepairAdministration(
           PositiveInt.tryCreate(batchSize),
         )(tc)
       )
-    )
-
-  @Help.Summary("Mark sequenced events as ignored.")
-  @Help.Description(
-    """This is the last resort to ignore events that the participant is unable to process.
-      |Ignoring events may lead to subsequent failures, e.g., if the event creating a contract is ignored and
-      |that contract is subsequently used. It may also lead to ledger forks if other participants still process
-      |the ignored events.
-      |It is possible to mark events as ignored that the participant has not yet received.
-      |
-      |The command will fail, if marking events between `from` and `to` as ignored would result in a gap in sequencer counters,
-      |namely if `from <= to` and `from` is greater than `maxSequencerCounter + 1`,
-      |where `maxSequencerCounter` is the greatest sequencer counter of a sequenced event stored by the underlying participant.
-      |
-      |The command will also fail, if `force == false` and `from` is smaller than the sequencer counter of the last event
-      |that has been marked as clean.
-      |(Ignoring such events would normally have no effect, as they have already been processed.)"""
-  )
-  def ignore_events(
-      domainId: DomainId,
-      from: SequencerCounter,
-      to: SequencerCounter,
-      force: Boolean = false,
-  ): Unit =
-    runRepairCommand(tc =>
-      access {
-        _.sync.repairService.ignoreEvents(domainId, from, to, force)(tc)
-      }
-    )
-
-  @Help.Summary("Remove the ignored status from sequenced events.")
-  @Help.Description(
-    """This command has no effect on ordinary (i.e., not ignored) events and on events that do not exist.
-      |
-      |The command will fail, if marking events between `from` and `to` as unignored would result in a gap in sequencer counters,
-      |namely if there is one empty ignored event with sequencer counter between `from` and `to` and
-      |another empty ignored event with sequencer counter greater than `to`.
-      |An empty ignored event is an event that has been marked as ignored and not yet received by the participant.
-      |
-      |The command will also fail, if `force == false` and `from` is smaller than the sequencer counter of the last event
-      |that has been marked as clean.
-      |(Unignoring such events would normally have no effect, as they have already been processed.)"""
-  )
-  def unignore_events(
-      domainId: DomainId,
-      from: SequencerCounter,
-      to: SequencerCounter,
-      force: Boolean = false,
-  ): Unit =
-    runRepairCommand(tc =>
-      access {
-        _.sync.repairService.unignoreEvents(domainId, from, to, force)(tc)
-      }
     )
 }
 

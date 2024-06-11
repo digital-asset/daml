@@ -28,7 +28,6 @@ import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsResponse,
   ListPurgeTopologyTransactionRequest,
   ListPurgeTopologyTransactionResponse,
-  *,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.client.DomainTopologyClient
@@ -59,7 +58,6 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOp,
   TopologyMapping,
   VettedPackages,
-  *,
 }
 import com.digitalasset.canton.topology.{
   DomainId,

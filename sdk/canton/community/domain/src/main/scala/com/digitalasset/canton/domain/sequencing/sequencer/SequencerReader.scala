@@ -35,10 +35,10 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.CombinedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, config}
 import org.apache.pekko.stream.*
@@ -104,11 +104,13 @@ class SequencerReader(
           .fromOptionF(store.lookupMember(member), CreateSubscriptionError.UnknownMember(member))
           .leftWiden[CreateSubscriptionError]
         // check they haven't been disabled
-        _ <- store
-          .isEnabled(registeredMember.memberId)
-          .leftMap[CreateSubscriptionError] { case MemberDisabledError =>
-            CreateSubscriptionError.MemberDisabled(member)
-          }
+        isMemberEnabled <- EitherT.right(
+          store.isEnabled(registeredMember.memberId)
+        )
+        _ <- EitherTUtil.condUnitET[Future](
+          isMemberEnabled,
+          CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
+        )
         initialReadState <- EitherT.right(
           startFromClosestCounterCheckpoint(ReadState.initial(member)(registeredMember), offset)
         )

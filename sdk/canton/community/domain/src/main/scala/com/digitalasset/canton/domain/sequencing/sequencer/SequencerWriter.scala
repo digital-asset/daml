@@ -339,7 +339,7 @@ class SequencerWriter(
     for {
       _ <- store.deleteEventsPastWatermark()
       onlineTimestamp <- store.goOnline(clock.now)
-      _ = if (clock.isSimClock && unifiedSequencer) {
+      _ = if (clock.isSimClock) {
         logger.debug(s"The sequencer will not start unless sim clock moves to $onlineTimestamp")
         logger.debug(
           s"In order to prevent deadlocking in tests the clock's timestamp will now be advanced to $onlineTimestamp"

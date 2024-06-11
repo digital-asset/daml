@@ -85,8 +85,6 @@ class GrpcSequencerServiceTest
       .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
-    when(sequencer.acknowledge(any[Member], any[CantonTimestamp])(anyTraceContext))
-      .thenReturn(Future.unit)
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
     val cryptoApi: DomainSyncCryptoClient =

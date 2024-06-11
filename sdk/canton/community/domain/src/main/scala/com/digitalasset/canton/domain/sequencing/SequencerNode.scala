@@ -73,14 +73,19 @@ import com.digitalasset.canton.store.{
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClient
-import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoreBasedTopologyStateForInitializationService,
   TopologyStore,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.{OwnerToKeyMapping, SequencerDomainState}
+import com.digitalasset.canton.topology.transaction.{
+  DomainTrustCertificate,
+  MediatorDomainState,
+  SequencerDomainState,
+  SignedTopologyTransaction,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -485,51 +490,56 @@ class SequencerNodeBootstrap(
             )
           )
           (topologyProcessor, topologyClient) = processorAndClient
-          maxStoreTimestamp <- EitherT.right(domainTopologyStore.maxTimestamp())
+          _ = addCloseable(topologyProcessor)
+          _ = addCloseable(topologyClient)
           _ = ips.add(topologyClient)
           _ <- EitherTUtil.condUnitET[Future](
             SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
             "Unexpected state during initialization: topology client shouldn't have been set before",
           )
           membersToRegister <- {
-            addCloseable(topologyProcessor)
-            addCloseable(topologyClient)
-            // TODO(#14073) more robust initialization: if we upload the genesis state, we need to poke
-            //    the topology client by a small increment, as otherwise it won't see the keys (asOfExclusive)
-            //    also, right now, we initialize the mediators here. subsequently, we subscribe to the
-            //    topology processor and keep on adding new nodes
-            val tsInit = CantonTimestamp.MinValue.immediateSuccessor
-
+            val tsInit = SignedTopologyTransaction.InitialTopologySequencingTime.immediateSuccessor
+            // When the sequencer is started on a fresh domain there's no sequencer snapshot,
+            // so we need to register all members present in the topology snapshot
             if (topologyClient.approximateTimestamp == tsInit) {
-              val tsNext = EffectiveTime(
-                maxStoreTimestamp
-                  .map(_._2.value)
-                  .getOrElse(tsInit)
-                  .immediateSuccessor
-              )
-              topologyClient.updateHead(
-                tsNext,
-                tsNext.toApproximate,
-                potentialTopologyChange = false,
-              )
               // this sequencer node was started for the first time an initialized with a topology state.
-              // therefore we fetch all members who have registered a key (OwnerToKeyMapping) and pass them
+              // therefore we fetch all members who have a registered role on the domain and pass them
               // to the underlying sequencer driver to register them as known members
               EitherT.right[String](
                 domainTopologyStore
                   .findPositiveTransactions(
-                    tsNext.value,
+                    tsInit,
                     asOfInclusive = false,
                     isProposal = false,
-                    types = Seq(OwnerToKeyMapping.code),
+                    types = Seq(
+                      DomainTrustCertificate.code,
+                      SequencerDomainState.code,
+                      MediatorDomainState.code,
+                    ),
                     filterUid = None,
                     filterNamespace = None,
                   )
-                  .map(
-                    _.collectOfMapping[OwnerToKeyMapping].collectLatestByUniqueKey.toTopologyState
-                      .map(_.member)
+                  .map { transactions =>
+                    val participants = transactions
+                      .collectOfMapping[DomainTrustCertificate]
+                      .collectLatestByUniqueKey
+                      .toTopologyState
+                      .map(_.participantId)
                       .toSet
-                  )
+                    val sequencers = transactions
+                      .collectOfMapping[SequencerDomainState]
+                      .collectLatestByUniqueKey
+                      .toTopologyState
+                      .flatMap(sds => sds.active.forgetNE ++ sds.observers)
+                      .toSet
+                    val mediators = transactions
+                      .collectOfMapping[MediatorDomainState]
+                      .collectLatestByUniqueKey
+                      .toTopologyState
+                      .flatMap(mds => mds.active.forgetNE ++ mds.observers)
+                      .toSet
+                    participants ++ sequencers ++ mediators
+                  }
               )
             } else EitherT.rightT[Future, String](Set.empty[Member])
           }
