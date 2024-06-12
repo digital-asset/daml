@@ -263,6 +263,27 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   @Explanation(
+    "This error is emitted when a domain migration is attempted while transactions are still in-flight on the source domain."
+  )
+  @Resolution(
+    """Ensure the source domain has no in-flight transactions by reconnecting participants to the source domain, halting
+      |activity on the participants and waiting for in-flight transactions to complete or time out. Afterwards invoke
+      |`migrate_domain` again. As a last resort, you may force the domain migration ignoring in-flight transactions using
+      |the `force` flag on the command. Be advised, forcing a migration may lead to a ledger fork."""
+  )
+  object SyncServiceDomainMustNotHaveInFlightTransactions
+      extends ErrorCode(
+        "SYNC_SERVICE_DOMAIN_MUST_NOT_HAVE_IN_FLIGHT_TRANSACTIONS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = show"$domain must not have in-flight transactions")
+        with SyncServiceError
+
+  }
+
+  @Explanation(
     "This error is logged when a sync domain is unexpectedly disconnected from the Canton " +
       "sync service (after having previously been connected)"
   )

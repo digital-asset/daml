@@ -33,7 +33,6 @@ import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -1266,21 +1265,15 @@ class DbSequencerStore(
 
   override def isEnabled(member: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MemberDisabledError.type, Unit] = {
-    def isMemberEnabled: Future[Boolean] =
-      storage
-        .query(
-          sql"select enabled from sequencer_members where id = $member".as[Boolean].headOption,
-          s"$functionFullName:isMemberEnabled",
-        )
-        .map(
-          _.getOrElse(false)
-        ) // if the member isn't registered this should be picked up elsewhere
-
-    EitherT
-      .right[MemberDisabledError.type](isMemberEnabled)
-      .flatMap(condUnitET[Future](_, MemberDisabledError))
-  }
+  ): Future[Boolean] =
+    storage
+      .query(
+        sql"select enabled from sequencer_members where id = $member".as[Boolean].headOption,
+        s"$functionFullName:isMemberEnabled",
+      )
+      .map(
+        _.getOrElse(false)
+      ) // if the member isn't registered this should be picked up elsewhere
 
   override def validateCommitMode(
       configuredCommitMode: CommitMode

@@ -62,7 +62,7 @@ object TestUtil {
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
-  def allTemplates(partyName: String) = new FiltersByParty(
+  def allTemplates(partyName: String) = new TransactionFilter(
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 

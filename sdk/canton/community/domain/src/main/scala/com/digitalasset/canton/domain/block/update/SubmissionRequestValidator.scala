@@ -21,6 +21,7 @@ import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.{
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
@@ -49,6 +50,8 @@ private[update] final class SubmissionRequestValidator(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
+    memberValidator: SequencerMemberValidator,
 ) extends NamedLogging {
 
   /** Returns the snapshot for signing the events (if the submission request specifies a signing timestamp)
@@ -160,9 +163,21 @@ private[update] final class SubmissionRequestValidator(
   ) = {
     val submissionRequest = signedSubmissionRequest.content
     for {
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        state.registeredMembers.contains(submissionRequest.sender),
-        (),
+      isSenderRegistered <- {
+        if (unifiedSequencer) {
+          EitherT.right(
+            FutureUnlessShutdown.outcomeF(
+              memberValidator.isMemberRegisteredAt(submissionRequest.sender, sequencingTimestamp)
+            )
+          )
+        } else {
+          EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
+            isMemberRegistered(state)(submissionRequest.sender)
+          )
+        }
+      }
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        isSenderRegistered,
         // we expect callers to validate the sender exists before queuing requests on their behalf
         // if we hit this case here it likely means the caller didn't check, or the member has subsequently
         // been deleted.
@@ -194,12 +209,10 @@ private[update] final class SubmissionRequestValidator(
           SubmissionRequestOutcome.discardSubmissionRequest
         },
       )
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        checkRecipientsAreKnown(
-          state,
-          submissionRequest,
-          sequencingTimestamp,
-        )
+      _ <- checkRecipientsAreKnown(
+        state,
+        submissionRequest,
+        sequencingTimestamp,
       )
       _ <- checkSignatureOnSubmissionRequest(
         signedSubmissionRequest,
@@ -359,21 +372,24 @@ private[update] final class SubmissionRequestValidator(
           topologyOrSequencingSnapshot.ipsSnapshot.allMembers()
         )
         _ <- {
-          // this can happen when a
-          val nonRegistered = allMembers.filterNot(isMemberRegistered(state))
-          EitherT.cond[Future](
-            nonRegistered.isEmpty,
-            (),
-            // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestRefused(
-                s"The broadcast group contains non registered members $nonRegistered"
+          if (unifiedSequencer) {
+            EitherT.pure[Future, SubmissionRequestOutcome](())
+          } else {
+            // this can happen when a
+            val nonRegistered = allMembers.filterNot(isMemberRegistered(state))
+            EitherTUtil.condUnitET[Future](
+              nonRegistered.isEmpty,
+              // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
+              invalidSubmissionRequest(
+                state,
+                submissionRequest,
+                sequencingTimestamp,
+                SequencerErrors.SubmissionRequestRefused(
+                  s"The broadcast group contains non registered members $nonRegistered"
+                ),
               ),
-            ),
-          )
+            )
+          }
         }
       } yield Map((AllMembersOfDomain: GroupRecipient, allMembers))
     }
@@ -411,20 +427,36 @@ private[update] final class SubmissionRequestValidator(
             )
           )
         _ <- groups.parTraverse { group =>
-          val nonRegistered =
-            (group.active ++ group.passive).filterNot(isMemberRegistered(state))
-          EitherT.cond[Future](
-            nonRegistered.isEmpty,
-            (),
-            // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestRefused(
-                s"The mediator group ${group.index} contains non registered mediators $nonRegistered"
-              ),
-            ),
+          val nonRegisteredF = {
+            if (unifiedSequencer) {
+              (group.active ++ group.passive).forgetNE.parTraverseFilter { member =>
+                memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
+                  isRegistered => Option.when(!isRegistered)(member)
+                }
+              }
+            } else {
+              Future.successful(
+                (group.active ++ group.passive).filterNot(isMemberRegistered(state))
+              )
+            }
+          }
+
+          EitherT(
+            nonRegisteredF.map { nonRegistered =>
+              Either.cond(
+                nonRegistered.isEmpty,
+                (),
+                // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
+                invalidSubmissionRequest(
+                  state,
+                  submissionRequest,
+                  sequencingTimestamp,
+                  SequencerErrors.SubmissionRequestRefused(
+                    s"The mediator group ${group.index} contains non registered mediators $nonRegistered"
+                  ),
+                ),
+              )
+            }
           )
         }
       } yield GroupAddressResolver.asGroupRecipientsToMembers(groups)
@@ -668,19 +700,40 @@ private[update] final class SubmissionRequestValidator(
       state: BlockUpdateEphemeralState,
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Either[SubmissionRequestOutcome, Unit] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] = {
     // group addresses checks are covered separately later on
-    val unknownRecipients = submissionRequest.batch.allMembers diff state.registeredMembers
-    Either.cond(
-      unknownRecipients.isEmpty,
-      (),
-      invalidSubmissionRequest(
-        state,
-        submissionRequest,
-        sequencingTimestamp,
-        SequencerErrors.UnknownRecipients(unknownRecipients.toSeq),
-      ),
-    )
+    for {
+      unknownRecipients <-
+        EitherT
+          .right(
+            if (unifiedSequencer) {
+              submissionRequest.batch.allMembers.toList.parTraverseFilter { member =>
+                memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
+                  case true => None
+                  case false => Some(member)
+                }
+              }
+            } else {
+              Future.successful(
+                (submissionRequest.batch.allMembers diff state.registeredMembers).toList
+              )
+            }
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
+      res <- EitherT.cond[FutureUnlessShutdown](
+        unknownRecipients.isEmpty,
+        (),
+        invalidSubmissionRequest(
+          state,
+          submissionRequest,
+          sequencingTimestamp,
+          SequencerErrors.UnknownRecipients(unknownRecipients),
+        ),
+      )
+    } yield res
   }
 
   private def checkSignatureOnSubmissionRequest(
@@ -792,22 +845,26 @@ private[update] final class SubmissionRequestValidator(
 
       topologyTimestampO = submissionRequest.topologyTimestamp
       events =
-        (groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender).toSeq.map {
-          member =>
-            val groups = groupToMembers.collect {
-              case (groupAddress, members) if members.contains(member) => groupAddress
-            }.toSet
-            val deliver = Deliver.create(
-              stateAfterTrafficConsume.tryNextCounter(member),
-              sequencingTimestamp,
-              domainId,
-              Option.when(member == submissionRequest.sender)(submissionRequest.messageId),
-              Batch.filterClosedEnvelopesFor(aggregatedBatch, member, groups),
-              topologyTimestampO,
-              protocolVersion,
-            )
-            member -> deliver
-        }.toMap
+        if (unifiedSequencer) {
+          Map.empty[Member, Deliver[ClosedEnvelope]]
+        } else {
+          (groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender).toSeq.map {
+            member =>
+              val groups = groupToMembers.collect {
+                case (groupAddress, members) if members.contains(member) => groupAddress
+              }.toSet
+              val deliver = Deliver.create(
+                stateAfterTrafficConsume.tryNextCounter(member),
+                sequencingTimestamp,
+                domainId,
+                Option.when(member == submissionRequest.sender)(submissionRequest.messageId),
+                Batch.filterClosedEnvelopesFor(aggregatedBatch, member, groups),
+                topologyTimestampO,
+                protocolVersion,
+              )
+              member -> deliver
+          }.toMap
+        }
       members =
         groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender
       aggregationUpdate = aggregationOutcome.map {

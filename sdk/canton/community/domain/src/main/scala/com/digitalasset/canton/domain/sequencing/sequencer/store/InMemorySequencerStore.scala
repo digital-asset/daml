@@ -75,7 +75,10 @@ class InMemorySequencerStore(
       members
         .getOrElseUpdate(
           member,
-          RegisteredMember(SequencerMemberId(nextNewMemberId.getAndIncrement()), timestamp),
+          RegisteredMember(
+            SequencerMemberId(nextNewMemberId.getAndIncrement()),
+            timestamp,
+          ),
         )
         .memberId
     }
@@ -418,14 +421,11 @@ class InMemorySequencerStore(
 
   override def isEnabled(memberId: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MemberDisabledError.type, Unit] = {
+  ): Future[Boolean] = {
     val member = lookupExpectedMember(memberId)
-    EitherT
-      .cond[Future](
-        !disabledClientsRef.get().members.contains(member),
-        (),
-        MemberDisabledError,
-      )
+    Future.successful(
+      !disabledClientsRef.get().members.contains(member)
+    )
   }
 
   /** There can be no other sequencers sharing this storage */

@@ -54,13 +54,21 @@ public final class ContractFilter<Ct> {
     return companion.fromCreatedEvent(createdEvent);
   }
 
-  public TransactionFilter transactionFilter(Set<String> parties) {
+  public TransactionFilter transactionFilter(Optional<Set<String>> parties) {
     return transactionFilter(filter, parties);
   }
 
-  private static TransactionFilter transactionFilter(Filter filter, Set<String> parties) {
+  private static TransactionFilter transactionFilter(
+      Filter filter, Optional<Set<String>> partiesO) {
     Map<String, Filter> partyToFilters =
-        parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
-    return new FiltersByParty(partyToFilters);
+        partiesO
+            .map(
+                parties ->
+                    parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter)))
+            .orElse(Collections.emptyMap());
+
+    Optional<Filter> anyPartyFilterO = partiesO.isEmpty() ? Optional.of(filter) : Optional.empty();
+
+    return new TransactionFilter(partyToFilters, anyPartyFilterO);
   }
 }

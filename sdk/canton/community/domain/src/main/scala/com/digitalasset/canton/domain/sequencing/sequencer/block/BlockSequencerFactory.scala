@@ -112,13 +112,10 @@ abstract class BlockSequencerFactory(
     val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
     logger.debug(s"Storing sequencers initial state: $initialBlockState")
     for {
-      _ <- {
-        if (nodeParameters.useUnifiedSequencer) {
-          super.initialize(snapshot, sequencerId)
-        } else {
-          EitherT.pure[Future, String](())
-        }
-      }
+      _ <- super[DatabaseSequencerFactory].initialize(
+        snapshot,
+        sequencerId,
+      ) // Members are stored in the DBS
       _ <- EitherT.right(
         store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
       )

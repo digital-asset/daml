@@ -68,6 +68,16 @@ abstract class BaseSequencer(
           )
           .leftMap(e => SendAsyncError.RequestRefused(e))
           .mapK(FutureUnlessShutdown.outcomeK)
+        isMemberEnabled <- EitherT.right[SendAsyncError.RequestRefused](
+          FutureUnlessShutdown.outcomeF(isEnabled(submission.sender))
+        )
+        _ <- EitherT.cond[FutureUnlessShutdown](
+          isMemberEnabled,
+          (),
+          SendAsyncError.RequestRefused(
+            s"Member ${submission.sender} is disabled at the sequencer"
+          ),
+        )
         _ <- sendAsyncSignedInternal(signedSubmissionWithFixedTs)
       } yield ()
   }
@@ -141,7 +151,6 @@ abstract class BaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
     for {
-      _ <- registerMember(member).leftMap(CreateSubscriptionError.MemberRegisterError)
       source <- readInternal(member, offset)
     } yield source
 

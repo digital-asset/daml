@@ -48,10 +48,10 @@ trait DataLayerHelpers {
       .withWorkflowId("workflowId")
   }
 
-  val filterNothing: FiltersByParty = new FiltersByParty(Map[String, Filter]().asJava)
+  val filterNothing: TransactionFilter = new TransactionFilter(Map[String, Filter]().asJava)
 
-  def filterFor(party: String): FiltersByParty =
-    new FiltersByParty(
+  def filterFor(party: String): TransactionFilter =
+    new TransactionFilter(
       Map(
         party -> (new CumulativeFilter(
           Map.empty.asJava,

@@ -26,6 +26,7 @@ import com.digitalasset.canton.domain.metrics.BlockMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -54,6 +55,8 @@ private[update] final class BlockChunkProcessor(
     orderingTimeFixMode: OrderingTimeFixMode,
     override val loggerFactory: NamedLoggerFactory,
     metrics: BlockMetrics,
+    unifiedSequencer: Boolean,
+    memberValidator: SequencerMemberValidator,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
@@ -65,6 +68,8 @@ private[update] final class BlockChunkProcessor(
       sequencerId,
       rateLimitManager,
       loggerFactory,
+      unifiedSequencer = unifiedSequencer,
+      memberValidator = memberValidator,
     )
 
   def processChunk(
@@ -97,7 +102,16 @@ private[update] final class BlockChunkProcessor(
           state.ephemeral.headCounter(sequencerId),
           submissionRequests,
         )
-      newMembers <- detectMembersWithoutSequencerCounters(state, sequencedSubmissionsWithSnapshots)
+      newMembers <-
+        if (unifiedSequencer) {
+          // Unified sequencer mode doesn't store members in the ephemeral state.
+          // By the point we are processing a submission with topology/sequencing time topology snapshot,
+          // all the valid members will be already in the members database of DBS
+          FutureUnlessShutdown.pure(Map.empty[Member, CantonTimestamp])
+        } else {
+          detectMembersWithoutSequencerCounters(state, sequencedSubmissionsWithSnapshots)
+        }
+
       _ = if (newMembers.nonEmpty) {
         logger.info(s"Detected new members without sequencer counter: $newMembers")
       }
@@ -157,8 +171,10 @@ private[update] final class BlockChunkProcessor(
       // validations to fail down the line. That's why we need to compute it using only validated events, instead of
       // using the lastTs computed initially pre-validation.
       lastChunkTsOfSuccessfulEvents =
-        reversedSignedEvents
-          .map(_.sequencingTimestamp)
+        reversedOutcomes
+          .collect { case SubmissionRequestOutcome(_, _, o: DeliverableSubmissionOutcome) =>
+            o.sequencingTime
+          }
           .maxOption
           .orElse(newMembers.values.maxOption)
           .getOrElse(state.lastChunkTs)

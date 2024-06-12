@@ -17,10 +17,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * in order to accept submissions and serve events from it
   */
 trait SequencerIntegration {
-  def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
+  def blockSequencerAcknowledge(acknowledgements: Map[Member, CantonTimestamp])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit]
+  ): Future[Unit]
 
   def blockSequencerWrites(
       orderedOutcomes: Seq[SubmissionOutcome]
@@ -32,11 +32,10 @@ trait SequencerIntegration {
 
 object SequencerIntegration {
   val Noop: SequencerIntegration = new SequencerIntegration {
-    override def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
+    override def blockSequencerAcknowledge(acknowledgements: Map[Member, CantonTimestamp])(implicit
         executionContext: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[Future, String, Unit] =
-      EitherT.pure[Future, String](())
+    ): Future[Unit] = Future.unit
 
     override def blockSequencerWrites(
         orderedOutcomes: Seq[SubmissionOutcome]
@@ -50,21 +49,13 @@ object SequencerIntegration {
 
 trait DatabaseSequencerIntegration extends SequencerIntegration {
   this: DatabaseSequencer =>
-  override def blockSequencerRegisterMembers(members: Map[Member, CantonTimestamp])(implicit
+  override def blockSequencerAcknowledge(acknowledgements: Map[Member, CantonTimestamp])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
-    // TODO(#18394): Implement batch db write for member registration
-    members.toSeq.parTraverse_ { case (member, timestamp) =>
-      for {
-        isRegistered <- EitherT.right(this.isRegistered(member))
-        _ <-
-          if (!isRegistered) {
-            this.registerMemberInternal(member, timestamp).leftMap(_.toString)
-          } else {
-            EitherT.pure[Future, String](())
-          }
-      } yield ()
+  ): Future[Unit] =
+    // TODO(#18394): Batch acknowledgements?
+    acknowledgements.toSeq.parTraverse_ { case (member, timestamp) =>
+      this.writeAcknowledgementInternal(member, timestamp)
     }
 
   override def blockSequencerWrites(

@@ -21,7 +21,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
-import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
+import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
@@ -292,7 +292,8 @@ class StartableStoppableLedgerApiServer(
         )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
           indexService.getActiveContracts(
             filter = TransactionFilter(
-              filtersByParty = partyIds.view.map(_ -> Filters.templateWildcardFilter(true)).toMap,
+              filtersByParty =
+                partyIds.view.map(_ -> CumulativeFilter.templateWildcardFilter(true)).toMap,
               filtersForAnyParty = None,
             ),
             verbose = false,

@@ -513,8 +513,8 @@ class CachingTopologySnapshot(
       member: Member
   )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
     isMemberKnown(member).flatMap {
-      // TODO(#18399): Consider caching this call as well,
-      //  should only happen during first time member is registered at a sequencer
+      // TODO(#18394): Consider caching this call as well,
+      //  should only happen during topology transactions with potential new members: DTC/SDS/MDS
       case true => parent.memberFirstKnownAt(member)
       case false => Future.successful(None)
     }

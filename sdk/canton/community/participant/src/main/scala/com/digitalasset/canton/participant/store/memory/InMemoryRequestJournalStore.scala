@@ -131,4 +131,9 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
   }
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
+
+  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int] =
+    Future.successful(requestTable.count { case (_, result) =>
+      result.commitTime.isEmpty
+    })
 }
