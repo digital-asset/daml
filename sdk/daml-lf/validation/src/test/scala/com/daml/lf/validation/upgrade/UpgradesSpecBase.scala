@@ -623,7 +623,7 @@ abstract class UpgradesSpec(val suffix: String)
     with Inside
     with CantonFixture {
   override lazy val devMode = true
-  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
+  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles
   val uploadSecondPackageDryRun: Boolean = false;
 
   protected def loadPackageIdAndBS(path: String): (PackageId, ByteString) = {
