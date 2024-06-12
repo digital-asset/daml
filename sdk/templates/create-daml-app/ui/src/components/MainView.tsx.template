@@ -4,18 +4,21 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml.js/__PROJECT_NAME__';
+import { User, packageId } from '@daml.js/__PROJECT_NAME__';
 import { publicContext, userContext } from './App';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
+const UserUser = { ...User.User, templateId: `${packageId}:User:User` }
+const UserAlias = { ...User.Alias, templateId: `${packageId}:User:Alias` }
+
 // USERS_BEGIN
 const MainView: React.FC = () => {
   const username = userContext.useParty();
-  const myUserResult = userContext.useStreamFetchByKeys(User.User, () => [username], [username]);
-  const aliases = publicContext.useStreamQueries(User.Alias, () => [], []);
+  const myUserResult = userContext.useStreamFetchByKeys(UserUser, () => [username], [username]);
+  const aliases = publicContext.useStreamQueries(UserAlias, () => [], []);
   const myUser = myUserResult.contracts[0]?.payload;
-  const allUsers = userContext.useStreamQueries(User.User).contracts;
+  const allUsers = userContext.useStreamQueries(UserUser).contracts;
 // USERS_END
 
   // Sorted list of users that are following the current user
@@ -38,7 +41,7 @@ const MainView: React.FC = () => {
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
-      await ledger.exerciseByKey(User.User.Follow, username, {userToFollow});
+      await ledger.exerciseByKey(UserUser.Follow, username, {userToFollow});
       return true;
     } catch (error) {
       alert(`Unknown error:\n${JSON.stringify(error)}`);

@@ -9,7 +9,7 @@ import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
 
 import Ledger, { UserRightHelper, UserRight } from "@daml/ledger";
-import { User } from "@daml.js/create-daml-app";
+import { User, packageId } from "@daml.js/create-daml-app";
 import { insecure } from "./config";
 
 const JSON_API_PORT_FILE_NAME = "json-api.port";
@@ -108,7 +108,7 @@ beforeAll(async () => {
 
   // Launch a single browser for all tests.
   console.debug("Starting puppeteer");
-  browser = await puppeteer.launch();
+  browser = await puppeteer.launch({ args: ["--no-sandbox"] });
   console.debug("Puppeteer is running");
 }, 60_000);
 
@@ -134,17 +134,19 @@ afterAll(async () => {
   }
 });
 
+const UserUser = { ...User.User, templateId: `${packageId}:User:User` };
+
 test("create and look up user using ledger library", async () => {
   const [user, party] = await getParty();
   const token = insecure.makeToken(user);
   const ledger = new Ledger({ token });
-  const users0 = await ledger.query(User.User);
+  const users0 = await ledger.query(UserUser);
   expect(users0).toEqual([]);
   const userPayload = { username: party, following: [], public: publicParty };
-  const userContract1 = await ledger.create(User.User, userPayload);
-  const userContract2 = await ledger.fetchByKey(User.User, party);
+  const userContract1 = await ledger.create(UserUser, userPayload);
+  const userContract2 = await ledger.fetchByKey(UserUser, party);
   expect(userContract1).toEqual(userContract2);
-  const users = await ledger.query(User.User);
+  const users = await ledger.query(UserUser);
   expect(users[0]).toEqual(userContract1);
 }, 20_000);
 
@@ -235,7 +237,7 @@ test("log in as a new user, log out and log back in", async () => {
   // Check that the ledger contains the new User contract.
   const token = insecure.makeToken(user);
   const ledger = new Ledger({ token });
-  const users = await ledger.query(User.User);
+  const users = await ledger.query(UserUser);
   expect(users).toHaveLength(1);
   expect(users[0].payload.username).toEqual(party);
 
@@ -244,7 +246,7 @@ test("log in as a new user, log out and log back in", async () => {
   await login(page, user);
 
   // Check we have the same one user.
-  const usersFinal = await ledger.query(User.User);
+  const usersFinal = await ledger.query(UserUser);
   expect(usersFinal).toHaveLength(1);
   expect(usersFinal[0].payload.username).toEqual(party);
 

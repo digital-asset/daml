@@ -220,14 +220,15 @@ diff --git create-daml-app/ui/src/components/MessageList.tsx.template create-dam
 +// MESSAGELIST_BEGIN
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
-+import { User } from '@daml.js/__PROJECT_NAME__';
++import { User, packageId } from '@daml.js/__PROJECT_NAME__';
 +import { userContext } from './App';
 +
 +/**
 + * React component displaying the list of messages for the current user.
 + */
 +const MessageList: React.FC = () => {
-+  const messagesResult = userContext.useStreamQueries(User.Message);
++  const UserMessage = { ...User.Message, templateId: `${packageId}:User:Message` };
++  const messagesResult = userContext.useStreamQueries(UserMessage);
 +
 +  return (
 +    <List relaxed>

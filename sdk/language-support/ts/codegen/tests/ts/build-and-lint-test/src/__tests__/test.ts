@@ -645,14 +645,17 @@ test(
 test(
   "create, fetch and exercise with package name",
   doCreateFetchAndExercise(
-    { ...buildAndLint.Main.Person, templateId: "#build-and-lint:Main:Person" },
+    {
+      ...buildAndLint.Main.Person,
+      templateId: `${buildAndLint.packageReference}:Main:Person`,
+    },
     {
       ...buildAndLint.Main.AllTypes,
-      templateId: "#build-and-lint:Main:AllTypes",
+      templateId: `${buildAndLint.packageReference}:Main:AllTypes`,
     },
     {
       ...buildAndLint.Lib.Mod.NonTopLevel,
-      templateId: "#build-and-lint:Lib.Mod:NonTopLevel",
+      templateId: `${buildAndLint.packageReference}:Lib.Mod:NonTopLevel`,
     },
   ),
 );
