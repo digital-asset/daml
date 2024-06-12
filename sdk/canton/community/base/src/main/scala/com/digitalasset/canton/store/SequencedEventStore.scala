@@ -84,7 +84,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     *
     * @return [[ChangeWouldResultInGap]] if there would be a gap between the highest sequencer counter in the store and `from`.
     */
-  def ignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
+  def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit]
 
@@ -92,7 +92,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     *
     * @return [[ChangeWouldResultInGap]] if deleting empty ignored events between `from` and `to` would result in a gap in sequencer counters.
     */
-  def unignoreEvents(from: SequencerCounter, to: SequencerCounter)(implicit
+  def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[Future, ChangeWouldResultInGap, Unit]
 

@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, OptionUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
@@ -769,4 +769,42 @@ final class GrpcParticipantRepairService(
       )
     } yield ()
   }
+
+  override def ignoreEvents(request: IgnoreEventsRequest): Future[IgnoreEventsResponse] =
+    TraceContext.withNewTraceContext { implicit traceContext =>
+      val res = for {
+        domainId <- EitherT.fromEither[Future](
+          DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
+        )
+        _ <- sync.repairService.ignoreEvents(
+          domainId,
+          SequencerCounter(request.fromInclusive),
+          SequencerCounter(request.toInclusive),
+          force = request.force,
+        )
+      } yield IgnoreEventsResponse()
+
+      EitherTUtil.toFuture(
+        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+      )
+    }
+
+  override def unignoreEvents(request: UnignoreEventsRequest): Future[UnignoreEventsResponse] =
+    TraceContext.withNewTraceContext { implicit traceContext =>
+      val res = for {
+        domainId <- EitherT.fromEither[Future](
+          DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
+        )
+        _ <- sync.repairService.unignoreEvents(
+          domainId,
+          SequencerCounter(request.fromInclusive),
+          SequencerCounter(request.toInclusive),
+          force = request.force,
+        )
+      } yield UnignoreEventsResponse()
+
+      EitherTUtil.toFuture(
+        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+      )
+    }
 }
