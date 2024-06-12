@@ -146,6 +146,10 @@ trait RequestJournalStore { this: NamedLogging =>
   def repairRequests(fromInclusive: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[Seq[RequestData]]
+
+  /** Returns the number of dirty requests.
+    */
+  def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int]
 }
 
 sealed trait RequestJournalStoreError extends Product with Serializable

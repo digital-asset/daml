@@ -24,7 +24,6 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
-  Filters,
   ParticipantOffset,
   TransactionFilter,
   TransactionId,
@@ -511,9 +510,9 @@ object IndexServiceImpl {
         if (!metadata.templates.contains(templateId)) unknownTemplateIds += templateId
     }
 
-    val cumulativeFilters = domainTransactionFilter.filtersByParty.iterator.flatMap(
-      _._2.cumulative.iterator
-    ) ++ domainTransactionFilter.filtersForAnyParty.flatMap(_.cumulative).iterator
+    val cumulativeFilters = domainTransactionFilter.filtersByParty.iterator.map(
+      _._2
+    ) ++ domainTransactionFilter.filtersForAnyParty.iterator
 
     cumulativeFilters.foreach {
       case CumulativeFilter(templateFilters, interfaceFilters, _wildacrdFilter) =>
@@ -703,22 +702,17 @@ object IndexServiceImpl {
   ): Map[Identifier, Option[Set[Party]]] = {
     val templatesFilterByParty =
       transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {
-        case (acc, (party, Filters(Some(cumulativeFilter)))) =>
+        case (acc, (party, cumulativeFilter)) =>
           templateIds(metadata, cumulativeFilter).foldLeft(acc) { case (acc, templateId) =>
             val updatedPartySet = acc.getOrElse(templateId, Some(Set.empty[Party])).map(_ + party)
             acc.updated(templateId, updatedPartySet)
           }
-        case (acc, _) => acc
       }
 
     // templates filter for all the parties
     val templatesFilterForAnyParty: Map[Identifier, Option[Set[Party]]] =
       transactionFilter.filtersForAnyParty
-        .fold(Set.empty[Identifier]) {
-          case Filters(Some(cumulativeFilter)) =>
-            templateIds(metadata, cumulativeFilter)
-          case _ => Set.empty
-        }
+        .fold(Set.empty[Identifier])(templateIds(metadata, _))
         .map((_, None))
         .toMap
 
@@ -732,31 +726,28 @@ object IndexServiceImpl {
   private[index] def wildcardFilter(
       transactionFilter: domain.TransactionFilter
   ): Option[Set[Party]] = {
+    val emptyFiltersMessage =
+      "Found transaction filter with both template and interface filters being empty, but the" +
+        "request should have already been rejected in validation"
     transactionFilter.filtersForAnyParty match {
-      case Some(Filters(None)) => None // party-wildcard
-      case Some(Filters(Some(CumulativeFilter(_, _, templateWildcardFilter))))
+      case Some(CumulativeFilter(_, _, templateWildcardFilter))
           if templateWildcardFilter.isDefined =>
         None // party-wildcard
       case Some(
-            Filters(Some(CumulativeFilter(templateIds, interfaceFilters, templateWildcardFilter)))
+            CumulativeFilter(templateIds, interfaceFilters, templateWildcardFilter)
           ) if templateIds.isEmpty && interfaceFilters.isEmpty && templateWildcardFilter.isEmpty =>
-        None // TODO(#19364) do not allow this situation throw Exception
+        throw new RuntimeException(emptyFiltersMessage)
       case _ =>
         Some(transactionFilter.filtersByParty.view.collect {
-          case (party, Filters(None)) =>
-            party
-          case (party, Filters(Some(CumulativeFilter(_, _, templateWildcardFilter))))
+          case (party, CumulativeFilter(_, _, templateWildcardFilter))
               if templateWildcardFilter.isDefined =>
             party
           case (
-                party,
-                Filters(
-                  Some(CumulativeFilter(templateIds, interfaceFilters, templateWildcardFilter))
-                ),
+                _party,
+                CumulativeFilter(templateIds, interfaceFilters, templateWildcardFilter),
               )
               if templateIds.isEmpty && interfaceFilters.isEmpty && templateWildcardFilter.isEmpty =>
-            // TODO(#19364) do not allow this situation throw Exception
-            party
+            throw new RuntimeException(emptyFiltersMessage)
         }.toSet)
     }
   }

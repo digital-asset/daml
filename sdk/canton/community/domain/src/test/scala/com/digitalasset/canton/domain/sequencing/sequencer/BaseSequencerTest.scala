@@ -99,13 +99,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     ): Future[Boolean] =
       Future.successful(existingMembers.contains(member))
 
-    override def registerMember(member: Member)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, RegisterError, Unit] = {
-      newlyRegisteredMembers.add(member)
-      EitherT.pure(())
-    }
-
     override def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
     ): EitherT[Future, RegisterError, Unit] = {
@@ -121,9 +114,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
           .viaMat(KillSwitches.single)(Keep.right)
           .mapMaterializedValue(_ -> Future.successful(Done))
       )
-    override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
-        traceContext: TraceContext
-    ): Future[Unit] = ???
 
     override protected def acknowledgeSignedInternal(
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
@@ -180,6 +170,9 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         traceContext: TraceContext
     ): FutureUnlessShutdown[Map[Member, TrafficState]] =
       FutureUnlessShutdown.pure(Map.empty)
+
+    override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+      Future.successful(existingMembers.contains(member))
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

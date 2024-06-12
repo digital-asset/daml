@@ -923,8 +923,10 @@ trait SequencerStoreTest
         disabledClientsAfter <- store.status(ts(0)).map(_.disabledClients)
         _ = disabledClientsAfter.members should contain.only(alice, bob)
         // alice instances should be entirely disabled
-        aliceEnabled <- leftOrFail(store.isEnabled(aliceId))("alice1Enabled")
-        _ = aliceEnabled shouldBe MemberDisabledError
+        aliceEnabled <- clue("alice1Enabled") {
+          store.isEnabled(aliceId)
+        }
+        _ = aliceEnabled shouldBe false
         // should also be idempotent
         _ <- store.disableMember(aliceId)
         _ <- store.disableMember(bobId)

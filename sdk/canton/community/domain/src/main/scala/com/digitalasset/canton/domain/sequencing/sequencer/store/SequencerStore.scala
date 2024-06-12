@@ -39,6 +39,7 @@ import slick.jdbc.{GetResult, SetParameter}
 import java.util.UUID
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining.scalaUtilChainingOps
 
 /** In the sequencer database we use integers to represent members.
   * Wrap this in the APIs to not confuse with other numeric types.
@@ -400,7 +401,10 @@ object SaveWatermarkError {
   final case class WatermarkUnexpectedlyChanged(message: String) extends SaveWatermarkError
 }
 
-final case class RegisteredMember(memberId: SequencerMemberId, registeredFrom: CantonTimestamp)
+final case class RegisteredMember(
+    memberId: SequencerMemberId,
+    registeredFrom: CantonTimestamp,
+)
 
 case object MemberDisabledError
 
@@ -432,11 +436,19 @@ final case class SafeWatermark(nextTimestamp: Option[CantonTimestamp]) extends R
   def payloads: Seq[Sequenced[Payload]] = Seq.empty
 }
 
+/** An interface for validating members of a sequencer, i.e. that member is registered at a certain time.
+  */
+trait SequencerMemberValidator {
+  def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): Future[Boolean]
+}
+
 /** Persistence for the Sequencer.
   * Writers are expected to create a [[SequencerWriterStore]] which may delegate to this underlying store
   * through an appropriately managed storage instance.
   */
-trait SequencerStore extends NamedLogging with AutoCloseable {
+trait SequencerStore extends SequencerMemberValidator with NamedLogging with AutoCloseable {
 
   protected implicit val executionContext: ExecutionContext
 
@@ -469,6 +481,16 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
   protected def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
   ): Future[Option[RegisteredMember]]
+
+  override def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): Future[Boolean] = {
+    lookupMember(member)
+      .map(_.exists(_.registeredFrom <= time))
+      .tap(exists =>
+        logger.debug(s"Checking if member $member is registered at time $time: $exists")
+      )
+  }
 
   /** Save a series of payloads to the store.
     * Is up to the caller to determine a reasonable batch size and no batching is done within the store.
@@ -600,7 +622,7 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
     */
   def isEnabled(member: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MemberDisabledError.type, Unit]
+  ): Future[Boolean]
 
   /** Prune as much data as safely possible from before the given timestamp.
     * @param requestedTimestamp the timestamp that we would like to prune up to (see docs on using the pruning status and disabling members for picking this value)

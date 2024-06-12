@@ -28,6 +28,7 @@ import com.digitalasset.canton.domain.metrics.BlockMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.InvalidLedgerEvent
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -117,6 +118,7 @@ class BlockUpdateGeneratorImpl(
     metrics: BlockMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
+    memberValidator: SequencerMemberValidator,
 )(implicit val closeContext: CloseContext)
     extends BlockUpdateGenerator
     with NamedLogging {
@@ -133,6 +135,8 @@ class BlockUpdateGeneratorImpl(
       orderingTimeFixMode,
       loggerFactory,
       metrics,
+      unifiedSequencer = unifiedSequencer,
+      memberValidator = memberValidator,
     )
 
   override type InternalState = State

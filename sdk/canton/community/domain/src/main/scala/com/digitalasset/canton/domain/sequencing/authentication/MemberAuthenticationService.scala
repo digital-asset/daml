@@ -204,9 +204,8 @@ class MemberAuthenticationService(
         EitherT(isMediatorActive(mediator).map {
           Either.cond(_, (), MemberAccessDisabled(mediator))
         })
-      case _ =>
-        // TODO(#4933) check if sequencer is active
-        EitherT.rightT(())
+      case sequencer: SequencerId =>
+        EitherT.leftT(AuthenticationNotSupportedForMember(sequencer))
     }
 
   private def correctDomain(

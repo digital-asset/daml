@@ -50,7 +50,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, config}
+import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, SequencerCounter, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -560,6 +560,7 @@ object ParticipantAdminCommands {
     final case class MigrateDomain(
         sourceDomainAlias: DomainAlias,
         targetDomainConfig: CDomainConnectionConfig,
+        force: Boolean,
     ) extends GrpcAdminCommand[MigrateDomainRequest, MigrateDomainResponse, Unit] {
       override type Svc = ParticipantRepairServiceStub
 
@@ -576,6 +577,7 @@ object ParticipantAdminCommands {
           MigrateDomainRequest(
             sourceDomainAlias.toProtoPrimitive,
             Some(targetDomainConfig.toProtoV30),
+            force = force,
           )
         )
 
@@ -583,7 +585,6 @@ object ParticipantAdminCommands {
 
       // migration command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
     }
 
     final case class PurgeDeactivatedDomain(domainAlias: DomainAlias)
@@ -609,6 +610,75 @@ object ParticipantAdminCommands {
       override def handleResponse(
           response: PurgeDeactivatedDomainResponse
       ): Either[String, Unit] = Right(())
+    }
+
+    final case class IgnoreEvents(
+        domainId: DomainId,
+        fromInclusive: SequencerCounter,
+        toInclusive: SequencerCounter,
+        force: Boolean,
+    ) extends GrpcAdminCommand[
+          IgnoreEventsRequest,
+          IgnoreEventsResponse,
+          Unit,
+        ] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: IgnoreEventsRequest,
+      ): Future[IgnoreEventsResponse] =
+        service.ignoreEvents(request)
+
+      override def createRequest(): Either[String, IgnoreEventsRequest] =
+        Right(
+          IgnoreEventsRequest(
+            domainId = domainId.toProtoPrimitive,
+            fromInclusive = fromInclusive.toProtoPrimitive,
+            toInclusive = toInclusive.toProtoPrimitive,
+            force = force,
+          )
+        )
+
+      override def handleResponse(response: IgnoreEventsResponse): Either[String, Unit] = Right(())
+    }
+
+    final case class UnignoreEvents(
+        domainId: DomainId,
+        fromInclusive: SequencerCounter,
+        toInclusive: SequencerCounter,
+        force: Boolean,
+    ) extends GrpcAdminCommand[
+          UnignoreEventsRequest,
+          UnignoreEventsResponse,
+          Unit,
+        ] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: UnignoreEventsRequest,
+      ): Future[UnignoreEventsResponse] =
+        service.unignoreEvents(request)
+
+      override def createRequest(): Either[String, UnignoreEventsRequest] =
+        Right(
+          UnignoreEventsRequest(
+            domainId = domainId.toProtoPrimitive,
+            fromInclusive = fromInclusive.toProtoPrimitive,
+            toInclusive = toInclusive.toProtoPrimitive,
+            force = force,
+          )
+        )
+
+      override def handleResponse(response: UnignoreEventsResponse): Either[String, Unit] =
+        Right(())
     }
   }
 

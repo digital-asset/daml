@@ -25,8 +25,16 @@ service ParticipantRepairService {
   // Change the assignation of contracts to the given domain
   rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
 
-  // Purge selected data from deactivated domain
+  // Purge deactivated domain
   rpc PurgeDeactivatedDomain(PurgeDeactivatedDomainRequest) returns (PurgeDeactivatedDomainResponse);
+
+
+  // Ignore events that the participant is unable to process
+  rpc IgnoreEvents(IgnoreEventsRequest) returns (IgnoreEventsResponse);
+
+  // Remove the ignored status from sequenced events
+  // This command has no effect on ordinary (i.e., not ignored) events and on events that do not exist.
+  rpc UnignoreEvents(UnignoreEventsRequest) returns (UnignoreEventsResponse);
 }
 
 message PurgeContractsRequest {
@@ -40,7 +48,7 @@ message PurgeContractsRequest {
 
   // If true, will ignore already purged contract; if false, will return an error if a contract is already purged
   // Useful re-run the same request in case of failure in an idempotent fashion
-  // Optional, `true` by default
+  // Recommended value is `true`
   bool ignore_already_purged = 3;
 }
 
@@ -53,6 +61,9 @@ message MigrateDomainRequest {
   // Configuration to connect to the domain on which the contracts will be assigned as a result of the migration
   // Required
   DomainConnectionConfig target_domain_connection_config = 2;
+  // Whether to force the migration in spite of risking a potential ledger fork
+  // Recommended value is `false`
+  bool force = 3;
 }
 
 message MigrateDomainResponse {}
@@ -89,11 +100,11 @@ message ExportAcsRequest {
   // NOT FOR PRODUCTION USE.
   // For this option to yield a consistent snapshot, you need to wait at least
   // confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
-  // Optional, `false` by default
+  // Recommended value is `false`
   bool force = 5;
 
   // true if the parties will be offboarded after the replication (party migration)
-  // Optional, `false` by default
+  // Recommended value is `false`
   bool parties_offboarding = 6;
 }
 
@@ -114,7 +125,7 @@ message ImportAcsRequest {
   // If false, the service will fail if any contract ID suffix doesn't match the scheme
   // associated to the domain where the contract is being assigned as a result of the import.
   // If true, any contract ID suffix will be recomputed to match the scheme associated to the domain.
-  // Optional, `false` by default
+  // Recommended value is `false`
   bool allow_contract_id_suffix_recomputation = 3;
 }
 
@@ -129,3 +140,27 @@ message PurgeDeactivatedDomainRequest {
 }
 
 message PurgeDeactivatedDomainResponse {}
+
+message IgnoreEventsRequest {
+  string domain_id = 1;
+  // sequencer counter of the first event to ignore
+  int64 from_inclusive = 2;
+  // sequencer counter of the last event to ignore
+  int64 to_inclusive = 3;
+  // allow to proceed even if some clean events have sequencer counter greater or equal than `from_inclusive`
+  bool force = 4;
+}
+
+message IgnoreEventsResponse {}
+
+message UnignoreEventsRequest {
+  string domain_id = 1;
+  // sequencer counter of the first event to unignore
+  int64 from_inclusive = 2;
+  // sequencer counter of the last event to unignore
+  int64 to_inclusive = 3;
+  // allow to proceed even if some clean events have sequencer counter greater or equal than `from_inclusive`
+  bool force = 4;
+}
+
+message UnignoreEventsResponse {}

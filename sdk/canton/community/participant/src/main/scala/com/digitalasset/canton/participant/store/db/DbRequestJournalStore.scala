@@ -381,7 +381,17 @@ class DbRequestJournalStore(
     storage.query(statement, functionFullName)
   }
 
+  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int] = {
+    val statement =
+      sql"""
+        select count(*)
+        from par_journal_requests where domain_id = $domainId and commit_time is null
+        """.as[Int].head
+    storage.query(statement, functionFullName)
+  }
+
   override def onClosed(): Unit = Lifecycle.close(cleanPreheadStore)(logger)
+
 }
 
 object DbRequestJournalStore {

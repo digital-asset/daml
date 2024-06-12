@@ -517,10 +517,10 @@ class BlockSequencerStateManager(
 
     if (unifiedSequencer) {
       (for {
-        _ <- dbSequencerIntegration.blockSequencerRegisterMembers(update.newMembers)
         _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes.map(_.outcome))
-        // TODO(#18415): Write acknowledgements to the database sequencer
-        // TODO(#18415): Disable members in the database sequencer
+        _ <- EitherT.right[String](
+          dbSequencerIntegration.blockSequencerAcknowledge(update.acknowledgements)
+        )
 
         _ <- EitherT.right[String](
           store.partialBlockUpdate(
@@ -535,7 +535,6 @@ class BlockSequencerStateManager(
       } yield {
         val newHead = priorHead.copy(chunk = newState)
         updateHeadState(priorHead, newHead)
-        // TODO(#18415): Double check if these are still necessary
         update.acknowledgements.foreach { case (member, timestamp) =>
           resolveAcknowledgements(member, timestamp)
         }
