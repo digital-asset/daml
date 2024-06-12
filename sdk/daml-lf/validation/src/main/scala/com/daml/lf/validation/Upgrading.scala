@@ -9,6 +9,7 @@ import com.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
 import com.daml.lf.validation.AlphaEquiv
 import com.daml.lf.data.ImmArray
+import com.daml.lf.language.LanguageVersion
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -178,6 +179,14 @@ object UpgradeError {
     override def message: String =
       s"Dependency $depName has version $depPresentVersion on the upgrading package, which is older than version $depPastVersion on the upgraded package.\nDependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
   }
+
+  final case class DecreasingLfVersion(
+      pastVersion: LanguageVersion,
+      presentVersion: LanguageVersion,
+  ) extends Error {
+    override def message: String =
+      s"The upgraded package uses an older LF version (${presentVersion.pretty} < ${pastVersion.pretty})"
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -300,6 +309,16 @@ object TypecheckUpgrades {
     }
   }
 
+  private def checkLfVersions(
+      arg: Upgrading[LanguageVersion]
+  ): Try[Unit] = {
+    import Ordering.Implicits._
+    if (arg.past > arg.present)
+      fail(UpgradeError.DecreasingLfVersion(arg.past, arg.present))
+    else
+      Success(())
+  }
+
   private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
 
@@ -349,6 +368,7 @@ case class TypecheckUpgrades(
 
   private def check(): Try[Unit] = {
     for {
+      _ <- checkLfVersions(`package`.map(_.languageVersion))
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           `package`.map(_.modules),
