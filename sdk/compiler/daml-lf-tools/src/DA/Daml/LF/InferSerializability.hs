@@ -17,7 +17,11 @@ import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilit
 inferModule :: World -> Version -> Module -> Either String Module
 inferModule world0 version mod0 =
   case moduleName mod0 of
-    -- non stable part of stdlib/prim cannot contain serializable type
+    -- Unstable parts of stdlib mustn't contain serializable types, because if they are 
+    -- serializable, then the upgrading checks run on the datatypes and this causes problems. 
+    -- Therefore, we mark the datatypes as not-serializable, so that upgrades checks don't trigger.
+    -- For more information on this issue, refer to issue 
+    -- https://github.com/digital-asset/daml/issues/19338issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     _                      -> do
       let modName = moduleName mod0
