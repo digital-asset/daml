@@ -64,7 +64,8 @@ final class UpdateClientImplTest
 
   private val ledgerBegin = data.ParticipantOffset.ParticipantBegin.getInstance()
   private val ledgerEnd = data.ParticipantOffset.ParticipantEnd.getInstance()
-  private val emptyFilter = new TransactionFilter(Map.empty[String, data.Filter].asJava)
+  private val emptyFilter =
+    new TransactionFilter(Map.empty[String, data.Filter].asJava, None.toJava)
 
   behavior of "8.1 TransactionClient.getTransactions"
 
@@ -105,7 +106,8 @@ final class UpdateClientImplTest
             ).asJava,
             None.toJava,
           )
-        ).asJava
+        ).asJava,
+        None.toJava,
       )
 
       transactionClient
@@ -165,7 +167,8 @@ final class UpdateClientImplTest
             ).asJava,
             None.toJava,
           )
-        ).asJava
+        ).asJava,
+        None.toJava,
       )
 
       transactionClient
