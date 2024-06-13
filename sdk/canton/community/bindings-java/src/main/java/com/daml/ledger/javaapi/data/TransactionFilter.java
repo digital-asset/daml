@@ -72,12 +72,6 @@ public final class TransactionFilter {
     this.anyPartyFilterO = anyPartyFilterO;
   }
 
-  public TransactionFilter(
-      @NonNull Map<@NonNull String, @NonNull Filter> partyToFilters) {
-    this.partyToFilters = partyToFilters;
-    this.anyPartyFilterO = Optional.empty();
-  }
-
   public static TransactionFilter transactionFilter(
       ContractTypeCompanion<?, ?, ?, ?> contractCompanion, Optional<Set<String>> partiesO) {
     Filter filter =
