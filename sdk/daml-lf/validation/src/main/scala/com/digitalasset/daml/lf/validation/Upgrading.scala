@@ -275,8 +275,8 @@ private case class Env(
 ) {
   def extend(varName1: TypeVarName, varName2: TypeVarName) = Env(
     currentDepth + 1,
-    binderDepthLhs + (varName1 -> currentDepth),
-    binderDepthRhs + (varName2 -> currentDepth),
+    binderDepthLhs.updated(varName1, currentDepth),
+    binderDepthRhs.updated(varName2, currentDepth),
   )
 }
 
