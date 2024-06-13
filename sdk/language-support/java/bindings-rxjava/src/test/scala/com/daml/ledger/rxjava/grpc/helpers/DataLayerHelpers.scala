@@ -48,7 +48,8 @@ trait DataLayerHelpers {
       .withWorkflowId("workflowId")
   }
 
-  val filterNothing: TransactionFilter = new TransactionFilter(Map[String, Filter]().asJava)
+  val filterNothing: TransactionFilter =
+    new TransactionFilter(Map[String, Filter]().asJava, None.toJava)
 
   def filterFor(party: String): TransactionFilter =
     new TransactionFilter(
@@ -58,6 +59,7 @@ trait DataLayerHelpers {
           Map.empty.asJava,
           Some(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB).toJava,
         ): Filter)
-      ).asJava
+      ).asJava,
+      None.toJava,
     )
 }

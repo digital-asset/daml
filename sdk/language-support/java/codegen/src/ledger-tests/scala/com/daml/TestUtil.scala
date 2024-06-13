@@ -24,6 +24,7 @@ import java.util.{Optional, UUID}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
@@ -63,7 +64,8 @@ object TestUtil {
   private def randomId = UUID.randomUUID().toString
 
   def allTemplates(partyName: String) = new TransactionFilter(
-    Map[String, Filter](partyName -> NoFilter.instance).asJava
+    Map[String, Filter](partyName -> NoFilter.instance).asJava,
+    None.toJava,
   )
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
