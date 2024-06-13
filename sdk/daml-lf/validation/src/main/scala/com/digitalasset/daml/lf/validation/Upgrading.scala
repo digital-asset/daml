@@ -443,10 +443,14 @@ case class TypecheckUpgrades(
   }
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
+    def serializable(datatypes: Map[Ref.DottedName, Ast.DDataType]): Map[Ref.DottedName, Ast.DDataType] =
+      datatypes.collect {
+        case (k, v: Ast.DDataType) if v.serializable => (k, v)
+      }
     val (pastIfaceDts, pastUnownedDts) = splitModuleDts(module.past)
     val (presentIfaceDts, presentUnownedDts) = splitModuleDts(module.present)
     val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
-    val unownedDts = Upgrading(past = pastUnownedDts, present = presentUnownedDts)
+    val unownedSerializableDts = Upgrading(past = serializable(pastUnownedDts), present = serializable(presentUnownedDts))
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
@@ -470,7 +474,7 @@ case class TypecheckUpgrades(
         )
 
       (existingDatatypes, _new) <- checkDeleted(
-        unownedDts,
+        unownedSerializableDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
       )
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
