@@ -16,7 +16,6 @@ object Util {
   object TTyConApp {
     def apply(con: Ref.TypeConName, args: ImmArray[Type]): Type =
       args.foldLeft[Type](TTyCon(con))((typ, arg) => TApp(typ, arg))
-
     def unapply(typ: Type): Option[(Ref.TypeConName, ImmArray[Type])] = {
       @tailrec
       def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
@@ -25,7 +24,6 @@ object Util {
           case TTyCon(con) => Some((con, targs.to(ImmArray)))
           case _ => None
         }
-
       go(typ, Nil)
     }
   }
@@ -33,7 +31,6 @@ object Util {
   object TTVarApp {
     def apply(name: Ast.TypeVarName, args: ImmArray[Type]): Type =
       args.foldLeft[Type](TVar(name))((typ, arg) => TApp(typ, arg))
-
     def unapply(typ: Type): Option[(Ast.TypeVarName, ImmArray[Type])] = {
       @tailrec
       def go(typ: Type, targs: List[Type]): Option[(Ast.TypeVarName, ImmArray[Type])] =
@@ -42,7 +39,6 @@ object Util {
           case TVar(name) => Some((name, targs.to(ImmArray)))
           case _ => None
         }
-
       go(typ, Nil)
     }
   }
@@ -50,7 +46,6 @@ object Util {
   object TFun extends ((Type, Type) => Type) {
     def apply(targ: Type, tres: Type) =
       TApp(TApp(TBuiltin(BTArrow), targ), tres)
-
     def unapply(typ: Type): Option[(Type, Type)] = typ match {
       case TApp(TApp(TBuiltin(BTArrow), targ), tres) => Some((targ, tres))
       case _ => None
@@ -59,10 +54,8 @@ object Util {
 
   class ParametricType1(bType: BuiltinType) {
     val cons = TBuiltin(bType)
-
     def apply(typ: Type): Type =
       TApp(cons, typ)
-
     def unapply(typ: TApp): Option[Type] = typ match {
       case TApp(`cons`, elemType) => Some(elemType)
       case _ => None
@@ -71,10 +64,8 @@ object Util {
 
   class ParametricType2(bType: BuiltinType) {
     val cons = TBuiltin(bType)
-
     def apply(typ1: Type, typ2: Type): Type =
       TApp(TApp(cons, typ1), typ2)
-
     def unapply(typ: TApp): Option[(Type, Type)] = typ match {
       case TApp(TApp(`cons`, type1), type2) => Some(type1 -> type2)
       case _ => None
@@ -310,22 +301,5 @@ object Util {
 
   def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
     pkgs.transform((_, v) => toSignature(v))
-
-  // Utility packages are packages that do not define
-  //  - templates
-  //  - interfaces
-  //  - exceptions
-  //  - serializable types
-  // canonical examples of such packages are those forming the non-stable part of the standard library
-  def isUtilityPackage(pkg: Package) = {
-    pkg.modules.values.exists(mod =>
-      mod.templates.nonEmpty ||
-        mod.interfaces.nonEmpty ||
-        mod.definitions.values.exists {
-          case DDataType(serializable, _, _) => serializable
-          case _ => false
-        }
-    )
-  }
 
 }
