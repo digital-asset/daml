@@ -611,6 +611,16 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    "Fails when comparing type constructors from other packages that resolve to incompatible types" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type T has changed the types of some of its original fields.")
+        ),
+      )
+    }
   }
 }
 

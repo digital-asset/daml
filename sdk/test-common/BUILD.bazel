@@ -189,6 +189,11 @@ da_scala_dar_resources_library(
             ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1dep.dar"],
             ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2dep.dar"],
         ),
+        (
+            "FailsWhenUpgradedFieldPackagesAreNotUpgradable",
+            ["//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar"],
+            ["//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar"],
+        ),
 
         # More tests ported from DamlcUpgrades.hs
         ("FailsWhenATopLevelEnumChanges", [], []),
