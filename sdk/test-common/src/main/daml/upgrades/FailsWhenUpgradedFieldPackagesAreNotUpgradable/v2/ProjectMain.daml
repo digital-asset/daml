@@ -1,0 +1,16 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ProjectMain where
+
+-- Imported from SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd v1
+import qualified Main
+
+-- This Main.A refers to SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.Main.A,
+-- while the T.x field in v1 of this package refers to
+-- SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.Main.A.
+-- Thus in both versions 1 and 2 of this package, the T.x field have types that:
+--  - have the same package name,
+--  - have the same qualified name,
+--  - and come from two packages that are in an upgrade relationship, but in the wrong order
+data T = T { x: Main.A }
