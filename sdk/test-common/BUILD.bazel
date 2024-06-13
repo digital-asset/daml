@@ -109,16 +109,16 @@ da_scala_dar_resources_library(
 # Compiles FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml to two packages with different names.
 [
     daml_compile(
-        name = "upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v{}dep".format(name),
+        name = "upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-{}".format(project_name),
         srcs = glob(["src/main/daml/upgrades/FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml"]),
-        project_name = "upgrades-example-FailsWhenUpgradedFieldFromDifferentPackageName-v{}dep".format(name),
+        project_name = project_name,
         target = "1.dev",
         version = "1.0.0",
         visibility = ["//visibility:public"],
     )
-    for name in [
-        1,
-        2,
+    for project_name in [
+        "name1",
+        "name2",
     ]
 ]
 
@@ -186,8 +186,8 @@ da_scala_dar_resources_library(
         ("SucceedsWhenNonSerializableTypesAreIncompatible", [], []),
         (
             "FailsWhenUpgradedFieldFromDifferentPackageName",
-            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1dep.dar"],
-            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2dep.dar"],
+            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"],
+            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"],
         ),
         (
             "FailsWhenUpgradedFieldPackagesAreNotUpgradable",
