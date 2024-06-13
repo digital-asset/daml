@@ -5,6 +5,3 @@ module Main where
 
 -- v2:A is serializable, but v1:A is not and thus they should not be compared
 data A = A { x : Int }
-
--- v2:B is not serializable and should not be compared to v1:B
-data B = B { x : Int -> Int }

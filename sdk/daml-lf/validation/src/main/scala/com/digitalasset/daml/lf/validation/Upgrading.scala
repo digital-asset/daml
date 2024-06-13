@@ -387,10 +387,9 @@ case class TypecheckUpgrades(
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
     def datatypes(module: Ast.Module): Map[Ref.DottedName, Ast.DDataType] =
-      module.definitions.flatMap(_ match {
-        case (k, v: Ast.DDataType) => Some((k, v));
-        case _ => None;
-      })
+      module.definitions.collect {
+        case (k, v: Ast.DDataType) if v.serializable => (k, v);
+      }
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
@@ -495,11 +494,7 @@ case class TypecheckUpgrades(
   ): Try[Unit] = {
     val (name, datatype) = nameAndDatatype
     val origin = moduleWithMetadata.map(_.dataTypeOrigin(name))
-    if (!datatype.past.serializable || !datatype.present.serializable) {
-      Success(())
-    } else if (
-      unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)
-    ) {
+    if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
       fail(UpgradeError.RecordChangedOrigin(name, origin))
     } else {
       datatype.map(_.cons) match {
