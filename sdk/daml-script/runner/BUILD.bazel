@@ -99,6 +99,22 @@ scaladoc_jar(
     deps = [],
 ) if is_windows == False else None
 
+da_scala_library(
+    name = "test-lib",
+    srcs = glob(
+        ["src/test-lib/scala/**/*.scala"],
+    ),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalactic_scalactic",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
 da_scala_test(
     name = "tests",
     size = "large",
@@ -115,14 +131,15 @@ da_scala_test(
             test_dar_count + 1,
         )],
     scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_http_core",
+        "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_apache_pekko_pekko_stream",
     ],
     deps = [
+        ":test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -139,12 +156,61 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
+
+daml_compile(
+    name = "upgrade-test-lib",
+    srcs = [":src/upgrade-test/daml/UpgradeTestLib.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-1.dev.dar",
+    ],
+    project_name = "upgrade-test-lib",
+    # TODO(https://github.com/digital-asset/daml/issues/18457): split the lib into modules that use
+    #  contract keys and those that don't. Revert to the default target for those that don't.
+    target = "1.dev",
+    version = "1.0.0",
+)
+
+filegroup(
+    name = "upgrade-test-files",
+    srcs = glob(["src/upgrade-test/daml/test/*.daml"]),
+    visibility = ["__pkg__"],
+)
+
+da_scala_test(
+    name = "ide-upgrade-test",
+    size = "large",
+    srcs = ["src/upgrade-test/scala/com/daml/lf/engine/script/IdeLedgerRunnerUpgradeTest.scala"],
+    data =
+        [
+            ":daml-script-binary",
+            ":upgrade-test-files",
+            ":upgrade-test-lib.dar",
+            "//compiler/damlc",
+            "//daml-script/daml3:daml3-script-1.dev.dar",
+        ],
+    scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    deps = [
+        ":test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/language",
+        "//daml-script/test:test-utils",
+        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+) if not is_windows else None
+# skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
 
 da_scala_binary(
     name = "daml-script-binary",

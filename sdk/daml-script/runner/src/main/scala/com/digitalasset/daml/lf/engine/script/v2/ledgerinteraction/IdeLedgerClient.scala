@@ -9,6 +9,7 @@ package ledgerinteraction
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
@@ -42,6 +43,7 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
+    override val enableContractUpgrading: Boolean,
 ) extends ScriptLedgerClient {
   val submitErrors = new SubmitErrors(
     originalCompiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -423,7 +425,7 @@ class IdeLedgerClient(
       case PackageRef.Name(_) =>
         // TODO: https://github.com/digital-asset/daml/issues/17995
         //  add support for package name
-        throw new IllegalArgumentException("package name not support")
+        throw new IllegalArgumentException("package name not supported")
     }
 
   private def getReferencePackageId(ref: Reference): PackageId =
@@ -431,7 +433,7 @@ class IdeLedgerClient(
       // TODO: https://github.com/digital-asset/daml/issues/17995
       //  add support for package name
       case Reference.PackageWithName(_) =>
-        throw new IllegalArgumentException("package name not support")
+        throw new IllegalArgumentException("package name not supported")
       case Reference.Package(packageId) => packageId
       case Reference.Module(packageId, _) => packageId
       case Reference.Definition(name) => name.packageId
@@ -479,6 +481,64 @@ class IdeLedgerClient(
       unallocatedSubmitters: Set[Party]
   ): ScenarioRunner.SubmissionError =
     makeEmptySubmissionError(scenario.Error.PartiesNotAllocated(unallocatedSubmitters))
+
+  /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
+   * ApiCommand. If the CommandWithMeta has an explicit package id,
+   * the ApiCommand will have the same PackageRef, otherwise it will be
+   * replaced with the PackageId of the most recent (newest version) package
+   * of the same name in the original compiled packages.
+   */
+  private def toCommand(
+      cmdWithMeta: ScriptLedgerClient.CommandWithMeta
+  ): ApiCommand = {
+    def adjustPackageRef(old: PackageRef): PackageRef =
+      old match {
+        case PackageRef.Id(id) =>
+          PackageRef.Id(newestPackageId(id))
+        case PackageRef.Name(_) =>
+          // TODO: https://github.com/digital-asset/daml/issues/17995
+          //  add support for package name
+          throw new IllegalArgumentException("package name not supported")
+      }
+
+    def adjustTypeConRef(old: TypeConRef): TypeConRef =
+      old match {
+        case TypeConRef(pkgRef, qName) =>
+          TypeConRef(adjustPackageRef(pkgRef), qName)
+      }
+
+    val ScriptLedgerClient.CommandWithMeta(cmd, explicitPackageId) = cmdWithMeta
+
+    cmd match {
+      case _ if explicitPackageId => cmd
+      case ApiCommand.Create(templateRef, argument) =>
+        ApiCommand.Create(
+          adjustTypeConRef(templateRef),
+          argument,
+        )
+      case ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
+        ApiCommand.Exercise(
+          adjustTypeConRef(typeRef),
+          contractId,
+          choiceId,
+          argument,
+        )
+      case ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
+        ApiCommand.ExerciseByKey(
+          adjustTypeConRef(templateRef),
+          contractKey,
+          choiceId,
+          argument,
+        )
+      case ApiCommand.CreateAndExercise(templateRef, createArgument, choiceId, choiceArgument) =>
+        ApiCommand.CreateAndExercise(
+          adjustTypeConRef(templateRef),
+          createArgument,
+          choiceId,
+          choiceArgument,
+        )
+    }
+  }
 
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
@@ -538,12 +598,13 @@ class IdeLedgerClient(
         }
 
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
-      val eitherSpeedyCommands =
+      val eitherSpeedyCommands
+          : Either[scenario.ScenarioRunner.SubmissionError, ImmArray[speedy.Command]] =
         try {
           Right(
             preprocessor.unsafePreprocessApiCommands(
               Map.empty,
-              commands.map(_.command).to(ImmArray),
+              commands.map(toCommand(_)).to(ImmArray),
             )
           )
         } catch {
@@ -812,6 +873,22 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
+
+  /* Given a PackageId, returns the PackageId with the same name and
+   * greatest version found in the original compiled packages.
+   * If the impossible happens and there's no package with that name in the
+   * original compiled packages, returns the argument unchanged.
+   */
+  def newestPackageId(old: PackageId): PackageId = {
+    for {
+      oldReadable <- getPackageIdReverseMap().get(old)
+      oldName = oldReadable.name
+      newest <- getPackageIdMap().maxByOption {
+        case (k, _) if k.name == oldName => Some(k.version);
+        case _ => None;
+      }
+    } yield newest._2
+  }.getOrElse(old)
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

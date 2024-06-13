@@ -92,9 +92,13 @@ object ScriptLedgerClient {
       case _: abstractLedgers.JsonLedgerClient =>
         throw new IllegalArgumentException("Daml3-script does not support the JSON interface")
       case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
-        if (enableContractUpgrading)
-          throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
-        new IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled)
+        new IdeLedgerClient(
+          pureCompiledPackages,
+          traceLog,
+          warningLog,
+          canceled,
+          enableContractUpgrading,
+        )
     }
 
   // Essentially PackageMetadata but without the possibility of extension

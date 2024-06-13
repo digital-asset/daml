@@ -447,6 +447,7 @@ object Runner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       profile: Profile = Speedy.Machine.newProfile,
       canceled: () => Option[RuntimeException] = () => None,
+      enableContractUpgrading: Boolean,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -464,6 +465,7 @@ object Runner {
       warningLog,
       profile,
       canceled,
+      enableContractUpgrading,
     )
     (resultF, oIdeLedgerContext.get)
   }
@@ -479,7 +481,7 @@ object Runner {
       warningLog: WarningLog,
       profile: Profile,
       canceled: () => Option[RuntimeException],
-      enableContractUpgrading: Boolean = false,
+      enableContractUpgrading: Boolean,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -583,8 +585,10 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" =>
-        if (enableContractUpgrading)
-          throw new IllegalArgumentException("daml2-script does not support Upgrades natively.")
+        // TODO[SW]: Can't check for this now as the Script service needs to run with upgrades enabled, and can't know if its running
+        // daml2-script or daml3-script
+        // if (enableContractUpgrading)
+        //   throw new IllegalArgumentException("daml2-script does not support Upgrades natively.")
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
       case "daml3-script" =>
         new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()

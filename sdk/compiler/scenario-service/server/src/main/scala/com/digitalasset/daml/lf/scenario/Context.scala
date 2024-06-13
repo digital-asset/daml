@@ -35,6 +35,8 @@ import scala.collection.immutable.HashMap
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
+import scala.math.Ordered.orderingToOrdered
+
 /** Scenario interpretation context: maintains a set of modules and external packages, with which
   * scenarios can be interpreted.
   */
@@ -204,6 +206,8 @@ class Context(
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val timeBombCanceller = timeBomb.start()
+    val enableContractUpgrading =
+      languageVersion >= LanguageVersion.Features.packageUpgrades
     val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
@@ -219,6 +223,7 @@ class Context(
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
         else None
       },
+      enableContractUpgrading = enableContractUpgrading,
     )
 
     def handleFailure(e: Error) =
