@@ -41,7 +41,8 @@ final case class PartyConfig(
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object Config {
-  val DefaultMaxInboundMessageSize: Int = 4194304
+  // We default to MAXINT as we rely on the ledger to manage the message size
+  val DefaultMaxInboundMessageSize: Int = Int.MaxValue
 
   def parse(args: Array[String]): Option[Config] =
     parser.parse(args, Empty)

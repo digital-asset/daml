@@ -31,7 +31,7 @@ case class RunnerMainConfig(
 
 object RunnerMainConfig {
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
-  val DefaultMaxInboundMessageSize: Int = 4194304
+  val DefaultMaxInboundMessageSize: Int = Int.MaxValue
 
   sealed trait RunMode
   object RunMode {
