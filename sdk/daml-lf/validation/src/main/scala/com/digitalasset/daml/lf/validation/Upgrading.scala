@@ -191,6 +191,17 @@ object UpgradeError {
     override def message: String =
       s"Dependency $depName has version $depPresentVersion on the upgrading package, which is older than version $depPastVersion on the upgraded package.\nDependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
   }
+
+  final case class TriedToUpgradeIface(iface: Ref.DottedName) extends Error {
+    override def message: String =
+      s"Tried to upgrade interface $iface, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+  }
+
+  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName)
+      extends Error {
+    override def message: String =
+      s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -385,11 +396,49 @@ case class TypecheckUpgrades(
     } yield ()
   }
 
+  private def splitModuleDts(
+      module: Ast.Module
+  ): (
+      Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)],
+      Map[Ref.DottedName, Ast.DDataType],
+  ) = {
+    val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
+      case (name, dt: Ast.DDataType) if dt.serializable=> (name, dt)
+    })
+    val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
+      lookupInterface(module, tcon, dt)
+    })
+    (ifaces.toMap, other.toMap)
+  }
+
+  private def lookupInterface(
+      module: Ast.Module,
+      tcon: Ref.DottedName,
+      dt: Ast.DDataType,
+  ): Either[
+    (Ref.DottedName, (Ast.DDataType, Ast.DefInterface)),
+    (Ref.DottedName, Ast.DDataType),
+  ] = {
+    module.interfaces.get(tcon) match {
+      case None => Right((tcon, dt))
+      case Some(iface) => Left((tcon, (dt, iface)))
+    }
+  }
+
+  def flattenInstances(
+      module: Ast.Module
+  ): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
+    for {
+      (templateName, template) <- module.templates
+      (implName, impl) <- template.implements.toMap
+    } yield ((templateName, implName), (template, impl))
+  }
+
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
-    def datatypes(module: Ast.Module): Map[Ref.DottedName, Ast.DDataType] =
-      module.definitions.collect {
-        case (k, v: Ast.DDataType) if v.serializable => (k, v)
-      }
+    val (pastIfaceDts, pastUnownedDts) = splitModuleDts(module.past)
+    val (presentIfaceDts, presentUnownedDts) = splitModuleDts(module.present)
+    val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
+    val unownedDts = Upgrading(past = pastUnownedDts, present = presentUnownedDts)
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
@@ -399,12 +448,37 @@ case class TypecheckUpgrades(
       )
       _ <- tryAll(existingTemplates, checkTemplate(_))
 
+      (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
+      _ <- checkContinuedIfaces(ifaceExisting)
+
+      (_instanceExisting, _instanceNew) <-
+        checkDeleted(
+          module.map(flattenInstances(_)),
+          (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) =>
+            {
+              val (tpl, impl) = tplImpl
+              UpgradeError.MissingImplementation(tpl, impl)
+            },
+        )
+
       (existingDatatypes, _new) <- checkDeleted(
-        module.map(datatypes(_)),
+        unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
       )
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
     } yield ()
+  }
+
+  private def checkContinuedIfaces(
+      ifaces: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)]]
+  ): Try[Unit] = {
+    tryAll(
+      ifaces,
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
+        val (name, _) = arg
+        fail(UpgradeError.TriedToUpgradeIface(name))
+      },
+    ).map(_ => ())
   }
 
   private def checkTemplate(
