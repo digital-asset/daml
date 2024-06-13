@@ -1,0 +1,7 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+-- v2:A is serializable, but v1:A is not and thus they should not be compared
+data A = A { x : Int }

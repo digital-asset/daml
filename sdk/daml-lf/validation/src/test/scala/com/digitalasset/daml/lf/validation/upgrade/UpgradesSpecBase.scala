@@ -591,6 +591,16 @@ trait LongTests { this: UpgradesSpec =>
           Some("The upgraded template A has changed the types of some of its original fields."),
         ),
       )
+
+    "Succeeds even when non-serializable types are incompatible" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
   }
 }
 

@@ -167,6 +167,7 @@ da_scala_dar_resources_library(
         ("SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice", [], []),
         ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", [], []),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", [], []),
+        ("SucceedsWhenNonSerializableTypesAreIncompatible", [], []),
 
         # More tests ported from DamlcUpgrades.hs
         ("FailsWhenATopLevelEnumChanges", [], []),
