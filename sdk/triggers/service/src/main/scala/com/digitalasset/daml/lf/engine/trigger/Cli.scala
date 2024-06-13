@@ -126,7 +126,7 @@ private[trigger] object Cli {
   // Adds up to ~1GB with DefaultMaxInboundMessagesSize
   val DefaultMaxAuthCallbacks: Int = 250
   val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
-  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
+  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxHttpEntityUploadSize
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultCompilerConfigBuilder: LanguageMajorVersion => Compiler.Config =
     Compiler.Config.Default

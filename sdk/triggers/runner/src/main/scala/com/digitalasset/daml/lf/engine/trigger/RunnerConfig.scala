@@ -158,6 +158,7 @@ object RunnerConfig {
 
   // We default to MAXINT as we rely on the ledger to manage the message size
   private[trigger] val DefaultMaxInboundMessageSize: Int = Int.MaxValue
+  private[trigger] val DefaultMaxHttpEntityUploadSize: Long = 4194304
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: Some[Ref.ApplicationId] =
     Some(Ref.ApplicationId.assertFromString("daml-trigger"))
