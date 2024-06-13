@@ -64,7 +64,7 @@ data QuickSandboxResource = QuickSandboxResource
 
 quickSandbox :: FilePath -> IO QuickSandboxResource
 quickSandbox projDir = do
-    withDevNull $ \devNull -> do
+    withDevNull $ \_ -> do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
         callCommandSilentIn projDir "daml build"
         ports <- sandboxPorts
@@ -83,8 +83,9 @@ quickSandbox projDir = do
                         , "--dar", darFile
                         , "--static-time"
                         ])
-                    {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
+                    {std_out = UseHandle stderr, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
+
         _ <- readPortFile sandboxPh maxRetries (projDir </> portFile)
         pure $
             QuickSandboxResource
