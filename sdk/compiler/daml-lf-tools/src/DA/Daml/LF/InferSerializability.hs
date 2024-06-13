@@ -17,7 +17,7 @@ import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilit
 inferModule :: World -> Version -> Module -> Either String Module
 inferModule world0 version mod0 =
   case moduleName mod0 of
-    -- non stable part of stdlib/prim cannot contains serializable type 
+    -- non stable part of stdlib/prim cannot contain serializable type
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     _                      -> do
       let modName = moduleName mod0
