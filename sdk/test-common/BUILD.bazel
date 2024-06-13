@@ -106,6 +106,22 @@ da_scala_dar_resources_library(
     visibility = ["//visibility:public"],
 )
 
+# Compiles FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml to two packages with different names.
+[
+    daml_compile(
+        name = "upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-{}".format(project_name),
+        srcs = glob(["src/main/daml/upgrades/FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml"]),
+        project_name = project_name,
+        target = "1.dev",
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    )
+    for project_name in [
+        "name1",
+        "name2",
+    ]
+]
+
 [
     [
         daml_compile(
@@ -168,6 +184,16 @@ da_scala_dar_resources_library(
         ("SucceedsWhenTemplateChoiceInputArgumentHasChanged", [], []),
         ("SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged", [], []),
         ("SucceedsWhenNonSerializableTypesAreIncompatible", [], []),
+        (
+            "FailsWhenUpgradedFieldFromDifferentPackageName",
+            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"],
+            ["//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"],
+        ),
+        (
+            "FailsWhenUpgradedFieldPackagesAreNotUpgradable",
+            ["//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar"],
+            ["//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar"],
+        ),
 
         # More tests ported from DamlcUpgrades.hs
         ("FailsWhenATopLevelEnumChanges", [], []),
