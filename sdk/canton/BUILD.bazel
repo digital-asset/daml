@@ -222,6 +222,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
     ],
 )
 
