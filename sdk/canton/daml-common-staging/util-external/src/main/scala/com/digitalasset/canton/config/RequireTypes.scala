@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.config
 
+import cats.Monoid
 import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeNumeric.SubtractionResult
 import pureconfig.error.{CannotConvert, FailureReason}
@@ -86,12 +87,15 @@ object RequireTypes {
       extends RefinedNumeric[T] {
     import num.*
 
+    def map[U](f: T => U)(implicit num: Numeric[U]) = NonNegativeNumeric.tryCreate(f(value))
     def increment: PositiveNumeric[T] = PositiveNumeric.tryCreate(value + num.one)
 
     def +(other: NonNegativeNumeric[T]): NonNegativeNumeric[T] =
       NonNegativeNumeric.tryCreate(value + other.value)
     def *(other: NonNegativeNumeric[T]): NonNegativeNumeric[T] =
       NonNegativeNumeric.tryCreate(value * other.value)
+    def /(other: NonNegativeNumeric[T])(implicit fractional: Fractional[T]): NonNegativeNumeric[T] =
+      NonNegativeNumeric.tryCreate(fractional.div(value, other.value))
     def tryAdd(other: T): NonNegativeNumeric[T] = NonNegativeNumeric.tryCreate(value + other)
 
     /** Subtract other from this.
@@ -195,6 +199,10 @@ object RequireTypes {
   type NonNegativeLong = NonNegativeNumeric[Long]
 
   object NonNegativeLong {
+    implicit val nonNegativeLongMonoid: Monoid[NonNegativeLong] = new Monoid[NonNegativeLong] {
+      override def empty: NonNegativeLong = NonNegativeLong.zero
+      override def combine(x: NonNegativeLong, y: NonNegativeLong): NonNegativeLong = x + y
+    }
     lazy val zero: NonNegativeLong = NonNegativeLong.tryCreate(0)
     lazy val one: NonNegativeLong = NonNegativeLong.tryCreate(1)
     lazy val maxValue: NonNegativeLong = NonNegativeLong.tryCreate(Long.MaxValue)

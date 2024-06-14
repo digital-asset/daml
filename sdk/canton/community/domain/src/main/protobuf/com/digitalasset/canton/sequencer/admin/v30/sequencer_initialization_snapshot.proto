@@ -20,8 +20,8 @@ message SequencerSnapshot {
   SequencerPruningStatus status = 4;
   ImplementationSpecificInfo additional = 5;
   repeated InFlightAggregationWithId in_flight_aggregations = 6;
-  repeated MemberTrafficSnapshot traffic_snapshots = 7;
-  repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 8;
+  repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 7;
+  repeated com.digitalasset.canton.protocol.v30.TrafficConsumed traffic_consumed = 8;
 
   message MemberCounter {
     string member = 1;
@@ -43,21 +43,6 @@ message SequencerSnapshot {
 
   message SignaturesForEnvelope {
     repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
-  }
-
-  message MemberTrafficSnapshot {
-    string member = 1;
-    uint64 extra_traffic_remainder = 2;
-    uint64 extra_traffic_consumed = 3;
-    uint64 base_traffic_remainder = 4;
-    int64 sequencing_timestamp = 5; // in microseconds of UTC time since Unix epoch
-  }
-
-  message TrafficPurchased {
-    string member = 1;
-    uint32 serial = 2;
-    uint64 balance = 3;
-    int64 sequencing_timestamp = 4; // // in microseconds of UTC time since Unix epoch
   }
 }
 

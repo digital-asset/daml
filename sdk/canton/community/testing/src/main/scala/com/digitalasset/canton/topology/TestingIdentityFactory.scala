@@ -248,10 +248,11 @@ class TestingIdentityFactory(
   def forOwner(
       owner: Member,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
+      currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
   ): SyncCryptoApiProvider = {
     new SyncCryptoApiProvider(
       owner,
-      ips(availableUpToInclusive),
+      ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,
       CachingConfigs.testing,
       DefaultProcessingTimeouts.testing,
@@ -264,10 +265,17 @@ class TestingIdentityFactory(
       owner: Member,
       domain: DomainId = DefaultTestIdentities.domainId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
+      currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
   ): DomainSyncCryptoClient =
-    forOwner(owner, availableUpToInclusive).tryForDomain(domain, defaultStaticDomainParameters)
+    forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp).tryForDomain(
+      domain,
+      defaultStaticDomainParameters,
+    )
 
-  private def ips(upToInclusive: CantonTimestamp): IdentityProvidingServiceClient = {
+  private def ips(
+      upToInclusive: CantonTimestamp,
+      currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
+  ): IdentityProvidingServiceClient = {
     val ips = new IdentityProvidingServiceClient()
     domains.foreach(dId =>
       ips.add(new DomainTopologyClient() with HasFutureSupervision with NamedLogging {
@@ -298,7 +306,8 @@ class TestingIdentityFactory(
         ): TopologySnapshot =
           topologySnapshot(
             domainId,
-            timestampForDomainParameters = CantonTimestamp.Epoch,
+            timestampForDomainParameters = currentSnapshotApproximationTimestamp,
+            timestampOfSnapshot = currentSnapshotApproximationTimestamp,
           )
 
         override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
@@ -357,6 +366,7 @@ class TestingIdentityFactory(
       packageDependencyResolver: PackageDependencyResolverUS =
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
+      timestampOfSnapshot: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot = {
 
     val store = new InMemoryTopologyStore(
@@ -432,7 +442,7 @@ class TestingIdentityFactory(
     ) // The in-memory topology store should complete the state update immediately
 
     new StoreBasedTopologySnapshot(
-      CantonTimestamp.Epoch,
+      timestampOfSnapshot,
       store,
       packageDependencyResolver,
       loggerFactory,

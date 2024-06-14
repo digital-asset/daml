@@ -8,7 +8,10 @@ import cats.syntax.traverse.*
 import com.daml.error.ErrorCategory
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.domain.api.v30.TrafficControlErrorReason
+import com.digitalasset.canton.domain.api.v30.TrafficControlErrorReason.Error.Reason
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
@@ -71,6 +74,20 @@ object SendAsyncError {
     override def category: ErrorCategory = ErrorCategory.InvalidGivenCurrentSystemStateOther
   }
 
+  final case class TrafficControlError(error: TrafficControlErrorReason.Error)
+      extends SendAsyncError {
+    override val message = error.reason match {
+      case Reason.Empty => "unknown"
+      case Reason.InsufficientTraffic(reason) => s"Insufficient traffic: $reason"
+      case Reason.OutdatedTrafficCost(reason) => s"Outdated traffic cost: $reason"
+    }
+    protected def toProtoV30: v30.SendAsyncVersionedResponse.Error.Reason =
+      v30.SendAsyncVersionedResponse.Error.Reason.TrafficControl(
+        TrafficControlErrorReason(Some(error))
+      )
+    override def category: ErrorCategory = ErrorCategory.InvalidGivenCurrentSystemStateOther
+  }
+
   object UnknownRecipients {
     def apply(unknownMembers: List[Member]): UnknownRecipients = UnknownRecipients(
       s"The following recipients are invalid: ${unknownMembers.mkString(",")}"
@@ -125,6 +142,11 @@ object SendAsyncError {
       case v30.SendAsyncVersionedResponse.Error.Reason.Internal(message) =>
         Internal(message).asRight
       case v30.SendAsyncVersionedResponse.Error.Reason.Generic(message) => Generic(message).asRight
+      case v30.SendAsyncVersionedResponse.Error.Reason
+            .TrafficControl(TrafficControlErrorReason(errorP)) =>
+        for {
+          error <- ProtoConverter.required("error", errorP)
+        } yield TrafficControlError(error)
     }
 }
 

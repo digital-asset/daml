@@ -33,6 +33,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.{
   InvalidTrafficPurchasedMessage,
   TrafficControlError,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -41,8 +42,6 @@ import com.digitalasset.canton.util.MonadUtil
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
-
-import TrafficControlProcessor.TrafficControlSubscriber
 
 class TrafficControlProcessor(
     cryptoApi: DomainSyncCryptoClient,
@@ -90,7 +89,7 @@ class TrafficControlProcessor(
       implicit val tracContext: TraceContext = tracedEvent.traceContext
 
       tracedEvent.value match {
-        case Deliver(sc, ts, _, _, batch, topologyTimestampO) =>
+        case Deliver(sc, ts, _, _, batch, topologyTimestampO, _) =>
           logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
 
           val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
@@ -106,7 +105,7 @@ class TrafficControlProcessor(
 
           processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, domainEnvelopes)
 
-        case DeliverError(_sc, ts, _domainId, _messageId, _status) =>
+        case DeliverError(_sc, ts, _domainId, _messageId, _status, _trafficReceipt) =>
           notifyListenersOfTimestamp(ts)
           FutureUnlessShutdown.unit
       }

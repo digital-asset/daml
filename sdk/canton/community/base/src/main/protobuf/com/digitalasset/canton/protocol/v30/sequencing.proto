@@ -6,8 +6,8 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "com/digitalasset/canton/domain/api/v30/sequencer_service.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
@@ -20,7 +20,6 @@ message PossiblyIgnoredSequencedEvent {
   com.digitalasset.canton.v30.TraceContext trace_context = 3;
   bool is_ignored = 4;
   google.protobuf.BytesValue underlying = 5; // Serialized SignedContent[SequencedEvent]. Optional if is_ignored == true, required otherwise
-  com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState traffic_state = 6; // Optional
 }
 
 // Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit
@@ -151,6 +150,10 @@ message SequencedEvent {
   // (e.g., validation, signing, resolving group addresses).
   // If undefined, timestamp is used instead.
   google.protobuf.Int64Value topology_timestamp = 7;
+
+  // Traffic receipt with information about the traffic state after the cost for this event has been consumed
+  // Optional - only set on deliver receipt sent back to the sender of the event when traffic control is enabled
+  com.digitalasset.canton.protocol.v30.TrafficReceipt traffic_receipt = 8;
 }
 
 // Messages used for synchronization between sequencer nodes

@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.{AsyncCloseable, CloseContext, Lifecycl
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ConflictDetector,
   NaiveRequestTracker,
@@ -29,13 +30,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
   WatermarkTracker,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.PendingTransferSubmission
-import com.digitalasset.canton.participant.protocol.{
-  Phase37Synchronizer,
-  ProcessingStartingPoints,
-  RequestCounterAllocatorImpl,
-  RequestJournal,
-  SubmissionTracker,
-}
 import com.digitalasset.canton.participant.store.memory.TransferCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash

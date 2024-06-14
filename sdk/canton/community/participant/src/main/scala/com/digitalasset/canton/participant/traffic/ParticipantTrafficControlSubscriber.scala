@@ -8,6 +8,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.SetTrafficPurchasedMessage
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
+import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 

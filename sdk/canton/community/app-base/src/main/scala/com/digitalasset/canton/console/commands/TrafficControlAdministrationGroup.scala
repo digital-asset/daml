@@ -12,8 +12,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 class TrafficControlAdministrationGroup(
     runner: AdminCommandRunner,
@@ -28,7 +28,7 @@ class TrafficControlAdministrationGroup(
   )
   def traffic_state(
       domainId: DomainId
-  ): MemberTrafficStatus = {
+  ): TrafficState = {
     consoleEnvironment.run(
       runner.adminCommand(
         ParticipantAdminCommands.TrafficControl

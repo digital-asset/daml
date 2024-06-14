@@ -17,12 +17,15 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.LedgerBlockEvent
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.{Acknowledgment, Send}
 import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
-  RecipientStats,
   SequencedSubmission,
   State,
 }
 import com.digitalasset.canton.domain.block.update.SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
-import com.digitalasset.canton.domain.metrics.BlockMetrics
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  SignedOrderingRequest,
+  SignedOrderingRequestOps,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
@@ -54,7 +57,7 @@ private[update] final class BlockChunkProcessor(
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     override val loggerFactory: NamedLoggerFactory,
-    metrics: BlockMetrics,
+    metrics: SequencerMetrics,
     unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
 )(implicit closeContext: CloseContext)
@@ -68,6 +71,7 @@ private[update] final class BlockChunkProcessor(
       sequencerId,
       rateLimitManager,
       loggerFactory,
+      metrics,
       unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )
@@ -84,10 +88,10 @@ private[update] final class BlockChunkProcessor(
     val (lastTsBeforeValidation, fixedTsChanges) = fixTimestamps(height, index, state, chunkEvents)
 
     // TODO(i18438): verify the signature of the sequencer on the SendEvent
-    val submissionRequests =
+    val orderingRequests =
       fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
         // Discard the timestamp of the `Send` event as this one is obsolete
-        (ts, ev.map(_ => sendEvent.signedSubmissionRequest))
+        (ts, ev.map(_ => sendEvent.signedOrderingRequest))
       }
 
     FutureUtil.doNotAwait(
@@ -100,7 +104,7 @@ private[update] final class BlockChunkProcessor(
         addSnapshots(
           state.latestSequencerEventTimestamp,
           state.ephemeral.headCounter(sequencerId),
-          submissionRequests,
+          orderingRequests,
         )
       newMembers <-
         if (unifiedSequencer) {
@@ -122,8 +126,8 @@ private[update] final class BlockChunkProcessor(
       // Warn if we use an approximate snapshot but only after we've read at least one
       warnIfApproximate = state.ephemeral.headCounterAboveGenesis(sequencerId)
 
-      newMembersTraffic <-
-        computeNewMembersTraffic(
+      _ <-
+        registerNewMemberTraffic(
           state,
           lastTsBeforeValidation,
           newMembers,
@@ -135,7 +139,6 @@ private[update] final class BlockChunkProcessor(
         index,
         newMembers,
         acksByMember,
-        newMembersTraffic,
       )
 
       validationResult <-
@@ -251,14 +254,14 @@ private[update] final class BlockChunkProcessor(
   private def addSnapshots(
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       sequencersSequencerCounter: Option[SequencerCounter],
-      submissionRequests: Seq[(CantonTimestamp, Traced[SignedContent[SubmissionRequest]])],
+      submissionRequests: Seq[(CantonTimestamp, Traced[SignedOrderingRequest])],
   )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[Seq[SequencedSubmission]] =
     submissionRequests.parTraverse { case (sequencingTimestamp, tracedSubmissionRequest) =>
-      tracedSubmissionRequest.withTraceContext { implicit traceContext => submissionRequest =>
+      tracedSubmissionRequest.withTraceContext { implicit traceContext => orderingRequest =>
         // Warn if we use an approximate snapshot but only after we've read at least one
         val warnIfApproximate = sequencersSequencerCounter.exists(_ > SequencerCounter.Genesis)
         for {
-          topologySnapshotOrErrO <- submissionRequest.content.topologyTimestamp.traverse(
+          topologySnapshotOrErrO <- orderingRequest.submissionRequest.topologyTimestamp.traverse(
             topologyTimestamp =>
               SequencedEventValidator
                 .validateTopologyTimestampUS(
@@ -268,6 +271,7 @@ private[update] final class BlockChunkProcessor(
                   latestSequencerEventTimestamp,
                   protocolVersion,
                   warnIfApproximate,
+                  _.sequencerTopologyTimestampTolerance,
                 )
                 .leftMap {
                   case SequencedEventValidator.TopologyTimestampAfterSequencingTime =>
@@ -297,14 +301,14 @@ private[update] final class BlockChunkProcessor(
           }
         } yield SequencedSubmission(
           sequencingTimestamp,
-          submissionRequest,
+          orderingRequest,
           topologyOrSequencingSnapshot,
           topologySnapshotOrErrO.mapFilter(_.swap.toOption),
         )(traceContext)
       }
     }
 
-  private def computeNewMembersTraffic(
+  private def registerNewMemberTraffic(
       state: State,
       lastTsBeforeValidation: CantonTimestamp,
       newMembers: Map[Member, CantonTimestamp],
@@ -312,7 +316,7 @@ private[update] final class BlockChunkProcessor(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[_ <: Member, TrafficState]] =
+  ): FutureUnlessShutdown[Unit] =
     if (newMembers.nonEmpty) {
       // We are using the snapshot at lastTs for all new members in this chunk rather than their registration times.
       // In theory, a parameter change could have become effective in between, but we deliberately ignore this for now.
@@ -328,28 +332,22 @@ private[update] final class BlockChunkProcessor(
             warnIfApproximate = warnIfApproximate,
           )
         parameters <- snapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
-        updatedStates <- parameters match {
+        _ <- parameters match {
           case Some(params) =>
             newMembers.toList
-              .parTraverse { case (member, timestamp) =>
+              .parTraverse_ { case (member, timestamp) =>
                 rateLimitManager
-                  .createNewTrafficStateAt(
+                  .registerNewMemberAt(
                     member,
                     timestamp.immediatePredecessor,
                     params,
                   )
                   .map(member -> _)
               }
-              .map(_.toMap)
-          case _ =>
-            FutureUnlessShutdown.pure(
-              newMembers.view.mapValues { timestamp =>
-                TrafficState.empty(timestamp)
-              }.toMap
-            )
+          case _ => FutureUnlessShutdown.unit
         }
-      } yield updatedStates
-    } else FutureUnlessShutdown.pure(Map.empty)
+      } yield ()
+    } else FutureUnlessShutdown.unit
 
   private def addNewMembers(
       state: State,
@@ -357,7 +355,6 @@ private[update] final class BlockChunkProcessor(
       index: Int,
       newMembers: Map[Member, CantonTimestamp],
       acksByMember: Map[Member, CantonTimestamp],
-      newMembersTraffic: Map[_ <: Member, TrafficState],
   )(implicit traceContext: TraceContext): State = {
     val newMemberStatus = newMembers.map { case (member, ts) =>
       member -> InternalSequencerMemberStatus(ts, None)
@@ -381,8 +378,6 @@ private[update] final class BlockChunkProcessor(
     state
       .focus(_.ephemeral.membersMap)
       .replace(newMembersWithAcknowledgements)
-      .focus(_.ephemeral.trafficState)
-      .modify(_ ++ newMembersTraffic)
   }
 
   private def detectMembersWithoutSequencerCounters(
@@ -394,8 +389,14 @@ private[update] final class BlockChunkProcessor(
   ): FutureUnlessShutdown[Map[Member, CantonTimestamp]] =
     sequencedSubmissions
       .parFoldMapA { sequencedSubmission =>
-        val SequencedSubmission(sequencingTimestamp, event, topologyOrSequencingSnapshot, _) =
+        val SequencedSubmission(
+          sequencingTimestamp,
+          signedOrderingRequest,
+          topologyOrSequencingSnapshot,
+          topologyTimestampError,
+        ) =
           sequencedSubmission
+        val event = signedOrderingRequest.signedSubmissionRequest
 
         def recipientIsKnown(member: Member): Future[Option[Member]] =
           topologyOrSequencingSnapshot.ipsSnapshot
@@ -503,25 +504,16 @@ private[update] final class BlockChunkProcessor(
       value.foreach(_.withTraceContext { implicit traceContext =>
         {
           case LedgerBlockEvent.Send(_, signedSubmissionRequest, payloadSize) =>
-            signedSubmissionRequest.content.content.batch.allRecipients
-              .foldLeft(RecipientStats()) {
-                case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
-                  acc.copy(participants = true)
-                case (acc, MemberRecipient(MediatorId(_)) | MediatorGroupRecipient(_)) =>
-                  acc.copy(mediators = true)
-                case (acc, MemberRecipient(SequencerId(_)) | SequencersOfDomain) =>
-                  acc.copy(sequencers = true)
-                case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
-              }
-              .updateMetric(
-                signedSubmissionRequest.content.content.sender,
-                payloadSize,
-                logger,
-                metrics,
-              )
+            val mc = SequencerMetrics.submissionTypeMetricsContext(
+              signedSubmissionRequest.content.content.batch.allRecipients,
+              signedSubmissionRequest.content.content.sender,
+              logger,
+            )
+            metrics.block.blockEvents.mark()(mc)
+            metrics.block.blockEventBytes.mark(payloadSize.longValue)(mc)
           case LedgerBlockEvent.Acknowledgment(request) =>
             // record the event
-            metrics.blockEvents
+            metrics.block.blockEvents
               .mark()(
                 MetricsContext(
                   "sender" -> request.content.member.toString,
@@ -529,7 +521,7 @@ private[update] final class BlockChunkProcessor(
                 )
               )
             // record the timestamp of the acknowledgment
-            metrics
+            metrics.block
               .updateAcknowledgementGauge(
                 request.content.member.toString,
                 request.content.timestamp.underlying.micros,

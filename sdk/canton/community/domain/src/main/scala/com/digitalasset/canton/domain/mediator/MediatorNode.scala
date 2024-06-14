@@ -56,7 +56,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ResourceUtil, SingleUseCell}
+import com.digitalasset.canton.util.{ResourceUtil, SingleUseCell}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import monocle.Lens
 import monocle.macros.syntax.lens.*
@@ -172,7 +172,6 @@ class MediatorNodeBootstrap(
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
-  private val topologyClient = new SingleUseCell[DomainTopologyClient]()
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     domainTopologyManager.get.map(_.store).toList
@@ -185,7 +184,7 @@ class MediatorNodeBootstrap(
   ): Option[DomainTopologyClient] =
     storeId match {
       case DomainStore(domainId, _) =>
-        topologyClient.get.filter(_.domainId == domainId)
+        replicaManager.mediatorRuntime.map(_.mediator.topologyClient).filter(_.domainId == domainId)
       case _ => None
     }
 
@@ -556,12 +555,6 @@ class MediatorNodeBootstrap(
           .mapK(FutureUnlessShutdown.outcomeK)
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
-      _ <- EitherTUtil
-        .condUnitET(
-          MediatorNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
-          "Unexpected state during initialization: topology client shouldn't have been set before",
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
       syncCryptoApi = new DomainSyncCryptoClient(
         mediatorId,
         domainId,

@@ -180,10 +180,7 @@ create or replace view debug.seq_state_manager_events as
     counter,
     debug.canton_timestamp(ts) as ts,
     content,
-    trace_context,
-    extra_traffic_remainder,
-    extra_traffic_consumed,
-    base_traffic_remainder
+    trace_context
   from seq_state_manager_events;
 
 create or replace view debug.seq_state_manager_lower_bound as
@@ -258,9 +255,7 @@ create or replace view debug.common_sequenced_events as
     debug.canton_timestamp(ts) as ts,
     sequencer_counter,
     trace_context,
-    ignore,
-    extra_traffic_remainder,
-    extra_traffic_consumed
+    ignore
   from common_sequenced_events;
 
 create or replace view debug.sequencer_client_pending_sends as
@@ -426,11 +421,7 @@ create or replace view debug.seq_block_height as
 create or replace view debug.seq_initial_state as
   select
     member,
-    counter,
-    extra_traffic_remainder,
-    extra_traffic_consumed,
-    base_traffic_remainder,
-    debug.canton_timestamp(sequenced_timestamp) as sequenced_timestamp
+    counter
   from seq_initial_state;
 
 create or replace view debug.par_active_contract_pruning as
@@ -672,6 +663,14 @@ create or replace view debug.seq_traffic_control_balance_updates as
     balance,
     serial
   from seq_traffic_control_balance_updates;
+
+create or replace view debug.seq_traffic_control_consumed_journal as
+  select
+    member,
+    debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
+    extra_traffic_consumed,
+    base_traffic_remainder
+  from seq_traffic_control_consumed_journal;
 
 create or replace view debug.seq_traffic_control_initial_timestamp as
   select

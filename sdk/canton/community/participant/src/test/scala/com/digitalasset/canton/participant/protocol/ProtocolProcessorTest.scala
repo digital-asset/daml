@@ -60,6 +60,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{CursorPrehead, IndexedDomain}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
@@ -167,6 +168,7 @@ class ProtocolProcessorTest
                 Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
                 None,
                 testedProtocolVersion,
+                Option.empty[TrafficReceipt],
               )
             )
           )

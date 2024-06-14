@@ -181,7 +181,7 @@ trait MessageDispatcher { this: NamedLogging =>
     val deliver = eventE.event.content
     // TODO(#13883) Validate the topology timestamp
     // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
-    val Deliver(sc, ts, _, _, batch, topologyTimestampO) = deliver
+    val Deliver(sc, ts, _, _, batch, topologyTimestampO, _) = deliver
 
     val envelopesWithCorrectDomainId = filterBatchForDomainId(batch, sc, ts)
 
@@ -577,11 +577,18 @@ trait MessageDispatcher { this: NamedLogging =>
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val receipts = events.mapFilter {
-      case Deliver(counter, timestamp, _domainId, messageIdO, batch, _) =>
+      case Deliver(counter, timestamp, _domainId, messageIdO, batch, _, _) =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.foreach(_ => recordEventDelivered())
         messageIdO.map(_ -> SequencedSubmission(counter, timestamp))
-      case DeliverError(_counter, _timestamp, _domainId, _messageId, _reason) =>
+      case DeliverError(
+            _counter,
+            _timestamp,
+            _domainId,
+            _messageId,
+            _reason,
+            _trafficReceipt,
+          ) =>
         // `observeDeliverError` takes care of generating a rejection reason if necessary
         None
     }
@@ -604,17 +611,10 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def observeDeliverError(
       error: DeliverError
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
-    recordTrafficDeliveryError(error)
     doProcess(
       DeliveryMessageKind,
       FutureUnlessShutdown.outcomeF(inFlightSubmissionTracker.observeDeliverError(error)),
     )
-  }
-
-  private def recordTrafficDeliveryError(error: DeliverError): Unit = error match {
-    case DeliverError(_, _, _, _, SequencerErrors.TrafficCredit(_)) =>
-      metrics.trafficControl.eventAboveTrafficLimit.mark()
-    case _ =>
   }
 
   private def recordEventDelivered(): Unit = {

@@ -29,7 +29,6 @@ abstract class UseReferenceBlockSequencerBase[
 ](
     override protected val loggerFactory: NamedLoggerFactory,
     driverSingleWordName: String,
-    driverDescription: String,
     sequencerGroups: SequencerDomainGroups = SingleDomain,
 ) extends EnvironmentSetupPlugin[EnvT, TestConsoleEnvT] {
 

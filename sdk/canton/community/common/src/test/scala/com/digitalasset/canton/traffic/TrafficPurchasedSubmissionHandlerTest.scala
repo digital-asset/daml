@@ -25,6 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
   TrafficPurchasedSubmissionHandler,
+  TrafficReceipt,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
@@ -291,6 +292,7 @@ class TrafficPurchasedSubmissionHandlerTest
       messageId,
       Status.defaultInstance.withMessage("BOOM"),
       testedProtocolVersion,
+      Option.empty[TrafficReceipt],
     )
     callbackCapture.getValue.asInstanceOf[SendCallback.CallbackFuture](
       UnlessShutdown.Outcome(SendResult.Error(deliverError))

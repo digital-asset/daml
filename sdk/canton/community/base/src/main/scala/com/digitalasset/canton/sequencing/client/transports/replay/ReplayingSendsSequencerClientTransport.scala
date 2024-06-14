@@ -141,7 +141,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   private val pendingSends = TrieMap[MessageId, CantonTimestamp]()
   private val firstSend = new AtomicReference[Option[CantonTimestamp]](None)
   private val lastSend = new AtomicReference[Option[CantonTimestamp]](None)
-  private val lastReceivedEvent = new AtomicReference[Option[CantonTimestamp]](None)
 
   private val submissionRequests: List[SubmissionRequest] = withNewTraceContext {
     implicit traceContext =>
@@ -342,8 +341,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private def updateMetrics(event: SequencedEvent[ClosedEnvelope]): Unit =
       withEmptyMetricsContext { implicit metricsContext =>
         val messageIdO: Option[MessageId] = event match {
-          case Deliver(_, _, _, messageId, _, _) => messageId
-          case DeliverError(_, _, _, messageId, _) => Some(messageId)
+          case Deliver(_, _, _, messageId, _, _, _) => messageId
+          case DeliverError(_, _, _, messageId, _, _) => Some(messageId)
           case _ => None
         }
 
@@ -351,7 +350,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
           val latency = java.time.Duration.between(sentAt.toInstant, Instant.now())
           metrics.submissions.inFlight.dec()
           metrics.submissions.sequencingTime.update(latency)
-          lastReceivedEvent.set(Some(CantonTimestamp.now()))
         }
       }
 
@@ -388,6 +386,11 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
     EitherT.rightT(true)
+
+  override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
+    EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
 
   override def handshake(request: HandshakeRequest)(implicit
       traceContext: TraceContext

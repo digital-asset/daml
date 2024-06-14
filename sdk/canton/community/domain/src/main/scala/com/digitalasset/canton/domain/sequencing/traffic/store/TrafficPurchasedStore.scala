@@ -64,13 +64,14 @@ trait TrafficPurchasedStore extends AutoCloseable {
     * In practice this means that we will keep enough to provide the correct balance for any timestamp above or equal the
     * provided timestamp, even if that means not pruning the first timestamp below the provided one.
     * Keeps at least the latest balance if it exists, even if it's in the pruning window.
+    *
+    * @return text information about the data that was pruned
     */
   def pruneBelowExclusive(
-      member: Member,
-      upToExclusive: CantonTimestamp,
+      upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): Future[String]
 
   /** Returns the maximum timestamp present in a member balance.
     */

@@ -27,10 +27,10 @@ class DelayLogger(
   private val caughtUp = new AtomicBoolean(false)
 
   def checkForDelay(event: PossiblyIgnoredSequencedEvent[_]): Unit = event match {
-    case OrdinarySequencedEvent(signedEvent, _) =>
+    case OrdinarySequencedEvent(signedEvent) =>
       implicit val traceContext: TraceContext = event.traceContext
       signedEvent.content match {
-        case Deliver(counter, ts, _, _, _, _) =>
+        case Deliver(counter, ts, _, _, _, _, _) =>
           val now = clock.now
           val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
           val deltaMs = delta.toMillis

@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
   HasCryptographicEvidence,
@@ -150,6 +151,7 @@ final class GeneratorsProtocol(
       messageId,
       error,
       protocolVersion,
+      Option.empty[TrafficReceipt],
     )
   )
   private implicit val deliverArbitrary: Arbitrary[Deliver[Envelope[?]]] = Arbitrary(
@@ -235,6 +237,7 @@ object GeneratorsProtocol {
     counter <- Arbitrary.arbitrary[SequencerCounter]
     messageIdO <- Gen.option(Arbitrary.arbitrary[MessageId])
     topologyTimestampO <- Gen.option(Arbitrary.arbitrary[CantonTimestamp])
+    trafficReceipt <- Gen.option(Arbitrary.arbitrary[TrafficReceipt])
   } yield Deliver.create(
     counter,
     timestamp,
@@ -243,6 +246,7 @@ object GeneratorsProtocol {
     batch,
     topologyTimestampO,
     protocolVersion,
+    trafficReceipt,
   )
 
   def timeProofArb(protocolVersion: ProtocolVersion): Arbitrary[TimeProof] = Arbitrary(

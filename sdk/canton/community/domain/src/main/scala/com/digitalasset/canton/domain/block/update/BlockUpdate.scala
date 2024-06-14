@@ -16,12 +16,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SubmissionRequestOutcome,
 }
 import com.digitalasset.canton.error.BaseAlarm
-import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MapsUtil
-
-import scala.collection.MapView
 
 /** Summarizes the updates that are to be persisted and signalled individually */
 sealed trait BlockUpdate[+E <: ChunkEvents] extends Product with Serializable
@@ -121,7 +118,6 @@ final case class UnsignedChunkEvents(
     topologyOrSequencingSnapshot: SyncCryptoApi,
     sequencingTimestamp: CantonTimestamp,
     latestSequencerEventTimestamp: Option[CantonTimestamp],
-    trafficStates: MapView[Member, SequencedEventTrafficState],
     traceContext: TraceContext,
 ) extends ChunkEvents {
   override def members: Set[Member] = events.keySet

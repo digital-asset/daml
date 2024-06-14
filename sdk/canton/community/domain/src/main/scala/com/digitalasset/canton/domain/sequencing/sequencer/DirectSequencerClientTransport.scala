@@ -25,6 +25,8 @@ import com.digitalasset.canton.sequencing.client.transports.{
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
+  GetTrafficStateForMemberRequest,
+  GetTrafficStateForMemberResponse,
   HandshakeRequest,
   HandshakeResponse,
   SignedContent,
@@ -38,6 +40,7 @@ import com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, PekkoUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
@@ -54,6 +57,7 @@ class DirectSequencerClientTransport(
     sequencer: Sequencer,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    protocolVersion: ProtocolVersion,
 )(implicit materializer: Materializer, ec: ExecutionContext)
     extends SequencerClientTransport
     with SequencerClientTransportPekko
@@ -80,6 +84,17 @@ class DirectSequencerClientTransport(
       .acknowledgeSigned(request)
       .map { _ => true }
       .mapK(FutureUnlessShutdown.outcomeK)
+
+  override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = {
+    sequencer
+      .getTrafficStateAt(request.member, request.timestamp)
+      .map { trafficStateO =>
+        GetTrafficStateForMemberResponse(trafficStateO, protocolVersion)
+      }
+      .leftMap(_.toString)
+  }
 
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext

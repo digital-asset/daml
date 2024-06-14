@@ -21,7 +21,7 @@ final case class DeliveredTransferOutResult(result: SignedContent[Deliver[Defaul
     extends PrettyPrinting {
 
   val unwrap: ConfirmationResultMessage = result.content match {
-    case Deliver(_, _, _, _, Batch(envelopes), _) =>
+    case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
       val transferOutResults =
         envelopes
           .mapFilter(env =>

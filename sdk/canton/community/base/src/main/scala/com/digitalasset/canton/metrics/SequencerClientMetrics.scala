@@ -61,6 +61,11 @@ class SequencerClientMetrics(
     val metricsFactory: LabeledMetricsFactory,
 )(implicit context: MetricsContext) {
 
+  val trafficConsumption = new TrafficConsumptionMetrics(
+    prefix = histograms.prefix :+ "traffic-control",
+    labeledMetricsFactory = metricsFactory,
+  )
+
   object handler {
     private val prefix = histograms.handlerPrefix
     val numEvents: Counter = metricsFactory.counter(

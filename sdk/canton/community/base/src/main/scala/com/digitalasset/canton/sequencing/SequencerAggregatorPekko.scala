@@ -135,12 +135,9 @@ class SequencerAggregatorPekko(
         timestampOfSigningKey = None,
         representativeProtocolVersion,
       )
-    // TODO(#13789) How should we merge the traffic state as it's currently not part of the bucketing?
-    val mergedTrafficState = someElem.trafficState
-
     // We intentionally do not use the copy method
     // so that we notice when fields are added
-    OrdinarySequencedEvent(mergedSignedEvent, mergedTrafficState)(mergedTraceContext)
+    OrdinarySequencedEvent(mergedSignedEvent)(mergedTraceContext)
   }
 
   private def logError[E: Pretty](
@@ -234,7 +231,7 @@ class SequencerAggregatorPekko(
         exclusiveStart: SequencerCounter,
         priorElement: Option[PriorElement],
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
-      val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
+      val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_) => event }
       val subscription = eventValidator
         .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source

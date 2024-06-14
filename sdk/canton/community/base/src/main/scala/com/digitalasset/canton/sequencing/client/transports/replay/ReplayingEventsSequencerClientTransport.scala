@@ -20,6 +20,8 @@ import com.digitalasset.canton.sequencing.client.transports.{
 import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
+  GetTrafficStateForMemberRequest,
+  GetTrafficStateForMemberResponse,
   HandshakeRequest,
   HandshakeResponse,
   SignedContent,
@@ -68,6 +70,11 @@ class ReplayingEventsSequencerClientTransport(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
     EitherT.rightT(true)
+
+  override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
+    EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
 
   /** Replays all events in `replayPath` to the handler. */
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(

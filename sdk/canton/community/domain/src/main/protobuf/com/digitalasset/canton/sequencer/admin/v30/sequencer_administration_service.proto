@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.sequencer.admin.v30;
 
-import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/sequencer/admin/v30/sequencer_initialization_snapshot.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "google/protobuf/timestamp.proto";
@@ -40,10 +40,35 @@ service SequencerAdministrationService {
 
 message TrafficControlStateRequest {
   repeated string members = 1; // Members for which to retrieve the traffic state
+
+  enum RelativeTimestamp {
+    // Return the traffic state at the latest timestamp for which the traffic state can safely be calculated
+    // All traffic state returned will be at this timestamp. The timestamp will typically be the latest sequencing timestamp
+    // observed by the sequencer at the time of the request
+    RELATIVE_TIMESTAMP_LATEST_SAFE_UNSPECIFIED = 0;
+    // Return, for each member specifically, the traffic state at the last timestamp it was updated
+    // This will likely result in different timestamps per member
+    RELATIVE_TIMESTAMP_LAST_UPDATE_PER_MEMBER = 1;
+    // Return an APPROXIMATION of the traffic state at the latest possible time. Do NOT use this when the resulting
+    // traffic state must be guaranteed to be correct. This typically uses the wall clock of the sequencer,
+    // and allows to get an approximation of the traffic states for a timestamp more recent than when using
+    // LATEST_SAFE
+    RELATIVE_TIMESTAMP_LATEST_APPROXIMATE = 2;
+  }
+
+  // The timestamp field determines at which point in time the state must be computed
+  oneof timestamp_selector {
+    // Provide an exact timestamp at which traffic states must be returned
+    uint64 exact_timestamp = 2;
+    // A relative timestamp based on the sequencer's state at the time of the request, see above for details
+    RelativeTimestamp relative_timestamp = 3;
+  }
 }
 
 message TrafficControlStateResponse {
-  repeated com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus traffic_states = 1;
+  // The key is the serialized member value
+  // The value is their currently known traffic state (the traffic state contains a timestamp at which it is valid)
+  map<string, com.digitalasset.canton.protocol.v30.TrafficState> traffic_states = 1;
 }
 
 message SetTrafficPurchasedRequest {

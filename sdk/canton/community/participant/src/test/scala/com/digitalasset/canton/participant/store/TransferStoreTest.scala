@@ -41,6 +41,7 @@ import com.digitalasset.canton.protocol.{
   TransferId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -1474,6 +1475,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
         batch,
         Some(transferData.transferOutTimestamp),
         BaseTest.testedProtocolVersion,
+        Option.empty[TrafficReceipt],
       )
       SignedContent(
         deliver,

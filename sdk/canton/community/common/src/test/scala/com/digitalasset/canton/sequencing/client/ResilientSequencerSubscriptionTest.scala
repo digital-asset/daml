@@ -455,7 +455,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       }
 
     def handleCounter(sc: Long): Future[Either[TestHandlerError, Unit]] =
-      fromSubscriber(_._2)(OrdinarySequencedEvent(deliverEvent(sc), None)(traceContext))
+      fromSubscriber(_._2)(OrdinarySequencedEvent(deliverEvent(sc))(traceContext))
 
     def subscribedCounter: SequencerCounter = fromSubscriber(_._1)
 

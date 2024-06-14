@@ -91,10 +91,6 @@ private[mediator] class MediatorEventsProcessor(
             },
           )
           domainEnvelopes
-
-        case DeliverError(_, _, _, _, SequencerErrors.TrafficCredit(_)) =>
-          metrics.trafficControl.eventRejected.mark()
-          Seq.empty
         case _: DeliverError =>
           Seq.empty
       }

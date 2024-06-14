@@ -26,7 +26,7 @@ trait DbTrafficPurchasedStoreTest
     )
   }
 
-  "TrafficLimitsStore" should {
+  "TrafficPurchasedStore" should {
     behave like trafficPurchasedStore(() =>
       new DbTrafficPurchasedStore(
         BatchAggregatorConfig.NoBatching,

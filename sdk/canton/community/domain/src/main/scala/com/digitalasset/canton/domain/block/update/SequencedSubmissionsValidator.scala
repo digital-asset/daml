@@ -14,13 +14,18 @@ import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
 }
 import com.digitalasset.canton.domain.block.update.SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.SubmissionRequestValidationResult
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  SignedOrderingRequest,
+  SignedOrderingRequestOps,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   CounterCheckpoint,
   SequencerMemberValidator,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
@@ -39,9 +44,11 @@ private[update] final class SequencedSubmissionsValidator(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
+    metrics: SequencerMetrics,
     unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
-) extends NamedLogging {
+)(implicit closeContext: CloseContext)
+    extends NamedLogging {
 
   private val submissionRequestValidator =
     new SubmissionRequestValidator(
@@ -51,6 +58,7 @@ private[update] final class SequencedSubmissionsValidator(
       sequencerId,
       rateLimitManager,
       loggerFactory,
+      metrics,
       unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )
@@ -87,7 +95,7 @@ private[update] final class SequencedSubmissionsValidator(
 
     val SequencedSubmission(
       sequencingTimestamp,
-      signedSubmissionRequest,
+      signedOrderingRequest,
       topologyOrSequencingSnapshot,
       topologyTimestampError,
     ) = sequencedSubmissionRequest
@@ -104,7 +112,7 @@ private[update] final class SequencedSubmissionsValidator(
         submissionRequestValidator.validateAndGenerateSequencedEvents(
           stateFromPartialResult,
           sequencingTimestamp,
-          signedSubmissionRequest,
+          signedOrderingRequest,
           topologyOrSequencingSnapshot,
           topologyTimestampError,
           latestSequencerEventTimestamp,
@@ -121,12 +129,12 @@ private[update] final class SequencedSubmissionsValidator(
           sequencingTimestamp,
           sequencerEventTimestamp,
           latestSequencerEventTimestamp,
-          signedSubmissionRequest,
+          signedOrderingRequest,
           remainingReversedEvents = reversedEvents,
           remainingReversedOutcomes = reversedOutcomes,
         )
       _ = logger.debug(
-        s"At block $height, the submission request ${signedSubmissionRequest.content.messageId} " +
+        s"At block $height, the submission request ${signedOrderingRequest.submissionRequest.messageId} " +
           s"at $sequencingTimestamp created the following counters: \n" ++ outcome.eventsByMember
             .map { case (member, sequencedEvent) =>
               s"\t counter ${sequencedEvent.counter} for $member"
@@ -135,40 +143,6 @@ private[update] final class SequencedSubmissionsValidator(
       )
     } yield result
   }
-
-  private def updateTrafficStates(
-      ephemeralState: BlockUpdateEphemeralState,
-      members: Set[Member],
-      sequencingTimestamp: CantonTimestamp,
-      snapshot: SyncCryptoApi,
-      latestTopologyTimestamp: Option[CantonTimestamp],
-  )(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): FutureUnlessShutdown[BlockUpdateEphemeralState] =
-    snapshot.ipsSnapshot
-      .trafficControlParameters(protocolVersion)
-      .flatMap {
-        case Some(parameters) =>
-          val states = members
-            .flatMap(member => ephemeralState.trafficState.get(member).map(member -> _))
-            .toMap
-          rateLimitManager
-            .getUpdatedTrafficStatesAtTimestamp(
-              states,
-              sequencingTimestamp,
-              parameters,
-              latestTopologyTimestamp,
-              warnIfApproximate = ephemeralState.headCounterAboveGenesis(sequencerId),
-            )
-            .map { trafficStateUpdates =>
-              ephemeralState
-                .copy(trafficState =
-                  ephemeralState.trafficState ++ trafficStateUpdates.view.mapValues(_.state).toMap
-                )
-            }
-        case _ => FutureUnlessShutdown.pure(ephemeralState)
-      }
 
   private def processSubmissionOutcome(
       state: BlockUpdateEphemeralState,
@@ -179,12 +153,11 @@ private[update] final class SequencedSubmissionsValidator(
       sequencingTimestamp: CantonTimestamp,
       sequencerEventTimestamp: Option[CantonTimestamp],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
-      signedSubmissionRequest: SignedContent[SubmissionRequest],
+      signedOrderingRequest: SignedOrderingRequest,
       remainingReversedEvents: Seq[UnsignedChunkEvents],
       remainingReversedOutcomes: Seq[SubmissionRequestOutcome],
   )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): FutureUnlessShutdown[SequencedSubmissionsValidationResult] = {
     val SubmissionRequestOutcome(
       deliverEvents,
@@ -209,20 +182,9 @@ private[update] final class SequencedSubmissionsValidator(
                   )(_ tryMerge _)
             }
           val newState = state.copy(inFlightAggregations = newInFlightAggregations)
-          // Update the traffic status of the recipients before generating the events below.
-          // Typically traffic state might change even for recipients if a top up becomes effective at that timestamp
-          // Doing this here ensures that the traffic state persisted for the event is correct
-          // It's also important to do this here after group -> Set[member] resolution has been performed so we get
-          // the actual member recipients
-          updateTrafficStates(
-            newState,
-            deliverableOutcome.deliverToMembers,
-            sequencingTimestamp,
-            topologyOrSequencingSnapshot,
-            latestSequencerEventTimestamp,
-          ).map(trafficUpdatedState =>
+          FutureUnlessShutdown.pure(
             SequencedSubmissionsValidationResult(
-              trafficUpdatedState,
+              newState,
               Seq.empty,
               newInFlightAggregationUpdates,
               sequencerEventTimestamp,
@@ -259,38 +221,23 @@ private[update] final class SequencedSubmissionsValidator(
               checkpoints = newCheckpoints,
             )
 
-          for {
-            // Update the traffic status of the recipients before generating the events below.
-            // Typically traffic state might change even for recipients if a top up becomes effective at that timestamp
-            // Doing this here ensures that the traffic state persisted for the event is correct
-            // It's also important to do this here after group -> Set[member] resolution has been performed so we get
-            // the actual member recipients
-            trafficUpdatedState <-
-              updateTrafficStates(
-                newState,
-                deliverEventsNE.keySet,
-                sequencingTimestamp,
-                topologyOrSequencingSnapshot,
-                latestSequencerEventTimestamp,
-              )
-          } yield {
-            val unsignedEvents = UnsignedChunkEvents(
-              signedSubmissionRequest.content.sender,
-              deliverEventsNE,
-              topologyOrSequencingSnapshot,
-              sequencingTimestamp,
-              latestSequencerEventTimestamp,
-              trafficUpdatedState.trafficState.view.mapValues(_.toSequencedEventTrafficState),
-              traceContext,
-            )
+          val unsignedEvents = UnsignedChunkEvents(
+            signedOrderingRequest.submissionRequest.sender,
+            deliverEventsNE,
+            topologyOrSequencingSnapshot,
+            sequencingTimestamp,
+            latestSequencerEventTimestamp,
+            traceContext,
+          )
+          FutureUnlessShutdown.pure(
             SequencedSubmissionsValidationResult(
-              trafficUpdatedState,
+              newState,
               unsignedEvents +: remainingReversedEvents,
               newInFlightAggregationUpdates,
               sequencerEventTimestamp,
               outcome +: remainingReversedOutcomes,
             )
-          }
+          )
       }
     }
   }

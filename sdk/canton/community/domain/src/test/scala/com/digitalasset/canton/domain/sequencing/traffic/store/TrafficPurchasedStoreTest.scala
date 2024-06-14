@@ -28,55 +28,77 @@ trait TrafficPurchasedStoreTest
     val t3 = t2.plusSeconds(1)
     val t4 = t3.plusSeconds(1)
 
+    val purchaseEntryBob1 =
+      TrafficPurchased(
+        bob.member,
+        PositiveInt.tryCreate(3),
+        NonNegativeLong.tryCreate(20L),
+        t1,
+      )
+    val purchaseEntryBob2 =
+      TrafficPurchased(
+        bob.member,
+        PositiveInt.tryCreate(3),
+        NonNegativeLong.tryCreate(20L),
+        t2,
+      )
+    val purchaseEntryBob3 =
+      TrafficPurchased(
+        bob.member,
+        PositiveInt.tryCreate(3),
+        NonNegativeLong.tryCreate(20L),
+        t3,
+      )
+
     "trafficPurchasedStore" should {
       "store and lookup balances" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
             NonNegativeLong.tryCreate(10L),
             t2,
           )
-        val balanceBob =
+        val purchaseEntryBob =
           TrafficPurchased(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(8L), t1)
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
-          _ <- store.store(balanceBob)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice2)
+          _ <- store.store(purchaseEntryBob)
           aliceEvents <- store.lookup(alice)
           bobEvents <- store.lookup(bob)
         } yield {
           aliceEvents should contain theSameElementsInOrderAs List(
-            balanceAlice1,
-            balanceAlice2,
+            purchaseEntryAlice1,
+            purchaseEntryAlice2,
           )
-          bobEvents should contain theSameElementsInOrderAs List(balanceBob)
+          bobEvents should contain theSameElementsInOrderAs List(purchaseEntryBob)
         }
       }
 
       "be idempotent if inserting the same balance twice" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice1)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice1)
           aliceEvents <- store.lookup(alice)
         } yield {
           aliceEvents should contain theSameElementsInOrderAs List(
-            balanceAlice1
+            purchaseEntryAlice1
           )
         }
       }
 
       "update if the serial is higher than the previous one for the same timestamp" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
@@ -84,34 +106,34 @@ trait TrafficPurchasedStoreTest
             t1,
           )
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice2)
           aliceEvents <- store.lookup(alice)
         } yield {
           aliceEvents should contain theSameElementsInOrderAs List(
-            balanceAlice2
+            purchaseEntryAlice2
           )
         }
       }
 
       "not update if the serial is lower or equal to the previous one for the same timestamp" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
             NonNegativeLong.tryCreate(5L),
             t1,
           )
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t1)
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice2)
           aliceEvents <- store.lookup(alice)
         } yield {
           aliceEvents should contain theSameElementsInOrderAs List(
-            balanceAlice1
+            purchaseEntryAlice1
           )
         }
       }
@@ -120,16 +142,16 @@ trait TrafficPurchasedStoreTest
         val store = mk()
         // Between t2 and t3
         val t2point5 = t2.plusMillis(500)
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
             NonNegativeLong.tryCreate(10L),
             t2,
           )
-        val balanceAlice3 =
+        val purchaseEntryAlice3 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(3),
@@ -137,28 +159,35 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
-          _ <- store.store(balanceAlice3)
-          _ <- store.pruneBelowExclusive(alice.member, t2point5)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryBob1)
+          _ <- store.store(purchaseEntryAlice2)
+          _ <- store.store(purchaseEntryAlice3)
+          _ <- store.pruneBelowExclusive(t2point5)
           aliceEvents <- store.lookup(alice)
+          bobEvents <- store.lookup(bob)
         } yield {
-          aliceEvents should contain theSameElementsInOrderAs List(balanceAlice2, balanceAlice3)
+          aliceEvents should contain theSameElementsInOrderAs List(
+            purchaseEntryAlice2,
+            purchaseEntryAlice3,
+          )
+          // We should keep bob's balance because it's the only one
+          bobEvents should contain theSameElementsInOrderAs List(purchaseEntryBob1)
         }
       }
 
       "remove all balances below a given timestamp for which there is an update" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
             NonNegativeLong.tryCreate(10L),
             t2,
           )
-        val balanceAlice3 =
+        val purchaseEntryAlice3 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(3),
@@ -166,28 +195,39 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
-          _ <- store.store(balanceAlice3)
-          _ <- store.pruneBelowExclusive(alice.member, t2)
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice2)
+          _ <- store.store(purchaseEntryAlice3)
+          _ <- store.store(purchaseEntryBob1)
+          _ <- store.store(purchaseEntryBob2)
+          _ <- store.store(purchaseEntryBob3)
+          _ <- store.pruneBelowExclusive(t2)
           aliceEvents <- store.lookup(alice)
+          bobEvents <- store.lookup(bob)
         } yield {
-          aliceEvents should contain theSameElementsInOrderAs List(balanceAlice2, balanceAlice3)
+          aliceEvents should contain theSameElementsInOrderAs List(
+            purchaseEntryAlice2,
+            purchaseEntryAlice3,
+          )
+          bobEvents should contain theSameElementsInOrderAs List(
+            purchaseEntryBob2,
+            purchaseEntryBob3,
+          )
         }
       }
 
       "keep the latest balance if they're all in the pruning window" in {
         val store = mk()
-        val balanceAlice1 =
+        val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
-        val balanceAlice2 =
+        val purchaseEntryAlice2 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(2),
             NonNegativeLong.tryCreate(10L),
             t2,
           )
-        val balanceAlice3 =
+        val purchaseEntryAlice3 =
           TrafficPurchased(
             alice.member,
             PositiveInt.tryCreate(3),
@@ -195,13 +235,18 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
-          _ <- store.store(balanceAlice1)
-          _ <- store.store(balanceAlice2)
-          _ <- store.store(balanceAlice3)
-          _ <- store.pruneBelowExclusive(alice.member, t3.plusSeconds(1))
+          _ <- store.store(purchaseEntryAlice1)
+          _ <- store.store(purchaseEntryAlice2)
+          _ <- store.store(purchaseEntryAlice3)
+          _ <- store.store(purchaseEntryBob1)
+          _ <- store.store(purchaseEntryBob2)
+          _ <- store.store(purchaseEntryBob3)
+          _ <- store.pruneBelowExclusive(t3.plusSeconds(1))
           aliceEvents <- store.lookup(alice)
+          bobEvents <- store.lookup(bob)
         } yield {
-          aliceEvents should contain theSameElementsInOrderAs List(balanceAlice3)
+          aliceEvents should contain theSameElementsInOrderAs List(purchaseEntryAlice3)
+          bobEvents should contain theSameElementsInOrderAs List(purchaseEntryBob3)
         }
       }
 

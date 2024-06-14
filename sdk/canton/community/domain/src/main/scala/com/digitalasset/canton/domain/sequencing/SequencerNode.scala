@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
@@ -62,8 +61,6 @@ import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidatorFactory,
   SequencerClientImplPekko,
 }
-import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficStateController}
 import com.digitalasset.canton.store.{
   IndexedDomain,
   IndexedStringStore,
@@ -596,16 +593,6 @@ class SequencerNodeBootstrap(
             loggerFactory,
           )
           _ = addCloseable(sequencedEventStore)
-          trafficStateController = new TrafficStateController(
-            sequencerId,
-            loggerFactory,
-            syncCrypto,
-            TrafficState.empty(CantonTimestamp.Epoch),
-            staticDomainParameters.protocolVersion,
-            new EventCostCalculator(loggerFactory),
-            futureSupervisor,
-            timeouts,
-          )
           sequencerClient = new SequencerClientImplPekko[
             DirectSequencerClientTransport.SubscriptionError
           ](
@@ -617,6 +604,7 @@ class SequencerNodeBootstrap(
                 sequencer,
                 parameters.processingTimeouts,
                 loggerFactory,
+                staticDomainParameters.protocolVersion,
               ),
             ),
             parameters.sequencerClient,
@@ -635,13 +623,15 @@ class SequencerNodeBootstrap(
               arguments.metrics.sequencerClient,
               loggerFactory,
               timeouts,
+              None,
+              sequencerId,
             ),
             arguments.metrics.sequencerClient,
             None,
             replayEnabled = false,
             syncCrypto,
             parameters.loggingConfig,
-            trafficStateController,
+            None,
             loggerFactory,
             futureSupervisor,
             sequencer.firstSequencerCounterServeableForSequencer,

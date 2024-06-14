@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -59,6 +60,7 @@ object TransferResultHelpers {
         batch,
         None,
         protocolVersion,
+        Option.empty[TrafficReceipt],
       )
     val signature =
       Await

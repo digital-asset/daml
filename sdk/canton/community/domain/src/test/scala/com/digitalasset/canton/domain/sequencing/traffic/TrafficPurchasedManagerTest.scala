@@ -38,7 +38,10 @@ class TrafficPurchasedManagerTest
   private def mkManager = new TrafficPurchasedManager(
     store,
     clock,
-    SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
+    SequencerTrafficConfig(
+      pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2),
+      trafficPurchasedCacheSizePerMember = PositiveInt.one,
+    ),
     futureSupervisor,
     SequencerMetrics.noop("traffic-balance-manager"),
     protocolVersion = testedProtocolVersion,
@@ -57,7 +60,10 @@ class TrafficPurchasedManagerTest
       timestamp: CantonTimestamp,
       balance: TrafficPurchased,
   ) = {
-    manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Right(
+    manager
+      .getTrafficPurchasedAt(member, timestamp, warnIfApproximate = false)
+      .value
+      .futureValueUS shouldBe Right(
       Some(balance)
     )
   }
@@ -165,7 +171,7 @@ class TrafficPurchasedManagerTest
 
     "return an error if asking for a balance before the safe pruning mark" in {
       val manager = mkManager
-      manager.setSafeToPruneBeforeExclusive(timestamp.plusSeconds(1))
+      manager.prune(timestamp.plusSeconds(1)).futureValue
       loggerFactory.suppressWarnings(
         manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Left(
           TrafficPurchasedAlreadyPruned(member, timestamp)
@@ -238,7 +244,7 @@ class TrafficPurchasedManagerTest
       resultF.futureValueUS shouldBe Right(Some(balance2))
     }
 
-    "auto prune" in {
+    "prune" in {
       val manager = mkManager
       val t0 = clock.now
 
@@ -251,49 +257,21 @@ class TrafficPurchasedManagerTest
       manager.addTrafficPurchased(balance2).futureValue
       manager.addTrafficPurchased(balance3).futureValue
 
-      // Set the clock at t0 + 1, this way, the first pruning will run at t0 + 3 (pruning window is 2s),
-      // which means everything < t0 + 1 will be prunable
-      clock.advanceTo(t0.plusSeconds(1))
-      val pruningF = manager.startAutoPruning
-      // Advance to t0 + 3 - This should make only the balance at t0 prunable
-      // Set safe to prune at t1, to make t0 prunable
-      manager.setSafeToPruneBeforeExclusive(t0.plusSeconds(1))
-      clock.advanceTo(t0.plusSeconds(3)) // t0 + 3
+      // Prune t0
+      manager.prune(t0.plusSeconds(1)).futureValue
+      assertFailed(manager, t0)
+      assertBalance(manager, t0.plusSeconds(1).immediateSuccessor, balance2)
 
-      // Run an update to trigger pruning
-      val balance4 = mkBalance(4, 400, t0.plusSeconds(5))
+      val balance4 = mkBalance(4, 400, t0.plusSeconds(4))
       manager.addTrafficPurchased(balance4).futureValue
-      manager.tick(t0.plusSeconds(5).immediateSuccessor)
 
-      eventually() {
-        assertFailed(manager, t0.immediateSuccessor)
-        assertBalance(manager, t0.plusSeconds(1).immediateSuccessor, balance2)
-        assertBalance(manager, t0.plusSeconds(3).immediateSuccessor, balance3)
-        assertBalance(manager, t0.plusSeconds(5).immediateSuccessor, balance4)
-      }
-
-      // Everything is prunable, but safe to prune is at t0 + 4, so t0 + 3 and t0 + 5 should stay
-      // t0 + 3 stays because it's the last balance before t0 + 4. We want to keep it because if we get asked about
-      // t0 + 4.5, which is after the pruning threshold, we need to answer with t0 + 3
-      manager.setSafeToPruneBeforeExclusive(t0.plusSeconds(4))
-      clock.advanceTo(t0.plusSeconds(8)) // t0 + 8
-      // Force a prune by adding a balance
-      val balance5 = mkBalance(5, 500, t0.plusSeconds(20))
-      manager.addTrafficPurchased(balance5).futureValue
-
-      eventually() {
-        assertFailed(manager, t0.immediateSuccessor)
-        assertFailed(manager, t0.plusSeconds(1).immediateSuccessor)
-        assertBalance(manager, t0.plusSeconds(3).immediateSuccessor, balance3)
-        assertBalance(manager, t0.plusSeconds(4).immediateSuccessor, balance3)
-        assertBalance(manager, t0.plusSeconds(5).immediateSuccessor, balance4)
-      }
-
-      val closeF = Future(manager.close())
-      eventually() {
-        closeF.isCompleted shouldBe true
-        pruningF.isCompleted shouldBe true
-      }
+      manager.prune(t0.plusSeconds(5)).futureValue
+      assertFailed(manager, t0)
+      assertFailed(manager, t0.plusSeconds(1))
+      assertFailed(manager, t0.plusSeconds(2))
+      assertFailed(manager, t0.plusSeconds(3))
+      assertBalance(manager, t0.plusSeconds(4).immediateSuccessor, balance4)
+      assertBalance(manager, t0.plusSeconds(5), balance4)
     }
 
     "read and writes can happen concurrently" in {

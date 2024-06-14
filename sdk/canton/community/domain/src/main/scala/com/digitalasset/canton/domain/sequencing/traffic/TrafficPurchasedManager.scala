@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.github.benmanes.caffeine.cache as caffeine
 
@@ -183,38 +183,8 @@ class TrafficPurchasedManager(
       // Increment the metric
       .flatTap(_ => Future.successful(sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()))
       .map { balances =>
-        // Schedule the pruning asynchronously to not slow down processing
-        // However, this means that if the pruning retention window is very short and we get a lot of updates, we may
-        // end up piling up these futures.
-        FutureUtil.doNotAwait(
-          pruneMemberIfEligible(balance.member, balances),
-          s"Failed to prune traffic purchased entries for member ${balance.member}",
-        )
         updateAndCompletePendingUpdates(balance.sequencingTimestamp)
       }
-  }
-
-  private def pruneMemberIfEligible(member: Member, balances: TrafficPurchasedForMember)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    balances match {
-      case TrafficPurchasedForMember(_, eligibleForPruningBefore) =>
-        eligibleForPruningBefore.getAndSet(None) match {
-          case Some(pruningTimestamp) =>
-            logger.debug(
-              s"Pruning traffic purchased entries for $member below $eligibleForPruningBefore"
-            )
-            store
-              .pruneBelowExclusive(member, pruningTimestamp)
-              .map { _ =>
-                logger.trace(
-                  s"Traffic balances for $member were pruned below $eligibleForPruningBefore"
-                )
-              }
-          case _ => Future.successful(())
-        }
-      case _ => Future.successful(())
-    }
   }
 
   /** Get the balance valid at the given timestamp from the provided sorted map
@@ -370,11 +340,12 @@ class TrafficPurchasedManager(
       // Here we can't be sure there's no update in transit because no lastSeenO was provided.
       // If warnIfApproximate is true, we log a warning, but still provide the balance.
       case (lastUpdate, None) =>
-        if (warnIfApproximate)
+        if (warnIfApproximate) {
           logger.warn(
             s"The desired timestamp $desired is more recent than the last update ${lastUpdate.map(_.toString).getOrElse("N/A")}," +
               s" and no 'lastSeen' timestamp was provided. The provided balance may not be up to date if a balance update is being processed."
           )
+        }
         getBalanceAt(member, desired)
       case (_, Some(lastSeen)) =>
         val promiseO = makePromiseForBalance(member, desired, lastSeen)
@@ -425,66 +396,11 @@ class TrafficPurchasedManager(
     }
   }
 
-  /** Mark all timestamps below (excluding) the provided one as safe to prune.
+  /** Prune traffic purchased for members such as it can be queried for timestamps as old as "timestamp"
     */
-  def setSafeToPruneBeforeExclusive(timestamp: CantonTimestamp): Unit = {
-    safeToPruneBeforeExclusive.set(Some(timestamp))
-  }
-
-  /*
-   * Merely mark all members in the cache as eligible for pruning at a timestamp calculated from the pruning config
-   * The returned future will complete either when pruning is stopped manually or when the manager is closed.
-   */
-  private def scheduleAutoPruning(promise: PromiseUnlessShutdown[Unit])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-    val nextPruningAt = clock.now.plus(trafficConfig.pruningRetentionWindow.asJava)
-    val resultFUS = promise.futureUS
-    val scheduledFUS = clock.scheduleAt(
-      ts => {
-        safeToPruneBeforeExclusive.get().foreach { safeToPruneTs =>
-          val threshold = ts.minus(trafficConfig.pruningRetentionWindow.asJava).min(safeToPruneTs)
-          logger.debug(s"Traffic balances older than $threshold are now eligible for pruning")
-          trafficPurchased.underlying
-            .synchronous()
-            .asMap()
-            .forEach((_, balances) => balances.eligibleForPruningBefore.set(Some(threshold)))
-        }
-      },
-      nextPruningAt,
-    )
-
-    FutureUnlessShutdown(Future.firstCompletedOf(Seq(resultFUS, scheduledFUS).map(_.unwrap)))
-      .flatMap {
-        // If the return promise was completed, we can stop
-        case result if promise.isCompleted => FutureUnlessShutdown.pure(result)
-        // Otherwise we recurse
-        case _ => scheduleAutoPruning(promise)
-      }
-  }
-
-  /** Starts auto pruning of traffic purchased entries according to the pruning configuration.
-    */
-  def startAutoPruning(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-    // This future will only complete when auto pruning is stopped manually or the node goes down
-    // so use the noop supervisor to avoid logging continuously that the future is not done
-    lazy val newPromise =
-      mkPromise[Unit]("auto pruning started", FutureSupervisor.Noop)
-    autoPruningPromise.getAndUpdate({
-      case None => Some(newPromise)
-      case existing => existing
-    }) match {
-      case None => scheduleAutoPruning(newPromise)
-      case Some(existing) => existing.futureUS
-    }
-  }
-
-  /** Stop auto pruning of traffic purchased entries.
-    */
-  def stopAutoPruning(): Unit = {
-    autoPruningPromise.getAndSet(None).foreach(_.trySuccess(UnlessShutdown.unit))
+  def prune(upToExclusive: CantonTimestamp)(implicit traceContext: TraceContext): Future[String] = {
+    safeToPruneBeforeExclusive.set(Some(upToExclusive))
+    store.pruneBelowExclusive(upToExclusive)
   }
 
   override def onClosed(): Unit = {

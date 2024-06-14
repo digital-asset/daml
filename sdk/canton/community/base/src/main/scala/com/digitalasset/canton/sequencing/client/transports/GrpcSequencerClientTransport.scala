@@ -234,6 +234,32 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         }
   }
 
+  override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = {
+    logger.debug(s"Getting traffic state for: ${request.member}")
+    CantonGrpcUtil
+      .sendGrpcRequest(sequencerServiceClient, "sequencer")(
+        _.getTrafficStateForMember(request.toProtoV30),
+        requestDescription = s"get-traffic-state/${request.member}",
+        timeout = timeouts.network.duration,
+        logger = logger,
+        logPolicy = noLoggingShutdownErrorsLogPolicy,
+        retryPolicy = retryPolicy(retryOnUnavailable = true),
+      )
+      .map { res =>
+        logger.debug(s"Got traffic state ${res.trafficState}")
+        res
+      }
+      .leftMap(_.toString)
+      .flatMap(protoRes =>
+        EitherT
+          .fromEither[Future](GetTrafficStateForMemberResponse.fromProtoV30(protoRes))
+          .leftMap(_.toString)
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
+  }
+
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] = {

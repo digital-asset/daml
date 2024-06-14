@@ -27,12 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.{
-  AllMembersOfDomain,
-  Deliver,
-  SequencersOfDomain,
-  TrafficState,
-}
+import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Deliver, SequencersOfDomain}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -130,7 +125,6 @@ trait SequencerBlockStore extends AutoCloseable {
       acknowledgments: MemberTimestamps,
       membersDisabled: Seq[Member],
       inFlightAggregationUpdates: InFlightAggregationUpdates,
-      trafficState: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit]
 
   /** Finalizes the current block whose updates have been added in the calls to [[partialBlockUpdate]]
@@ -272,7 +266,7 @@ trait SequencerBlockStore extends AutoCloseable {
     val topologyEventsInBlock = allEventsInBlock
       .get(topologyClientMember)
       .map(_.filter(_.signedEvent.content match {
-        case Deliver(_, _, _, _, batch, _) =>
+        case Deliver(_, _, _, _, batch, _, _) =>
           val recipients = batch.allRecipients
           recipients.contains(SequencersOfDomain) || recipients.contains(AllMembersOfDomain)
         case _ => false

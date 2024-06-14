@@ -904,41 +904,6 @@ CREATE TABLE common_topology_transactions (
 );
 CREATE INDEX idx_common_topology_transactions ON common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
--- update the seq_state_manager_events to store traffic information per event
--- this will be needed to re-hydrate the sequencer from a specific point in time deterministically
--- adds extra traffic remainder at the time of the event
-alter table seq_state_manager_events
-    add column extra_traffic_remainder bigint;
--- adds total extra traffic consumed at the time of the event
-alter table seq_state_manager_events
-    add column extra_traffic_consumed bigint;
--- adds base traffic remainder at the time of the event
-alter table seq_state_manager_events
-    add column base_traffic_remainder bigint;
-
--- adds extra traffic remainder per event in sequenced event store
--- this way the participant can replay event and reconstruct the correct traffic state
--- adds extra traffic remainder at the time of the event
-alter table common_sequenced_events
-    add column extra_traffic_remainder bigint;
--- adds total extra traffic consumed at the time of the event
-alter table common_sequenced_events
-    add column extra_traffic_consumed bigint;
-
--- adds initial traffic info per member for when a sequencer gets onboarded
--- initial extra traffic remainder
-alter table seq_initial_state
-    add column extra_traffic_remainder bigint;
--- initial total extra traffic consumed
-alter table seq_initial_state
-    add column extra_traffic_consumed bigint;
--- initial base traffic remainder
-alter table seq_initial_state
-    add column base_traffic_remainder bigint;
--- timestamp of the initial traffic state
-alter table seq_initial_state
-    add column sequenced_timestamp bigint;
-
 -- Stores the traffic purchased entry updates
 create table seq_traffic_control_balance_updates (
   -- member the traffic purchased entry update is for
@@ -958,6 +923,20 @@ create table seq_traffic_control_initial_timestamp (
   -- Timestamp used to initialize the sequencer during onboarding, and the balance manager as well
   initial_timestamp bigint not null,
   primary key (initial_timestamp)
+);
+
+-- Stores the traffic consumed as a journal
+create table seq_traffic_control_consumed_journal (
+    -- member the traffic consumed entry is for
+       member varchar(300) collate "C" not null,
+    -- timestamp at which the event that caused traffic to be consumed was sequenced
+       sequencing_timestamp bigint not null,
+    -- total traffic consumed at sequencing_timestamp
+       extra_traffic_consumed bigint not null,
+    -- base traffic remainder at sequencing_timestamp
+       base_traffic_remainder bigint not null,
+    -- traffic entries have a unique sequencing_timestamp per member
+       primary key (member, sequencing_timestamp)
 );
 
 --   BFT Ordering Tables

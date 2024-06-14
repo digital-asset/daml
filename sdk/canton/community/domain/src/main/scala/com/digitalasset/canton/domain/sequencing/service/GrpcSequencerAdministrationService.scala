@@ -10,8 +10,10 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector
 import com.digitalasset.canton.domain.sequencing.sequencer.{OnboardingStateForSequencer, Sequencer}
 import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -69,16 +71,42 @@ class GrpcSequencerAdministrationService(
 
     val members = request.members.flatMap(deserializeMember)
 
-    val response = sequencer
-      .trafficStatus(members)
-      .map {
-        _.members.map(_.toProtoV30)
-      }
-      .map(
-        v30.TrafficControlStateResponse(_)
-      )
+    TimestampSelector.fromProtoV30(request.timestampSelector) match {
+      case Left(err) =>
+        Future.failed(
+          new StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(err.toString))
+        )
+      case Right(selector) =>
+        val response = sequencer
+          .trafficStatus(members, selector)
+          .flatMap { states =>
+            val (errors, trafficStates) = states.trafficStatesOrErrors.partitionMap {
+              case (member, trafficStateE) =>
+                trafficStateE
+                  .map(member -> _)
+                  .leftMap(member -> _)
+            }
+            if (errors.nonEmpty) {
+              val errorMessage = errors.mkShow().toString
+              FutureUnlessShutdown.failed(
+                io.grpc.Status.INTERNAL
+                  .withDescription(
+                    s"Failed to retrieve traffic state for some members: $errorMessage"
+                  )
+                  .asRuntimeException()
+              )
+            } else {
+              FutureUnlessShutdown.pure(
+                trafficStates.map { case (member, state) =>
+                  member.toProtoPrimitive -> state.toProtoV30
+                }.toMap
+              )
+            }
+          }
+          .map(v30.TrafficControlStateResponse(_))
 
-    CantonGrpcUtil.mapErrNewEUS(EitherT.liftF(response))
+        CantonGrpcUtil.mapErrNewEUS(EitherT.liftF(response))
+    }
   }
 
   override def snapshot(request: v30.SnapshotRequest): Future[v30.SnapshotResponse] = {

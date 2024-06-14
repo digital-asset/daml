@@ -4,41 +4,39 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.apply.*
-import com.digitalasset.canton.config.RequireTypes
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
+import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
+import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.sequencing.traffic.{
+  TrafficConsumed,
+  TrafficPurchased,
+  TrafficReceipt,
+}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.RequiredTypesCodec.nonNegativeLongOptionGetResult
 import com.digitalasset.canton.topology.Member
 import slick.jdbc.{GetResult, SetParameter}
 
-/** Traffic state stored in the sequencer per event needed for enforcing traffic control */
+/** Traffic state of a member at a given timestamp */
 final case class TrafficState(
-    extraTrafficRemainder: NonNegativeLong,
+    extraTrafficPurchased: NonNegativeLong,
     extraTrafficConsumed: NonNegativeLong,
     baseTrafficRemainder: NonNegativeLong,
     timestamp: CantonTimestamp,
+    serial: Option[PositiveInt],
 ) extends PrettyPrinting {
-  lazy val extraTrafficLimit: Option[PositiveLong] =
-    PositiveLong.create((extraTrafficRemainder + extraTrafficConsumed).value).toOption
+  def extraTrafficRemainder: Long = extraTrafficPurchased.value - extraTrafficConsumed.value
+  def availableTraffic: Long = extraTrafficRemainder + baseTrafficRemainder.value
 
-  def update(
-      newExtraTrafficLimit: NonNegativeLong,
-      timestamp: CantonTimestamp,
-  ): Either[RequireTypes.InvariantViolation, TrafficState] = {
-    NonNegativeLong.create(newExtraTrafficLimit.value - extraTrafficConsumed.value).map {
-      newRemainder =>
-        this.copy(
-          timestamp = timestamp,
-          extraTrafficRemainder = newRemainder,
-        )
-    }
-  }
-
-  def toSequencedEventTrafficState: SequencedEventTrafficState = SequencedEventTrafficState(
-    extraTrafficRemainder = extraTrafficRemainder,
-    extraTrafficConsumed = extraTrafficConsumed,
+  def toProtoV30: v30.TrafficState = v30.TrafficState(
+    extraTrafficPurchased = extraTrafficPurchased.value,
+    extraTrafficConsumed = extraTrafficConsumed.value,
+    baseTrafficRemainder = baseTrafficRemainder.value,
+    timestamp = timestamp.toProtoPrimitive,
+    serial = serial.map(_.value),
   )
 
   def toTrafficConsumed(member: Member): TrafficConsumed = TrafficConsumed(
@@ -48,40 +46,83 @@ final case class TrafficState(
     baseTrafficRemainder = baseTrafficRemainder,
   )
 
-  def toTrafficPurchased(member: Member): Option[TrafficPurchased] = None
+  def toTrafficReceipt(
+      consumedCost: NonNegativeLong
+  ): TrafficReceipt = TrafficReceipt(
+    consumedCost = consumedCost,
+    extraTrafficConsumed = extraTrafficConsumed,
+    baseTrafficRemainder = baseTrafficRemainder,
+  )
+
+  def toTrafficPurchased(member: Member): Option[TrafficPurchased] = serial.map { s =>
+    TrafficPurchased(
+      member = member,
+      sequencingTimestamp = timestamp,
+      extraTrafficPurchased = extraTrafficPurchased,
+      serial = s,
+    )
+  }
 
   override def pretty: Pretty[TrafficState] = prettyOfClass(
+    param("extraTrafficLimit", _.extraTrafficPurchased),
+    param("extraTrafficConsumed", _.extraTrafficConsumed),
+    param("baseTrafficRemainder", _.baseTrafficRemainder),
     param("timestamp", _.timestamp),
-    param("extra traffic remainder", _.extraTrafficRemainder),
-    param("extra traffic consumed", _.extraTrafficConsumed),
-    param("base traffic remainder", _.baseTrafficRemainder),
+    paramIfDefined("serial", _.serial),
   )
 }
 
 object TrafficState {
 
   implicit val setResultParameter: SetParameter[TrafficState] = { (v: TrafficState, pp) =>
-    pp >> Some(v.extraTrafficRemainder.value)
+    pp >> Some(v.extraTrafficPurchased.value)
     pp >> Some(v.extraTrafficConsumed.value)
     pp >> Some(v.baseTrafficRemainder.value)
     pp >> v.timestamp
+    pp >> v.serial.map(_.value)
   }
 
   implicit val getResultTrafficState: GetResult[Option[TrafficState]] = {
     GetResult
-      .createGetTuple4(
+      .createGetTuple5(
         nonNegativeLongOptionGetResult,
         nonNegativeLongOptionGetResult,
         nonNegativeLongOptionGetResult,
         CantonTimestamp.getResultOptionTimestamp,
+        GetResult(_ => Some(Option.empty[PositiveInt])),
       )
       .andThen(_.mapN(TrafficState.apply))
   }
+
+  def empty: TrafficState = TrafficState(
+    NonNegativeLong.zero,
+    NonNegativeLong.zero,
+    NonNegativeLong.zero,
+    CantonTimestamp.Epoch,
+    Option.empty,
+  )
 
   def empty(timestamp: CantonTimestamp): TrafficState = TrafficState(
     NonNegativeLong.zero,
     NonNegativeLong.zero,
     NonNegativeLong.zero,
     timestamp,
+    Option.empty,
+  )
+
+  def fromProtoV30(
+      trafficStateP: v30.TrafficState
+  ): Either[ProtoDeserializationError, TrafficState] = for {
+    extraTrafficLimit <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficPurchased)
+    extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficConsumed)
+    baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(trafficStateP.baseTrafficRemainder)
+    timestamp <- CantonTimestamp.fromProtoPrimitive(trafficStateP.timestamp)
+    serial <- trafficStateP.serial.traverse(ProtoConverter.parsePositiveInt)
+  } yield TrafficState(
+    extraTrafficLimit,
+    extraTrafficConsumed,
+    baseTrafficRemainder,
+    timestamp,
+    serial,
   )
 }

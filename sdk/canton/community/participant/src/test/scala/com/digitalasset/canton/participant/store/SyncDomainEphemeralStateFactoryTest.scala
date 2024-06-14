@@ -56,8 +56,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
-      ),
-      None,
+      )
     )(TraceContext.empty)
 
   private def offsetsLookup = new InMemoryOffsetsLookup {

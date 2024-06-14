@@ -119,10 +119,10 @@ class DefaultMessageDispatcher(
 
     withSpan(s"MessageDispatcher.handle") { implicit traceContext => _ =>
       val future = eventE.event match {
-        case OrdinarySequencedEvent(signedEvent, _) =>
+        case OrdinarySequencedEvent(signedEvent) =>
           val signedEventE = eventE.map(_ => signedEvent)
           processOrdinary(signedEventE)
-        case IgnoredSequencedEvent(ts, sc, _, _) =>
+        case IgnoredSequencedEvent(ts, sc, _) =>
           tickTrackers(sc, ts, triggerAcsChangePublication = false)
       }
 
@@ -134,11 +134,11 @@ class DefaultMessageDispatcher(
       signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     signedEventE.event.content match {
-      case deliver @ Deliver(sc, ts, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
+      case deliver @ Deliver(sc, ts, _, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
         logTimeProof(sc, ts)
         tickTrackers(sc, ts, triggerAcsChangePublication = true)
 
-      case Deliver(sc, ts, _, msgIdO, _, _) =>
+      case Deliver(sc, ts, _, msgIdO, _, _, _) =>
         if (signedEventE.hasNoErrors) {
           logEvent(sc, ts, msgIdO, signedEventE.event)
         } else {
@@ -157,7 +157,7 @@ class DefaultMessageDispatcher(
               logger.error("event processing failed.", ex)
           }
 
-      case error @ DeliverError(sc, ts, _, msgId, status) =>
+      case error @ DeliverError(sc, ts, _, msgId, status, _) =>
         logDeliveryError(sc, ts, msgId, status)
         logger.debug(s"Received a deliver error at ${sc} / ${ts}")
         for {

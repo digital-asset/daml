@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
+import "google/protobuf/wrappers.proto";
 
 /*
  * Service to retrieve information about the traffic state of the participant.
@@ -19,5 +19,20 @@ message TrafficControlStateRequest {
 }
 
 message TrafficControlStateResponse {
-  com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus traffic_state = 1;
+  TrafficState traffic_state = 1;
+}
+
+// Traffic state of a member at a given timestamp - This is a clone of the TrafficState message in sequencing.proto
+// We have to duplicate it here because the admin API protos are self contained and do not depend on the sequencer API protos
+message TrafficState {
+  // Total amount of extra traffic purchased
+  int64 extra_traffic_purchased = 1;
+  // Total amount of extra traffic consumed
+  int64 extra_traffic_consumed = 2;
+  // Amount of base traffic remaining
+  int64 base_traffic_remainder = 3;
+  // Timestamp at which the state is valid
+  int64 timestamp = 4;
+  // Optional serial of the balance update that updated the extra traffic limit
+  google.protobuf.UInt32Value serial = 5;
 }

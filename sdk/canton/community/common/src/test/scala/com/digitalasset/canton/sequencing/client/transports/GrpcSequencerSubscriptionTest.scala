@@ -60,6 +60,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                 messageId = None,
                 deliverErrorReason = None,
                 topologyTimestamp = None,
+                trafficReceipt = None,
               )
               .toByteString
           ),
@@ -74,7 +75,6 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
         )
         .toByteString,
       Some(SerializableTraceContext.empty.toProtoV30),
-      None,
     )
 
   val RequestDescription = "request description"

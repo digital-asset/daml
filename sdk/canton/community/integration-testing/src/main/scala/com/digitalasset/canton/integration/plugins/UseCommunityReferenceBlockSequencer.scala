@@ -40,7 +40,7 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
       CommunitySequencerConfig,
       CommunityEnvironment,
       CommunityTestConsoleEnvironment,
-    ](loggerFactory, "reference", "reference", sequencerGroups) {
+    ](loggerFactory, "reference", sequencerGroups) {
 
   private val driverFactory = new CommunityReferenceSequencerDriverFactory
 

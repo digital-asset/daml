@@ -61,10 +61,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.traffic.{
-  ParticipantTrafficControlSubscriber,
-  TrafficStateController,
-}
+import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
@@ -73,7 +70,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
-import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
+import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, TrafficState}
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
@@ -87,7 +84,6 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
@@ -127,7 +123,6 @@ class SyncDomain(
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
     clock: Clock,
     metrics: SyncDomainMetrics,
-    trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
@@ -290,9 +285,15 @@ class SyncDomain(
       loggerFactory,
     )
 
-  trafficProcessor.subscribe(
-    new ParticipantTrafficControlSubscriber(trafficStateController, participantId, loggerFactory)
-  )
+  sequencerClient.trafficStateController.foreach { tsc =>
+    trafficProcessor.subscribe(
+      new ParticipantTrafficControlSubscriber(
+        tsc,
+        participantId,
+        loggerFactory,
+      )
+    )
+  }
 
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(
@@ -350,8 +351,16 @@ class SyncDomain(
       traceContext: TraceContext
   ): Unit = journalGarbageCollector.removeOneLock()
 
-  def getTrafficControlState: Future[Option[MemberTrafficStatus]] =
-    trafficStateController.getState()
+  def getTrafficControlState(implicit traceContext: TraceContext): Future[TrafficState] =
+    sequencerClient.trafficStateController
+      .map { tsc =>
+        Future.successful(tsc.getState)
+      }
+      .getOrElse {
+        ErrorUtil.invalidState(
+          "Participant's sequencer client should have a traffic state controller"
+        )
+      }
 
   def authorityOfInSnapshotApproximation(requestingAuthority: Set[LfPartyId])(implicit
       traceContext: TraceContext
@@ -662,7 +671,6 @@ class SyncDomain(
           ): HandlerResult = {
             tracedEvents.withTraceContext { traceContext => closedEvents =>
               val openEvents = closedEvents.map { event =>
-                trafficStateController.updateState(event)
                 val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
                   staticDomainParameters.protocolVersion,
                   domainCrypto.crypto.pureCrypto,
@@ -997,7 +1005,6 @@ object SyncDomain {
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
-        trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
@@ -1024,7 +1031,6 @@ object SyncDomain {
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
-        trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
@@ -1049,7 +1055,6 @@ object SyncDomain {
         MessageDispatcher.DefaultFactory,
         clock,
         syncDomainMetrics,
-        trafficStateController,
         futureSupervisor,
         loggerFactory,
         testingConfig,

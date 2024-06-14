@@ -14,11 +14,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.sequencing.protocol.{
-  SequencedEvent,
-  SequencedEventTrafficState,
-  SignedContent,
-}
+import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
@@ -78,12 +74,9 @@ class DbSequencedEventStore(
       val traceContext: TraceContext = r.<<[SerializableTraceContext].unwrap
       val ignore = r.<<[Boolean]
 
-      val getTrafficState =
-        SequencedEventTrafficState.sequencedEventTrafficStateGetResult(r)
-
       typ match {
         case SequencedEventDbType.IgnoredEvent =>
-          IgnoredSequencedEvent(timestamp, sequencerCounter, None, getTrafficState)(
+          IgnoredSequencedEvent(timestamp, sequencerCounter, None)(
             traceContext
           )
         case _ =>
@@ -100,12 +93,11 @@ class DbSequencedEventStore(
               timestamp,
               sequencerCounter,
               Some(signedEvent),
-              getTrafficState,
             )(
               traceContext
             )
           } else {
-            OrdinarySequencedEvent(signedEvent, getTrafficState)(
+            OrdinarySequencedEvent(signedEvent)(
               traceContext
             )
           }
@@ -145,12 +137,12 @@ class DbSequencedEventStore(
             |using (select ? domain_id, ? ts from dual) input
             |on (sequenced_events.ts = input.ts and common_sequenced_events.domain_id = input.domain_id)
             |when not matched then
-            |  insert (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed)
-            |  values (input.domain_id, input.ts, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
+            |  insert (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore)
+            |  values (input.domain_id, input.ts, ?, ?, ?, ?, ?)""".stripMargin
 
       case _ =>
-        "insert into common_sequenced_events (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed) " +
-          "values (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+        "insert into common_sequenced_events (domain_id, ts, sequenced_event, type, sequencer_counter, trace_context, ignore) " +
+          "values (?, ?, ?, ?, ?, ?, ?) " +
           "on conflict do nothing"
     }
     DbStorage.bulkOperation_(insertSql, events, storage.profile) { pp => event =>
@@ -161,8 +153,6 @@ class DbSequencedEventStore(
       pp >> event.counter
       pp >> SerializableTraceContext(event.traceContext)
       pp >> event.isIgnored
-      pp >> event.trafficState.map(_.extraTrafficRemainder)
-      pp >> event.trafficState.map(_.extraTrafficConsumed)
     }
   }
 
@@ -173,10 +163,10 @@ class DbSequencedEventStore(
       case ByTimestamp(timestamp) =>
         // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
         // It therefore is fine to take the first event that we find.
-        sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
+        sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                 where domain_id = $partitionKey and ts = $timestamp"""
       case LatestUpto(inclusive) =>
-        sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
+        sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                 where domain_id = $partitionKey and ts <= $inclusive
                 order by ts desc #${storage.limit(1)}"""
     }
@@ -194,7 +184,7 @@ class DbSequencedEventStore(
         case ByTimestampRange(lowerInclusive, upperInclusive) =>
           for {
             events <- storage.query(
-              sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
+              sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                     where domain_id = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
                     order by ts #${limit.fold("")(storage.limit(_))}"""
                 .as[PossiblyIgnoredSerializedEvent],
@@ -216,7 +206,7 @@ class DbSequencedEventStore(
       limit: Option[Int] = None
   )(implicit traceContext: TraceContext): Future[Seq[PossiblyIgnoredSerializedEvent]] = {
     storage.query(
-      sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore, extra_traffic_remainder, extra_traffic_consumed from common_sequenced_events
+      sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
               where domain_id = $partitionKey
               order by ts #${limit.fold("")(storage.limit(_))}"""
         .as[PossiblyIgnoredSerializedEvent],
@@ -281,7 +271,7 @@ class DbSequencedEventStore(
 
       events = ((firstSc max fromInclusive) to untilInclusive).map { sc =>
         val ts = firstTs.addMicros(sc - firstSc)
-        IgnoredSequencedEvent(ts, sc, None, None)(traceContext)
+        IgnoredSequencedEvent(ts, sc, None)(traceContext)
       }
 
       _ <- EitherT.right(storage.queryAndUpdate(bulkInsertQuery(events), functionFullName))
