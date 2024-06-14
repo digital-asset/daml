@@ -20,6 +20,7 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
   UnretryableError,
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -381,6 +382,7 @@ object TestSequencerSubscriptionFactoryPekko {
       Batch.empty(BaseTest.testedProtocolVersion),
       None,
       BaseTest.testedProtocolVersion,
+      Option.empty[TrafficReceipt],
     )
     val signedContent =
       SignedContent.create(
@@ -389,7 +391,7 @@ object TestSequencerSubscriptionFactoryPekko {
         None,
         SignedContent.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion),
       )
-    OrdinarySequencedEvent(signedContent, None)(TraceContext.empty)
+    OrdinarySequencedEvent(signedContent)(TraceContext.empty)
   }
 
   private class TestSubscriptionErrorRetryPolicyPekko

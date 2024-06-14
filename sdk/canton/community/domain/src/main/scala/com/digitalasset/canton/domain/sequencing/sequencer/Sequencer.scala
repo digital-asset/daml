@@ -14,7 +14,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerAdministrationError,
   SequencerWriteError,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitError,
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
@@ -132,14 +134,22 @@ trait Sequencer
     */
   private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter
 
-  /** Return the status of the specified members. If the list is empty, return the status of all members.
+  /** Return the latest known status of the specified members, either at wall clock time of this sequencer or
+    * latest known sequenced event, whichever is the most recent.
+    * This method should be used for information purpose only and not to get a deterministic traffic state
+    * as the state will depend on current time. To get the state at a specific timestamp, use [[getTrafficStateAt]] instead.
+    * If the list is empty, return the status of all members.
     * Requested members who are not registered in the Sequencer will not be in the response.
     * Registered members with no sent or received event will return an empty status.
     */
-  def trafficStatus(members: Seq[Member])(implicit
+  def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus]
 
+  /** Sets the traffic purchased of a member to the new provided value.
+    * This will only become effective if / when properly authorized by enough sequencers according to the
+    * domain owners threshold.
+    */
   def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
@@ -149,13 +159,11 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp]
 
-  /** Return the full traffic state of all known members.
-    * This should not be exposed externally as is as it contains information not relevant to external consumers.
-    * Use [[trafficStatus]] instead.
+  /** Return the traffic state of a member at a given timestamp.
     */
-  def trafficStates(implicit
+  def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Member, TrafficState]]
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[TrafficState]]
 
   /** Return the rate limit manager for this sequencer, if it exists.
     */

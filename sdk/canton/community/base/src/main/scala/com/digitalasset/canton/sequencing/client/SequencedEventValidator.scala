@@ -267,6 +267,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
+      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -279,6 +280,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
+      getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
       (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
@@ -292,6 +294,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
+      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -304,6 +307,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
+      getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
@@ -323,6 +327,7 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
+      getTolerance: DynamicDomainParametersWithValidity => NonNegativeFiniteDuration,
   )(
       getSnapshotF: (
           SyncCryptoClient[SyncCryptoApi],
@@ -358,7 +363,7 @@ object SequencedEventValidator extends HasLoggerName {
         .map { dynamicDomainParametersE =>
           for {
             dynamicDomainParameters <- dynamicDomainParametersE.leftMap(NoDynamicDomainParameters)
-            tolerance = dynamicDomainParameters.sequencerTopologyTimestampTolerance
+            tolerance = getTolerance(dynamicDomainParameters)
             withinSigningTolerance = {
               import scala.Ordered.orderingToOrdered
               tolerance.unwrap >= sequencingTimestamp - topologyTimestamp
@@ -602,6 +607,7 @@ class SequencedEventValidatorImpl(
             lastTopologyClientTimestamp(priorEventO),
             protocolVersion,
             warnIfApproximate = priorEventO.nonEmpty,
+            _.sequencerTopologyTimestampTolerance,
           )
           .leftMap(InvalidTopologyTimestamp(event.timestamp, signingTs, _))
         _ = logger.debug(s"Successfully validated the event topology timestamp ${event.timestamp}")

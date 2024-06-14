@@ -4,13 +4,16 @@
 package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.OptionT
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.TrafficConsumptionMetrics
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.protocol.{
@@ -39,6 +42,7 @@ class TrafficStateController(
     eventCostCalculator: EventCostCalculator,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
+    metrics: TrafficConsumptionMetrics,
 ) extends NamedLogging {
   private val currentTrafficPurchased =
     new AtomicReference[Option[TrafficPurchased]](initialTrafficState.toTrafficPurchased(member))
@@ -46,7 +50,12 @@ class TrafficStateController(
     member,
     initialTrafficState.toTrafficConsumed(member),
     loggerFactory,
+    metrics,
   )
+
+  def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
+
+  def getState: TrafficState = getTrafficConsumed.toTrafficState(currentTrafficPurchased.get())
 
   // Use a queue to process the incoming events in order while not blocking the sequencer client on continuing its own event processing.
   private val consumeEventsQueue = new SimpleExecutionQueue(
@@ -57,19 +66,21 @@ class TrafficStateController(
     logTaskTiming = true,
   )
 
-  def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
-
   /** Update the traffic purchased entry for this member.
     * Only if the provided traffic purchased has a higher or equal serial number than the current traffic purchased.
     */
-  def updateBalance(newBalance: NonNegativeLong, serial: PositiveInt, timestamp: CantonTimestamp)(
-      implicit tc: TraceContext
+  def updateBalance(
+      newTrafficPurchased: NonNegativeLong,
+      serial: PositiveInt,
+      timestamp: CantonTimestamp,
+  )(implicit
+      tc: TraceContext
   ): Unit = {
     val newState = currentTrafficPurchased.updateAndGet {
       case Some(old) if old.serial < serial =>
         Some(
           old.copy(
-            extraTrafficPurchased = newBalance,
+            extraTrafficPurchased = newTrafficPurchased,
             serial = serial,
             sequencingTimestamp = timestamp,
           )
@@ -79,7 +90,7 @@ class TrafficStateController(
           TrafficPurchased(
             member = member,
             serial = serial,
-            extraTrafficPurchased = newBalance,
+            extraTrafficPurchased = newTrafficPurchased,
             sequencingTimestamp = timestamp,
           )
         )
@@ -92,30 +103,40 @@ class TrafficStateController(
     logger.debug(s"Updating traffic purchased entry $newState")
   }
 
-  /** Consume the cost from the current traffic purchased. Does not perform any check related to available credits.
-    * @param submissionCost cost to be debited.
-    * @param sequencingTimestamp sequencing timestamp of the event that incurred the cost.
+  /** Used when we receive a deliver error receipt for an event that did not consume traffic.
+    * It will still update the traffic state to reflect the base traffic remainder at the provided timestamp.
     */
-  def consume(submissionCost: SequencingSubmissionCost, sequencingTimestamp: CantonTimestamp)(
-      implicit
+  def tickStateAt(sequencingTimestamp: CantonTimestamp)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): Unit = FutureUtil.doNotAwaitUnlessShutdown(
+    {
+      for {
+        topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
+        snapshot = topology.ipsSnapshot
+        trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
+      } yield trafficControlO.foreach { params =>
+        val updated = trafficConsumedManager.updateAt(sequencingTimestamp, params, logger)
+
+        if (updated.sequencingTimestamp != sequencingTimestamp)
+          logger.debug(
+            "Skipped traffic update because the current state is more recent than the sequenced event." +
+              s"Event timestamp: $sequencingTimestamp. Current state: $updated"
+          )
+        else
+          logger.debug(
+            s"Updated traffic state at timestamp: $sequencingTimestamp without consuming traffic. Current state: $updated"
+          )
+      }
+    },
+    s"Failed to update traffic consumed state at $sequencingTimestamp",
+  )
+
+  def updateWithReceipt(trafficReceipt: TrafficReceipt, timestamp: CantonTimestamp)(implicit
+      metricsContext: MetricsContext
   ): Unit = {
-    FutureUtil.doNotAwaitUnlessShutdown(
-      consumeEventsQueue.executeUS(
-        {
-          for {
-            topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
-            snapshot = topology.ipsSnapshot
-            trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
-          } yield trafficControlO.foreach { params =>
-            trafficConsumedManager.doConsumeAt(params, submissionCost.cost, sequencingTimestamp)
-          }
-        },
-        s"Consuming traffic cost ${submissionCost.cost.value} for member $member at $sequencingTimestamp.",
-      ),
-      s"Failed to consume traffic cost ${submissionCost.cost.value} for member $member at $sequencingTimestamp.",
-    )
+    trafficConsumedManager.updateWithReceipt(trafficReceipt, timestamp).discard
   }
 
   /** Compute the cost of a batch of envelopes.

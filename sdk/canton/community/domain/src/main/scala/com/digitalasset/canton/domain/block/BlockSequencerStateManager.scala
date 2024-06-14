@@ -435,7 +435,6 @@ class BlockSequencerStateManager(
         acknowledgments = Map(),
         membersDisabled = Seq(member),
         inFlightAggregationUpdates = Map(),
-        trafficState = Map(),
       )
       .map { _ =>
         import monocle.macros.syntax.lens.*
@@ -529,7 +528,6 @@ class BlockSequencerStateManager(
             acknowledgments = Map.empty,
             membersDisabled = Seq.empty,
             inFlightAggregationUpdates = update.inFlightAggregationUpdates,
-            trafficState = Map.empty,
           )
         )
       } yield {
@@ -554,7 +552,6 @@ class BlockSequencerStateManager(
           acknowledgments = update.acknowledgements,
           membersDisabled = Seq.empty,
           inFlightAggregationUpdates = update.inFlightAggregationUpdates,
-          update.state.trafficState,
         )
         _ <- MonadUtil.sequentialTraverse[(Member, SequencerCounter), Future, Unit](
           update.events
@@ -603,18 +600,6 @@ class BlockSequencerStateManager(
       _ <- store.finalizeBlockUpdate(newBlock)
     } yield {
       updateHeadState(priorHead, newHead)
-      // Use lastTs here under the following assumptions:
-      // 1. lastTs represents the timestamp of the last sequenced "send" event of the last block successfully processed
-      //    Specifically, it is the last of the timestamps in the block passed to the rate limiter in the B.U.G for consumed and traffic updates methods.
-      //    After setting safeForPruning to this timestamp, we will not be able to request balances from the balance manager prior to this timestamp.
-      // 2. This does not impose restrictions on the use of lastSequencerEventTimestamp when calling the rate limiter.
-      //    Meaning it should be possible to use an old lastSequencerEventTimestamp when calling the rate limiter, even if it is older than lastTs here.
-      //    If this changes, we we will need to use lastSequencerEventTimestamp here instead.
-      // 3. TODO(i15837): Under some HA failover scenarios, this may not be sufficient. Mainly because finalizeBlockUpdate above does not
-      //    use synchronous commits for DB replicas. This has for consequence that theoretically a block could be finalized but not appear
-      //    in the DB replica, while the pruning will be visible in the replica. This would lead the BUG to requesting balances for that block when
-      //    reprocessing it, which would fail because the balances have been pruned. This needs to be considered when implementing HA for the BlockSequencer.
-      rateLimitManager.safeForPruning(newHead.block.lastTs)
       newHead
     }
   }

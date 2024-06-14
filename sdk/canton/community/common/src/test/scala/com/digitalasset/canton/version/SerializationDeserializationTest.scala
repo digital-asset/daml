@@ -14,6 +14,8 @@ import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   ClosedEnvelope,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
+  GetTrafficStateForMemberRequest,
+  GetTrafficStateForMemberResponse,
   MaxRequestSizeToDeserialize,
   SequencedEvent,
   SequencingSubmissionCost,
@@ -143,6 +145,8 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(SequencerConnections)
+        testProtocolVersioned(GetTrafficStateForMemberRequest, version)
+        testProtocolVersioned(GetTrafficStateForMemberResponse, version)
         testProtocolVersioned(TopologyStateForInitRequest, version)
         testProtocolVersioned(SubscriptionRequest, version)
         testMemoizedProtocolVersioned2(

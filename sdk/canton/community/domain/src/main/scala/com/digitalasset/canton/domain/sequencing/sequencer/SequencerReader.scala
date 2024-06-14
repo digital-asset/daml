@@ -29,6 +29,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerSubscriptionError,
 }
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -323,6 +324,7 @@ class SequencerReader(
             protocolVersion,
             // This warning should never be triggered.
             warnIfApproximate = true,
+            _.sequencerTopologyTimestampTolerance,
           )
           .value
           .flatMap {
@@ -366,6 +368,8 @@ class SequencerReader(
                   messageId,
                   error,
                   protocolVersion,
+                  Option
+                    .empty[TrafficReceipt], // TODO(i19528) wire traffic consumed for DB sequencer
                 )
               } else
                 Deliver.create(
@@ -376,6 +380,8 @@ class SequencerReader(
                   emptyBatch,
                   None,
                   protocolVersion,
+                  Option
+                    .empty[TrafficReceipt], // TODO(i19528) wire traffic consumed for DB sequencer
                 )
               Future.successful(
                 // This event cannot change the topology state of the client
@@ -521,7 +527,7 @@ class SequencerReader(
             case err =>
               throw new IllegalStateException(s"Signing failed with an unexpected error: $err")
           }
-      } yield OrdinarySequencedEvent(signedEvent, None)(traceContext)
+      } yield OrdinarySequencedEvent(signedEvent)(traceContext)
     }
 
     /** Takes our stored event and turns it back into a real sequenced event.
@@ -599,6 +605,7 @@ class SequencerReader(
               filteredBatch,
               topologyTimestampO,
               protocolVersion,
+              Option.empty[TrafficReceipt], // TODO(i19528) wire traffic consumed for DB sequencer
             )
           }
 
@@ -612,6 +619,7 @@ class SequencerReader(
               emptyBatch,
               topologyTimestampO,
               protocolVersion,
+              Option.empty[TrafficReceipt], // TODO(i19528) wire traffic consumed for DB sequencer
             )
           )
         case DeliverErrorStoreEvent(_, messageId, error, _traceContext) =>
@@ -626,6 +634,7 @@ class SequencerReader(
               messageId,
               status,
               protocolVersion,
+              Option.empty[TrafficReceipt], // TODO(i19528) wire traffic consumed for DB sequencer
             )
           )
       }

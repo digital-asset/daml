@@ -161,8 +161,6 @@ object SequencedEventStore {
       with Serializable {
     def timestamp: CantonTimestamp
 
-    def trafficState: Option[SequencedEventTrafficState]
-
     def counter: SequencerCounter
 
     def underlyingEventBytes: Array[Byte]
@@ -184,7 +182,6 @@ object SequencedEventStore {
         traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
         underlying = underlying.map(_.toByteString),
-        trafficState = trafficState.map(_.toProtoV30),
       )
   }
 
@@ -199,7 +196,6 @@ object SequencedEventStore {
       override val timestamp: CantonTimestamp,
       override val counter: SequencerCounter,
       override val underlying: Option[SignedContent[SequencedEvent[Env]]],
-      override val trafficState: Option[SequencedEventTrafficState],
   )(override val traceContext: TraceContext)
       extends PossiblyIgnoredSequencedEvent[Env] {
 
@@ -215,7 +211,7 @@ object SequencedEventStore {
     override def asIgnoredEvent: IgnoredSequencedEvent[Env] = this
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = underlying match {
-      case Some(event) => OrdinarySequencedEvent(event, trafficState)(traceContext)
+      case Some(event) => OrdinarySequencedEvent(event)(traceContext)
       case None => this
     }
 
@@ -224,7 +220,6 @@ object SequencedEventStore {
         param("timestamp", _.timestamp),
         param("counter", _.counter),
         paramIfDefined("underlying", _.underlying),
-        paramIfDefined("trafficState", _.trafficState),
       )
   }
 
@@ -251,8 +246,7 @@ object SequencedEventStore {
     * It has been signed by the sequencer and contains a trace context.
     */
   final case class OrdinarySequencedEvent[+Env <: Envelope[_]](
-      signedEvent: SignedContent[SequencedEvent[Env]],
-      trafficState: Option[SequencedEventTrafficState],
+      signedEvent: SignedContent[SequencedEvent[Env]]
   )(
       override val traceContext: TraceContext
   ) extends PossiblyIgnoredSequencedEvent[Env] {
@@ -272,13 +266,12 @@ object SequencedEventStore {
     override def underlying: Some[SignedContent[SequencedEvent[Env]]] = Some(signedEvent)
 
     override def asIgnoredEvent: IgnoredSequencedEvent[Env] =
-      IgnoredSequencedEvent(timestamp, counter, Some(signedEvent), trafficState)(traceContext)
+      IgnoredSequencedEvent(timestamp, counter, Some(signedEvent))(traceContext)
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
     override def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
-      param("signedEvent", _.signedEvent),
-      paramIfNonEmpty("trafficState", _.trafficState),
+      param("signedEvent", _.signedEvent)
     )
   }
 
@@ -310,7 +303,6 @@ object SequencedEventStore {
         traceContextPO,
         isIgnored,
         underlyingPO,
-        trafficStatePO,
       ) = possiblyIgnoredSequencedEventP
 
       val sequencerCounter = SequencerCounter(counter)
@@ -327,11 +319,10 @@ object SequencedEventStore {
         traceContext <- ProtoConverter
           .required("trace_context", traceContextPO)
           .flatMap(SerializableTraceContext.fromProtoV30)
-        trafficStateO <- trafficStatePO.traverse(SequencedEventTrafficState.fromProtoV30)
         possiblyIgnoredSequencedEvent <-
           if (isIgnored) {
             Right(
-              IgnoredSequencedEvent(timestamp, sequencerCounter, underlyingO, trafficStateO)(
+              IgnoredSequencedEvent(timestamp, sequencerCounter, underlyingO)(
                 traceContext.unwrap
               )
             )
@@ -339,7 +330,7 @@ object SequencedEventStore {
             ProtoConverter
               .required("underlying", underlyingO)
               .map(
-                OrdinarySequencedEvent(_, trafficStateO)(
+                OrdinarySequencedEvent(_)(
                   traceContext.unwrap
                 )
               )

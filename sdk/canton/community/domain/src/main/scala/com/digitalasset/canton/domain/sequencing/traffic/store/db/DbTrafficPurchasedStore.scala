@@ -103,15 +103,33 @@ class DbTrafficPurchasedStore(
   }
 
   override def pruneBelowExclusive(
-      member: Member,
-      upToExclusive: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    storage.update_(
-      sqlu"""delete from seq_traffic_control_balance_updates where member = $member and sequencing_timestamp < (
-        select max(sequencing_timestamp) from seq_traffic_control_balance_updates where member = $member and sequencing_timestamp <= $upToExclusive
-      )""",
-      functionFullName,
-    )
+      upToExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[String] = {
+    // We need to delete all rows with sequencing_timestamp below the closest row to upToExclusive, by member.
+    // That is because the closest row contains the value which are valid at upToExclusive. So even if it's below
+    // upToExclusive, we need to keep it.
+    // To do that we first find the latest timestamp for all members before the pruning timestamp.
+    // Then we delete all rows below that timestamp for each member.
+    val deleteQuery =
+      sqlu"""with last_before_pruning_timestamp(member, sequencing_timestamp) as (
+              select member, max(sequencing_timestamp)
+              from seq_traffic_control_balance_updates
+              where sequencing_timestamp <= $upToExclusive
+              group by member
+            )
+            delete from seq_traffic_control_balance_updates
+            where (member, sequencing_timestamp) in (
+              select purchased.member, purchased.sequencing_timestamp
+              from last_before_pruning_timestamp last
+              join seq_traffic_control_balance_updates purchased
+              on purchased.member = last.member
+              where purchased.sequencing_timestamp < last.sequencing_timestamp
+            )
+            """
+
+    storage.update(deleteQuery, functionFullName).map { pruned =>
+      s"Removed $pruned traffic purchased entries"
+    }
   }
 
   override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {

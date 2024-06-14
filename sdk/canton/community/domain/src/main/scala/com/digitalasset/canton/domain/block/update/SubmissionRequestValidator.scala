@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.domain.block.update
 
-import cats.data.{Chain, EitherT, OptionT}
+import cats.data.{Chain, EitherT, WriterT}
 import cats.implicits.catsStdInstancesForFuture
+import cats.kernel.Monoid
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
@@ -14,23 +15,26 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.data.BlockUpdateEphemeralState
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.{
+  SequencedEventValidation,
   SubmissionRequestValidationResult,
-  isMemberRegistered,
-  updateTrafficState,
+  TrafficConsumption,
 }
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  SignedOrderingRequest,
+  SignedOrderingRequestOps,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
-  SequencerRateLimitError,
-  SequencerRateLimitManager,
-}
-import com.digitalasset.canton.error.BaseAlarm
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.error.{BaseAlarm, BaseCantonError}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -41,6 +45,8 @@ import monocle.Monocle.toAppliedFocusOps
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import SubmissionRequestValidator.*
+
 /** Validates a single [[SubmissionRequest]] within a chunk.
   */
 private[update] final class SubmissionRequestValidator(
@@ -50,9 +56,19 @@ private[update] final class SubmissionRequestValidator(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
+    metrics: SequencerMetrics,
     unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
-) extends NamedLogging {
+)(implicit closeContext: CloseContext)
+    extends NamedLogging {
+
+  val trafficControlValidator = new TrafficControlValidator(
+    domainId,
+    protocolVersion,
+    rateLimitManager,
+    loggerFactory,
+    metrics,
+  )
 
   /** Returns the snapshot for signing the events (if the submission request specifies a signing timestamp)
     * and the sequenced events by member.
@@ -69,7 +85,7 @@ private[update] final class SubmissionRequestValidator(
   def validateAndGenerateSequencedEvents(
       state: BlockUpdateEphemeralState,
       sequencingTimestamp: CantonTimestamp,
-      signedSubmissionRequest: SignedContent[SubmissionRequest],
+      signedOrderingRequest: SignedOrderingRequest,
       topologyOrSequencingSnapshot: SyncCryptoApi,
       topologyTimestampError: Option[SequencerDeliverError],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
@@ -77,28 +93,24 @@ private[update] final class SubmissionRequestValidator(
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[SubmissionRequestValidationResult] = {
-    // A bit more convoluted than we'd like here, but the goal is to be able to use the traffic updated state
-    //  in the result, even if the aggregation logic performed in 'finalizeProcessing' short-circuits
-    //  (for instance because we've already reached the aggregation threshold).
-    validateAndUpdateTraffic(
-      sequencingTimestamp,
-      signedSubmissionRequest,
+    val processingResult = performInitialValidations(
       state,
+      sequencingTimestamp,
+      signedOrderingRequest.signedSubmissionRequest,
       topologyOrSequencingSnapshot,
       topologyTimestampError,
-      latestSequencerEventTimestamp,
     )
-      .flatMap { case (groupToMembers, stateAfterTrafficConsume) =>
+      .flatMap { groupToMembers =>
         finalizeProcessing(
           groupToMembers,
-          stateAfterTrafficConsume,
+          state,
           sequencingTimestamp,
-          signedSubmissionRequest.content,
-        )
+          signedOrderingRequest.submissionRequest,
+        ).mapK(validationFUSK)
           // Use the traffic updated ephemeral state in the response even if the rest of the processing stopped
           .recover { errorSubmissionOutcome =>
             SubmissionRequestValidationResult(
-              stateAfterTrafficConsume,
+              state,
               errorSubmissionOutcome,
               None,
             )
@@ -108,47 +120,21 @@ private[update] final class SubmissionRequestValidator(
         SubmissionRequestValidationResult(state, errorSubmissionOutcome, None)
       }
       .merge
+
+    trafficControlValidator.applyTrafficControl(
+      processingResult,
+      state,
+      signedOrderingRequest,
+      sequencingTimestamp,
+      latestSequencerEventTimestamp,
+      signedOrderingRequest.submissionRequest.sender,
+    )
   }
 
   // Below are a 3 functions, each a for-comprehension of EitherT.
   // In each Lefts are used to stop processing the submission request and immediately produce the sequenced events
   // They are split into 3 functions to make it possible to re-use intermediate results (specifically
   // BlockUpdateEphemeralState containing updated traffic states), even if further processing fails.
-
-  // After performing initial validations, consumes traffic for the sender and updates the ephemeral state
-  private def validateAndUpdateTraffic(
-      sequencingTimestamp: CantonTimestamp,
-      signedSubmissionRequest: SignedContent[SubmissionRequest],
-      state: BlockUpdateEphemeralState,
-      topologyOrSequencingSnapshot: SyncCryptoApi,
-      topologyTimestampError: Option[SequencerDeliverError],
-      latestSequencerEventTimestamp: Option[CantonTimestamp],
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): EitherT[
-    FutureUnlessShutdown,
-    SubmissionRequestOutcome,
-    (Map[GroupRecipient, Set[Member]], BlockUpdateEphemeralState),
-  ] =
-    for {
-      groupToMembers <- performInitialValidations(
-        state,
-        sequencingTimestamp,
-        signedSubmissionRequest,
-        topologyOrSequencingSnapshot,
-        topologyTimestampError,
-      )
-      stateAfterTrafficConsume <- updateRateLimiting(
-        state,
-        signedSubmissionRequest.content,
-        sequencingTimestamp,
-        topologyOrSequencingSnapshot,
-        groupToMembers,
-        latestSequencerEventTimestamp,
-        warnIfApproximate = state.headCounterAboveGenesis(sequencerId),
-      )
-    } yield (groupToMembers, stateAfterTrafficConsume)
 
   // Performs initial validations and resolves groups to members
   private def performInitialValidations(
@@ -160,36 +146,52 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ) = {
+  ): SequencedEventValidation[Map[GroupRecipient, Set[Member]]] = {
     val submissionRequest = signedSubmissionRequest.content
     for {
       isSenderRegistered <- {
         if (unifiedSequencer) {
-          EitherT.right(
-            FutureUnlessShutdown.outcomeF(
-              memberValidator.isMemberRegisteredAt(submissionRequest.sender, sequencingTimestamp)
+          EitherT
+            .right(
+              FutureUnlessShutdown.outcomeF(
+                memberValidator.isMemberRegisteredAt(submissionRequest.sender, sequencingTimestamp)
+              )
             )
-          )
+            .mapK(validationFUSK)
         } else {
-          EitherT.rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
-            isMemberRegistered(state)(submissionRequest.sender)
-          )
+          EitherT
+            .rightT[FutureUnlessShutdown, SubmissionRequestOutcome](
+              isMemberRegistered(state)(submissionRequest.sender)
+            )
+            .mapK(validationFUSK)
         }
       }
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        isSenderRegistered,
-        // we expect callers to validate the sender exists before queuing requests on their behalf
-        // if we hit this case here it likely means the caller didn't check, or the member has subsequently
-        // been deleted.
-        {
-          logger.warn(
-            s"Sender [${submissionRequest.sender}] of send request [${submissionRequest.messageId}] " +
-              "is not registered so cannot send or receive events. Dropping send request."
-          )
-          SubmissionRequestOutcome.discardSubmissionRequest
-        },
+      _ <- EitherTUtil
+        .condUnitET[FutureUnlessShutdown](
+          isSenderRegistered,
+          // we expect callers to validate the sender exists before queuing requests on their behalf
+          // if we hit this case here it likely means the caller didn't check, or the member has subsequently
+          // been deleted.
+          {
+            logger.warn(
+              s"Sender [${submissionRequest.sender}] of send request [${submissionRequest.messageId}] " +
+                "is not registered so cannot send or receive events. Dropping send request."
+            )
+            SubmissionRequestOutcome.discardSubmissionRequest
+          },
+        )
+        .mapK(validationFUSK)
+      // Warn if we use an approximate snapshot but only after we've read at least one
+      _ <- checkSignatureOnSubmissionRequest(
+        signedSubmissionRequest,
+        topologyOrSequencingSnapshot,
+      ).mapK(validationFUSK)
+      // At this point we know the sender has indeed properly signed the submission request
+      // so we'll want to run the traffic control logic
+      _ <- EitherT.liftF[SequencedEventValidationF, SubmissionRequestOutcome, Unit](
+        WriterT.tell(TrafficConsumption(true))
       )
-      _ <- EitherT.cond[FutureUnlessShutdown](
+      _ <- EitherT.cond[SequencedEventValidationF](
         sequencingTimestamp <= submissionRequest.maxSequencingTime,
         (),
         // The sequencer is beyond the timestamp allowed for sequencing this request so it is silently dropped.
@@ -213,12 +215,8 @@ private[update] final class SubmissionRequestValidator(
         state,
         submissionRequest,
         sequencingTimestamp,
-      )
-      _ <- checkSignatureOnSubmissionRequest(
-        signedSubmissionRequest,
-        topologyOrSequencingSnapshot,
-      )
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
+      ).mapK(validationFUSK)
+      _ <- EitherT.fromEither[SequencedEventValidationF](
         validateTopologyTimestamp(
           state,
           sequencingTimestamp,
@@ -233,19 +231,20 @@ private[update] final class SubmissionRequestValidator(
         submissionRequest,
         topologyOrSequencingSnapshot,
         sequencingTimestamp,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      )
+        .mapK(validationK)
       _ <- checkClosedEnvelopesSignatures(
         topologyOrSequencingSnapshot,
         submissionRequest,
         sequencingTimestamp,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      ).mapK(validationK)
       groupToMembers <-
         groupRecipientsToMembers(
           state,
           submissionRequest,
           sequencingTimestamp,
           topologyOrSequencingSnapshot,
-        )
+        ).mapK(validationFUSK)
     } yield groupToMembers
   }
 
@@ -584,118 +583,6 @@ private[update] final class SubmissionRequestValidator(
       } yield ()
     }
 
-  private def updateRateLimiting(
-      state: BlockUpdateEphemeralState,
-      request: SubmissionRequest,
-      sequencingTimestamp: CantonTimestamp,
-      topologyOrSequencingSnapshot: SyncCryptoApi,
-      groupToMembers: Map[GroupRecipient, Set[Member]],
-      lastSeenTopologyTimestamp: Option[CantonTimestamp],
-      warnIfApproximate: Boolean,
-  )(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, BlockUpdateEphemeralState] = {
-    val newState =
-      for {
-        _ <- OptionT.when[FutureUnlessShutdown, Unit]({
-          request.sender match {
-            // Sequencers are not rate limited
-            case _: SequencerId => false
-            case _ => true
-          }
-        })(())
-        parameters <- OptionT(
-          topologyOrSequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
-        )
-        sender = request.sender
-        // Get the traffic from the ephemeral state
-        trafficState = state.trafficState.getOrElse(
-          sender,
-          // If there's no trace of this member. But we have ensured that the sender is registered
-          // and all registered members should have a traffic state.
-          ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
-        )
-        _ <-
-          if (sequencingTimestamp <= trafficState.timestamp) {
-            logger.warn(
-              s"Trying to consume an event with a sequencing timestamp ($sequencingTimestamp)" +
-                s" <= to the current traffic state timestamp ($trafficState)."
-            )
-            OptionT.none[FutureUnlessShutdown, Unit]
-          } else OptionT.some[FutureUnlessShutdown](())
-        _ = logger.trace(
-          s"Consuming traffic cost for event with messageId ${request.messageId}" +
-            s" from sender $sender at $sequencingTimestamp"
-        )
-        // Consume traffic for the sender
-        newSenderTrafficState <- OptionT.liftF(
-          rateLimitManager
-            .consume(
-              request.sender,
-              request.batch,
-              sequencingTimestamp,
-              trafficState,
-              parameters,
-              groupToMembers,
-              lastBalanceUpdateTimestamp = lastSeenTopologyTimestamp,
-              warnIfApproximate = warnIfApproximate,
-            )
-            .map(Right(_))
-            .valueOr {
-              case error: SequencerRateLimitError.EventOutOfOrder =>
-                logger.warn(
-                  s"Consumed an event out of order for member ${error.member} with traffic state '$trafficState'. " +
-                    s"Current traffic state timestamp is ${error.currentTimestamp} " +
-                    s"but event timestamp is ${error.eventTimestamp}. The traffic state will not be updated."
-                )
-                Right(trafficState)
-              case error: SequencerRateLimitError.AboveTrafficLimit
-                  if parameters.enforceRateLimiting =>
-                logger.info(
-                  s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' " +
-                    s"was above traffic limit. Submission cost: ${error.trafficCost.value}." +
-                    s" The message will not be delivered."
-                )
-                Left(
-                  SubmissionRequestOutcome.reject(
-                    request,
-                    sender,
-                    DeliverError.create(
-                      state.tryNextCounter(sender),
-                      sequencingTimestamp,
-                      domainId,
-                      request.messageId,
-                      SequencerErrors
-                        .TrafficCredit(
-                          s"Not enough traffic credit for sender $sender to send message with ID ${request.messageId}:" +
-                            s" $error"
-                        ),
-                      protocolVersion,
-                    ),
-                  )
-                )
-              case error: SequencerRateLimitError.AboveTrafficLimit =>
-                logger.info(
-                  s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' " +
-                    s"was above traffic limit. Submission cost: ${error.trafficCost.value}. " +
-                    s"The message will still be delivered."
-                )
-                Right(error.trafficState)
-              case error: SequencerRateLimitError.UnknownBalance =>
-                logger.warn(
-                  s"Could not obtain valid balance at $sequencingTimestamp for member ${error.member} " +
-                    s"with traffic state '$trafficState'. The message will still be delivered " +
-                    "but the traffic state has not been updated."
-                )
-                Right(trafficState)
-            }
-        )
-      } yield newSenderTrafficState.map(updateTrafficState(state, sender, _))
-
-    EitherT(newState.getOrElse(Right(state)))
-  }
-
   private def checkRecipientsAreKnown(
       state: BlockUpdateEphemeralState,
       submissionRequest: SubmissionRequest,
@@ -792,7 +679,7 @@ private[update] final class SubmissionRequestValidator(
   // If this succeeds, it will produce a SubmissionRequestOutcome containing DeliverEvents
   private def finalizeProcessing(
       groupToMembers: Map[GroupRecipient, Set[Member]],
-      stateAfterTrafficConsume: BlockUpdateEphemeralState,
+      state: BlockUpdateEphemeralState,
       sequencingTimestamp: CantonTimestamp,
       submissionRequest: SubmissionRequest,
   )(implicit
@@ -816,9 +703,9 @@ private[update] final class SubmissionRequestValidator(
       aggregationIdO = submissionRequest.aggregationId(domainSyncCryptoApi.pureCrypto)
       aggregationOutcome <- EitherT.fromEither[FutureUnlessShutdown](
         aggregationIdO.traverse { aggregationId =>
-          val inFlightAggregation = stateAfterTrafficConsume.inFlightAggregations.get(aggregationId)
+          val inFlightAggregation = state.inFlightAggregations.get(aggregationId)
           validateAggregationRuleAndUpdateInFlightAggregation(
-            stateAfterTrafficConsume,
+            state,
             submissionRequest,
             sequencingTimestamp,
             aggregationId,
@@ -854,13 +741,14 @@ private[update] final class SubmissionRequestValidator(
                 case (groupAddress, members) if members.contains(member) => groupAddress
               }.toSet
               val deliver = Deliver.create(
-                stateAfterTrafficConsume.tryNextCounter(member),
+                state.tryNextCounter(member),
                 sequencingTimestamp,
                 domainId,
                 Option.when(member == submissionRequest.sender)(submissionRequest.messageId),
                 Batch.filterClosedEnvelopesFor(aggregatedBatch, member, groups),
                 topologyTimestampO,
                 protocolVersion,
+                Option.empty[TrafficReceipt],
               )
               member -> deliver
           }.toMap
@@ -899,7 +787,7 @@ private[update] final class SubmissionRequestValidator(
         Option.when(isThisSequencerAddressed(groupToMembers))(sequencingTimestamp)
 
     } yield SubmissionRequestValidationResult(
-      stateAfterTrafficConsume,
+      state,
       SubmissionRequestOutcome(
         events,
         aggregationUpdate,
@@ -1048,6 +936,7 @@ private[update] final class SubmissionRequestValidator(
       // as it cannot be used to prove anything about the submission anyway.
       None,
       protocolVersion,
+      Option.empty[TrafficReceipt],
     )
 
   private def invalidSubmissionRequest(
@@ -1056,22 +945,14 @@ private[update] final class SubmissionRequestValidator(
       sequencingTimestamp: CantonTimestamp,
       sequencerError: SequencerDeliverError,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
-    val SubmissionRequest(sender, messageId, _, _, _, _, _) = submissionRequest
-    logger.debug(
-      show"Rejecting submission request $messageId from $sender with error ${sequencerError.code
-          .toMsg(sequencerError.cause, correlationId = None, limit = None)}"
-    )
-    SubmissionRequestOutcome.reject(
+    SubmissionRequestValidator.invalidSubmissionRequest(
+      state,
       submissionRequest,
-      sender,
-      DeliverError.create(
-        state.tryNextCounter(sender),
-        sequencingTimestamp,
-        domainId,
-        messageId,
-        sequencerError,
-        protocolVersion,
-      ),
+      sequencingTimestamp,
+      sequencerError,
+      logger,
+      domainId,
+      protocolVersion,
     )
   }
 
@@ -1089,22 +970,105 @@ private[update] final class SubmissionRequestValidator(
 }
 
 private[update] object SubmissionRequestValidator {
+  // Effect type used in validation flow - passes along the traffic consumption state that is utilized
+  // at the end of the processing to decide on traffic consumption
+  type SequencedEventValidationF[A] = WriterT[FutureUnlessShutdown, TrafficConsumption, A]
+  // Type of validation methods, uses SequencedEventValidationF as the F of an EitherT
+  // This gives us short circuiting semantics while having access to the traffic consumption state at the end
+  type SequencedEventValidation[A] = EitherT[SequencedEventValidationF, SubmissionRequestOutcome, A]
+  def validationFUSK(implicit executionContext: ExecutionContext) =
+    WriterT.liftK[FutureUnlessShutdown, TrafficConsumption]
+  def validationK(implicit executionContext: ExecutionContext) =
+    FutureUnlessShutdown.outcomeK.andThen(validationFUSK)
+
+  object TrafficConsumption {
+    implicit val accumulatedTrafficCostMonoid: Monoid[TrafficConsumption] =
+      new Monoid[TrafficConsumption] {
+        override def empty: TrafficConsumption = TrafficConsumption(false)
+        override def combine(x: TrafficConsumption, y: TrafficConsumption): TrafficConsumption = {
+          TrafficConsumption(x.consume || y.consume)
+        }
+      }
+  }
+
+  /** Encodes whether or not traffic should be consumed for the sender for a sequenced event.
+    * Currently this is just a boolean but can be expended later to cover more granular cost accumulation depending
+    * on delivery, validation etc...
+    */
+  final case class TrafficConsumption(consume: Boolean)
 
   final case class SubmissionRequestValidationResult(
       ephemeralState: BlockUpdateEphemeralState,
       outcome: SubmissionRequestOutcome,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
-  )
+  ) {
 
-  private def updateTrafficState(
-      state: BlockUpdateEphemeralState,
-      member: Member,
-      trafficState: TrafficState,
-  ): BlockUpdateEphemeralState =
-    state
-      .focus(_.trafficState)
-      .modify(_.updated(member, trafficState))
+    // When we reach the end of the validation, we decide based on the outcome so far
+    // if we should try to consume traffic for the event.
+    def shouldTryToConsumeTraffic: Boolean = outcome.outcome match {
+      // The happy case where the request will be delivered - traffic should be consumed
+      case _: SubmissionOutcome.Deliver => true
+      // This is a deliver receipt from an aggregated submission - traffic should be consumed
+      case _: SubmissionOutcome.DeliverReceipt => true
+      // If the submission is rejected, the sender will receive a receipt notifying it of the rejection
+      // At this point we assume all rejections can be verified by the sender, and therefore
+      // we consume the cost. We can be more granular if necessary by deciding differently based on the
+      // actual reason for the rejection
+      case _: SubmissionOutcome.Reject => true
+      // If the submission is discarded, nothing is sent back to the sender
+      // In that case we do not consume anything
+      case SubmissionOutcome.Discard => false
+    }
+
+    // Wasted traffic is defined as events that have been sequenced but will not be delivered to their
+    // recipients. This method return a Some with the reason if the traffic was wasted, None otherwise
+    def wastedTrafficReason: Option[String] = outcome.outcome match {
+      // Only events that are delivered are not wasted
+      case _: SubmissionOutcome.Deliver => None
+      case _: SubmissionOutcome.DeliverReceipt => None
+      case reject: SubmissionOutcome.Reject =>
+        BaseCantonError.statusErrorCodes(reject.error).headOption
+      case SubmissionOutcome.Discard => Some("discarded")
+    }
+
+    def updateTrafficReceipt(
+        sender: Member,
+        trafficReceipt: Option[TrafficReceipt],
+    ): SubmissionRequestValidationResult = {
+      copy(outcome = outcome.updateTrafficReceipt(sender, trafficReceipt))
+    }
+  }
 
   private def isMemberRegistered(state: BlockUpdateEphemeralState)(member: Member): Boolean =
     state.registeredMembers.contains(member)
+
+  private[update] def invalidSubmissionRequest(
+      state: BlockUpdateEphemeralState,
+      submissionRequest: SubmissionRequest,
+      sequencingTimestamp: CantonTimestamp,
+      sequencerError: SequencerDeliverError,
+      logger: TracedLogger,
+      domainId: DomainId,
+      protocolVersion: ProtocolVersion,
+  )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
+    val SubmissionRequest(sender, messageId, _, _, _, _, _) = submissionRequest
+    logger.debug(
+      show"Rejecting submission request $messageId from $sender with error ${sequencerError.code
+          .toMsg(sequencerError.cause, correlationId = None, limit = None)}"
+    )
+    SubmissionRequestOutcome.reject(
+      submissionRequest,
+      sender,
+      DeliverError
+        .create(
+          state.tryNextCounter(sender),
+          sequencingTimestamp,
+          domainId,
+          messageId,
+          sequencerError,
+          protocolVersion,
+          Option.empty[TrafficReceipt], // Traffic receipt is updated in at the end of processing
+        ),
+    )
+  }
 }

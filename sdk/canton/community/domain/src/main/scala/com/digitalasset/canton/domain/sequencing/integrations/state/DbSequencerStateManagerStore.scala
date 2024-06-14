@@ -80,52 +80,36 @@ class DbSequencerStateManagerStore(
     /* We have an index on (storeId, member, counter) so fetching the max counter for each member in this fashion
      * is significantly quicker than using a window function or another approach.
      */
-    val countersWithTrafficStateQ = {
-      (sql"""select latest_counters.member, latest_counters.counter, latest_counters.extra_traffic_remainder, latest_counters.extra_traffic_consumed, latest_counters.base_traffic_remainder, latest_counters.ts
+    val counterQ = {
+      (sql"""select latest_counters.member, latest_counters.counter
              from (
                 select members.member,
                        (select counter from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
-                        order by counter desc #${storage.limit(1)}) counter,
-                        (select extra_traffic_remainder from seq_state_manager_events
-                        where member = members.member and ts <= $timestamp
-                        order by counter desc #${storage.limit(1)}) extra_traffic_remainder,
-                        (select extra_traffic_consumed from seq_state_manager_events
-                        where member = members.member and ts <= $timestamp
-                        order by counter desc #${storage.limit(1)}) extra_traffic_consumed,
-                        (select base_traffic_remainder from seq_state_manager_events
-                        where member = members.member and ts <= $timestamp
-                        order by counter desc #${storage.limit(1)}) base_traffic_remainder,
-                        (select ts from seq_state_manager_events
-                        where member = members.member and ts <= $timestamp
-                        order by counter desc #${storage.limit(1)}) ts
+                        order by counter desc #${storage.limit(1)}) counter
                 from seq_state_manager_members members
              ) latest_counters
              where latest_counters.counter is not null
           """)
-        .as[(Member, SequencerCounter, Option[TrafficState])]
+        .as[(Member, SequencerCounter)]
     }
 
     // Prefer `zip` over a `for` comprehension to tell Slick that all queries are independent of each other.
     fetchLowerBoundDBIO()
       .zip(membersQ)
-      .zip(countersWithTrafficStateQ)
+      .zip(counterQ)
       .zip(readAggregationsAtBlockTimestamp(timestamp))
-      .map { case (((lowerBound, members), countersAndMaybeTraffic), inFlightAggregations) =>
-        val counterMap = countersAndMaybeTraffic.map { case (member, counter, _) =>
+      .map { case (((lowerBound, members), counters), inFlightAggregations) =>
+        val counterMap = counters.map { case (member, counter) =>
           member -> counter
         }.toMap
-        val trafficMap = countersAndMaybeTraffic.flatMap { case (member, _, traffic) =>
-          traffic.map(member -> _)
-        }.toMap
-        EphemeralState(
+        EphemeralState.fromHeads(
           counterMap,
           inFlightAggregations,
           InternalSequencerPruningStatus(
             lowerBound.getOrElse(CantonTimestamp.Epoch),
             toMemberStatusSeq(members),
           ),
-          trafficState = trafficMap,
         )
       }
       // we don't expect the sequencer to be writing at the point this query is done, but it can't hurt
@@ -190,7 +174,7 @@ class DbSequencerStateManagerStore(
       .mapAsync(1) { case (batchStartInclusive, batchEndExclusive) =>
         storage.query(
           sql"""
-            select counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed
+            select counter, ts, content, trace_context
             from seq_state_manager_events
             where member = $member and counter >= $batchStartInclusive and counter < $batchEndExclusive
             order by counter asc"""
@@ -200,7 +184,6 @@ class DbSequencerStateManagerStore(
                   CantonTimestamp,
                   Array[Byte],
                   SerializableTraceContext,
-                  Option[SequencedEventTrafficState],
               )
             ],
           functionFullName,
@@ -213,7 +196,6 @@ class DbSequencerStateManagerStore(
               timestamp,
               serializedEvent,
               traceContext,
-              sequencedEventTrafficStateOpt,
             ) =>
           val event = deserializeEvent(serializedEvent)
 
@@ -227,7 +209,7 @@ class DbSequencerStateManagerStore(
               s"Serialized timestamp does not match db timestamp [serialized:${event.content.timestamp},db:$timestamp]"
             )
 
-          OrdinarySequencedEvent(event, sequencedEventTrafficStateOpt)(
+          OrdinarySequencedEvent(event)(
             traceContext.unwrap
           )
       }
@@ -260,7 +242,7 @@ class DbSequencerStateManagerStore(
     } yield {
       events
         .map { case (member, bytes, eventTraceContext) =>
-          member -> OrdinarySequencedEvent(deserializeEvent(bytes), None)(eventTraceContext.unwrap)
+          member -> OrdinarySequencedEvent(deserializeEvent(bytes))(eventTraceContext.unwrap)
         }
         .groupBy(_._1)
         .fmap { eventsForMember => NonEmptyUtil.fromUnsafe(eventsForMember.map(_._2)) }
@@ -302,15 +284,13 @@ class DbSequencerStateManagerStore(
     )
 
   override def addEvents(
-      events: Map[Member, OrdinarySerializedEvent],
-      trafficSate: Map[Member, TrafficState],
+      events: Map[Member, OrdinarySerializedEvent]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    storage.queryAndUpdate(addEventsDBIO(trafficSate)(events), functionFullName)
+    storage.queryAndUpdate(addEventsDBIO(events), functionFullName)
   }
 
   def bulkInsertEventsDBIO(
-      events: Seq[Map[Member, OrdinarySerializedEvent]],
-      trafficState: Map[Member, TrafficState],
+      events: Seq[Map[Member, OrdinarySerializedEvent]]
   )(implicit batchTraceContext: TraceContext): DBIOAction[Array[Int], NoStream, Effect.All] = {
     events.foreach { evs =>
       ErrorUtil.requireArgument(
@@ -326,8 +306,8 @@ class DbSequencerStateManagerStore(
 
     val addEventsInsertSql = storage.profile match {
       case _: Postgres =>
-        """insert into seq_state_manager_events (member, counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder)
-             values (?, ?, ?, ?, ?, ?, ?, ?)
+        """insert into seq_state_manager_events (member, counter, ts, content, trace_context)
+             values (?, ?, ?, ?, ?)
              on conflict (member, counter) do nothing """
       case _: H2 =>
         """
@@ -337,22 +317,17 @@ class DbSequencerStateManagerStore(
                 cast(? as bigint) as counter,
                 cast(? as bigint) as ts,
                 cast(? as binary large object) as content,
-                cast(? as binary large object) as trace_context,
-                cast(? as bigint) as extra_traffic_remainder,
-                cast(? as bigint) as extra_traffic_consumed,
-                cast(? as bigint) as base_traffic_remainder
+                cast(? as binary large object) as trace_context
               from dual) as excluded
             on (seq_state_manager_events.member = excluded.member and seq_state_manager_events.counter = excluded.counter)
             when not matched then
               insert (
                 member,
-                counter, ts, content, trace_context,
-                extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder
+                counter, ts, content, trace_context
               )
               values (
                 excluded.member,
-                excluded.counter, excluded.ts, excluded.content, excluded.trace_context,
-                excluded.extra_traffic_remainder, excluded.extra_traffic_consumed, excluded.base_traffic_remainder
+                excluded.counter, excluded.ts, excluded.content, excluded.trace_context
               )
             """
       case _ => sys.error("Oracle not supported")
@@ -366,20 +341,16 @@ class DbSequencerStateManagerStore(
     DbStorage.bulkOperation(addEventsInsertSql, storedEvents, storage.profile) { pp => entry =>
       entry match {
         case (member, storedEvent) =>
-          val state = trafficState.get(member)
           pp >> member
           pp >> storedEvent.counter
           pp >> storedEvent.timestamp
           pp >> storedEvent.content
           pp >> SerializableTraceContext(storedEvent.traceContext)
-          pp >> state.map(_.extraTrafficRemainder.value)
-          pp >> state.map(_.extraTrafficConsumed.value)
-          pp >> state.map(_.baseTrafficRemainder.value)
       }
     }
   }
 
-  def addEventsDBIO(trafficState: Map[Member, TrafficState])(
+  def addEventsDBIO(
       events: Map[Member, OrdinarySerializedEvent]
   )(implicit batchTraceContext: TraceContext): DbAction.All[Unit] = {
     ErrorUtil.requireArgument(
@@ -393,14 +364,10 @@ class DbSequencerStateManagerStore(
     )
 
     def insertBuilder(member: Member, storedEvent: StoredEvent) = {
-      val state = trafficState.get(member)
-      sql"""seq_state_manager_events (member, counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder)
+      sql"""seq_state_manager_events (member, counter, ts, content, trace_context)
               values (
                 $member, ${storedEvent.counter}, ${storedEvent.timestamp}, ${storedEvent.content},
-                ${SerializableTraceContext(storedEvent.traceContext)},
-                ${state.map(_.extraTrafficRemainder.value)},
-                ${state.map(_.extraTrafficConsumed.value)},
-                ${state.map(_.baseTrafficRemainder.value)}
+                ${SerializableTraceContext(storedEvent.traceContext)}
           )"""
     }
 
@@ -791,8 +758,6 @@ object DbSequencerStateManagerStore {
       timestamp: CantonTimestamp,
       content: Array[Byte],
       traceContext: TraceContext,
-      extraTrafficRemainder: Option[Long],
-      extraTrafficConsumed: Option[Long],
   )
 
   private object StoredEvent {
@@ -805,8 +770,6 @@ object DbSequencerStateManagerStore {
         event.timestamp,
         event.signedEvent.toByteArray,
         event.traceContext,
-        event.trafficState.map(_.extraTrafficRemainder.value),
-        event.trafficState.map(_.extraTrafficConsumed.value),
       )
   }
 

@@ -11,7 +11,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerMemberStatus,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 
 /** Subset of the [[EphemeralState]] that is used by the block processing stage
@@ -21,7 +20,6 @@ final case class BlockUpdateEphemeralState(
     checkpoints: Map[Member, CounterCheckpoint],
     inFlightAggregations: InFlightAggregations,
     membersMap: Map[Member, InternalSequencerMemberStatus],
-    trafficState: Map[Member, TrafficState],
 ) extends PrettyPrinting {
 
   /** Return true if the head counter for the member is above the genesis counter.
@@ -54,6 +52,5 @@ final case class BlockUpdateEphemeralState(
     param("checkpoints", _.checkpoints),
     param("in-flight aggregations", _.inFlightAggregations),
     param("members map", _.membersMap),
-    param("traffic state", _.trafficState),
   )
 }

@@ -32,8 +32,7 @@ class CounterCaptureTest extends AnyWordSpec with BaseTest {
 
       val fut = capturingHandler(
         OrdinarySequencedEvent(
-          sign(SequencerTestUtils.mockDeliver(sc = 42)),
-          None,
+          sign(SequencerTestUtils.mockDeliver(sc = 42))
         )(traceContext)
       )
 
@@ -49,8 +48,7 @@ class CounterCaptureTest extends AnyWordSpec with BaseTest {
 
       val fut = capturingHandler(
         OrdinarySequencedEvent(
-          sign(SequencerTestUtils.mockDeliver(sc = 42)),
-          None,
+          sign(SequencerTestUtils.mockDeliver(sc = 42))
         )(traceContext)
       )
 

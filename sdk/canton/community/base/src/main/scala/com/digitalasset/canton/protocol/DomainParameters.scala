@@ -346,6 +346,26 @@ final case class DynamicDomainParameters private (
   def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
     (confirmationResponseTimeout + mediatorReactionTimeout) * NonNegativeInt.tryCreate(2)
 
+  /** Submitters compute the submission cost of their request before sending it, using the same topology used to sign
+    * the SubmissionRequest. This is to provide an upper bound to the domain on how much they commit to spend
+    * for the sequencing and delivery of the submission.
+    * Concurrent topology changes to the submission can result in the cost computed by the submitter being wrong at
+    * sequencing time. This parameter determines how outdated the topology used to compute the cost can be.
+    * If within the tolerance window, the submitted cost will be deducted (pending enough traffic is available) and the event
+    * will be delivered.
+    * If outside the tolerance window, no cost will be deducted but the event will not be delivered.
+    * It is the responsibility of the sequencer that received the request to do this check ahead of time and not
+    * let outdated requests be sequenced. After sequencing, such events will be reported via metrics as "wasted" traffic
+    * and tied to the sequencer who processed the request for tracing and accountability.
+    * The timestamp checked against this parameter will be the one used to sign the submission request, not
+    * the one in the submission request itself.
+    *
+    * Note: Current value is equal to [[sequencerTopologyTimestampTolerance]] to get the same behavior in terms of
+    * tolerance as senders get for the topology timestamp specified in the SubmissionRequest.
+    */
+  def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
+    sequencerTopologyTimestampTolerance
+
   def automaticTransferInEnabled: Boolean =
     transferExclusivityTimeout > NonNegativeFiniteDuration.Zero
 
@@ -847,6 +867,8 @@ final case class DynamicDomainParametersWithValidity(
   def transferExclusivityTimeout: NonNegativeFiniteDuration = parameters.transferExclusivityTimeout
   def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
     parameters.sequencerTopologyTimestampTolerance
+  def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
+    parameters.submissionCostTimestampTopologyTolerance
 }
 
 /** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging behind with its

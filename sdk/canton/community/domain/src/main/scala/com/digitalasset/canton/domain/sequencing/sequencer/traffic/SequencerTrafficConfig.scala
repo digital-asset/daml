@@ -12,10 +12,14 @@ import com.digitalasset.canton.config.{BatchAggregatorConfig, NonNegativeFiniteD
   * @param batchAggregatorConfig configures how balances are batched before being written to the store.
   * @param pruningRetentionWindow the duration for which balances are kept in the cache and the store.
   *        Balances older than this duration will be pruned at regular intervals.
+  * @param trafficConsumedCacheTTL the duration for which consumed traffic entries are kept in the cache after the last time they've been accessed.
+  * @param maximumTrafficConsumedCacheSize Maximum number of entries (members) to keep in the traffic consumed cache.
   */
 final case class SequencerTrafficConfig(
     trafficPurchasedCacheSizePerMember: PositiveInt = PositiveInt.tryCreate(3),
     maximumTrafficPurchasedCacheSize: PositiveInt = PositiveInt.tryCreate(1000),
     batchAggregatorConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
     pruningRetentionWindow: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
+    trafficConsumedCacheTTL: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
+    maximumTrafficConsumedCacheSize: PositiveInt = PositiveInt.tryCreate(1000),
 )

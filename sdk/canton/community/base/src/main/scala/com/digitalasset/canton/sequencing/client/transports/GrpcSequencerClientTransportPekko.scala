@@ -153,7 +153,7 @@ class GrpcSequencerClientTransportPekko(
       .unwrap
     logger.debug("Received a message from the sequencer.")
     fromProto(subscriptionResponseP, traceContext).map { response =>
-      OrdinarySequencedEvent(response.signedSequencedEvent, response.trafficState)(
+      OrdinarySequencedEvent(response.signedSequencedEvent)(
         response.traceContext
       )
     }

@@ -19,8 +19,8 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
-import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
+import com.digitalasset.canton.sequencing.traffic.{TrafficControlProcessor, TrafficReceipt}
 import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -132,7 +132,16 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       ts: CantonTimestamp,
       batch: Batch[DefaultOpenEnvelope],
   ): Deliver[DefaultOpenEnvelope] =
-    Deliver.create(sc, ts, domainId, None, batch, None, testedProtocolVersion)
+    Deliver.create(
+      sc,
+      ts,
+      domainId,
+      None,
+      batch,
+      None,
+      testedProtocolVersion,
+      Option.empty[TrafficReceipt],
+    )
 
   private def mkDeliverError(
       sc: SequencerCounter,
@@ -145,6 +154,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       MessageId.fromUuid(new UUID(0, 1)),
       SequencerErrors.SubmissionRequestMalformed("Some error"),
       testedProtocolVersion,
+      Option.empty[TrafficReceipt],
     )
 
   "the traffic control processor" should {

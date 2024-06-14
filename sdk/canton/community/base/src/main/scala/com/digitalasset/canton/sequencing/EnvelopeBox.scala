@@ -100,9 +100,9 @@ object EnvelopeBox {
           event: PossiblyIgnoredSequencedEvent[A]
       )(f: A => G[B])(implicit G: Applicative[G]): G[PossiblyIgnoredSequencedEvent[B]] =
         event match {
-          case ignored @ IgnoredSequencedEvent(_, _, _, _) =>
+          case ignored @ IgnoredSequencedEvent(_, _, _) =>
             G.widen(traverseIgnoredSequencedEvent[G, A, B](ignored)(f))
-          case ordinary @ OrdinarySequencedEvent(_, _) =>
+          case ordinary @ OrdinarySequencedEvent(_) =>
             G.widen(traverseOrdinarySequencedEvent(ordinary)(f))
         }
     }

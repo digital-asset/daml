@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.Future
+import scala.concurrent.{Future, blocking}
 
 /** In memory implementation of the traffic purchased entry store
   */
@@ -70,26 +70,36 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
   }
 
   override def pruneBelowExclusive(
-      member: Member,
-      upToExclusive: CantonTimestamp,
+      upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
-    this.trafficPurchaseds
-      .updateWith(member) {
-        case Some(balances) =>
-          val maxBelowTimestamp =
-            balances.forgetNE.map(_.sequencingTimestamp).maxBefore(upToExclusive.immediateSuccessor)
-          val (belowTimestamp, aboveTimestamp) =
-            balances.partition(b => maxBelowTimestamp.forall(b.sequencingTimestamp < _))
-          val prunedBalances =
-            if (aboveTimestamp.isEmpty)
-              NonEmpty.from(SortedSet.from(belowTimestamp.lastOption.toList))
-            else NonEmpty.from(aboveTimestamp)
-          prunedBalances
-        case None => None
+  ): Future[String] = Future.successful {
+    blocking {
+      synchronized {
+        val pruned = this.trafficPurchaseds.keySet.map { member =>
+          val before = this.trafficPurchaseds.get(member).map(_.size).getOrElse(0)
+          this.trafficPurchaseds
+            .updateWith(member) {
+              case Some(balances) =>
+                val maxBelowTimestamp =
+                  balances.forgetNE
+                    .map(_.sequencingTimestamp)
+                    .maxBefore(upToExclusive.immediateSuccessor)
+                val (belowTimestamp, aboveTimestamp) =
+                  balances.partition(b => maxBelowTimestamp.forall(b.sequencingTimestamp < _))
+                val keptPurchases =
+                  if (aboveTimestamp.isEmpty)
+                    NonEmpty.from(SortedSet.from(belowTimestamp.lastOption.toList))
+                  else NonEmpty.from(aboveTimestamp)
+                keptPurchases
+              case None => None
+            }
+            .map(before - _.size)
+            .getOrElse(0)
+        }.sum
+        s"Removed $pruned traffic purchased entries"
       }
-      .discard
+    }
   }
 
   override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {

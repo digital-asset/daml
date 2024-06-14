@@ -41,6 +41,10 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean]
 
+  def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse]
+
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, TopologyStateForInitResponse]

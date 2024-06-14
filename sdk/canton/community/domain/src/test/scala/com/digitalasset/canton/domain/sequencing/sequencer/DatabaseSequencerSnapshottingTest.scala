@@ -105,6 +105,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
             SequencerCounter(0),
             sender,
             Some(request.messageId),
+            None,
             EnvelopeDetails(messageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -144,6 +145,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           SequencerCounter(1),
           sender,
           Some(request2.messageId),
+          None,
           EnvelopeDetails(messageContent2, recipients),
         )
         checkMessages(List(details2), messages2)

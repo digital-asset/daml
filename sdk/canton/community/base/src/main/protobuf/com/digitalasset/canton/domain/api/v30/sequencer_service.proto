@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.domain.api.v30;
 
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "scalapb/scalapb.proto";
@@ -88,12 +89,29 @@ service SequencerService {
   // Download the topology state for a member up to including the topology transaction that made the member
   // known on the domain.
   rpc DownloadTopologyStateForInit(DownloadTopologyStateForInitRequest) returns (stream DownloadTopologyStateForInitResponse);
+
+  // Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.
+  rpc GetTrafficStateForMember(GetTrafficStateForMemberRequest) returns (GetTrafficStateForMemberResponse);
 }
 
 message SendAsyncVersionedRequest {
   // Contains a versioned SignedContent which itself contains a versioned SubmissionRequest.
   // TODO(i17383): Have exactly one signature instead of multiple signatures.
   bytes signed_submission_request = 1;
+}
+
+message TrafficControlErrorReason {
+  // Message containing details on the error
+  Error error = 1;
+
+  message Error {
+    oneof reason {
+      // The sequencer determined that not enough traffic is available to sequence the submission
+      string insufficient_traffic = 1;
+      // The sequencer determined that the submission cost included in the request is outdated according to current topology
+      string outdated_traffic_cost = 2;
+    }
+  }
 }
 
 // Changes compared to SendAsyncResponse: added `Internal` and `Generic`. Note: `Generic` is not used yet, it is introduced for upgradability purposes.
@@ -129,6 +147,9 @@ message SendAsyncVersionedResponse {
 
       // Generic error
       string generic = 9;
+
+      // Traffic control rejected the submission
+      TrafficControlErrorReason traffic_control = 10;
     }
   }
 }
@@ -155,10 +176,6 @@ message VersionedSubscriptionResponse {
   // We typically use a header to transfer this information however streamed items do
   // not have per item/message headers, so we instead in this instance set it in the body.
   com.digitalasset.canton.v30.TraceContext trace_context = 2;
-
-  // Traffic state for the subscribed member
-  // Optional value which is set if the sequencer enforces traffic limits
-  SequencedEventTrafficState traffic_state = 3;
 }
 
 message AcknowledgeRequest {
@@ -192,6 +209,21 @@ message DownloadTopologyStateForInitRequest {
 
 message DownloadTopologyStateForInitResponse {
   com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_transactions = 1;
+}
+
+message GetTrafficStateForMemberRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  // Member for which to get the traffic state
+  string member = 1;
+  // Timestamp at which to to get the traffic state
+  int64 timestamp = 2;
+}
+
+message GetTrafficStateForMemberResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.protocol.v30.TrafficState traffic_state = 1;
 }
 
 message SequencedEventTrafficState {

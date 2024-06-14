@@ -7,15 +7,13 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
   InternalSequencerPruningStatus,
   SequencerSnapshot,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
+import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -32,7 +30,6 @@ final case class EphemeralState(
     inFlightAggregations: InFlightAggregations,
     status: InternalSequencerPruningStatus,
     checkpoints: Map[Member, CounterCheckpoint],
-    trafficState: Map[Member, TrafficState],
 ) extends PrettyPrinting {
   def registeredMembers: Set[Member] = status.membersMap.keySet
   def heads: Map[Member, SequencerCounter] = checkpoints.fmap(_.counter)
@@ -52,7 +49,8 @@ final case class EphemeralState(
       latestBlockHeight: Long,
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
       protocolVersion: ProtocolVersion,
-      trafficPurchaseds: Seq[TrafficPurchased],
+      trafficPurchased: Seq[TrafficPurchased],
+      trafficConsumed: Seq[TrafficConsumed],
   ): SequencerSnapshot =
     SequencerSnapshot(
       lastTs,
@@ -62,13 +60,8 @@ final case class EphemeralState(
       inFlightAggregations,
       additional,
       protocolVersion,
-      trafficState = trafficState.map { case (member, state) =>
-        member -> MemberTrafficSnapshot(
-          member = member,
-          state = state,
-        )
-      },
-      trafficPurchaseds,
+      trafficPurchased,
+      trafficConsumed,
     )
 
   def evictExpiredInFlightAggregations(upToInclusive: CantonTimestamp): EphemeralState =
@@ -82,7 +75,6 @@ final case class EphemeralState(
     checkpoints = checkpoints,
     inFlightAggregations = inFlightAggregations,
     membersMap = status.membersMap,
-    trafficState = trafficState,
   )
 
   def mergeBlockUpdateEphemeralState(other: BlockUpdateEphemeralState): EphemeralState =
@@ -90,7 +82,6 @@ final case class EphemeralState(
       checkpoints = other.checkpoints,
       inFlightAggregations = other.inFlightAggregations,
       status = this.status.copy(membersMap = other.membersMap),
-      trafficState = other.trafficState,
     )
 
   def headCounter(member: Member): Option[SequencerCounter] = checkpoints.get(member).map(_.counter)
@@ -99,27 +90,28 @@ final case class EphemeralState(
     param("checkpoints", _.checkpoints),
     param("in-flight aggregations", _.inFlightAggregations),
     param("status", _.status),
-    param("traffic state", _.trafficState),
   )
 }
 
 object EphemeralState {
   val empty: EphemeralState =
-    EphemeralState(Map.empty, Map.empty, InternalSequencerPruningStatus.Unimplemented)
+    EphemeralState.fromHeads(
+      Map.empty[Member, SequencerCounter],
+      Map.empty: InFlightAggregations,
+      InternalSequencerPruningStatus.Unimplemented,
+    )
 
   def counterToCheckpoint(counter: SequencerCounter): CounterCheckpoint =
     CounterCheckpoint(counter, CantonTimestamp.MinValue, None)
 
-  def apply(
+  def fromHeads(
       heads: Map[Member, SequencerCounter],
       inFlightAggregations: InFlightAggregations,
       status: InternalSequencerPruningStatus,
-      trafficState: Map[Member, TrafficState] = Map.empty,
   ): EphemeralState =
     EphemeralState(
       inFlightAggregations,
       status,
       heads.fmap(c => CounterCheckpoint(c, CantonTimestamp.MinValue, None)),
-      trafficState,
     )
 }

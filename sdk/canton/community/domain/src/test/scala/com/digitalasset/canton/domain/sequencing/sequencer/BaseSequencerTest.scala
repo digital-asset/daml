@@ -10,7 +10,11 @@ import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitError,
+  SequencerTrafficStatus,
+}
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -148,7 +152,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override def adminStatus: SequencerAdminStatus = ???
     override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
       ???
-    override def trafficStatus(members: Seq[Member])(implicit
+    override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[SequencerTrafficStatus] = ???
 
@@ -166,10 +170,12 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       CantonTimestamp,
     ] = ???
 
-    override def trafficStates(implicit
+    override def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Map[Member, TrafficState]] =
-      FutureUnlessShutdown.pure(Map.empty)
+    ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[
+      TrafficState
+    ]] =
+      EitherT.pure(Some(TrafficState.empty(timestamp)))
 
     override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
       Future.successful(existingMembers.contains(member))

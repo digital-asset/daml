@@ -17,7 +17,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterErr
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitError,
+  SequencerTrafficStatus,
+}
 import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -25,7 +29,14 @@ import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.{
+  AcknowledgeRequest,
+  MemberRecipient,
+  SendAsyncError,
+  SignedContent,
+  SubmissionRequest,
+  TrafficState,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
@@ -404,10 +415,13 @@ class DatabaseSequencer(
     )(logger)
   }
 
-  override def trafficStatus(members: Seq[Member])(implicit
+  override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] =
-    FutureUnlessShutdown.pure(SequencerTrafficStatus(Seq.empty))
+    throw new UnsupportedOperationException(
+      "Traffic control is not supported by the database sequencer"
+    )
+
   override def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
@@ -419,14 +433,19 @@ class DatabaseSequencer(
     FutureUnlessShutdown,
     TrafficControlErrors.TrafficControlError,
     CantonTimestamp,
-  ] = EitherT.liftF(
-    FutureUnlessShutdown.failed(
-      new NotImplementedError("Traffic control is not supported by the database sequencer")
+  ] = {
+    throw new UnsupportedOperationException(
+      "Traffic control is not supported by the database sequencer"
     )
-  )
+  }
 
-  override def trafficStates(implicit
+  override def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Member, TrafficState]] =
-    FutureUnlessShutdown.pure(Map.empty)
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[
+    TrafficState
+  ]] = {
+    throw new UnsupportedOperationException(
+      "Traffic control is not supported by the database sequencer"
+    )
+  }
 }

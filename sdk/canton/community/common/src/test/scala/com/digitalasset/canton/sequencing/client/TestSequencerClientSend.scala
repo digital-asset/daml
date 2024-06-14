@@ -8,7 +8,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.client.TestSequencerClientSend.Request
-import com.digitalasset.canton.sequencing.protocol.{AggregationRule, Batch, MessageId}
+import com.digitalasset.canton.sequencing.protocol.{
+  AggregationRule,
+  Batch,
+  MessageId,
+  SequencingSubmissionCost,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
@@ -35,7 +40,7 @@ class TestSequencerClientSend extends SequencerClientSend {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     requestsQueue.add(
-      Request(batch, topologyTimestamp, maxSequencingTime, messageId, aggregationRule)
+      Request(batch, topologyTimestamp, maxSequencingTime, messageId, aggregationRule, None)
     )
     EitherTUtil.unitUS[SendAsyncClientError]
   }
@@ -51,5 +56,6 @@ object TestSequencerClientSend {
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
       aggregationRule: Option[AggregationRule],
+      submissionCost: Option[SequencingSubmissionCost],
   )(implicit val traceContext: TraceContext)
 }

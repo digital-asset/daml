@@ -30,7 +30,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
@@ -106,10 +105,9 @@ class InMemorySequencerBlockStore(
       acknowledgments: MemberTimestamps,
       membersDisabled: Seq[Member],
       inFlightAggregationUpdates: InFlightAggregationUpdates,
-      trafficState: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val addMember = sequencerStore.addMember(_, _)
-    val addEvents = sequencerStore.addEvents(_, trafficState)
+    val addEvents = sequencerStore.addEvents(_)
     val addAcks = sequencerStore.acknowledge(_, _)
     val disableMember = sequencerStore.disableMember(_)
     // Since these updates are being run sequentially from the state manager, there is no problem with this
@@ -178,8 +176,7 @@ class InMemorySequencerBlockStore(
     val initial = initialState.get()
     current.copy(state =
       current.state.copy(
-        checkpoints = initial.state.checkpoints ++ current.state.checkpoints,
-        trafficState = initial.state.trafficState ++ current.state.trafficState,
+        checkpoints = initial.state.checkpoints ++ current.state.checkpoints
       )
     )
   }

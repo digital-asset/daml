@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.*
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
@@ -62,6 +63,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           mkBatch(closedEnvelope),
           None,
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         sign("deliver signature"),
         None,
@@ -84,6 +86,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           mkBatch(closedEnvelope),
           Some(CantonTimestamp.MaxValue),
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         sign("single deliver signature"),
         None,
@@ -103,6 +106,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           mkBatch(closedEnvelope),
           Some(CantonTimestamp.MinValue),
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         sign("single deliver signature"),
         None,
@@ -122,6 +126,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           mkBatch(closedEnvelope),
           None,
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         singleDeliver.signedEvent.signature,
         None,
@@ -154,6 +159,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           mkBatch(),
           None,
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         sign("Deliver signature"),
         None,
@@ -171,6 +177,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           MessageId.tryCreate("deliver-error"),
           SequencerErrors.SubmissionRequestRefused("paniertes schnitzel"),
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         sign("Deliver error signature"),
         None,
@@ -184,7 +191,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       event: SignedContent[SequencedEvent[ClosedEnvelope]],
       traceContext: TraceContext = TraceContext.empty,
   ): OrdinarySerializedEvent =
-    OrdinarySequencedEvent(event, None)(traceContext)
+    OrdinarySequencedEvent(event)(traceContext)
 
   def mkEmptyIgnoredEvent(
       counter: Long,
@@ -193,7 +200,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
     val t =
       if (microsSinceMin < 0) ts(counter)
       else CantonTimestamp.MinValue.addMicros(microsSinceMin)
-    IgnoredSequencedEvent(t, SequencerCounter(counter), None, None)(traceContext)
+    IgnoredSequencedEvent(t, SequencerCounter(counter), None)(traceContext)
   }
 
   def sequencedEventStore(mkSes: ExecutionContext => SequencedEventStore): Unit = {
@@ -525,6 +532,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
               emptyBatch,
               None,
               testedProtocolVersion,
+              Option.empty[TrafficReceipt],
             )
           )
         )
@@ -538,6 +546,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             emptyBatch,
             None,
             testedProtocolVersion,
+            Option.empty[TrafficReceipt],
           )
         )
       )
@@ -591,6 +600,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
               emptyBatch,
               None,
               testedProtocolVersion,
+              Option.empty[TrafficReceipt],
             )
           )
         )
@@ -605,6 +615,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
               emptyBatch,
               None,
               testedProtocolVersion,
+              Option.empty[TrafficReceipt],
             )
           )
         )

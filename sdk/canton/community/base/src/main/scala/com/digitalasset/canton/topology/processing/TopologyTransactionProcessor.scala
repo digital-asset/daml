@@ -298,7 +298,7 @@ class TopologyTransactionProcessor(
           _.withTraceContext { implicit traceContext =>
             {
               // TODO(#13883) Topology transactions must not specify a topology timestamp. Check this.
-              case Deliver(sc, ts, _, _, batch, _) =>
+              case Deliver(sc, ts, _, _, batch, _, _) =>
                 logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
                 val sequencedTime = SequencedTime(ts)
                 val transactionsF = extractTopologyUpdatesAndValidateEnvelope(

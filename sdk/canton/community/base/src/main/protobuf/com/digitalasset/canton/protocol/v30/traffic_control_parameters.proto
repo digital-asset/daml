@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message TrafficControlParameters {
@@ -23,10 +24,23 @@ message TrafficControlParameters {
 
   // Window size used to compute the max sequencing time of a submission request
   // This impacts how quickly a submission is expected to be accepted before a retry should be attempted by the caller
+  // Default is 5 minutes
   google.protobuf.Duration set_balance_request_submission_window_size = 5;
 
   // If true, submission requests without enough traffic credit will not be delivered
   bool enforce_rate_limiting = 6;
+}
+
+// Message representing a traffic receipt included in SequencedEvent receipts to update sender about
+// the traffic consumed state after sequencing of the event
+message TrafficReceipt {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  // Cost effectively consumed by this specific event
+  uint64 consumed_cost = 1;
+  // Total amount of extra traffic consumed
+  uint64 extra_traffic_consumed = 2;
+  // Remaining free base traffic
+  uint64 base_traffic_remainder = 3;
 }
 
 // Message representing traffic consumed by a member at a given point in time
@@ -34,7 +48,7 @@ message TrafficConsumed {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
   // Member consuming the traffic
   string member = 1;
-  // Total extra traffic consumed (that is traffic purchased via balance updates)
+  // Total extra traffic consumed
   uint64 extra_traffic_consumed = 2;
   // Remaining free base traffic
   uint64 base_traffic_remainder = 3;
@@ -51,8 +65,22 @@ message TrafficPurchased {
   uint32 serial = 2;
   // New total extra traffic purchased
   uint64 extra_traffic_purchased = 3;
-  // Timestamp at which the update was sequenced
+  // Timestamp at which this state is valid
   int64 sequencing_timestamp = 4; // // in microseconds of UTC time since Unix epoch
+}
+
+// Traffic state of a member at a given timestamp
+message TrafficState {
+  // Total amount of extra traffic purchased
+  int64 extra_traffic_purchased = 1;
+  // Total amount of extra traffic consumed
+  int64 extra_traffic_consumed = 2;
+  // Amount of base traffic remaining
+  int64 base_traffic_remainder = 3;
+  // Timestamp at which the state is valid
+  int64 timestamp = 4;
+  // Optional serial of the balance update that updated the extra traffic limit
+  google.protobuf.UInt32Value serial = 5;
 }
 
 message SetTrafficPurchasedMessage {

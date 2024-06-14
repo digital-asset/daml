@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.block.update
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.crypto.{
@@ -24,16 +23,20 @@ import com.digitalasset.canton.domain.block.data.{
   BlockUpdateEphemeralState,
 }
 import com.digitalasset.canton.domain.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
-import com.digitalasset.canton.domain.metrics.BlockMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
+  SignedOrderingRequest,
+  SignedOrderingRequestOps,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.InvalidLedgerEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -115,7 +118,7 @@ class BlockUpdateGeneratorImpl(
     maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    metrics: BlockMetrics,
+    metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
@@ -166,7 +169,7 @@ class BlockUpdateGeneratorImpl(
       block: BlockEvents
   )(implicit traceContext: TraceContext): immutable.Iterable[BlockChunk] = {
     val blockHeight = block.height
-    metrics.height.updateValue(blockHeight)
+    metrics.block.height.updateValue(blockHeight)
 
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp
     // Otherwise the logic for retrieving a topology snapshot or traffic state could deadlock
@@ -212,7 +215,6 @@ class BlockUpdateGeneratorImpl(
       topologyOrSequencingSnapshot,
       sequencingTimestamp,
       latestSequencerEventTimestamp,
-      trafficStates,
       submissionRequestTraceContext,
     ) = unsignedEvents
     implicit val traceContext: TraceContext = submissionRequestTraceContext
@@ -238,6 +240,7 @@ class BlockUpdateGeneratorImpl(
               MessageId(String73.tryCreate("tombstone")), // dummy message id
               SequencerErrors.PersistTombstone(event.timestamp, event.counter),
               protocolVersion,
+              Option.empty[TrafficReceipt],
             )
             for {
               // Use sequencing snapshot for signing the tombstone,
@@ -267,7 +270,7 @@ class BlockUpdateGeneratorImpl(
                     )
                   }
             } yield {
-              member -> OrdinarySequencedEvent(signedContent, None)(traceContext)
+              member -> OrdinarySequencedEvent(signedContent)(traceContext)
             }
           }
         case _ =>
@@ -288,15 +291,8 @@ class BlockUpdateGeneratorImpl(
                   )
                 )
                 .map { signedContent =>
-                  // only include traffic state for the sender
-                  val trafficStateO = Option.when(!unifiedSequencer || member == sender) {
-                    trafficStates.getOrElse(
-                      member,
-                      ErrorUtil.invalidState(s"Sender $member unknown by rate limiter."),
-                    )
-                  }
                   member ->
-                    OrdinarySequencedEvent(signedContent, trafficStateO)(traceContext)
+                    OrdinarySequencedEvent(signedContent)(traceContext)
                 }
             }
       }
@@ -319,59 +315,8 @@ object BlockUpdateGeneratorImpl {
 
   private[update] final case class SequencedSubmission(
       sequencingTimestamp: CantonTimestamp,
-      submissionRequest: SignedContent[SubmissionRequest],
+      submissionRequest: SignedOrderingRequest,
       topologyOrSequencingSnapshot: SyncCryptoApi,
       topologyTimestampError: Option[SequencerDeliverError],
   )(val traceContext: TraceContext)
-
-  private[update] final case class RecipientStats(
-      participants: Boolean = false,
-      mediators: Boolean = false,
-      sequencers: Boolean = false,
-      broadcast: Boolean = false,
-  ) {
-
-    private[block] def updateMetric(
-        sender: Member,
-        payloadSize: Int,
-        logger: TracedLogger,
-        metrics: BlockMetrics,
-    )(implicit traceContext: TraceContext): Unit = {
-      val messageType = {
-        // by looking at the recipient lists and the sender, we'll figure out what type of message we've been getting
-        (sender, participants, mediators, sequencers, broadcast) match {
-          case (ParticipantId(_), false, true, false, false) =>
-            "send-confirmation-response"
-          case (ParticipantId(_), true, true, false, false) =>
-            "send-confirmation-request"
-          case (MediatorId(_), true, false, false, false) =>
-            "send-verdict"
-          case (ParticipantId(_), true, false, false, false) =>
-            "send-commitment"
-          case (SequencerId(_), true, false, true, false) =>
-            "send-topup"
-          case (SequencerId(_), false, true, true, false) =>
-            "send-topup-med"
-          case (_, false, false, false, true) =>
-            "send-topology"
-          case (_, false, false, false, false) =>
-            "send-time-proof"
-          case _ =>
-            def r(boolean: Boolean, s: String) = if (boolean) Seq(s) else Seq.empty
-            val recipients = r(participants, "participants") ++
-              r(mediators, "mediators") ++
-              r(sequencers, "sequencers") ++
-              r(broadcast, "broadcast")
-            logger.warn(s"Unexpected message from $sender to " + recipients.mkString(","))
-            "send-unexpected"
-        }
-      }
-      val mc = MetricsContext(
-        "sender" -> sender.toString,
-        "type" -> messageType,
-      )
-      metrics.blockEvents.mark()(mc)
-      metrics.blockEventBytes.mark(payloadSize.longValue)(mc)
-    }
-  }
 }

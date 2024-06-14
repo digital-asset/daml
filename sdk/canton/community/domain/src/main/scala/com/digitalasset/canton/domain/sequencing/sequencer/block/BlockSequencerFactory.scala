@@ -23,7 +23,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerHealthConfig,
   SequencerInitialState,
 }
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
+import com.digitalasset.canton.domain.sequencing.traffic.store.{
+  TrafficConsumedStore,
+  TrafficPurchasedStore,
+}
 import com.digitalasset.canton.domain.sequencing.traffic.{
   EnterpriseSequencerRateLimitManager,
   TrafficPurchasedManager,
@@ -37,7 +40,6 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace
@@ -71,11 +73,17 @@ abstract class BlockSequencerFactory(
     loggerFactory,
   )
 
-  private val balanceStore = TrafficPurchasedStore(
+  private val trafficPurchasedStore = TrafficPurchasedStore(
     storage,
     nodeParameters.processingTimeouts,
     loggerFactory,
     nodeParameters.batchingConfig.aggregator,
+  )
+
+  private val trafficConsumedStore = TrafficConsumedStore(
+    storage,
+    nodeParameters.processingTimeouts,
+    loggerFactory,
   )
 
   protected val name: String
@@ -119,13 +127,16 @@ abstract class BlockSequencerFactory(
       _ <- EitherT.right(
         store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
       )
-      _ <- EitherT.right(snapshot.snapshot.trafficPurchased.parTraverse_(balanceStore.store))
+      _ <- EitherT.right(
+        snapshot.snapshot.trafficPurchased.parTraverse_(trafficPurchasedStore.store)
+      )
+      _ <- EitherT.right(snapshot.snapshot.trafficConsumed.parTraverse_(trafficConsumedStore.store))
       _ = logger.debug(
         s"from snapshot: ticking traffic purchased entry manager with ${snapshot.latestSequencerEventTimestamp}"
       )
       _ <- EitherT.right(
         snapshot.latestSequencerEventTimestamp
-          .traverse(ts => balanceStore.setInitialTimestamp(ts))
+          .traverse(ts => trafficPurchasedStore.setInitialTimestamp(ts))
       )
     } yield ()
   }
@@ -134,15 +145,20 @@ abstract class BlockSequencerFactory(
   protected def makeRateLimitManager(
       trafficPurchasedManager: TrafficPurchasedManager,
       futureSupervisor: FutureSupervisor,
+      domainSyncCryptoApi: DomainSyncCryptoClient,
+      protocolVersion: ProtocolVersion,
+      trafficConfig: SequencerTrafficConfig,
   ): SequencerRateLimitManager = {
     new EnterpriseSequencerRateLimitManager(
       trafficPurchasedManager,
+      trafficConsumedStore,
       loggerFactory,
-      futureSupervisor,
       nodeParameters.processingTimeouts,
       metrics,
+      domainSyncCryptoApi,
+      protocolVersion,
+      trafficConfig,
       eventCostCalculator = new EventCostCalculator(loggerFactory),
-      protocolVersion = protocolVersion,
     )
   }
 
@@ -178,7 +194,7 @@ abstract class BlockSequencerFactory(
     )
 
     val balanceManager = new TrafficPurchasedManager(
-      balanceStore,
+      trafficPurchasedStore,
       clock,
       trafficConfig,
       futureSupervisor,
@@ -188,15 +204,12 @@ abstract class BlockSequencerFactory(
       loggerFactory,
     )
 
-    //  Start auto pruning of traffic purchased entries
-    FutureUtil.doNotAwaitUnlessShutdown(
-      balanceManager.startAutoPruning,
-      "Auto pruning of traffic purchased entries",
-    )
-
     val rateLimitManager = makeRateLimitManager(
       balanceManager,
       futureSupervisor,
+      domainSyncCryptoApi,
+      protocolVersion,
+      trafficConfig,
     )
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
@@ -223,7 +236,7 @@ abstract class BlockSequencerFactory(
         domainSyncCryptoApi,
         stateManager,
         store,
-        balanceStore,
+        trafficPurchasedStore,
         storage,
         futureSupervisor,
         health,

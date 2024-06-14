@@ -927,7 +927,7 @@ class DbSequencerStore(
         Map.empty,
         None,
         protocolVersion,
-        Map.empty,
+        Seq.empty,
         Seq.empty,
       )
     }

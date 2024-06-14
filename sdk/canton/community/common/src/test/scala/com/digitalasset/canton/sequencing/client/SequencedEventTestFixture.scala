@@ -18,6 +18,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory
 import com.digitalasset.canton.protocol.messages.{EnvelopeContent, InformeeMessage}
 import com.digitalasset.canton.sequencing.SequencerAggregator.MessageAggregationConfig
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{
   OrdinarySerializedEvent,
   SequencerAggregator,
@@ -172,6 +173,7 @@ class SequencedEventTestFixture(
       Batch(List(envelope), testedProtocolVersion),
       topologyTimestamp,
       testedProtocolVersion,
+      Option.empty[TrafficReceipt],
     )
 
     for {
@@ -179,8 +181,7 @@ class SequencedEventTestFixture(
         .map(FutureUnlessShutdown.pure)
         .getOrElse(sign(deliver.getCryptographicEvidence, deliver.timestamp))
     } yield OrdinarySequencedEvent(
-      SignedContent(deliver, sig, None, testedProtocolVersion),
-      None,
+      SignedContent(deliver, sig, None, testedProtocolVersion)
     )(traceContext)
   }
 
@@ -205,8 +206,7 @@ class SequencedEventTestFixture(
         event.timestamp,
       )
     } yield OrdinarySequencedEvent(
-      SignedContent(event, signature, None, testedProtocolVersion),
-      None,
+      SignedContent(event, signature, None, testedProtocolVersion)
     )(traceContext)
   }
 

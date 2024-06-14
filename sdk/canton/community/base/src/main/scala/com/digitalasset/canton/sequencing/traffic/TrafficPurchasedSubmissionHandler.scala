@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,8 +30,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
-
-import TrafficControlErrors.TrafficControlError
 
 /** Utility class to send traffic purchased entry requests protocol messages to be sequenced.
   * This is abstracted out so that it can be re-used in any node's Admin API.
@@ -192,7 +191,14 @@ class TrafficPurchasedSubmissionHandler(
               )
               Right(())
             case SendResult.Error(
-                  DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(message))
+                  DeliverError(
+                    _,
+                    _,
+                    _,
+                    _,
+                    SequencerErrors.AggregateSubmissionAlreadySent(message),
+                    _,
+                  )
                 ) =>
               logger.info(s"The top-up request was already sent: $message")
               Right(())

@@ -46,7 +46,7 @@ object SendResult {
       logger.trace(s"$sendDescription was sequenced at ${deliver.timestamp}")
     case UnlessShutdown.Outcome(SendResult.Error(error)) =>
       error match {
-        case DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_)) =>
+        case DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_), _) =>
           logger.info(
             s"$sendDescription was rejected by the sequencer at ${error.timestamp} because [${error.reason}]"
           )
@@ -68,7 +68,7 @@ object SendResult {
       case SendResult.Success(_) =>
         FutureUnlessShutdown.pure(())
       case SendResult.Error(
-            DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_))
+            DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_), _)
           ) =>
         // Stop retrying
         FutureUnlessShutdown.unit

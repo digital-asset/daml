@@ -23,6 +23,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, Sequencer
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
@@ -414,7 +416,6 @@ class GrpcSequencerService(
     v30.VersionedSubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
-      event.trafficState.map(_.toProtoV30),
     )
 
   override def subscribeVersioned(
@@ -554,18 +555,27 @@ class GrpcSequencerService(
         observer.onError(statusException)
     }
 
-  private def checkAuthenticatedMemberPermission(
-      member: Member
+  private def checkAuthenticatedMemberPermissionWithCurrentMember(
+      member: Member,
+      currentMember: Option[Member],
   )(implicit traceContext: TraceContext): Either[Status, Unit] =
     authenticationCheck
       .authenticate(
         member,
-        authenticationCheck.lookupCurrentMember(),
+        currentMember,
       ) // This has to run at the beginning, because it reads from a thread-local.
       .leftMap { message =>
         logger.warn(s"Authentication check failed: $message")
         permissionDenied(message)
       }
+
+  private def checkAuthenticatedMemberPermission(
+      member: Member
+  )(implicit traceContext: TraceContext): Either[Status, Unit] =
+    checkAuthenticatedMemberPermissionWithCurrentMember(
+      member,
+      authenticationCheck.lookupCurrentMember(),
+    )
 
   override def downloadTopologyStateForInit(
       requestP: v30.DownloadTopologyStateForInitRequest,
@@ -612,4 +622,37 @@ class GrpcSequencerService(
 
   override def onClosed(): Unit =
     subscriptionPool.close()
+
+  /** Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.
+    */
+  override def getTrafficStateForMember(
+      request: v30.GetTrafficStateForMemberRequest
+  ): Future[v30.GetTrafficStateForMemberResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    // Grab the current member from the context before we start doing anything async otherwise we'll lose it as
+    // it's stored in a thread-local
+    val currentMember = authenticationCheck.lookupCurrentMember()
+    val result = for {
+      member <- CantonGrpcUtil
+        .wrapErrUS(Member.fromProtoPrimitive(request.member, "member"))
+        .leftMap(_.asGrpcError)
+      timestamp <- CantonGrpcUtil
+        .wrapErrUS(CantonTimestamp.fromProtoPrimitive(request.timestamp))
+        .leftMap(_.asGrpcError)
+      _ <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          checkAuthenticatedMemberPermissionWithCurrentMember(member, currentMember)
+        )
+        .leftMap(_.asRuntimeException())
+      trafficO <- sequencer
+        .getTrafficStateAt(member, timestamp)
+        .leftMap(err =>
+          io.grpc.Status.OUT_OF_RANGE.withDescription(err.toString).asRuntimeException()
+        )
+
+    } yield v30.GetTrafficStateForMemberResponse(trafficO.map(_.toProtoV30))
+
+    EitherTUtil.toFuture(result.onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError)))
+  }
 }

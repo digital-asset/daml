@@ -496,7 +496,7 @@ class InMemorySequencerStore(
         Map.empty,
         None,
         protocolVersion,
-        Map.empty,
+        Seq.empty,
         Seq.empty,
       )
     )

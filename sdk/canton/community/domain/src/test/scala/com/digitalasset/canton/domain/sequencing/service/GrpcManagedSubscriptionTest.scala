@@ -13,6 +13,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
@@ -69,13 +70,14 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
           ),
           None,
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         ),
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
       )
       handler.fold(fail("handler not registered"))(h =>
-        Await.result(h(Right(OrdinarySequencedEvent(event, None)(traceContext))), 5.seconds)
+        Await.result(h(Right(OrdinarySequencedEvent(event)(traceContext))), 5.seconds)
       )
     }
 
@@ -83,7 +85,6 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       v30.VersionedSubscriptionResponse(
         signedSequencedEvent = event.signedEvent.toByteString,
         Some(SerializableTraceContext(event.traceContext).toProtoV30),
-        None,
       )
 
     def createManagedSubscription() =

@@ -23,7 +23,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -46,18 +45,13 @@ class InMemorySequencerStateManagerStore(
   )(implicit traceContext: TraceContext): Future[EphemeralState] = {
     val snapshot = state.get()
 
-    val head = EphemeralState(
+    val head = EphemeralState.fromHeads(
       snapshot.indices.fmap(_.events.filter(_.timestamp <= timestamp).lastOption).collect {
         case (member, Some(lastEvent)) =>
           member -> lastEvent.counter
       },
       snapshot.inFlightAggregations.mapFilter(_.project(timestamp)),
       snapshot.status(Some(timestamp)),
-      trafficState =
-        snapshot.indices.fmap(_.trafficStates.filter(_.timestamp <= timestamp).lastOption).collect {
-          case (member, Some(lastTrafficState)) =>
-            member -> lastTrafficState
-        },
     )
     Future.successful(head)
   }
@@ -115,10 +109,9 @@ class InMemorySequencerStateManagerStore(
       events: Seq[OrdinarySerializedEvent] = Seq.empty,
       lastAcknowledged: Option[CantonTimestamp] = None,
       isEnabled: Boolean = true,
-      trafficStates: Seq[TrafficState] = Seq.empty,
   ) {
-    def addEvent(event: OrdinarySerializedEvent, trafficState: Option[TrafficState]): MemberIndex =
-      copy(events = events :+ event, trafficStates = trafficStates ++ trafficState.toList)
+    def addEvent(event: OrdinarySerializedEvent): MemberIndex =
+      copy(events = events :+ event)
 
     def disable(): MemberIndex = copy(isEnabled = false)
 
@@ -201,7 +194,7 @@ class InMemorySequencerStateManagerStore(
       copy(indices = indices + (member -> indices(member).acknowledge(timestamp)))
 
     def lastAcknowledged: Map[Member, CantonTimestamp] =
-      indices.collect { case (member, MemberIndex(_, _, Some(lastAcknowledged), true, _)) =>
+      indices.collect { case (member, MemberIndex(_, _, Some(lastAcknowledged), true)) =>
         member -> lastAcknowledged
       }
 
@@ -209,8 +202,7 @@ class InMemorySequencerStateManagerStore(
       copy(indices = indices + (member -> indices(member).disable()))
 
     def addEvents(
-        events: Map[Member, OrdinarySerializedEvent],
-        trafficSate: Map[Member, TrafficState],
+        events: Map[Member, OrdinarySerializedEvent]
     )(implicit traceContext: TraceContext): State = {
       ErrorUtil.requireArgument(
         events.values.map(_.counter).forall(_ >= SequencerCounter.Genesis),
@@ -243,9 +235,7 @@ class InMemorySequencerStateManagerStore(
             s"previous event had counter [$lastCounter] but new event had counter [$newCounter]",
           )
         }
-        state.copy(indices =
-          state.indices + (member -> memberIndex.addEvent(event, trafficSate.get(member)))
-        )
+        state.copy(indices = state.indices + (member -> memberIndex.addEvent(event)))
       }
     }
 
@@ -277,11 +267,10 @@ class InMemorySequencerStateManagerStore(
   }
 
   override def addEvents(
-      events: MemberSignedEvents,
-      trafficSate: Map[Member, TrafficState],
+      events: MemberSignedEvents
   )(implicit traceContext: TraceContext): Future[Unit] = {
     state.getAndUpdate {
-      _.addEvents(events, trafficSate)
+      _.addEvents(events)
     }
     Future.unit
   }

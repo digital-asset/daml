@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
@@ -818,6 +819,7 @@ final class TransferOutProcessingStepsTest
             batch,
             None,
             testedProtocolVersion,
+            Option.empty[TrafficReceipt],
           )
         }
         signedContent = SignedContent(

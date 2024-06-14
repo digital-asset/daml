@@ -15,12 +15,24 @@ import com.daml.metrics.api.{
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
   SequencerClientHistograms,
   SequencerClientMetrics,
+  TrafficConsumptionMetrics,
 }
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfDomain,
+  MediatorGroupRecipient,
+  MemberRecipient,
+  ParticipantsOfParty,
+  Recipient,
+  SequencersOfDomain,
+}
+import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 class SequencerHistograms(val parent: MetricName)(implicit
@@ -118,6 +130,8 @@ class SequencerMetrics(
   object trafficControl {
     private val prefix: MetricName = SequencerMetrics.this.prefix :+ "traffic-control"
 
+    val trafficConsumption = new TrafficConsumptionMetrics(prefix, openTelemetryMetricsFactory)
+
     val balanceCache: CacheMetrics =
       new CacheMetrics(prefix :+ "balance-cache", openTelemetryMetricsFactory)
 
@@ -130,16 +144,24 @@ class SequencerMetrics(
         qualification = MetricQualification.Traffic,
       )
     )
+    val consumedCache: CacheMetrics =
+      new CacheMetrics(prefix :+ "consumed-cache", openTelemetryMetricsFactory)
 
-    val eventRejected: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "event-rejected-cost",
-        summary = "Cost of rejected event.",
-        description =
-          """Cost of an event that was rejected because it exceeded the sender's traffic limit.""",
-        qualification = MetricQualification.Traffic,
+    val wastedTraffic: Meter =
+      openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "wasted-traffic",
+          summary =
+            "Cost of events that got sequenced but failed to pass validation steps after sequencing",
+          description =
+            """It's possible for events to be sequenced but not delivered because of failed validation related
+              |to traffic control or other validations performed after sequencing.
+              |For instance if the event would cause the balance of the sender to become negative,
+              |or if the submitted cost was incorrect and outside of the tolerance window.
+              |""",
+          qualification = MetricQualification.Traffic,
+        )
       )
-    )
 
     val eventDelivered: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(
@@ -184,6 +206,74 @@ object SequencerMetrics {
     new HealthMetrics(NoOpMetricsFactory),
   )
 
+  private[domain] final case class RecipientStats(
+      participants: Boolean = false,
+      mediators: Boolean = false,
+      sequencers: Boolean = false,
+      broadcast: Boolean = false,
+  ) {
+
+    private[domain] def metricsContext(
+        sender: Member,
+        logger: TracedLogger,
+        warnOnUnexpected: Boolean = true,
+    )(implicit traceContext: TraceContext): MetricsContext = {
+      val messageType = {
+        // by looking at the recipient lists and the sender, we'll figure out what type of message we've been getting
+        (sender, participants, mediators, sequencers, broadcast) match {
+          case (ParticipantId(_), false, true, false, false) =>
+            "send-confirmation-response"
+          case (ParticipantId(_), true, true, false, false) =>
+            "send-confirmation-request"
+          case (MediatorId(_), true, false, false, false) =>
+            "send-verdict"
+          case (ParticipantId(_), true, false, false, false) =>
+            "send-commitment"
+          case (SequencerId(_), true, false, true, false) =>
+            "send-topup"
+          case (SequencerId(_), false, true, true, false) =>
+            "send-topup-med"
+          case (_, false, false, false, true) =>
+            "send-topology"
+          case (_, false, false, false, false) =>
+            "send-time-proof"
+          case _ =>
+            def r(boolean: Boolean, s: String) = if (boolean) Seq(s) else Seq.empty
+
+            val recipients = r(participants, "participants") ++
+              r(mediators, "mediators") ++
+              r(sequencers, "sequencers") ++
+              r(broadcast, "broadcast")
+            if (warnOnUnexpected)
+              logger.warn(s"Unexpected message from $sender to " + recipients.mkString(","))
+            "send-unexpected"
+        }
+      }
+      MetricsContext(
+        "sender" -> sender.toString,
+        "type" -> messageType,
+      )
+    }
+  }
+
+  def submissionTypeMetricsContext(
+      allRecipients: Set[Recipient],
+      sender: Member,
+      logger: TracedLogger,
+      warnOnUnexpected: Boolean = true,
+  )(implicit traceContext: TraceContext): MetricsContext = {
+    allRecipients
+      .foldLeft(RecipientStats()) {
+        case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
+          acc.copy(participants = true)
+        case (acc, MemberRecipient(MediatorId(_)) | MediatorGroupRecipient(_)) =>
+          acc.copy(mediators = true)
+        case (acc, MemberRecipient(SequencerId(_)) | SequencersOfDomain) =>
+          acc.copy(sequencers = true)
+        case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
+      }
+      .metricsContext(sender, logger, warnOnUnexpected)
+  }
 }
 
 class MediatorHistograms(val parent: MetricName)(implicit

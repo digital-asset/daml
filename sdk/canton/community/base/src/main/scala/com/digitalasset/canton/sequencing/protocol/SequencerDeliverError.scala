@@ -175,10 +175,22 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
+    """The provided submission cost is outdated compared to the domain state at sequencing time."""
+  )
+  @Resolution(
+    """Re-submit the request with an updated submission cost."""
+  )
+  case object OutdatedTrafficCost
+      extends SequencerDeliverErrorCode(
+        id = "OUTDATED_TRAFFIC_COST",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      )
+
+  @Explanation(
     """Sequencer has refused a submission request due to insufficient credits in the sender's traffic purchased entry."""
   )
   @Resolution(
-    """Acquire more traffic credits with the system by topping up traffic credits for the sender."""
+    """Acquire more traffic credits with the system by purchasing traffic credits for the sender."""
   )
   case object TrafficCredit
       extends SequencerDeliverErrorCode(

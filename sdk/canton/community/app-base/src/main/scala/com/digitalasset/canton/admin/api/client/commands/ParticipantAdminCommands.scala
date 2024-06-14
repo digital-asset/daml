@@ -38,16 +38,17 @@ import com.digitalasset.canton.participant.admin.grpc.{
   GrpcParticipantRepairService,
   TransferSearchResult,
 }
+import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.SharedContractsState
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
+import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, SequencerCounter, config}
@@ -1655,7 +1656,7 @@ object ParticipantAdminCommands {
         extends GrpcAdminCommand[
           TrafficControlStateRequest,
           TrafficControlStateResponse,
-          MemberTrafficStatus,
+          TrafficState,
         ] {
       override type Svc = TrafficControlServiceGrpc.TrafficControlServiceStub
 
@@ -1676,11 +1677,11 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: TrafficControlStateResponse
-      ): Either[String, MemberTrafficStatus] = {
+      ): Either[String, TrafficState] = {
         response.trafficState
           .map { trafficStatus =>
-            MemberTrafficStatus
-              .fromProtoV30(trafficStatus)
+            TrafficStateAdmin
+              .fromProto(trafficStatus)
               .leftMap(_.message)
           }
           .getOrElse(Left("No traffic state available"))

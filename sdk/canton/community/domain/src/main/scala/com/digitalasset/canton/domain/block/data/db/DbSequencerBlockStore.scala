@@ -33,7 +33,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -81,12 +80,11 @@ class DbSequencerBlockStore(
           case Some(blockInfo) =>
             for {
               initialCounters <- initialMemberCountersDBIO
-              initialTrafficState <- initialMemberTrafficStateDBIO
               headState <- sequencerStore.readAtBlockTimestampDBIO(blockInfo.lastTs)
             } yield {
               BlockEphemeralState(
                 blockInfo,
-                mergeWithInitialCountersAndTraffic(headState, initialCounters, initialTrafficState),
+                mergeWithInitialCounters(headState, initialCounters),
               )
             }
         }
@@ -118,27 +116,22 @@ class DbSequencerBlockStore(
   ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] = {
     for {
       initialCounters <- initialMemberCountersDBIO
-      initialTraffic <- initialMemberTrafficStateDBIO
       stateAtTimestamp <- sequencerStore.readAtBlockTimestampDBIO(block.lastTs)
     } yield BlockEphemeralState(
       block,
-      mergeWithInitialCountersAndTraffic(stateAtTimestamp, initialCounters, initialTraffic),
+      mergeWithInitialCounters(stateAtTimestamp, initialCounters),
     )
   }
 
-  private def mergeWithInitialCountersAndTraffic(
+  private def mergeWithInitialCounters(
       state: EphemeralState,
       initialCounters: Vector[(Member, SequencerCounter)],
-      initialTrafficState: Vector[(Member, Option[TrafficState])],
   ): EphemeralState =
     state.copy(
       checkpoints = initialCounters.toMap
         .fmap(counterToCheckpoint)
         // only include counters for registered members
-        .filter(c => state.registeredMembers.contains(c._1)) ++ state.checkpoints,
-      trafficState = initialTrafficState.flatMap { case (member, maybeState) =>
-        maybeState.map(member -> _)
-      }.toMap ++ state.trafficState,
+        .filter(c => state.registeredMembers.contains(c._1)) ++ state.checkpoints
     )
 
   override def partialBlockUpdate(
@@ -147,10 +140,9 @@ class DbSequencerBlockStore(
       acknowledgments: MemberTimestamps,
       membersDisabled: Seq[Member],
       inFlightAggregationUpdates: InFlightAggregationUpdates,
-      trafficState: Map[Member, TrafficState],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val addMember = sequencerStore.addMemberDBIO(_, _)
-    val addEvents = sequencerStore.addEventsDBIO(trafficState)(_)
+    val addEvents = sequencerStore.addEventsDBIO(_)
     val disableMember = sequencerStore.disableMemberDBIO _
 
     val membersDbio = DBIO
@@ -174,7 +166,7 @@ class DbSequencerBlockStore(
         )
         val eventsF = storage.queryAndUpdate(
           if (enableAdditionalConsistencyChecks) DBIO.seq(events.map(addEvents)*).transactionally
-          else sequencerStore.bulkInsertEventsDBIO(events, trafficState),
+          else sequencerStore.bulkInsertEventsDBIO(events),
           functionFullName,
         )
         for {
@@ -214,16 +206,7 @@ class DbSequencerBlockStore(
       )
     val writeInitialCounters = initial.state.checkpoints.toSeq.map {
       case (member, CounterCheckpoint(counter, _, _)) =>
-        initial.state.trafficState
-          .get(member)
-          .map { memberTrafficState =>
-            upsertMemberInitialStateWithTraffic(
-              member,
-              counter,
-              memberTrafficState,
-            )
-          }
-          .getOrElse(upsertMemberInitialState(member, counter))
+        upsertMemberInitialState(member, counter)
     }
     val addMembers =
       members.map(member => sequencerStore.addMemberDBIO(member.member, member.registeredAt))
@@ -252,55 +235,17 @@ class DbSequencerBlockStore(
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = sequencerStore.getInitialTopologySnapshotTimestamp
 
-  private def upsertMemberInitialStateWithTraffic(
-      member: Member,
-      counter: SequencerCounter,
-      trafficState: TrafficState,
-  ): resource.DbStorage.DbAction.All[Unit] = {
-    (storage.profile match {
-      case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into seq_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
-               ($member, $counter, ${trafficState.extraTrafficRemainder}, ${trafficState.extraTrafficConsumed}, ${trafficState.baseTrafficRemainder}, ${trafficState.timestamp})"""
-      case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into seq_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
-                ($member, $counter, ${trafficState.extraTrafficRemainder}, ${trafficState.extraTrafficConsumed}, ${trafficState.baseTrafficRemainder}, ${trafficState.timestamp})
-                 on conflict (member) do update set counter = $counter"""
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into seq_initial_state inits
-                 using (
-                  select
-                    $member member,
-                    $counter counter,
-                    ${trafficState.extraTrafficRemainder} extra_traffic_remainder,
-                    ${trafficState.extraTrafficConsumed} extra_traffic_consumed,
-                    ${trafficState.baseTrafficRemainder} base_traffic_remainder,
-                    ${trafficState.timestamp} sequenced_timestamp
-                    from dual
-                  ) parameters
-                 on (inits.member = parameters.member)
-                 when matched then update
-                  set inits.counter = parameters.counter,
-                  inits.extra_traffic_remainder = parameters.extra_traffic_remainder,
-                  inits.extra_traffic_consumed = parameters.extra_traffic_consumed,
-                  inits.base_traffic_remainder = parameters.base_traffic_remainder,
-                  inits.sequenced_timestamp = parameters.sequenced_timestamp
-                 when not matched then
-                  insert (member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values (parameters.member, parameters.counter, parameters.extra_traffic_remainder, parameters.extra_traffic_consumed, parameters.base_traffic_remainder, parameters.sequenced_timestamp)
-                  """
-    }).map(_ => ())
-  }
-
   private def upsertMemberInitialState(
       member: Member,
       counter: SequencerCounter,
   ): resource.DbStorage.DbAction.All[Unit] =
     (storage.profile match {
       case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into seq_initial_state as sis using (values ($member, $counter, NULL, NULL, NULL, NULL))
-                 mis (member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp)
+        sqlu"""merge into seq_initial_state as sis using (values ($member, $counter))
+                 mis (member, counter)
                    on sis.member = mis.member
                    when matched and mis.counter > sis.counter then update set counter = mis.counter
-                   when not matched then insert values(mis.member, mis.counter, mis.extra_traffic_remainder, mis.extra_traffic_consumed, mis.base_traffic_remainder, mis.sequenced_timestamp);"""
+                   when not matched then insert values(mis.member, mis.counter);"""
       case _: DbStorage.Profile.Postgres =>
         sqlu"""insert into seq_initial_state as sis (member, counter) values ($member, $counter)
                  on conflict (member) do update set counter = excluded.counter where sis.counter < excluded.counter"""
@@ -327,11 +272,10 @@ class DbSequencerBlockStore(
         sequencerStore
           .readAtBlockTimestampDBIO(firstBlock.lastTs)
           .zip(initialMemberCountersDBIO)
-          .zip(initialMemberTrafficStateDBIO)
-          .map { case ((state, counters), traffic) =>
+          .map { case (state, counters) =>
             BlockEphemeralState(
               firstBlock,
-              EphemeralState(
+              EphemeralState.fromHeads(
                 counters.toMap.filter { case (member, _) =>
                   // the initial counters query will give us counters for all members, but we just want the ones
                   // that have been registered at or before the timestamp used to compute the state
@@ -339,9 +283,6 @@ class DbSequencerBlockStore(
                 },
                 state.inFlightAggregations,
                 state.status,
-                trafficState = traffic.flatMap { case (member, trafficOpt) =>
-                  trafficOpt.map(member -> _)
-                }.toMap,
               ),
             )
           }
@@ -354,10 +295,6 @@ class DbSequencerBlockStore(
 
   private def initialMemberCountersDBIO =
     sql"select member, counter from seq_initial_state".as[(Member, SequencerCounter)]
-
-  private def initialMemberTrafficStateDBIO =
-    sql"select member, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp from seq_initial_state"
-      .as[(Member, Option[TrafficState])]
 
   private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
     insertVerifyingConflicts(

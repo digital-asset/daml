@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent, TimeProof}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,10 +30,11 @@ object TimeProofTestUtil {
       Batch.empty(protocolVersion),
       None,
       protocolVersion,
+      Option.empty[TrafficReceipt],
     )
     val signedContent =
       SignedContent(deliver, SymbolicCrypto.emptySignature, None, protocolVersion)
-    val event = OrdinarySequencedEvent(signedContent, None)(TraceContext.empty)
+    val event = OrdinarySequencedEvent(signedContent)(TraceContext.empty)
     TimeProof
       .fromEvent(event)
       .fold(err => sys.error(s"Failed to create time proof: $err"), identity)

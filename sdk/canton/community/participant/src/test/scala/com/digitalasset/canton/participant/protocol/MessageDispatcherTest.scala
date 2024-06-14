@@ -47,7 +47,7 @@ import com.digitalasset.canton.protocol.{
   v30 as protocolv30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
+import com.digitalasset.canton.sequencing.traffic.{TrafficControlProcessor, TrafficReceipt}
 import com.digitalasset.canton.sequencing.{
   HandlerResult,
   PossiblyIgnoredProtocolEvent,
@@ -278,7 +278,16 @@ trait MessageDispatcherTest {
       messageId: Option[MessageId] = None,
       topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[DefaultOpenEnvelope] =
-    Deliver.create(sc, ts, domainId, messageId, batch, topologyTimestampO, testedProtocolVersion)
+    Deliver.create(
+      sc,
+      ts,
+      domainId,
+      messageId,
+      batch,
+      topologyTimestampO,
+      testedProtocolVersion,
+      Option.empty[TrafficReceipt],
+    )
 
   private def rootHash(index: Int): RootHash = RootHash(TestHash.digest(index))
 
@@ -514,7 +523,7 @@ trait MessageDispatcherTest {
     def signAndTrace(
         event: RawProtocolEvent
     ): Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]] =
-      Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))))
+      Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))))
 
     def handle(sut: Fixture, event: RawProtocolEvent)(checks: => Assertion): Future[Assertion] = {
       for {
@@ -1197,10 +1206,11 @@ trait MessageDispatcherTest {
           messageId3,
           SequencerErrors.SubmissionRequestMalformed("invalid batch"),
           testedProtocolVersion,
+          Option.empty[TrafficReceipt],
         )
 
         val sequencedEvents = Seq(deliver1, deliver2, deliver3, deliverError4).map(event =>
-          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
+          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))
         )
 
         sut.messageDispatcher
@@ -1254,7 +1264,7 @@ trait MessageDispatcherTest {
         )
 
         val sequencedEvents = Seq(deliver1, deliver2, deliver3).map(event =>
-          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
+          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))
         )
 
         loggerFactory

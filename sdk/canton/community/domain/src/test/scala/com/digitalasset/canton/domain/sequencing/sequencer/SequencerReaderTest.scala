@@ -32,6 +32,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   Recipients,
   SequencerErrors,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   Member,
@@ -720,6 +721,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       batch,
                       Some(topologyTimestamp),
                       testedProtocolVersion,
+                      Option.empty[TrafficReceipt],
                     )
                   else
                     DeliverError.create(
@@ -732,6 +734,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                         sequencingTimestamp,
                       ),
                       testedProtocolVersion,
+                      Option.empty[TrafficReceipt],
                     )
                 delivered.signedEvent.content shouldBe expectedSequencedEvent
             }
@@ -770,6 +773,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       batch,
                       Some(topologyTimestamp),
                       testedProtocolVersion,
+                      Option.empty[TrafficReceipt],
                     )
                   else
                     Deliver.create(
@@ -780,6 +784,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       Batch.empty(testedProtocolVersion),
                       None,
                       testedProtocolVersion,
+                      Option.empty[TrafficReceipt],
                     )
                 delivered.signedEvent.content shouldBe expectedSequencedEvent
             }
