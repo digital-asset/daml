@@ -17,7 +17,7 @@ load(
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 load("//test-common:test-common.bzl", "merge_test_dars_versioned")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
 load("//daml-lf/language:daml-lf.bzl", "mangle_for_java")
 
 alias(
@@ -125,10 +125,31 @@ da_scala_dar_resources_library(
 [
     [
         daml_compile(
+            name = "upgrades-{}-dep".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            project_name = "upgrades-example-{}-dep".format(identifier),
+            target = "1.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        # More more more tests ported from DamlcUpgrades.hs
+        "FailsWhenAnInstanceIsDropped",
+        "SucceedsWhenAnInstanceIsAddedSeparateDep",
+    ]
+]
+
+[
+    [
+        daml_compile(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = v1deps,
             dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.dev",
             version = "1.0.0",
@@ -139,6 +160,7 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = v2deps,
             dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}".format(identifier),
             target = "1.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -211,6 +233,27 @@ da_scala_dar_resources_library(
         # More more tests ported from DamlcUpgrades.hs
         ("FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants", [], []),
         ("FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants", [], []),
+
+        # More more more tests ported from DamlcUpgrades.hs
+        ("FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", [], []),
+        ("SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage", [], []),
+        (
+            "SucceedsWhenAnInstanceIsAddedUpgradedPackage",
+            [],
+            [
+                "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+            ],
+        ),
+        (
+            "FailsWhenAnInstanceIsDropped",
+            ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
+            ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedSeparateDep",
+            ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
+            ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
+        ),
     ]
 ]
 
