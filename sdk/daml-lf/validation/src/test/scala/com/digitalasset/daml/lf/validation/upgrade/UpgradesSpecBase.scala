@@ -781,11 +781,9 @@ abstract class UpgradesSpec(val suffix: String)
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) =>
-          if (
-            !cantonLogSrc.contains(
-              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
-            )
-          ) fail("did not find upgrade failure in canton log")
+          cantonLogSrc should include regex (
+            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:\\{additionalInfo=$additionalInfo"
+          )
 
           uploadV2Result match {
             case None =>

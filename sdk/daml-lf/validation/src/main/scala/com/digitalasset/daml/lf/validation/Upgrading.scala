@@ -403,12 +403,12 @@ case class TypecheckUpgrades(
       Map[Ref.DottedName, Ast.DDataType],
   ) = {
     val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
-      case (name, dt: Ast.DDataType) if dt.serializable=> (name, dt)
+      case (name, dt: Ast.DDataType) => (name, dt)
     })
     val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
       lookupInterface(module, tcon, dt)
     })
-    (ifaces.toMap, other.toMap)
+    (ifaces.toMap, other.filter(_._2.serializable).toMap)
   }
 
   private def lookupInterface(
@@ -430,7 +430,7 @@ case class TypecheckUpgrades(
   ): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
     for {
       (templateName, template) <- module.templates
-      (implName, impl) <- template.implements.toMap
+      (implName, impl) <- template.implements
     } yield ((templateName, implName), (template, impl))
   }
 
