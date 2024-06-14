@@ -667,19 +667,18 @@ object Transaction {
 
   /** Transaction meta data
     *
-    * @param submissionSeed   : the submission seed used to derive the contract IDs.
-    *                         If undefined no seed has been used (the legacy contract ID scheme
-    *                         have been used) or it is unknown (output of partial reinterpretation).
-    * @param submissionTime   : the submission time
-    * @param usedPackages     : the set of all packages that are needed for the interpretation of the
-    *                         command (irrespective of whether the package needed to be loaded into
-    *                         cache via a [[com.daml.lf.engine.ResultNeedPackage]] callback.
-    * @param dependsOnTime    : indicate the transaction computation depends on ledger
-    *                         time.
-    * @param nodeSeeds        : An association list that maps to each ID of create and exercise
-    *                         nodes its seeds.
-    * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param disclosedEvents    : disclosed create events that have been used in this transaction
+    * @param submissionSeed   Populated with the submission seed when returned from [[com.daml.lf.engine.Engine.submit]].
+    * @param submissionTime   The submission time
+    * @param usedPackages     The set of all packages that are needed for the interpretation of the command. This
+    *                         is done by first by establishing all the packages directly associated with action nodes
+    *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
+    *                         be this set of packages combined with all packages on which there is a transitive
+    *                         dependency (for details see [[com.daml.lf.engine.Engine.deps]]).
+    * @param dependsOnTime    Indicates that the transaction computation depends on ledger time.
+    * @param nodeSeeds        An association list that maps the node-id of create and exercise
+    *                         nodes to their seed.
+    * @param globalKeyMapping Input key mappings inferred during interpretation.
+    * @param disclosedEvents  Disclosed create events that have been used in this transaction.
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],

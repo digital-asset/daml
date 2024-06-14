@@ -1228,6 +1228,8 @@ object Ast {
       upgradedPackageId: Option[PackageId],
   )
 
+  /** @param directDeps will contain all packages that are referenced in [[modules]]
+    */
   final case class GenPackage[E](
       modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
