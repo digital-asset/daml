@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId}
+import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -50,6 +50,8 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val packageNameFieldName = "PACKAGE_NAME"
+  val packageVersionFieldName = "PACKAGE_VERSION"
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
@@ -69,6 +71,30 @@ private[inner] object ClassGenUtils {
         moduleName,
         name,
       )
+      .build()
+
+  def generatePackageNameField(packageName: PackageName) =
+    FieldSpec
+      .builder(
+        ClassName.get(classOf[String]),
+        packageNameFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer("$S", packageName)
+      .build()
+
+  def generatePackageVersionField(packageVersion: PackageVersion) =
+    FieldSpec
+      .builder(
+        ClassName.get(classOf[String]),
+        packageVersionFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer("$S", packageVersion.toString)
       .build()
 
   def generateFlattenedCreateOrExerciseMethod(

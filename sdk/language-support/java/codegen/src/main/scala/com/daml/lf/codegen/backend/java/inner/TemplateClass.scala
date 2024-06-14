@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompanion}
+import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
@@ -46,6 +46,8 @@ private[inner] object TemplateClass extends StrictLogging {
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
         .addField(generateTemplateIdField(typeWithContext))
+        .addField(generatePackageNameField(typeWithContext))
+        .addField(generatePackageVersionField(typeWithContext))
         .addMethod(generateCreateMethod(className))
         .addMethods(
           generateDeprecatedStaticExerciseByKeyMethods(
@@ -503,6 +505,12 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )
+
+  private def generatePackageVersionField(typeWithContext: TypeWithContext) =
+    ClassGenUtils.generatePackageVersionField(typeWithContext.interface.metadata.version)
+
+  private def generatePackageNameField(typeWithContext: TypeWithContext) =
+    ClassGenUtils.generatePackageNameField(typeWithContext.interface.metadata.name)
 
   def generateChoicesMetadata(
       templateClassName: ClassName,

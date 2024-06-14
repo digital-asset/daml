@@ -241,6 +241,7 @@ scala_source_jar(
         ),
         project_name = "integration-tests-model",
         target = ver,
+        version = "1.2.3",
     )
     for ver in COMPILER_LF_VERSIONS
 ]
