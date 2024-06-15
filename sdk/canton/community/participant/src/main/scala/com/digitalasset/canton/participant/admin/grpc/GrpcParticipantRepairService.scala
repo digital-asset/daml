@@ -428,22 +428,14 @@ final class GrpcParticipantRepairService(
                 Left("Aborted due to shutdown.")
               }
           )
-        } yield sourceDomainAlias
+        } yield MigrateDomainResponse()
 
-        val response = for {
-          sourceDomain <- EitherTUtil.toFuture(
+        EitherTUtil
+          .toFuture(
             migratedSourceDomain.leftMap(err =>
               io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException()
             )
           )
-          _ <- EitherTUtil
-            .toFutureUnlessShutdown(
-              sync.purgeDeactivatedDomain(sourceDomain).bimap(_.asGrpcError, _ => ())
-            )
-            .asGrpcResponse
-        } yield MigrateDomainResponse()
-
-        response
           .andThen { _ =>
             domainMigrationInProgress.set(false)
           }

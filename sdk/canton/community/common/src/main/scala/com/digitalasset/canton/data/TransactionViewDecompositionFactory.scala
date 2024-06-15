@@ -49,7 +49,7 @@ case object TransactionViewDecompositionFactory {
       )
 
     def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] = {
-      BuildState[V](views :+ view, Set.empty, Chain.empty, rollbackContext)
+      BuildState[V](this.views :+ view, this.informees, this.quorums, rollbackContext)
     }
 
     def childState: BuildState[TransactionViewDecomposition] =

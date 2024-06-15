@@ -56,7 +56,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ResourceUtil, SingleUseCell}
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
 import monocle.Lens
 import monocle.macros.syntax.lens.*
@@ -616,7 +616,17 @@ class MediatorNodeBootstrap(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      requestSigner = RequestSigner(syncCryptoApi, domainConfig.domainParameters.protocolVersion)
+      sequencerClient <- sequencerClientFactory
+        .create(
+          mediatorId,
+          sequencedEventStore,
+          sendTrackerStore,
+          RequestSigner(syncCryptoApi, domainConfig.domainParameters.protocolVersion),
+          info.sequencerConnections,
+          info.expectedSequencers,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       _ <- {
         val headSnapshot = topologyClient.headSnapshot
         for {
@@ -625,36 +635,16 @@ class MediatorNodeBootstrap(
             .right[String](headSnapshot.isMediatorActive(mediatorId))
             .mapK(FutureUnlessShutdown.outcomeK)
           _ <- Monad[EitherT[FutureUnlessShutdown, String, *]].whenA(!isMediatorActive)(
-            sequencerClientFactory
-              .makeTransport(
-                info.sequencerConnections.default,
-                mediatorId,
-                requestSigner,
-                allowReplay = false,
+            domainTopologyStateInit
+              .callback(
+                topologyClient,
+                sequencerClient,
+                domainConfig.domainParameters.protocolVersion,
               )
               .mapK(FutureUnlessShutdown.outcomeK)
-              .flatMap(
-                ResourceUtil
-                  .withResourceEitherT(_)(
-                    domainTopologyStateInit
-                      .callback(topologyClient, _, domainConfig.domainParameters.protocolVersion)
-                  )
-                  .mapK(FutureUnlessShutdown.outcomeK)
-              )
           )
         } yield {}
       }
-
-      sequencerClient <- sequencerClientFactory
-        .create(
-          mediatorId,
-          sequencedEventStore,
-          sendTrackerStore,
-          requestSigner,
-          info.sequencerConnections,
-          info.expectedSequencers,
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = sequencerClientRef.set(sequencerClient)
       _ = deferredSequencerClientHealth.set(sequencerClient.healthComponent)

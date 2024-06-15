@@ -408,7 +408,7 @@ object SyncDomainEphemeralStateFactory {
                   )
               case _ =>
                 // No need to replay clean requests
-                // because no requests to be reprocessed were in flight at the processing starting point.
+                // because no requests to be reprocessed were in-flight at the processing starting point.
                 Future.successful(processingStartingPoint.toMessageCleanReplayStartingPoint)
             }
           } yield checked(

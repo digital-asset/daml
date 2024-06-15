@@ -38,7 +38,10 @@ class TransactionViewDecompositionTest
         val exampleTransactionFactory =
           new ExampleTransactionFactory()(confirmationPolicy = confirmationPolicy)
 
-        exampleTransactionFactory.standardHappyCases foreach { example =>
+        // TODO(#19611): Add test to `standardHappyCases`
+        val examples =
+          exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingNewViewStructure
+        examples foreach { example =>
           s"decomposing $example into views" must {
             "yield the correct views" in {
               factory

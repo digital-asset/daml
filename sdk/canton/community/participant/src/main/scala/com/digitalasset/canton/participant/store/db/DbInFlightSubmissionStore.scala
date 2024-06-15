@@ -504,7 +504,7 @@ object DbInFlightSubmissionStore {
         pp >> SerializableTraceContext(submission.submissionTraceContext)
       }
       // We need a synchronous commit here to ensure that there can be at most one submission
-      // for the same change ID in flight. Without synchronous commits,
+      // for the same change ID in-flight. Without synchronous commits,
       // a participant may have sent off a submission to the sequencer before this write reaches all DB replicas.
       // If a fail-over happens to another participant talking to the stale DB replica,
       // it may send off the same submission again to the sequencer.

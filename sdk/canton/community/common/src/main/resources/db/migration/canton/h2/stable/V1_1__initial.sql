@@ -260,7 +260,7 @@ create table sequencer_client_pending_sends (
     -- domain id for distinguishing between different sequencer clients in the same node
     domain_id integer not null,
 
-    -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in flight)
+    -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in-flight)
     message_id varchar(300) not null,
 
     -- the message id should be unique for the sequencer client

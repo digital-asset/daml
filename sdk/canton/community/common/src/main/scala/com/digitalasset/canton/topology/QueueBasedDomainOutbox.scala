@@ -9,6 +9,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -40,7 +41,7 @@ class QueueBasedDomainOutbox(
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     val crypto: Crypto,
-    batchSize: Int = 100,
+    broadcastBatchSize: PositiveInt,
     maybeObserverCloseable: Option[AutoCloseable] = None,
 )(implicit executionContext: ExecutionContext)
     extends DomainOutbox
@@ -58,7 +59,7 @@ class QueueBasedDomainOutbox(
   ): Future[Seq[GenericSignedTopologyTransaction]] = {
     Future.successful(
       domainOutboxQueue
-        .dequeue(batchSize)
+        .dequeue(broadcastBatchSize)
     )
   }
 

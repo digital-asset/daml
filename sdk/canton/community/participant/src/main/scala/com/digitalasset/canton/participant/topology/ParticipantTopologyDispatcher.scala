@@ -14,7 +14,7 @@ import com.digitalasset.canton.common.domain.{
   SequencerConnectClient,
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
@@ -61,6 +61,7 @@ class ParticipantTopologyDispatcher(
     val manager: AuthorizedTopologyManager,
     participantId: ParticipantId,
     state: SyncDomainPersistentStateManager,
+    topologyConfig: TopologyConfig,
     crypto: Crypto,
     clock: Clock,
     config: LocalNodeConfig,
@@ -218,7 +219,7 @@ class ParticipantTopologyDispatcher(
       executionContext: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
-    getState(domainId).flatMap { state =>
+    getState(domainId).flatMap { _ =>
       DomainOnboardingOutbox
         .initiateOnboarding(
           alias,
@@ -228,7 +229,9 @@ class ParticipantTopologyDispatcher(
           sequencerConnectClient,
           manager.store,
           timeouts,
-          loggerFactory.append("domainId", domainId.toString),
+          loggerFactory
+            .append("domainId", domainId.toString)
+            .appendUnnamedKey("onboarding", "onboarding"),
           crypto,
         )
     }
@@ -260,31 +263,33 @@ class ParticipantTopologyDispatcher(
         getState(domainId)
           .flatMap { state =>
             val queueBasedDomainOutbox = new QueueBasedDomainOutbox(
-              domain,
-              domainId,
-              participantId,
-              protocolVersion,
-              handle,
-              client,
-              state.domainOutboxQueue,
-              state.topologyStore,
-              timeouts,
-              domainLoggerFactory,
-              crypto,
+              domain = domain,
+              domainId = domainId,
+              memberId = participantId,
+              protocolVersion = protocolVersion,
+              handle = handle,
+              targetClient = client,
+              domainOutboxQueue = state.domainOutboxQueue,
+              targetStore = state.topologyStore,
+              timeouts = timeouts,
+              loggerFactory = domainLoggerFactory,
+              crypto = crypto,
+              broadcastBatchSize = topologyConfig.broadcastBatchSize,
             )
 
             val storeBasedDomainOutbox = new StoreBasedDomainOutbox(
-              domain,
-              domainId,
+              domain = domain,
+              domainId = domainId,
               memberId = participantId,
-              protocolVersion,
-              handle,
-              client,
-              manager.store,
+              protocolVersion = protocolVersion,
+              handle = handle,
+              targetClient = client,
+              authorizedStore = manager.store,
               targetStore = state.topologyStore,
-              timeouts,
-              loggerFactory,
-              crypto,
+              timeouts = timeouts,
+              loggerFactory = loggerFactory,
+              crypto = crypto,
+              broadcastBatchSize = topologyConfig.broadcastBatchSize,
               futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(

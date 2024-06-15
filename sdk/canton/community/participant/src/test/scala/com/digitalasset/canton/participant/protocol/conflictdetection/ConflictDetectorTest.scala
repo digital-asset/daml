@@ -205,18 +205,18 @@ class ConflictDetectorTest
       } yield assert(failure.isInstanceOf[ConflictDetectionStoreAccessError])
     }
 
-    "complain about requests in flight" in {
+    "complain about requests in-flight" in {
       val cd = mkCd()
       for {
         _ <- cd.registerActivenessSet(RequestCounter(0), ActivenessSet.empty).failOnShutdown
         _ <- loggerFactory.assertInternalErrorAsync[IllegalConflictDetectionStateException](
           cd.registerActivenessSet(RequestCounter(0), ActivenessSet.empty).failOnShutdown,
-          _.getMessage shouldBe "Request 0 is already in flight.",
+          _.getMessage shouldBe "Request 0 is already in-flight.",
         )
         cr <- cd.checkActivenessAndLock(RequestCounter(0)).failOnShutdown
         _ <- loggerFactory.assertInternalErrorAsync[IllegalConflictDetectionStateException](
           cd.registerActivenessSet(RequestCounter(0), ActivenessSet.empty).failOnShutdown,
-          _.getMessage shouldBe "Request 0 is already in flight.",
+          _.getMessage shouldBe "Request 0 is already in-flight.",
         )
         _ <- loggerFactory.assertInternalErrorAsync[IllegalConflictDetectionStateException](
           cd.checkActivenessAndLock(RequestCounter(0)).failOnShutdown,
@@ -252,7 +252,7 @@ class ConflictDetectorTest
       } yield assert(error.isInstanceOf[IllegalArgumentException])
     }
 
-    "complain about requests in flight while the changes are written" in {
+    "complain about requests in-flight while the changes are written" in {
       val rc = RequestCounter(0)
 
       for {
@@ -266,7 +266,7 @@ class ConflictDetectorTest
           loggerFactory
             .assertInternalErrorAsync[IllegalConflictDetectionStateException](
               cd.registerActivenessSet(rc, ActivenessSet.empty).failOnShutdown,
-              _.getMessage shouldBe "Request 0 is already in flight.",
+              _.getMessage shouldBe "Request 0 is already in-flight.",
             )
             .void
         }
@@ -1010,7 +1010,7 @@ class ConflictDetectorTest
         checkContractStateAbsent(cd, coid21)(s"Contract $coid21 is evicted.")
         checkContractState(cd, coid22, active, toc0, 0, 0, 1)(s"Contract $coid22 is being created.")
 
-        // Run another request while the updates are in flight
+        // Run another request while the updates are in-flight
         for {
           // Activeness check for the third request
           cr2 <- prefetchAndCheck(cd, RequestCounter(2), actSet2)

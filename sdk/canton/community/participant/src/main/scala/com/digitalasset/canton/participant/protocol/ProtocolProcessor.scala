@@ -313,7 +313,7 @@ abstract class ProtocolProcessor[
         // However, it may be an arbitrary long time until this happens.
         // Therefore, we notify the in-flight submission tracker again
         // if it had already been notified for the chosen timestamp or a later one.
-        // This should happen only if the domain is idle and no messages are in flight between time observation
+        // This should happen only if the domain is idle and no messages are in-flight between time observation
         // and notification of the in-flight submission tracker (via the clean sequencer counter tracking).
         // Because the domain is idle, another DB access does not hurt much.
         //

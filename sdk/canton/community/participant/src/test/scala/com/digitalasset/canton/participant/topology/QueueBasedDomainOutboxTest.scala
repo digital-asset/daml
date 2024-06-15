@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.topology
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -154,7 +154,10 @@ class QueueBasedDomainOutboxTest
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
   ) extends RegisterTopologyTransactionHandle {
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
-    private val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
+    val batches: mutable.ListBuffer[Seq[GenericSignedTopologyTransaction]] = ListBuffer()
+    private val promise = new AtomicReference(
+      Promise[Seq[Seq[GenericSignedTopologyTransaction]]]()
+    )
     private val expect = new AtomicInteger(expectI)
 
     override def submit(
@@ -165,6 +168,7 @@ class QueueBasedDomainOutboxTest
       FutureUnlessShutdown.outcomeF {
         logger.debug(s"Observed ${transactions.length} transactions")
         buffer ++= transactions
+        batches += transactions
         val finalResult = transactions.map(_ => responses.next())
         for {
           _ <- MonadUtil.sequentialTraverse(transactions)(x => {
@@ -198,7 +202,7 @@ class QueueBasedDomainOutboxTest
             else Future.unit
           })
           _ = if (buffer.length >= expect.get()) {
-            promise.get().success(())
+            promise.get().success(batches.toSeq)
           }
         } yield {
           logger.debug(s"Done with observed ${transactions.length} transactions")
@@ -214,7 +218,7 @@ class QueueBasedDomainOutboxTest
       ret
     }
 
-    def allObserved(): Future[Unit] = promise.get().future
+    def allObserved(): Future[Unit] = promise.get().future.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override protected def logger: TracedLogger = QueueBasedDomainOutboxTest.this.logger
@@ -245,6 +249,7 @@ class QueueBasedDomainOutboxTest
       handle: RegisterTopologyTransactionHandle,
       client: DomainTopologyClientWithInit,
       target: TopologyStore[TopologyStoreId.DomainStore],
+      broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
   ): Future[QueueBasedDomainOutbox] = {
     val domainOutbox = new QueueBasedDomainOutbox(
       domain,
@@ -258,6 +263,7 @@ class QueueBasedDomainOutboxTest
       timeouts,
       loggerFactory,
       crypto,
+      broadcastBatchSize,
     )
     domainOutbox
       .startup()
@@ -328,11 +334,11 @@ class QueueBasedDomainOutboxTest
       }
     }
 
-    "dispatch transactions continuously" in {
+    "dispatch transactions continuously respecting the batch size" in {
       for {
         (target, manager, handle, client) <- mk(slice1.length)
         _res <- push(manager, slice1)
-        _ <- outboxConnected(manager, handle, client, target)
+        _ <- outboxConnected(manager, handle, client, target, broadcastBatchSize = PositiveInt.one)
         _ <- handle.allObserved()
         observed1 = handle.clear(slice2.length)
         _ <- push(manager, slice2)
@@ -340,6 +346,8 @@ class QueueBasedDomainOutboxTest
       } yield {
         observed1.map(_.transaction) shouldBe slice1
         handle.buffer.map(_.transaction) shouldBe slice2
+        handle.batches should not be (empty)
+        forAll(handle.batches)(_.size shouldBe 1)
       }
     }
 
