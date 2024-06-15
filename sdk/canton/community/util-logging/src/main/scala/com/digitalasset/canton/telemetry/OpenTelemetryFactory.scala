@@ -39,13 +39,14 @@ object OpenTelemetryFactory {
       metricsEnabled: Boolean,
       config: TracingConfig.Tracer,
       histograms: Seq[HistogramDefinition],
+      healthDumpMetricFrequency: FiniteDuration,
       loggerFactory: NamedLoggerFactory,
   ): ConfiguredOpenTelemetry = {
     val logger: TracedLogger = loggerFactory.getTracedLogger(getClass)
     logger.info(s"Initializing open telemetry with Exporter.${config.exporter}")(
       TraceContext.empty
     )
-    val onDemandMetricReader = new OpenTelemetryOnDemandMetricsReader
+    val onDemandMetricReader = new OpenTelemetryOnDemandMetricsReader(healthDumpMetricFrequency)
 
     val exporter = createExporter(config.exporter)
     val sampler = createSampler(config.sampler)

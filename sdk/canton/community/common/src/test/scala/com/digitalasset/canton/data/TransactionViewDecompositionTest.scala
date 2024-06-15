@@ -15,6 +15,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionUtil
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   ComparesLfTransactions,
@@ -43,7 +44,12 @@ class TransactionViewDecompositionTest
         val exampleTransactionFactory =
           new ExampleTransactionFactory()(confirmationPolicy = confirmationPolicy)
 
-        exampleTransactionFactory.standardHappyCases foreach { example =>
+        val examples =
+          if (testedProtocolVersion >= ProtocolVersion.v6)
+            exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingV6
+          else exampleTransactionFactory.standardHappyCases
+
+        examples foreach { example =>
           s"decomposing $example into views" must {
             "yield the correct views" in {
               factory

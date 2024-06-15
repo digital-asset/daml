@@ -23,7 +23,6 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ShowUtil.*
 import monocle.macros.syntax.lens.*
 
@@ -40,7 +39,6 @@ abstract class ExampleIntegrationTest(configPaths: File*)
       .addConfigTransforms(
         // lets not share databases
         CommunityConfigTransforms.uniqueH2DatabaseNames,
-        _.focus(_.monitoring.tracing.propagation).replace(TracingConfig.Propagation.Enabled),
         CommunityConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
           // to make sure that the picked up time for the snapshot is the most recent one
           config

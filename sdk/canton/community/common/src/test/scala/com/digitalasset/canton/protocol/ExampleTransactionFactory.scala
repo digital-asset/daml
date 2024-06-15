@@ -20,6 +20,7 @@ import com.daml.lf.value.Value.{
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.*
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
@@ -337,6 +338,7 @@ object ExampleTransactionFactory {
   val observerParticipant: ParticipantId = ParticipantId("observerParticipant")
   val submitterParticipant: ParticipantId = ParticipantId("submitterParticipant")
   val signatory: LfPartyId = LfPartyId.assertFromString("signatory::default")
+  val signatoryReplica: LfPartyId = LfPartyId.assertFromString("signatoryReplica::default")
   val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
   val extra: LfPartyId = LfPartyId.assertFromString("extra::default")
   val submitter: LfPartyId = submitterParticipant.adminParty.toLf
@@ -353,6 +355,9 @@ object ExampleTransactionFactory {
       topology = Map(
         submitter -> Map(submitterParticipant -> Submission),
         signatory -> Map(
+          signatoryParticipant -> Confirmation
+        ),
+        signatoryReplica -> Map(
           signatoryParticipant -> Confirmation
         ),
         observer -> Map(
@@ -1337,6 +1342,436 @@ class ExampleTransactionFactory(
     * 1.1. fetch 1.0.
     * 1.2. create
     * 1.3. exercise 1.2.
+    *
+    * View structure (for [[com.digitalasset.canton.version.ProtocolVersion.v6]] and newer). In this specific
+    * scenario we make sure informees and quorums for action nodes 1.0, 1.1. and 1.3 are correctly merged
+    * to the parent view (v1):
+    * 0. View0
+    * 1. View1
+    * 1.2 View10
+    */
+  case object MultipleRootsAndSimpleViewNestingV6 extends ExampleTransaction {
+    require(protocolVersion >= ProtocolVersion.v6)
+
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
+
+    override def toString: String = "transaction with multiple roots and a simple view nesting"
+
+    val create0Agreement = "create0"
+    def create0Inst: LfContractInst = contractInstance()
+    val create0seed: LfHash = deriveNodeSeed(0)
+    val create0disc: LfHash = discriminator(create0seed, Set(submitter, observer))
+    def genCreate0(cid: LfContractId): LfNodeCreate =
+      createNode(
+        cid,
+        contractInstance = create0Inst,
+        signatories = Set(submitter),
+        observers = Set(observer),
+        agreementText = create0Agreement,
+      )
+    val lfCreate0: LfNodeCreate = genCreate0(LfContractId.V1(create0disc))
+
+    def genExercise1(cid: LfContractId): LfNodeExercises =
+      exerciseNode(
+        cid,
+        children = List(2, 3, 4, 5).map(nodeId),
+        actingParties = Set(submitter),
+        signatories = Set(signatory),
+        observers = Set(submitter),
+      )
+
+    val lfExercise1Id: LfContractId = suffixedId(-1, 0)
+    val lfExercise1: LfNodeExercises = genExercise1(lfExercise1Id)
+
+    def create10Inst: LfContractInst = contractInstance()
+    def create12Inst: LfContractInst = contractInstance()
+    def genCreate10(
+        cid: LfContractId,
+        contractInstance: LfContractInst,
+        agreementText: String,
+    ): LfNodeCreate =
+      createNode(
+        cid,
+        contractInstance = contractInstance,
+        signatories = Set(submitter, signatory, signatoryReplica),
+        agreementText = agreementText,
+      )
+
+    def genCreate12(
+        cid: LfContractId,
+        contractInstance: LfContractInst,
+        agreementText: String,
+    ): LfNodeCreate =
+      createNode(
+        cid,
+        contractInstance = contractInstance,
+        signatories = Set(submitter, signatory, extra),
+        agreementText = agreementText,
+      )
+
+    val create10Agreement = "create10"
+    val create10seed: LfHash = deriveNodeSeed(1, 0)
+    val create10disc: LfHash =
+      discriminator(create10seed, Set(submitter, signatory, signatoryReplica))
+
+    val lfCreate10: LfNodeCreate =
+      genCreate10(LfContractId.V1(create10disc), create10Inst, create10Agreement)
+    val create12Agreement = "create12"
+    val create12seed: LfHash = deriveNodeSeed(1, 2)
+    val create12disc: LfHash = discriminator(create12seed, Set(submitter, signatory, extra))
+    val lfCreate12: LfNodeCreate =
+      genCreate12(LfContractId.V1(create12disc), create12Inst, create12Agreement)
+
+    def genFetch11(cid: LfContractId): LfNodeFetch =
+      fetchNode(
+        cid,
+        actingParties = Set(submitter),
+        signatories = Set(signatory),
+        observers = Set(submitter),
+      )
+    val lfFetch11: LfNodeFetch = genFetch11(lfCreate10.coid)
+
+    def genExercise13(cid: LfContractId): LfNodeExercises =
+      exerciseNode(
+        cid,
+        actingParties = Set(submitter),
+        signatories = Set(signatory),
+        observers = Set(submitter),
+      )
+    val lfExercise13: LfNodeExercises = genExercise13(lfCreate12.coid)
+
+    override lazy val versionedUnsuffixedTransaction: LfVersionedTransaction =
+      transaction(
+        Seq(0, 1),
+        lfCreate0,
+        lfExercise1,
+        lfCreate10,
+        lfFetch11,
+        lfCreate12,
+        lfExercise13,
+      )
+
+    val exercise1seed: LfHash = deriveNodeSeed(1)
+    val exercise13seed: LfHash = deriveNodeSeed(1, 3)
+
+    override lazy val metadata: TransactionMetadata = mkMetadata(
+      Map(
+        LfNodeId(0) -> create0seed,
+        LfNodeId(1) -> exercise1seed,
+        LfNodeId(2) -> create10seed,
+        LfNodeId(4) -> create12seed,
+        LfNodeId(5) -> exercise13seed,
+      )
+    )
+
+    override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
+
+    override lazy val rootViewDecompositions: Seq[NewView] = {
+      val v0 = awaitCreateWithConfirmationPolicy(
+        confirmationPolicy,
+        topologySnapshot,
+        lfCreate0,
+        Some(create0seed),
+        LfNodeId(0),
+        Seq.empty,
+        isRoot = true,
+      )
+
+      val v10 = awaitCreateWithConfirmationPolicy(
+        confirmationPolicy,
+        topologySnapshot,
+        lfCreate12,
+        Some(create12seed),
+        LfNodeId(4),
+        Seq.empty,
+        isRoot = false,
+      )
+
+      /* if running [[com.digitalasset.canton.version.ProtocolVersion.v6]] the create action 1.2
+       * spawns a new view because the child's informee participants are not a subset of the parents'
+       * informee participants (i.e. party <<extra>> is hosted in the <<extraParticipant>>)
+       */
+      val v1TailNodes = Seq(
+        SameView(lfCreate10, LfNodeId(2), RollbackContext.empty),
+        SameView(lfFetch11, LfNodeId(3), RollbackContext.empty),
+        v10,
+        SameView(LfTransactionUtil.lightWeight(lfExercise13), LfNodeId(5), RollbackContext.empty),
+      )
+
+      val v1Pre =
+        awaitCreateWithConfirmationPolicy(
+          confirmationPolicy,
+          topologySnapshot,
+          LfTransactionUtil.lightWeight(lfExercise1),
+          Some(exercise1seed),
+          LfNodeId(1),
+          v1TailNodes,
+          isRoot = true,
+        )
+
+      /* if running [[com.digitalasset.canton.version.ProtocolVersion.v6]] the merged action nodes'
+       * informees and quorums for v1 must be added to the parent's informees and quorums
+       */
+      val (v1Informees, v1Quorums) = {
+        val nodesNotChildren = v1Pre.childViews.flatMap(_.tailNodes.map(_.nodeId))
+
+        val informeesAux = v1TailNodes.flatMap {
+          case SameView(lfNode, nodeId, _) if !nodesNotChildren.contains(nodeId) =>
+            lfNode.informeesOfNode.map(_ -> TrustLevel.Ordinary)
+          case _ => Map.empty
+        }.toMap ++ v1Pre.viewConfirmationParameters.informees
+
+        val quorumsAux = if (confirmationPolicy != ConfirmationPolicy.Vip) {
+          val (quorumSubmittingParticipant, quorumOther) =
+            v1Pre.viewConfirmationParameters.quorums.partition(q =>
+              q == Quorum(
+                confirmers = Map(submitter -> PositiveInt.one),
+                threshold = NonNegativeInt.one,
+              )
+            )
+
+          /* the submitting participant quorum should only be added at the end after the other quorums have been merged
+           * to mimic what happens during view decomposition.
+           */
+          (quorumOther ++ v1TailNodes.mapFilter {
+            case SameView(lfNode, nodeId, _) if !nodesNotChildren.contains(nodeId) =>
+              Some(
+                Quorum.create(
+                  lfNode.requiredAuthorizers.map(pId =>
+                    ConfirmingParty(pId, PositiveInt.one, TrustLevel.Ordinary)
+                  ),
+                  NonNegativeInt.tryCreate(lfNode.requiredAuthorizers.size),
+                )
+              )
+            case _ => None
+          } ++ quorumSubmittingParticipant).distinct
+
+          /* with a VIP confirmation policy, since only the submitting participant is a VIP, we expect a single quorum
+           * Quorum(confirmers = <<submitterParticipant>>, threshold = 1)
+           */
+        } else v1Pre.viewConfirmationParameters.quorums
+
+        (informeesAux, quorumsAux)
+      }
+
+      val v1 = v1Pre.copy(viewConfirmationParameters =
+        ViewConfirmationParameters.tryCreate(
+          v1Informees,
+          v1Quorums,
+        )
+      )
+
+      Seq(v0, v1)
+    }
+
+    // Nodes with translated contract ids
+    val (salt0Id, create0Id): (Salt, LfContractId) =
+      fromDiscriminator(
+        rootViewPosition(0, 2),
+        0,
+        0,
+        create0Inst,
+        create0Agreement,
+        create0disc,
+        signatories = Set(submitter),
+        observers = Set(observer),
+      )
+    val create0: LfNodeCreate = genCreate0(create0Id)
+
+    val exercise1Agreement = "exercise1"
+    val exercise1Id: LfContractId = suffixedId(-1, 0)
+    val exercise1: LfNodeExercises = genExercise1(exercise1Id)
+    val exercise1Instance: LfContractInst = contractInstance()
+
+    val create10SerInst: SerializableRawContractInstance =
+      asSerializableRaw(create10Inst, create10Agreement)
+    val (salt10Id, create10Id): (Salt, LfContractId) =
+      fromDiscriminator(
+        rootViewPosition(1, 2),
+        1,
+        0,
+        create10Inst,
+        create10Agreement,
+        create10disc,
+        signatories = Set(submitter, signatory),
+      )
+    val create10: LfNodeCreate = genCreate10(create10Id, create10Inst, create10Agreement)
+
+    val fetch11: LfNodeFetch = lfFetch11
+
+    val (salt12Id, create12Id): (Salt, LfContractId) =
+      fromDiscriminator(
+        rootViewPosition(1, 2),
+        1,
+        1,
+        create12Inst,
+        create12Agreement,
+        create12disc,
+        signatories = Set(submitter, signatory),
+      )
+    val create12: LfNodeCreate = genCreate12(create12Id, create12Inst, create12Agreement)
+
+    // Views
+    val view0: TransactionView =
+      view(
+        create0,
+        0,
+        Set.empty,
+        Seq.empty,
+        Seq(serializableFromCreate(create0, salt0Id)),
+        Map.empty,
+        Some(create0seed),
+        isRoot = true,
+        Set.empty,
+      )
+
+    val view10: TransactionView =
+      view(
+        create12,
+        2,
+        Set.empty,
+        Seq.empty,
+        Seq(serializableFromCreate(create12, salt12Id)),
+        Map.empty,
+        Some(create12seed),
+        isRoot = false,
+        Set.empty,
+      )
+
+    // TODO(#19611): Merge the informees and quorums of the child action nodes to this view and enable test in standardHappyCases
+    val view1: TransactionView =
+      view(
+        exercise1,
+        1,
+        Set(exercise1Id, create12Id),
+        Seq(
+          asSerializable(
+            exercise1Id,
+            exercise1Instance,
+            metadataFromExercise(exercise1),
+            ledgerTime,
+            agreementText = exercise1Agreement,
+          )
+        ),
+        Seq(serializableFromCreate(create10, salt10Id)),
+        Map.empty,
+        Some(deriveNodeSeed(1)),
+        isRoot = true,
+        Set.empty,
+        view10,
+      )
+
+    override lazy val rootViews: Seq[TransactionView] = Seq(view0, view1)
+
+    override lazy val viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])] =
+      Seq(
+        view0 -> Seq(view0),
+        view1 -> Seq(view1, view10),
+        view10 -> Seq(view10),
+      )
+
+    override lazy val transactionTree: GenTransactionTree = genTransactionTree(view0, view1)
+
+    override lazy val fullInformeeTree: FullInformeeTree =
+      informeeTree(
+        blindedForInformeeTree(view0),
+        blindedForInformeeTree(
+          view1,
+          blindedForInformeeTree(view10),
+        ),
+      ).tryToFullInformeeTree
+
+    override lazy val informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
+      (
+        Set(observer),
+        informeeTree(
+          blindedForInformeeTree(view0),
+          leafsBlinded(view1, blinded(view10)),
+        ),
+      )
+
+    val transactionViewTree0: FullTransactionViewTree =
+      rootTransactionViewTree(view0, blinded(view1))
+
+    val transactionViewTree1: FullTransactionViewTree =
+      rootTransactionViewTree(blinded(view0), view1)
+
+    val transactionViewTree10: FullTransactionViewTree =
+      nonRootTransactionViewTree(blinded(view0), leafsBlinded(view1, view10))
+
+    val fetch11Abs: LfNodeFetch = genFetch11(create10.coid)
+    val exercise13Abs: LfNodeExercises = genExercise13(create12.coid)
+
+    override lazy val reinterpretedSubtransactions: Seq[
+      (
+          FullTransactionViewTree,
+          (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+          Witnesses,
+      )
+    ] =
+      Seq(
+        (
+          transactionViewTree0,
+          (
+            transaction(Seq(0), lfCreate0),
+            mkMetadata(seeds.filter(_._1 == LfNodeId(0))),
+            Map.empty,
+          ),
+          Witnesses(NonEmpty(List, transactionViewTree0.informees)),
+        ),
+        (
+          transactionViewTree1,
+          (
+            transactionFrom(
+              Seq(1),
+              1,
+              exercise1,
+              lfCreate10,
+              lfFetch11,
+              lfCreate12,
+              lfExercise13,
+            ),
+            mkMetadata(
+              seeds.filter(seed => Seq(1, 2, 3, 4, 5).map(LfNodeId.apply).contains(seed._1))
+            ),
+            Map.empty,
+          ),
+          Witnesses(NonEmpty(List, transactionViewTree1.informees)),
+        ),
+        (
+          transactionViewTree10,
+          (
+            transactionFrom(Seq(4), 4, lfCreate12),
+            mkMetadata(seeds.filter(_._1 == LfNodeId(4))),
+            Map.empty,
+          ),
+          Witnesses(NonEmpty(List, transactionViewTree10.informees, transactionViewTree1.informees)),
+        ),
+      )
+
+    override lazy val rootTransactionViewTrees: Seq[FullTransactionViewTree] =
+      Seq(transactionViewTree0, transactionViewTree1)
+
+    override lazy val versionedSuffixedTransaction: LfVersionedTransaction =
+      transaction(
+        Seq(0, 1),
+        create0,
+        exercise1,
+        create10,
+        fetch11Abs,
+        create12,
+        exercise13Abs,
+      )
+
+  }
+
+  /** Transaction structure:
+    * 0. create
+    * 1. exercise absolute
+    * 1.0. create
+    * 1.1. fetch 1.0.
+    * 1.2. create
+    * 1.3. exercise 1.2.
     * 1.3.0. create
     * 1.3.1. exercise absolute
     * 1.3.1.0 create
@@ -1397,6 +1832,7 @@ class ExampleTransactionFactory(
     val create10Agreement = "create10"
     val create10seed: LfHash = deriveNodeSeed(1, 0)
     val create10disc: LfHash = discriminator(create10seed, Set(submitter, signatory))
+
     val lfCreate10: LfNodeCreate =
       genCreate1x(LfContractId.V1(create10disc), create10Inst, create10Agreement)
     val create12Agreement = "create12"
@@ -1546,6 +1982,7 @@ class ExampleTransactionFactory(
         v10,
         v11,
       )
+
       val v1 =
         awaitCreateWithConfirmationPolicy(
           confirmationPolicy,
@@ -1659,6 +2096,7 @@ class ExampleTransactionFactory(
         isRoot = true,
         Set.empty,
       )
+
     val view10: TransactionView =
       view(
         create130,
@@ -1671,6 +2109,7 @@ class ExampleTransactionFactory(
         isRoot = false,
         Set.empty,
       )
+
     val view110: TransactionView =
       view(
         create1310,

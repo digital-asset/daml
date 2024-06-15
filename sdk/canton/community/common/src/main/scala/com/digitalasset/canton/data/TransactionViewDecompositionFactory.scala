@@ -186,9 +186,8 @@ object TransactionViewDecompositionFactory {
           rollbackContext,
         )
 
-      def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] = {
-        BuildState[V](views :+ view, Map.empty, Chain.empty, rollbackContext)
-      }
+      def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] =
+        BuildState[V](this.views :+ view, this.informees, this.quorums, rollbackContext)
 
       def childState: BuildState[TransactionViewDecomposition] =
         BuildState(Chain.empty, Map.empty, Chain.empty, rollbackContext)

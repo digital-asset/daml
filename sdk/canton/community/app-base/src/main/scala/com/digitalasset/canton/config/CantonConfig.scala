@@ -192,6 +192,8 @@ final case class MonitoringConfig(
     logQueryCost: Option[QueryCostMonitoringConfig] = None,
     // TODO(i9014) move into logging
     logSlowFutures: Boolean = false,
+    healthDumpMetricFrequency: NonNegativeFiniteDuration =
+      MonitoringConfig.defaultHealthDumpMetricFrequency,
     logging: LoggingConfig = LoggingConfig(),
     dumpNumRollingLogFiles: NonNegativeInt = MonitoringConfig.defaultDumpNumRollingLogFiles,
 ) extends LazyLogging {
@@ -212,6 +214,7 @@ final case class MonitoringConfig(
 object MonitoringConfig {
   private val defaultDelayLoggingThreshold = NonNegativeFiniteDuration.ofSeconds(20)
   private val defaultDumpNumRollingLogFiles = NonNegativeInt.tryCreate(0)
+  private val defaultHealthDumpMetricFrequency = NonNegativeFiniteDuration.ofMinutes(10)
 }
 
 /** Configuration for console command timeouts
