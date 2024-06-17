@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -44,17 +45,17 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
     * @param limit batch size
     * @return the topology transactions that have been marked as pending.
     */
-  def dequeue(limit: Int)(implicit
+  def dequeue(limit: PositiveInt)(implicit
       traceContext: TraceContext
   ): Seq[GenericSignedTopologyTransaction] = blocking(synchronized {
-    val txs = unsentQueue.take(limit).toList
+    val txs = unsentQueue.take(limit.value).toList
     logger.debug(s"dequeuing: $txs")
     require(
       inProcessQueue.isEmpty,
       s"tried to dequeue while pending wasn't empty: ${inProcessQueue.toSeq}",
     )
     inProcessQueue.enqueueAll(txs)
-    unsentQueue.dropInPlace(limit)
+    unsentQueue.dropInPlace(limit.value)
     inProcessQueue.toSeq.map(_.value)
   })
 

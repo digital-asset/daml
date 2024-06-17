@@ -189,7 +189,7 @@ class TrafficPurchasedManagerTest
       assertBalance(manager, timestamp.plusSeconds(1), balance1)
     }
 
-    "return a balance even if the requested timestamp is after the last update, but no updates are in flight" in {
+    "return a balance even if the requested timestamp is after the last update, but no updates are in-flight" in {
       val manager = mkManager
       manager.addTrafficPurchased(balance).futureValue
 
@@ -222,7 +222,7 @@ class TrafficPurchasedManagerTest
       )
     }
 
-    "wait to see the relevant update before returning the balance if there is an update in flight" in {
+    "wait to see the relevant update before returning the balance if there is an update in-flight" in {
       val manager = mkManager
       manager.addTrafficPurchased(balance).futureValue
 

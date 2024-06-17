@@ -72,7 +72,7 @@ class InMemoryCommandDeduplicationStore(override protected val loggerFactory: Na
         dedupData.some
       case Some(oldData) =>
         if (oldData.latestDefiniteAnswer.offset > definiteAnswerEvent.offset) {
-          // The InFlightSubmissionTracker should make sure that there is always at most one submission in flight for each change ID.
+          // The InFlightSubmissionTracker should make sure that there is always at most one submission in-flight for each change ID.
           // Since the MultiDomainEventLog assigns global offsets in ascending order,
           // we should not end up with a completion from a later request overtaking the completion of an earlier request
           // for the same change ID.

@@ -4,8 +4,7 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
-import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
-import com.digitalasset.canton.sequencing.protocol.TopologyStateForInitRequest
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -21,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait DomainTopologyInitializationCallback {
   def callback(
       topologyClient: DomainTopologyClientWithInit,
-      clientTransport: SequencerClientTransport,
+      sequencerClient: SequencerClient,
       protocolVersion: ProtocolVersion,
   )(implicit
       executionContext: ExecutionContext,
@@ -35,26 +34,20 @@ class StoreBasedDomainTopologyInitializationCallback(
 ) extends DomainTopologyInitializationCallback {
   override def callback(
       topologyClient: DomainTopologyClientWithInit,
-      transport: SequencerClientTransport,
+      sequencerClient: SequencerClient,
       protocolVersion: ProtocolVersion,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, GenericStoredTopologyTransactions] = {
     for {
-      response <- transport.downloadTopologyStateForInit(
-        TopologyStateForInitRequest(
-          member,
-          protocolVersion,
-        )
-      )
-      _ <- EitherT.liftF(
-        topologyStore.bootstrap(response.topologyTransactions.value)
-      )
+      topologyTransactions <- sequencerClient.downloadTopologyStateForInit()
+
+      _ <- EitherT.right(topologyStore.bootstrap(topologyTransactions))
 
       timestampsFromOnboardingTransactions <- member match {
         case participantId @ ParticipantId(_) =>
-          val fromOnboardingTransaction = response.topologyTransactions.value.result
+          val fromOnboardingTransaction = topologyTransactions.result
             .dropWhile(storedTx =>
               !storedTx
                 .selectMapping[DomainTrustCertificate]
@@ -71,7 +64,7 @@ class StoreBasedDomainTopologyInitializationCallback(
             )
           )
         case mediatorId @ MediatorId(_) =>
-          val fromOnboardingTransaction = response.topologyTransactions.value.result
+          val fromOnboardingTransaction = topologyTransactions.result
             .dropWhile(storedTx =>
               !storedTx
                 .selectMapping[MediatorDomainState]
@@ -103,7 +96,7 @@ class StoreBasedDomainTopologyInitializationCallback(
           updateTopologyClientHead(topologyClient, sequenced, effective)
         }
     } yield {
-      response.topologyTransactions.value
+      topologyTransactions
     }
   }
 

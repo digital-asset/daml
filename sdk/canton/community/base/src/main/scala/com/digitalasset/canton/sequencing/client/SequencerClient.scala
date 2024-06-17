@@ -67,6 +67,7 @@ import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequence
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
@@ -151,6 +152,11 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean]
+
+  /** Download the topology state for initializing the member */
+  def downloadTopologyStateForInit()(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, GenericStoredTopologyTransactions]
 
   /** The sequencer counter at which the first subscription starts */
   protected def initialCounterLowerBound: SequencerCounter
@@ -693,9 +699,17 @@ abstract class SequencerClientImpl(
         HashPurpose.AcknowledgementSignature,
         Some(syncCryptoClient.currentSnapshotApproximation),
       )
-      result <- sequencersTransportState.transport
-        .acknowledgeSigned(signedRequest)
+      result <- sequencersTransportState.transport.acknowledgeSigned(signedRequest)
     } yield result
+  }
+
+  override def downloadTopologyStateForInit()(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, GenericStoredTopologyTransactions] = {
+    // TODO(i12076): Download topology state from one of the sequencers based on the health
+    sequencersTransportState.transport
+      .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
+      .map(_.topologyTransactions.value)
   }
 
   protected val periodicAcknowledgementsRef =

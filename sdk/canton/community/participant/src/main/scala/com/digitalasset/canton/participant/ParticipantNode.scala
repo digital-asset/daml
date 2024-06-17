@@ -210,6 +210,7 @@ class ParticipantNodeBootstrap(
           topologyManager,
           participantId,
           manager,
+          config.topology,
           crypto,
           clock,
           config,

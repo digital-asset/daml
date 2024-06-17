@@ -78,7 +78,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]]
 
-  /** Registers the given submission as being in flight and unsequenced
+  /** Registers the given submission as being in-flight and unsequenced
     * unless there already is an in-flight submission for the same change ID.
     *
     * This method MUST NOT run concurrently with a [[delete]] query for the same change ID and message ID.

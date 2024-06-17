@@ -13,6 +13,7 @@ import com.digitalasset.canton.common.domain.{
   SequencerBasedRegisterTopologyTransactionHandle,
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -58,7 +59,7 @@ class StoreBasedDomainOutbox(
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: Crypto,
-    batchSize: Int = 100,
+    broadcastBatchSize: PositiveInt,
     maybeObserverCloseable: Option[AutoCloseable] = None,
     override protected val futureSupervisor: FutureSupervisor,
 )(implicit override protected val executionContext: ExecutionContext)
@@ -340,7 +341,7 @@ class StoreBasedDomainOutbox(
     authorizedStore
       .findDispatchingTransactionsAfter(
         timestampExclusive = watermarks.dispatched,
-        limit = Some(batchSize),
+        limit = Some(broadcastBatchSize.value),
       )
       .map(storedTransactions =>
         PendingTransactions(
@@ -466,6 +467,7 @@ class DomainOutboxFactory(
       timeouts = timeouts,
       loggerFactory = domainLoggerFactory,
       crypto = crypto,
+      broadcastBatchSize = topologyConfig.broadcastBatchSize,
       maybeObserverCloseable = new AutoCloseable {
         override def close(): Unit = authorizedObserver.removeObserver()
       }.some,
@@ -496,6 +498,7 @@ class DomainOutboxFactory(
         timeouts = timeouts,
         loggerFactory = domainLoggerFactory,
         crypto = crypto,
+        broadcastBatchSize = topologyConfig.broadcastBatchSize,
         maybeObserverCloseable = new AutoCloseable {
           override def close(): Unit = authorizedObserver.removeObserver()
         }.some,

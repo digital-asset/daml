@@ -307,7 +307,7 @@ private[participant] class NaiveRequestTracker(
   ): Future[Map[LfContractId, ContractState]] =
     conflictDetector.getApproximateStates(coids)
 
-  /** Returns whether the request is in flight, i.e., in the requests map. */
+  /** Returns whether the request is in-flight, i.e., in the requests map. */
   @VisibleForTesting
   def requestInFlight(rc: RequestCounter): Boolean = requests.contains(rc)
 

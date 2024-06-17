@@ -59,7 +59,7 @@ class SendTracker(
     noTracingLogger
   )
 
-  /** Details of sends in flight
+  /** Details of sends in-flight
     * @param startedAt The time the request was made for calculating the elapsed duration for metrics.
     *                  We use the host clock time for this value and it is only tracked ephemerally
     *                  as the elapsed value will not be useful if the local process restarts during sequencing.

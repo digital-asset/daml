@@ -66,10 +66,10 @@ import scala.util.Try
   * The three methods [[RequestTracker.addRequest]], [[RequestTracker.addResult]],
   * and [[RequestTracker.addCommitSet]] must normally be called in the given sequence;
   * the latter two need not be called if the request has timed out.
-  * A request is <strong>in flight</strong> from the corresponding call to [[RequestTracker.addRequest]]
+  * A request is <strong>in-flight</strong> from the corresponding call to [[RequestTracker.addRequest]]
   * until the request tracker has progressed to its decision time (if the request times out) or its commit time.
   *
-  * These three methods are idempotent while the request is in flight. That is, if one of the methods is called twice
+  * These three methods are idempotent while the request is in-flight. That is, if one of the methods is called twice
   * with the same arguments, provided that the first one succeeded, then the second call has no effect,
   * but its return value is equivalent to what the first call returned.
   * If the method is called twice for the same request counter with different arguments, the subsequent behavior
@@ -208,7 +208,7 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     *         The result of the activeness check when the request tracker has progressed to the `activenessTime`.
     *         The timeout state when the request tracker has progressed to the `decisionTime`
     *         or a transaction result was added for the request.
-    *         [[scala.Left$]] if a request with the same `requestCounter` is in flight with different parameters.
+    *         [[scala.Left$]] if a request with the same `requestCounter` is in-flight with different parameters.
     * @throws java.lang.IllegalArgumentException
     *         <ul>
     *           <li>If the `requestTimestamp` or `sequencerCounter` is `Long.MaxValue`.</li>
@@ -247,7 +247,7 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     *         cases). The timestamp is nevertheless considered as observed.
     * @throws java.lang.IllegalArgumentException
     *         if the `commitTime` is before the `resultTimestamp`, or
-    *         if the request is in flight and the `resultTimestamp` is after its decision time.
+    *         if the request is in-flight and the `resultTimestamp` is after its decision time.
     *         The timestamp is not observed in this case.
     */
   def addResult(

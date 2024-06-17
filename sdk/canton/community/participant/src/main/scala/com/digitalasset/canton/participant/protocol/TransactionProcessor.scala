@@ -231,7 +231,7 @@ object TransactionProcessor {
         changeId: ChangeId,
         existingSubmissionId: Option[LedgerSubmissionId],
         existingSubmissionDomain: DomainId,
-    ) extends TransactionErrorImpl(cause = "The submission is already in flight")(
+    ) extends TransactionErrorImpl(cause = "The submission is already in-flight")(
           ConsistencyErrors.SubmissionAlreadyInFlight.code
         )
         with TransactionSubmissionError
