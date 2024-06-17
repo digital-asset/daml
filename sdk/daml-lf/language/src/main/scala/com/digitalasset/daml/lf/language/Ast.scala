@@ -1233,8 +1233,20 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
+      // Packages that do not define any serializable types are referred to as utility packages
+      // in the context of upgrades. They will not be considered for upgrade checks.
       isUtilityPackage: Boolean,
   ) {
+    import Ordering.Implicits._
+
+    // package Name if the package support upgrade
+    // TODO: https://github.com/digital-asset/daml/issues/17965
+    //  drop that in daml-3
+    private[lf] val name: Option[Ref.PackageName] =
+      if (languageVersion >= LanguageVersion.Features.packageUpgrades && !isUtilityPackage)
+        Some(metadata.name)
+      else
+        None
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
       import Ordering.Implicits._

@@ -3,4 +3,9 @@
 
 module Other where
 
+import Daml.Script
+
+main : Script ()
+main = pure ()
+
 data Dummy = Dummy {}
