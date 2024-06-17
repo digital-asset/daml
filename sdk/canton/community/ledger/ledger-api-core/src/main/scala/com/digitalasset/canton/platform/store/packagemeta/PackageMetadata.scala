@@ -53,7 +53,8 @@ object PackageMetadata {
     pkg.metadata
       .collect {
         case decodedPackageMeta
-            if pkg.languageVersion >= LanguageVersion.Features.packageUpgrades =>
+            // TODO(https://github.com/digital-asset/daml/issues/19393) Test this
+            if pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage =>
           val packageName = decodedPackageMeta.name
           val packageVersion = decodedPackageMeta.version
 
