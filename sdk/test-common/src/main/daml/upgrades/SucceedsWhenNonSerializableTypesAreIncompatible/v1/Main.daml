@@ -5,3 +5,5 @@ module Main where
 
 -- v1:A is not serializable and should not be compared to v2:A
 data A = A { f : Int -> Int }
+
+data Dummy = Dummy {}

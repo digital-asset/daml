@@ -1249,6 +1249,9 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: Option[PackageMetadata],
+      // Packages that do not define any serializable types are referred to as utility packages
+      // in the context of upgrades. They will not be considered for upgrade checks.
+      isUtilityPackage: Boolean,
   ) {
     import Ordering.Implicits._
 
@@ -1256,7 +1259,8 @@ object Ast {
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
     private[lf] val name: Option[Ref.PackageName] = metadata.collect {
-      case md if languageVersion >= LanguageVersion.Features.packageUpgrades => md.name
+      case md if languageVersion >= LanguageVersion.Features.packageUpgrades && !isUtilityPackage =>
+        md.name
     }
   }
 
@@ -1268,7 +1272,7 @@ object Ast {
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
     ): GenPackage[E] =
-      GenPackage(
+      apply(
         modules = toMapWithoutDuplicate(
           modules.view.map(m => m.name -> m),
           (modName: ModuleName) => PackageError(s"Collision on module name ${modName.toString}"),
@@ -1282,13 +1286,24 @@ object Ast {
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
-    ): GenPackage[E] =
+    ): GenPackage[E] = {
+      val isUtilityPackage =
+        modules.values.forall(mod =>
+          mod.templates.isEmpty &&
+            mod.interfaces.isEmpty &&
+            mod.definitions.values.forall {
+              case DDataType(serializable, _, _) => !serializable
+              case _ => true
+            }
+        )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
         languageVersion = languageVersion,
         metadata = metadata,
+        isUtilityPackage = isUtilityPackage,
       )
+    }
 
     def unapply(arg: GenPackage[E]): Some[
       (
