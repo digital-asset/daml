@@ -10,3 +10,5 @@ main : Script ()
 main = do
   Other.main
   pure ()
+
+data Dummy = Dummy {}
