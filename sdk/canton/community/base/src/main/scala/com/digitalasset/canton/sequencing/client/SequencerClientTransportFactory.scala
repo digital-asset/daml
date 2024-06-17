@@ -22,6 +22,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import io.grpc.ConnectivityState
 import org.apache.pekko.stream.Materializer
+import org.slf4j.event.Level
 
 import scala.concurrent.*
 
@@ -162,6 +163,7 @@ object SequencerClientTransportFactory {
             maxRetries = attempts.toInt,
             delay = retryMs,
             operationName = name,
+            retryLogLevel = Some(Level.DEBUG),
           )
           .unlessShutdown(
             closeContext.context.performUnlessClosingF(name)(check().value),

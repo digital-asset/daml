@@ -9,21 +9,24 @@ import io.opentelemetry.sdk.metrics.`export`.{MetricProducer, MetricReader, Metr
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
+import java.util.{Timer, TimerTask}
+import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait OnDemandMetricsReader {
-  def read(): Seq[MetricData]
+  // Return the previous and the current set of metrics
+  def read(): (Seq[MetricData], Seq[MetricData])
 }
 
 object OnDemandMetricsReader {
 
   object NoOpOnDemandMetricsReader$ extends OnDemandMetricsReader {
-    override def read(): Seq[MetricData] = Seq.empty
+    override def read(): (Seq[MetricData], Seq[MetricData]) = (Seq.empty, Seq.empty)
   }
 
 }
 
-class OpenTelemetryOnDemandMetricsReader
+class OpenTelemetryOnDemandMetricsReader(healthDumpMetricFrequency: FiniteDuration)
     extends MetricReaderFactory
     with MetricReader
     with OnDemandMetricsReader {
@@ -31,8 +34,19 @@ class OpenTelemetryOnDemandMetricsReader
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val optionalProducer = new AtomicReference[Option[MetricProducer]](None)
+  private val lastRead = new AtomicReference[Seq[MetricData]](Seq.empty)
+  private val timer = new Timer()
 
   override def apply(producer: MetricProducer): MetricReader = {
+    timer.schedule(
+      new TimerTask {
+        override def run(): Unit = {
+          lastRead.set(collectMetrics())
+        }
+      },
+      healthDumpMetricFrequency.toMillis,
+      healthDumpMetricFrequency.toMillis,
+    )
     optionalProducer.set(Some(producer))
     this
   }
@@ -42,11 +56,16 @@ class OpenTelemetryOnDemandMetricsReader
   override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()
 
   override def shutdown(): CompletableResultCode = {
+    timer.cancel()
     optionalProducer.set(None)
     CompletableResultCode.ofSuccess()
   }
 
-  override def read(): Seq[MetricData] = {
+  override def read(): (Seq[MetricData], Seq[MetricData]) = {
+    (lastRead.get(), collectMetrics())
+  }
+
+  private def collectMetrics(): Seq[MetricData] = {
     optionalProducer
       .get()
       .map { producer =>
