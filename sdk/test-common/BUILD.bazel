@@ -12,6 +12,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
+    "mangle_for_damlc",
     "version_in",
 )
 load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
@@ -139,6 +140,27 @@ da_scala_dar_resources_library(
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWhenAnInstanceIsDropped",
         "SucceedsWhenAnInstanceIsAddedSeparateDep",
+    ]
+]
+
+# Two dars with an empty main module whose only point is to depend on the standard library.
+# They are compiled to to two different LF versions: 1.16 and 1.dev, which means they
+# embark two different versions of the standard library: 1.16 and 1.dev. The packages have
+# different names on purpose: the goal is not to check that they are valid upgrades of each
+# other, but rather to check that the package upgrade map is not confused when trying to
+# compare the different versions of the standard library that they embark upon uploading.
+[
+    daml_compile(
+        name = "upgrades-EmptyProject-{}".format(mangle_for_damlc(lf_version)),
+        srcs = glob(["src/main/daml/upgrades/EmptyProject/*.daml"]),
+        project_name = "upgrades-EmptyProject-{}".format(mangle_for_damlc(lf_version)),
+        target = lf_version,
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in [
+        "1.16",
+        "1.dev",
     ]
 ]
 
