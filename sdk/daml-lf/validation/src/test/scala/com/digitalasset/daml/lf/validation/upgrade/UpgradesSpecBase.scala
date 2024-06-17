@@ -95,6 +95,17 @@ trait LongTests { this: UpgradesSpec =>
         assertDuplicatePackageUpload(),
       )
     }
+
+    s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
+      for {
+        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v116.dar")
+        result2 <- uploadPackage("test-common/upgrades-EmptyProject-v1dev.dar")
+      } yield {
+        // We expect both results to be error-free
+        assert(result1._2.isEmpty && result2._2.isEmpty)
+      }
+    }
+
     s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
