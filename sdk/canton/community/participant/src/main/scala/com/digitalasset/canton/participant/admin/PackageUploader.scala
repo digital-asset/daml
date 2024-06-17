@@ -152,8 +152,10 @@ class PackageUploader(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[DamlError, Unit]] = {
     def persist(allPackages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))]) = {
       val packagesToStore = allPackages.map { case (archive, (pkgId, astPackage)) =>
-        val upgradingPkg = astPackage.languageVersion >= LanguageVersion.Features.packageUpgrades
-        // Package-name and package versions are only relevant for LF versions supporting smart contract upgrading
+        val upgradingPkg = astPackage.languageVersion >= LanguageVersion.Features.packageUpgrades && !astPackage.isUtilityPackage
+        // Package-name and package versions are only relevant for packages that support smart contract upgrading
+        // This is defined as LF >= 1.16 and not a "utility package" - which is a package that does not define any serializable types/templates/interfaces
+        //   and as such, does not interact with upgrades at runtime.
         val pkgNameO = astPackage.metadata.filter(_ => upgradingPkg).map(_.name)
         val pkgVersionO = astPackage.metadata.filter(_ => upgradingPkg).map(_.version)
         pkgId -> (archive, pkgNameO, pkgVersionO)
