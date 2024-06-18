@@ -43,6 +43,7 @@ com/daml/daml_lf_dev/daml_lf.proto
 com/daml/daml_lf_dev/daml_lf1.proto
 com/daml/daml_lf_dev/daml_lf2.proto
 com/daml/ledger/api/v1/active_contracts_service.proto
+com/daml/ledger/api/v1/admin/command_inspection_service.proto
 com/daml/ledger/api/v1/admin/config_management_service.proto
 com/daml/ledger/api/v1/admin/identity_provider_config_service.proto
 com/daml/ledger/api/v1/admin/metering_report_service.proto
@@ -71,5 +72,21 @@ com/daml/ledger/api/v1/transaction_filter.proto
 com/daml/ledger/api/v1/transaction_service.proto
 com/daml/ledger/api/v1/value.proto
 com/daml/ledger/api/v1/version_service.proto
+com/daml/ledger/api/v2/command_completion_service.proto
+com/daml/ledger/api/v2/command_service.proto
+com/daml/ledger/api/v2/commands.proto
+com/daml/ledger/api/v2/command_submission_service.proto
+com/daml/ledger/api/v2/completion.proto
+com/daml/ledger/api/v2/event_query_service.proto
+com/daml/ledger/api/v2/package_service.proto
+com/daml/ledger/api/v2/participant_offset.proto
+com/daml/ledger/api/v2/reassignment_command.proto
+com/daml/ledger/api/v2/reassignment.proto
+com/daml/ledger/api/v2/state_service.proto
+com/daml/ledger/api/v2/testing/time_service.proto
+com/daml/ledger/api/v2/transaction_filter.proto
+com/daml/ledger/api/v2/transaction.proto
+com/daml/ledger/api/v2/update_service.proto
+com/daml/ledger/api/v2/version_service.proto
 EOF
 ) | $SORT )
