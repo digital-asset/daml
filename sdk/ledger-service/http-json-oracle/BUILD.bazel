@@ -59,7 +59,7 @@ da_scala_library(
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if False else []
+)
 
 da_scala_test_suite(
     name = "integration-tests",
@@ -69,6 +69,8 @@ da_scala_test_suite(
         "//docs:quickstart-model.dar",
         "//ledger-service/http-json:Account.dar",
         "//ledger-service/http-json:CIou.dar",
+        "//ledger-service/http-json:FooV1.dar",
+        "//ledger-service/http-json:FooV2.dar",
         "//ledger-service/http-json:RIou.dar",
         "//ledger-service/http-json:User.dar",
         "//test-common:dar-files",
@@ -125,4 +127,4 @@ da_scala_test_suite(
         "//test-common/canton/it-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if False else []
+)
