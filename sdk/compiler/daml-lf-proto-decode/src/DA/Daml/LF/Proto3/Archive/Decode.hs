@@ -12,6 +12,7 @@ module DA.Daml.LF.Proto3.Archive.Decode
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
 import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
+import Control.Exception.Safe 
 import Control.Monad
 import           DA.Pretty
 import qualified DA.Daml.LF.Ast           as LF
@@ -91,3 +92,6 @@ instance Pretty ArchiveError where
           , label_ "Package hash: " $ pretty h1
           , label_ "Computed hash: " $ pretty h2
           ]
+
+instance Exception ArchiveError where
+  displayException e = render (pPrint e)

@@ -17,10 +17,13 @@ module DA.Daml.Helper.Start
     , SandboxCantonPortSpec(..)
     ) where
 
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
+import qualified Data.ByteString.Lazy as BSL
+import Data.Bifunctor (first)
 import Data.Maybe
 import DA.PortFile
 import qualified Data.Text as T
@@ -37,6 +40,9 @@ import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 
@@ -191,7 +197,9 @@ runStart startOptions@StartOptions{..} =
                       ] ++ scriptOpts
                   runProcess_ procScript
         doRunInitScript
-        listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
+        lfVersion <- getDarLfVersion darPath
+        unless (lfVersion `LF.supports` LF.featurePackageUpgrades) $
+          listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
@@ -201,6 +209,14 @@ runStart startOptions@StartOptions{..} =
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
+        getDarLfVersion darPath = do
+          darBs <- BSL.readFile darPath
+
+          (_, LF.Package{packageLfVersion}) <- 
+            requiredE "Failed to decode the dar produced by daml build" $ do
+              Dalfs{..} <- first Archive.ProtobufError $ readDalfs $ Zip.toArchive darBs
+              Archive.decodeArchive Archive.DecodeAsMain $ BSL.toStrict mainDalf
+          pure packageLfVersion
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
