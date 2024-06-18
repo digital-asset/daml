@@ -38,8 +38,12 @@ object DAMLeTestInstance {
       loggerFactory: SuppressingLogger
   )(implicit ec: ExecutionContext): DAMLe = {
     val pureCrypto = new SymbolicPureCrypto
-    val engine =
-      DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = false, enableStackTraces = false)
+    val engine = DAMLe.newEngine(
+      uniqueContractKeys = false,
+      enableLfDev = false,
+      enableLfPreview = false,
+      enableStackTraces = false,
+    )
     val timeouts = ProcessingTimeout()
     val packageDependencyResolver = new PackageDependencyResolver(
       new InMemoryDamlPackageStore(loggerFactory),

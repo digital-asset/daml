@@ -287,9 +287,15 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
   final def withTestEnv(
       initialize: Boolean = true,
       lfDev: Boolean = false,
+      lfPreview: Boolean = false,
       damlPackageStore: DamlPackageStore = new InMemoryDamlPackageStore(loggerFactory),
   )(test: WithInitializedPackageUploader => Assertion): Assertion = {
-    val uploader = new WithInitializedPackageUploader(initialize, lfDev, damlPackageStore) {
+    val uploader = new WithInitializedPackageUploader(
+      initialize,
+      lfDev = lfDev,
+      lfPreview = lfPreview,
+      damlPackageStore,
+    ) {
       override def run(): Assertion = {
         super.run()
         test(this)
@@ -302,6 +308,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
   private abstract class WithInitializedPackageUploader(
       initialize: Boolean = true,
       lfDev: Boolean = false,
+      lfPreview: Boolean = false,
       val damlPackageStore: DamlPackageStore,
   ) extends AutoCloseable {
     final val participantEventPublisherMock: ParticipantEventPublisher =
@@ -311,8 +318,12 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       .thenReturn(FutureUnlessShutdown.unit)
 
     final val sut = new PackageUploader(
-      engine =
-        DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = lfDev, enableStackTraces = false),
+      engine = DAMLe.newEngine(
+        uniqueContractKeys = false,
+        enableLfDev = lfDev,
+        enableLfPreview = lfPreview,
+        enableStackTraces = false,
+      ),
       hashOps = hashOps,
       eventPublisher = participantEventPublisherMock,
       packageDependencyResolver =
@@ -336,9 +347,11 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       testLanguageVersion: LanguageVersion,
       shouldStorePkgNameAndVersion: Boolean,
   ): Assertion = {
-    // fixme(https://github.com/DACH-NY/canton/pull/19553): make a distinction between dev, preview, and stable
-    val devMode = !LanguageVersion.StableVersions.contains(testLanguageVersion)
-    withTestEnv(lfDev = devMode) { env =>
+    val previewMode = LanguageVersion.EarlyAccessVersions.contains(testLanguageVersion)
+    val devMode =
+      testLanguageVersion == LanguageVersion.v1_dev || testLanguageVersion == LanguageVersion.v2_dev
+
+    withTestEnv(lfDev = devMode, lfPreview = previewMode) { env =>
       import env.*
       val testArchive = lfArchiveTemplate(
         pkgName,
