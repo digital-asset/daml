@@ -7,6 +7,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 trait ProtocolConfig {
   def devVersionSupport: Boolean
+  def previewVersionSupport: Boolean
   def dontWarnOnDeprecatedPV: Boolean
   def initialProtocolVersion: ProtocolVersion
 }

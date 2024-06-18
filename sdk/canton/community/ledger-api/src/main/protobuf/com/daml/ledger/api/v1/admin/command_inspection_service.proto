@@ -1,0 +1,75 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "CommandInspectionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v1/commands.proto";
+import "com/daml/ledger/api/v1/completion.proto";
+import "google/protobuf/timestamp.proto";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+//
+// The inspection service provides methods for the ledger administrator
+// to look under the hood of a running system.
+// In V2 Ledger API this service is not available.
+service CommandInspectionService {
+  // Inquire about the status of a command.
+  // This service is used for debugging only. The command status is only tracked in memory and is not persisted.
+  // The service can be used to understand the failure status and the structure of a command.
+  // Requires admin privileges
+  // The service is alpha without backward compatibility guarantees.
+  rpc GetCommandStatus(GetCommandStatusRequest) returns (GetCommandStatusResponse);
+}
+
+enum CommandState {
+  STATE_UNSPECIFIED = 0; // This value acts as wildcard in the queries
+  STATE_PENDING = 1;
+  STATE_SUCCEEDED = 2;
+  STATE_FAILED = 3;
+}
+
+message GetCommandStatusRequest {
+  string command_id_prefix = 1; // optional filter by command id
+  CommandState state = 2; // optional filter by state
+  uint32 limit = 3; // optional limit of returned statuses, defaults to 100
+}
+
+
+message GetCommandStatusResponse {
+
+  message CommandStatus {
+    google.protobuf.Timestamp started = 1;
+    google.protobuf.Timestamp completed= 2;
+    Completion completion = 3;
+    CommandState state = 4;
+    repeated Command commands = 5;
+    message RequestStatistics {
+      uint32 envelopes = 1;
+      uint32 request_size = 2;
+      uint32 recipients = 3;
+    }
+    RequestStatistics request_statistics = 6;
+    message CommandUpdates {
+      message Contract {
+        Identifier template_id = 1;
+        string contract_id = 2;
+        Value contract_key = 3;
+      }
+      repeated Contract created = 1;
+      repeated Contract archived = 2;
+      uint32 exercised = 3;
+      uint32 fetched = 4;
+      uint32 looked_up_by_key = 5;
+    }
+    CommandUpdates updates = 7;
+  }
+  repeated CommandStatus command_status = 1;
+}

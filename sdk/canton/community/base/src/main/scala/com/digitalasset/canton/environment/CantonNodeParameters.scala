@@ -57,6 +57,7 @@ object CantonNodeParameters {
   }
   trait Protocol {
     def devVersionSupport: Boolean
+    def previewVersionSupport: Boolean
     def dontWarnOnDeprecatedPV: Boolean
 
     /** The initial protocol version before connected to any domain, e.g., when creating the initial topology transactions. */
@@ -66,6 +67,7 @@ object CantonNodeParameters {
   object Protocol {
     final case class Impl(
         devVersionSupport: Boolean,
+        previewVersionSupport: Boolean,
         dontWarnOnDeprecatedPV: Boolean,
         initialProtocolVersion: ProtocolVersion,
     ) extends CantonNodeParameters.Protocol
@@ -100,6 +102,7 @@ trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {
   protected def protocol: CantonNodeParameters.Protocol
 
   def devVersionSupport: Boolean = protocol.devVersionSupport
+  def previewVersionSupport: Boolean = protocol.previewVersionSupport
   def dontWarnOnDeprecatedPV: Boolean = protocol.dontWarnOnDeprecatedPV
   def initialProtocolVersion: ProtocolVersion = protocol.initialProtocolVersion
 

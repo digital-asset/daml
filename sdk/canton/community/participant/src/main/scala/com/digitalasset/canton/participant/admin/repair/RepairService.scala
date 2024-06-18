@@ -102,7 +102,7 @@ final class RepairService(
     packageDependencyResolver: PackageDependencyResolver,
     damle: DAMLe,
     multiDomainEventLog: Eval[MultiDomainEventLog],
-    syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     aliasManager: DomainAliasManager,
     parameters: ParticipantNodeParameters,
     threadsAvailableForWriting: PositiveInt,

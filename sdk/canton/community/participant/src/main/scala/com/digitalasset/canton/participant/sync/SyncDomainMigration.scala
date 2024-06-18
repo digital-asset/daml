@@ -8,7 +8,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -31,7 +30,9 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 }
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -278,6 +279,33 @@ class SyncDomainMigration(
         updateDomainStatus(source, DomainConnectionConfigStore.Inactive)
       )
     } yield ()
+  }
+
+  /*
+  This method lives here because it should be called only for a deactivated domain,
+  which happens only as part of the hard domain migration.
+  Moreover, we want this to be available in community, so it cannot be implemented in
+  the pruning processor.
+   */
+  def pruneSelectedDeactivatedDomainStores(
+      domainId: DomainId
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
+    performUnlessClosingEitherU("pruneSelectedDeactivatedDomainStores") {
+      logger.info(
+        s"About to prune deactivated sync domain $domainId sequenced event store'"
+      )
+      repair.syncDomainPersistentStateManager
+        .get(domainId)
+        .fold(EitherT.pure[Future, SyncDomainMigrationError](())) { state =>
+          EitherTUtil.fromFuture[SyncDomainMigrationError, Unit](
+            state.sequencedEventStore.delete(SequencerCounter.Genesis),
+            t =>
+              SyncDomainMigrationError.InternalError.PurgeDeactivatedDomain(domainId, t.getMessage),
+          )
+        }
+    }
   }
 
   private def updateDomainStatus(

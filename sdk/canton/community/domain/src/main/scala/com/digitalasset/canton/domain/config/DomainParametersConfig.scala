@@ -54,6 +54,7 @@ final case class DomainParametersConfig(
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
     protocolVersion: DomainProtocolVersion,
     override val devVersionSupport: Boolean = false,
+    override val previewVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     resetStoredStaticConfig: Boolean = false,
 ) extends ProtocolConfig

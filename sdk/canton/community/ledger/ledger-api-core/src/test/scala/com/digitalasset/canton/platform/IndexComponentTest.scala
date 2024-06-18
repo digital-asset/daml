@@ -18,6 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.indexer.IndexerConfig.DefaultIndexerStartupMode
@@ -87,6 +88,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     val indexResourceOwner =
       for {
         (inMemoryState, updaterFlow) <- LedgerApiServer.createInMemoryStateAndUpdater(
+          commandProgressTracker = CommandProgressTracker.NoOp,
           indexServiceConfig = IndexServiceConfig(),
           maxCommandsInFlight = 1, // not used
           metrics = Metrics.ForTesting,

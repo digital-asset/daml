@@ -26,6 +26,7 @@ message ExperimentalFeatures {
   ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_local_metadata_extensions = 8;
   AcsActiveAtOffsetFeature acs_active_at_offset = 9;
   TransactionsWithTemplateFilters template_filters = 10;
+  ExperimentalCommandInspectionService command_inspection_service = 11;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -128,5 +129,10 @@ message AcsActiveAtOffsetFeature {
 
 // Whether the Ledger API supports querying for transaction streams using template filters
 message TransactionsWithTemplateFilters {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports command inspection service
+message ExperimentalCommandInspectionService {
   bool supported = 1;
 }

@@ -332,7 +332,7 @@ class SecretKeyAdministration(
   )
   def download(
       fingerprint: Fingerprint,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): ByteString = {
     check(FeatureFlag.Preview) {
       consoleEnvironment.run {
@@ -360,7 +360,7 @@ class SecretKeyAdministration(
   def download_to(
       fingerprint: Fingerprint,
       outputFile: String,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): Unit = {
     writeToFile(outputFile, download(fingerprint, protocolVersion))
   }
@@ -423,7 +423,7 @@ class PublicKeyAdministration(
   @Help.Summary("Download public key")
   def download(
       fingerprint: Fingerprint,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): ByteString = {
     val keys = list(fingerprint.unwrap)
     if (keys.sizeCompare(1) == 0) { // vector doesn't like matching on Nil
@@ -442,7 +442,7 @@ class PublicKeyAdministration(
   def download_to(
       fingerprint: Fingerprint,
       outputFile: String,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): Unit = {
     BinaryFileUtil.writeByteStringToFile(
       outputFile,
@@ -543,7 +543,7 @@ class LocalSecretKeyAdministration(
   @Help.Summary("Download key pair")
   override def download(
       fingerprint: Fingerprint,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): ByteString =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val cmd = for {
@@ -578,7 +578,7 @@ class LocalSecretKeyAdministration(
   override def download_to(
       fingerprint: Fingerprint,
       outputFile: String,
-      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
   ): Unit =
     run(
       EitherT.rightT(writeToFile(outputFile, download(fingerprint, protocolVersion))),

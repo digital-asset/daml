@@ -16,7 +16,6 @@ import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
@@ -232,17 +231,18 @@ object ApiPackageManagementServiceSpec {
   private val aSubmissionId = "aSubmission"
 
   private val anArchive: Archive = {
-    val pkg = Ast.GenPackage[Expr](
-      Map.empty,
-      Set.empty,
-      LanguageVersion.default,
-      Some(
+    val pkg = Ast.GenPackage[Ast.Expr](
+      modules = Map.empty,
+      directDeps = Set.empty,
+      languageVersion = LanguageVersion.default,
+      metadata = Some(
         Ast.PackageMetadata(
           Ref.PackageName.assertFromString("aPackage"),
           Ref.PackageVersion.assertFromString("0.0.0"),
           None,
         )
       ),
+      isUtilityPackage = true,
     )
     Encode.encodeArchive(
       Ref.PackageId.assertFromString("-pkgId-") -> pkg,

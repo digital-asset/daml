@@ -41,6 +41,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -64,6 +65,7 @@ class TransactionProcessor(
     sequencerClient: SequencerClient,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     ephemeral: SyncDomainEphemeralState,
+    commandProgressTracker: CommandProgressTracker,
     metrics: TransactionProcessingMetrics,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -109,6 +111,7 @@ class TransactionProcessor(
           staticDomainParameters.protocolVersion,
           loggerFactory,
         ),
+        commandProgressTracker,
         loggerFactory,
         futureSupervisor,
       ),

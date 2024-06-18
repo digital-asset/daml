@@ -8,8 +8,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.engine.Error as LfError
-import com.daml.lf.language.Ast.{Expr, GenPackage}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{HashAlgorithm, HashPurpose}
@@ -165,8 +164,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     mcc.check(rootViewTrees, keyResolvers, RequestCounter(0), ips, commonData)
   }
 
-  private val genPackage = GenPackage[Expr](Map.empty, Set.empty, LanguageVersion.default, None)
-  private val packageResolver: PackageResolver = _ => _ => Future.successful(Some(genPackage))
+  private val pkg = Ast.GenPackage[Ast.Expr](
+    modules = Map.empty,
+    directDeps = Set.empty,
+    languageVersion = LanguageVersion.default,
+    metadata = None,
+    isUtilityPackage = true,
+  )
+  private val packageResolver: PackageResolver = _ => _ => Future.successful(Some(pkg))
 
   val preReinterpretationPackageIds: PackageIdsOfView =
     if (testedProtocolVersion >= ProtocolVersion.v6)

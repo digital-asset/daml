@@ -135,8 +135,8 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
         import com.digitalasset.canton.version.HasProtocolVersionedWrapperTest.Message.*
 
-        val stablePV = ProtocolVersion.stable(10)
-        val unstablePV = ProtocolVersion.unstable(11)
+        val stablePV = ProtocolVersion.createStable(10)
+        val unstablePV = ProtocolVersion.createUnstable(11)
 
         def name: String = "message"
 
@@ -216,18 +216,20 @@ object HasProtocolVersionedWrapperTest {
       protocolVersion     3    4    5    6    7  ...
      */
     override val supportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.unstable(5))(VersionedMessageV1)(
+      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.createUnstable(5))(
+        VersionedMessageV1
+      )(
         supportedProtoVersionMemoized(_)(fromProtoV1),
         _.toProtoV1.toByteString,
       ),
       // Can use a stable Protobuf message in a stable protocol version
-      ProtoVersion(0) -> LegacyProtoConverter(ProtocolVersion.stable(3))(VersionedMessageV0)(
+      ProtoVersion(0) -> LegacyProtoConverter(ProtocolVersion.createStable(3))(VersionedMessageV0)(
         supportedProtoVersionMemoized(_)(fromProtoV0),
         _.toProtoV0.toByteString,
       ),
       // Can use an unstable Protobuf message in an unstable protocol version
       ProtoVersion(2) -> VersionedProtoConverter(
-        ProtocolVersion.unstable(6)
+        ProtocolVersion.createUnstable(6)
       )(VersionedMessageV2)(
         supportedProtoVersionMemoized(_)(fromProtoV2),
         _.toProtoV2.toByteString,
