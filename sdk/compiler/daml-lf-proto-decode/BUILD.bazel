@@ -21,6 +21,7 @@ da_haskell_library(
         "mtl",
         "proto3-suite",
         "proto3-wire",
+        "safe-exceptions",
         "text",
         "vector",
     ],
