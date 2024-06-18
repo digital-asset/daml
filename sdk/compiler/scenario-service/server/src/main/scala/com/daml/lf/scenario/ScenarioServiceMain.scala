@@ -38,8 +38,8 @@ private final case class ScenarioServiceConfig(
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private object ScenarioServiceConfig {
-  // default to 128MB
-  val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
+  // We default to MAXINT as we rely on the ledger to manage the message size
+  val DefaultMaxInboundMessageSize: Int = Int.MaxValue
 
   val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
     head("scenario-service")
