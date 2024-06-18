@@ -37,6 +37,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurat
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
+  CommandProgressTracker,
 }
 import com.digitalasset.canton.platform.apiserver.services.{
   ApiCommandSubmissionService,
@@ -64,6 +65,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
+      tracker: CommandProgressTracker,
       metrics: Metrics,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
@@ -89,6 +91,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
       maxDeduplicationDuration =
         () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       submissionIdGenerator = SubmissionIdGenerator.Random,
+      tracker = tracker,
       metrics = metrics,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

@@ -146,6 +146,7 @@ class CantonLedgerApiServerFactory(
             cantonParameterConfig = parameters,
             testingTimeService = ledgerTestingTimeService,
             adminToken = adminToken,
+            enableCommandInspection = config.ledgerApi.enableCommandInspection,
             loggerFactory = loggerFactory,
             tracerProvider = tracerProvider,
             metrics = metrics,

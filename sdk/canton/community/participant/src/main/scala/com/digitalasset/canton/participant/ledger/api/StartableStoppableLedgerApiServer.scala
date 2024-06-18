@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalCommandInspectionService,
   ExperimentalExplicitDisclosure,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -41,6 +42,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
@@ -86,6 +88,7 @@ class StartableStoppableLedgerApiServer(
     futureSupervisor: FutureSupervisor,
     multiDomainEnabled: Boolean,
     parameters: ParticipantNodeParameters,
+    commandProgressTracker: CommandProgressTracker,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -211,6 +214,7 @@ class StartableStoppableLedgerApiServer(
     for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
+          commandProgressTracker,
           indexServiceConfig,
           config.serverConfig.commandService.maxCommandsInFlight,
           config.metrics,
@@ -306,8 +310,9 @@ class StartableStoppableLedgerApiServer(
 
       timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       _ <- ApiServiceOwner(
-        submissionTracker = inMemoryState.submissionTracker,
         indexService = indexService,
+        submissionTracker = inMemoryState.submissionTracker,
+        commandProgressTracker = commandProgressTracker,
         userManagementStore = userManagementStore,
         packageMetadataStore = packageMetadataStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
@@ -360,7 +365,6 @@ class StartableStoppableLedgerApiServer(
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
-        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       _ <- startHttpApiIfEnabled
       _ <- {
@@ -451,6 +455,8 @@ class StartableStoppableLedgerApiServer(
     ),
     explicitDisclosure =
       ExperimentalExplicitDisclosure.of(config.serverConfig.enableExplicitDisclosure),
+    commandInspectionService =
+      ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
   )
 
   private def startHttpApiIfEnabled: ResourceOwner[Unit] =

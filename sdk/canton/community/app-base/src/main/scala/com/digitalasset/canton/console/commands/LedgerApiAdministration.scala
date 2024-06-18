@@ -8,6 +8,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.v1.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
@@ -67,6 +68,7 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
+import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
@@ -510,6 +512,36 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         }
+      }
+
+      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
+      )
+      def status(
+          commandIdPrefix: String = "",
+          state: CommandState = CommandState.STATE_UNSPECIFIED,
+          limit: PositiveInt = PositiveInt.tryCreate(10),
+      ): Seq[CommandStatus] = check(FeatureFlag.Preview) {
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.CommandInspectionService.GetCommandStatus(
+              commandIdPrefix = commandIdPrefix,
+              state = state,
+              limit = limit.unwrap,
+            )
+          )
+        }
+      }
+
+      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Same as status(..., state = CommandState.Failed)."""
+      )
+      def failed(commandId: String = "", limit: PositiveInt = PositiveInt.tryCreate(10)): Seq[
+        CommandStatus
+      ] = check(FeatureFlag.Preview) {
+        status(commandId, CommandState.STATE_FAILED, limit)
       }
 
     }

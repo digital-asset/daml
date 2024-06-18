@@ -22,6 +22,7 @@ import com.digitalasset.canton.participant.config.{
   ParticipantStoreConfig,
   PartyNotificationConfig,
 }
+import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TracingConfig
@@ -41,6 +42,7 @@ final case class ParticipantNodeParameters(
     engine: CantonEngineConfig,
     allowForUnauthenticatedContractIds: Boolean,
     disableUpgradeValidation: Boolean,
+    commandProgressTracking: CommandProgressTrackerConfig,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -93,5 +95,6 @@ object ParticipantNodeParameters {
     engine = CantonEngineConfig(),
     allowForUnauthenticatedContractIds = false,
     disableUpgradeValidation = true,
+    commandProgressTracking = CommandProgressTrackerConfig(),
   )
 }

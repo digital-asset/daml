@@ -9,6 +9,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest as ApiSubmitRequest,
 }
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.metrics.Timed
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -22,6 +23,10 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.execution.{
+  CommandProgressTracker,
+  CommandResultHandle,
+}
 import com.digitalasset.canton.tracing.{Spanning, Traced}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -37,6 +42,7 @@ class ApiCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
+    tracker: CommandProgressTracker,
     metrics: Metrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -66,7 +72,35 @@ class ApiCommandSubmissionService(
         loggingContextWithTrace,
         requestWithSubmissionId.commands.map(_.submissionId),
       )
-    Timed.timedAndTrackedFuture(
+    val resultHandle = requestWithSubmissionId.commands
+      .map {
+        case allCommands @ Commands(
+              _ledgerId,
+              workflowId,
+              applicationId,
+              commandId,
+              party,
+              commands,
+              deduplicationPeriod,
+              minLedgerTimeAbs,
+              minLedgerTimeRel,
+              actAs,
+              readAs,
+              submissionId,
+              disclosedContracts,
+              packageIdSelectionPreference,
+            ) =>
+          tracker.registerCommand(
+            commandId,
+            Option.when(submissionId.nonEmpty)(submissionId),
+            applicationId,
+            commands,
+            actAs = CommandsValidator.effectiveActAs(allCommands),
+          )(loggingContextWithTrace.traceContext)
+      }
+      .getOrElse(CommandResultHandle.NoOp)
+
+    val result = Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
       Timed
@@ -86,6 +120,7 @@ class ApiCommandSubmissionService(
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
+    resultHandle.extractFailure(result)
   }
 
   override def bindService(): ServerServiceDefinition =

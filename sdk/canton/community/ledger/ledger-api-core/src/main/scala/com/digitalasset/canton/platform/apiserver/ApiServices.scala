@@ -33,6 +33,7 @@ import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandCompletionServiceImpl,
+  CommandInspectionServiceImpl,
   CommandServiceImpl,
   CommandSubmissionServiceImpl,
 }
@@ -95,6 +96,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
+      commandProgressTracker: CommandProgressTracker,
       configurationLoadTimeout: FiniteDuration,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
@@ -116,7 +118,6 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
-      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -224,6 +225,19 @@ object ApiServices {
           telemetry,
           loggerFactory,
         )
+
+      val apiInspectionServiceOpt =
+        Option
+          .when(ledgerFeatures.commandInspectionService.supported)(
+            new CommandInspectionServiceAuthorization(
+              CommandInspectionServiceImpl.createApiService(
+                commandProgressTracker,
+                telemetry,
+                loggerFactory,
+              ),
+              authorizer,
+            )
+          )
 
       val apiActiveContractsService =
         ApiActiveContractsService.create(
@@ -354,6 +368,7 @@ object ApiServices {
 
       ledgerApiV2Services :::
         apiTimeServiceOpt.toList :::
+        apiInspectionServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
@@ -420,6 +435,7 @@ object ApiServices {
             seedService,
             commandExecutor,
             checkOverloaded,
+            commandProgressTracker,
             metrics,
             telemetry,
             loggerFactory,

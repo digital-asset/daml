@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
+  CommandProgressTracker,
   DynamicDomainParameterGetter,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -78,7 +79,6 @@ object ApiServiceOwner {
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
-      disableUpgradeValidation: Boolean,
       // immutable configuration parameters
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -86,6 +86,7 @@ object ApiServiceOwner {
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
+      commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
       packageMetadataStore: PackageMetadataStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
@@ -160,6 +161,7 @@ object ApiServiceOwner {
             TimeProviderType.Static
           ),
         submissionTracker = submissionTracker,
+        commandProgressTracker = commandProgressTracker,
         configurationLoadTimeout = configurationLoadTimeout.underlying,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
@@ -185,7 +187,6 @@ object ApiServiceOwner {
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
-        disableUpgradeValidation = disableUpgradeValidation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(
