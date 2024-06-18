@@ -15,8 +15,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscrip
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{NamedLogging, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
@@ -46,7 +46,7 @@ abstract class SequencerApiTest
 
   import RecipientsTest.*
 
-  protected trait Env extends AutoCloseable with NamedLogging {
+  protected class Env extends AutoCloseable {
 
     implicit lazy val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
@@ -59,7 +59,29 @@ abstract class SequencerApiTest
       sequencer
     }
 
-    def topologyFactory: TestingIdentityFactory
+    val topologyFactory: TestingIdentityFactory =
+      TestingTopology(domainParameters = List.empty)
+        .withSimpleParticipants(
+          p1,
+          p2,
+          p3,
+          p4,
+          p5,
+          p6,
+          p7,
+          p8,
+          p9,
+          p10,
+          p11,
+          p12,
+          p13,
+          p14,
+          p15,
+          p17,
+          p18,
+          p19,
+        )
+        .build(loggerFactory)
 
     def sign(
         request: SubmissionRequest
@@ -85,12 +107,10 @@ abstract class SequencerApiTest
     }
   }
 
-  override protected type FixtureParam <: Env
-
-  protected def createEnv(): FixtureParam
+  override protected type FixtureParam = Env
 
   override def withFixture(test: OneArgAsyncTest): FutureOutcome = {
-    val env = createEnv()
+    val env = new Env
     complete {
       super.withFixture(test.toNoArgAsyncTest(env))
     } lastly {
@@ -114,7 +134,7 @@ abstract class SequencerApiTest
   }
   def domainId: DomainId = DefaultTestIdentities.domainId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
-  def sequencerId: SequencerId = DefaultTestIdentities.daSequencerId
+  def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit
       materializer: Materializer

@@ -91,4 +91,9 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .allocateParty(new AllocatePartyRequest(hint.getOrElse(""), displayName.getOrElse("")))
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
       .map(PartyManagementClient.details)
+
+  /** Utility method for json services
+    */
+  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
+    LedgerClient.stubWithTracing(service, token)
 }

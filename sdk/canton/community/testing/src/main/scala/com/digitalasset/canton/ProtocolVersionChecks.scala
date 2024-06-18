@@ -56,6 +56,9 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
   }
 
   implicit class ProtocolCheckTaggedString(verb: ResultOfTaggedAsInvocationOnString) {
+    def onlyRunWhen(condition: Boolean): OnlyRunWhenResultOfTaggedAsInvocationOnString =
+      new OnlyRunWhenResultOfTaggedAsInvocationOnString(verb, condition)
+
     def onlyRunWithOrGreaterThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenResultOfTaggedAsInvocationOnString =
@@ -196,6 +199,8 @@ trait ProtocolVersionChecksAsyncWordSpec {
   this: TestEssentials & AsyncWordSpecLike =>
 
   implicit class ProtocolCheckString(verb: String) {
+    def onlyRunWhen(condition: Boolean): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, condition)
     def onlyRunWithOrGreaterThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =

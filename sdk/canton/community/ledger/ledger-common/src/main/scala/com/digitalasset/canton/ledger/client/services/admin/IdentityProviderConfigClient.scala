@@ -81,6 +81,10 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
       .deleteIdentityProviderConfig(request)
       .map(_ => ())
   }
+
+  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
+    LedgerClient.stubWithTracing(service, token)
+
 }
 
 object IdentityProviderConfigClient {

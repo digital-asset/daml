@@ -111,6 +111,11 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .stubWithTracing(service, token)
       .listUserRights(proto.ListUserRightsRequest())
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
+
+  /** Utility method for json services
+    */
+  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
+    LedgerClient.stubWithTracing(service, token)
 }
 
 object UserManagementClient {

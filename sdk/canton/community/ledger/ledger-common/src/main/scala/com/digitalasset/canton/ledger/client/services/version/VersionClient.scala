@@ -21,6 +21,11 @@ final class VersionClient(service: VersionServiceStub) {
         new GetLedgerApiVersionRequest()
       )
       .map(_.version)
+
+  /** Utility method for json services
+    */
+  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
+    LedgerClient.stubWithTracing(service, token)
 }
 
 object VersionClient {

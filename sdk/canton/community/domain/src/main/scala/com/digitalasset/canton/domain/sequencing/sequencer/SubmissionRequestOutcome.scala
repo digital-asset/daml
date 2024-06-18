@@ -13,6 +13,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.tracing.TraceContext
 
 /** Describes the outcome of processing a submission request:
   * @param eventsByMember      The sequenced events for each member that is recipient of the submission request.
@@ -60,6 +61,7 @@ object SubmissionRequestOutcome {
       submission: SubmissionRequest,
       sender: Member,
       rejection: DeliverError,
+      submissionTraceContext: TraceContext,
   ): SubmissionRequestOutcome =
     SubmissionRequestOutcome(
       Map(sender -> rejection),
@@ -68,6 +70,7 @@ object SubmissionRequestOutcome {
         submission,
         rejection.timestamp,
         rejection.reason,
+        submissionTraceContext,
       ),
     )
 }

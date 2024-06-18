@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -68,6 +69,7 @@ private[update] final class SubmissionRequestValidator(
     rateLimitManager,
     loggerFactory,
     metrics,
+    unifiedSequencer = unifiedSequencer,
   )
 
   /** Returns the snapshot for signing the events (if the submission request specifies a signing timestamp)
@@ -332,22 +334,6 @@ private[update] final class SubmissionRequestValidator(
               )(group => Right((group.active.forgetNE ++ group.passive).toSet))
             )
         )
-        _ <- {
-          val nonRegistered = sequencers.filterNot(isMemberRegistered(state))
-          EitherT.cond[Future](
-            nonRegistered.isEmpty,
-            (),
-            // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestRefused(
-                s"The sequencer group contains non registered sequencers $nonRegistered"
-              ),
-            ),
-          )
-        }
       } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
     } else
       EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
@@ -701,20 +687,21 @@ private[update] final class SubmissionRequestValidator(
         },
       )
       aggregationIdO = submissionRequest.aggregationId(domainSyncCryptoApi.pureCrypto)
-      aggregationOutcome <- EitherT.fromEither[FutureUnlessShutdown](
-        aggregationIdO.traverse { aggregationId =>
-          val inFlightAggregation = state.inFlightAggregations.get(aggregationId)
-          validateAggregationRuleAndUpdateInFlightAggregation(
-            state,
-            submissionRequest,
-            sequencingTimestamp,
-            aggregationId,
-            inFlightAggregation,
-          ).map(inFlightAggregationUpdate =>
-            (aggregationId, inFlightAggregationUpdate, inFlightAggregation)
-          )
-        }
-      )
+      aggregationOutcome <-
+        aggregationIdO
+          .traverse { aggregationId =>
+            val inFlightAggregation = state.inFlightAggregations.get(aggregationId)
+            validateAggregationRuleAndUpdateInFlightAggregation(
+              state,
+              submissionRequest,
+              sequencingTimestamp,
+              aggregationId,
+              inFlightAggregation,
+            ).map(inFlightAggregationUpdate =>
+              (aggregationId, inFlightAggregationUpdate, inFlightAggregation)
+            )
+          }
+          .mapK(FutureUnlessShutdown.outcomeK)
       aggregatedBatch = aggregationOutcome.fold(submissionRequest.batch) {
         case (aggregationId, inFlightAggregationUpdate, inFlightAggregation) =>
           val updatedInFlightAggregation = InFlightAggregation.tryApplyUpdate(
@@ -796,6 +783,7 @@ private[update] final class SubmissionRequestValidator(
           sequencingTimestamp,
           members,
           aggregatedBatch,
+          traceContext,
         ),
       ),
       sequencerEventTimestamp,
@@ -808,22 +796,25 @@ private[update] final class SubmissionRequestValidator(
       aggregationId: AggregationId,
       inFlightAggregationO: Option[InFlightAggregation],
   )(implicit
-      traceContext: TraceContext
-  ): Either[SubmissionRequestOutcome, InFlightAggregationUpdate] =
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, SubmissionRequestOutcome, InFlightAggregationUpdate] =
     for {
-      inFlightAggregationAndUpdate <- inFlightAggregationO
-        .map(_ -> InFlightAggregationUpdate.empty)
-        .toRight(())
-        .leftFlatMap { _ =>
-          val rule = submissionRequest.aggregationRule.getOrElse(
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                "A submission request with an aggregation id must have an aggregation rule"
+      inFlightAggregationAndUpdate <- {
+        EitherT
+          .fromOption(inFlightAggregationO, ())
+          .map(_ -> InFlightAggregationUpdate.empty)
+          .leftFlatMap { _ =>
+            val rule = submissionRequest.aggregationRule.getOrElse(
+              ErrorUtil.internalError(
+                new IllegalStateException(
+                  "A submission request with an aggregation id must have an aggregation rule"
+                )
               )
             )
-          )
-          validateAggregationRule(state, submissionRequest, sequencingTimestamp, rule)
-        }
+            validateAggregationRule(state, submissionRequest, sequencingTimestamp, rule)
+          }
+      }
       (inFlightAggregation, inFlightAggregationUpdate) = inFlightAggregationAndUpdate
       aggregatedSender = AggregatedSender(
         submissionRequest.sender,
@@ -833,33 +824,37 @@ private[update] final class SubmissionRequestValidator(
         ),
       )
 
-      newAggregation <- inFlightAggregation
-        .tryAggregate(aggregatedSender)
-        .leftMap {
-          case InFlightAggregation.AlreadyDelivered(deliveredAt) =>
-            val message =
-              s"The aggregatable request with aggregation ID $aggregationId was previously delivered at $deliveredAt"
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.AggregateSubmissionAlreadySent(message),
-            )
-          case InFlightAggregation.AggregationStuffing(_, at) =>
-            val message =
-              s"The sender ${submissionRequest.sender} previously contributed to the aggregatable submission with ID $aggregationId at $at"
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.AggregateSubmissionStuffing(message),
-            )
-        }
+      newAggregation <-
+        EitherT.fromEither[Future](
+          inFlightAggregation
+            .tryAggregate(aggregatedSender)
+            .leftMap {
+              case InFlightAggregation.AlreadyDelivered(deliveredAt) =>
+                val message =
+                  s"The aggregatable request with aggregation ID $aggregationId was previously delivered at $deliveredAt"
+                invalidSubmissionRequest(
+                  state,
+                  submissionRequest,
+                  sequencingTimestamp,
+                  SequencerErrors.AggregateSubmissionAlreadySent(message),
+                )
+              case InFlightAggregation.AggregationStuffing(_, at) =>
+                val message =
+                  s"The sender ${submissionRequest.sender} previously contributed to the aggregatable submission with ID $aggregationId at $at"
+                invalidSubmissionRequest(
+                  state,
+                  submissionRequest,
+                  sequencingTimestamp,
+                  SequencerErrors.AggregateSubmissionStuffing(message),
+                )
+            }
+        )
+
       fullInFlightAggregationUpdate = inFlightAggregationUpdate.tryMerge(
         InFlightAggregationUpdate(None, Chain.one(aggregatedSender))
       )
       // If we're not delivering the request to all recipients right now, just send a receipt back to the sender
-      _ <- Either.cond(
+      _ <- EitherT.cond(
         newAggregation.deliveredAt.nonEmpty,
         logger.debug(
           s"Aggregation ID $aggregationId has reached its threshold ${newAggregation.rule.threshold} and will be delivered at $sequencingTimestamp."
@@ -872,7 +867,8 @@ private[update] final class SubmissionRequestValidator(
           SubmissionRequestOutcome(
             Map(submissionRequest.sender -> deliverReceiptEvent),
             Some(aggregationId -> fullInFlightAggregationUpdate),
-            outcome = SubmissionOutcome.DeliverReceipt(submissionRequest, sequencingTimestamp),
+            outcome =
+              SubmissionOutcome.DeliverReceipt(submissionRequest, sequencingTimestamp, traceContext),
           )
         },
       )
@@ -884,26 +880,42 @@ private[update] final class SubmissionRequestValidator(
       sequencingTimestamp: CantonTimestamp,
       rule: AggregationRule,
   )(implicit
-      traceContext: TraceContext
-  ): Either[SubmissionRequestOutcome, (InFlightAggregation, InFlightAggregationUpdate)] =
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, SubmissionRequestOutcome, (InFlightAggregation, InFlightAggregationUpdate)] =
     for {
-      _ <- SequencerValidations
-        .wellformedAggregationRule(submissionRequest.sender, rule)
-        .leftMap(message =>
-          invalidSubmissionRequest(
-            state,
-            submissionRequest,
-            sequencingTimestamp,
-            SequencerErrors.SubmissionRequestMalformed(message),
+      _ <- EitherT.fromEither(
+        SequencerValidations
+          .wellformedAggregationRule(submissionRequest.sender, rule)
+          .leftMap(message =>
+            invalidSubmissionRequest(
+              state,
+              submissionRequest,
+              sequencingTimestamp,
+              SequencerErrors.SubmissionRequestMalformed(message),
+            )
           )
-        )
-      unregisteredEligibleMembers =
-        rule.eligibleSenders.filterNot(
-          state.registeredMembers.contains
-        )
-      _ <- Either.cond(
+      )
+      unregisteredEligibleMembers <- {
+        if (unifiedSequencer) {
+          EitherT.right(
+            rule.eligibleSenders.forgetNE.parTraverseFilter { member =>
+              memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
+                case true => None
+                case false => Some(member)
+              }
+            }
+          )
+        } else {
+          EitherT.pure[Future, SubmissionRequestOutcome](
+            rule.eligibleSenders.filterNot(
+              state.registeredMembers.contains
+            )
+          )
+        }
+      }
+      _ <- EitherTUtil.condUnitET(
         unregisteredEligibleMembers.isEmpty,
-        (),
         // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
         invalidSubmissionRequest(
           state,
@@ -926,7 +938,11 @@ private[update] final class SubmissionRequestValidator(
       sequencingTimestamp: CantonTimestamp,
   ): SequencedEvent[ClosedEnvelope] =
     Deliver.create(
-      state.tryNextCounter(submissionRequest.sender),
+      if (unifiedSequencer) {
+        SequencerCounter.Genesis
+      } else {
+        state.tryNextCounter(submissionRequest.sender)
+      },
       sequencingTimestamp,
       domainId,
       Some(submissionRequest.messageId),
@@ -953,6 +969,7 @@ private[update] final class SubmissionRequestValidator(
       logger,
       domainId,
       protocolVersion,
+      unifiedSequencer,
     )
   }
 
@@ -1050,6 +1067,7 @@ private[update] object SubmissionRequestValidator {
       logger: TracedLogger,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
+      unifiedSequencer: Boolean,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
     val SubmissionRequest(sender, messageId, _, _, _, _, _) = submissionRequest
     logger.debug(
@@ -1061,7 +1079,11 @@ private[update] object SubmissionRequestValidator {
       sender,
       DeliverError
         .create(
-          state.tryNextCounter(sender),
+          if (unifiedSequencer) {
+            SequencerCounter.Genesis
+          } else {
+            state.tryNextCounter(sender)
+          },
           sequencingTimestamp,
           domainId,
           messageId,
@@ -1069,6 +1091,7 @@ private[update] object SubmissionRequestValidator {
           protocolVersion,
           Option.empty[TrafficReceipt], // Traffic receipt is updated in at the end of processing
         ),
+      traceContext,
     )
   }
 }

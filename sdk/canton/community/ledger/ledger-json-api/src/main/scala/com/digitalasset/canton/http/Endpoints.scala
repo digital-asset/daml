@@ -33,6 +33,7 @@ import com.daml.metrics.Timed
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.domain.Jwt
+import com.digitalasset.canton.http.json2.V2Routes
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -49,6 +50,7 @@ class Endpoints(
     packageManagementService: PackageManagementService,
     meteringReportService: MeteringReportService,
     healthService: HealthService,
+    v2Routes: V2Routes,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
@@ -344,6 +346,7 @@ class Endpoints(
       ),
       path("livez") apply responseToRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
       path("readyz") apply responseToRoute(healthService.ready().map(_.toHttpResponse)),
+      v2Routes.v2Routes,
     )
   }
 

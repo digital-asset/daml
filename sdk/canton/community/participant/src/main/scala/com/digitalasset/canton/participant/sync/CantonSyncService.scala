@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -907,12 +908,8 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $source with domain id $sourceDomainId"
       )
-      _ <- pruningProcessor
+      _ <- migrationService
         .pruneSelectedDeactivatedDomainStores(sourceDomainId)
-        .transform(pruningErrorToCantonError)
-        .leftMap(err =>
-          SyncDomainMigrationError.InternalError.PurgeDeactivatedDomain(sourceDomainId, err.cause)
-        )
         .leftMap[SyncServiceError](
           SyncServiceError.SyncServiceMigrationError(source, target.domain, _)
         )
@@ -942,9 +939,10 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $domain with domain id $domainId"
       )
-      _ <- pruningProcessor
+      _ <- migrationService
         .pruneSelectedDeactivatedDomainStores(domainId)
-        .transform(pruningErrorToCantonError)
+        .leftMap(err => PruningServiceError.InternalServerError.Error(err.cause))
+        .leftWiden[CantonError]
     } yield ()
   }
 

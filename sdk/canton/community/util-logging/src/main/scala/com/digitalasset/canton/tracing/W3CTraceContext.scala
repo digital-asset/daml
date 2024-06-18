@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.tracing
 
+import com.daml.scalautil.Statement.discard
 import io.grpc.Metadata
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
@@ -77,6 +78,18 @@ object W3CTraceContext {
 
   def injectIntoGrpcMetadata(traceContext: TraceContext, metadata: Metadata): Unit =
     propagator.inject(traceContext.context, metadata, grpcMetadataSetter)
+
+  def extractHeaders(traceContext: TraceContext): Map[String, String] = {
+    val resultMap = mutable.Map[String, String]()
+    val setter: TextMapSetter[mutable.Map[String, String]] = (carrier, key, value) =>
+      discard(carrier.put(key, value))
+    propagator.inject(
+      traceContext.context,
+      resultMap,
+      setter,
+    )
+    resultMap.toMap
+  }
 
   /** Constructs a new trace context from optional serialized w3c trace context values.
     * If the values are missing or invalid to construct the span then a trace context will
