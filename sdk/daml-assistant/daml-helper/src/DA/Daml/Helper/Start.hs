@@ -17,11 +17,13 @@ module DA.Daml.Helper.Start
     , SandboxCantonPortSpec(..)
     ) where
 
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import Data.Bifunctor (first)
 import Data.Maybe
 import DA.PortFile
 import qualified Data.Text as T
@@ -40,6 +42,7 @@ import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 
@@ -207,10 +210,12 @@ runStart startOptions@StartOptions{..} =
 
     where
         getDarLfVersion darPath = do
-          darBs <- BS.readFile darPath
+          darBs <- BSL.readFile darPath
+
           (_, LF.Package{packageLfVersion}) <- 
-            requiredE "Failed to decode the dar produced by daml build" $
-              Archive.decodeArchive Archive.DecodeAsMain darBs
+            requiredE "Failed to decode the dar produced by daml build" $ do
+              Dalfs{..} <- first Archive.ProtobufError $ readDalfs $ Zip.toArchive darBs
+              Archive.decodeArchive Archive.DecodeAsMain $ BSL.toStrict mainDalf
           pure packageLfVersion
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
