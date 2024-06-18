@@ -43,10 +43,11 @@ case object BuildInfo {{
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val protocolVersions = List("5", "6")
+  val stableProtocolVersions = List("5")
+  val previewProtocolVersions = List("6")
   override val toString: String = {{
-    "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
-      version, scalaVersion, sbtVersion, damlLibrariesVersion, protocolVersions
+    "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, stableProtocolVersions: %s previewProtocolVersions: %s".format(
+      version, scalaVersion, sbtVersion, damlLibrariesVersion, stableProtocolVersions, previewProtocolVersions
     )
   }}
 }}
@@ -907,7 +908,6 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_internal_java",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -1291,7 +1291,7 @@ ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/**/*.proto"]),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     maven_artifact_prefix = "ledger-api",
