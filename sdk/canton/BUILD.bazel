@@ -1527,6 +1527,7 @@ genrule(
         "@com_google_protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
+        ":ledger-api-protos-fg",
     ],
     outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
