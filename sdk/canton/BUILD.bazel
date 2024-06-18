@@ -908,6 +908,7 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":ledger_api_proto_internal_java",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
