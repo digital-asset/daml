@@ -60,7 +60,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     * @param serverConfig          ledger API server configuration
     * @param jsonApiConfig         JSON API configuration
     * @param indexerConfig         indexer configuration
-    * @param indexerLockIds        Optional lock IDs to be used for indexer HA
+    * @param indexerHaConfig       configuration for indexer HA
     * @param ledgerId              unique ledger id used by the ledger API server
     * @param participantId         unique participant id used e.g. for a unique ledger API server index db name
     * @param engine                daml engine shared with Canton for performance reasons
@@ -69,6 +69,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     * @param cantonParameterConfig configurations meant to be overridden primarily in tests (applying to all participants)
     * @param testingTimeService    an optional service during testing for advancing time, participant-specific
     * @param adminToken            canton admin token for ledger api auth
+    * @param enableCommandInspection     whether canton should support inspection service or not
     * @param loggerFactory         canton logger factory
     * @param tracerProvider        tracer provider for open telemetry grpc injection
     * @param metrics               upstream metrics module
@@ -86,6 +87,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       cantonParameterConfig: ParticipantNodeParameters,
       testingTimeService: Option[TimeServiceBackend],
       adminToken: CantonAdminToken,
+      enableCommandInspection: Boolean,
       override val loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
       metrics: Metrics,
@@ -147,6 +149,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             futureSupervisor = futureSupervisor,
             multiDomainEnabled = multiDomainEnabled,
             parameters = parameters,
+            commandProgressTracker = config.syncService.commandProgressTracker,
           )
         val startupMode: IndexerStartupMode =
           if (config.cantonParameterConfig.dbMigrateAndStart)

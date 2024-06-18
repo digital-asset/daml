@@ -14,6 +14,8 @@ import com.digitalasset.canton.version.ProtocolVersion.{
   deleted,
   deprecated,
   deprecating,
+  preview,
+  stable,
   supported,
   unstable,
 }
@@ -55,11 +57,17 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   *    As a result, you may have to modify a couple of protobuf definitions and mark them as stable as well.
   *
   *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
-  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.protocolVersions]].
+  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.stableProtocolVersions]].
+  *
+  * How to release a protocol version `N` as preview:
+  *  - Switch the type parameter of the protocol version constant `v<N>` from
+  *    [[com.digitalasset.canton.version.ProtocolVersion.Unstable]] to [[com.digitalasset.canton.version.ProtocolVersion.Preview]]
+  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
+  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.previewProtocolVersions]].
   *
   *  - Check the test jobs for protocol versions:
   *    Likely `N` will become the default protocol version used by the `test` job,
-  *    namely [[com.digitalasset.canton.version.ProtocolVersion.latest]].
+  *    namely [[com.digitalasset.canton.version.ProtocolVersion.latestStable]].
   *    So the separate test job for `N` is no longer needed.
   *    Conversely, we now need a new job for the previous default protocol version.
   *    Usually, it is enough to run the previous version only in canton_nightly.
@@ -75,7 +83,8 @@ sealed case class ProtocolVersion private[version] (v: Int)
   def isDeprecating: Boolean = deprecating.contains(this)
 
   def isUnstable: Boolean = unstable.contains(this)
-  def isStable: Boolean = !isUnstable
+  def isPreview: Boolean = preview.contains(this)
+  def isStable: Boolean = stable.contains(this)
 
   def isDeleted: Boolean = deleted.contains(this)
 
@@ -99,18 +108,20 @@ object ProtocolVersion {
   /** Type-level marker for whether a protocol version is stable */
   sealed trait Status
 
-  /** Marker for unstable protocol versions */
   sealed trait Unstable extends Status
 
-  /** Marker for stable protocol versions */
   sealed trait Stable extends Status
+
+  sealed trait Preview extends Status
 
   type ProtocolVersionWithStatus[S <: Status] = ProtocolVersion { type Status = S }
 
-  private[version] def stable(v: Int): ProtocolVersionWithStatus[Stable] =
+  private[version] def createStable(v: Int): ProtocolVersionWithStatus[Stable] =
     createWithStatus[Stable](v)
-  private[version] def unstable(v: Int): ProtocolVersionWithStatus[Unstable] =
+  private[version] def createUnstable(v: Int): ProtocolVersionWithStatus[Unstable] =
     createWithStatus[Unstable](v)
+  private[version] def createPreview(v: Int): ProtocolVersionWithStatus[Preview] =
+    createWithStatus[Preview](v)
 
   private def createWithStatus[S <: Status](v: Int): ProtocolVersionWithStatus[S] =
     new ProtocolVersion(v) { override type Status = S }
@@ -182,12 +193,9 @@ object ProtocolVersion {
       pv: ProtocolVersion,
       includeDeleted: Boolean = false,
   ) = {
-    val supportedStablePVs = stableAndSupported.map(_.toString)
+    val deleted = Option.when(includeDeleted)(ProtocolVersion.deleted).getOrElse(Nil)
 
-    val supportedPVs: NonEmpty[List[String]] = if (includeDeleted) {
-      val deletedPVs = deleted.map(pv => s"(${pv.toString})")
-      supportedStablePVs ++ deletedPVs
-    } else supportedStablePVs
+    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted ++ preview).map(_.toString)
 
     s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
   }
@@ -278,13 +286,10 @@ object ProtocolVersion {
 
   /** All stable protocol versions supported by this release.
     */
-  val stableAndSupported: NonEmpty[List[ProtocolVersion]] = {
+  val stable: NonEmpty[List[ProtocolVersion]] = {
     val releasePVs = NonEmpty
       .from(
-        BuildInfo.protocolVersions
-          .map(parseUnchecked)
-          .map(_.valueOr(sys.error))
-          .toList
+        parseFromBuildInfo(BuildInfo.stableProtocolVersions.toSeq)
       )
       .getOrElse(
         sys.error("Release needs to support at least one protocol version")
@@ -298,22 +303,26 @@ object ProtocolVersion {
     releasePVs
   }
 
+  val preview: List[ProtocolVersionWithStatus[Preview]] =
+    parseFromBuildInfo(BuildInfo.previewProtocolVersions.toSeq)
+      .map(pv => ProtocolVersion.createPreview(pv.v))
+
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
     NonEmpty.mk(List, ProtocolVersion.dev)
 
   val supported: NonEmpty[List[ProtocolVersion]] =
-    stableAndSupported ++ unstable
+    stable ++ preview ++ unstable
 
-  val latest: ProtocolVersion = stableAndSupported.max1
+  val latestStable: ProtocolVersion = stable.max1
 
-  val smallestStable: ProtocolVersion = stableAndSupported.min1
+  val smallestStable: ProtocolVersion = stable.min1
 
-  lazy val dev: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(Int.MaxValue)
+  lazy val dev: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.createUnstable(Int.MaxValue)
 
-  lazy val v3: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(3)
-  lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(4)
-  lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(5)
-  lazy val v6: ProtocolVersionWithStatus[Stable] = ProtocolVersion.stable(6)
+  lazy val v3: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(3)
+  lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(4)
+  lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(5)
+  lazy val v6: ProtocolVersionWithStatus[Preview] = ProtocolVersion.createPreview(6)
   /*
   If you add a new protocol version, ensure that you add the corresponding CI
   jobs (`test_protocol_version_X`) so that tests are run with this new protocol version.
@@ -324,6 +333,11 @@ object ProtocolVersion {
   // Minimum stable protocol version introduced
   // We still use v3 instead of v5 because we still want to deserialize v3 messages for hard domain migration purposes.
   lazy val minimum: ProtocolVersion = v3
+
+  private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
+    pv.map(parseUnchecked)
+      .map(_.valueOr(sys.error))
+      .toList
 }
 
 /*
@@ -333,7 +347,7 @@ object ProtocolVersion {
 final case class ReleaseProtocolVersion(v: ProtocolVersion) extends AnyVal
 
 object ReleaseProtocolVersion {
-  val latest: ReleaseProtocolVersion = ReleaseProtocolVersion(ProtocolVersion.latest)
+  val latest: ReleaseProtocolVersion = ReleaseProtocolVersion(ProtocolVersion.latestStable)
 }
 
 object Transfer {
@@ -373,7 +387,10 @@ object ProtoVersion {
   * Implements both [[com.digitalasset.canton.version.ProtocolVersion.Stable]] and [[com.digitalasset.canton.version.ProtocolVersion.Unstable]]
   * means that [[StableProtoVersion]] messages can be used in stable and unstable protocol versions.
   */
-trait StableProtoVersion extends ProtocolVersion.Stable with ProtocolVersion.Unstable
+trait StableProtoVersion
+    extends ProtocolVersion.Stable
+    with ProtocolVersion.Unstable
+    with ProtocolVersion.Preview
 
 /** Marker trait for Protobuf messages generated by scalapb
   * that are used only in [[com.digitalasset.canton.version.ProtocolVersion.isUnstable unstable]] protocol versions

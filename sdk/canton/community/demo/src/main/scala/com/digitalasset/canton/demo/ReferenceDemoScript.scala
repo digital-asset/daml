@@ -591,7 +591,7 @@ object ReferenceDemoScript {
   def computeMaxWaitForPruning: Duration = {
     val defaultDynamicDomainParameters = DynamicDomainParameters.initialValues(
       topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
-      protocolVersion = ProtocolVersion.latest,
+      protocolVersion = ProtocolVersion.latestStable,
     )
     val mediatorReactionTimeout = defaultDynamicDomainParameters.mediatorReactionTimeout
     val participantResponseTimeout = defaultDynamicDomainParameters.participantResponseTimeout

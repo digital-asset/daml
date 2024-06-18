@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -88,7 +89,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.platform.apiserver.execution.{
+  AuthorityResolver,
+  CommandProgressTracker,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.resource.Storage
@@ -280,6 +284,10 @@ class CantonSyncService(
       syncDomainPersistentStateManager.get(domainId.unwrap).map(_.transferStore),
     protocolVersionFor = protocolVersionGetter,
   )
+  val commandProgressTracker: CommandProgressTracker =
+    if (parameters.commandProgressTracking.enabled)
+      new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
+    else CommandProgressTracker.NoOp
 
   private val commandDeduplicator = new CommandDeduplicatorImpl(
     participantNodePersistentState.map(_.commandDeduplicationStore),
@@ -378,6 +386,19 @@ class CantonSyncService(
       loggerFactory,
     )
 
+  private def trackSubmission(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+  ): Unit =
+    commandProgressTracker
+      .findHandle(
+        submitterInfo.commandId,
+        submitterInfo.applicationId,
+        submitterInfo.actAs,
+        submitterInfo.submissionId,
+      )
+      .recordTransactionImpact(transaction)
+
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -393,6 +414,7 @@ class CantonSyncService(
     withSpan("CantonSyncService.submitTransaction") { implicit traceContext => span =>
       span.setAttribute("command_id", submitterInfo.commandId)
       logger.debug(s"Received submit-transaction ${submitterInfo.commandId} from ledger-api server")
+      trackSubmission(submitterInfo, transaction)
       submitTransactionF(
         submitterInfo,
         transactionMeta,
@@ -832,12 +854,8 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $source with domain id $sourceDomainId"
       )
-      _ <- pruningProcessor
+      _ <- migrationService
         .pruneSelectedDeactivatedDomainStores(sourceDomainId)
-        .transform(pruningErrorToCantonError)
-        .leftMap(err =>
-          SyncDomainMigrationError.InternalError.PurgeDeactivatedDomain(sourceDomainId, err.cause)
-        )
         .leftMap[SyncServiceError](
           SyncServiceError.SyncServiceMigrationError(source, target.domain, _)
         )
@@ -867,9 +885,10 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $domain with domain id $domainId"
       )
-      _ <- pruningProcessor
+      _ <- migrationService
         .pruneSelectedDeactivatedDomainStores(domainId)
-        .transform(pruningErrorToCantonError)
+        .leftMap(err => PruningServiceError.InternalServerError.Error(err.cause))
+        .leftWiden[CantonError]
     } yield ()
   }
 
@@ -1240,6 +1259,7 @@ class CantonSyncService(
           missingKeysAlerter,
           transferCoordination,
           inFlightSubmissionTracker,
+          commandProgressTracker,
           clock,
           metrics.pruning,
           domainMetrics,

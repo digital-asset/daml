@@ -5,6 +5,7 @@ package com.digitalasset.canton.error
 
 import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorResource}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import io.grpc.StatusRuntimeException
 
 import java.util.concurrent.TimeUnit
@@ -26,9 +27,20 @@ final case class DecodedRpcStatus(
     retryIn: Option[Duration],
     context: Map[String, String],
     resources: Map[ErrorResource, Seq[String]],
-) {
+) extends PrettyPrinting {
 
   def isRetryable: Boolean = retryIn.nonEmpty
+  override def pretty: Pretty[DecodedRpcStatus] = prettyOfClass(
+    param("id", _.id.singleQuoted),
+    param("category", _.category.toString.singleQuoted),
+    param("retryIn", _.retryIn),
+    param("context", _.context.map { case (k, v) => (k.unquoted, v.unquoted) }),
+    param(
+      "resources",
+      _.resources
+        .map { case (k, v) => (k.asString.unquoted, v.map(_.unquoted)) },
+    ),
+  )
 
 }
 

@@ -88,6 +88,7 @@ private[apiserver] final class ApiVersionServiceV2(
             Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
           acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
           templateFilters = Some(TransactionsWithTemplateFilters(supported = true)),
+          commandInspectionService = Some(ledgerFeatures.commandInspectionService),
         )
       ),
     )

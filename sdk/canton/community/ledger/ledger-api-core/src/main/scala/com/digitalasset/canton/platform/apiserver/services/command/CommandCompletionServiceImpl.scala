@@ -115,6 +115,7 @@ private[apiserver] final class CommandCompletionServiceImpl private (
       loggingContext: LoggingContextWithTrace
   ): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+
 }
 
 private[apiserver] object CommandCompletionServiceImpl {

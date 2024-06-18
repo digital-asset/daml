@@ -126,7 +126,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       }
     }
 
-    "not persist DAR in store if filename not specified" in withTestEnv() { env =>
+    "not persist DAR in store if filename not specified" in withTestEnv(lfDev = true) { env =>
       import env.*
       val persistedPackageId = sut
         .validateAndStorePackages(
@@ -143,100 +143,102 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         persistedPackageId,
         // If fileName not provided, the "default" is populated for descriptions
         sourceDescription = String256M("default")(None),
-        packageName = Some(pkgName),
-        packageVersion = Some(pkgVersion3),
+        // Max stable version now is 1.15, which won't store the name + version, as upgrades isn't supported on 1.15
+        packageName = None,
+        packageVersion = None,
       )
 
       damlPackageStore.listDars().futureValue shouldBe empty
     }
 
-    "allow persisting packages with the same package-name and package-version if one is non-upgradable" in withTestEnv() {
-      env =>
-        import env.*
+    "allow persisting packages with the same package-name and package-version if one is non-upgradable" in withTestEnv(
+      lfDev = true
+    ) { env =>
+      import env.*
 
-        // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.16)
-        // Same package-name and package-version
-        val pkg_lf_1_15 = lfArchiveTemplate(
-          pkgName,
-          pkgVersion1,
-          "someTest: Text",
-          LanguageVersion.v1_15,
-          Ref.PackageId.assertFromString("somePkgId"),
-        )
-        val another_pkg_lf_1_15 = lfArchiveTemplate(
-          pkgName,
-          pkgVersion1,
-          "someBool: Bool",
-          LanguageVersion.v1_15,
-          Ref.PackageId.assertFromString("somePkgId"),
-        )
-        val pkg_lf_1_16 = lfArchiveTemplate(
-          pkgName,
-          pkgVersion1,
-          "someParty: Party",
-          LanguageVersion.v1_16,
-          Ref.PackageId.assertFromString("somePkgId"),
-        )
+      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.16)
+      // Same package-name and package-version
+      val pkg_lf_1_15 = lfArchiveTemplate(
+        pkgName,
+        pkgVersion1,
+        "someTest: Text",
+        LanguageVersion.v1_15,
+        Ref.PackageId.assertFromString("somePkgId"),
+      )
+      val another_pkg_lf_1_15 = lfArchiveTemplate(
+        pkgName,
+        pkgVersion1,
+        "someBool: Bool",
+        LanguageVersion.v1_15,
+        Ref.PackageId.assertFromString("somePkgId"),
+      )
+      val pkg_lf_1_16 = lfArchiveTemplate(
+        pkgName,
+        pkgVersion1,
+        "someParty: Party",
+        LanguageVersion.v1_16,
+        Ref.PackageId.assertFromString("somePkgId"),
+      )
 
-        val pkgId1 = sut
-          .validateAndStorePackages(
-            encodeDarArchive(pkg_lf_1_15),
-            Some("fileName1"),
-            LedgerSubmissionId.assertFromString("sub-1"),
-          )
-          .valueOrFailShutdown("validateAndStorePackages failed")
-          .futureValue
-          .headOption
-          .value
-        val pkgId2 = sut
-          .validateAndStorePackages(
-            encodeDarArchive(another_pkg_lf_1_15),
-            Some("fileName2"),
-            LedgerSubmissionId.assertFromString("sub-1"),
-          )
-          .valueOrFailShutdown("validateAndStorePackages failed")
-          .futureValue
-          .headOption
-          .value
-        val pkgId3 = sut
-          .validateAndStorePackages(
-            encodeDarArchive(pkg_lf_1_16),
-            Some("fileName3"),
-            LedgerSubmissionId.assertFromString("sub-1"),
-          )
-          .valueOrFailShutdown("validateAndStorePackages failed")
-          .futureValue
-          .headOption
-          .value
-
-        // Check that the packages are properly persisted
-        damlPackageStore.listPackages().futureValue should contain theSameElementsAs Seq(
-          PackageDescription(
-            pkgId1,
-            String256M("fileName1")(None),
-            packageName = None,
-            packageVersion = None,
-          ),
-          PackageDescription(
-            pkgId2,
-            String256M("fileName2")(None),
-            packageName = None,
-            packageVersion = None,
-          ),
-          PackageDescription(
-            pkgId3,
-            String256M("fileName3")(None),
-            packageName = Some(pkgName),
-            packageVersion = Some(pkgVersion1),
-          ),
+      val pkgId1 = sut
+        .validateAndStorePackages(
+          encodeDarArchive(pkg_lf_1_15),
+          Some("fileName1"),
+          LedgerSubmissionId.assertFromString("sub-1"),
         )
-
-        // Check that only the upgradable package updated the package resolution map
-        sut.upgradablePackageResolutionMapRef.get().value shouldBe Map(
-          pkgId3 -> (pkgName -> pkgVersion1)
+        .valueOrFailShutdown("validateAndStorePackages failed")
+        .futureValue
+        .headOption
+        .value
+      val pkgId2 = sut
+        .validateAndStorePackages(
+          encodeDarArchive(another_pkg_lf_1_15),
+          Some("fileName2"),
+          LedgerSubmissionId.assertFromString("sub-1"),
         )
+        .valueOrFailShutdown("validateAndStorePackages failed")
+        .futureValue
+        .headOption
+        .value
+      val pkgId3 = sut
+        .validateAndStorePackages(
+          encodeDarArchive(pkg_lf_1_16),
+          Some("fileName3"),
+          LedgerSubmissionId.assertFromString("sub-1"),
+        )
+        .valueOrFailShutdown("validateAndStorePackages failed")
+        .futureValue
+        .headOption
+        .value
 
-        succeed
+      // Check that the packages are properly persisted
+      damlPackageStore.listPackages().futureValue should contain theSameElementsAs Seq(
+        PackageDescription(
+          pkgId1,
+          String256M("fileName1")(None),
+          packageName = None,
+          packageVersion = None,
+        ),
+        PackageDescription(
+          pkgId2,
+          String256M("fileName2")(None),
+          packageName = None,
+          packageVersion = None,
+        ),
+        PackageDescription(
+          pkgId3,
+          String256M("fileName3")(None),
+          packageName = Some(pkgName),
+          packageVersion = Some(pkgVersion1),
+        ),
+      )
+
+      // Check that only the upgradable package updated the package resolution map
+      sut.upgradablePackageResolutionMapRef.get().value shouldBe Map(
+        pkgId3 -> (pkgName -> pkgVersion1)
+      )
+
+      succeed
     }
   }
 
@@ -285,9 +287,15 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
   final def withTestEnv(
       initialize: Boolean = true,
       lfDev: Boolean = false,
+      lfPreview: Boolean = false,
       damlPackageStore: DamlPackageStore = new InMemoryDamlPackageStore(loggerFactory),
   )(test: WithInitializedPackageUploader => Assertion): Assertion = {
-    val uploader = new WithInitializedPackageUploader(initialize, lfDev, damlPackageStore) {
+    val uploader = new WithInitializedPackageUploader(
+      initialize,
+      lfDev = lfDev,
+      lfPreview = lfPreview,
+      damlPackageStore,
+    ) {
       override def run(): Assertion = {
         super.run()
         test(this)
@@ -300,6 +308,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
   private abstract class WithInitializedPackageUploader(
       initialize: Boolean = true,
       lfDev: Boolean = false,
+      lfPreview: Boolean = false,
       val damlPackageStore: DamlPackageStore,
   ) extends AutoCloseable {
     final val participantEventPublisherMock: ParticipantEventPublisher =
@@ -309,8 +318,12 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       .thenReturn(FutureUnlessShutdown.unit)
 
     final val sut = new PackageUploader(
-      engine =
-        DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = lfDev, enableStackTraces = false),
+      engine = DAMLe.newEngine(
+        uniqueContractKeys = false,
+        enableLfDev = lfDev,
+        enableLfPreview = lfPreview,
+        enableStackTraces = false,
+      ),
       hashOps = hashOps,
       eventPublisher = participantEventPublisherMock,
       packageDependencyResolver =
@@ -333,73 +346,79 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
   def testPackagePersistence(
       testLanguageVersion: LanguageVersion,
       shouldStorePkgNameAndVersion: Boolean,
-  ): Assertion = withTestEnv(lfDev = testLanguageVersion.isDevVersion) { env =>
-    import env.*
-    val testArchive = lfArchiveTemplate(
-      pkgName,
-      pkgVersion1,
-      "discriminator: Text",
-      testLanguageVersion,
-      Ref.PackageId.assertFromString("somePkgId"),
-    )
-    val darPayload = encodeDarArchive(testArchive)
+  ): Assertion = {
+    val previewMode = LanguageVersion.EarlyAccessVersions.contains(testLanguageVersion)
+    val devMode =
+      testLanguageVersion == LanguageVersion.v1_dev || testLanguageVersion == LanguageVersion.v2_dev
 
-    val submissionId = LedgerSubmissionId.assertFromString("sub-1")
-    val persistedPackageIds = sut
-      .validateAndStorePackages(darPayload, Some("DarFileName"), submissionId)
-      .valueOrFailShutdown("validateAndStorePackages failed")
-      .futureValue
+    withTestEnv(lfDev = devMode, lfPreview = previewMode) { env =>
+      import env.*
+      val testArchive = lfArchiveTemplate(
+        pkgName,
+        pkgVersion1,
+        "discriminator: Text",
+        testLanguageVersion,
+        Ref.PackageId.assertFromString("somePkgId"),
+      )
+      val darPayload = encodeDarArchive(testArchive)
 
-    val persistedPackageId = inside(persistedPackageIds) { case Seq(pkgId) => pkgId }
+      val submissionId = LedgerSubmissionId.assertFromString("sub-1")
+      val persistedPackageIds = sut
+        .validateAndStorePackages(darPayload, Some("DarFileName"), submissionId)
+        .valueOrFailShutdown("validateAndStorePackages failed")
+        .futureValue
 
-    // Check Daml Package/Archive persisted
-    damlPackageStore
-      .getPackage(persistedPackageId)
-      .futureValue
-      .value shouldBe testArchive
+      val persistedPackageId = inside(persistedPackageIds) { case Seq(pkgId) => pkgId }
 
-    // Check PackageDescription persisted correctly
-    damlPackageStore.listPackages().futureValue should contain only PackageDescription(
-      persistedPackageId,
-      String256M("DarFileName")(None),
-      packageName = Option.when(shouldStorePkgNameAndVersion)(pkgName),
-      packageVersion = Option.when(shouldStorePkgNameAndVersion)(pkgVersion1),
-    )
+      // Check Daml Package/Archive persisted
+      damlPackageStore
+        .getPackage(persistedPackageId)
+        .futureValue
+        .value shouldBe testArchive
 
-    val expectedDarHash = hashOps.digest(HashPurpose.DarIdentifier, darPayload)
-    val expectedDarDescriptor = DarDescriptor(
-      expectedDarHash,
-      String255("DarFileName")(),
-    )
-    // Check DAR persisted
-    damlPackageStore.listDars().futureValue should contain only expectedDarDescriptor
+      // Check PackageDescription persisted correctly
+      damlPackageStore.listPackages().futureValue should contain only PackageDescription(
+        persistedPackageId,
+        String256M("DarFileName")(None),
+        packageName = Option.when(shouldStorePkgNameAndVersion)(pkgName),
+        packageVersion = Option.when(shouldStorePkgNameAndVersion)(pkgVersion1),
+      )
 
-    val persistedDar = damlPackageStore.getDar(expectedDarHash).futureValue.value
-    persistedDar.descriptor shouldBe expectedDarDescriptor
-    ByteString.copyFrom(persistedDar.bytes) shouldBe darPayload
+      val expectedDarHash = hashOps.digest(HashPurpose.DarIdentifier, darPayload)
+      val expectedDarDescriptor = DarDescriptor(
+        expectedDarHash,
+        String255("DarFileName")(),
+      )
+      // Check DAR persisted
+      damlPackageStore.listDars().futureValue should contain only expectedDarDescriptor
 
-    // Check upgradablePackageResolutionMapRef correctly updated
-    sut.upgradablePackageResolutionMapRef
-      .get()
-      .valueOrFail("upgradablePackageResolutionMapRef")
-      .get(persistedPackageId) shouldBe Option.when(shouldStorePkgNameAndVersion)(
-      pkgName -> pkgVersion1
-    )
+      val persistedDar = damlPackageStore.getDar(expectedDarHash).futureValue.value
+      persistedDar.descriptor shouldBe expectedDarDescriptor
+      ByteString.copyFrom(persistedDar.bytes) shouldBe darPayload
 
-    // Check successful LedgerSyncEvent publication
-    verify(participantEventPublisherMock)
-      .publish(
-        LedgerSyncEvent.PublicPackageUpload(
-          List(testArchive),
-          Some("DarFileName"),
-          // LedgerSyncEvent times are overwritten later (see [[ParticipantEventPublisher]])
-          LfTimestamp.Epoch,
-          Some(submissionId),
-        )
-      )(traceContext)
-      .discard
+      // Check upgradablePackageResolutionMapRef correctly updated
+      sut.upgradablePackageResolutionMapRef
+        .get()
+        .valueOrFail("upgradablePackageResolutionMapRef")
+        .get(persistedPackageId) shouldBe Option.when(shouldStorePkgNameAndVersion)(
+        pkgName -> pkgVersion1
+      )
 
-    succeed
+      // Check successful LedgerSyncEvent publication
+      verify(participantEventPublisherMock)
+        .publish(
+          LedgerSyncEvent.PublicPackageUpload(
+            List(testArchive),
+            Some("DarFileName"),
+            // LedgerSyncEvent times are overwritten later (see [[ParticipantEventPublisher]])
+            LfTimestamp.Epoch,
+            Some(submissionId),
+          )
+        )(traceContext)
+        .discard
+
+      succeed
+    }
   }
 }
 

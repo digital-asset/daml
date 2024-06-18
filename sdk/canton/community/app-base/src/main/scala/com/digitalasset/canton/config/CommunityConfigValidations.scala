@@ -19,10 +19,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.net.URI
 
 private[config] trait ConfigValidations[C <: CantonConfig] {
-  final def validate(config: C): Validated[NonEmpty[Seq[String]], Unit] =
-    validations.traverse_(_(config))
+  final def validate(config: C)(
+      parameters: CantonParameters
+  ): Validated[NonEmpty[Seq[String]], Unit] =
+    validations(parameters).traverse_(_(config))
 
-  protected val validations: List[C => Validated[NonEmpty[Seq[String]], Unit]]
+  protected def validations(
+      parameters: CantonParameters
+  ): List[C => Validated[NonEmpty[Seq[String]], Unit]]
 }
 
 object CommunityConfigValidations
@@ -54,17 +58,18 @@ object CommunityConfigValidations
   private val Valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
   type Validation = CantonCommunityConfig => Validated[NonEmpty[Seq[String]], Unit]
 
-  override protected val validations: List[Validation] =
-    List[Validation](noDuplicateStorage, atLeastOneNode) ++ genericValidations[
-      CantonCommunityConfig
-    ]
+  override protected def validations(parameters: CantonParameters): List[Validation] =
+    List[Validation](noDuplicateStorage, atLeastOneNode) ++
+      genericValidations[CantonCommunityConfig](parameters)
 
   /** Validations applied to all community and enterprise Canton configurations. */
-  private[config] def genericValidations[C <: CantonConfig]
-      : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
+  private[config] def genericValidations[C <: CantonConfig](
+      parameters: CantonParameters
+  ): List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
       backwardsCompatibleLoggingConfig,
       developmentProtocolSafetyCheckDomains,
+      previewProtocolSafetyCheck(_)(parameters),
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
       warnIfDeprecatedProtocolVersionEmbeddedDomain,
@@ -235,25 +240,44 @@ object CommunityConfigValidations
   private def warnIfUnsafeMinProtocolVersion(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    config.participants.toSeq.foreach { case (name, config) =>
-      val minimum = config.parameters.minimumProtocolVersion.map(_.unwrap)
-      val isMinimumDeprecatedVersion = minimum.getOrElse(ProtocolVersion.minimum).isDeprecated
+    val errors = config.participants.toSeq.foldLeft[Seq[String]](Nil) {
+      case (errors, (name, config)) =>
+        val minimum = config.parameters.minimumProtocolVersion.map(_.unwrap)
+        val isMinimumDeprecatedVersion = minimum.getOrElse(ProtocolVersion.minimum).isDeprecated
 
-      if (isMinimumDeprecatedVersion && !config.parameters.dontWarnOnDeprecatedPV)
-        DeprecatedProtocolVersion.WarnParticipant(name, minimum).discard
+        if (isMinimumDeprecatedVersion && !config.parameters.dontWarnOnDeprecatedPV)
+          DeprecatedProtocolVersion.WarnParticipant(name, minimum).cause +: errors
+        else errors
     }
-    Validated.valid(())
+
+    NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
   }
 
   private def warnIfDeprecatedProtocolVersionEmbeddedDomain(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    config.domains.toSeq.foreach { case (name, config) =>
+    val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
       val pv = config.init.domainParameters.protocolVersion.unwrap
+
       if (pv.isDeprecated && !config.init.domainParameters.dontWarnOnDeprecatedPV)
-        DeprecatedProtocolVersion.WarnDomain(name, pv).discard
+        DeprecatedProtocolVersion.WarnDomain(name, pv).cause +: errors
+      else errors
     }
-    Validated.valid(())
+    NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
+  }
+
+  private def previewProtocolSafetyCheck(
+      config: CantonConfig
+  )(parameters: CantonParameters): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
+      val pv = config.init.domainParameters.protocolVersion.unwrap
+      val previewVersionEnabled =
+        config.init.domainParameters.previewVersionSupport || parameters.previewVersionSupport
+      if (pv.isPreview && !previewVersionEnabled)
+        s"Using preview protocol $pv for node ${name} requires you to explicitly set canton.parameters.preview-version-support = yes" +: errors
+      else errors
+    }
+    NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
   }
 
   private[config] def developmentProtocolSafetyCheck(
@@ -266,7 +290,7 @@ object CommunityConfigValidations
         allowUnstableProtocolVersion: Boolean,
     ): Validated[NonEmpty[Seq[String]], Unit] = {
       Validated.cond(
-        protocolVersion.isStable || allowUnstableProtocolVersion,
+        !protocolVersion.isUnstable || allowUnstableProtocolVersion,
         (),
         NonEmpty(
           Seq,

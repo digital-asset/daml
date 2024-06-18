@@ -88,7 +88,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       s"$cantonBin --version" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Canton", "Daml Libraries", BuildInfo.protocolVersions.toString),
+        shouldContain = Seq("Canton", "Daml Libraries", BuildInfo.stableProtocolVersions.toString),
       )
     }
 

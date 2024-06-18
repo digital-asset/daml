@@ -26,9 +26,12 @@ object ProtocolVersionCompatibility {
       cantonNodeParameters: CantonNodeParameters,
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val unstable =
+    val unstableAndPreview =
       if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
-        ProtocolVersion.unstable.forgetNE
+        ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
+          .getPreviewProtocolVersions(release)
+      else if (cantonNodeParameters.previewVersionSupport)
+        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(
@@ -36,15 +39,23 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstable
+    ) ++ unstableAndPreview
   }
 
-  /** Returns the protocol versions supported by the participant of the current release.
+  /** Returns the protocol versions supported by the participant of the specified release.
+    * includeUnstableVersions: include only dev versions
+    * includePreviewVersions: include only preview versions
     */
   def supportedProtocolsParticipant(
       includeUnstableVersions: Boolean,
+      includePreviewVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
+    val preview =
+      if (includePreviewVersions)
+        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+      else List.empty
+
     val unstable =
       if (includeUnstableVersions)
         ProtocolVersion.unstable.forgetNE
@@ -55,7 +66,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstable
+    ) ++ preview ++ unstable
   }
 
   /** Returns the protocol versions supported by the domain of the current release.
@@ -65,9 +76,12 @@ object ProtocolVersionCompatibility {
       cantonNodeParameters: CantonNodeParameters,
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val unstable =
+    val unstableAndPreview =
       if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
-        ProtocolVersion.unstable.forgetNE
+        ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
+          .getPreviewProtocolVersions(release)
+      else if (cantonNodeParameters.previewVersionSupport)
+        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(
@@ -75,16 +89,23 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstable
+    ) ++ unstableAndPreview
   }
 
-  /** Returns the protocol versions supported by the domain of the current release.
-    * Fails if no stable protocol versions are found
+  /** Returns the protocol versions supported by the domain of the specified release.
+    * includeUnstableVersions: include only dev versions
+    * includePreviewVersions: include only preview versions
     */
   def trySupportedProtocolsDomain(
       includeUnstableVersions: Boolean,
+      includePreviewVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
+    val preview =
+      if (includePreviewVersions)
+        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+      else List.empty
+
     val unstable =
       if (includeUnstableVersions)
         ProtocolVersion.unstable.forgetNE
@@ -95,7 +116,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstable
+    ) ++ preview ++ unstable
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
@@ -188,13 +209,13 @@ object HandshakeErrors extends HandshakeErrorGroup {
         implicit val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"This node is connecting to a sequencer using the deprecated protocol version " +
-            s"${version} which should not be used in production. We recommend only connecting to sequencers with a later protocol version (such as ${ProtocolVersion.latest})."
+            s"${version} which should not be used in production. We recommend only connecting to sequencers with a later protocol version (such as ${ProtocolVersion.latestStable})."
         )
     final case class WarnDomain(name: InstanceName, version: ProtocolVersion)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           s"This domain node is configured to use the deprecated protocol version " +
-            s"${version} which should not be used in production. We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
+            s"${version} which should not be used in production. We recommend migrating to a later protocol version (such as ${ProtocolVersion.latestStable})."
         )
 
     final case class WarnParticipant(
@@ -228,7 +249,7 @@ object HandshakeErrors extends HandshakeErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           s"This domain node is configured to use protocol version $version which will be deprecated." +
-            s"We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
+            s"We recommend migrating to a later protocol version (such as ${ProtocolVersion.latestStable})."
         )
   }
 }
@@ -254,6 +275,7 @@ object DomainProtocolVersion {
           ProtocolVersionCompatibility
             .trySupportedProtocolsDomain(
               includeUnstableVersions = true,
+              includePreviewVersions = true,
               release = ReleaseVersion.current,
             )
             .contains(version),
@@ -262,6 +284,7 @@ object DomainProtocolVersion {
             version,
             ProtocolVersionCompatibility.trySupportedProtocolsDomain(
               includeUnstableVersions = false,
+              includePreviewVersions = true,
               release = ReleaseVersion.current,
             ),
           ),
@@ -293,6 +316,7 @@ object ParticipantProtocolVersion {
           ProtocolVersionCompatibility
             .supportedProtocolsParticipant(
               includeUnstableVersions = true,
+              includePreviewVersions = true,
               release = ReleaseVersion.current,
             )
             .contains(version),
@@ -301,6 +325,7 @@ object ParticipantProtocolVersion {
             version,
             ProtocolVersionCompatibility.supportedProtocolsParticipant(
               includeUnstableVersions = false,
+              includePreviewVersions = true,
               release = ReleaseVersion.current,
             ),
           ),

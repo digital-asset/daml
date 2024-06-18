@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, Tls
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit
+import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.ApiServiceOwner
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
@@ -131,6 +132,7 @@ object PartyNotificationConfig {
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
     override val devVersionSupport: Boolean,
+    override val previewVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
     override val initialProtocolVersion: ProtocolVersion,
 ) extends ProtocolConfig
@@ -208,6 +210,7 @@ final case class RemoteParticipantConfig(
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
   * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
+  * @param enableCommandInspection   enable command inspection service over the ledger api
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -233,6 +236,7 @@ final case class LedgerApiServerConfig(
     additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     enableExplicitDisclosure: Boolean = true,
+    enableCommandInspection: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
@@ -497,9 +501,10 @@ final case class ParticipantNodeParameterConfig(
       )
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
-      ProtocolVersion.latest
+      ProtocolVersion.latestStable
     ),
     devVersionSupport: Boolean = false,
+    previewVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)
@@ -510,6 +515,7 @@ final case class ParticipantNodeParameterConfig(
     allowForUnauthenticatedContractIds: Boolean = false,
     disableUpgradeValidation: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
+    commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

@@ -389,7 +389,7 @@ object BaseTest {
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =
-    tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
+    tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latestStable)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)

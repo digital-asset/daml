@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.tracing.TraceContext
@@ -15,6 +16,7 @@ import scala.concurrent.ExecutionContext
 
 object LedgerApiServer {
   def createInMemoryStateAndUpdater(
+      commandProgressTracker: CommandProgressTracker,
       indexServiceConfig: IndexServiceConfig,
       maxCommandsInFlight: Int,
       metrics: Metrics,
@@ -28,6 +30,7 @@ object LedgerApiServer {
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
     for {
       inMemoryState <- InMemoryState.owner(
+        commandProgressTracker = commandProgressTracker,
         apiStreamShutdownTimeout = indexServiceConfig.apiStreamShutdownTimeout,
         bufferedStreamsPageSize = indexServiceConfig.bufferedStreamsPageSize,
         maxContractStateCacheSize = indexServiceConfig.maxContractStateCacheSize,

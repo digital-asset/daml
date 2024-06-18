@@ -152,7 +152,12 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       partyNotifier,
       syncCrypto,
       pruningProcessor,
-      DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = false, enableStackTraces = false),
+      DAMLe.newEngine(
+        uniqueContractKeys = false,
+        enableLfDev = false,
+        enableLfPreview = false,
+        enableStackTraces = false,
+      ),
       syncDomainStateFactory,
       new SimClock(loggerFactory = loggerFactory),
       new ResourceManagementService.CommunityResourceManagementService(

@@ -46,7 +46,7 @@ final case class CantonCommunityConfig(
   override def dumpString: String = CantonCommunityConfig.makeConfidentialString(this)
 
   override def validate: Validated[NonEmpty[Seq[String]], Unit] =
-    CommunityConfigValidations.validate(this)
+    CommunityConfigValidations.validate(this)(parameters)
 
   override def withDefaults(ports: DefaultPorts): CantonCommunityConfig =
     this

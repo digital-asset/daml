@@ -63,19 +63,23 @@ object PackageServiceTest {
 class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
   private val examplePackages: List[Archive] = readCantonExamples()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
-  val darName = String255.tryCreate("CantonExamples")
+  private val darName = String255.tryCreate("CantonExamples")
   private val eventPublisher = mock[ParticipantEventPublisher]
   when(eventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext))
     .thenAnswer(FutureUnlessShutdown.unit)
-  val participantId = DefaultTestIdentities.participant1
+  private val participantId = DefaultTestIdentities.participant1
 
   private class Env {
     val packageStore = new InMemoryDamlPackageStore(loggerFactory)
     private val processingTimeouts = ProcessingTimeout()
     val packageDependencyResolver =
       new PackageDependencyResolver(packageStore, processingTimeouts, loggerFactory)
-    val engine =
-      DAMLe.newEngine(uniqueContractKeys = false, enableLfDev = true, enableStackTraces = false)
+    val engine = DAMLe.newEngine(
+      uniqueContractKeys = false,
+      enableLfDev = true,
+      enableLfPreview = true,
+      enableStackTraces = false,
+    )
 
     private val packageUploader =
       Eval.now(
