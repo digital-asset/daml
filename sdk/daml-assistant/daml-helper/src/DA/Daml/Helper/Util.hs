@@ -309,7 +309,7 @@ cantonConfig CantonOptions{..} =
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | StaticTime True <- [cantonStaticTime] ]
-                , [ "dev-version-support" Aeson..= True]
+                , [ "preview-version-support" Aeson..= True]
                 , [ "non-standard-config" Aeson..= True]
                 ] )
             , "participants" Aeson..= Aeson.object
@@ -322,7 +322,7 @@ cantonConfig CantonOptions{..} =
                          , "user-management-service" Aeson..= Aeson.object [ "enabled" Aeson..= True ]
                          -- Can be dropped once user mgmt is enabled by default
                          ]
-                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= True ]
+                     , "parameters" Aeson..= Aeson.object [ "preview-version-support" Aeson..= True ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
@@ -336,7 +336,7 @@ cantonConfig CantonOptions{..} =
                      , "admin-api" Aeson..= port cantonDomainAdminApi
                      , "init" Aeson..= Aeson.object
                            [ "domain-parameters" Aeson..= Aeson.object
-                               [ "protocol-version" Aeson..= ("dev" :: T.Text) ]
+                               [ "protocol-version" Aeson..= ("6" :: T.Text) ]
                            ]
                      ]
                 ]
