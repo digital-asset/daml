@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.store.NonBftDomainSequencerApiTest
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
@@ -15,7 +14,7 @@ import com.digitalasset.canton.topology.*
 import org.apache.pekko.stream.Materializer
 
 // TODO(#18423) reenable this test once DB sequencer works with implicit member registration
-abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
+abstract class DatabaseSequencerApiTest extends SequencerApiTest {
 
   def createSequencer(
       crypto: DomainSyncCryptoClient
@@ -51,4 +50,6 @@ abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
 
   // TODO(#12405) Set to true
   override protected def supportAggregation: Boolean = false
+
+  "DB sequencer" when runSequencerApiTests()
 }

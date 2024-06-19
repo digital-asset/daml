@@ -132,7 +132,6 @@ class SequencerRuntime(
     topologyClient: DomainTopologyClientWithInit,
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
-    initializationEffective: Future[Unit],
     storage: Storage,
     clock: Clock,
     authenticationConfig: SequencerAuthenticationConfig,
@@ -172,21 +171,26 @@ class SequencerRuntime(
           }
       }
 
-    def registerInitialMembers = {
+    def registerInitialMembers: EitherT[Future, String, Unit] = {
       logger.debug(s"Registering initial sequencer members: $staticMembersToRegister")
       staticMembersToRegister
         .parTraverse_ { member =>
-          topologyClient.headSnapshot.memberFirstKnownAt(member).map {
-            case Some(firstKnownAt) => sequencer.registerMemberInternal(member, firstKnownAt)
-            case None =>
-              ErrorUtil.invalidState(s"Initial sequencer member $member not known in topology")
-          }
+          for {
+            firstKnownAtO <- EitherT.right(topologyClient.headSnapshot.memberFirstKnownAt(member))
+            _ <- {
+              firstKnownAtO match {
+                case Some(firstKnownAt) =>
+                  sequencer.registerMemberInternal(member, firstKnownAt).leftMap(_.toString)
+                case None => EitherT.leftT[Future, Unit](s"Member $member not known in topology")
+              }
+            }
+          } yield ()
         }
     }
 
     for {
       _ <- keyCheckET
-      _ <- EitherT.right[String](registerInitialMembers)
+      _ <- registerInitialMembers
     } yield {
       // if we run embedded, we complete the future here
       if (topologyInitIsCompleted) {
@@ -492,12 +496,7 @@ class SequencerRuntime(
         .map(_.startup().onShutdown(Right(())))
         .getOrElse(EitherT.rightT[Future, String](()))
     } yield {
-      import scala.util.chaining.*
-      // if we're a separate sequencer node assume we should wait for our local topology client to observe
-      // the required topology transactions to at least authorize the domain members
-      initializationEffective
-        .tap(_ => isTopologyInitializedPromise.success(()))
-        .discard // we unlock the waiting future in any case
+      isTopologyInitializedPromise.success(())
     }
   }
 

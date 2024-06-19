@@ -52,6 +52,7 @@ private[update] class TrafficControlValidator(
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
+    unifiedSequencer: Boolean,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
@@ -69,6 +70,7 @@ private[update] class TrafficControlValidator(
       logger,
       domainId,
       protocolVersion,
+      unifiedSequencer = unifiedSequencer,
     )
   }
 

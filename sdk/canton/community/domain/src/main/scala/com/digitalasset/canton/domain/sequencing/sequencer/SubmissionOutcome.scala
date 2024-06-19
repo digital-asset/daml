@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, SubmissionRequest}
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.rpc.status.Status
 
 sealed trait SubmissionOutcome
@@ -15,6 +16,8 @@ sealed trait DeliverableSubmissionOutcome extends SubmissionOutcome {
   def sequencingTime: CantonTimestamp
 
   def deliverToMembers: Set[Member]
+
+  def submissionTraceContext: TraceContext
 }
 
 object SubmissionOutcome {
@@ -32,6 +35,7 @@ object SubmissionOutcome {
       override val sequencingTime: CantonTimestamp,
       override val deliverToMembers: Set[Member],
       batch: Batch[ClosedEnvelope],
+      override val submissionTraceContext: TraceContext,
   ) extends DeliverableSubmissionOutcome
 
   /** Receipt, is sent to the sender of an aggregate submission still awaiting more votes.
@@ -42,6 +46,7 @@ object SubmissionOutcome {
   final case class DeliverReceipt(
       override val submission: SubmissionRequest,
       override val sequencingTime: CantonTimestamp,
+      override val submissionTraceContext: TraceContext,
   ) extends DeliverableSubmissionOutcome {
     override def deliverToMembers: Set[Member] = Set(submission.sender)
   }
@@ -59,6 +64,7 @@ object SubmissionOutcome {
       override val submission: SubmissionRequest,
       override val sequencingTime: CantonTimestamp,
       error: Status,
+      override val submissionTraceContext: TraceContext,
   ) extends DeliverableSubmissionOutcome {
     override def deliverToMembers: Set[Member] = Set(submission.sender)
   }

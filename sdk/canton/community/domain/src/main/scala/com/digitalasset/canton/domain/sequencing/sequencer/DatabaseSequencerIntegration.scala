@@ -71,7 +71,7 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
           EitherT.pure[Future, String](())
         case outcome: DeliverableSubmissionOutcome =>
           this
-            .blockSequencerWriteInternal(outcome)
+            .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
             .leftMap(_.toString)
       }
 }

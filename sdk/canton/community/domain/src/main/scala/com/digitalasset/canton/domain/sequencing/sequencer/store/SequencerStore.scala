@@ -39,7 +39,6 @@ import slick.jdbc.{GetResult, SetParameter}
 import java.util.UUID
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.chaining.scalaUtilChainingOps
 
 /** In the sequencer database we use integers to represent members.
   * Wrap this in the APIs to not confuse with other numeric types.
@@ -486,10 +485,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       tc: TraceContext
   ): Future[Boolean] = {
     lookupMember(member)
-      .map(_.exists(_.registeredFrom <= time))
-      .tap(exists =>
-        logger.debug(s"Checking if member $member is registered at time $time: $exists")
-      )
+      .map { regMemberO =>
+        val registered = regMemberO.exists(_.registeredFrom <= time)
+        logger.trace(s"Checked if member $member is registered at time $time: $registered")
+        registered
+      }
   }
 
   /** Save a series of payloads to the store.

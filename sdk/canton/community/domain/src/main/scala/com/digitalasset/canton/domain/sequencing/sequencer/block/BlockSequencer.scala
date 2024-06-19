@@ -393,26 +393,30 @@ class BlockSequencer(
   override protected def disableMemberInternal(
       member: Member
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    if (!stateManager.isMemberRegistered(member)) {
-      logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
-      Future.unit
-    } else if (!stateManager.isMemberEnabled(member)) {
-      logger.debug(
-        s"disableMember attempted to use member [$member] but they are already disabled"
-      )
-      Future.unit
-    } else {
-      val disabledF =
-        futureSupervisor.supervised(s"Waiting for member $member to be disabled")(
-          stateManager.waitForMemberToBeDisabled(member)
+    if (!unifiedSequencer) {
+      if (!stateManager.isMemberRegistered(member)) {
+        logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
+        Future.unit
+      } else if (!stateManager.isMemberEnabled(member)) {
+        logger.debug(
+          s"disableMember attempted to use member [$member] but they are already disabled"
         )
-      for {
-        _ <- placeLocalEvent(BlockSequencer.DisableMember(member))
-        _ <- disabledF
-        _ <- super.disableMemberInternal(
-          member
-        ) // Now members are also always stored in DBS, so we disable there as well
-      } yield ()
+        Future.unit
+      } else {
+        val disabledF =
+          futureSupervisor.supervised(s"Waiting for member $member to be disabled")(
+            stateManager.waitForMemberToBeDisabled(member)
+          )
+        for {
+          _ <- placeLocalEvent(BlockSequencer.DisableMember(member))
+          _ <- disabledF
+          _ <- super.disableMemberInternal(
+            member
+          ) // Now members are also always stored in DBS, so we disable there as well
+        } yield ()
+      }
+    } else {
+      super.disableMemberInternal(member)
     }
   }
 

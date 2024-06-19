@@ -661,7 +661,6 @@ class SequencerNodeBootstrap(
             topologyClient,
             topologyProcessor,
             Some(TopologyManagerStatus.combined(authorizedTopologyManager, domainTopologyManager)),
-            Future.unit,
             storage,
             clock,
             SequencerAuthenticationConfig(

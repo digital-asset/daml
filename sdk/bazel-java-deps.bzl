@@ -51,6 +51,7 @@ grpc_version = "1.60.0"
 protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
+tapir_version = "1.8.5"
 
 guava_version = "31.1-jre"
 
@@ -102,6 +103,8 @@ def install_java_deps():
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
+            "com.softwaremill.sttp.tapir:tapir-json-circe_{}:{}".format(scala_major_version, tapir_version),
+            "com.softwaremill.sttp.tapir:tapir-pekko-http-server_{}:{}".format(scala_major_version, tapir_version),
             "com.sparkjava:spark-core:2.9.4",
             "com.squareup:javapoet:1.13.0",
             "com.storm-enroute:scalameter-core_{}:0.21".format(scala_major_version),
