@@ -100,6 +100,9 @@ jobs:
         GPG_KEY: $(gpg-code-signing)
     - task: GitHubRelease@0
       inputs:
+        # I have no idea how dependent this is on the existence of my GitHub
+        # account or if this is just the name of the connection in Azure
+        # Pipelines. This is already mentioned in my transtiion document.
         gitHubConnection: 'garyverhaegen-da'
         repositoryName: '$(Build.Repository.Name)'
         action: 'create'

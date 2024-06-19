@@ -7,19 +7,19 @@ CODEOWNERS   @gerolf-da @remyhaemmerle-da
 LATEST       @gerolf-da @bame-da
 
 # Build / CI / environment
-/ci/                @garyverhaegen-da
-/dev-env/           @garyverhaegen-da
-/nix/               @garyverhaegen-da
-azure-pipelines.yml @garyverhaegen-da
-azure-cron.yml      @garyverhaegen-da
-/release/           @garyverhaegen-da
-/release.sh         @garyverhaegen-da
+/ci/                @paulbrauner-da
+/dev-env/           @paulbrauner-da
+/nix/               @paulbrauner-da
+azure-pipelines.yml @paulbrauner-da
+azure-cron.yml      @paulbrauner-da
+/release/           @paulbrauner-da
+/release.sh         @paulbrauner-da
 
 # Blackduck
-NOTICES     @garyverhaegen-da @dasormeter
+NOTICES     @paulbrauner-da @dasormeter
 
 # Compatibility test
-/compatibility/     @basvangijzel-DA @garyverhaegen-da @gerolf-da @remyhaemmerle-da
+/compatibility/     @basvangijzel-DA @paulbrauner-da @gerolf-da @remyhaemmerle-da
 
 # Language
 /daml-assistant/    @remyhaemmerle-da @filmackay
@@ -49,7 +49,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /language-support/hs/       @remyhaemmerle-da
 /language-support/java/     @filmackay
 /language-support/scala/    @filmackay
-/language-support/ts/       @garyverhaegen-da @filmackay
+/language-support/ts/       @paulbrauner-da @filmackay
 
 # Application Runtime
 /ledger-service/       @filmackay
