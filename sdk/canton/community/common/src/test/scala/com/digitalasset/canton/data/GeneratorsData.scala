@@ -220,7 +220,8 @@ final class GeneratorsData(
       inputContractId <- Arbitrary.arbitrary[LfContractId]
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       byKey <- Gen.oneOf(true, false)
-    } yield FetchActionDescription(inputContractId, actors, byKey)(rpv)
+      templateId <- Arbitrary.arbitrary[LfTemplateId]
+    } yield FetchActionDescription(inputContractId, actors, byKey, templateId)(rpv)
 
   private def lookupByKeyActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]

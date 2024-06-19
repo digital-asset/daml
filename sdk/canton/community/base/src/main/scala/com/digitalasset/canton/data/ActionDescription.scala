@@ -155,7 +155,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       case LfNodeFetch(
             inputContract,
             _packageName,
-            _templateId,
+            templateId,
             actingParties,
             _signatories,
             _stakeholders,
@@ -174,7 +174,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             actingParties,
             InvalidActionDescription("Fetch node without acting parties"),
           )
-        } yield FetchActionDescription(inputContract, actors, byKey)(
+        } yield FetchActionDescription(inputContract, actors, byKey, templateId)(
           protocolVersionRepresentativeFor(protocolVersion)
         )
 
@@ -275,11 +275,17 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       f: v30.ActionDescription.FetchActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[FetchActionDescription] = {
-    val v30.ActionDescription.FetchActionDescription(inputContractIdP, actorsP, byKey) = f
+    val v30.ActionDescription.FetchActionDescription(
+      inputContractIdP,
+      actorsP,
+      byKey,
+      templateIdP,
+    ) = f
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
-    } yield FetchActionDescription(inputContractId, actors, byKey)(pv)
+      templateId <- RefIdentifierSyntax.fromProtoPrimitive(templateIdP)
+    } yield FetchActionDescription(inputContractId, actors, byKey, templateId)(pv)
   }
 
   private[data] def fromProtoV30(
@@ -445,6 +451,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       inputContractId: LfContractId,
       actors: Set[LfPartyId],
       override val byKey: Boolean,
+      templateId: LfTemplateId,
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         ActionDescription.type
@@ -460,6 +467,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           inputContractId = inputContractId.toProtoPrimitive,
           actors = actors.toSeq,
           byKey = byKey,
+          templateId = new RefIdentifierSyntax(templateId).toProtoPrimitive,
         )
       )
 

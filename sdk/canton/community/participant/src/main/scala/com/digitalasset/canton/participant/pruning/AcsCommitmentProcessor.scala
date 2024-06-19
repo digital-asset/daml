@@ -12,6 +12,7 @@ import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
@@ -2268,4 +2269,83 @@ object AcsCommitmentProcessor extends HasLoggerName {
       }
   }
 
+  sealed trait ReceivedCmtState {
+    def toProtoV30: ReceivedCommitmentState
+  }
+
+  object ReceivedCmtState {
+    object Match extends ReceivedCmtState {
+      override val toProtoV30: ReceivedCommitmentState =
+        ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MATCH
+    }
+
+    object Mismatch extends ReceivedCmtState {
+      override val toProtoV30: ReceivedCommitmentState =
+        ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MISMATCH
+    }
+
+    object Buffered extends ReceivedCmtState {
+      override val toProtoV30: ReceivedCommitmentState =
+        ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_BUFFERED
+    }
+
+    object Outstanding extends ReceivedCmtState {
+      override val toProtoV30: ReceivedCommitmentState =
+        ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_OUTSTANDING
+    }
+
+    def fromProtoV30(
+        proto: ReceivedCommitmentState
+    ): ParsingResult[ReceivedCmtState] =
+      proto match {
+        case ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MATCH => Right(Match)
+        case ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MISMATCH => Right(Mismatch)
+        case ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_BUFFERED => Right(Buffered)
+        case ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_OUTSTANDING => Right(Outstanding)
+        case _ =>
+          Left(
+            ProtoDeserializationError.ValueConversionError(
+              "received commitment state",
+              s"Unknown value: $proto",
+            )
+          )
+      }
+  }
+
+  sealed trait SentCmtState {
+    def toProtoV30: SentCommitmentState
+  }
+
+  object SentCmtState {
+    object Match extends SentCmtState {
+      override val toProtoV30: SentCommitmentState =
+        SentCommitmentState.SENT_COMMITMENT_STATE_MATCH
+    }
+
+    object Mismatch extends SentCmtState {
+      override val toProtoV30: SentCommitmentState =
+        SentCommitmentState.SENT_COMMITMENT_STATE_MISMATCH
+    }
+
+    object NotCompared extends SentCmtState {
+      override val toProtoV30: SentCommitmentState =
+        SentCommitmentState.SENT_COMMITMENT_STATE_NOT_COMPARED
+    }
+
+    def fromProtoV30(
+        proto: SentCommitmentState
+    ): ParsingResult[SentCmtState] =
+      proto match {
+        case SentCommitmentState.SENT_COMMITMENT_STATE_MATCH => Right(Match)
+        case SentCommitmentState.SENT_COMMITMENT_STATE_MISMATCH => Right(Mismatch)
+        case SentCommitmentState.SENT_COMMITMENT_STATE_NOT_COMPARED => Right(NotCompared)
+        case _ =>
+          Left(
+            ProtoDeserializationError.ValueConversionError(
+              "sent commitment state",
+              s"Unknown value: $proto",
+            )
+          )
+      }
+  }
 }

@@ -200,6 +200,7 @@ message ActionDescription {
     string input_contract_id = 1;
     repeated string actors = 2;
     bool by_key = 3;
+    string template_id = 4;
   }
 
   message LookupByKeyActionDescription {
