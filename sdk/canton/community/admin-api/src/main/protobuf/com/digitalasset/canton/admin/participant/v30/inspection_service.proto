@@ -25,6 +25,13 @@ service InspectionService {
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
   // Look up the ledger offset by an index, e.g. 1 returns the first offset, 2 the second, etc.
   rpc LookupOffsetByIndex(LookupOffsetByIndex.Request) returns (LookupOffsetByIndex.Response);
+  // TODO(#18452) R5
+  // Look up the ACS commitments computed and sent by a participant
+  rpc LookupSentAcsCommitments(LookupSentAcsCommitments.Request) returns (LookupSentAcsCommitments.Response);
+  // TODO(#18452) R5
+  // List the counter-participants and their ACS commitments together with the match status
+  // TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
+  rpc LookupReceivedAcsCommitments(LookupReceivedAcsCommitments.Request) returns (LookupReceivedAcsCommitments.Response);
   // Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
   // configure thresholds for when a counter-participant is deemed slow.
   // TODO(#10436) R7
@@ -90,6 +97,149 @@ message LookupOffsetByIndex {
   }
 }
 
+// list the commitments received from counter-participants
+// optional filtering by domain, time ranges, counter participants, commitment state and verbosity
+message LookupReceivedAcsCommitments {
+  message Request {
+    // filter specific time ranges per domain
+    // a domain can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
+    // return only the received commitments with an interval overlapping any of the given time ranges per domain
+    // defaults: if empty, all domains known to the participant are considered
+    repeated DomainTimeRange time_ranges = 1;
+    // retrieve commitments received from specific counter participants
+    // if a specified counter participant is not a counter-participant in some domain, we do not return it in the response
+    // an empty set means we return commitments received from all counter participants on the domains matching the domain filter.
+    repeated string counter_participant_uids = 2;
+    // filter by commitment state: only return commitments with the states below
+    // if no state is given, we return all commitments
+    repeated ReceivedCommitmentState commitment_state = 3;
+    // include the actual commitment in the response
+    bool verbose = 4;
+  }
+
+  // Returns a sequence of commitments for each domain.
+  // Domains should not repeat in the response, otherwise the caller considers the response invalid.
+  // If all commitments received on a domain have been pruned, we return an error.
+  // No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
+  // we ship the LtHash16 bytes directly or just a hash thereof).
+  // Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
+  // a couple of MBs.
+  // It is the application developer's job to find suitable filter ranges.
+  message Response {
+    repeated ReceivedAcsCommitmentPerDomain received = 1;
+  }
+}
+
+// timestamps *do not* have to fall on commitment period boundaries/ticks
+message TimeRange {
+  google.protobuf.Timestamp from_exclusive = 1;
+  google.protobuf.Timestamp to_inclusive = 2;
+}
+
+message DomainTimeRange {
+  string domain_id = 1;
+  // optional; if not given, the latest reconciliation period the participant knows of for that domain is considered
+  optional TimeRange interval = 2;
+}
+
+// timestamps *do fall* on commitment period boundaries/ticks
+message Interval {
+  google.protobuf.Timestamp start_tick_exclusive = 1;
+  google.protobuf.Timestamp end_tick_inclusive = 2;
+}
+
+message ReceivedAcsCommitment {
+  Interval interval = 1;
+  // the counter participant that computed and sent the commitment, from whom the current participant received the commitment
+  string origin_counter_participant_uid = 2;
+  // the commitment received from the counter participant, unsigned because the admin trusts own participant's reply
+  // populated only if verbose mode is on
+  optional bytes received_commitment = 3;
+  // own commitment of participant that was compared with the received commitment, unsigned because the admin trusts own participant's reply
+  // populated only in case there is a mismatch and verbose mode is on
+  // might not correspond to the same interval as the received commitment, however, the matching timestamp is the end of
+  // the returned interval
+  optional bytes own_commitment = 4;
+  ReceivedCommitmentState state = 5;
+}
+
+message ReceivedAcsCommitmentPerDomain {
+  string domain_id = 1;
+  repeated ReceivedAcsCommitment received = 2;
+}
+
+enum ReceivedCommitmentState {
+  RECEIVED_COMMITMENT_STATE_UNSPECIFIED = 0;
+  RECEIVED_COMMITMENT_STATE_MATCH = 1;
+  RECEIVED_COMMITMENT_STATE_MISMATCH = 2;
+  // buffered commitments were not compared yet with the participant's commitments
+  RECEIVED_COMMITMENT_STATE_BUFFERED = 3;
+  // outstanding commitments were not received yet
+  RECEIVED_COMMITMENT_STATE_OUTSTANDING = 4;
+}
+
+message SentAcsCommitment {
+  Interval interval = 1;
+  // the counter participant to whom we sent the commitment
+  string dest_counter_participant_uid = 2;
+  // own computed commitment sent to counter participant, unsigned because the admin trusts own participant's reply
+  // populated only if verbose mode is on
+  optional bytes own_commitment = 3;
+  // commitment of the counter participant that was compared with own commitment, unsigned because the admin trusts own participant's reply
+  // populated only in case there is a mismatch and verbose mode is on
+  // might not correspond to the same interval as the sent commitment, however, the mismatch timestamp is the end of
+  // the returned interval
+  optional bytes received_commitment = 4;
+  SentCommitmentState state = 5;
+}
+
+message SentAcsCommitmentPerDomain {
+  string domain_id = 1;
+  repeated SentAcsCommitment sent = 2;
+}
+
+enum SentCommitmentState {
+  SENT_COMMITMENT_STATE_UNSPECIFIED = 0;
+  SENT_COMMITMENT_STATE_MATCH = 1;
+  SENT_COMMITMENT_STATE_MISMATCH = 2;
+  // commitment was not compared yet with the counter-participant's commitments, because, e.g., the counter-participant
+  // commitment has not been received yet
+  SENT_COMMITMENT_STATE_NOT_COMPARED = 3;
+}
+
+// list the commitments computed and sent to counter-participants
+// optional filtering by domain, time ranges, counter participants, commitment state and verbosity
+message LookupSentAcsCommitments {
+  message Request {
+    // filter specific time ranges per domain
+    // a domain can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
+    // return only the sent commitments with an interval overlapping any of the given time ranges per domain
+    // defaults: if empty, all domains known to the participant are considered
+    repeated DomainTimeRange time_ranges = 1;
+    // retrieve commitments sent to specific counter participants
+    // if a specified counter participant is not a counter-participant in some domain, we do not return it in the response
+    // an empty set means we return commitments sent to all counter participants on the domains matching the domain filter.
+    repeated string counter_participant_uids = 2;
+    // filter by commitment state: only return commitments with the states below
+    // if no state is given, we return all commitments
+    repeated SentCommitmentState commitment_state = 3;
+    // include the actual commitment in the response
+    bool verbose = 4;
+  }
+
+  // Returns a sequence of commitments for each domain.
+  // Domains should not repeat in the response, otherwise the caller considers the response invalid.
+  // If all commitments sent on a domain have been pruned, we return an error.
+  // No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
+  // we ship the LtHash16 bytes directly or just a hash thereof).
+  // Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
+  // a couple of MBs.
+  // It is the application developer's job to find suitable filter ranges.
+  message Response {
+    repeated SentAcsCommitmentPerDomain sent = 1;
+  }
+}
+
 /*
 The configuration concerns the following metrics, and each of the metrics is issued per domain:
  - The maximum number of intervals that a distiguished participant falls behind
@@ -100,7 +250,6 @@ The configuration concerns the following metrics, and each of the metrics is iss
  reconciliation intervals.
  - Selected participants for which we publish independent metrics counting how many intervals they are behind
  */
-
 message SlowCounterParticipantDomainConfig {
   // the domains for which we apply the settings below
   repeated string domain_ids = 1;

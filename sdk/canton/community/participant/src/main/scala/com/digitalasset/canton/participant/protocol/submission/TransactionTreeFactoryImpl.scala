@@ -6,17 +6,24 @@ package com.digitalasset.canton.participant.protocol.submission
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.transaction.ContractStateMachine.KeyInactive
+import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
+import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
+import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -27,6 +34,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.scalaland.chimney.dsl.*
@@ -45,7 +53,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param cryptoOps is used to derive Merkle hashes and contract ids [[com.digitalasset.canton.crypto.HashOps]]
   *                  as well as salts and contract ids [[com.digitalasset.canton.crypto.HmacOps]]
   */
-abstract class TransactionTreeFactoryImpl(
+class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
@@ -59,26 +67,6 @@ abstract class TransactionTreeFactoryImpl(
   private val unicumGenerator = new UnicumGenerator(cryptoOps)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV10
   private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
-  private val contractEnrichmentFactory = ContractEnrichmentFactory()
-
-  protected type State <: TransactionTreeFactoryImpl.State
-
-  protected def stateForSubmission(
-      transactionSeed: SaltSeed,
-      mediator: MediatorGroupRecipient,
-      transactionUUID: UUID,
-      ledgerTime: CantonTimestamp,
-      keyResolver: LfKeyResolver,
-      nextSaltIndex: Int,
-  ): State
-
-  protected def stateForValidation(
-      mediator: MediatorGroupRecipient,
-      transactionUUID: UUID,
-      ledgerTime: CantonTimestamp,
-      salts: Iterable[Salt],
-      keyResolver: LfKeyResolver,
-  ): State
 
   override def createTransactionTree(
       transaction: WellFormedTransaction[WithoutSuffixes],
@@ -103,7 +91,6 @@ abstract class TransactionTreeFactoryImpl(
       transactionUuid,
       metadata.ledgerTime,
       keyResolver,
-      nextSaltIndex = 0,
     )
 
     // Create salts
@@ -190,112 +177,17 @@ abstract class TransactionTreeFactoryImpl(
     } yield rootViews
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-  override def tryReconstruct(
-      subaction: WellFormedTransaction[WithoutSuffixes],
-      rootPosition: ViewPosition,
-      confirmationPolicy: ConfirmationPolicy,
+  private def stateForSubmission(
+      transactionSeed: SaltSeed,
       mediator: MediatorGroupRecipient,
-      submittingParticipantO: Option[ParticipantId],
-      viewSalts: Iterable[Salt],
-      transactionUuid: UUID,
-      topologySnapshot: TopologySnapshot,
-      contractOfId: SerializableContractOfId,
-      rbContext: RollbackContext,
+      transactionUUID: UUID,
+      ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
-  )(implicit traceContext: TraceContext): EitherT[
-    Future,
-    TransactionTreeConversionError,
-    (TransactionView, WellFormedTransaction[WithSuffixes]),
-  ] = {
-    /* We ship the root node of the view with suffixed contract IDs.
-     * If this is a create node, reinterpretation will allocate an unsuffixed contract id instead of the one given in the node.
-     * If this is an exercise node, the exercise result may contain unsuffixed contract ids created in the body of the exercise.
-     * Accordingly, the reinterpreted transaction must first be suffixed before we can compare it against
-     * the shipped views.
-     * Ideally we'd ship only the inputs needed to reconstruct the transaction rather than computed data
-     * such as exercise results and created contract IDs.
-     */
-
-    ErrorUtil.requireArgument(
-      subaction.unwrap.roots.length == 1,
-      s"Subaction must have a single root node, but has ${subaction.unwrap.roots.iterator.mkString(", ")}",
-    )
-
-    val metadata = subaction.metadata
-    val state = stateForValidation(
-      mediator,
-      transactionUuid,
-      metadata.ledgerTime,
-      viewSalts,
-      keyResolver,
-    )
-
-    val decompositionsF =
-      transactionViewDecompositionFactory.fromTransaction(
-        confirmationPolicy,
-        topologySnapshot,
-        subaction,
-        rbContext,
-        submittingParticipantO.map(_.adminParty.toLf),
-      )
-    for {
-      decompositions <- EitherT.liftF(decompositionsF)
-      decomposition = checked(decompositions.head)
-      view <- createView(decomposition, rootPosition, state, contractOfId)
-    } yield {
-      val suffixedNodes = state.suffixedNodes() transform {
-        // Recover the children
-        case (nodeId, ne: LfNodeExercises) =>
-          checked(subaction.unwrap.nodes(nodeId)) match {
-            case ne2: LfNodeExercises =>
-              ne.copy(children = ne2.children)
-            case _: LfNode =>
-              throw new IllegalStateException(
-                "Node type changed while constructing the transaction tree"
-              )
-          }
-        case (_, nl: LfLeafOnlyActionNode) => nl
-      }
-
-      // keep around the rollback nodes (not suffixed as they don't have a contract id), so that we don't orphan suffixed nodes.
-      val rollbackNodes = subaction.unwrap.nodes.collect { case tuple @ (_, _: LfNodeRollback) =>
-        tuple
-      }
-
-      val suffixedTx = LfVersionedTransaction(
-        subaction.unwrap.version,
-        suffixedNodes ++ rollbackNodes,
-        subaction.unwrap.roots,
-      )
-      view -> checked(WellFormedTransaction.normalizeAndAssert(suffixedTx, metadata, WithSuffixes))
-    }
-  }
-
-  override def saltsFromView(view: TransactionView): Iterable[Salt] = {
-    val salts = Iterable.newBuilder[Salt]
-
-    def addSaltsFrom(subview: TransactionView): Unit = {
-      // Salts must be added in the same order as they are requested by checkView
-      salts += checked(subview.viewCommonData.tryUnwrap).salt
-      salts += checked(subview.viewParticipantData.tryUnwrap).salt
-    }
-
-    @tailrec
-    @nowarn("msg=match may not be exhaustive")
-    def go(stack: Seq[TransactionView]): Unit = stack match {
-      case Seq() =>
-      case subview +: toVisit =>
-        addSaltsFrom(subview)
-        subview.subviews.assertAllUnblinded(hash =>
-          s"View ${subview.viewHash} contains an unexpected blinded subview $hash"
-        )
-        go(subview.subviews.unblindedElements ++ toVisit)
-    }
-
-    go(Seq(view))
-
-    salts.result()
+  ): State = {
+    val salts = LazyList
+      .from(0)
+      .map(index => Salt.tryDeriveSalt(transactionSeed, index, cryptoOps))
+    new State(mediator, transactionUUID, ledgerTime, salts.iterator, keyResolver)
   }
 
   /** compute set of required packages for each party */
@@ -387,16 +279,191 @@ abstract class TransactionTreeFactoryImpl(
       }
   }
 
-  protected def createView(
+  private def createView(
       view: TransactionViewDecomposition.NewView,
       viewPosition: ViewPosition,
       state: State,
       contractOfId: SerializableContractOfId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionTreeConversionError, TransactionView]
+  ): EitherT[Future, TransactionTreeConversionError, TransactionView] = {
+    state.signalRollbackScope(view.rbContext.rollbackScope)
 
-  protected def updateStateWithContractCreation(
+    // reset to a fresh state with projected resolver before visiting the subtree
+    val previousCsmState = state.csmState
+    val previousResolver = state.currentResolver
+    state.currentResolver = state.csmState.projectKeyResolver(previousResolver)
+    state.csmState = initialCsmState
+
+    // Process core nodes and subviews
+    val coreCreatedBuilder =
+      List.newBuilder[(LfNodeCreate, RollbackScope)] // contract IDs have already been suffixed
+    val coreOtherBuilder = // contract IDs have not yet been suffixed
+      List.newBuilder[((LfNodeId, LfActionNode), RollbackScope)]
+    val childViewsBuilder = Seq.newBuilder[TransactionView]
+    val subViewKeyResolutions =
+      mutable.Map.empty[LfGlobalKey, LfVersioned[SerializableKeyResolution]]
+
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    var createIndex = 0
+
+    val nbSubViews = view.allNodes.count {
+      case _: TransactionViewDecomposition.NewView => true
+      case _ => false
+    }
+    val subviewIndex = TransactionSubviews.indices(nbSubViews).iterator
+    val createdInView = mutable.Set.empty[LfContractId]
+
+    def fromEither[A <: TransactionTreeConversionError, B](
+        either: Either[A, B]
+    ): EitherT[Future, TransactionTreeConversionError, B] =
+      EitherT.fromEither(either.leftWiden[TransactionTreeConversionError])
+
+    for {
+      // Compute salts
+      viewCommonDataSalt <- fromEither(state.nextSalt())
+      viewParticipantDataSalt <- fromEither(state.nextSalt())
+      _ <- MonadUtil.sequentialTraverse_(view.allNodes) {
+        case childView: TransactionViewDecomposition.NewView =>
+          // Compute subviews, recursively
+          createView(childView, subviewIndex.next() +: viewPosition, state, contractOfId)
+            .map { v =>
+              childViewsBuilder += v
+              val createdInSubview = state.createdContractsInView
+              createdInView ++= createdInSubview
+              val keyResolutionsInSubview = v.globalKeyInputs.fmap(_.map(_.asSerializable))
+              MapsUtil.extendMapWith(subViewKeyResolutions, keyResolutionsInSubview) {
+                (accRes, _) => accRes
+              }
+            }
+
+        case TransactionViewDecomposition.SameView(lfActionNode, nodeId, rbContext) =>
+          val rbScope = rbContext.rollbackScope
+          val suffixedNode = lfActionNode match {
+            case createNode: LfNodeCreate =>
+              val suffixedNode = updateStateWithContractCreation(
+                nodeId,
+                createNode,
+                viewParticipantDataSalt,
+                viewPosition,
+                createIndex,
+                state,
+              )
+              coreCreatedBuilder += (suffixedNode -> rbScope)
+              createdInView += suffixedNode.coid
+              createIndex += 1
+              suffixedNode
+            case lfNode: LfActionNode =>
+              val suffixedNode = trySuffixNode(state)(nodeId -> lfNode)
+              coreOtherBuilder += ((nodeId, lfNode) -> rbScope)
+              suffixedNode
+          }
+
+          suffixedNode.keyOpt.foreach { case LfGlobalKeyWithMaintainers(gkey, maintainers) =>
+            state.keyVersionAndMaintainers += (gkey -> (suffixedNode.version -> maintainers))
+          }
+
+          state.signalRollbackScope(rbScope)
+
+          EitherT.fromEither[Future]({
+            for {
+              resolutionForModeOff <- suffixedNode match {
+                case lookupByKey: LfNodeLookupByKey
+                    if state.csmState.mode == ContractKeyUniquenessMode.Off =>
+                  val gkey = lookupByKey.key.globalKey
+                  state.currentResolver.get(gkey).toRight(MissingContractKeyLookupError(gkey))
+                case _ => Right(KeyInactive) // dummy value, as resolution is not used
+              }
+              nextState <- state.csmState
+                .handleNode((), suffixedNode, resolutionForModeOff)
+                .leftMap(ContractKeyResolutionError)
+            } yield {
+              state.csmState = nextState
+            }
+          })
+      }
+      _ = state.signalRollbackScope(view.rbContext.rollbackScope)
+
+      coreCreatedNodes = coreCreatedBuilder.result()
+      // Translate contract ids in untranslated core nodes
+      // This must be done only after visiting the whole action (rather than just the node)
+      // because an Exercise result may contain an unsuffixed contract ID of a contract
+      // that was created in the consequences of the exercise, i.e., we know the suffix only
+      // after we have visited the create node.
+      coreOtherNodes = coreOtherBuilder.result().map { case (nodeInfo, rbc) =>
+        (checked(trySuffixNode(state)(nodeInfo)), rbc)
+      }
+      childViews = childViewsBuilder.result()
+
+      suffixedRootNode = coreOtherNodes.headOption
+        .orElse(coreCreatedNodes.headOption)
+        .map { case (node, _) => node }
+        .getOrElse(
+          throw new IllegalArgumentException(s"The received view has no core nodes. $view")
+        )
+
+      // Compute the parameters of the view
+      seed = view.rootSeed
+      packagePreference <- EitherT.fromEither[Future](buildPackagePreference(view))
+      actionDescription = createActionDescription(suffixedRootNode, seed, packagePreference)
+      viewCommonData = createViewCommonData(view, viewCommonDataSalt).fold(
+        ErrorUtil.internalError,
+        identity,
+      )
+      viewKeyInputs = state.csmState.globalKeyInputs
+      resolvedK <- EitherT.fromEither[Future](
+        resolvedKeys(
+          viewKeyInputs,
+          state.keyVersionAndMaintainers,
+          subViewKeyResolutions,
+        )
+      )
+      viewParticipantData <- createViewParticipantData(
+        coreCreatedNodes,
+        coreOtherNodes,
+        childViews,
+        state.createdContractInfo,
+        resolvedK,
+        actionDescription,
+        viewParticipantDataSalt,
+        contractOfId,
+        view.rbContext,
+      )
+
+      // fast-forward the former state over the subtree
+      nextCsmState <- EitherT.fromEither[Future](
+        previousCsmState
+          .advance(
+            // advance ignores the resolver in mode Strict
+            if (state.csmState.mode == ContractKeyUniquenessMode.Strict) Map.empty
+            else previousResolver,
+            state.csmState,
+          )
+          .leftMap(ContractKeyResolutionError(_): TransactionTreeConversionError)
+      )
+    } yield {
+      // Compute the result
+      val subviews = TransactionSubviews(childViews)(protocolVersion, cryptoOps)
+      val transactionView =
+        TransactionView.tryCreate(cryptoOps)(
+          viewCommonData,
+          viewParticipantData,
+          subviews,
+          protocolVersion,
+        )
+
+      checkCsmStateMatchesView(state.csmState, transactionView, viewPosition)
+
+      // Update the out parameters in the `State`
+      state.createdContractsInView = createdInView
+      state.csmState = nextCsmState
+      state.currentResolver = previousResolver
+
+      transactionView
+    }
+  }
+
+  private def updateStateWithContractCreation(
       nodeId: LfNodeId,
       createNode: LfNodeCreate,
       viewParticipantDataSalt: Salt,
@@ -461,7 +528,7 @@ abstract class TransactionTreeFactoryImpl(
     suffixedNode
   }
 
-  protected def trySuffixNode(
+  private def trySuffixNode(
       state: State
   )(idAndNode: (LfNodeId, LfActionNode)): LfActionNode = {
     val (nodeId, node) = idAndNode
@@ -475,7 +542,41 @@ abstract class TransactionTreeFactoryImpl(
     suffixedNode
   }
 
-  protected def createActionDescription(
+  private[submission] def buildPackagePreference(
+      decomposition: TransactionViewDecomposition
+  ): Either[ConflictingPackagePreferenceError, Set[LfPackageId]] = {
+
+    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
+      case ex: LfNodeExercises if ex.interfaceId.isDefined =>
+        Set(ex.packageName -> ex.templateId.packageId)
+      case _ => Set.empty
+    }
+
+    @tailrec
+    def go(
+        decompositions: List[TransactionViewDecomposition],
+        resolved: Set[(LfPackageName, LfPackageId)],
+    ): Set[(LfPackageName, LfPackageId)] = {
+      decompositions match {
+        case Nil =>
+          resolved
+        case (v: SameView) :: others =>
+          go(others, resolved ++ nodePref(v.lfNode))
+        case (v: NewView) :: others =>
+          go(v.tailNodes.toList ::: others, resolved ++ nodePref(v.lfNode))
+      }
+    }
+
+    val preferences = go(List(decomposition), Set.empty)
+    MapsUtil
+      .toNonConflictingMap(preferences)
+      .bimap(
+        conflicts => ConflictingPackagePreferenceError(conflicts),
+        map => map.values.toSet,
+      )
+  }
+
+  private def createActionDescription(
       actionNode: LfActionNode,
       seed: Option[LfHash],
       packagePreference: Set[LfPackageId],
@@ -484,7 +585,7 @@ abstract class TransactionTreeFactoryImpl(
       ActionDescription.tryFromLfActionNode(actionNode, seed, packagePreference, protocolVersion)
     )
 
-  protected def createViewCommonData(
+  private def createViewCommonData(
       rootView: TransactionViewDecomposition.NewView,
       salt: Salt,
   ): Either[InvalidViewConfirmationParameters, ViewCommonData] =
@@ -494,7 +595,77 @@ abstract class TransactionTreeFactoryImpl(
       protocolVersion,
     )
 
-  protected def createViewParticipantData(
+  /** The difference between `viewKeyInputs: Map[LfGlobalKey, KeyInput]` and
+    * `subviewKeyResolutions: Map[LfGlobalKey, SerializableKeyResolution]`, computed as follows:
+    * <ul>
+    * <li>First, `keyVersionAndMaintainers` is used to compute
+    *     `viewKeyResolutions: Map[LfGlobalKey, SerializableKeyResolution]` from `viewKeyInputs`.</li>
+    * <li>Second, the result consists of all key-resolution pairs that are in `viewKeyResolutions`,
+    *     but not in `subviewKeyResolutions`.</li>
+    * </ul>
+    *
+    * Note: The following argument depends on how this method is used.
+    * It just sits here because we can then use scaladoc referencing.
+    *
+    * All resolved contract IDs in the map difference are core input contracts by the following argument:
+    * Suppose that the map difference resolves a key `k` to a contract ID `cid`.
+    * - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
+    *   the first node (in execution order) involving the key `k` determines the key's resolution for the view.
+    *   So the first node `n` in execution order involving `k` is an Exercise, Fetch, or positive LookupByKey node.
+    * - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
+    *   the first by-key node (in execution order, including Creates) determines the global key input of the view.
+    *   So the first by-key node `n` is an ExerciseByKey, FetchByKey, or positive LookupByKey node.
+    * In particular, `n` cannot be a Create node because then the resolution for the view
+    * would be [[com.daml.lf.transaction.ContractStateMachine.KeyInactive]].
+    * If this node `n` is in the core of the view, then `cid` is a core input and we are done.
+    * If this node `n` is in a proper subview, then the aggregated global key inputs
+    * [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]]
+    * of the subviews resolve `k` to `cid` (as resolutions from earlier subviews are preferred)
+    * and therefore the map difference does not resolve `k` at all.
+    *
+    * @return `Left(...)` if `viewKeyInputs` contains a key not in the `keyVersionAndMaintainers.keySet`
+    * @throws java.lang.IllegalArgumentException if `subviewKeyResolutions.keySet` is not a subset of `viewKeyInputs.keySet`
+    */
+  private def resolvedKeys(
+      viewKeyInputs: Map[LfGlobalKey, KeyInput],
+      keyVersionAndMaintainers: collection.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])],
+      subviewKeyResolutions: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
+  )(implicit
+      traceContext: TraceContext
+  ): Either[TransactionTreeConversionError, Map[LfGlobalKey, LfVersioned[
+    SerializableKeyResolution
+  ]]] = {
+    ErrorUtil.requireArgument(
+      subviewKeyResolutions.keySet.subsetOf(viewKeyInputs.keySet),
+      s"Global key inputs of subview not part of the global key inputs of the parent view. Missing keys: ${subviewKeyResolutions.keySet
+          .diff(viewKeyInputs.keySet)}",
+    )
+
+    def resolutionFor(
+        key: LfGlobalKey,
+        keyInput: KeyInput,
+    ): Either[MissingContractKeyLookupError, LfVersioned[SerializableKeyResolution]] = {
+      keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
+        case (lfVersion, maintainers) =>
+          val resolution = keyInput match {
+            case KeyActive(cid) => AssignedKey(cid)
+            case KeyCreate | NegativeKeyLookup => FreeKey(maintainers)
+          }
+          LfVersioned(lfVersion, resolution)
+      }
+    }
+
+    for {
+      viewKeyResolutionSeq <- viewKeyInputs.toSeq
+        .traverse { case (gkey, keyInput) =>
+          resolutionFor(gkey, keyInput).map(gkey -> _)
+        }
+    } yield {
+      MapsUtil.mapDiff(viewKeyResolutionSeq.toMap, subviewKeyResolutions)
+    }
+  }
+
+  private def createViewParticipantData(
       coreCreatedNodes: List[(LfNodeCreate, RollbackScope)],
       coreOtherNodes: List[(LfActionNode, RollbackScope)],
       childViews: Seq[TransactionView],
@@ -544,8 +715,6 @@ abstract class TransactionTreeFactoryImpl(
     val coreInputs = usedCore -- createdInSameViewOrSubviews
     val createdInSubviewArchivedInCore = consumedInCore intersect createdInSubviews
 
-    val contractEnricher = contractEnrichmentFactory(coreOtherNodes)
-
     def withInstance(
         contractId: LfContractId
     ): EitherT[Future, ContractLookupError, InputContract] = {
@@ -554,7 +723,7 @@ abstract class TransactionTreeFactoryImpl(
         case Some(info) =>
           EitherT.pure(InputContract(info, cons))
         case None =>
-          contractOfId(contractId).map { c => InputContract(contractEnricher(c), cons) }
+          contractOfId(contractId).map { c => InputContract(c, cons) }
       }
     }
 
@@ -579,6 +748,152 @@ abstract class TransactionTreeFactoryImpl(
         .leftMap[TransactionTreeConversionError](ViewParticipantDataError)
     } yield viewParticipantData
   }
+
+  /** Check that we correctly reconstruct the csm state machine
+    * Canton does not distinguish between the different com.daml.lf.transaction.Transaction.KeyInactive forms right now
+    */
+  private def checkCsmStateMatchesView(
+      csmState: ContractStateMachine.State[Unit],
+      transactionView: TransactionView,
+      viewPosition: ViewPosition,
+  )(implicit traceContext: TraceContext): Unit = {
+    val viewGki = transactionView.globalKeyInputs.fmap(_.unversioned.resolution)
+    val stateGki = csmState.globalKeyInputs.fmap(_.toKeyMapping)
+    ErrorUtil.requireState(
+      viewGki == stateGki,
+      show"""Failed to reconstruct the global key inputs for the view at position $viewPosition.
+            |  Reconstructed: $viewGki
+            |  Expected: $stateGki""".stripMargin,
+    )
+    val viewLocallyCreated = transactionView.createdContracts.keySet
+    val stateLocallyCreated = csmState.locallyCreated
+    ErrorUtil.requireState(
+      viewLocallyCreated == stateLocallyCreated,
+      show"Failed to reconstruct created contracts for the view at position $viewPosition.\n  Reconstructed: $viewLocallyCreated\n  Expected: $stateLocallyCreated",
+    )
+    val viewInputContractIds = transactionView.inputContracts.keySet
+    val stateInputContractIds = csmState.inputContractIds
+    ErrorUtil.requireState(
+      viewInputContractIds == stateInputContractIds,
+      s"Failed to reconstruct input contracts for the view at position $viewPosition.\n  Reconstructed: $viewInputContractIds\n  Expected: $stateInputContractIds",
+    )
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
+  override def tryReconstruct(
+      subaction: WellFormedTransaction[WithoutSuffixes],
+      rootPosition: ViewPosition,
+      confirmationPolicy: ConfirmationPolicy,
+      mediator: MediatorGroupRecipient,
+      submittingParticipantO: Option[ParticipantId],
+      viewSalts: Iterable[Salt],
+      transactionUuid: UUID,
+      topologySnapshot: TopologySnapshot,
+      contractOfId: SerializableContractOfId,
+      rbContext: RollbackContext,
+      keyResolver: LfKeyResolver,
+  )(implicit traceContext: TraceContext): EitherT[
+    Future,
+    TransactionTreeConversionError,
+    (TransactionView, WellFormedTransaction[WithSuffixes]),
+  ] = {
+    /* We ship the root node of the view with suffixed contract IDs.
+     * If this is a create node, reinterpretation will allocate an unsuffixed contract id instead of the one given in the node.
+     * If this is an exercise node, the exercise result may contain unsuffixed contract ids created in the body of the exercise.
+     * Accordingly, the reinterpreted transaction must first be suffixed before we can compare it against
+     * the shipped views.
+     * Ideally we'd ship only the inputs needed to reconstruct the transaction rather than computed data
+     * such as exercise results and created contract IDs.
+     */
+
+    ErrorUtil.requireArgument(
+      subaction.unwrap.roots.length == 1,
+      s"Subaction must have a single root node, but has ${subaction.unwrap.roots.iterator.mkString(", ")}",
+    )
+
+    val metadata = subaction.metadata
+    val state = stateForValidation(
+      mediator,
+      transactionUuid,
+      metadata.ledgerTime,
+      viewSalts,
+      keyResolver,
+    )
+
+    val decompositionsF =
+      transactionViewDecompositionFactory.fromTransaction(
+        confirmationPolicy,
+        topologySnapshot,
+        subaction,
+        rbContext,
+        submittingParticipantO.map(_.adminParty.toLf),
+      )
+    for {
+      decompositions <- EitherT.liftF(decompositionsF)
+      decomposition = checked(decompositions.head)
+      view <- createView(decomposition, rootPosition, state, contractOfId)
+    } yield {
+      val suffixedNodes = state.suffixedNodes() transform {
+        // Recover the children
+        case (nodeId, ne: LfNodeExercises) =>
+          checked(subaction.unwrap.nodes(nodeId)) match {
+            case ne2: LfNodeExercises =>
+              ne.copy(children = ne2.children)
+            case _: LfNode =>
+              throw new IllegalStateException(
+                "Node type changed while constructing the transaction tree"
+              )
+          }
+        case (_, nl: LfLeafOnlyActionNode) => nl
+      }
+
+      // keep around the rollback nodes (not suffixed as they don't have a contract id), so that we don't orphan suffixed nodes.
+      val rollbackNodes = subaction.unwrap.nodes.collect { case tuple @ (_, _: LfNodeRollback) =>
+        tuple
+      }
+
+      val suffixedTx = LfVersionedTransaction(
+        subaction.unwrap.version,
+        suffixedNodes ++ rollbackNodes,
+        subaction.unwrap.roots,
+      )
+      view -> checked(WellFormedTransaction.normalizeAndAssert(suffixedTx, metadata, WithSuffixes))
+    }
+  }
+
+  private def stateForValidation(
+      mediator: MediatorGroupRecipient,
+      transactionUUID: UUID,
+      ledgerTime: CantonTimestamp,
+      salts: Iterable[Salt],
+      keyResolver: LfKeyResolver,
+  ): State = new State(mediator, transactionUUID, ledgerTime, salts.iterator, keyResolver)
+
+  override def saltsFromView(view: TransactionView): Iterable[Salt] = {
+    val salts = Iterable.newBuilder[Salt]
+
+    def addSaltsFrom(subview: TransactionView): Unit = {
+      // Salts must be added in the same order as they are requested by checkView
+      salts += checked(subview.viewCommonData.tryUnwrap).salt
+      salts += checked(subview.viewParticipantData.tryUnwrap).salt
+    }
+
+    @tailrec
+    @nowarn("msg=match may not be exhaustive")
+    def go(stack: Seq[TransactionView]): Unit = stack match {
+      case Seq() =>
+      case subview +: toVisit =>
+        addSaltsFrom(subview)
+        subview.subviews.assertAllUnblinded(hash =>
+          s"View ${subview.viewHash} contains an unexpected blinded subview $hash"
+        )
+        go(subview.subviews.unblindedElements ++ toVisit)
+    }
+
+    go(Seq(view))
+
+    salts.result()
+  }
 }
 
 object TransactionTreeFactoryImpl {
@@ -591,7 +906,7 @@ object TransactionTreeFactoryImpl {
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
-    new TransactionTreeFactoryImplV3(
+    new TransactionTreeFactoryImpl(
       submittingParticipant,
       domainId,
       protocolVersion,
@@ -612,12 +927,16 @@ object TransactionTreeFactoryImpl {
       }
       .merge
 
-  trait State {
-    def mediator: MediatorGroupRecipient
-    def transactionUUID: UUID
-    def ledgerTime: CantonTimestamp
+  private val initialCsmState: ContractStateMachine.State[Unit] =
+    ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
 
-    protected def salts: Iterator[Salt]
+  private class State(
+      val mediator: MediatorGroupRecipient,
+      val transactionUUID: UUID,
+      val ledgerTime: CantonTimestamp,
+      val salts: Iterator[Salt],
+      initialResolver: LfKeyResolver,
+  ) {
 
     def nextSalt(): Either[TransactionTreeFactory.TooFewSalts, Salt] =
       Either.cond(salts.hasNext, salts.next(), TooFewSalts)
@@ -671,5 +990,40 @@ object TransactionTreeFactoryImpl {
     /** Out parameter for contracts created in the view (including subviews). */
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var createdContractsInView: collection.Set[LfContractId] = Set.empty
+
+    /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] stores neither the
+      * [[com.digitalasset.canton.protocol.LfTransactionVersion]] to be used during serialization
+      * nor the maintainers, which we need to cache in case no contract is found.
+      *
+      * Out parameter that stores version and maintainers for all keys
+      * that have been referenced by an already-processed node.
+      */
+    val keyVersionAndMaintainers: mutable.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])] =
+      mutable.Map.empty
+
+    /** Out parameter for the [[com.daml.lf.transaction.ContractStateMachine.State]]
+      *
+      * The state of the [[com.daml.lf.transaction.ContractStateMachine]]
+      * after iterating over the following nodes in execution order:
+      * 1. The iteration starts at the root node of the current view.
+      * 2. The iteration includes all processed nodes of the view. This includes the nodes of fully processed subviews.
+      */
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    var csmState: ContractStateMachine.State[Unit] = initialCsmState
+
+    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]].
+      */
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    var currentResolver: LfKeyResolver = initialResolver
+
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    private var rollbackScope: RollbackScope = RollbackScope.empty
+
+    def signalRollbackScope(target: RollbackScope): Unit = {
+      val (pops, pushes) = RollbackScope.popsAndPushes(rollbackScope, target)
+      for (_ <- 1 to pops) { csmState = csmState.endRollback() }
+      for (_ <- 1 to pushes) { csmState = csmState.beginRollback() }
+      rollbackScope = target
+    }
   }
 }

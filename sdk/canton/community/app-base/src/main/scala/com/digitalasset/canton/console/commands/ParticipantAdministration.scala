@@ -10,8 +10,13 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
   CounterParticipantInfo,
+  DomainTimeRange,
   GetConfigForSlowCounterParticipants,
   GetIntervalsBehindForCounterParticipants,
+  LookupReceivedAcsCommitments,
+  LookupSentAcsCommitments,
+  ReceivedAcsCmt,
+  SentAcsCmt,
   SetConfigForSlowCounterParticipants,
   SlowCounterParticipantDomainConfig,
 }
@@ -64,6 +69,10 @@ import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
+  ReceivedCmtState,
+  SentCmtState,
+}
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -767,6 +776,94 @@ class LocalCommitmentsAdministrationGroup(
       )
     }
 
+  // TODO(#18451) R5
+  @Help.Summary(
+    "List the counter-participants of a participant and the ACS commitments received from them together with" +
+      "the commitment state."
+  )
+  @Help.Description(
+    """Optional filtering through the arguments:
+      | domainTimeRanges: Lists commitments received on the given domains whose period overlaps with any of the given
+      |  time ranges per domain.
+      |  If the list is empty, considers all domains the participant is connected to.
+      |  For domains with an empty time range, considers the latest period the participant knows of for that domain.
+      |  Domains can appear multiple times in the list with various time ranges, in which case we consider the
+      |  union of the time ranges.
+      |counterParticipants: Lists commitments received only from the given counter-participants. If a counter-participant
+      |  is not a counter-participant on some domain, no commitments appear in the reply from that counter-participant
+      |  on that domain.
+      |commitmentState: Lists commitments that are in one of the given states. By default considers all states:
+      |   - MATCH: the remote commitment matches the local commitment
+      |   - MISMATCH: the remote commitment does not match the local commitment
+      |   - BUFFERED: the remote commitment is buffered because the corresponding local commitment has not been computed yet
+      |   - OUTSTANDING: we expect a remote commitment that has not yet been received
+      |verboseMode: If false, the reply does not contain the commitment bytes. If true, the reply contains:
+      |   - In case of a mismatch, the reply contains both the received and the locally computed commitment that do not match.
+      |   - In case of outstanding, the reply does not contain any commitment.
+      |   - In all other cases (match and buffered), the reply contains the received commitment.
+           """
+  )
+  def lookup_received_acs_commitments(
+      domainTimeRanges: Seq[DomainTimeRange],
+      counterParticipants: Seq[ParticipantId],
+      commitmentState: Seq[ReceivedCmtState],
+      verboseMode: Boolean,
+  ): Map[DomainId, Seq[ReceivedAcsCmt]] =
+    consoleEnvironment.run(
+      runner.adminCommand(
+        LookupReceivedAcsCommitments(
+          domainTimeRanges,
+          counterParticipants,
+          commitmentState,
+          verboseMode,
+        )
+      )
+    )
+
+  // TODO(#18451) R5
+  @Help.Summary(
+    "List the counter-participants of a participant and the ACS commitments that the participant computed and sent to" +
+      "them, together with the commitment state."
+  )
+  @Help.Description(
+    """Optional filtering through the arguments:
+          | domainTimeRanges: Lists commitments received on the given domains whose period overlap with any of the
+          |  given time ranges per domain.
+          |  If the list is empty, considers all domains the participant is connected to.
+          |  For domains with an empty time range, considers the latest period the participant knows of for that domain.
+          |  Domains can appear multiple times in the list with various time ranges, in which case we consider the
+          |  union of the time ranges.
+          |counterParticipants: Lists commitments sent only to the given counter-participants. If a counter-participant
+          |  is not a counter-participant on some domain, no commitments appear in the reply for that counter-participant
+          |  on that domain.
+          |commitmentState: Lists sent commitments that are in one of the given states. By default considers all states:
+          |   - MATCH: the local commitment matches the remote commitment
+          |   - MISMATCH: the local commitment does not match the remote commitment
+          |   - NOT_COMPARED: the local commitment has been computed and sent but no corresponding remote commitment has
+          |     been received
+          |verboseMode: If false, the reply does not contain the commitment bytes. If true, the reply contains:
+          |   - In case of a mismatch, the reply contains both the received and the locally computed commitment that
+          |     do not match.
+          |   - In all other cases (match and not compared), the reply contains the sent commitment.
+           """
+  )
+  def lookup_sent_acs_commitments(
+      domainTimeRanges: Seq[DomainTimeRange],
+      counterParticipants: Seq[ParticipantId],
+      commitmentState: Seq[SentCmtState],
+      verboseMode: Boolean,
+  ): Map[DomainId, Seq[SentAcsCmt]] =
+    consoleEnvironment.run(
+      runner.adminCommand(
+        LookupSentAcsCommitments(
+          domainTimeRanges,
+          counterParticipants,
+          commitmentState,
+          verboseMode,
+        )
+      )
+    )
+
   // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
     "Disable waiting for commitments from the given counter-participants."
@@ -779,7 +876,7 @@ class LocalCommitmentsAdministrationGroup(
       |Returns an error if `startingAt` does not translate to an existing offset.
       |If the participant set is empty, the command does nothing."""
   )
-  def setNoWaitCommitmentsFrom(
+  def set_no_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
       startingAt: Either[Instant, ParticipantOffset],
@@ -806,7 +903,7 @@ class LocalCommitmentsAdministrationGroup(
       |The command returns a map of counter-participants and the domains for which the setting was changed.
       |If the participant set is empty or the domain set is empty, the command does nothing."""
   )
-  def setWaitCommitmentsFrom(
+  def set_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
   ): Map[ParticipantId, Seq[DomainId]] = {
@@ -834,7 +931,7 @@ class LocalCommitmentsAdministrationGroup(
       |Even if some participants may not be connected to some domains at the time the query executes, the response still
       |includes them if they are known to the participant or specified in the arguments."""
   )
-  def getNoWaitCommitmentsFrom(
+  def get_no_wait_commitments_from(
       domains: Seq[DomainId],
       counterParticipants: Seq[ParticipantId],
   ): (Seq[NoWaitCommitments], Seq[WaitCommitments]) =
@@ -863,7 +960,7 @@ class LocalCommitmentsAdministrationGroup(
         | reconciliation intervals.
         | - Separate metric for each participant in `individualMetrics` argument tracking how many intervals that
         |participant is behind""")
-  def setConfigForSlowCounterParticipants(
+  def set_config_for_slow_counter_participants(
       configs: Seq[SlowCounterParticipantDomainConfig]
   ): Unit = {
     consoleEnvironment.run(
@@ -876,25 +973,25 @@ class LocalCommitmentsAdministrationGroup(
   }
 
   // TODO(#10436) R7
-  def addConfigForSlowCounterParticipants(
+  def add_config_for_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
       domains: Seq[DomainId],
   ) = ???
 
   // TODO(#10436) R7
-  def removeConfigForSlowCounterParticipants(
+  def remove_config_for_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
       domains: Seq[DomainId],
   ) = ???
 
   // TODO(#10436) R7
-  def addParticipanttoIndividualMetrics(
+  def add_participant_to_individual_metrics(
       individualMetrics: Seq[ParticipantId],
       domains: Seq[DomainId],
   ) = ???
 
   // TODO(#10436) R7
-  def removeParticipantFromIndividualMetrics(
+  def remove_participant_from_individual_metrics(
       individualMetrics: Seq[ParticipantId],
       domains: Seq[DomainId],
   ) = ???
@@ -914,7 +1011,7 @@ class LocalCommitmentsAdministrationGroup(
       | - Parameters `thresholdDistinguished` and `thresholdDefault`
       | - The participants in `individualMetrics`, which have individual metrics per participant showing how many
       reconciliation intervals that participant is behind""")
-  def getConfigForSlowCounterParticipants(
+  def get_config_for_slow_counter_participants(
       domains: Seq[DomainId]
   ): Seq[SlowCounterParticipantDomainConfig] = {
     consoleEnvironment.run(
@@ -937,7 +1034,7 @@ class LocalCommitmentsAdministrationGroup(
 
   // TODO(#10436) R7: Return the slow counter participant config for the given domains and counterParticipants
   //  Filter the gRPC response of `getConfigForSlowCounterParticipants` with `counterParticipants`
-  def getConfigForSlowCounterParticipant(
+  def get_config_for_slow_counter_participant(
       domains: Seq[DomainId],
       counterParticipants: Seq[ParticipantId],
   ): Seq[SlowCounterParticipantInfo] = Seq.empty
@@ -953,7 +1050,7 @@ class LocalCommitmentsAdministrationGroup(
       |Counter-participants that never sent a commitment appear in the output only if they're explicitly given in
       |`counterParticipants`. For such counter-participant that never sent a commitment, the output shows they are
       |behind by MaxInt""")
-  def getIntervalsBehindForCounterParticipants(
+  def get_intervals_behind_for_counter_participants(
       counterParticipants: Seq[ParticipantId],
       domains: Seq[DomainId],
       threshold: Option[NonNegativeInt],

@@ -13,6 +13,8 @@ import com.digitalasset.canton.admin.participant.v30.{
   LookupContractDomain,
   LookupOffsetByIndex,
   LookupOffsetByTime,
+  LookupReceivedAcsCommitments,
+  LookupSentAcsCommitments,
   LookupTransactionDomain,
   SetConfigForSlowCounterParticipants,
 }
@@ -137,4 +139,19 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
   override def getIntervalsBehindForCounterParticipants(
       request: GetIntervalsBehindForCounterParticipants.Request
   ): Future[GetIntervalsBehindForCounterParticipants.Response] = ???
+
+  /** TODO(#18452) R5
+    * Look up the ACS commitments computed and sent by a participant
+    */
+  override def lookupSentAcsCommitments(
+      request: LookupSentAcsCommitments.Request
+  ): Future[LookupSentAcsCommitments.Response] = ???
+
+  /** TODO(#18452) R5
+    * List the counter-participants of a participant and their ACS commitments together with the match status
+    * TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
+    */
+  override def lookupReceivedAcsCommitments(
+      request: LookupReceivedAcsCommitments.Request
+  ): Future[LookupReceivedAcsCommitments.Response] = ???
 }

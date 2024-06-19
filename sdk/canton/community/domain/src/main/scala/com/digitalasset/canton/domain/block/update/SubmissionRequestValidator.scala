@@ -480,22 +480,6 @@ private[update] final class SubmissionRequestValidator(
         mapping <- EitherT.right[SubmissionRequestOutcome](
           topologyOrSequencingSnapshot.ipsSnapshot.activeParticipantsOfParties(parties.toSeq)
         )
-        _ <- mapping.toList.parTraverse { case (party, participants) =>
-          val nonRegistered = participants.filterNot(isMemberRegistered(state))
-          EitherT.cond[Future](
-            nonRegistered.isEmpty,
-            (),
-            // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestRefused(
-                s"The party $party is hosted on non registered participants $nonRegistered"
-              ),
-            ),
-          )
-        }
       } yield GroupAddressResolver.asGroupRecipientsToMembers(mapping)
   }.mapK(FutureUnlessShutdown.outcomeK)
 

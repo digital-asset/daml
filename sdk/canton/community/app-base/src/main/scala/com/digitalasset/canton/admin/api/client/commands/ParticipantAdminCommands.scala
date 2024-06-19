@@ -31,7 +31,7 @@ import com.digitalasset.canton.admin.participant.v30.{ResourceLimits as _, *}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.admin.pruning.v30.{NoWaitCommitmentsSetup, WaitCommitmentsSetup}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.grpc.{
@@ -40,13 +40,19 @@ import com.digitalasset.canton.participant.admin.grpc.{
 }
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
-import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.SharedContractsState
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
+  ReceivedCmtState,
+  SentCmtState,
+  SharedContractsState,
+}
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
@@ -1106,6 +1112,228 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
+    // TODO(#18451) R5: The code below should be sufficient.
+    final case class LookupReceivedAcsCommitments(
+        domainTimeRanges: Seq[DomainTimeRange],
+        counterParticipants: Seq[ParticipantId],
+        commitmentState: Seq[ReceivedCmtState],
+        verboseMode: Boolean,
+    ) extends Base[
+          v30.LookupReceivedAcsCommitments.Request,
+          v30.LookupReceivedAcsCommitments.Response,
+          Map[DomainId, Seq[ReceivedAcsCmt]],
+        ] {
+
+      override def createRequest() = Right(
+        v30.LookupReceivedAcsCommitments
+          .Request(
+            domainTimeRanges.map { case domainTimeRange =>
+              v30.DomainTimeRange(
+                domainTimeRange.domain.toProtoPrimitive,
+                domainTimeRange.timeRange.map { timeRange =>
+                  v30.TimeRange(
+                    Some(timeRange.startExclusive.toProtoTimestamp),
+                    Some(timeRange.endInclusive.toProtoTimestamp),
+                  )
+                },
+              )
+            },
+            counterParticipants.map(_.toProtoPrimitive),
+            commitmentState.map(_.toProtoV30),
+            verboseMode,
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.LookupReceivedAcsCommitments.Request,
+      ): Future[v30.LookupReceivedAcsCommitments.Response] =
+        service.lookupReceivedAcsCommitments(request)
+
+      override def handleResponse(
+          response: v30.LookupReceivedAcsCommitments.Response
+      ): Either[
+        String,
+        Map[DomainId, Seq[ReceivedAcsCmt]],
+      ] = {
+        if (response.received.size != response.received.map(_.domainId).toSet.size)
+          Left(
+            s"Some domains are not unique in the response: ${response.received}"
+          )
+        else
+          response.received
+            .traverse(receivedCmtPerDomain =>
+              for {
+                domainId <- DomainId.fromString(receivedCmtPerDomain.domainId)
+                receivedCmts <- receivedCmtPerDomain.received
+                  .map(fromProtoToReceivedAcsCmt)
+                  .sequence
+              } yield domainId -> receivedCmts
+            )
+            .map(_.toMap)
+      }
+    }
+
+    final case class TimeRange(startExclusive: CantonTimestamp, endInclusive: CantonTimestamp)
+
+    final case class DomainTimeRange(domain: DomainId, timeRange: Option[TimeRange])
+
+    final case class ReceivedAcsCmt(
+        receivedCmtPeriod: CommitmentPeriod,
+        originCounterParticipant: ParticipantId,
+        receivedCommitment: Option[AcsCommitment.CommitmentType],
+        localCommitment: Option[AcsCommitment.CommitmentType],
+        state: ReceivedCmtState,
+    )
+
+    private def fromIntervalToCommitmentPeriod(
+        interval: Option[v30.Interval]
+    ): Either[String, CommitmentPeriod] = {
+      interval match {
+        case None => Left("Interval is missing")
+        case Some(v) =>
+          for {
+            from <- v.startTickExclusive
+              .traverse(CantonTimestamp.fromProtoTimestamp)
+              .leftMap(_.toString)
+            fromSecond <- CantonTimestampSecond.fromCantonTimestamp(
+              from.getOrElse(CantonTimestamp.MinValue)
+            )
+            to <- v.endTickInclusive
+              .traverse(CantonTimestamp.fromProtoTimestamp)
+              .leftMap(_.toString)
+            toSecond <- CantonTimestampSecond.fromCantonTimestamp(
+              to.getOrElse(CantonTimestamp.MinValue)
+            )
+            len <- PositiveSeconds.create(
+              java.time.Duration.ofSeconds(
+                toSecond.minusSeconds(fromSecond.getEpochSecond).getEpochSecond
+              )
+            )
+          } yield CommitmentPeriod(fromSecond, len)
+      }
+    }
+
+    private def fromProtoToReceivedAcsCmt(
+        cmt: v30.ReceivedAcsCommitment
+    ): Either[String, ReceivedAcsCmt] = {
+      for {
+        state <- ReceivedCmtState.fromProtoV30(cmt.state).leftMap(_.toString)
+        period <- fromIntervalToCommitmentPeriod(cmt.interval)
+        participantId <- ParticipantId
+          .fromProtoPrimitive(cmt.originCounterParticipantUid, "")
+          .leftMap(_.toString)
+      } yield ReceivedAcsCmt(
+        period,
+        participantId,
+        Option
+          .when(cmt.receivedCommitment.isDefined)(
+            cmt.receivedCommitment.map(AcsCommitment.commitmentTypeFromByteString)
+          )
+          .flatten,
+        Option
+          .when(cmt.ownCommitment.isDefined)(
+            cmt.ownCommitment.map(AcsCommitment.commitmentTypeFromByteString)
+          )
+          .flatten,
+        state,
+      )
+    }
+
+    // TODO(#18451) R5: The code below should be sufficient.
+    final case class LookupSentAcsCommitments(
+        domainTimeRanges: Seq[DomainTimeRange],
+        counterParticipants: Seq[ParticipantId],
+        commitmentState: Seq[SentCmtState],
+        verboseMode: Boolean,
+    ) extends Base[
+          v30.LookupSentAcsCommitments.Request,
+          v30.LookupSentAcsCommitments.Response,
+          Map[DomainId, Seq[SentAcsCmt]],
+        ] {
+
+      override def createRequest() = Right(
+        v30.LookupSentAcsCommitments
+          .Request(
+            domainTimeRanges.map { case domainTimeRange =>
+              v30.DomainTimeRange(
+                domainTimeRange.domain.toProtoPrimitive,
+                domainTimeRange.timeRange.map { timeRange =>
+                  v30.TimeRange(
+                    Some(timeRange.startExclusive.toProtoTimestamp),
+                    Some(timeRange.endInclusive.toProtoTimestamp),
+                  )
+                },
+              )
+            },
+            counterParticipants.map(_.toProtoPrimitive),
+            commitmentState.map(_.toProtoV30),
+            verboseMode,
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.LookupSentAcsCommitments.Request,
+      ): Future[v30.LookupSentAcsCommitments.Response] =
+        service.lookupSentAcsCommitments(request)
+
+      override def handleResponse(
+          response: v30.LookupSentAcsCommitments.Response
+      ): Either[
+        String,
+        Map[DomainId, Seq[SentAcsCmt]],
+      ] = {
+        if (response.sent.size != response.sent.map(_.domainId).toSet.size)
+          Left(
+            s"Some domains are not unique in the response: ${response.sent}"
+          )
+        else
+          response.sent
+            .traverse(sentCmtPerDomain =>
+              for {
+                domainId <- DomainId.fromString(sentCmtPerDomain.domainId)
+                sentCmts <- sentCmtPerDomain.sent.map(fromProtoToSentAcsCmt).sequence
+              } yield domainId -> sentCmts
+            )
+            .map(_.toMap)
+      }
+    }
+
+    final case class SentAcsCmt(
+        receivedCmtPeriod: CommitmentPeriod,
+        destCounterParticipant: ParticipantId,
+        sentCommitment: Option[AcsCommitment.CommitmentType],
+        receivedCommitment: Option[AcsCommitment.CommitmentType],
+        state: SentCmtState,
+    )
+
+    private def fromProtoToSentAcsCmt(
+        cmt: v30.SentAcsCommitment
+    ): Either[String, SentAcsCmt] = {
+      for {
+        state <- SentCmtState.fromProtoV30(cmt.state).leftMap(_.toString)
+        period <- fromIntervalToCommitmentPeriod(cmt.interval)
+        participantId <- ParticipantId
+          .fromProtoPrimitive(cmt.destCounterParticipantUid, "")
+          .leftMap(_.toString)
+      } yield SentAcsCmt(
+        period,
+        participantId,
+        Option
+          .when(cmt.ownCommitment.isDefined)(
+            cmt.ownCommitment.map(AcsCommitment.commitmentTypeFromByteString)
+          )
+          .flatten,
+        Option
+          .when(cmt.receivedCommitment.isDefined)(
+            cmt.receivedCommitment.map(AcsCommitment.commitmentTypeFromByteString)
+          )
+          .flatten,
+        state,
+      )
+    }
+
     // TODO(#10436) R7: The code below should be sufficient.
     final case class SetConfigForSlowCounterParticipants(
         configs: Seq[SlowCounterParticipantDomainConfig]
@@ -1243,6 +1471,9 @@ object ParticipantAdminCommands {
         response.intervalsBehind.map { info =>
           for {
             domainId <- DomainId.fromString(info.domainId)
+            participantId <- ParticipantId
+              .fromProtoPrimitive(info.counterParticipantUid, "")
+              .leftMap(_.toString)
             asOf <- ProtoConverter
               .parseRequired(
                 CantonTimestamp.fromProtoTimestamp,
@@ -1250,10 +1481,11 @@ object ParticipantAdminCommands {
                 info.asOfSequencingTimestamp,
               )
               .leftMap(_.toString)
+            intervalsBehind <- PositiveInt.create(info.intervalsBehind.toInt).leftMap(_.toString)
           } yield CounterParticipantInfo(
-            ParticipantId.tryFromProtoPrimitive(info.counterParticipantUid),
+            participantId,
             domainId,
-            PositiveInt.tryCreate(info.intervalsBehind.toInt),
+            intervalsBehind,
             asOf.toInstant,
           )
         }.sequence
@@ -1447,8 +1679,11 @@ object ParticipantAdminCommands {
             state <- SharedContractsState
               .fromProtoV30(setup.counterParticipantState)
               .leftMap(_.toString)
+            participantId <- ParticipantId
+              .fromProtoPrimitive(setup.counterParticipantUid, "")
+              .leftMap(_.toString)
           } yield NoWaitCommitments(
-            ParticipantId.tryFromProtoPrimitive(setup.counterParticipantUid),
+            participantId,
             setup.timestampOrOffsetActive match {
               case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(_) =>
                 ts.toInstant.asLeft[ParticipantOffset]
@@ -1463,7 +1698,7 @@ object ParticipantAdminCommands {
             s.map(
               _.getOrElse(
                 NoWaitCommitments(
-                  ParticipantId.tryFromProtoPrimitive("error"),
+                  ParticipantId.tryFromProtoPrimitive("PAR::participant::error"),
                   Left(Instant.EPOCH),
                   Seq.empty,
                   SharedContractsState.NoSharedContracts,
@@ -1543,7 +1778,7 @@ object ParticipantAdminCommands {
             s.map(
               _.getOrElse(
                 WaitCommitments(
-                  ParticipantId.tryFromProtoPrimitive("error"),
+                  ParticipantId.tryFromProtoPrimitive("PAR::participant::error"),
                   Seq.empty,
                   SharedContractsState.NoSharedContracts,
                 )

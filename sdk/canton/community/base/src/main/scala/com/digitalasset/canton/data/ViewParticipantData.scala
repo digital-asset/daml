@@ -219,14 +219,14 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey) =>
+      case FetchActionDescription(inputContractId, actors, byKey, templateId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
             show"Input contract $inputContractId of the Fetch root action is not declared as core input."
           ),
         )
-        val templateId = inputContract.contract.contractInstance.unversioned.template
+
         val cmd = if (byKey) {
           val key = inputContract.contract.metadata.maybeKey
             .map(_.key)

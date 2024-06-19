@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.util
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.lf.VersionRange
-import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.*
 import com.daml.lf.interpretation.Error as LfInterpretationError
@@ -19,7 +19,11 @@ import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, 
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
-import com.digitalasset.canton.participant.util.DAMLe.{ContractWithMetadata, PackageResolver}
+import com.digitalasset.canton.participant.util.DAMLe.{
+  ContractWithMetadata,
+  HasReinterpret,
+  PackageResolver,
+}
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -103,6 +107,25 @@ object DAMLe {
       packageService: PackageService
   ): PackageId => TraceContext => Future[Option[Package]] =
     pkgId => traceContext => packageService.getPackage(pkgId)(traceContext)
+
+  trait HasReinterpret {
+    def reinterpret(
+        contracts: ContractLookupAndVerification,
+        submitters: Set[LfPartyId],
+        command: LfCommand,
+        ledgerTime: CantonTimestamp,
+        submissionTime: CantonTimestamp,
+        rootSeed: Option[LfHash],
+        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+        expectFailure: Boolean,
+        getEngineAbortStatus: GetEngineAbortStatus,
+    )(implicit traceContext: TraceContext): EitherT[
+      Future,
+      ReinterpretationError,
+      (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
+    ]
+  }
+
 }
 
 /** Represents a Daml runtime instance for interpreting commands. Provides an abstraction for the Daml engine
@@ -120,27 +143,27 @@ class DAMLe(
     engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends NamedLogging
+    with HasReinterpret {
+
   import DAMLe.{ReinterpretationError, EngineError, EngineAborted}
 
   logger.debug(engine.info.show)(TraceContext.empty)
 
-  def reinterpret(
+  override def reinterpret(
       contracts: ContractLookupAndVerification,
       submitters: Set[LfPartyId],
       command: LfCommand,
       ledgerTime: CantonTimestamp,
       submissionTime: CantonTimestamp,
       rootSeed: Option[LfHash],
+      packageResolution: Map[PackageName, PackageId],
       expectFailure: Boolean,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[
+  )(implicit traceContext: TraceContext): EitherT[
     Future,
     ReinterpretationError,
-    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver),
+    (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
   ] = {
 
     def peelAwayRootLevelRollbackNode(
@@ -210,6 +233,7 @@ class DAMLe(
       txNoRootRollback,
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
+      metadata.usedPackages,
     )
   }
 
@@ -273,7 +297,7 @@ class DAMLe(
         expectFailure = false,
         getEngineAbortStatus = getEngineAbortStatus,
       )
-      (transaction, _, _) = transactionWithMetadata
+      (transaction, _, _, _) = transactionWithMetadata
       md = transaction.nodes(transaction.roots(0)) match {
         case nc: LfNodeCreate =>
           ContractWithMetadata(
@@ -404,4 +428,5 @@ class DAMLe(
 
     handleResultInternal(contracts, result)
   }
+
 }
