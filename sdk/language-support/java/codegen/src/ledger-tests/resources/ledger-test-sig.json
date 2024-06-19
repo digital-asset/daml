@@ -1,0 +1,784 @@
+{
+  "packageId": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390",
+  "metadata": {
+    "name": "ledger-tests-model",
+    "version": "1.0.0"
+  },
+  "typeDecls": {
+    "Stakeholders:ExplicitObservers": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "owner",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "thirdParty",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Resolved": {
+              "resolvedChoices": {
+                "Archive": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": true,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeUnit",
+                        "typArgs": []
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "key": null,
+          "implementedInterfaces": []
+        }
+      }
+    },
+    "AllTests:MPFetchOtherByKey": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": [
+                [
+                  "k1",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeParty",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "k2",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeParty",
+                      "typArgs": []
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Interfaces:ChildClone": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "party",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Unresolved": {
+              "directChoices": {
+                "Archive": {
+                  "param": {
+                    "TypeCon": {
+                      "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                      "typArgs": []
+                    }
+                  },
+                  "consuming": true,
+                  "returnType": {
+                    "TypePrim": {
+                      "typ": "PrimTypeUnit",
+                      "typArgs": []
+                    }
+                  }
+                }
+              },
+              "unresolvedChoiceSources": [
+                "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf"
+              ]
+            }
+          },
+          "key": null,
+          "implementedInterfaces": [
+            "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf"
+          ]
+        }
+      }
+    },
+    "Wolpertinger:Reproduce": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": [
+                [
+                  "mateId",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeContractId",
+                      "typArgs": [
+                        {
+                          "TypeCon": {
+                            "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Wolpertinger",
+                            "typArgs": []
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                [
+                  "tob",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeTimestamp",
+                      "typArgs": []
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Interfaces:Ham": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": []
+            }
+          }
+        }
+      }
+    },
+    "Wolpertinger:WolpertingerKey": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": [
+                [
+                  "owner",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeParty",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "age",
+                  {
+                    "TypeNumeric": {
+                      "scale": 10
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "AllTests:MultiParty": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "p1",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "p2",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Resolved": {
+              "resolvedChoices": {
+                "Archive": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": true,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeUnit",
+                        "typArgs": []
+                      }
+                    }
+                  }
+                },
+                "MPFetchOtherByKey": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:AllTests:MPFetchOtherByKey",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": false,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeUnit",
+                        "typArgs": []
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "key": {
+            "TypeCon": {
+              "name": "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4:DA.Types:Tuple2",
+              "typArgs": [
+                {
+                  "TypePrim": {
+                    "typ": "PrimTypeParty",
+                    "typArgs": []
+                  }
+                },
+                {
+                  "TypePrim": {
+                    "typ": "PrimTypeParty",
+                    "typArgs": []
+                  }
+                }
+              ]
+            }
+          },
+          "implementedInterfaces": []
+        }
+      }
+    },
+    "Interfaces:Useless": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": [
+                [
+                  "interfacely",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeContractId",
+                      "typArgs": [
+                        {
+                          "TypeCon": {
+                            "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf",
+                            "typArgs": []
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Wolpertinger:Color.RGB": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": [
+                [
+                  "r",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeInt64",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "g",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeInt64",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "b",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeInt64",
+                      "typArgs": []
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Wolpertinger:Wolpertinger": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "owner",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "wings",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeInt64",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "age",
+              {
+                "TypeNumeric": {
+                  "scale": 10
+                }
+              }
+            ],
+            [
+              "name",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeText",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "alive",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeBool",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "dayOfBirth",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeDate",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "timeOfBirth",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeTimestamp",
+                  "typArgs": []
+                }
+              }
+            ],
+            [
+              "parents",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeList",
+                  "typArgs": [
+                    {
+                      "TypePrim": {
+                        "typ": "PrimTypeContractId",
+                        "typArgs": [
+                          {
+                            "TypeCon": {
+                              "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Wolpertinger",
+                              "typArgs": []
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            [
+              "colors",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeList",
+                  "typArgs": [
+                    {
+                      "TypeCon": {
+                        "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Color",
+                        "typArgs": []
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Resolved": {
+              "resolvedChoices": {
+                "Archive": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": true,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeUnit",
+                        "typArgs": []
+                      }
+                    }
+                  }
+                },
+                "Reproduce": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Reproduce",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": true,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeContractId",
+                        "typArgs": [
+                          {
+                            "TypeCon": {
+                              "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Wolpertinger",
+                              "typArgs": []
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "key": {
+            "TypeCon": {
+              "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:WolpertingerKey",
+              "typArgs": []
+            }
+          },
+          "implementedInterfaces": []
+        }
+      }
+    },
+    "Interfaces:Child": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "party",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Unresolved": {
+              "directChoices": {
+                "Archive": {
+                  "param": {
+                    "TypeCon": {
+                      "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                      "typArgs": []
+                    }
+                  },
+                  "consuming": true,
+                  "returnType": {
+                    "TypePrim": {
+                      "typ": "PrimTypeUnit",
+                      "typArgs": []
+                    }
+                  }
+                },
+                "Bar": {
+                  "param": {
+                    "TypeCon": {
+                      "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:Bar",
+                      "typArgs": []
+                    }
+                  },
+                  "consuming": true,
+                  "returnType": {
+                    "TypePrim": {
+                      "typ": "PrimTypeUnit",
+                      "typArgs": []
+                    }
+                  }
+                }
+              },
+              "unresolvedChoiceSources": [
+                "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf"
+              ]
+            }
+          },
+          "key": {
+            "TypePrim": {
+              "typ": "PrimTypeParty",
+              "typArgs": []
+            }
+          },
+          "implementedInterfaces": [
+            "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf"
+          ]
+        }
+      }
+    },
+    "Interfaces:Bar": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": []
+            }
+          }
+        }
+      }
+    },
+    "Wolpertinger:Color": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Variant": {
+              "fields": [
+                [
+                  "Grey",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeUnit",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "RGB",
+                  {
+                    "TypeCon": {
+                      "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Wolpertinger:Color.RGB",
+                      "typArgs": []
+                    }
+                  }
+                ],
+                [
+                  "Custom",
+                  {
+                    "TypePrim": {
+                      "typ": "PrimTypeText",
+                      "typArgs": []
+                    }
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Interfaces:EmptyInterfaceView": {
+      "Normal": {
+        "type": {
+          "typeVars": [],
+          "dataType": {
+            "Record": {
+              "fields": []
+            }
+          }
+        }
+      }
+    },
+    "Stakeholders:OnlySignatories": {
+      "Template": {
+        "rec": {
+          "fields": [
+            [
+              "owner",
+              {
+                "TypePrim": {
+                  "typ": "PrimTypeParty",
+                  "typArgs": []
+                }
+              }
+            ]
+          ]
+        },
+        "template": {
+          "tChoices": {
+            "Resolved": {
+              "resolvedChoices": {
+                "Archive": {
+                  "none": {
+                    "param": {
+                      "TypeCon": {
+                        "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+                        "typArgs": []
+                      }
+                    },
+                    "consuming": true,
+                    "returnType": {
+                      "TypePrim": {
+                        "typ": "PrimTypeUnit",
+                        "typArgs": []
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "key": null,
+          "implementedInterfaces": []
+        }
+      }
+    }
+  },
+  "interfaces": {
+    "Interfaces:TIf": {
+      "choices": {
+        "Archive": {
+          "param": {
+            "TypeCon": {
+              "name": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive",
+              "typArgs": []
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "TypePrim": {
+              "typ": "PrimTypeUnit",
+              "typArgs": []
+            }
+          }
+        },
+        "Useless": {
+          "param": {
+            "TypeCon": {
+              "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:Useless",
+              "typArgs": []
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "TypePrim": {
+              "typ": "PrimTypeContractId",
+              "typArgs": [
+                {
+                  "TypeCon": {
+                    "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf",
+                    "typArgs": []
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "Ham": {
+          "param": {
+            "TypeCon": {
+              "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:Ham",
+              "typArgs": []
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "TypePrim": {
+              "typ": "PrimTypeContractId",
+              "typArgs": [
+                {
+                  "TypeCon": {
+                    "name": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:TIf",
+                    "typArgs": []
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "viewType": "2de5b3b4b7617d010bf515c1effefdde715d29343adb06c76630c9147a379390:Interfaces:EmptyInterfaceView",
+      "retroImplements": []
+    }
+  }
+}

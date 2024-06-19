@@ -1,0 +1,435 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/$defs/PackageSignature",
+  "title": "Package Signature",
+  "description": "Package Signature",
+  "$defs": {
+    "PackageSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packageId": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/PackageMetadata"
+        },
+        "typeDecls": {
+          "$ref": "#/$defs/TypeDecls"
+        },
+        "interfaces": {
+          "$ref": "#/$defs/Interfaces"
+        }
+      },
+      "required": [
+        "interfaces",
+        "metadata",
+        "packageId",
+        "typeDecls"
+      ]
+    },
+    "PackageMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ]
+    },
+    "TypeDecls": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/TypeDecl"
+      }
+    },
+    "TypeDecl": {
+      "type": "object",
+      "$comment": "Use oneOf with 2020-12 draft",
+      "properties": {
+        "Normal": {
+          "$ref": "#/$defs/NormalTypeDecl"
+        },
+        "Template": {
+          "$ref": "#/$defs/TemplateTypeDecl"
+        }
+      }
+    },
+    "TemplateTypeDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rec": {
+          "$ref": "#/$defs/Record"
+        },
+        "template": {
+          "$ref": "#/$defs/DefTemplate"
+        }
+      },
+      "required": [
+        "rec",
+        "template"
+      ]
+    },
+    "NormalTypeDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/DefDataType"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "DefDataType": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typeVars": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dataType": {
+          "$ref": "#/$defs/DataType"
+        }
+      },
+      "required": [
+        "dataType",
+        "typeVars"
+      ]
+    },
+    "DataType": {
+      "type": "object",
+      "$comment": "Use oneOf with 2020-12 draft",
+      "properties": {
+        "Enum": {
+          "$ref": "#/$defs/Enum"
+        },
+        "Record": {
+          "$ref": "#/$defs/Record"
+        },
+        "Variant": {
+          "$ref": "#/$defs/Variant"
+        }
+      }
+    },
+    "Record": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "$ref": "#/$defs/Type"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "fields"
+      ]
+    },
+    "Field": {},
+    "Enum": {
+      "type": "object",
+      "properties": {
+        "constructors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "constructors"
+      ]
+    },
+    "Variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "$ref": "#/$defs/Type"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "Variant"
+    },
+    "Type": {
+      "type": [ "object" ],
+      "$comment": "Use oneOf with 2020-12 draft",
+      "properties": {
+        "TypeCon": {
+          "$ref": "#/$defs/TypeCon"
+        },
+        "TypePrim": {
+          "$ref": "#/$defs/TypePrim"
+        },
+        "TypeVar": {
+          "$ref": "#/$defs/TypeVar"
+        },
+        "TypeNumeric": {
+          "$ref": "#/$defs/TypeNumeric"
+        }
+      }
+    },
+    "TypeCon": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "typArgs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Type"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "typArgs"
+      ]
+    },
+    "TypePrim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typ": {
+          "$ref": "#/$defs/PrimType"
+        },
+        "typArgs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Type"
+          }
+        }
+      },
+      "required": [
+        "typ",
+        "typArgs"
+      ]
+    },
+    "TypeVar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "TypeNumeric": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scale": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scale"
+      ]
+    },
+    "Template": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rec": {
+          "$ref": "#/$defs/Record"
+        },
+        "template": {
+          "$ref": "#/$defs/DefTemplate"
+        }
+      },
+      "required": [
+        "rec",
+        "template"
+      ]
+    },
+    "DefTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "implementedInterfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "key": {
+          "$ref": "#/$defs/Type"
+        },
+        "tChoices": {
+          "$ref": "#/$defs/TemplateChoices"
+        }
+      },
+      "required": [
+        "implementedInterfaces",
+        "tChoices"
+      ]
+    },
+    "PrimType": {
+      "type": "string",
+      "enum": [
+        "PrimTypeParty",
+        "PrimTypeBool",
+        "PrimTypeInt64",
+        "PrimTypeText",
+        "PrimTypeDate",
+        "PrimTypeTimestamp",
+        "PrimTypeParty",
+        "PrimTypeContractId",
+        "PrimTypeList",
+        "PrimTypeUnit",
+        "PrimTypeOptional",
+        "PrimTypeTextMap",
+        "PrimTypeGenMap"
+      ]
+    },
+    "TemplateChoices": {
+      "type": "object",
+      "$comment": "Use oneOf with 2020-12 draft",
+      "properties": {
+        "Resolved": {
+          "$ref": "#/$defs/Resolved"
+        },
+        "Unresolved": {
+          "$ref": "#/$defs/Unresolved"
+        }
+      }
+    },
+    "Resolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resolvedChoices": {
+          "type": "object",
+          "$comment": "the key will be the interface name or 'none'",
+          "additionalProperties": {
+            "type": "object", 
+            "additionalProperties": {
+              "$ref": "#/$defs/TemplateChoice"
+            }
+          }
+        }
+      },
+      "required": [
+        "resolvedChoices"
+      ]
+    },
+    "Unresolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directChoices": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/TemplateChoice"
+          }
+        },
+        "unresolvedChoiceSources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "directChoices",
+        "unresolvedChoiceSources"
+      ]
+    },
+    "TemplateChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "param": {
+          "$ref": "#/$defs/Type"
+        },
+        "consuming": {
+          "type": "boolean"
+        },
+        "returnType": {
+          "$ref": "#/$defs/Type"
+        }
+      },
+      "required": [
+        "consuming",
+        "param",
+        "returnType"
+      ]
+    },
+    "Interfaces": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/DefInterface"
+      }
+    },
+    "DefInterface": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/TemplateChoice"
+          }
+        },
+        "viewType": {
+          "type": "string"
+        },
+        "retroImplements": {
+          "type": "array",
+          "items": true
+        }
+      },
+      "required": [
+        "choices",
+        "retroImplements",
+        "viewType"
+      ]
+    }
+  }
+}

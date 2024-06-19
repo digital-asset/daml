@@ -355,7 +355,7 @@ object TemplateChoices {
       copy(partialResolution = f(partialResolution))
   }
 
-  private[typesig] final case class Unresolved[+Ty](
+  final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
       unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConName]],
   ) extends TemplateChoices[Ty] {
@@ -368,7 +368,7 @@ object TemplateChoices {
   ) =
     directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
 
-  private[typesig] final case class Resolved[+Ty](
+  final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
         Map[Option[Ref.TypeConName], TemplateChoice[Ty]]
       ]]
