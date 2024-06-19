@@ -34,6 +34,7 @@ da_scala_library(
         if copt not in [
             # scalapb does not like those
             "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
+            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
             "-P:wartremover:traverser:org.wartremover.warts.Product",
             "-P:wartremover:traverser:org.wartremover.warts.Serializable",
             # ProtocolVersionAnnotation.scala violates this warning
