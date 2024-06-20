@@ -29,6 +29,7 @@ final class NonRepudiationTest
         submissionId = None,
         deduplicationPeriod = None,
         disclosedContracts = None,
+        packageIdSelectionPreference = None,
       )
     )
     for {
