@@ -94,7 +94,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
-        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
@@ -237,7 +237,7 @@ runStart startOptions@StartOptions{..} =
         doReset (SandboxPort sandboxPort) =
           runLedgerReset (sandboxLedgerFlags sandboxPort)
         doUploadDar darPath (SandboxPort sandboxPort) =
-          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
           hSetBuffering stdin NoBuffering
           void $
