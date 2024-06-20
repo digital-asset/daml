@@ -208,6 +208,8 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val incompleteReassignmentOffsets: Timer =
       factory.timer(prefix :+ "incomplete_reassignment_offsets")
+    @MetricDoc.FanInstanceTag
+    val validateDar: Timer = factory.timer(prefix :+ "validate_dar")
   }
 
   @MetricDoc.FanTag(

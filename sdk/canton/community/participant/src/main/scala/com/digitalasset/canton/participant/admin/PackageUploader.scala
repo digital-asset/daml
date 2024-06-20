@@ -16,7 +16,7 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{HashOps, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -88,7 +88,27 @@ class PackageUploader(
     loggerFactory = loggerFactory,
   )
 
-  def validateAndStorePackages(
+  def validateDar(
+      payload: ByteString,
+      darFileNameO: Option[String],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
+    logger.info(s"Validating DAR file${darFileNameO.map(fn => s" $fn").getOrElse("")}.")
+    performUnlessClosingEitherUSF("validate DAR") {
+      val hash = hashOps.digest(HashPurpose.DarIdentifier, payload)
+      val stream = new ZipInputStream(payload.newInput())
+      for {
+        dar <- catchUpstreamErrors(DarParser.readArchive("dar-validate", stream))
+          .thereafter { _ => stream.close() }
+        mainPackage <- catchUpstreamErrors(Decode.decodeArchive(dar.main))
+        dependencies <- dar.dependencies.parTraverse(archive =>
+          catchUpstreamErrors(Decode.decodeArchive(archive))
+        )
+        _ <- validatePackages(mainPackage :: dependencies)
+      } yield hash
+    }
+  }
+
+  def validateAndStoreDar(
       darPayload: ByteString,
       fileNameO: Option[String],
       submissionId: LedgerSubmissionId,
@@ -117,7 +137,7 @@ class PackageUploader(
         )
       )
       dar <- catchUpstreamErrors(
-        DarParser.readArchive(darNameO.getOrElse("package-upload"), stream)
+        DarParser.readArchive(darNameO.getOrElse("dar-upload"), stream)
       ).thereafter(_ => stream.close())
       _ = logger.debug(
         s"Processing package upload of ${dar.all.length} packages${lengthValidatedNameO.map(src => s" from source $src").getOrElse("")}"

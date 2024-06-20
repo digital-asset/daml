@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexTransactionsService,
 }
+import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, SubmissionResult}
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -41,6 +42,7 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: state.WritePackagesService,
+    readService: ReadService,
     managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
@@ -106,6 +108,22 @@ private[apiserver] final class ApiPackageManagementService private (
       response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
     }
   }
+
+  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] = {
+    LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
+      logging.submissionId(submissionIdGenerator(request.submissionId))
+    ) { implicit loggingContext: LoggingContextWithTrace =>
+      logger.info(
+        s"Received Ledger API request for DAR validation, ${loggingContext.serializeFiltered("submissionId")}."
+      )
+      readService
+        .validateDar(request.darFile)
+        .flatMap {
+          case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
+          case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
+        }
+    }
+  }
 }
 
 private[apiserver] object ApiPackageManagementService {
@@ -114,6 +132,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePackagesService,
+      readService: ReadService,
       managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
       telemetry: Telemetry,
@@ -126,6 +145,7 @@ private[apiserver] object ApiPackageManagementService {
       readBackend,
       transactionsService,
       writeBackend,
+      readService,
       managementServiceTimeout,
       submissionIdGenerator,
       telemetry,
