@@ -6,6 +6,7 @@
 module DA.Ledger.Services.PackageManagementService (
     listKnownPackages, PackageDetails(..),
     uploadDarFile,
+    validateDarFile,
     ) where
 
 import DA.Ledger.Convert
@@ -72,3 +73,15 @@ collapseUploadError (err, Just meta)
   , Just upgradingPackage <- Map.lookup "upgradingPackage" meta
   = err <> "\n  Reason: " <> additionalInfo <> "\n  When upgrading from package " <> upgradedPackage <> " to package " <> upgradingPackage
 collapseUploadError (err, _) = err
+
+-- | Validates a DAR file against the ledger. If the ledger responds with `INVALID_ARGUMENT`, we return `Left details`.
+validateDarFile :: ByteString -> LedgerService (Either String ()) -- Unlike other services, no LedgerId is needed. (why?!)
+validateDarFile bytes =
+    makeLedgerService $ \timeout config mdm ->
+    withGRPCClient config $ \client -> do
+        service <- LL.packageManagementServiceClient client
+        let LL.PackageManagementService {packageManagementServiceValidateDarFile=rpc} = service
+        let request = LL.ValidateDarFileRequest bytes TL.empty {- let server allocate submission id -}
+        rpc (ClientNormalRequest request timeout mdm)
+            >>= unwrapWithInvalidArgument
+            <&> fmap (\LL.ValidateDarFileResponse{} -> ())
