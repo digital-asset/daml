@@ -130,7 +130,9 @@ trait HealthElement {
     // When we're closing, force the value to `closingState`.
     // This ensures that `closingState` is sticky.
     val newStateValue = if (associatedOnShutdownRunner.isClosing) closingState else newState.value
-    logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")
+
+    if (oldState != newStateValue)
+      logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")
 
     val previous = internalState.getAndUpdate {
       case InternalState(_, Idle) => errorOnIdle

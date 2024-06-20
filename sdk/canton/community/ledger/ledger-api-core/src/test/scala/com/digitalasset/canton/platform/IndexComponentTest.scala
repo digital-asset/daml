@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, SubmissionResult, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
@@ -32,6 +32,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 }
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
@@ -238,6 +239,11 @@ object IndexComponentTest {
         case QueueOfferResult.Enqueued => ()
         case notExpected => throw new Exception(s"Cannot fill queue: $notExpected")
       }
+
+    override def validateDar(dar: ByteString)(implicit
+        traceContext: TraceContext
+    ): Future[SubmissionResult] =
+      throw new UnsupportedOperationException()
   }
 
   final case class TestServices(

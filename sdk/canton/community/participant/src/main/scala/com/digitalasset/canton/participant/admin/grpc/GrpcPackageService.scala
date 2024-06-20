@@ -57,6 +57,19 @@ class GrpcPackageService(
     )
   }
 
+  override def validateDar(request: ValidateDarRequest): Future[ValidateDarResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val ret =
+      service
+        .validateDar(request.data, Some(request.filename))
+        .map((hash: Hash) => ValidateDarResponse(hash.toHexString))
+    EitherTUtil.toFuture(
+      ret
+        .leftMap(ErrorCode.asGrpcError)
+        .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
+    )
+  }
+
   override def removePackage(request: RemovePackageRequest): Future[RemovePackageResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val packageIdE: Either[StatusRuntimeException, LfPackageId] =

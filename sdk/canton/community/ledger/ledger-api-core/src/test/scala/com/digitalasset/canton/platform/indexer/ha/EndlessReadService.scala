@@ -16,18 +16,20 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
   ReadService,
+  SubmissionResult,
   TransactionMeta,
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext.wrapWithNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.time.Instant
-import scala.concurrent.blocking
+import scala.concurrent.{Future, blocking}
 
 /** An infinite stream of state updates that fully conforms to the Daml ledger model.
   *
@@ -149,6 +151,11 @@ final case class EndlessReadService(
   private var initialConditionCalls: Int = 0
   private var aborted: Boolean = false
   private var killSwitch = KillSwitches.shared("EndlessReadService")
+
+  override def validateDar(dar: ByteString)(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    throw new UnsupportedOperationException()
 }
 
 object EndlessReadService {

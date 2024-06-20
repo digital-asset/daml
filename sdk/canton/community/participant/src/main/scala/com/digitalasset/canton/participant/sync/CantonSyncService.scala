@@ -683,6 +683,22 @@ class CantonSyncService(
     }
   }.asJava
 
+  override def validateDar(dar: ByteString)(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    withSpan("CantonSyncService.validateDar") { implicit traceContext => span =>
+      if (!isActive()) {
+        logger.debug("Rejecting DAR validation request on passive replica.")
+        Future.successful(TransactionError.PassiveNode)
+      } else {
+        packageService
+          .validateDar(payload = dar, darFileNameO = None)
+          .map(_ => SubmissionResult.Acknowledged)
+          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
+      }
+    }
+
   /** Executes ordered sequence of steps to recover any state that might have been lost if the participant previously
     * crashed. Needs to be invoked after the input stores have been created, but before they are made available to
     * dependent components.

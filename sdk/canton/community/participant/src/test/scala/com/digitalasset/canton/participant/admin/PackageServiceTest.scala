@@ -350,6 +350,53 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
         rejectOnMissingDar(_.removeDar(unknownDarHash), unknownDarHash, "DAR archive removal")
       )
     }
+
+    "validate DAR and packages from bytes" in withEnv { env =>
+      import env.*
+
+      val expectedPackageIdsAndState = examplePackages
+        .map(DamlPackageStore.readPackageId)
+        .map(PackageDescription(_, cantonExamplesDescription, None, None))
+
+      for {
+        hash <- sut
+          .validateDar(
+            ByteString.copyFrom(bytes),
+            Some("some/path/CantonExamples.dar"),
+          )
+          .value
+          .map(_.valueOrFail("couldn't validate a dar file"))
+          .failOnShutdown
+        packages <- packageStore.listPackages()
+        dar <- packageStore.getDar(hash)
+      } yield {
+        expectedPackageIdsAndState.foreach(packages should not contain _)
+        dar shouldBe None
+      }
+    }
+
+    "validateDar validates the package" in withEnv { env =>
+      import env.*
+
+      val badDarPath = PackageServiceTest.badDarPath
+      val payload = BinaryFileUtil
+        .readByteStringFromFile(badDarPath)
+        .valueOrFail(s"could not load bad dar file at $badDarPath")
+      for {
+        error <- leftOrFail(
+          sut.validateDar(
+            payload,
+            Some(badDarPath),
+          )
+        )("append illformed.dar").failOnShutdown
+      } yield {
+        error match {
+          case validation: PackageServiceErrors.Validation.ValidationError.Error =>
+            validation.validationError shouldBe a[com.daml.lf.validation.ETypeMismatch]
+          case _ => fail(s"$error is not a validation error")
+        }
+      }
+    }
   }
 
   private val upgradeIncompatibleDars =

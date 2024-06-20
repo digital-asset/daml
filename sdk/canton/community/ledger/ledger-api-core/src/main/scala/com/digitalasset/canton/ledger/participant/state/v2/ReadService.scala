@@ -9,6 +9,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -153,6 +154,12 @@ trait ReadService extends ReportsHealth {
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
     throw new UnsupportedOperationException()
+
+  def validateDar(
+      dar: ByteString
+  )(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult]
 }
 
 object ReadService {

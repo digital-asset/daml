@@ -42,6 +42,7 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWithNewTraceContext}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -455,5 +456,10 @@ object RecoveringIndexerIntegrationSpec {
           Future.failed(new RuntimeException("Element dropped")).asJava
       }
     }
+
+    override def validateDar(dar: ByteString)(implicit
+        traceContext: TraceContext
+    ): Future[SubmissionResult] =
+      throw new UnsupportedOperationException()
   }
 }

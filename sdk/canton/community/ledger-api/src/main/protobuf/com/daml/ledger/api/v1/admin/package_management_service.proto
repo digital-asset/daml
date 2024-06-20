@@ -21,7 +21,7 @@ service PackageManagementService {
 
   // Returns the details of all Daml-LF packages known to the backing participant.
   rpc ListKnownPackages (ListKnownPackagesRequest) returns
-    (ListKnownPackagesResponse);
+      (ListKnownPackagesResponse);
 
   // Upload a DAR file to the backing participant.
   // Depending on the ledger implementation this might also make the package
@@ -33,6 +33,13 @@ service PackageManagementService {
   //   was already uploaded before.
   // - Respond with a gRPC error
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
+
+  // Performs the same checks that UploadDarFile call performs, but doesn't
+  // persist the DAR and does not make it available for command execution.
+  // This call:
+  // - Succeeds if the packages contained in the DAR are valid
+  // - Respond with a gRPC error if the provided packages are not valid
+  rpc ValidateDarFile(ValidateDarFileRequest) returns (ValidateDarFileResponse);
 }
 
 message ListKnownPackagesRequest {
@@ -84,3 +91,17 @@ message UploadDarFileRequest {
 // An empty message that is received when the upload operation succeeded.
 message UploadDarFileResponse {
 }
+
+message ValidateDarFileRequest {
+  // Contains a Daml archive DAR file, which in turn is a jar like zipped
+  // container for ``daml_lf`` archives. See further details in
+  // ``daml_lf.proto``.
+  // Required
+  bytes dar_file = 1;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier.
+  string submission_id = 2;
+}
+
+message ValidateDarFileResponse {}
