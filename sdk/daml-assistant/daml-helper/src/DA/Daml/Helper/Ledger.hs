@@ -242,7 +242,7 @@ runLedgerUploadDar' args darPathM  = do
       exitFailure
   case result of
     Left err -> do
-      putStrLn $ "upload-dar did not succeed: " <> show err
+      putStrLn $ "upload-dar did not succeed: " <> err
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
 

@@ -22,7 +22,7 @@ recover = Retry.recovering policy [
     \_ -> Handler $ \(e::GRPCIOError) ->
         return $ case e of
             GRPCIOTimeout -> True
-            GRPCIOBadStatusCode StatusUnavailable _ -> True
+            GRPCIOBadStatusCode StatusUnavailable _ _ -> True
             _ -> False
     ]
 

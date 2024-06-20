@@ -55,6 +55,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     SubmissionId(..),
     LL.Duration(..),
     LL.Status(..),
+    LL.ErrorInfo(..),
     DeduplicationPeriod(..),
     ParticipantId(..),
     IsoTime(..),
@@ -69,6 +70,7 @@ import Prelude hiding(Enum)
 import qualified Data.Text.Lazy as Text(unpack)
 import qualified Google.Protobuf.Duration as LL
 import qualified Google.Rpc.Status as LL
+import qualified Google.Rpc.ErrorDetails as LL
 import qualified Data.Time.Format.ISO8601 as ISO8601
 import qualified Data.Time.Clock as Clock
 import qualified Text.ParserCombinators.ReadP as ReadP
