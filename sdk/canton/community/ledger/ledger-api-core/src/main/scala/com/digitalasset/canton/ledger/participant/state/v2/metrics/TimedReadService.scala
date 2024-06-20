@@ -7,9 +7,10 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, SubmissionResult, Update}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -36,6 +37,14 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
     Timed.future(
       metrics.daml.services.read.getConnectedDomains,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),
+    )
+
+  override def validateDar(dar: ByteString)(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    Timed.future(
+      metrics.daml.services.read.validateDar,
+      delegate.validateDar(dar),
     )
 
   override def currentHealth(): HealthStatus =

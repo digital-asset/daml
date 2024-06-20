@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.google.protobuf.ByteString
@@ -34,6 +35,15 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
     LedgerClient
       .stub(service, token)
       .uploadDarFile(UploadDarFileRequest(darFile))
+      .map(_ => ())
+
+  def validateDarFile(
+      darFile: ByteString,
+      token: Option[String] = None,
+  ): Future[Unit] =
+    LedgerClient
+      .stub(service, token)
+      .validateDarFile(ValidateDarFileRequest(darFile))
       .map(_ => ())
 
 }

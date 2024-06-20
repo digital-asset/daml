@@ -86,7 +86,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         val submissionId = LedgerSubmissionId.assertFromString("sub-1")
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           within = sut
-            .validateAndStorePackages(
+            .validateAndStoreDar(
               encodeDarArchive(archive_max_stable_LF),
               None,
               submissionId,
@@ -129,7 +129,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
     "not persist DAR in store if filename not specified" in withTestEnv(lfDev = true) { env =>
       import env.*
       val persistedPackageId = sut
-        .validateAndStorePackages(
+        .validateAndStoreDar(
           encodeDarArchive(archive_max_stable_LF),
           None,
           LedgerSubmissionId.assertFromString("sub-1"),
@@ -181,7 +181,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       )
 
       val pkgId1 = sut
-        .validateAndStorePackages(
+        .validateAndStoreDar(
           encodeDarArchive(pkg_lf_1_15),
           Some("fileName1"),
           LedgerSubmissionId.assertFromString("sub-1"),
@@ -191,7 +191,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .headOption
         .value
       val pkgId2 = sut
-        .validateAndStorePackages(
+        .validateAndStoreDar(
           encodeDarArchive(another_pkg_lf_1_15),
           Some("fileName2"),
           LedgerSubmissionId.assertFromString("sub-1"),
@@ -201,7 +201,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .headOption
         .value
       val pkgId3 = sut
-        .validateAndStorePackages(
+        .validateAndStoreDar(
           encodeDarArchive(pkg_lf_1_16),
           Some("fileName3"),
           LedgerSubmissionId.assertFromString("sub-1"),
@@ -364,7 +364,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
       val submissionId = LedgerSubmissionId.assertFromString("sub-1")
       val persistedPackageIds = sut
-        .validateAndStorePackages(darPayload, Some("DarFileName"), submissionId)
+        .validateAndStoreDar(darPayload, Some("DarFileName"), submissionId)
         .valueOrFailShutdown("validateAndStorePackages failed")
         .futureValue
 
