@@ -1273,7 +1273,10 @@ scala_binary(
 
 proto_gen(
     name = "ledger-api-java",
-    srcs = [":ledger_api_proto"],
+    srcs = [
+        ":ledger_api_proto",
+        "//daml-lf/ledger-api-value:ledger_api_value_proto",
+    ],
     plugin_name = "java",
     visibility = [
         "//visibility:public",
@@ -1305,7 +1308,10 @@ java_library(
 
 proto_gen(
     name = "ledger-api-java-grpc",
-    srcs = [":ledger_api_proto"],
+    srcs = [
+        ":ledger_api_proto",
+        "//daml-lf/ledger-api-value:ledger_api_value_proto",
+    ],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = [
@@ -1443,6 +1449,7 @@ proto_jars(
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
+    proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
     strip_import_prefix = "community/ledger-api/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
@@ -1518,11 +1525,7 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg",
-    srcs = glob(
-        [
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
-        ],
-    ),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
@@ -1531,12 +1534,15 @@ ledger_api_haskellpb_sources = [
     "V2/PackageService.hs",
 ]
 
+ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
+
 genrule(
     name = "ledger-api-haskellpb-sources",
     srcs = [
         "@com_google_protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
+        "//daml-lf/ledger-api-value:ledger-api-value-protos-fg",
     ],
     outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
     cmd = """
@@ -1544,6 +1550,7 @@ genrule(
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
                 --proto com/daml/ledger/api/v2/$$(basename $$src) \
                 --out $(@D)

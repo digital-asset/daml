@@ -197,6 +197,9 @@ def _proto_scala_deps(grpc, proto_deps, java_conversions):
         for label in proto_deps
     ] + ([
         "@maven//:io_grpc_grpc_services",
+    ] if java_conversions else []) + ([
+        "%s_java" % label
+        for label in proto_deps
     ] if java_conversions else [])
 
 def proto_jars(
@@ -303,7 +306,7 @@ def proto_jars(
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
         visibility = visibility,
-        deps = all_scala_deps + (["{}_java".format(name)] if java_conversions else []),
+        deps = all_scala_deps + (["{}_java".format(name)] if java_conversions else []) + scala_deps,
         exports = all_scala_deps,
     )
 
