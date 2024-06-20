@@ -33,6 +33,7 @@ import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
   CommandFailure,
+  ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
   DomainReference,
@@ -108,10 +109,19 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
-    ) =
+    ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
           .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+      )
+
+    def validate(
+        runner: AdminCommandRunner,
+        path: String,
+        logger: TracedLogger,
+    ): ConsoleCommandResult[String] =
+      runner.adminCommand(
+        ParticipantAdminCommands.Package.ValidateDar(Some(path), logger)
       )
 
   }
