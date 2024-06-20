@@ -1405,21 +1405,30 @@ genrule(
 )
 
 google_rpc_src = "external/go_googleapis"
+filegroup(
+    name = "google-rpc-source-protos",
+    srcs = [
+      "@go_googleapis//google/rpc:status.proto",
+      "@go_googleapis//google/rpc:error_details.proto",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 genrule(
     name = "google-rpc-haskellpb-sources",
     srcs = [
-        "@go_googleapis//google/rpc:status.proto",
+        ":google-rpc-source-protos",
         "@com_google_protobuf//:well_known_type_protos",
     ],
-    outs = ["Google/Rpc/Status.hs"],
+    outs = ["Google/Rpc/Status.hs", "Google/Rpc/ErrorDetails.hs"],
     cmd = """
-        $(location @proto3-suite//:compile-proto-file) \
-            --includeDir """ + google_protobuf_src + """ \
-            --includeDir """ + google_rpc_src + """ \
-            --proto google/rpc/status.proto \
-            --out $$(dirname $$(dirname $(@D)))
-               #2x dirname because @D works differently for a single output
+        for src in $(locations :google-rpc-source-protos); do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --proto google/rpc/$$(basename $$src) \
+                --out $(@D)
+        done
     """,
     tools = [
         "@proto3-suite//:compile-proto-file",
