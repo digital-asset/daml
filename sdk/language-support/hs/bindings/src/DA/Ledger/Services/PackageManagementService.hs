@@ -12,8 +12,10 @@ import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
+import Data.Bifunctor (bimap)
 import Data.ByteString(ByteString)
 import Data.Functor
+import qualified Data.Map as Map
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Generated
@@ -60,5 +62,13 @@ uploadDarFile bytes =
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
         let request = LL.UploadDarFileRequest bytes TL.empty {- let server allocate submission id -}
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
-            <&> fmap (\LL.UploadDarFileResponse{} -> ())
+            >>= unwrapWithInvalidArgumentAndMetadata
+            <&> bimap collapseUploadError (\LL.UploadDarFileResponse{} -> ())
+
+collapseUploadError :: (String, Maybe (Map.Map String String)) -> String
+collapseUploadError (err, Just meta)
+  | Just additionalInfo <- Map.lookup "additionalInfo" meta
+  , Just upgradedPackage <- Map.lookup "upgradedPackage" meta
+  , Just upgradingPackage <- Map.lookup "upgradingPackage" meta
+  = err <> "\n  Reason: " <> additionalInfo <> "\n  When upgrading from package " <> upgradedPackage <> " to package " <> upgradingPackage
+collapseUploadError (err, _) = err
