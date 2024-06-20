@@ -148,7 +148,41 @@ main = do
                     , tmp
                     ]
                 fetchedPkgId <- readDarMainPackageId tmp
-                fetchedPkgId == testDarPkgId @? "Fechted dar differs from uploaded dar."
+                fetchedPkgId == testDarPkgId @? "Fechted dar differs from uploaded dar.",
+            testCase "dry-run succeeds without uploading" $ do
+              sandboxPort <- getSandboxPort
+              testDarPkgId <- readDarMainPackageId testDar
+              -- upload-dar via gRPC
+              callCommand $
+                unwords
+                  [ damlHelper
+                  , "ledger"
+                  , "upload-dar"
+                  , "--dry-run"
+                  , "--host=localhost"
+                  , "--port"
+                  , show sandboxPort
+                  , testDar
+                  ]
+              -- fetch dar via gRPC, but too small max-inbound-message-size
+              withTempFile $ \tmp -> do
+                (exitCode, _, _) <-
+                  readCreateProcessWithExitCode
+                    (shell $
+                     unwords
+                       [ damlHelper
+                       , "ledger"
+                       , "fetch-dar"
+                       , "--host=localhost"
+                       , "--port"
+                       , show sandboxPort
+                       , "--main-package-id"
+                       , testDarPkgId
+                       , "-o"
+                       , tmp
+                       ])
+                    ""
+                exitCode == ExitFailure 1 @? "Fetch after dry-run upload succeeded"
           ]
       , testGroup "fetch-dar"
           [ testCase "succeeds against HTTP JSON API" $ do
