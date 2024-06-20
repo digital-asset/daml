@@ -359,8 +359,8 @@ final class Conversions(
 
   def convertGlobalKey(globalKey: GlobalKey): proto.GlobalKey = {
     val builder = proto.GlobalKey.newBuilder
-    globalKey.packageId.foreach(p => builder.setPackage(convertPackageId(p)))
     builder
+      .setPackage(convertPackageId(globalKey.templateId.packageId))
       .setName(globalKey.qualifiedName.toString)
       .setKey(convertValue(globalKey.key))
       .build
