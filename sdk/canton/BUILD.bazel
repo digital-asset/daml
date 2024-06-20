@@ -1405,11 +1405,12 @@ genrule(
 )
 
 google_rpc_src = "external/go_googleapis"
+
 filegroup(
     name = "google-rpc-source-protos",
     srcs = [
-      "@go_googleapis//google/rpc:status.proto",
-      "@go_googleapis//google/rpc:error_details.proto",
+        "@go_googleapis//google/rpc:error_details.proto",
+        "@go_googleapis//google/rpc:status.proto",
     ],
     visibility = ["//visibility:private"],
 )
@@ -1420,7 +1421,10 @@ genrule(
         ":google-rpc-source-protos",
         "@com_google_protobuf//:well_known_type_protos",
     ],
-    outs = ["Google/Rpc/Status.hs", "Google/Rpc/ErrorDetails.hs"],
+    outs = [
+        "Google/Rpc/Status.hs",
+        "Google/Rpc/ErrorDetails.hs",
+    ],
     cmd = """
         for src in $(locations :google-rpc-source-protos); do
             $(location @proto3-suite//:compile-proto-file) \
