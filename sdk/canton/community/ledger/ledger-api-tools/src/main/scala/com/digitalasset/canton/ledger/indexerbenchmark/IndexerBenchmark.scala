@@ -15,7 +15,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, SubmissionResult, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, J
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -191,6 +192,11 @@ class IndexerBenchmark extends NamedLogging {
       }
 
       override def currentHealth(): HealthStatus = Healthy
+
+      override def validateDar(dar: ByteString)(implicit
+          traceContext: TraceContext
+      ): Future[SubmissionResult] =
+        throw new UnsupportedOperationException()
     }
   }
 

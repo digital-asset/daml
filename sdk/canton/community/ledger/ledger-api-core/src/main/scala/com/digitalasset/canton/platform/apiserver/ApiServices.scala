@@ -476,6 +476,7 @@ object ApiServices {
           indexService,
           transactionsService,
           writeService,
+          readService,
           managementServiceTimeout,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
