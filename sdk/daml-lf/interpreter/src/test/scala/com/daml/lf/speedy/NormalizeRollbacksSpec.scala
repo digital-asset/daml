@@ -1,19 +1,19 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.transaction.{NodeId, Transaction}
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.transaction.{NodeId, Transaction}
+import com.digitalasset.daml.lf.value.{Value => V}
 
 class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 

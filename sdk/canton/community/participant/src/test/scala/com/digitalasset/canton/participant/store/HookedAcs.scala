@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{

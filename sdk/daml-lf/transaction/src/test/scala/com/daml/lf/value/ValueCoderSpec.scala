@@ -5,9 +5,9 @@ package com.daml
 package lf
 package value
 
-import com.daml.lf.data._
-import com.daml.lf.transaction.{Versioned, TransactionVersion}
-import com.daml.lf.value.{ValueOuterClass => proto}
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.{Shrink, Arbitrary}
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers

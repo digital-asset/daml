@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
-import com.daml.lf.data.{Bytes, ImmArray, Time}
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.index.{

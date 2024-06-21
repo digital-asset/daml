@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
 import java.util.concurrent.ConcurrentHashMap
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{Util => AstUtil}
-import com.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
+import com.digitalasset.daml.lf.language.Ast.{Package, PackageSignature}
+import com.digitalasset.daml.lf.language.{Util => AstUtil}
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 

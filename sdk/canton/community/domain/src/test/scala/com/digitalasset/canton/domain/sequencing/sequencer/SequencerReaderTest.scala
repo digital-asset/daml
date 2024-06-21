@@ -133,7 +133,6 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
       cryptoD,
       eventSignaller,
       topologyClientMember,
-      trafficConsumedStoreO = None,
       testedProtocolVersion,
       timeouts,
       loggerFactory,

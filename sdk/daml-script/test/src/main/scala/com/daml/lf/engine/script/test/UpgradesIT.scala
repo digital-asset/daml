@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 package test
 
 import io.circe._
@@ -9,11 +9,11 @@ import io.circe.yaml
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
-import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ScriptTimeMode
-import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration

@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.TransactionErrors.KeyInputError
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
+import com.digitalasset.daml.lf.transaction.TransactionErrors.KeyInputError
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -667,13 +667,13 @@ object Transaction {
 
   /** Transaction meta data
     *
-    * @param submissionSeed   Populated with the submission seed when returned from [[com.daml.lf.engine.Engine.submit]].
+    * @param submissionSeed   Populated with the submission seed when returned from [[com.digitalasset.daml.lf.engine.Engine.submit]].
     * @param submissionTime   The submission time
     * @param usedPackages     The set of all packages that are needed for the interpretation of the command. This
     *                         is done by first by establishing all the packages directly associated with action nodes
     *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
     *                         be this set of packages combined with all packages on which there is a transitive
-    *                         dependency (for details see [[com.daml.lf.engine.Engine.deps]]).
+    *                         dependency (for details see [[com.digitalasset.daml.lf.engine.Engine.deps]]).
     * @param dependsOnTime    Indicates that the transaction computation depends on ledger time.
     * @param nodeSeeds        An association list that maps the node-id of create and exercise
     *                         nodes to their seed.

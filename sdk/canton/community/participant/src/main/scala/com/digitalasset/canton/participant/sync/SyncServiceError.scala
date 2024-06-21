@@ -31,7 +31,7 @@ trait SyncServiceError extends Serializable with Product with CantonError
 
 object SyncServiceInjectionError extends InjectionErrorGroup {
 
-  import com.daml.lf.data.Ref.{ApplicationId, CommandId}
+  import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId}
 
   @Explanation("This error results if a command is submitted to the passive replica.")
   @Resolution("Send the command to the active replica.")

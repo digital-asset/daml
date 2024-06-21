@@ -70,7 +70,6 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.config.*
-import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.{
   EngineLoggingConfig,
@@ -389,7 +388,6 @@ trait CantonConfig {
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
-        commandProgressTracking = participantParameters.commandProgressTracker,
       )
     }
 
@@ -973,12 +971,9 @@ object CantonConfig {
       deriveReader[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigReader: ConfigReader[CantonEngineConfig] =
       deriveReader[CantonEngineConfig]
-    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigReader
-        : ConfigReader[ParticipantNodeParameterConfig] = {
-      implicit val commandProgressTrackerConfigReader: ConfigReader[CommandProgressTrackerConfig] =
-        deriveReader[CommandProgressTrackerConfig]
+    lazy implicit val participantNodeParameterConfigReader
+        : ConfigReader[ParticipantNodeParameterConfig] =
       deriveReader[ParticipantNodeParameterConfig]
-    }
     lazy implicit val timeTrackerConfigReader: ConfigReader[DomainTimeTrackerConfig] =
       deriveReader[DomainTimeTrackerConfig]
     lazy implicit val timeRequestConfigReader: ConfigReader[TimeProofRequestConfig] =
@@ -1390,12 +1385,9 @@ object CantonConfig {
       deriveWriter[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigWriter: ConfigWriter[CantonEngineConfig] =
       deriveWriter[CantonEngineConfig]
-    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigWriter
-        : ConfigWriter[ParticipantNodeParameterConfig] = {
-      implicit val commandProgressTrackerConfigWriter: ConfigWriter[CommandProgressTrackerConfig] =
-        deriveWriter[CommandProgressTrackerConfig]
+    lazy implicit val participantNodeParameterConfigWriter
+        : ConfigWriter[ParticipantNodeParameterConfig] =
       deriveWriter[ParticipantNodeParameterConfig]
-    }
     lazy implicit val timeTrackerConfigWriter: ConfigWriter[DomainTimeTrackerConfig] =
       deriveWriter[DomainTimeTrackerConfig]
     lazy implicit val timeRequestConfigWriter: ConfigWriter[TimeProofRequestConfig] =

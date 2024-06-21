@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigUpdate
 import com.google.protobuf.field_mask.FieldMask

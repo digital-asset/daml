@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive.testing
+package com.digitalasset.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.file.Paths
-import com.daml.lf.archive.{Dar, DarWriter}
-import com.daml.lf.data.Ref
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.testing.parser.{ParserParameters, parsePackage}
-import com.daml.lf.validation.Validation
+import com.digitalasset.daml.lf.archive.{Dar, DarWriter}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parsePackage}
+import com.digitalasset.daml.lf.validation.Validation
 import com.daml.SdkVersion
 
 import scala.annotation.tailrec

@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 package testing
 
-import com.daml.lf.data._
-import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast._
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.language.LanguageVersion.AllVersions
-import com.daml.lf.language.Util._
-import com.daml.lf.speedy.Pretty._
-import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SExpr.LfDefRef
-import com.daml.lf.validation.Validation
-import com.daml.lf.testing.parser
-import com.daml.lf.language.{LanguageMajorVersion, PackageInterface, LanguageVersion => LV}
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.language.LanguageVersion.AllVersions
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.speedy.Pretty._
+import com.digitalasset.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
+import com.digitalasset.daml.lf.validation.Validation
+import com.digitalasset.daml.lf.testing.parser
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
 
 import java.io.{File, PrintWriter, StringWriter}

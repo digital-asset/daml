@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, TypeConName}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Party, TypeConName}
+import com.digitalasset.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
   * a key. The 'hash' is guaranteed to be stable over time.

@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.speedy.SResult.SResultFinal
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.speedy.SResult.SResultFinal
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers

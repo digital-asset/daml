@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
+import com.digitalasset.daml.lf.transaction.{Node, NodeId, SubmittedTransaction}
 
 private[preprocessing] final class TransactionPreprocessor(
     commandPreprocessor: CommandPreprocessor

@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.digitalasset.daml.lf.speedy
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.DarDecoder
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.PackageInterface
-import com.daml.lf.speedy.Compiler.{compilePackages, Config, NoPackageValidation}
+import com.digitalasset.daml.lf.archive.DarDecoder
+import com.digitalasset.daml.lf.archive.Dar
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.PackageInterface
+import com.digitalasset.daml.lf.speedy.Compiler.{compilePackages, Config, NoPackageValidation}
 import java.io.File
 import org.openjdk.jmh.annotations.{Param, Setup, Level, Benchmark, State, Scope}
 

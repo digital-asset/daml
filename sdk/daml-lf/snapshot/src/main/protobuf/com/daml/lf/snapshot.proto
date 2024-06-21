@@ -4,9 +4,9 @@
 
 syntax = "proto3";
 
-package com.daml.lf.testing.snapshot;
+package com.digitalasset.daml.lf.testing.snapshot;
 
-option java_package = "com.daml.lf.testing.snapshot";
+option java_package = "com.digitalasset.daml.lf.testing.snapshot";
 
 message TransactionEntry {
     bytes rawTransaction = 1;

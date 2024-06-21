@@ -1,24 +1,24 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
-import com.daml.lf.data.Time
-import com.daml.lf.language.Ast.EVal
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
-import com.daml.lf.speedy.Question.Scenario
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.language.Ast.EVal
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.SExpr.{SEValue, SExpr}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
+import com.digitalasset.daml.lf.speedy.Question.Scenario
 import com.daml.logging.LoggingContext
 
 import java.io.File

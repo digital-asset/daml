@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
-import com.daml.lf.data.Ref.{IdString, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.GenTransactionTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

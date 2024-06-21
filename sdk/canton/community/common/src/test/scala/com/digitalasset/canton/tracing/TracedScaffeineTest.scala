@@ -32,7 +32,7 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
       }
     }.failOnShutdown
 
-    "Handle AbortDueToShutdownException in get" in {
+    "Handle an AbortDueToShutdownException" in {
       val keysCache =
         TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
@@ -42,22 +42,6 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
       for {
         result <-
           keysCache.getUS(10).unwrap
-      } yield {
-        result shouldBe UnlessShutdown.AbortedDueToShutdown
-      }
-    }
-
-    // Note that when Scaffeine.getAll returns a failed future that wraps the underlying exception
-    // with java.util.concurrent.CompletionException
-    "Handle AbortDueToShutdownException in getAll" in {
-      val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
-          cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
-          loader = traceContext => input => getValueBroken(input),
-        )(logger)
-
-      for {
-        result <- keysCache.getAllUS(Set(10)).unwrap
       } yield {
         result shouldBe UnlessShutdown.AbortedDueToShutdown
       }

@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy._
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
 
 import java.io.File

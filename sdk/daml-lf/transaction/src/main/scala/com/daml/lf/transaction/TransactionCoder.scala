@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.daml.lf.data.Ref.{Name, Party}
-import com.daml.lf.value.ValueCoder.decodeCoid
-import com.daml.lf.value.ValueCoder.ensureNoUnknownFields
-import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
-import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
+import com.digitalasset.daml.lf.data.Ref.{Name, Party}
+import com.digitalasset.daml.lf.value.ValueCoder.decodeCoid
+import com.digitalasset.daml.lf.value.ValueCoder.ensureNoUnknownFields
+import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 

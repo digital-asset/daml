@@ -112,7 +112,7 @@ class RecipientsValidator[I](
       )
       (wrongRecipients, goodInputs, errors) = resultsWithSequencingSnapshot
 
-      actualWrongRecipients <- {
+      actualWrongRecupients <- {
         if (errors.isEmpty) {
           // The recipients check reported no error.
           Future.successful(wrongRecipients)
@@ -150,7 +150,7 @@ class RecipientsValidator[I](
         }
       }
     } yield {
-      (actualWrongRecipients, goodInputs)
+      (actualWrongRecupients, goodInputs)
     }
   }
 
@@ -163,7 +163,7 @@ class RecipientsValidator[I](
   ): Future[(Seq[WrongRecipients], Seq[I], RecipientsValidatorErrors)] = {
 
     // Used to accumulate all the errors to report later.
-    // Each error also has an associated flag indicating whether it may be due to a topology change.
+    // Each error also has an associated flag indicating  whether it may be due to a topology change.
     val errorBuilder = Seq.newBuilder[Error]
 
     val rootHashes = inputs.map(viewOfInput(_).rootHash).distinct

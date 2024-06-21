@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
 import com.daml.tls.TlsVersion.TlsVersion
 import com.daml.tls.{TlsConfiguration, TlsVersion}

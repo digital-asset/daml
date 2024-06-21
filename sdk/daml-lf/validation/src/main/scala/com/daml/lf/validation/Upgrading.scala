@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package validation
 
-import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import scala.util.{Try, Success, Failure}
-import com.daml.lf.validation.AlphaEquiv
-import com.daml.lf.data.ImmArray
-import com.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.validation.AlphaEquiv
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))

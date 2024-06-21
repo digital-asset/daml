@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen
+package com.digitalasset.daml.lf.codegen
 
-import com.daml.lf.codegen.conf.Conf
+import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.control.NonFatal

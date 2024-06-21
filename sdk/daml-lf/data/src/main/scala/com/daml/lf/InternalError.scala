@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 
 import org.slf4j.LoggerFactory
 
 private[lf] object InternalError {
-  private[this] val logger = LoggerFactory.getLogger("com.daml.lf")
+  private[this] val logger = LoggerFactory.getLogger("com.digitalasset.daml.lf")
 
   def log(location: String, message: String, cause: Option[Throwable] = None): Unit = {
     logger.error(s"LF internal error in $location: $message")

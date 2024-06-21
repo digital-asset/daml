@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant
 
 import cats.syntax.option.*
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.DefaultDamlValues.*
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.*

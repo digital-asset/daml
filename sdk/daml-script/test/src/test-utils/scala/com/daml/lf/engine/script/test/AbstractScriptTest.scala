@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine.script
 package test
 
@@ -10,12 +10,12 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.speedy.{ArrayList, SValue}
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +61,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
     def converter(input: Value, typ: Ast.Type) =
-      new com.daml.lf.engine.preprocessing.ValueTranslator(dar.compiledPackages.pkgInterface, false)
+      new com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator(dar.compiledPackages.pkgInterface, false)
         .strictTranslateValue(typ, input)
         .left
         .map(_.message)

@@ -4,10 +4,10 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.lf.VersionRange
-import com.daml.lf.interpretation.Limits
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.ContractKeyUniquenessMode
+import com.digitalasset.daml.lf.VersionRange
+import com.digitalasset.daml.lf.interpretation.Limits
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}

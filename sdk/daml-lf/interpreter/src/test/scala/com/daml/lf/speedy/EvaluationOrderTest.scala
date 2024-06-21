@@ -1,24 +1,24 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.data.Ref.{Location, Party}
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
-import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.ledger.FailedAuthorization._
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueParty, ValueRecord}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Ref.{Location, Party}
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.speedy.SError._
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.ledger.FailedAuthorization
+import com.digitalasset.daml.lf.ledger.FailedAuthorization._
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
@@ -471,7 +471,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   }
 
   // We cover all errors for each node in the order they are defined
-  // in com.daml.lf.interpretation.Error.
+  // in com.digitalasset.daml.lf.interpretation.Error.
   // We don’t check for exceptions/aborts during evaluation of an expression instead
   // assume that those always stop at the point of the corresponding
   // trace statement.

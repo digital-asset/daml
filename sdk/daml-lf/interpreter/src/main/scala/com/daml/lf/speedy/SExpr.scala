@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 /** The simplified AST for the speedy interpreter.
@@ -16,14 +16,14 @@ package speedy
   */
 import java.util
 
-import com.daml.lf.language.Ast._
-import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.{SExpr0 => compileTime}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.Speedy._
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
@@ -295,7 +295,7 @@ private[lf] object SExpr {
     * runtime, if the value resulting from evaluating [[expr]] is a
     * (partially applied) closure, the label of the closure is set to the
     * [[label]] given here.
-    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * See [[com.digitalasset.daml.lf.speedy.Profile]] for an explanation why we use
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {

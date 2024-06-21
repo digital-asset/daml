@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
-import com.daml.lf.transaction.TransactionNodeStatistics.Actions
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestIdFactory, TestNodeBuilder}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
+import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.Actions
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestIdFactory, TestNodeBuilder}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

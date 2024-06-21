@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 package v2.ledgerinteraction
 package grpcLedgerClient
 
@@ -25,17 +25,17 @@ import com.daml.ledger.api.v2.transaction_filter.{
   TemplateFilter,
 }
 import com.daml.ledger.api.v2.{value => api}
-import com.daml.lf.CompiledPackages
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.daml.lf.command
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.engine.script.v2.Converter
-import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.speedy.{SValue, svalue}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.command
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.engine.script.v2.Converter
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.speedy.{SValue, svalue}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,

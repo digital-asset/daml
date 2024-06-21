@@ -4,7 +4,7 @@
 // Temporary stand-in for the real admin api clients defined in canton. Needed only for upgrades testing
 // We should intend to replace this as soon as possible
 
-package com.daml.lf.validation
+package com.digitalasset.daml.lf.validation
 package upgrade
 
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub

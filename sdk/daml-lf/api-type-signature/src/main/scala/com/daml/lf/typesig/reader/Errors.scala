@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.typesig
+package com.digitalasset.daml.lf.typesig
 package reader
 
-import com.daml.lf.data.Ref.{DottedName, Name}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Name}
 
 import scala.language.implicitConversions
 import scala.collection.immutable.Map

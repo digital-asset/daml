@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data._
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.language.Util._
-import com.daml.lf.speedy.ArrayList
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.speedy.ArrayList
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
@@ -30,8 +30,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     with TableDrivenPropertyChecks {
 
   import ValueTranslator.Config
-  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-  import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+  import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+  import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
     ParserParameters.defaultFor(majorLanguageVersion)

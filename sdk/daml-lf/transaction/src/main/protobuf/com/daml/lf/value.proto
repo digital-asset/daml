@@ -10,9 +10,9 @@
 // * dev -- special staging area for the next version to be released
 syntax = "proto3";
 
-package com.daml.lf.value;
+package com.digitalasset.daml.lf.value;
 
-option java_package = "com.daml.lf.value";
+option java_package = "com.digitalasset.daml.lf.value";
 
 import "google/protobuf/empty.proto";
 

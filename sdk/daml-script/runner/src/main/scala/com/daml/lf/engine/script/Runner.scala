@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 
@@ -14,24 +14,24 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
 }
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
-import com.daml.lf.engine.script.ledgerinteraction.{
+import com.digitalasset.daml.lf.archive.Dar
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   IdeLedgerClient,
   ScriptLedgerClient,
 }
-import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
-import com.daml.lf.typesig.EnvironmentSignature
-import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.language.LanguageVersionRangeOps._
-import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.digitalasset.daml.lf.typesig.EnvironmentSignature
+import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
+import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.{
   Compiler,
   Pretty,
   Profile,
@@ -42,8 +42,8 @@ import com.daml.lf.speedy.{
   TraceLog,
   WarningLog,
 }
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.json.ApiCodecCompressed
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant
 
 import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveLong}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import slick.jdbc.{GetResult, SetParameter}
 
@@ -30,8 +29,6 @@ final case class GlobalOffset(v: PositiveLong) extends Ordered[GlobalOffset] wit
 
   def +(i: PositiveLong): GlobalOffset = new GlobalOffset(v + i)
   def +(i: NonNegativeInt): GlobalOffset = new GlobalOffset(v.tryAdd(i.unwrap.toLong))
-
-  def toLedgerOffset: Offset = Offset.fromLong(v.value)
 }
 
 object GlobalOffset {
@@ -52,11 +49,4 @@ object GlobalOffset {
   def fromLong(i: Long): Either[String, GlobalOffset] = PositiveLong
     .create(i)
     .bimap(_ => s"Expecting positive value for global offset; found $i", GlobalOffset(_))
-
-  def tryFromLedgerOffset(offset: Offset): GlobalOffset =
-    if (offset == Offset.beforeBegin)
-      throw new IllegalArgumentException(
-        "offset expected to be an explicit offset, not before-begin"
-      )
-    else tryFromLong(offset.toLong)
 }

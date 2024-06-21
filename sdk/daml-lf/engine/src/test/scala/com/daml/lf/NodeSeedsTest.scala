@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.Engine
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId, Versioned}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.digitalasset.daml.lf.transaction.{Node, NodeId, Versioned}
+import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

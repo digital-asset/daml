@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package data
 
 object Relation {
@@ -14,9 +14,9 @@ object Relation {
   // as the same
   // this fits our purposes for the moment
   /** A Relation. */
-  @deprecated("2.4.0", "use com.daml.lf.Relation")
+  @deprecated("2.4.0", "use com.digitalasset.daml.lf.Relation")
   type Relation[A, B] = data.Relation[A, B] // alias for Map[A, Set[B]]
-  @deprecated("2.4.0", "use com.daml.lf.Relation")
+  @deprecated("2.4.0", "use com.digitalasset.daml.lf.Relation")
   val Relation = this
 
   def empty[A, B]: data.Relation[A, B] = Map.empty

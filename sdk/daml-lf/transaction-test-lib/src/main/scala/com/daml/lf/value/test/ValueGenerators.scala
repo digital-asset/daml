@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package value
 package test
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -17,8 +17,8 @@ import com.daml.lf.transaction.{
   Versioned,
   VersionedTransaction,
 }
-import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value._
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 

@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java.inner
+package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import com.daml.lf.typesig.Type
-import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
+import com.digitalasset.daml.lf.typesig.Type
+import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -279,8 +279,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
   private[inner] def jsonDecoderForType(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
-    import com.daml.lf.typesig._
-    import com.daml.lf.data.ImmArray.ImmArraySeq
+    import com.digitalasset.daml.lf.typesig._
+    import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
     import com.daml.ledger.javaapi.data.codegen.ContractId
 
     def typeReaders(types: Iterable[Type]): CodeBlock =

@@ -1,17 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.data.{TreeMap => _, _}
-import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SExpr.SExpr
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value.ValueArithmeticError
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.data.{TreeMap => _, _}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.speedy.SExpr.SExpr
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 

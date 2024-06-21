@@ -1,24 +1,24 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
-import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.engine.{Engine, EngineConfig, Error}
-import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
-import com.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction => SubmittedTx,
   TransactionCoder => TxCoder,
   TransactionOuterClass => TxOuterClass,
 }
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 

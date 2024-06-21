@@ -1,22 +1,22 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing.archive
+package com.digitalasset.daml.lf.testing.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf2
-import com.daml.lf.archive.{
+import com.digitalasset.daml.lf.archive.{
   ArchivePayload,
   Dar,
   DecodeV2,
   UniversalArchiveDecoder,
   UniversalArchiveReader,
 }
-import com.daml.lf.data.Ref.DottedName
-import com.daml.lf.data.Ref.ModuleName
-import com.daml.lf.language.Ast
-import com.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.data.Ref.DottedName
+import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

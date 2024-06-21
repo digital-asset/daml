@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
 
 import java.sql.Connection
 

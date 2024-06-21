@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream._
@@ -13,17 +13,17 @@ import scala.concurrent.duration.Duration
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
-import com.daml.lf.archive.{Dar, DarDecoder}
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.Ast.Type
-import com.daml.lf.typesig.EnvironmentSignature
-import com.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Type
+import com.digitalasset.daml.lf.typesig.EnvironmentSignature
+import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.auth.TokenHolder
-import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
 import java.io.FileInputStream
 
 import com.google.protobuf.ByteString

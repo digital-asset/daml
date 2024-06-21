@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
 import cats.syntax.option.*
-import com.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}

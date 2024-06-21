@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
+package com.digitalasset.daml.lf.language
 
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

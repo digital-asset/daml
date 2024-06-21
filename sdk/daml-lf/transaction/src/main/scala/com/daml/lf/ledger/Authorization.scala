@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.ledger
+package com.digitalasset.daml.lf.ledger
 
-import com.daml.lf.data.Ref.{ChoiceName, Identifier, Location, Party}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Location, Party}
 
 /** Authorize the transaction using the provided parties as initial authorizers for the dynamic authorization. */
 final case class Authorize(authParties: Set[Party])

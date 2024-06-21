@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.value.json
+package com.digitalasset.daml.lf.value.json
 
 import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 
-import com.daml.lf.data.Time
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.value.{Value => V}
 
 object ApiValueImplicits {
 

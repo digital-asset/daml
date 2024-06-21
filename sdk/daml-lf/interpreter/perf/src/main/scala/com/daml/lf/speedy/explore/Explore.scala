@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
-import com.daml.lf.speedy.SExpr0._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.Speedy._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SExpr0._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
 import scopt.OptionParser
 

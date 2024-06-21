@@ -5,10 +5,10 @@ package com.digitalasset.canton.ledger.service
 
 import java.io.File
 
-import com.daml.lf.archive.{ArchivePayload, Dar, DarReader}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.typesig
 import com.daml.scalautil.ExceptionOps._
 import scalaz.std.list._
 import scalaz.syntax.traverse._

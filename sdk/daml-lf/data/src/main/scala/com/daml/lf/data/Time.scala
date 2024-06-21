@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package data
 
 import java.math.{RoundingMode, BigDecimal}
@@ -34,7 +34,7 @@ object Time {
 
   object Date {
 
-    @deprecated("use com.daml.lf.data.Time.Data", since = "2.9.0")
+    @deprecated("use com.digitalasset.daml.lf.data.Time.Data", since = "2.9.0")
     type T = Date
 
     private val formatter: DateTimeFormatter =
@@ -122,7 +122,7 @@ object Time {
     //  lets change that HalfUp for daml 3.
     val DefaultRounding = RoundingMode.FLOOR
 
-    @deprecated("use com.daml.lf.data.Time.Data", since = "2.9.0")
+    @deprecated("use com.digitalasset.daml.lf.data.Time.Data", since = "2.9.0")
     type T = Timestamp
 
     val Resolution: Duration = Duration.of(1L, ChronoUnit.MICROS)

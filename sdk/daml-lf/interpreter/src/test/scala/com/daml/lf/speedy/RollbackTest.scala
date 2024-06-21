@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast.Expr
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.lf.value.Value.{ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.language.Ast.Expr
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueRecord}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

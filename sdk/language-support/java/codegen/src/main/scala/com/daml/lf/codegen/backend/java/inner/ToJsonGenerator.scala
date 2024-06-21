@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java.inner
+package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
+import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfEncoder, JsonLfEncoders, JsonLfWriter}
-import com.daml.lf.typesig.Type
+import com.digitalasset.daml.lf.typesig.Type
 import com.squareup.javapoet.{
   CodeBlock,
   ClassName,
@@ -248,7 +248,7 @@ private[inner] object ToJsonGenerator {
       damlType: Type,
       nesting: Int = 0, // Used to avoid clashing argument identifiers in nested encoder definitions
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
-    import com.daml.lf.typesig._
+    import com.digitalasset.daml.lf.typesig._
 
     def typeEncoders(types: Iterable[Type]): CodeBlock =
       CodeBlock.join(types.map(t => encoderOf(t, nesting + 1)).asJava, ", ")

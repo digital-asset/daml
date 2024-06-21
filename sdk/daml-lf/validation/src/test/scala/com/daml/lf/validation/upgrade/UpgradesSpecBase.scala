@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.digitalasset.daml.lf.validation
 package upgrade
 
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.integrationtest.CantonFixture
-import com.daml.lf.archive.{Dar, DarReader, DarWriter}
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf.ByteString
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.Inspectors.forEvery
@@ -561,9 +561,9 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
-      import com.daml.lf.testing.parser._
-      import com.daml.lf.testing.parser.Implicits._
-      import com.daml.lf.archive.testing.Encode
+      import com.digitalasset.daml.lf.testing.parser._
+      import com.digitalasset.daml.lf.testing.parser.Implicits._
+      import com.digitalasset.daml.lf.archive.testing.Encode
 
       val selfPkgId = PackageId.assertFromString("-self-")
 

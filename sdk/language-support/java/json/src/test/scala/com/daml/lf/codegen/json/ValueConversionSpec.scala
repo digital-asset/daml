@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.json
+package com.digitalasset.daml.lf.codegen.json
 
 import com.daml.ledger.javaapi.{data => JData}
-import com.daml.lf.value.{Value => LfValue}
-import com.daml.lf.value.test.ValueGenerators
+import com.digitalasset.daml.lf.value.{Value => LfValue}
+import com.digitalasset.daml.lf.value.test.ValueGenerators
 import org.scalacheck.{Gen, Shrink}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers

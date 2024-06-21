@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
+package com.digitalasset.daml.lf.language
 
-import com.daml.lf.LfVersions
+import com.digitalasset.daml.lf.LfVersions
 import scalaz.{IList, NonEmptyList}
 
 // an ADT version of the Daml-LF version

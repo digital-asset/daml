@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
-import com.daml.lf.speedy.Anf.flattenToAnf
-import com.daml.lf.speedy.ClosureConversion.closureConvert
-import com.daml.lf.speedy.PhaseOne.{Env, Position}
-import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
-import com.daml.lf.speedy.{SExpr0 => s}
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
+import com.digitalasset.daml.lf.speedy.Anf.flattenToAnf
+import com.digitalasset.daml.lf.speedy.ClosureConversion.closureConvert
+import com.digitalasset.daml.lf.speedy.PhaseOne.{Env, Position}
+import com.digitalasset.daml.lf.speedy.Profile.LabelModule
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{SExpr => t}
+import com.digitalasset.daml.lf.speedy.{SExpr0 => s}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 

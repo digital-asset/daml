@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.data
+package com.digitalasset.daml.lf.data
 
-import com.daml.lf.data.Ref.{Identifier, LedgerString, Party, TypeConRef}
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party, TypeConRef}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
 
 package object logging {

@@ -5,18 +5,18 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.*
 import cats.syntax.all.*
-import com.daml.lf.crypto
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.*
-import com.daml.lf.transaction.*
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -40,12 +40,12 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.{ExecutionContext, Future}
 
 /** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
-  *           performed by an [[com.daml.lf.engine.Engine]].
+  *           performed by an [[com.digitalasset.daml.lf.engine.Engine]].
   */
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    writeService: WriteService,
+    readService: ReadService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
@@ -71,7 +71,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
     val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
-      case (acc, com.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
+      case (acc, com.digitalasset.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
         argument.collectCids(acc) + coid
       case (acc, _) => acc
     }
@@ -256,7 +256,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           packageLoader
             .loadPackage(
               packageId = packageId,
-              delegate = writeService.getLfArchive(_)(loggingContext.traceContext),
+              delegate = readService.getLfArchive(_)(loggingContext.traceContext),
               metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>

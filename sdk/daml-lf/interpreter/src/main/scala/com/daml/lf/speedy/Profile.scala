@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import com.daml.scalautil.Statement.discard
 import java.lang.System
 import java.nio.file.{Files, Path}
@@ -233,7 +233,7 @@ object Profile {
 
     final class Allowed[-T] private ()
     object Allowed {
-      import com.daml.lf.speedy.SExpr._
+      import com.digitalasset.daml.lf.speedy.SExpr._
       private[this] val allowAll = new Allowed[Any]
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll

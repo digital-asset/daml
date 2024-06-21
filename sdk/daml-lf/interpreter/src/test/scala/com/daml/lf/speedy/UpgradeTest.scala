@@ -1,22 +1,22 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.TransactionVersion.VDev
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
+import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec

@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.daml.lf.data._
-import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.testing.snapshot.Adapter.TxBuilder
-import com.daml.lf.transaction._
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.testing.snapshot.Adapter.TxBuilder
+import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
+import com.digitalasset.daml.lf.value.Value
 
 import scala.collection.mutable
 
@@ -17,7 +17,7 @@ final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package]
 ) {
 
-  private val interface = com.daml.lf.language.PackageInterface(packages)
+  private val interface = com.digitalasset.daml.lf.language.PackageInterface(packages)
 
   def adapt(tx: VersionedTransaction): SubmittedTransaction =
     tx.foldWithPathState(new TxBuilder(interface.packageLanguageVersion), Option.empty[NodeId])(

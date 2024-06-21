@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package ledger
 
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Relation
-import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{NodeId, VersionedTransaction}
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Relation
+import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.{NodeId, VersionedTransaction}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
 
 object BlindingTransaction {

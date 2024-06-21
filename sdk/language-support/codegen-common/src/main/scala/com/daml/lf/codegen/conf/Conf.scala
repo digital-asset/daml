@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.conf
+package com.digitalasset.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.buildinfo.BuildInfo
-import com.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
 import scopt.{OptionParser, Read}
 
 sealed trait PackageReference extends Product with Serializable

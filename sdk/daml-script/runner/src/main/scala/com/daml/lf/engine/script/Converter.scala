@@ -1,25 +1,25 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 
 import com.daml.ledger.api.v2.value
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion.V2
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SValue}
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.typesig.EnvironmentSignature
-import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.typesig.EnvironmentSignature
+import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
@@ -76,7 +76,7 @@ final case class Disclosure(templatedId: TypeConName, contractId: ContractId, bl
 object Converter {
   def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
     majorLanguageVersion match {
-      case V2 => com.daml.lf.engine.script.v2.Converter
+      case V2 => com.digitalasset.daml.lf.engine.script.v2.Converter
       case _ => throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
     }
   }

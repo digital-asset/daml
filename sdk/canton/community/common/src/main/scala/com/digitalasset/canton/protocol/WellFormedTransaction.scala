@@ -7,7 +7,7 @@ import cats.data.{NonEmptyChain, Validated}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
-import com.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.ImmArray
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ActionDescription
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
@@ -26,7 +26,7 @@ import scala.collection.mutable
   *   every non-root node has exactly one parent and is reachable from a root node. (No cycles, no sharing, no orphaned node).</li>
   *   <li>All node Ids are non-negative.</li>
   *   <li>The type parameter `S` determines whether all create nodes have suffixed IDs or none.</li>
-  *   <li>Create nodes have unique contract ids of shape `com.daml.lf.value.Value.ContractId.V1`.
+  *   <li>Create nodes have unique contract ids of shape `com.digitalasset.daml.lf.value.Value.ContractId.V1`.
   *     The contract id of a create node is not referenced before the node.
   *     The contract id of a rolled back create node is not referenced outside its rollback scope.</li>
   *   <li>The discriminators of create nodes without suffixed contract ids are unique among all discriminators that appear in the transaction.</li>

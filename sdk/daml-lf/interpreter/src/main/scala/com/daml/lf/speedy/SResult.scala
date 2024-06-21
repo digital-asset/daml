@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.speedy.SError._
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.speedy.SError._
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 object Question {
   sealed abstract class Update extends Product with Serializable

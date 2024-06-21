@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
-import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
-import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
-import com.daml.lf.speedy._
-import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.IncompleteTransaction
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
+import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
+import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.digitalasset.daml.lf.speedy._
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.transaction.IncompleteTransaction
+import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
 

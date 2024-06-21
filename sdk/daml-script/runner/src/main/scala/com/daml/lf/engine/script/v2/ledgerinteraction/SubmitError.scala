@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref.{Identifier, Name}
-import com.daml.lf.language.{Ast}
-import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
+import com.digitalasset.daml.lf.language.{Ast}
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
-import com.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import scala.util.control.NoStackTrace
 
@@ -33,7 +33,7 @@ sealed abstract class SubmitError
 object SubmitError {
   import ScriptF.Env
   import com.daml.script.converter.Converter._
-  import com.daml.lf.engine.script.v2.Converter._
+  import com.digitalasset.daml.lf.engine.script.v2.Converter._
 
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =

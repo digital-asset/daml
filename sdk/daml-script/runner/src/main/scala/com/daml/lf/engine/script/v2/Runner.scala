@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 package v2
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.engine.free.Free
-import com.daml.lf.engine.script.Runner.IdeLedgerContext
-import com.daml.lf.engine.script.ledgerinteraction.{
+import com.digitalasset.daml.lf.engine.free.Free
+import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 

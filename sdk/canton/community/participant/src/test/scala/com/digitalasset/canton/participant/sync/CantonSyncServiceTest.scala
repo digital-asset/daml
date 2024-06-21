@@ -6,10 +6,10 @@ package com.digitalasset.canton.participant.sync
 import cats.data.EitherT
 import cats.implicits.*
 import cats.{Eval, Id}
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
-import com.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
-import com.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255

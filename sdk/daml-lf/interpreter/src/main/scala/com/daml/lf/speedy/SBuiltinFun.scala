@@ -1,35 +1,35 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.data.Numeric.Scale
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast
-import com.daml.lf.speedy.ArrayList.Implicits._
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.{SExpr0 => compileTime}
-import com.daml.lf.speedy.{SExpr => runTime}
-import com.daml.lf.speedy.SValue.{SValue => SV, _}
-import com.daml.lf.transaction.TransactionErrors.{
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.Numeric.Scale
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.ArrayList.Implicits._
+import com.digitalasset.daml.lf.speedy.SError._
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.Speedy._
+import com.digitalasset.daml.lf.speedy.{SExpr0 => compileTime}
+import com.digitalasset.daml.lf.speedy.{SExpr => runTime}
+import com.digitalasset.daml.lf.speedy.SValue.{SValue => SV, _}
+import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   AuthFailureDuringExecution,
   DuplicateContractId,
   DuplicateContractKey,
 }
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
   TransactionErrors => TxErr,
 }
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 

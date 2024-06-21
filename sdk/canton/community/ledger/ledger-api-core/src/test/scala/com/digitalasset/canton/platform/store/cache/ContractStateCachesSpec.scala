@@ -4,10 +4,10 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent

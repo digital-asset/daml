@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.update_service.*
-import com.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.ledger.EventId
 import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger

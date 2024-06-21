@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageVersion
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata

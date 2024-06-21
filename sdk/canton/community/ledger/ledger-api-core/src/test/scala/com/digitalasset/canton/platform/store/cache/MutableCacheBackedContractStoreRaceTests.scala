@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractInstance, ValueInt64}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

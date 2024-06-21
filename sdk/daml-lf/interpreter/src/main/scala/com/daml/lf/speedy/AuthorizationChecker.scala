@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.Location
-import com.daml.lf.ledger.Authorize
-import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.data.Ref.Location
+import com.digitalasset.daml.lf.ledger.Authorize
+import com.digitalasset.daml.lf.ledger.FailedAuthorization
+import com.digitalasset.daml.lf.transaction.Node
 
 private[lf] abstract class AuthorizationChecker {
 

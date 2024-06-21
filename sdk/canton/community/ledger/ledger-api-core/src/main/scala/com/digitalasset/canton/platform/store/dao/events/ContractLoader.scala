@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.metrics.InstrumentedGraph
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset

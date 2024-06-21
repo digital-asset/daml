@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.client.services.admin
 import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
 import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.ledger.api.v2.admin as admin_proto
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, UserId}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.client.LedgerClient

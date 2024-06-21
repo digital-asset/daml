@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.speedy.Speedy.ContractInfo
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

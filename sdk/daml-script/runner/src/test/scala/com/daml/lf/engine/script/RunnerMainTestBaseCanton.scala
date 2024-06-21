@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 
 import com.daml.integrationtest.CantonFixture
-import com.daml.lf.archive.DarParser
+import com.digitalasset.daml.lf.archive.DarParser
 import com.daml.ports.Port
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Path, Files}

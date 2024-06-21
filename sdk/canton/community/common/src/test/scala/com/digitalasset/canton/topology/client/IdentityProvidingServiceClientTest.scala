@@ -76,11 +76,6 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
       ): Future[Set[LfPartyId]] =
         ???
 
-      override def activeParticipantsOfPartiesWithGroupAddressing(
-          parties: Seq[LfPartyId]
-      )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
-        ???
-
       override def consortiumThresholds(
           parties: Set[LfPartyId]
       )(implicit traceContext: TraceContext): Future[Map[LfPartyId, PositiveInt]] = ???

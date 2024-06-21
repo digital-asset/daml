@@ -88,8 +88,8 @@ trait Sequencer
     */
   def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
 
-  private[sequencing] def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(
-      implicit traceContext: TraceContext
+  def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit]
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit

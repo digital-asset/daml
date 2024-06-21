@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package crypto
 
-import com.daml.lf.data.{Numeric, Ref, SortedLookupList, Time}
-import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-import com.daml.lf.value.Value._
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.{Numeric, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
+import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}

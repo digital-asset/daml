@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.value.Value.ValueInt64
+import com.digitalasset.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{

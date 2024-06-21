@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.version
 
-import com.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.canton.BaseTest
 import org.scalatest.wordspec.AnyWordSpec
 

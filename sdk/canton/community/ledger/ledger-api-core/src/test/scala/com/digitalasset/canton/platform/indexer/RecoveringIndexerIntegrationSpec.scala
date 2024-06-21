@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref.{Party, SubmissionId}
-import com.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.data.Ref.{Party, SubmissionId}
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.{
@@ -24,7 +24,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.LedgerApiServer
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IndexServiceConfig,
@@ -255,7 +254,6 @@ class RecoveringIndexerIntegrationSpec
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer
           .createInMemoryStateAndUpdater(
-            commandProgressTracker = CommandProgressTracker.NoOp,
             IndexServiceConfig(),
             CommandServiceConfig.DefaultMaxCommandsInFlight,
             metrics,

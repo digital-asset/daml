@@ -1,27 +1,27 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import java.util
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
-import com.daml.lf.interpretation.{Error => IError}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, Util => AstUtil}
-import com.daml.lf.language.LanguageVersionRangeOps._
-import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
-import com.daml.lf.speedy.PartialTransaction.NodeSeeds
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue.SArithmeticError
-import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LookupError, Util => AstUtil}
+import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
+import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
+import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
+import com.digitalasset.daml.lf.speedy.SError._
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SValue.SArithmeticError
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
   Node,
@@ -30,8 +30,8 @@ import com.daml.lf.transaction.{
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
-import com.daml.lf.value.Value.ValueArithmeticError
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -1196,7 +1196,7 @@ private[lf] object Speedy {
     // This translates a well-typed LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
     // Note the method does not check the value is well-typed as opposed as
-    // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
+    // com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {

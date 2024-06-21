@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.messages.transaction
 
-import com.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.canton.ledger.api.domain.TransactionId
 
 final case class GetTransactionByIdRequest(

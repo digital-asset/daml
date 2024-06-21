@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.exception
+package com.digitalasset.daml.lf.codegen.exception
 
 /** The reason why a given type's code can't be generated
   */

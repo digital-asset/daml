@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import cats.data.Chain
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import com.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}

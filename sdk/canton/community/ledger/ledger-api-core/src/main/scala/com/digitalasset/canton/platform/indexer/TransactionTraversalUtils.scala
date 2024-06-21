@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{Node, NodeId, Transaction}
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.digitalasset.daml.lf.transaction.{Node, NodeId, Transaction}
 
 object TransactionTraversalUtils {
   def preorderTraversalForIngestion(transaction: Transaction): Iterator[(NodeId, Node)] =

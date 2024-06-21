@@ -52,10 +52,8 @@ message TrafficConsumed {
   uint64 extra_traffic_consumed = 2;
   // Remaining free base traffic
   uint64 base_traffic_remainder = 3;
-  // Cost deducted at `timestamp`, only present when traffic was consumed at `timestamp`, otherwise is set to 0
-  uint64 last_consumed_cost = 4;
   // Timestamp at which this state is valid - this timestamp is used to compute the base traffic remainder above
-  int64 sequencing_timestamp = 5; // in microseconds of UTC time since Unix epoch
+  int64 sequencing_timestamp = 4; // in microseconds of UTC time since Unix epoch
 }
 
 // Message representing a traffic purchase made on behalf of a member
@@ -79,12 +77,10 @@ message TrafficState {
   int64 extra_traffic_consumed = 2;
   // Amount of base traffic remaining
   int64 base_traffic_remainder = 3;
-  // Cost deducted at `timestamp`, only present when traffic was consumed at `timestamp`, otherwise is set to 0
-  uint64 last_consumed_cost = 4;
   // Timestamp at which the state is valid
-  int64 timestamp = 5;
+  int64 timestamp = 4;
   // Optional serial of the balance update that updated the extra traffic limit
-  google.protobuf.UInt32Value serial = 6;
+  google.protobuf.UInt32Value serial = 5;
 }
 
 message SetTrafficPurchasedMessage {

@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.speedy.{Compiler, SDefinition, SExpr}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, SExpr}
 
 /** Trait that extends [[CompiledPackages]] with the ability to
   * add new packages.

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java
+package com.digitalasset.daml.lf.codegen.backend.java
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.DamlTextMap

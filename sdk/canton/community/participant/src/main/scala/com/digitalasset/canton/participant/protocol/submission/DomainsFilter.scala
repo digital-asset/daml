@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.syntax.alternative.*
 import cats.syntax.parallel.*
-import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain.DomainNotUsedReason
 import com.digitalasset.canton.protocol.LfVersionedTransaction

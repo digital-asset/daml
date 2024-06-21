@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.daml.lf.transaction.Transaction.{
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.Transaction.{
   AliasedNode,
   ChildrenRecursion,
   DanglingNodeId,
   NotWellFormedError,
   OrphanedNode,
 }
-import com.daml.lf.transaction.TransactionErrors.{
+import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   DuplicateContractId,
   DuplicateContractIdKIError,
   DuplicateContractKey,
@@ -23,9 +23,9 @@ import com.daml.lf.transaction.TransactionErrors.{
   InconsistentContractKey,
   KeyInputError,
 }
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside

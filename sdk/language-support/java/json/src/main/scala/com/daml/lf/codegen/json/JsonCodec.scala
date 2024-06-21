@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.json
+package com.digitalasset.daml.lf.codegen.json
 
 import com.daml.ledger.javaapi.data.Value
 import com.daml.ledger.javaapi.data.codegen.DefinedDataType
-import com.daml.lf.value.json.ApiCodecCompressed
-import com.daml.lf.value.json.ApiCodecCompressed.JsonImplicits._
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed.JsonImplicits._
 import spray.json.JsValue
 
 final class JsonCodec private (encodeDecimalAsString: Boolean, encodeInt64AsString: Boolean) {

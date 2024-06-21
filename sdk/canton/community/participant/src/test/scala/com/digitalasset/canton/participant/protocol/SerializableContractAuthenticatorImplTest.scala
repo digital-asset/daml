@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.daml.lf.transaction.Versioned
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}

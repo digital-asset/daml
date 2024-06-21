@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.typesig
+package com.digitalasset.daml.lf.typesig
 
 import java.{util => j}
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
 import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.ArchivePayload
+import com.digitalasset.daml.lf.archive.ArchivePayload
 import scalaz.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.bifunctor._
@@ -18,7 +18,7 @@ import scalaz.syntax.std.boolean._
 import scala.collection.immutable.{Map, SeqOps}
 import scala.jdk.CollectionConverters._
 
-// Duplicate of the one in com.daml.lf.language to separate Ast and Iface
+// Duplicate of the one in com.digitalasset.daml.lf.language to separate Ast and Iface
 final case class PackageMetadata(
     name: PackageName,
     version: PackageVersion,

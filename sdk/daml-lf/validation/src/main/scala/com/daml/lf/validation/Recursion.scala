@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.digitalasset.daml.lf.validation
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Graphs, Util => AstUtil}
-import com.daml.lf.language.iterable.TypeIterable
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{Graphs, Util => AstUtil}
+import com.digitalasset.daml.lf.language.iterable.TypeIterable
 
 private[validation] object Recursion {
 

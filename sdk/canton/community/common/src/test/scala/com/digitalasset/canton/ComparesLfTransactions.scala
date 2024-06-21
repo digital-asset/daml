@@ -4,10 +4,10 @@
 package com.digitalasset.canton
 
 import com.daml.ledger.javaapi.data.Identifier
-import com.daml.lf.data.{FrontStack, ImmArray}
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.transaction.test.NodeIdTransactionBuilder
-import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{toIdentifier, toPackageId}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
+import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.transaction.test.NodeIdTransactionBuilder
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{toIdentifier, toPackageId}
 import com.digitalasset.canton.ComparesLfTransactions.TxTree
 import com.digitalasset.canton.logging.pretty.PrettyTestInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}

@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java.inner
+package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
-import com.daml.lf.typesig._
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
+import com.digitalasset.daml.lf.typesig._
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.matchers.should.Matchers

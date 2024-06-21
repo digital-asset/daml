@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.dependencygraph
+package com.digitalasset.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.codegen.exception.UnsupportedTypeError
+import com.digitalasset.daml.lf.codegen.exception.UnsupportedTypeError
 
 /** Ordered dependencies where the dependant node always comes after the dependency.
   *

@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
-import com.daml.lf.data.ImmArray
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.transaction.Versioned
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord}
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
 
 import java.io.File

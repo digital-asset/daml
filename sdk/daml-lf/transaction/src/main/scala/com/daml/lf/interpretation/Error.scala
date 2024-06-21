@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package interpretation
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.transaction.{GlobalKey, NodeId}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, NodeId}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 /** Daml exceptions that should be reported to the user
   */
@@ -66,7 +66,7 @@ object Error {
   ) extends Error
 
   /** Two contracts with the same key were active at the same time.
-    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * See com.digitalasset.daml.lf.transaction.Transaction.DuplicateContractKey
     * for more details.
     */
   final case class DuplicateContractKey(
@@ -74,7 +74,7 @@ object Error {
   ) extends Error
 
   /** The ledger provided an inconsistent view of a contract key.
-    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * See com.digitalasset.daml.lf.transaction.Transaction.DuplicateContractKey
     * for more details.
     */
   final case class InconsistentContractKey(

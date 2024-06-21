@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package scenario
 
 import java.util.concurrent.atomic.AtomicLong
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.data.{ImmArray, assertRight}
-import com.daml.lf.data.Ref.{
+import com.digitalasset.daml.lf.data.{ImmArray, assertRight}
+import com.digitalasset.daml.lf.data.Ref.{
   Identifier,
   ModuleName,
   PackageId,
@@ -16,16 +16,16 @@ import com.daml.lf.data.Ref.{
   PackageVersion,
   QualifiedName,
 }
-import com.daml.lf.engine.script.ScriptTimeMode
-import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
-import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
-import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
-import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.daml.lf.validation.Validation
+import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.digitalasset.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
+import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
+import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.digitalasset.daml.lf.validation.Validation
 import com.daml.script.converter
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{Runner, Script}
+import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
 import org.slf4j.LoggerFactory
 
@@ -275,7 +275,7 @@ class Context(
         }
       case Failure(e: converter.ConverterException) =>
         handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
-      case Failure(e: com.daml.lf.engine.free.ConversionError) =>
+      case Failure(e: com.digitalasset.daml.lf.engine.free.ConversionError) =>
         handleFailure(Error.Internal("Unexpected conversion exception: " + e.getMessage))
       case Failure(e) =>
         // something bad happened, we log and fail

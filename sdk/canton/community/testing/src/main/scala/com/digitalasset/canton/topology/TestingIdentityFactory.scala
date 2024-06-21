@@ -522,16 +522,15 @@ class TestingIdentityFactory(
         val partyId = PartyId.tryFromLfParty(lfParty)
         val participantsForParty = participants.iterator.filter(_._1.uid != partyId.uid)
         mkAdd(
-          PartyToParticipant
-            .tryCreate(
-              partyId,
-              None,
-              threshold = PositiveInt.one,
-              participantsForParty.map { case (id, permission) =>
-                HostingParticipant(id, permission)
-              }.toSeq,
-              groupAddressing = false,
-            )
+          PartyToParticipant(
+            partyId,
+            None,
+            threshold = PositiveInt.one,
+            participantsForParty.map { case (id, permission) =>
+              HostingParticipant(id, permission)
+            }.toSeq,
+            groupAddressing = false,
+          )
         )
       }
 
@@ -722,7 +721,7 @@ class TestingOwnerWithKeys(
     )
 
     val p1p1 = mkAdd(
-      PartyToParticipant.tryCreate(
+      PartyToParticipant(
         PartyId(UniqueIdentifier.tryCreate("one", key1.id)),
         None,
         PositiveInt.one,

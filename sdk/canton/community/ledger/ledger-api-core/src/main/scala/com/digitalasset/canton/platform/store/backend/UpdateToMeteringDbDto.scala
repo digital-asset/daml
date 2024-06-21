@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
 import com.digitalasset.canton.data.Offset

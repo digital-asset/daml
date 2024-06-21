@@ -17,7 +17,7 @@ import scalaz.{-\/, EitherT, Monad, \/, \/-}
 import com.digitalasset.canton.http.{EndpointsCompanion, domain}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.daml.lf.data.Ref.UserId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
     import scalaz.std.option._
     import scalaz.syntax.traverse._
     import scalaz.syntax.std.either._
-    import com.daml.lf.data.Ref
+    import com.digitalasset.daml.lf.data.Ref
     val input =
       for {
         username <- UserId.fromString(createUserRequest.userId).disjunction

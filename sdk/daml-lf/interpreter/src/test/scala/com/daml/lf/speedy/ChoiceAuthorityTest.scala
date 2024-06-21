@@ -1,20 +1,20 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
-import com.daml.lf.speedy.SError.SError
-import com.daml.lf.speedy.SExpr.SEApp
-import com.daml.lf.speedy.SValue.{SList, SParty}
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.interpretation.Error.FailedAuthorization
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
+import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.speedy.SExpr.SEApp
+import com.digitalasset.daml.lf.speedy.SValue.{SList, SParty}
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._

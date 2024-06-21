@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 
 import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.CodedInputStream

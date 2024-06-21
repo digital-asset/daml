@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.transaction
+package com.digitalasset.daml.lf.transaction
 
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Relation
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Relation
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 /** A transaction's blinding information, consisting of disclosure and
   * divulgence info.

@@ -8,7 +8,7 @@ import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc

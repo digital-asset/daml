@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
@@ -110,7 +110,6 @@ class CantonLedgerApiServerFactory(
             cantonParameterConfig = parameters,
             testingTimeService = ledgerTestingTimeService,
             adminToken = adminToken,
-            enableCommandInspection = config.ledgerApi.enableCommandInspection,
             loggerFactory = loggerFactory,
             tracerProvider = tracerProvider,
             metrics = metrics,

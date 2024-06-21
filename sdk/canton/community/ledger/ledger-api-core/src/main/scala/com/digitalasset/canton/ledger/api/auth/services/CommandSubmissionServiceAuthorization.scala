@@ -23,7 +23,7 @@ final class CommandSubmissionServiceAuthorization(
     with GrpcApiService {
 
   override def submit(request: SubmitRequest): Future[SubmitResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,

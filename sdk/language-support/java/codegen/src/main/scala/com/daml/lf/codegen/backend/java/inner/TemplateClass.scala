@@ -1,17 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java.inner
+package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
-import com.daml.lf.codegen.TypeWithContext
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.codegen.TypeWithContext
+import com.digitalasset.daml.lf.data.Ref
 import Ref.ChoiceName
 import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Exercised, Update}
-import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
-import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
+import com.digitalasset.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
+import com.digitalasset.daml.lf.typesig
 import typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging

@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.digitalasset.daml.lf.engine
 
-import com.daml.lf.data._
-import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
-import com.daml.lf.ledger._
-import com.daml.lf.data.Relation
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
+import com.digitalasset.daml.lf.ledger._
+import com.digitalasset.daml.lf.data.Relation
 
 import scala.annotation.tailrec
 

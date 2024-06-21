@@ -1,27 +1,27 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.CompiledPackages
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.stablepackages.StablePackagesV2
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.CompiledPackages
+import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{ArrayList, SError, SValue}
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import org.apache.pekko.stream.Materializer
@@ -774,7 +774,7 @@ object ScriptF {
         case Failure(
               Script.FailedCmd(cmdName, _, err)
             ) =>
-          import com.daml.lf.scenario.{Error, Pretty}
+          import com.digitalasset.daml.lf.scenario.{Error, Pretty}
           val msg = err match {
             case e: Error => Pretty.prettyError(e).render(10000)
             case e => e.getMessage

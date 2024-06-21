@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing.parser
+package com.digitalasset.daml.lf.testing.parser
 
-import com.daml.lf.data.Ref
-import com.daml.lf.testing.parser.Token._
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.testing.parser.Token._
 
 import scala.util.parsing.input.{NoPosition, Position}
 

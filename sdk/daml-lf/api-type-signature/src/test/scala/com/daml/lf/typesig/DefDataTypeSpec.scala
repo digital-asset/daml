@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.typesig
+package com.digitalasset.daml.lf.typesig
 
 import com.daml.nonempty.NonEmpty
 import com.daml.scalatest.WordSpecCheckLaws
@@ -19,8 +19,8 @@ class DefDataTypeSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
 object DefDataTypeSpec {
   import org.scalacheck.{Arbitrary, Gen}, Arbitrary.arbitrary
-  import com.daml.lf.data.Ref
-  import com.daml.lf.value.test.ValueGenerators
+  import com.digitalasset.daml.lf.data.Ref
+  import com.digitalasset.daml.lf.value.test.ValueGenerators
 
   implicit def `TemplateChoices arb`[Ty: Arbitrary]: Arbitrary[TemplateChoices[Ty]] =
     Arbitrary(

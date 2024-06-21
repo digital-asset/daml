@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package command
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.value.Value
 
 /** Accepted commands for replay */
 sealed abstract class ReplayCommand extends Product with Serializable {

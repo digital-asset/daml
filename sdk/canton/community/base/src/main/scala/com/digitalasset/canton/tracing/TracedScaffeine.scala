@@ -6,6 +6,7 @@ package com.digitalasset.canton.tracing
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 import com.digitalasset.canton.logging.TracedLogger
 import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 
@@ -74,10 +75,8 @@ class TracedAsyncLoadingCache[K, V](
 )(tracedLogger: TracedLogger) {
   implicit private[this] val ec: ExecutionContext = DirectExecutionContext(tracedLogger)
 
-  /*
-   * See com.github.blemale.scaffeine.AsyncLoadingCache.get
-   * If shutting down the future returned will be failed with a AbortedDueToShutdownException
-   */
+  /** @see com.github.blemale.scaffeine.AsyncLoadingCache.get
+    */
   def get(key: K)(implicit traceContext: TraceContext): Future[V] =
     underlying.get(TracedKey(key)(traceContext))
 
@@ -86,14 +85,12 @@ class TracedAsyncLoadingCache[K, V](
     discard(underlying.synchronous().asMap().filterInPlace((t, v) => !filter(t.key, v)))
   }
 
-  def getUS(key: K)(implicit traceContext: TraceContext): FutureUnlessShutdown[V] =
+  def getUS(key: K)(implicit traceContext: TraceContext): FutureUnlessShutdown[V] = {
     FutureUnlessShutdown.transformAbortedF(get(key))
+  }
 
-  /*
-   * See com.github.blemale.scaffeine.AsyncLoadingCache.getAll
-   * If shutting down the future returned will be failed with a AbortedDueToShutdownException wrapped inside
-   * a java.util.concurrent.CompletionException
-   */
+  /** @see com.github.blemale.scaffeine.AsyncLoadingCache.getAll
+    */
   def getAll(keys: Iterable[K])(implicit traceContext: TraceContext): Future[Map[K, V]] =
     underlying
       .getAll(keys.map(TracedKey(_)(traceContext)))
@@ -101,9 +98,16 @@ class TracedAsyncLoadingCache[K, V](
 
   def getAllUS(
       keys: Iterable[K]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[K, V]] = {
-    FutureUnlessShutdown.transformAbortedF(getAll(keys))
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[K, V]] =
+    try
+      FutureUnlessShutdown.outcomeF(
+        underlying
+          .getAll(keys.map(TracedKey(_)(traceContext)))
+          .map(_.map { case (tracedKey, value) => tracedKey.key -> value })(ec)
+      )
+    catch {
+      case _: AbortedDueToShutdownException => FutureUnlessShutdown.abortedDueToShutdown
+    }
 
   override def toString = s"TracedAsyncLoadingCache($underlying)"
 }

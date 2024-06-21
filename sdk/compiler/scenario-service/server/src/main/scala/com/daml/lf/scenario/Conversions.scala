@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package scenario
 
-import com.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.daml.lf.language.Ast.PackageMetadata
-import com.daml.lf.ledger.EventId
-import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.digitalasset.daml.lf.language.Ast.PackageMetadata
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.scenario.api.{v1 => proto}
+import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
+import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   IncompleteTransaction,
   Node,
   NodeId,
 }
-import com.daml.lf.ledger._
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.ledger._
+import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
 

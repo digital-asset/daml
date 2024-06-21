@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{PackageInterface, Util}
-import com.daml.lf.speedy.SExpr.SDefinitionRef
-import com.daml.lf.speedy.{Compiler, SDefinition}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.Ast.{Package, PackageSignature}
+import com.digitalasset.daml.lf.language.{PackageInterface, Util}
+import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
+import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition}
 
 /** Trait to abstract over a collection holding onto Daml-LF package definitions + the
   * compiled speedy expressions.

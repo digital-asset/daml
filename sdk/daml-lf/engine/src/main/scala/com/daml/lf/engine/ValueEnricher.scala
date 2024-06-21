@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
-import com.daml.lf.language.{Ast, LookupError}
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId}
+import com.digitalasset.daml.lf.language.{Ast, LookupError}
+import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   IncompleteTransaction,
@@ -16,9 +16,9 @@ import com.daml.lf.transaction.{
   Versioned,
   VersionedTransaction,
 }
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.VersionedValue
-import com.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.speedy.SValue
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums

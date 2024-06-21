@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen
+package com.digitalasset.daml.lf.codegen
 
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
-import com.daml.lf.typesig.{DefDataType, PackageMetadata, PackageSignature, Record, Variant}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.typesig.{DefDataType, PackageMetadata, PackageSignature, Record, Variant}
 import PackageSignature.TypeDecl
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec

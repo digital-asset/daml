@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.Ref.PackageRef
-import com.daml.lf.data._
-import com.daml.lf.language.Ast
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.Ref.PackageRef
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
 private[lf] final class CommandPreprocessor(

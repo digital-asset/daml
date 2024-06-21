@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.dependencygraph
+package com.digitalasset.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.typesig.DefInterface
-import com.daml.lf.typesig.PackageSignature.TypeDecl
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.typesig.DefInterface
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
 
-  import com.daml.lf.codegen.Util.genTypeTopLevelDeclNames
+  import com.digitalasset.daml.lf.codegen.Util.genTypeTopLevelDeclNames
 
   private def toNode(namedTypeDecl: (Identifier, TypeDecl)) =
     namedTypeDecl match {

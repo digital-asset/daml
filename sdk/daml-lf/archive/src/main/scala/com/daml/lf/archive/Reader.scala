@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package archive
 
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.LanguageMinorVersion
-import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.LanguageMinorVersion
+import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion}
 
 sealed abstract class ArchivePayload {
   def pkgId: PackageId

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.Party
 
 trait PartyNameChecker {
   def isKnownParty(party: Party): Boolean

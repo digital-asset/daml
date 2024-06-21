@@ -195,7 +195,9 @@ private[update] class TrafficControlValidator(
               sender,
               // When above traffic limit we don't consume traffic, hence cost = 0
               Some(
-                error.trafficState.copy(lastConsumedCost = NonNegativeLong.zero).toTrafficReceipt
+                error.trafficState.toTrafficReceipt(
+                  consumedCost = NonNegativeLong.zero
+                )
               ),
             )
         // Outdated event costs are possible if the sender is too far behind and out of the tolerance window.

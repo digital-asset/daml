@@ -348,11 +348,11 @@ object CantonRequireTypes {
 
   /** Length limitation for an [[com.digitalasset.canton.protocol.LfTemplateId]].
     * A [[com.digitalasset.canton.protocol.LfTemplateId]] consists of
-    * - The module name ([[com.daml.lf.data.Ref.DottedName]])
-    * - The template name ([[com.daml.lf.data.Ref.DottedName]])
+    * - The module name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
+    * - The template name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
     * - The package ID
     * - Two separating dots
-    * Each [[com.daml.lf.data.Ref.DottedName]] can have 1000 chars ([[com.daml.lf.data.Ref.DottedName.maxLength]]).
+    * Each [[com.digitalasset.daml.lf.data.Ref.DottedName]] can have 1000 chars ([[com.digitalasset.daml.lf.data.Ref.DottedName.maxLength]]).
     * So a [[com.digitalasset.canton.protocol.LfTemplateId]] serializes to 1000 + 1000 + 64 + 2 = 2066 chars.
     *
     * 2066 is beyond the string size for Oracle's `NVARCHAR2` column type unless `max_string_size` is set to `extended`.

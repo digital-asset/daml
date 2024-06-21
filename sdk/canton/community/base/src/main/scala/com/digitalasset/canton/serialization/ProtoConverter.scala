@@ -5,7 +5,7 @@ package com.digitalasset.canton.serialization
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.ProtoDeserializationError.{

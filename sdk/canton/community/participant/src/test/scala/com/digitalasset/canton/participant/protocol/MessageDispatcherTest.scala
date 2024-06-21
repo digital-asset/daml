@@ -85,8 +85,6 @@ trait MessageDispatcherTest {
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::other::participant")
   private val mediatorGroup = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val mediatorGroup2 = MediatorGroupRecipient(MediatorGroupIndex.one)
-  private val partyId = PartyId.tryFromProtoPrimitive("party::default")
-  private val otherPartyId = PartyId.tryFromProtoPrimitive("party::other")
 
   private val encryptedRandomnessTest =
     Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
@@ -808,45 +806,6 @@ trait MessageDispatcherTest {
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")
 
     }
-    "ignore protocol messages for foreign domains" in {
-      val sut = mk()
-      val sc = SequencerCounter(1)
-      val ts = CantonTimestamp.ofEpochSecond(1)
-      val txForeignDomain = TopologyTransactionsBroadcast.create(
-        DomainId.tryFromString("foo::bar"),
-        Seq(
-          Broadcast(
-            String255.tryCreate("some request"),
-            List(factory.ns1k1_k1),
-          )
-        ),
-        testedProtocolVersion,
-      )
-      val event =
-        mkDeliver(
-          Batch.of(testedProtocolVersion, txForeignDomain -> Recipients.cc(participantId)),
-          sc,
-          ts,
-        )
-
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
-        handle(sut, event) {
-          verify(sut.topologyProcessor).apply(
-            isEq(sc),
-            isEq(SequencedTime(ts)),
-            isEq(Traced(List.empty)),
-          )
-
-          checkTicks(sut, sc, ts)
-        }.futureValue,
-        logEntries => {
-          logEntries should not be empty
-          forEvery(logEntries) {
-            _.warningMessage should include("Received messages with wrong domain IDs")
-          }
-        },
-      )
-    }
 
     def request(
         view: EncryptedViewMessage[ViewType],
@@ -1070,35 +1029,6 @@ trait MessageDispatcherTest {
             testTopologyTimestamp,
             SerializedRootHashMessagePayload.empty,
           )
-
-        def mkRootHashMessageRecipients(recipients: NonEmpty[Seq[Recipient]]): Recipients =
-          Recipients.recipientGroups(
-            recipients.map(recipient => NonEmpty(Set, recipient, mediatorGroup))
-          )
-
-        val goodBatches = List(
-          Batch.of[ProtocolMessage](
-            testedProtocolVersion,
-            view -> Recipients.cc(participantId),
-            rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
-            commitment -> Recipients.cc(participantId),
-          ) -> Seq(),
-          Batch.of[ProtocolMessage](
-            testedProtocolVersion,
-            view -> Recipients.cc(participantId),
-            rootHashMessage -> Recipients.cc(ParticipantsOfParty(partyId), mediatorGroup),
-            commitment -> Recipients.cc(participantId),
-          ) -> Seq(),
-          Batch.of[ProtocolMessage](
-            testedProtocolVersion,
-            view -> Recipients.cc(participantId),
-            rootHashMessage -> mkRootHashMessageRecipients(
-              NonEmpty(Seq, ParticipantsOfParty(partyId), ParticipantsOfParty(otherPartyId))
-            ),
-            commitment -> Recipients.cc(participantId),
-          ) -> Seq(),
-        )
-
         val badBatches = List(
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
@@ -1109,18 +1039,10 @@ trait MessageDispatcherTest {
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
-            rootHashMessage -> mkRootHashMessageRecipients(
-              NonEmpty(
-                Seq,
-                MemberRecipient(participantId),
-                ParticipantsOfParty(partyId),
-                ParticipantsOfParty(otherPartyId),
-              )
-            ),
+            rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
             commitment -> Recipients.cc(participantId),
-          ) -> Seq(
-            "The root hash message has more than one recipient group, not all using group addressing."
-          ),
+            // We used to include a DomainTopologyTransactionMessage which no longer exist in 3.x
+          ) -> Seq(),
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
@@ -1141,15 +1063,13 @@ trait MessageDispatcherTest {
             rootHashMessage -> Recipients
               .cc(MemberRecipient(participantId), MemberRecipient(otherParticipant), mediatorGroup2),
           ) -> Seq(
-            "The root hash message has invalid recipient groups."
+            "The root hash message has an invalid recipient group."
           ),
         )
 
-        val batchesToTest = goodBatches ++ badBatches
-
         // sequentially process the test cases so that the log messages don't interfere
         MonadUtil
-          .sequentialTraverse_(batchesToTest.zipWithIndex) { case ((batch, alarms), index) =>
+          .sequentialTraverse_(badBatches.zipWithIndex) { case ((batch, alarms), index) =>
             val initRc = RequestCounter(index)
             val sut = mk(initRc = initRc)
             val sc = SequencerCounter(index)

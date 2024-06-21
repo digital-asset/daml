@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.{ImmArray, Ref, Struct}
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SError.SError
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,7 +23,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   import SpeedyTestLib.loggingContext
 
-  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+  import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")

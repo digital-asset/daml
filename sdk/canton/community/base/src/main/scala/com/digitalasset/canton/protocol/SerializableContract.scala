@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
-import com.daml.lf.value.ValueCoder
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}

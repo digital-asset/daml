@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
-import com.daml.lf.data.{BackStack, ImmArray, Time}
-import com.daml.lf.ledger.Authorize
-import com.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
-import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
+import com.digitalasset.daml.lf.ledger.Authorize
+import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
+import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
+import com.digitalasset.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKeyWithMaintainers,
   Node,
@@ -19,7 +19,7 @@ import com.daml.lf.transaction.{
   TransactionErrors => TxErr,
   TransactionVersion => TxVersion,
 }
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -432,7 +432,7 @@ private[speedy] case class PartialTransaction(
         result,
         keyVersion,
       )
-      // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
+      // This method is only called after we have already resolved the key in com.digitalasset.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
       // so the current state's global key inputs must resolve the key.
       val keyInput = contractState.globalKeyInputs(key.globalKey)
       val newContractState =

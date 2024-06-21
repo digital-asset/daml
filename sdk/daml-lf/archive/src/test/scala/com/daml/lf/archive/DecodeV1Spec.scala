@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive
+package com.digitalasset.daml.lf.archive
 
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.{Numeric, Ref}
-import com.daml.lf.language.Util._
-import com.daml.lf.language.{Ast, LanguageVersion => LV}
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.daml_lf_dev.DamlLf1
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}

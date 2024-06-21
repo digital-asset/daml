@@ -1,20 +1,20 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value._
-import com.daml.lf.command._
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.scenario.ScenarioLedger
+import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.command._
 import com.daml.logging.LoggingContext
 import org.scalameter
 import org.scalameter.Quantity

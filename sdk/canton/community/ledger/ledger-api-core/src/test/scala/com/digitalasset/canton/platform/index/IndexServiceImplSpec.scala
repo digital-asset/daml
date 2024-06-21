@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,

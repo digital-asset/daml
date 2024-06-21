@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.*
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.*
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
   UserManagementStore,
 }
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -35,7 +36,6 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.{
-  CommandInspectionServiceImpl,
   CommandServiceImpl,
   CommandSubmissionServiceImpl,
 }
@@ -74,7 +74,8 @@ object ApiServices {
 
   final class Owner(
       participantId: Ref.ParticipantId,
-      writeService: state.WriteService,
+      optWriteService: Option[state.WriteService],
+      readService: ReadService,
       indexService: IndexService,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
@@ -86,7 +87,6 @@ object ApiServices {
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
       initSyncTimeout: FiniteDuration,
-      commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
@@ -128,7 +128,7 @@ object ApiServices {
     )
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
-      implicit val traceContext: TraceContext = TraceContext.empty
+      implicit val traceContext = TraceContext.empty
       logger.info(engine.info.toString)
       for {
         services <- Resource {
@@ -170,19 +170,6 @@ object ApiServices {
           partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties)
         )
 
-      val apiInspectionServiceOpt =
-        Option
-          .when(ledgerFeatures.commandInspectionService.supported)(
-            new CommandInspectionServiceAuthorization(
-              CommandInspectionServiceImpl.createApiService(
-                commandProgressTracker,
-                telemetry,
-                loggerFactory,
-              ),
-              authorizer,
-            )
-          )
-
       val (ledgerApiV2Services, ledgerApiUpdateService) = {
         val apiTimeServiceOpt =
           optTimeServiceBackend.map(tsb =>
@@ -199,7 +186,7 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(writeService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(readService, telemetry, loggerFactory)
         val apiUpdateService =
           new ApiUpdateService(
             transactionsService,
@@ -211,7 +198,7 @@ object ApiServices {
         val apiStateService =
           new ApiStateService(
             acsService = activeContractsService,
-            writeService = writeService,
+            readService = readService,
             txService = transactionsService,
             metrics = metrics,
             telemetry = telemetry,
@@ -290,7 +277,6 @@ object ApiServices {
         )
 
       ledgerApiV2Services :::
-        apiInspectionServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
           apiReflectionService,
@@ -305,118 +291,121 @@ object ApiServices {
     )(implicit
         executionContext: ExecutionContext
     ): List[BindableService] = {
-      val commandExecutor = new TimedCommandExecutor(
-        new LedgerTimeAwareCommandExecutor(
-          new StoreBackedCommandExecutor(
-            engine,
-            participantId,
-            writeService,
-            contractStore,
-            authorityResolver,
-            authenticateContract,
+      optWriteService.toList.flatMap { writeService =>
+        val commandExecutor = new TimedCommandExecutor(
+          new LedgerTimeAwareCommandExecutor(
+            new StoreBackedCommandExecutor(
+              engine,
+              participantId,
+              readService,
+              contractStore,
+              authorityResolver,
+              authenticateContract,
+              metrics,
+              engineLoggingConfig,
+              loggerFactory,
+              dynParamGetter,
+              timeProvider,
+            ),
+            new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
+            maxRetries = 3,
             metrics,
-            engineLoggingConfig,
             loggerFactory,
-            dynParamGetter,
-            timeProvider,
           ),
-          new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
-          maxRetries = 3,
           metrics,
-          loggerFactory,
-        ),
-        metrics,
-      )
-
-      val validateUpgradingPackageResolutions =
-        new ValidateUpgradingPackageResolutionsImpl(
-          getPackageMetadataSnapshot = writeService.getPackageMetadataSnapshot(_)
         )
-      val commandsValidator = new CommandsValidator(
-        validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
-      )
-      val commandSubmissionService =
-        CommandSubmissionServiceImpl.createApiService(
+
+        val validateUpgradingPackageResolutions =
+          new ValidateUpgradingPackageResolutionsImpl(
+            getPackageMetadataSnapshot = readService.getPackageMetadataSnapshot(_)
+          )
+        val commandsValidator = new CommandsValidator(
+          validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
+        )
+        val commandSubmissionService =
+          CommandSubmissionServiceImpl.createApiService(
+            writeService,
+            commandsValidator,
+            timeProvider,
+            timeProviderType,
+            seedService,
+            commandExecutor,
+            checkOverloaded,
+            metrics,
+            telemetry,
+            loggerFactory,
+          )
+
+        val apiPartyManagementService = ApiPartyManagementService.createApiService(
+          partyManagementService,
+          new IdentityProviderExists(identityProviderConfigStore),
+          partyManagementServiceConfig.maxPartiesPageSize,
+          partyRecordStore,
+          transactionsService,
           writeService,
-          commandsValidator,
-          timeProvider,
-          timeProviderType,
-          seedService,
-          commandExecutor,
-          checkOverloaded,
+          managementServiceTimeout,
+          telemetry = telemetry,
+          loggerFactory = loggerFactory,
+        )
+
+        val apiPackageManagementService =
+          ApiPackageManagementService.createApiService(
+            readService = readService,
+            writeBackend = writeService,
+            telemetry = telemetry,
+            loggerFactory = loggerFactory,
+          )
+
+        val participantPruningService = ApiParticipantPruningService.createApiService(
+          indexService,
+          writeService,
+          readService,
           metrics,
           telemetry,
           loggerFactory,
         )
 
-      val apiPartyManagementService = ApiPartyManagementService.createApiService(
-        partyManagementService,
-        new IdentityProviderExists(identityProviderConfigStore),
-        partyManagementServiceConfig.maxPartiesPageSize,
-        partyRecordStore,
-        transactionsService,
-        writeService,
-        managementServiceTimeout,
-        telemetry = telemetry,
-        loggerFactory = loggerFactory,
-      )
+        val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
+          val apiSubmissionService = new ApiCommandSubmissionService(
+            commandsValidator = commandsValidator,
+            commandSubmissionService = commandSubmissionService,
+            writeService = writeService,
+            currentLedgerTime = () => timeProvider.getCurrentTime,
+            currentUtcTime = () => Instant.now,
+            maxDeduplicationDuration = maxDeduplicationDuration.asJava,
+            submissionIdGenerator = SubmissionIdGenerator.Random,
+            metrics = metrics,
+            telemetry = telemetry,
+            loggerFactory = loggerFactory,
+          )
+          val apiCommandService = CommandServiceImpl.createApiService(
+            commandsValidator = commandsValidator,
+            submissionTracker = submissionTracker,
+            // Using local services skips the gRPC layer, improving performance.
+            submit = apiSubmissionService.submitWithTraceContext,
+            defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
+            transactionServices = new CommandServiceImpl.TransactionServices(
+              getTransactionTreeById = apiUpdateService.getTransactionTreeById,
+              getTransactionById = apiUpdateService.getTransactionById,
+            ),
+            timeProvider = timeProvider,
+            maxDeduplicationDuration = maxDeduplicationDuration,
+            telemetry = telemetry,
+            loggerFactory = loggerFactory,
+          )
 
-      val apiPackageManagementService =
-        ApiPackageManagementService.createApiService(
-          writeService = writeService,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-        )
-
-      val participantPruningService = ApiParticipantPruningService.createApiService(
-        indexService,
-        writeService,
-        metrics,
-        telemetry,
-        loggerFactory,
-      )
-
-      val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
-        val apiSubmissionService = new ApiCommandSubmissionService(
-          commandsValidator = commandsValidator,
-          commandSubmissionService = commandSubmissionService,
-          writeService = writeService,
-          currentLedgerTime = () => timeProvider.getCurrentTime,
-          currentUtcTime = () => Instant.now,
-          maxDeduplicationDuration = maxDeduplicationDuration.asJava,
-          submissionIdGenerator = SubmissionIdGenerator.Random,
-          tracker = commandProgressTracker,
-          metrics = metrics,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-        )
-        val apiCommandService = CommandServiceImpl.createApiService(
-          commandsValidator = commandsValidator,
-          submissionTracker = submissionTracker,
-          // Using local services skips the gRPC layer, improving performance.
-          submit = apiSubmissionService.submitWithTraceContext,
-          defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-          transactionServices = new CommandServiceImpl.TransactionServices(
-            getTransactionTreeById = apiUpdateService.getTransactionTreeById,
-            getTransactionById = apiUpdateService.getTransactionById,
-          ),
-          timeProvider = timeProvider,
-          maxDeduplicationDuration = maxDeduplicationDuration,
-          telemetry = telemetry,
-          loggerFactory = loggerFactory,
-        )
+          List(
+            new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+            new CommandServiceAuthorization(apiCommandService, authorizer),
+          )
+        }
 
         List(
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
-          new CommandServiceAuthorization(apiCommandService, authorizer),
-        )
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+          new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
+        ) ::: ledgerApiV2Services
       }
-
-      List(
-        new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
-        new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
-        new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
-      ) ::: ledgerApiV2Services
     }
   }
 }

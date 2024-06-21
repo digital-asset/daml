@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 package test
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.daml.lf.engine.script.Runner.InterpretationError
-import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
+import com.digitalasset.daml.lf.engine.script.Runner.InterpretationError
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

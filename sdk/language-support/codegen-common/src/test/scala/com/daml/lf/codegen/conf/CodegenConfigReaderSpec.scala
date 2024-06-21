@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.conf
+package com.digitalasset.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ProjectConfig, ConfigParseError, ConfigMissing}
-import com.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
+import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
 import CCR.{Java, Result, CodegenDest}
-import com.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks

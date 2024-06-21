@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 package test
 
-import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
-import com.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, TransactionVersion}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 trait TestNodeBuilder {
 

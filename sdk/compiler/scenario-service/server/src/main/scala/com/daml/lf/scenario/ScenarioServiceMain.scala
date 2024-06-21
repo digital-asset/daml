@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.scenario
+package com.digitalasset.daml.lf.scenario
 
 import org.apache.pekko.actor.ActorSystem
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
@@ -12,12 +12,12 @@ import java.util.logging.{Level, Logger}
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
-import com.daml.lf.archive
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ModuleName
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.scenario.api.v1.{Map => _, _}
+import com.digitalasset.daml.lf.archive
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}

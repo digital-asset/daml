@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.digitalasset.canton.ledger.api.domain
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 

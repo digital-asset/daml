@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.protocol.transfer
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.traverse.*
-import com.daml.lf.engine.Error as LfError
-import com.daml.lf.interpretation.Error as LfInterpretationError
+import com.digitalasset.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

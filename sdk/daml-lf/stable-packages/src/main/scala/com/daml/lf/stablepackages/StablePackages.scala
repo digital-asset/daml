@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package stablepackages
 
-import com.daml.lf.VersionRange
-import com.daml.lf.archive
-import com.daml.lf.archive.ArchiveDecoder
-import com.daml.lf.data.Ref
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.VersionRange
+import com.digitalasset.daml.lf.archive
+import com.digitalasset.daml.lf.archive.ArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 
 private[daml] sealed case class StablePackage(
     moduleName: Ref.ModuleName,
@@ -50,7 +50,7 @@ private[daml] object StablePackages {
 
   /** The IDs of stable packages compatible with the provided version range. */
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
-    import com.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
+    import com.digitalasset.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
 
     import scala.Ordering.Implicits.infixOrderingOps
 

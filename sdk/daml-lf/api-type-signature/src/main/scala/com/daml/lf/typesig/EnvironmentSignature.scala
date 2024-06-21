@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package typesig
 
-import com.daml.lf.archive.Dar
+import com.digitalasset.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
 
 import scala.collection.immutable.Map

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.admin
 
 import com.daml.error.{DamlError, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ParentCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext

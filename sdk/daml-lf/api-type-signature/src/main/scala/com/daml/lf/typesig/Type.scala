@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.typesig
+package com.digitalasset.daml.lf.typesig
 
 import java.{util => j}
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._

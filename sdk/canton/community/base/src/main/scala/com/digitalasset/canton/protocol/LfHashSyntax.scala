@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.ProtoDeserializationError.ValueDeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.ByteString

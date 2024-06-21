@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningPublicKey}
@@ -298,10 +298,6 @@ trait PartyTopologySnapshotClient {
   def partiesWithGroupAddressing(
       parties: Seq[LfPartyId]
   )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
-
-  def activeParticipantsOfPartiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]]
 
   /** Returns a list of all known parties on this domain */
   def inspectKnownParties(
@@ -844,11 +840,6 @@ private[client] trait PartyTopologySnapshotLoader
       traceContext: TraceContext
   ): Future[Set[LfPartyId]] =
     loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
-
-  final override def activeParticipantsOfPartiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
-    loadAndMapPartyInfos(parties, _.participants.keySet, _.groupAddressing)
 
   final override def consortiumThresholds(
       parties: Set[LfPartyId]

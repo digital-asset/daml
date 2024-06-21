@@ -1,22 +1,22 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package typesig
 package reader
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.ArchivePayload
+import com.digitalasset.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
 import scalaz.std.map._
 import scalaz.std.option._
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.language.Ast
-import com.daml.lf.language.{Util => AstUtil}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Util => AstUtil}
 import com.daml.nonempty.NonEmpty
 
 import scala.collection.immutable.Map

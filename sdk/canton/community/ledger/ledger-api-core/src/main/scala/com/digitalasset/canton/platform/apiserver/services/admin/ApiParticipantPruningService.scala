@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.admin.participant_pruning_service.{
   PruneRequest,
   PruneResponse,
 }
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.metrics.Tracked
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
@@ -20,7 +20,7 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexParticipantPruningService,
   LedgerEndService,
@@ -50,7 +50,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
-    writeService: WriteService,
+    writeBackend: state.WriteParticipantPruningService,
+    readService: ReadService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -105,7 +106,7 @@ final class ApiParticipantPruningService private (
             )(MetricsContext(("phase", "underlyingLedger")))
 
             _ = logger.debug("Getting incomplete reassignments")
-            incompletReassignmentOffsets <- writeService.incompleteReassignmentOffsets(
+            incompletReassignmentOffsets <- readService.incompleteReassignmentOffsets(
               validAt = pruneUpTo,
               stakeholders = Set.empty, // getting all incomplete reassignments
             )
@@ -152,7 +153,7 @@ final class ApiParticipantPruningService private (
     logger.info(
       s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service."
     )
-    writeService
+    writeBackend
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
       .toScalaUnwrapped
       .flatMap {
@@ -240,7 +241,8 @@ final class ApiParticipantPruningService private (
 object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
-      writeService: WriteService,
+      writeBackend: state.WriteParticipantPruningService,
+      readService: state.ReadService,
       metrics: LedgerApiServerMetrics,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
@@ -249,7 +251,8 @@ object ApiParticipantPruningService {
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
     new ApiParticipantPruningService(
       readBackend,
-      writeService,
+      writeBackend,
+      readService,
       metrics,
       telemetry,
       loggerFactory,

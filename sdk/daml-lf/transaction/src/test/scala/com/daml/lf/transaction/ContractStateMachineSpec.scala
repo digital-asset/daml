@@ -5,36 +5,36 @@ package com.daml
 package lf
 package transaction
 
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.ContractStateMachine.{
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
   KeyActive,
   KeyInactive,
   KeyMapping,
   KeyResolver,
 }
-import com.daml.lf.transaction.ContractStateMachineSpec._
-import com.daml.lf.transaction.Transaction.{
+import com.digitalasset.daml.lf.transaction.ContractStateMachineSpec._
+import com.digitalasset.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
   KeyCreate,
   KeyInput,
   NegativeKeyLookup,
 }
-import com.daml.lf.transaction.TransactionErrors.{
+import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
   KeyInputError,
 }
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
-import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId,
   toIdentifier,
   toName,
   toParty,
 }
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -788,22 +788,22 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   }
 
   /** Visits the `root` node and all its children in execution order and updates the `state` accordingly,
-    * using the following methods on [[com.daml.lf.transaction.ContractStateMachine.State]]:
-    * - [[com.daml.lf.transaction.Node.Create]] calls [[com.daml.lf.transaction.ContractStateMachine.State.visitCreate]]
-    * - [[com.daml.lf.transaction.Node.Fetch]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleFetch]]
-    * - [[com.daml.lf.transaction.Node.Exercise]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleExercise]]
+    * using the following methods on [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State]]:
+    * - [[com.digitalasset.daml.lf.transaction.Node.Create]] calls [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.visitCreate]]
+    * - [[com.digitalasset.daml.lf.transaction.Node.Fetch]] calls [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.handleFetch]]
+    * - [[com.digitalasset.daml.lf.transaction.Node.Exercise]] calls [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.handleExercise]]
     *   before visiting the children
-    * - [[com.daml.lf.transaction.Node.LookupByKey]] calls [[com.daml.lf.transaction.ContractStateMachine.State.handleLookup]]
-    *   in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
-    *   [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]]
-    *   in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]] using the `resolver`.
-    * - [[com.daml.lf.transaction.Node.Rollback]] calls [[com.daml.lf.transaction.ContractStateMachine.State.beginRollback]]
+    * - [[com.digitalasset.daml.lf.transaction.Node.LookupByKey]] calls [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.handleLookup]]
+    *   in mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+    *   [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]]
+    *   in modes [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]] using the `resolver`.
+    * - [[com.digitalasset.daml.lf.transaction.Node.Rollback]] calls [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.beginRollback]]
     *   before visiting the children and
-    *   [[com.daml.lf.transaction.ContractStateMachine.State.endRollback]] after visiting the children.
+    *   [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.endRollback]] after visiting the children.
     *
-    * @param resolver The resolver used in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]]
-    *                 for handling [[com.daml.lf.transaction.Node.LookupByKey]].
-    *                 Ignored in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+    * @param resolver The resolver used in modes [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]]
+    *                 for handling [[com.digitalasset.daml.lf.transaction.Node.LookupByKey]].
+    *                 Ignored in mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
     */
   private def visitSubtree(
       nodes: Map[NodeId, Node],

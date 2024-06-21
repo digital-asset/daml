@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.ledger.FailedAuthorization
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 /** Defines the errors raised by [[ContractStateMachine]] and its clients:
   *  - [[DuplicateContractId]]
@@ -62,7 +62,7 @@ object TransactionErrors {
   ) extends Serializable
       with Product
 
-  /** Errors raised when building transactions with [[com.daml.lf.speedy.PartialTransaction]]:
+  /** Errors raised when building transactions with [[com.digitalasset.daml.lf.speedy.PartialTransaction]]:
     *   - [[DuplicateContractId]]
     *   - [[DuplicateContractKey]]
     *   - [[AuthFailureDuringExecution]]

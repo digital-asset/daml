@@ -1,22 +1,22 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.transaction.Transaction.{KeyCreate, KeyInput, NegativeKeyLookup}
-import com.daml.lf.transaction.TransactionErrors.{
+import com.digitalasset.daml.lf.transaction.Transaction.{KeyCreate, KeyInput, NegativeKeyLookup}
+import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   CreateError,
   DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
   KeyInputError,
 }
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 /** Implements a state machine for contracts and their keys while interpreting a Daml-LF command
-  * or iterating over a [[com.daml.lf.transaction.HasTxNodes]] in execution order.
+  * or iterating over a [[com.digitalasset.daml.lf.transaction.HasTxNodes]] in execution order.
   * The contract state machine keeps track of the updates to the [[ContractStateMachine.ActiveLedgerState]]
   * since the beginning of the interpretation or iteration.
   * Given a [[ContractStateMachine.State]] `s`, a client can compute the next state for a given action node `n`,
@@ -24,11 +24,11 @@ import com.daml.lf.value.Value.ContractId
   * For a rollback node `nr`, a client must call `beginRollback` before processing the first child of `nr` and
   * `endRollback` after processing the last child of `nr`.
   *
-  * @tparam Nid Type parameter for [[com.daml.lf.transaction.NodeId]]s during interpretation.
+  * @tparam Nid Type parameter for [[com.digitalasset.daml.lf.transaction.NodeId]]s during interpretation.
   *             Use [[scala.Unit]] for iteration.
   *
-  * @see com.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
-  *      [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+  * @see com.digitalasset.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
+  *      [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
   * @see ContractStateMachineSpec.visitSubtree for iteration in all modes
   */
 object ContractStateMachine {
@@ -49,11 +49,11 @@ object ContractStateMachine {
     *
     *   The map `globalKeyInputs` can be used to resolve keys during re-interpretation.
     *
-    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
+    *   In mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
     *   `globalKeyInputs` stores the contract key states required at the beginning of the transaction.
     *   The first node involving a key determines the state of the key in `globalKeyInputs`.
     *
-    *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
+    *   In mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
     *   `globalKeyInputs(k)` is defined by the first node `n` referring to the key `k`:
     *   - If `n` is a fetch-by-key or exercise-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]].
     *   - If `n` is lookup-by-key, then `globalKeyInputs(k)` is [[Transaction.KeyActive]] (positive lookup)
@@ -169,7 +169,7 @@ object ContractStateMachine {
         exe.consuming,
       ).left.map(KeyInputError.inject)
 
-    /** Omits the key lookup that are done in [[com.daml.lf.speedy.Compiler.compileChoiceByKey]] for by-bey nodes,
+    /** Omits the key lookup that are done in [[com.digitalasset.daml.lf.speedy.Compiler.compileChoiceByKey]] for by-bey nodes,
       * which translates to a [[resolveKey]] below.
       * Use [[handleExercise]] when visiting an exercise node during iteration.
       */
@@ -195,7 +195,7 @@ object ContractStateMachine {
       }
     }
 
-    /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] mode
+    /** Must be used to handle lookups iff in [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] mode
       */
     def handleLookup(lookup: Node.LookupByKey): Either[KeyInputError, State[Nid]] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
@@ -207,9 +207,9 @@ object ContractStateMachine {
       visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(KeyInputError.inject)
     }
 
-    /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
+    /** Must be used to handle lookups iff in [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
       * The second argument takes the contract key resolution to be given to the Daml interpreter instead of
-      * [[com.daml.lf.transaction.Node.LookupByKey.result]].
+      * [[com.digitalasset.daml.lf.transaction.Node.LookupByKey.result]].
       * This is because the iteration might currently be within a rollback scope
       * that has already archived a contract with the key without a by-key operation
       * (and for this reason the archival is not tracked in [[ContractStateMachine.ActiveLedgerState.keys]]),
@@ -374,8 +374,8 @@ object ContractStateMachine {
       *   The state obtained after fully iterating over the subtree `n` starting from [[State.empty]].
       *   Consumed contracts ([[activeState.consumedBy]]) in `this` and `substate` must be disjoint.
       *
-      * @see com.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
-      *      [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
+      * @see com.digitalasset.daml.lf.transaction.HasTxNodes.contractKeyInputs for an iteration in mode
+      *      [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]] and
       * @see ContractStateMachineSpec.visitSubtree for iteration in all modes
       */
     def advance(resolver: KeyResolver, substate: State[Nid]): Either[KeyInputError, State[Nid]] = {
@@ -481,7 +481,7 @@ object ContractStateMachine {
 
   def initial[Nid](mode: ContractKeyUniquenessMode): State[Nid] = State.empty(mode)
 
-  /** Represents the answers for [[com.daml.lf.engine.ResultNeedKey]] requests
+  /** Represents the answers for [[com.digitalasset.daml.lf.engine.ResultNeedKey]] requests
     * that may arise during Daml interpretation.
     */
   type KeyResolver = Map[GlobalKey, KeyMapping]
@@ -500,7 +500,7 @@ object ContractStateMachine {
     *   Tracks contracts created by a node processed so far that have not been rolled back.
     *   This is a subset of [[ContractStateMachine.State.locallyCreated]].
     *
-    * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
+    * @param consumedBy [[com.digitalasset.daml.lf.value.Value.ContractId]]s of all contracts
     *                   that have been consumed by nodes up to now.
     * @param localKeys
     *   A store of the latest local contract that has been created with the given key in this timeline.

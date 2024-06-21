@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http.json
 
-import com.daml.lf
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.typesig
 import JsValueToApiValueConverter.LfTypeLookup
 import JsonProtocol.LfValueCodec
 import com.daml.ledger.api.{v2 => lav2}

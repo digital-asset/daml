@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.scalautil.Statement.discard
 
 // --------------------------

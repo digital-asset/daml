@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.digitalasset.daml.lf.validation
 
-import com.daml.lf.data.Ref.{ChoiceName, DottedName, ModuleName, Name}
-import com.daml.lf.validation.Util._
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, ModuleName, Name}
+import com.digitalasset.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
   def modName: ModuleName

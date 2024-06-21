@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package data
 
-import com.daml.lf
+import com.digitalasset.daml.lf
 import com.daml.scalautil.Statement.discard
 import scalaz.Scalaz.eitherMonad
 import scalaz.syntax.traverse._

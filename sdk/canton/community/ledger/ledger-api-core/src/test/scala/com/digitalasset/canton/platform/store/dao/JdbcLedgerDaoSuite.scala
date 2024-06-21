@@ -4,16 +4,16 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.{DarParser, Decode}
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, Party}
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.*
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
-import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
-import com.daml.lf.value.Value as LfValue
+import com.digitalasset.daml.lf.archive.{DarParser, Decode}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, Party}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
+import com.digitalasset.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
@@ -41,10 +41,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     new AtomicReference[Option[Offset]](Option.empty)
 
   protected final val nextOffset: () => Offset = {
-    val counter = new AtomicLong(1)
+    val base = BigInt(1) << 32
+    val counter = new AtomicLong(0)
     () => {
-      Offset.fromLong(counter.getAndIncrement())
+      Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
     }
+  }
+
+  protected final implicit class OffsetToLong(offset: Offset) {
+    def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
   private[this] lazy val dar =
@@ -94,7 +99,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val someValueText = LfValue.ValueText("some text")
   protected final val someValueInt = LfValue.ValueInt64(1)
   protected final val someValueNumeric =
-    LfValue.ValueNumeric(com.daml.lf.data.Numeric.assertFromString("1.1"))
+    LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("1.1"))
   protected final val someNestedOptionalInteger = LfValue.ValueRecord(
     None,
     ImmArray(

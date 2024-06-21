@@ -19,7 +19,7 @@ class RecipientsTreeTest extends AnyWordSpec with BaseTest {
   lazy val p6: Member = ParticipantId("participant6")
 
   lazy val alice = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"alice::party"))
-  lazy val bob = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"bob::party"))
+  lazy val bob = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"alice::bob"))
   lazy val pop1: ParticipantsOfParty = ParticipantsOfParty(alice)
   lazy val pop2: ParticipantsOfParty = ParticipantsOfParty(bob)
 
@@ -49,16 +49,6 @@ class RecipientsTreeTest extends AnyWordSpec with BaseTest {
       "give only the top-level subtree when there is a subtree and a sub-subtree" in {
         t5.forMember(p1, Set.empty) shouldBe List(t5)
         t5.forMember(p5, Set(pop1)) shouldBe List(t5)
-      }
-    }
-
-    "allPaths" should {
-      "give all paths within the tree" in {
-        t5.allPaths shouldBe Seq(
-          Seq(Set(rec(p1), pop1), Set(rec(p4), rec(p2), pop2), Set(rec(p1), rec(p5))),
-          Seq(Set(rec(p1), pop1), Set(rec(p4), rec(p2), pop2), Set(rec(p3))),
-          Seq(Set(rec(p1), pop1), Set(rec(p2), rec(p6), pop2)),
-        )
       }
     }
   }

@@ -1,22 +1,22 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine.script
 package v1.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
-import com.daml.lf.command
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.command
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
-import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
+import com.digitalasset.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

@@ -1,17 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.speedy.{
+import com.digitalasset.daml.lf.speedy.{
   AuthorizationChecker,
   DefaultAuthorizationChecker,
   NoopAuthorizationChecker,
 }
 
 import java.nio.file.Path
-import com.daml.lf.transaction.ContractKeyUniquenessMode
+import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with

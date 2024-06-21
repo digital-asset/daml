@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.{
   Party,
   Identifier,
   PackageName,
@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref.{
   TypeConName,
   ChoiceName,
 }
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.{Value => V}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

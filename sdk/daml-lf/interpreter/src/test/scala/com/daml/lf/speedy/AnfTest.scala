@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.digitalasset.daml.lf.speedy
 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.speedy.{SExpr1 => source}
-import com.daml.lf.speedy.{SExpr => target}
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.Anf.flattenToAnf
-import com.daml.lf.speedy.Pretty.SExpr._
-import com.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.speedy.{SExpr1 => source}
+import com.digitalasset.daml.lf.speedy.{SExpr => target}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.Anf.flattenToAnf
+import com.digitalasset.daml.lf.speedy.Pretty.SExpr._
+import com.digitalasset.daml.lf.data.Ref._
 
 class AnfTest extends AnyWordSpec with Matchers {
 

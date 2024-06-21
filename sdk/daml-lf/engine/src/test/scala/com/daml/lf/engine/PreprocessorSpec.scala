@@ -1,25 +1,25 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{PackageRef, Party}
-import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.daml.lf.command.ApiCommand
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
-import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{PackageRef, Party}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Inside, Inspectors}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
-import com.daml.lf.value.Value
-import com.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.speedy.Compiler
 
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 

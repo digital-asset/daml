@@ -1,18 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java.inner
+package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
-import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
-import com.daml.lf.typesig.PackageSignature.TypeDecl
-
+import com.digitalasset.daml.lf.typesig.{DefDataType, Record, TypeCon}
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import java.util.Optional
-import com.daml.lf.typesig._
+import com.digitalasset.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.daml.ledger.javaapi
-import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
+import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 
 import javax.lang.model.element.Modifier
 

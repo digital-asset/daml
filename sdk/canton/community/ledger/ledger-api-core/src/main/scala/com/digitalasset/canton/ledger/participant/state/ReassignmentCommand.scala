@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 

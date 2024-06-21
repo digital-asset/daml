@@ -89,7 +89,7 @@ class TopologyStoreTestData(
     serial = PositiveInt.tryCreate(1),
   )
   val tx3_PTP_Proposal = makeSignedTx(
-    PartyToParticipant.tryCreate(
+    PartyToParticipant(
       partyId = fredOfCanton,
       domainId = None,
       threshold = PositiveInt.one,
@@ -116,7 +116,7 @@ class TopologyStoreTestData(
     serial = PositiveInt.tryCreate(2),
   )
   val tx5_PTP = makeSignedTx(
-    PartyToParticipant.tryCreate(
+    PartyToParticipant(
       partyId = fredOfCanton,
       domainId = None,
       threshold = PositiveInt.one,

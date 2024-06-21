@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen
+package com.digitalasset.daml.lf.codegen
 
-import com.daml.lf.data.Ref
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.typesig
 import typesig.TypeConName
 import typesig.PackageSignature.TypeDecl
 import scalaz.std.list._

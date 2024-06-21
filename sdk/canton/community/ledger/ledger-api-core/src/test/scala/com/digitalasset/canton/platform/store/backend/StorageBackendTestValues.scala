@@ -4,12 +4,12 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Bytes, Ref}
-import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering

@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.engine.BlindingSpec.TxBuilder
-import com.daml.lf.transaction.{BlindingInfo, Node}
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.engine.BlindingSpec.TxBuilder
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Node}
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 

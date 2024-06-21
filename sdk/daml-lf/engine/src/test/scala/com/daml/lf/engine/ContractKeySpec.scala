@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, TypeConName}
-import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.InitialSeeding
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, TypeConName}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.InitialSeeding
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   ContractInstance,
   ValueContractId,
@@ -264,7 +264,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     // these tests serve only as an indication of the current behavior
     // but can be changed freely.
     "multi keys" should {
-      import com.daml.lf.language.{LanguageVersion => LV}
+      import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),

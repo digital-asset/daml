@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   JwksUrl,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
 
 import java.sql.Connection
 

@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party, PackageId}
-import com.daml.lf.data.Time
-import com.daml.lf.language.Ast.PackageMetadata
-import com.daml.lf.ledger.EventId
-import com.daml.lf.speedy.SError.SError
-import com.daml.lf.transaction.{GlobalKey, VersionedTransaction}
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, PackageId}
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.language.Ast.PackageMetadata
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.transaction.{GlobalKey, VersionedTransaction}
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.duration.Duration
 import scala.util.control.NoStackTrace

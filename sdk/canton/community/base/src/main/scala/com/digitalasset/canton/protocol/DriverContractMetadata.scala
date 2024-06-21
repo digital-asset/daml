@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.data.Bytes as LfBytes
+import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter

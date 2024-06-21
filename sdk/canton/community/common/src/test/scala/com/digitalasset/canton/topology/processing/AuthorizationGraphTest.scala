@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, TopologyMapping}
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeys}
@@ -26,7 +25,7 @@ class AuthorizationGraphTest
 
     def mkGraph = new AuthorizationGraph(namespace, extraDebugInfo = true, loggerFactory)
 
-    def mkAdd(
+    def mkAuth(
         nsd: NamespaceDelegation,
         key: SigningPublicKey,
     ): AuthorizedTopologyTransaction[NamespaceDelegation] = {
@@ -34,27 +33,16 @@ class AuthorizationGraphTest
       AuthorizedTopologyTransaction(tx)
     }
 
-    def mkRemove(
-        nsd: NamespaceDelegation,
-        key: SigningPublicKey,
-    ): AuthorizedTopologyTransaction[NamespaceDelegation] = {
-      val tx = factory.mkRemove(nsd, NonEmpty(Set, key), PositiveInt.two)
-      AuthorizedTopologyTransaction(tx)
-    }
-
     def mkNs(namespace: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
       NamespaceDelegation.tryCreate(namespace, key, isRootDelegation)
 
-    val nsk1k1 = mkAdd(mkNs(namespace, key1, isRootDelegation = true), key1)
-    val nsk1k1_remove = mkRemove(mkNs(namespace, key1, isRootDelegation = true), key1)
-    val nsk2k1 = mkAdd(mkNs(namespace, key2, isRootDelegation = true), key1)
-    val nsk2k1_remove = mkRemove(mkNs(namespace, key2, isRootDelegation = true), key1)
-    val nsk3k2 = mkAdd(mkNs(namespace, key3, isRootDelegation = true), key2)
-    val nsk3k2_remove = mkRemove(mkNs(namespace, key3, isRootDelegation = true), key2)
+    val nsk1k1 = mkAuth(mkNs(namespace, key1, isRootDelegation = true), key1)
+    val nsk2k1 = mkAuth(mkNs(namespace, key2, isRootDelegation = true), key1)
+    val nsk2k1p = mkAuth(mkNs(namespace, key2, isRootDelegation = true), key1)
+    val nsk3k2 = mkAuth(mkNs(namespace, key3, isRootDelegation = true), key2)
     val nsk1k2 =
-      mkAdd(mkNs(namespace, key1, isRootDelegation = true), key2) // cycle
-    val nsk3k1_nonRoot = mkAdd(mkNs(namespace, key3, isRootDelegation = false), key1)
-    val nsk3k1_nonRoot_remove = mkRemove(mkNs(namespace, key3, isRootDelegation = false), key1)
+      mkAuth(mkNs(namespace, key1, isRootDelegation = true), key2) // cycle
+    val nsk3k1_nonRoot = mkAuth(mkNs(namespace, key3, isRootDelegation = false), key1)
 
     def replaceSignature[T <: TopologyMapping](
         authTx: AuthorizedTopologyTransaction[T],
@@ -77,7 +65,7 @@ class AuthorizationGraphTest
       requireRoot: Boolean,
       valid: Boolean,
   ) = {
-    graph.existsAuthorizedKeyIn(Set(key.fingerprint), requireRoot = requireRoot) shouldBe valid
+    graph.areValidAuthorizationKeys(Set(key.fingerprint), requireRoot = requireRoot) shouldBe valid
   }
 
   "authorization graph" when {
@@ -105,7 +93,7 @@ class AuthorizationGraphTest
         val graph = mkGraph
         graph.add(nsk1k1)
         graph.add(nsk2k1)
-        graph.remove(nsk2k1_remove)
+        graph.remove(nsk2k1)
         check(graph, key2, requireRoot = false, valid = false)
         check(graph, key1, requireRoot = false, valid = true)
       }
@@ -116,13 +104,10 @@ class AuthorizationGraphTest
         graph.add(nsk3k2)
         check(graph, key2, requireRoot = false, valid = true)
         check(graph, key3, requireRoot = false, valid = true)
-        loggerFactory.assertLogs(
-          graph.remove(nsk2k1_remove),
-          _.warningMessage should include("dangling"),
-        )
+        loggerFactory.assertLogs(graph.remove(nsk2k1), _.warningMessage should include("dangling"))
         check(graph, key2, requireRoot = false, valid = false)
         check(graph, key3, requireRoot = false, valid = false)
-        graph.add(nsk2k1)
+        graph.add(nsk2k1p)
         check(graph, key3, requireRoot = false, valid = true)
       }
       "support several chains" in {
@@ -133,7 +118,7 @@ class AuthorizationGraphTest
         check(graph, key3, requireRoot = false, valid = true)
         graph.add(nsk3k1_nonRoot)
         check(graph, key3, requireRoot = false, valid = true)
-        graph.remove(nsk3k1_nonRoot_remove)
+        graph.remove(nsk3k1_nonRoot)
         check(graph, key3, requireRoot = false, valid = true)
       }
 
@@ -151,7 +136,7 @@ class AuthorizationGraphTest
         graph.add(nsk1k1)
         graph.add(nsk2k1)
         graph.add(nsk3k2)
-        graph.remove(nsk1k1_remove)
+        graph.remove(nsk1k1)
         check(graph, key1, requireRoot = false, valid = false)
         check(graph, key2, requireRoot = false, valid = false)
         check(graph, key3, requireRoot = false, valid = false)
@@ -174,17 +159,17 @@ class AuthorizationGraphTest
         // test that random key is not authorized
         check(graph, key3, requireRoot = false, valid = false)
         // remove first certificate
-        graph.remove(nsk2k1_remove)
+        graph.remove(nsk2k1)
         check(graph, key2, requireRoot = true, valid = false)
         // add other certificate (we don't remember removes, so we can do that in this test)
-        graph.add(nsk2k1)
+        graph.add(nsk2k1p)
         check(graph, key2, requireRoot = true, valid = true)
       }
 
       "reject delegations with a wrong namespace" in {
         val graph = mkGraph
         val fakeNs = Namespace(key8.fingerprint)
-        val nsk1k1 = mkAdd(mkNs(fakeNs, key1, isRootDelegation = true), key1)
+        val nsk1k1 = mkAuth(mkNs(fakeNs, key1, isRootDelegation = true), key1)
         loggerFactory.assertThrowsAndLogs[IllegalArgumentException](
           graph.add(nsk1k1),
           _.errorMessage should include("internal error"),
@@ -199,7 +184,7 @@ class AuthorizationGraphTest
         graph.add(nsk3k2)
         check(graph, key3, requireRoot = true, valid = true)
 
-        graph.remove(replaceSignature(nsk3k2_remove, key1))
+        graph.remove(replaceSignature(nsk3k2, key1))
         check(graph, key3, requireRoot = true, valid = false)
       }
     }
@@ -217,10 +202,10 @@ class AuthorizationGraphTest
         graph.add(nsk1k1)
         graph.add(nsk2k1)
         check(graph, key2, requireRoot = false, valid = true)
-        val fakeRemove = replaceSignature(nsk2k1_remove, key6)
+        val fakeRemove = replaceSignature(nsk2k1, key6)
         graph.remove(fakeRemove) shouldBe false
         check(graph, key2, requireRoot = false, valid = true)
-        graph.remove(nsk2k1_remove)
+        graph.remove(nsk2k1)
         check(graph, key2, requireRoot = false, valid = false)
       }
       "prevent a non-root authorization to authorize a root authorization" in {
@@ -228,7 +213,7 @@ class AuthorizationGraphTest
         graph.add(nsk1k1)
         graph.add(nsk3k1_nonRoot)
         check(graph, key3, requireRoot = false, valid = true)
-        val nsk4k3 = mkAdd(mkNs(namespace, key4, isRootDelegation = true), key3)
+        val nsk4k3 = mkAuth(mkNs(namespace, key4, isRootDelegation = true), key3)
         graph.add(nsk4k3) shouldBe false
         check(graph, key4, requireRoot = false, valid = false)
       }
@@ -240,14 +225,14 @@ class AuthorizationGraphTest
         graph.add(nsk2k1)
         check(graph, key3, requireRoot = false, valid = true)
         check(graph, key2, requireRoot = true, valid = true)
-        graph.remove(replaceSignature(nsk2k1_remove, key3)) shouldBe false
+        graph.remove(replaceSignature(nsk2k1, key3)) shouldBe false
         check(graph, key2, requireRoot = true, valid = true)
       }
 
       "ensure once a delegation is revoked, all depending authorizations will become unauthorized" in {
         val graph = mkGraph
-        val nsk4k3 = mkAdd(mkNs(namespace, key4, isRootDelegation = true), key3)
-        val nsk5k2 = mkAdd(mkNs(namespace, key5, isRootDelegation = true), key3)
+        val nsk4k3 = mkAuth(mkNs(namespace, key4, isRootDelegation = true), key3)
+        val nsk5k2 = mkAuth(mkNs(namespace, key5, isRootDelegation = true), key3)
         graph.add(nsk1k1)
         graph.add(nsk2k1)
         graph.add(nsk3k2)
@@ -256,7 +241,7 @@ class AuthorizationGraphTest
         Seq(key3, key4, key5).foreach(check(graph, _, requireRoot = false, valid = true))
         loggerFactory.assertLogs(
           {
-            graph.remove(nsk2k1_remove)
+            graph.remove(nsk2k1)
             Seq(key3, key4, key5).foreach(check(graph, _, requireRoot = false, valid = false))
           },
           _.warningMessage should include("The following target keys"),

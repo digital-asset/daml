@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SigningPublicKey
+import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -98,7 +98,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val p1p1B_k2 =
     mkAdd(
-      PartyToParticipant.tryCreate(
+      PartyToParticipant(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -109,7 +109,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val p1p6_k2 =
     mkAdd(
-      PartyToParticipant.tryCreate(
+      PartyToParticipant(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -120,20 +120,20 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
       isProposal = true,
     )
   val p1p6_k6 =
-    mkAddMultiKey(
-      PartyToParticipant.tryCreate(
+    mkAdd(
+      PartyToParticipant(
         party1b,
         None,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
-      NonEmpty(Set, key1, key6),
+      key6,
       isProposal = true,
     )
   val p1p6_k2k6 =
     mkAddMultiKey(
-      PartyToParticipant.tryCreate(
+      PartyToParticipant(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -145,7 +145,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val p1p6B_k3 =
     mkAdd(
-      PartyToParticipant.tryCreate(
+      PartyToParticipant(
         party1b,
         Some(domainId1),
         threshold = PositiveInt.one,
@@ -192,15 +192,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     NonEmpty(Set, key1, key8, key9),
     serial = PositiveInt.one,
   )
-  val dns1Removal = mkRemove(
-    dns1.mapping,
-    NonEmpty(Set, key1, key8, key9),
-    serial = PositiveInt.two,
-  )
-  val dns1Idd = mkAddMultiKey(
-    IdentifierDelegation(UniqueIdentifier.tryCreate("test", dns1.mapping.namespace), key4),
-    NonEmpty(Set, key1, key8, key9),
-  )
   val dns2 = mkAdd(
     DecentralizedNamespaceDefinition
       .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
@@ -223,19 +214,15 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     serial = PositiveInt.two,
     isProposal = true,
   )
-  val decentralizedNamespaceOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9)
   val decentralizedNamespaceWithMultipleOwnerThreshold =
     List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, dns1)
 
-  private val dndOwners =
-    NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_))
-  private val dndNamespace = DecentralizedNamespaceDefinition.computeNamespace(dndOwners)
   val dnd_proposal_k1 = mkAdd(
     DecentralizedNamespaceDefinition
       .create(
-        dndNamespace,
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
         PositiveInt.two,
-        dndOwners,
+        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
       )
       .fold(sys.error, identity),
     signingKey = key1,
@@ -244,7 +231,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val dnd_proposal_k2 = mkAdd(
     DecentralizedNamespaceDefinition
       .create(
-        dndNamespace,
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
         PositiveInt.two,
         NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
       )
@@ -255,7 +242,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val dnd_proposal_k3 = mkAdd(
     DecentralizedNamespaceDefinition
       .create(
-        dndNamespace,
+        Namespace(Fingerprint.tryCreate("dnd-namespace")),
         PositiveInt.two,
         NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
       )

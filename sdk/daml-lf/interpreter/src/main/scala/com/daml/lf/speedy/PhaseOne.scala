@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Struct}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, PackageInterface}
-import com.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
-import com.daml.lf.speedy.SBuiltinFun._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr0._
-import com.daml.lf.speedy.{SExpr => t}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Struct}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LookupError, PackageInterface}
+import com.digitalasset.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
+import com.digitalasset.daml.lf.speedy.SBuiltinFun._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.SExpr0._
+import com.digitalasset.daml.lf.speedy.{SExpr => t}
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec

@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 import scala.jdk.CollectionConverters._
 
-import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.Speedy._
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue._
 
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 

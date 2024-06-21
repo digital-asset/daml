@@ -1,25 +1,25 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen
+package com.digitalasset.daml.lf.codegen
 
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory}
-import com.daml.lf.archive.DarParser
-import com.daml.lf.codegen.backend.java.inner.{
+import com.digitalasset.daml.lf.archive.DarParser
+import com.digitalasset.daml.lf.codegen.backend.java.inner.{
   ClassForType,
   DecoderClass,
   PackagePrefixes,
   fullyQualifiedName,
 }
-import com.daml.lf.codegen.conf.{Conf, PackageReference}
-import com.daml.lf.codegen.dependencygraph.DependencyGraph
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.typesig.reader.{Errors, SignatureReader}
-import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
+import com.digitalasset.daml.lf.codegen.conf.{Conf, PackageReference}
+import com.digitalasset.daml.lf.codegen.dependencygraph.DependencyGraph
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
+import com.digitalasset.daml.lf.typesig.reader.{Errors, SignatureReader}
+import com.digitalasset.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
-import com.daml.lf.language.Reference
+import com.digitalasset.daml.lf.language.Reference
 import com.daml.nonempty.NonEmpty
 import com.squareup.javapoet.{ClassName, JavaFile}
 import com.typesafe.scalalogging.StrictLogging
@@ -124,7 +124,7 @@ object CodeGenRunner extends StrictLogging {
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
     LoggerFactory
-      .getLogger("com.daml.lf.codegen.backend.java.inner")
+      .getLogger("com.digitalasset.daml.lf.codegen.backend.java.inner")
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
 

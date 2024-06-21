@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy.iterable
+package com.digitalasset.daml.lf.speedy.iterable
 
-import com.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SValue
 import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s

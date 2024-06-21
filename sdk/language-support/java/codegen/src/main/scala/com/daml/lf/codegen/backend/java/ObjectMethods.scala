@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.backend.java
+package com.digitalasset.daml.lf.codegen.backend.java
 
 import com.squareup.javapoet.{ClassName, CodeBlock, MethodSpec, TypeName}
 import com.typesafe.scalalogging.StrictLogging
 
 import javax.lang.model.element.Modifier
-import com.daml.lf.codegen.backend.java.inner.ClassNameExtensions
+import com.digitalasset.daml.lf.codegen.backend.java.inner.ClassNameExtensions
 
 import java.util.Objects
 import scala.jdk.CollectionConverters._

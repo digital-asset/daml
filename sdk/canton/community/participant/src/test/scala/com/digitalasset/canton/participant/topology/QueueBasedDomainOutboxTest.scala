@@ -278,7 +278,7 @@ class QueueBasedDomainOutboxTest
                   transactions: Seq[GenericSignedTopologyTransaction],
               )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
                 val num = transactions.size
-                outbox.newTransactionsAdded(timestamp, num)
+                outbox.newTransactionsAddedToAuthorizedStore(timestamp, num)
               }
             })
           ),

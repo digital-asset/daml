@@ -158,7 +158,7 @@ final case class TransactionView private (
     subviews = Some(subviews.toProtoV30),
   )
 
-  /** The global key inputs that the [[com.daml.lf.transaction.ContractStateMachine]] computes
+  /** The global key inputs that the [[com.digitalasset.daml.lf.transaction.ContractStateMachine]] computes
     * while interpreting the root action of the view, enriched with the maintainers of the key and the
     * [[com.digitalasset.canton.protocol.LfTransactionVersion]] to be used for serializing the key.
     *

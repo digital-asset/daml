@@ -6,8 +6,8 @@ package lf
 package language
 package util
 
-import com.daml.lf.data.Ref.{PackageId, TypeConName}
-import com.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.data.Ref.{PackageId, TypeConName}
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import data.{Ref, Relation}
 import testing.parser
 import org.scalatest.wordspec.AnyWordSpec

@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Bytes, Time}
-import com.daml.lf.ledger._
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{Bytes, Time}
+import com.digitalasset.daml.lf.ledger._
+import com.digitalasset.daml.lf.transaction.{
   BlindingInfo,
   CommittedTransaction,
   FatContractInstance,
@@ -17,7 +17,7 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
 }
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.daml.scalautil.Statement.discard
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}

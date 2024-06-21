@@ -1,15 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.{Ref, ImmArray}
-import com.daml.lf.language.{Ast, LookupError}
-import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{SubmittedTransaction, Node}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.{Ref, ImmArray}
+import com.digitalasset.daml.lf.language.{Ast, LookupError}
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Node}
+import com.digitalasset.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec

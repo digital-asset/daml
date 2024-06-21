@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
 import com.daml.ledger.resources.Resource
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.IdString
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.IdString
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractState
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}

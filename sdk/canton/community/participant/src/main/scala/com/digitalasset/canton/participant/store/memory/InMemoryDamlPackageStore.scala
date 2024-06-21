@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store.memory
 import cats.Monoid
 import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.Hash

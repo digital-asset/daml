@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion

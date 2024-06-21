@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.transaction.test.TreeTransactionBuilder.*
-import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
+import com.digitalasset.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

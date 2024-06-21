@@ -12,22 +12,12 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{Checked, ErrorUtil, SetCover}
+import com.digitalasset.canton.util.{Checked, ErrorUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object RootHashMessageRecipients extends HasLoggerName {
 
-  /** Computes the list of recipients for the root hash messages of a confirmation request.
-    * Each recipient returned is either a participant or a group address
-    * [[com.digitalasset.canton.sequencing.protocol.ParticipantsOfParty]].
-    * The group addresses can be overlapping, but a participant member recipient will only be present if it is
-    * not included in any of the group addresses.
-    *
-    * @param informees informees of the confirmation request
-    * @param ipsSnapshot topology snapshot used at submission time
-    * @return list of root hash message recipients
-    */
   def rootHashRecipientsForInformees(
       informees: Set[LfPartyId],
       ipsSnapshot: TopologySnapshot,
@@ -47,10 +37,10 @@ object RootHashMessageRecipients extends HasLoggerName {
             )
           )
         )
-      participantsOfGroupAddressedInformees <- ipsSnapshot
-        .activeParticipantsOfPartiesWithGroupAddressing(
-          informeesList
-        )
+      groupAddressedInformees <- ipsSnapshot.partiesWithGroupAddressing(informeesList)
+      participantsOfGroupAddressedInformees <- ipsSnapshot.activeParticipantsOfParties(
+        groupAddressedInformees.toList
+      )
     } yield {
       // If there are several group-addressed informees with overlapping participants,
       // we actually look for a set cover. It doesn't matter which one we pick.
@@ -96,45 +86,28 @@ object RootHashMessageRecipients extends HasLoggerName {
       } ++ directlyAddressedParticipants.map { participant =>
         MemberRecipient(participant) -> Set(participant)
       }
-      SetCover.greedy(sets)
+      // TODO(#13883) Use a set cover for the recipients instead of all of them
+      //  SetCover.greedy(sets.toMap)
+      sets.map { case (recipient, _) => recipient }.toSeq
     }
   }
 
-  /** Validate the recipients of root hash messages received by a participant in Phase 3.
-    */
   def validateRecipientsOnParticipant(recipients: Recipients): Checked[Nothing, String, Unit] = {
-    // group members must be of size 2, which must be participant and mediator, due to previous checks
-    val validGroups = recipients.trees.collect {
-      case RecipientsTree(group, Seq()) if group.sizeCompare(2) == 0 => group
+    recipients.asSingleGroup match {
+      case Some(group) if group.sizeCompare(2) == 0 =>
+        // group members must be participantId and mediator, due to previous checks
+        Checked.unit
+      case Some(group) =>
+        val hasGroupAddressing = group.collect { case ParticipantsOfParty(party) =>
+          party.toLf
+        }.nonEmpty
+        if (hasGroupAddressing) Checked.unit
+        else Checked.continue(s"The root hash message has an invalid recipient group.\n$recipients")
+      case _ =>
+        Checked.continue(s"The root hash message has more than one recipient group.\n$recipients")
     }
-
-    if (validGroups.size == recipients.trees.size) {
-      val allUseGroupAddressing = validGroups.forall {
-        _.exists {
-          case ParticipantsOfParty(_) => true
-          case _ => false
-        }
-      }
-
-      // Due to how rootHashRecipientsForInformees() computes recipients, if there is more than one group,
-      // they must all address the participant using group addressing.
-      if (allUseGroupAddressing || validGroups.sizeCompare(1) == 0) Checked.unit
-      else
-        Checked.continue(
-          s"The root hash message has more than one recipient group, not all using group addressing.\n$recipients"
-        )
-    } else Checked.continue(s"The root hash message has invalid recipient groups.\n$recipients")
   }
 
-  /** Validate the recipients of root hash messages received by a mediator in Phase 2.
-    *
-    * A recipient is valid if each recipient tree:
-    *   - contains only a single recipient group (no children)
-    *   - the recipient group is if size 2
-    *   - the recipient group contains:
-    *     - the mediator group recipient
-    *     - either a participant member recipient or a PartyOfParticipant group recipient
-    */
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],
       mediator: MediatorGroupRecipient,
@@ -142,14 +115,18 @@ object RootHashMessageRecipients extends HasLoggerName {
     val (wrongRecipients, correctRecipients) = recipientsList.flatMap { recipients =>
       recipients.trees.toList.map {
         case tree @ RecipientsTree(group, Seq()) =>
-          val hasMediator = group.contains(mediator)
-          val hasParticipantOrPop = group.exists {
-            case MemberRecipient(_: ParticipantId) | ParticipantsOfParty(_) => true
+          val participantCount = group.count {
+            case MemberRecipient(_: ParticipantId) => true
             case _ => false
           }
-
+          val groupAddressCount = group.count {
+            case ParticipantsOfParty(_) => true
+            case _ => false
+          }
+          val groupAddressingBeingUsed = groupAddressCount > 0
           Either.cond(
-            group.sizeCompare(2) == 0 && hasMediator && hasParticipantOrPop,
+            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) &&
+              group.contains(mediator) && (participantCount + groupAddressCount > 0),
             group,
             tree,
           )

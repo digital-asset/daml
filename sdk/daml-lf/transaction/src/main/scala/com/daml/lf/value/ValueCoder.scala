@@ -5,11 +5,11 @@ package com.daml
 package lf
 package value
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.transaction.{Versioned, TransactionVersion}
-import com.daml.lf.value.Value._
-import com.daml.lf.value.{ValueOuterClass => proto}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf
 import com.google.protobuf.{ByteString, CodedInputStream}

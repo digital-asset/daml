@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -48,7 +48,7 @@ final class IndexerServiceOwner(
       new FlywayMigrations(
         participantDataSourceConfig.jdbcUrl,
         loggerFactory,
-      )(executionContext, traceContext)
+      )
     val indexerFactory = new JdbcIndexer.Factory(
       participantId,
       participantDataSourceConfig,
@@ -104,7 +104,7 @@ object IndexerServiceOwner {
   def migrateOnly(
       jdbcUrl: String,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
+  )(implicit rc: ResourceContext, traceContext: TraceContext): Future[Unit] = {
     val flywayMigrations =
       new FlywayMigrations(jdbcUrl, loggerFactory)
     flywayMigrations.migrate()

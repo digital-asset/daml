@@ -14,7 +14,6 @@ import com.digitalasset.canton.http.HttpApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit
-import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.ApiServiceOwner
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
@@ -171,8 +170,6 @@ final case class RemoteParticipantConfig(
   * @param databaseConnectionTimeout database connection timeout
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
-  * @param enableCommandInspection   enable command inspection service over the ledger api
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -193,7 +190,6 @@ final case class LedgerApiServerConfig(
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
-    enableCommandInspection: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
@@ -371,7 +367,6 @@ final case class ParticipantNodeParameterConfig(
     allowForUnauthenticatedContractIds: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
-    commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

@@ -1,21 +1,21 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.digitalasset.daml.lf.speedy
 package svalue
 
-import com.daml.lf.crypto
-import com.daml.lf.data.{Bytes, FrontStack, Ref}
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SEImportValue, SELet1, SELocF, SELocS, SEMakeClo}
-import com.daml.lf.value.Value
-import com.daml.lf.value.test.TypedValueGenerators.genAddend
-import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.typesig
-import com.daml.lf.interpretation.Error.ContractIdComparability
-import com.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Ref}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.SExpr.{SEImportValue, SELet1, SELocF, SELocS, SEMakeClo}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.test.TypedValueGenerators.genAddend
+import com.digitalasset.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
+import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.typesig
+import com.digitalasset.daml.lf.interpretation.Error.ContractIdComparability
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
@@ -82,7 +82,7 @@ class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
     Ref.Name.assertFromString(s)
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
-    import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
+    import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
     def r(name: String, va: VA)(sv: va.Inj => SValue) =
       (name, va.injarb.arbitrary map sv)
     Table(

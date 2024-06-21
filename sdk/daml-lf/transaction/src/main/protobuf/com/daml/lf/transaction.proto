@@ -10,9 +10,9 @@
 // * dev -- special staging area for the next version to be released
 syntax = "proto3";
 
-package com.daml.lf.transaction;
+package com.digitalasset.daml.lf.transaction;
 
-option java_package = "com.daml.lf.transaction";
+option java_package = "com.digitalasset.daml.lf.transaction";
 
 import "com/daml/lf/value.proto";
 
@@ -30,8 +30,8 @@ message Transaction {
 message ContractInstance {
     string package_name = 4;
     repeated int32 package_version = 5; // required *since dev*
-    com.daml.lf.value.Identifier template_id = 1;
-    com.daml.lf.value.VersionedValue arg_versioned = 2;
+    com.digitalasset.daml.lf.value.Identifier template_id = 1;
+    com.digitalasset.daml.lf.value.VersionedValue arg_versioned = 2;
     // TODO: https://github.com/digital-asset/daml/issues/18240
     //  remove agreement text for the proto
     string agreement = 3;
@@ -54,7 +54,7 @@ message Node {
   message Fetch {
     bytes contract_id = 1;
     string package_name = 2;
-    com.daml.lf.value.Identifier template_id = 3; // require
+    com.digitalasset.daml.lf.value.Identifier template_id = 3; // require
     repeated string non_maintainer_signatories = 4;
     repeated string non_signatory_stakeholders = 5;
     repeated string actors = 6;
@@ -64,7 +64,7 @@ message Node {
 
   message Exercise {
     Fetch fetch = 1; // required
-    com.daml.lf.value.Identifier interface_id = 2; // optional
+    com.digitalasset.daml.lf.value.Identifier interface_id = 2; // optional
     string choice = 3;
     bytes arg = 4;
     bool consuming = 5;
@@ -82,7 +82,7 @@ message Node {
   // *since dev*
   message LookupByKey {
     string package_name = 1;
-    com.daml.lf.value.Identifier template_id = 2;
+    com.digitalasset.daml.lf.value.Identifier template_id = 2;
     KeyWithMaintainers key_with_maintainers = 3;
     bytes contract_id = 4;
   }
@@ -100,7 +100,7 @@ message FatContractInstance {
   bytes contract_id = 1;
   string package_name = 2;
   repeated int32 package_version = 9; // required *since dev(
-  com.daml.lf.value.Identifier template_id = 3;
+  com.digitalasset.daml.lf.value.Identifier template_id = 3;
   bytes create_arg = 4;
   repeated string non_maintainer_signatories = 5;
   repeated string non_signatory_stakeholders = 6;

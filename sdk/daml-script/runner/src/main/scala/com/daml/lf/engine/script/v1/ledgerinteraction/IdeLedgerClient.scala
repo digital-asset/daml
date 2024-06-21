@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package script
 package v1
@@ -16,16 +16,16 @@ import com.digitalasset.canton.ledger.api.domain.{
   User,
   UserRight,
 }
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.TTyCon
-import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.TTyCon
+import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine
+import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   IncompleteTransaction,
@@ -34,8 +34,8 @@ import com.daml.lf.transaction.{
   Transaction,
   TransactionCoder,
 }
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import io.grpc.StatusRuntimeException

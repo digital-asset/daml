@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.ImmArray
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
-import com.daml.lf.value._
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.digitalasset.daml.lf.value._
 
 /** Generic transaction node type for both update transactions and the
   * transaction graph.

@@ -162,7 +162,7 @@ class StoreBasedDomainOutbox(
 
   final def queueSize: Int = watermarks.get().queuedApprox
 
-  final def newTransactionsAdded(
+  final def newTransactionsAddedToAuthorizedStore(
       asOf: CantonTimestamp,
       num: Int,
   ): FutureUnlessShutdown[Unit] = {
@@ -375,7 +375,7 @@ abstract class DomainOutbox extends DomainOutboxHandle {
 
   def targetClient: DomainTopologyClientWithInit
 
-  def newTransactionsAdded(
+  def newTransactionsAddedToAuthorizedStore(
       asOf: CantonTimestamp,
       num: Int,
   ): FutureUnlessShutdown[Unit]
@@ -396,7 +396,7 @@ class DomainOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     outboxRef.get.fold(FutureUnlessShutdown.unit)(
-      _.newTransactionsAdded(timestamp, transactions.size)
+      _.newTransactionsAddedToAuthorizedStore(timestamp, transactions.size)
     )
   }
 

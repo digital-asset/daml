@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package language
 
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data._
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.PackageInterface.{DataEnumInfo, DataRecordInfo, DataVariantInfo}
-import com.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.PackageInterface.{DataEnumInfo, DataRecordInfo, DataVariantInfo}
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop._
@@ -22,8 +22,8 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
     with TableDrivenPropertyChecks
     with Inside {
 
-  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-  import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+  import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+  import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
   // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces

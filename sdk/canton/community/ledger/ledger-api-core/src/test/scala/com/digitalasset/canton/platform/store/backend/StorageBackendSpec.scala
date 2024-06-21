@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.daml.ledger.resources.ResourceContext
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.platform.store.FlywayMigrations
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
@@ -73,6 +74,7 @@ trait StorageBackendSpec
 
     // Note: reusing the connection pool EC for initialization
     implicit val ec: ExecutionContext = connectionPoolExecutionContext
+    implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     val dataSourceFuture = for {
       _ <- new FlywayMigrations(jdbcUrl, loggerFactory = loggerFactory).migrate()

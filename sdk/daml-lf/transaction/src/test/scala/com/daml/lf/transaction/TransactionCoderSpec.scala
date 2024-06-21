@@ -5,13 +5,13 @@ package com.daml
 package lf
 package transaction
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Party, Identifier, PackageName, PackageVersion}
-import com.daml.lf.transaction.{TransactionOuterClass => proto}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.transaction.{TransactionOuterClass => proto}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
 import com.google.protobuf
 import com.google.protobuf.{Message, ByteString}
 import org.scalacheck.{Gen, Arbitrary}
@@ -34,7 +34,7 @@ class TransactionCoderSpec
   // TODO https://github.com/digital-asset/daml/issues/18457
   // Tests that messages with unknown field are rejected
 
-  import com.daml.lf.value.test.ValueGenerators._
+  import com.digitalasset.daml.lf.value.test.ValueGenerators._
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)

@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
 import java.io.File
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref._
-import com.daml.lf.data._
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -23,19 +23,19 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.lf
-import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, svalue}
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.command._
-import com.daml.lf.crypto.Hash
-import com.daml.lf.engine.Error.Interpretation
-import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, svalue}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.engine.Error.Interpretation
+import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
@@ -2338,7 +2338,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "Engine.preloadPackage" should {
-    import com.daml.lf.language.{LanguageVersion => LV}
+    import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 
     def engine(min: LV, max: LV) =
       new Engine(
@@ -2384,7 +2384,7 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
 
   "Engine.preloadPackage" should {
 
-    import com.daml.lf.language.{LanguageVersion => LV}
+    import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 
     def engine(min: LV, max: LV) =
       new Engine(

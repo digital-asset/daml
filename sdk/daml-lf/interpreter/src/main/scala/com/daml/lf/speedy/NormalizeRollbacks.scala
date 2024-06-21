@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.transaction.{NodeId, Transaction}
-import com.daml.lf.transaction.Node
-import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
+import com.digitalasset.daml.lf.transaction.{NodeId, Transaction}
+import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
+import com.digitalasset.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 

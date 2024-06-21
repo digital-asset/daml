@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package transaction
 package test
 
-import com.daml.lf.data._
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInstance, VersionedContractInstance}
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance, VersionedContractInstance}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec

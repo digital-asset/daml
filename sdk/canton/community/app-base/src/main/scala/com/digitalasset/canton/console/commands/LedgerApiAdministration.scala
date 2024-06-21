@@ -8,7 +8,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
@@ -40,7 +39,7 @@ import com.daml.ledger.javaapi.data.{
   TransactionTree,
 }
 import com.daml.ledger.javaapi as javab
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
@@ -84,7 +83,6 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
@@ -556,36 +554,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
         }
       }
 
-      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
-      @Help.Description(
-        """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
-      )
-      def status(
-          commandIdPrefix: String = "",
-          state: CommandState = CommandState.COMMAND_STATE_UNSPECIFIED,
-          limit: PositiveInt = PositiveInt.tryCreate(10),
-      ): Seq[CommandStatus] = check(FeatureFlag.Preview) {
-        consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandInspectionService.GetCommandStatus(
-              commandIdPrefix = commandIdPrefix,
-              state = state,
-              limit = limit.unwrap,
-            )
-          )
-        }
-      }
-
-      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
-      @Help.Description(
-        """Same as status(..., state = CommandState.Failed)."""
-      )
-      def failed(commandId: String = "", limit: PositiveInt = PositiveInt.tryCreate(10)): Seq[
-        CommandStatus
-      ] = check(FeatureFlag.Preview) {
-        status(commandId, CommandState.COMMAND_STATE_FAILED, limit)
-      }
-
       @Help.Summary(
         "Submit assign command and wait for the resulting reassignment, returning the reassignment or failing otherwise",
         FeatureFlag.Testing,
@@ -827,36 +795,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             LedgerApiCommands.StateService.GetConnectedDomains(partyId.toLf)
           )
         })
-
-      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
-      @Help.Description(
-        """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
-      )
-      def status(
-          commandIdPrefix: String = "",
-          state: CommandState = CommandState.COMMAND_STATE_UNSPECIFIED,
-          limit: PositiveInt = PositiveInt.tryCreate(10),
-      ): Seq[CommandStatus] = check(FeatureFlag.Preview) {
-        consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandInspectionService.GetCommandStatus(
-              commandIdPrefix = commandIdPrefix,
-              state = state,
-              limit = limit.unwrap,
-            )
-          )
-        }
-      }
-
-      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
-      @Help.Description(
-        """Same as status(..., state = CommandState.Failed)."""
-      )
-      def failed(commandId: String = "", limit: PositiveInt = PositiveInt.tryCreate(10)): Seq[
-        CommandStatus
-      ] = check(FeatureFlag.Preview) {
-        status(commandId, CommandState.COMMAND_STATE_FAILED, limit)
-      }
 
       @Help.Summary("Read active contracts", FeatureFlag.Testing)
       @Help.Group("Active Contracts")

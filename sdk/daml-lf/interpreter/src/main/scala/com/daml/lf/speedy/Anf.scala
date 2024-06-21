@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.digitalasset.daml.lf.speedy
 
 /**  Transformation to ANF based AST for the speedy interpreter.
   *
@@ -29,9 +29,9 @@ package com.daml.lf.speedy
   *  We use "source." and "t." for lightweight discrimination.
   */
 
-import com.daml.lf.speedy.{SExpr1 => source}
-import com.daml.lf.speedy.{SExpr => target}
-import com.daml.lf.speedy.Compiler.CompilationError
+import com.digitalasset.daml.lf.speedy.{SExpr1 => source}
+import com.digitalasset.daml.lf.speedy.{SExpr => target}
+import com.digitalasset.daml.lf.speedy.Compiler.CompilationError
 
 import scala.annotation.tailrec
 import scala.util.control.TailCalls._

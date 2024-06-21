@@ -1,24 +1,24 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data._
-import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
-import com.daml.lf.speedy.SExpr.SExpr
-import com.daml.lf.speedy.Speedy.ContractInfo
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInstance}
-import com.daml.lf.value.Value.ContractId.`Cid Order`
-import com.daml.lf.value.Value.ContractId.V1.`V1 Order`
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.interpretation.Error.TemplatePreconditionViolated
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
+import com.digitalasset.daml.lf.speedy.SExpr.SExpr
+import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
+import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.value.ValueCoder
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.google.protobuf.ByteString

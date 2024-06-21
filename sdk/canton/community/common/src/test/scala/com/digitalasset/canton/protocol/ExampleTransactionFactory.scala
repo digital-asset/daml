@@ -6,11 +6,11 @@ package com.digitalasset.canton.protocol
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.transaction.Versioned
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{
   ValueContractId,
   ValueOptional,
   ValueRecord,

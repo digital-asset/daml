@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.v2.ledgerinteraction
+package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.ValueCoder
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString

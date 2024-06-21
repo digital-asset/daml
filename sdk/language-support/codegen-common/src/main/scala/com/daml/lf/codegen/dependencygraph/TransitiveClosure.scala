@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.codegen.dependencygraph
+package com.digitalasset.daml.lf.codegen.dependencygraph
 
-import com.daml.lf.codegen.exception.UnsupportedTypeError
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.typesig.DefInterface
-import com.daml.lf.typesig.PackageSignature.TypeDecl
+import com.digitalasset.daml.lf.codegen.exception.UnsupportedTypeError
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.typesig.DefInterface
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 
 /** Represents a collection of templates and all the type
   * declarations for which code must be generated so that

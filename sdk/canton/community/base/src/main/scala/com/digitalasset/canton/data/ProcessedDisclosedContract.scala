@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value
 
 /** An explicitly-disclosed contract that has been used during command interpretation
   * and enriched with additional contract metadata.

@@ -293,13 +293,13 @@ object OnboardingRestriction {
   *                                            Must be greater than `maxSequencingTime` specified by a participant,
   *                                            practically also requires extra slack to allow clock skew between participant and sequencer.
   * @param onboardingRestriction current onboarding restrictions for participants
-  * @param acsCommitmentsCatchUpConfig   Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                                      Defined starting with protobuf version v2 and protocol version v30.
-  *                                      If None, the catch-up mode is disabled: the participant does not trigger the
-  *                                      catch-up mode when lagging behind.
-  *                                      If not None, it specifies the number of reconciliation intervals that the
-  *                                      participant skips in catch-up mode, and the number of catch-up intervals
-  *                                      intervals a participant should lag behind in order to enter catch-up mode.
+  *  @param catchUpParameters   Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
+  *                            Defined starting with protobuf version v2 and protocol version v30.
+  *                            If None, the catch-up mode is disabled: the participant does not trigger the
+  *                            catch-up mode when lagging behind.
+  *                            If not None, it specifies the number of reconciliation intervals that the
+  *                            participant skips in catch-up mode, and the number of catch-up intervals
+  *                           intervals a participant should lag behind in order to enter catch-up mode.
   *
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.

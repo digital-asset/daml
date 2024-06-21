@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
@@ -33,7 +32,6 @@ private[platform] class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val submissionTracker: SubmissionTracker,
-    val commandProgressTracker: CommandProgressTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -72,7 +70,6 @@ private[platform] class InMemoryState(
 
 object InMemoryState {
   def owner(
-      commandProgressTracker: CommandProgressTracker,
       apiStreamShutdownTimeout: Duration,
       bufferedStreamsPageSize: Int,
       maxContractStateCacheSize: Long,
@@ -115,7 +112,6 @@ object InMemoryState {
       ),
       stringInterningView = new StringInterningView(loggerFactory),
       submissionTracker = submissionTracker,
-      commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executionContext)
   }

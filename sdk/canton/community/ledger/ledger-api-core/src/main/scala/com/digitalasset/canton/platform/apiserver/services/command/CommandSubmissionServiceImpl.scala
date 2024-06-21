@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.ErrorCode.LoggedApiException
-import com.daml.lf.command.ApiCommand
-import com.daml.lf.crypto
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.crypto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.daml.tracing.Telemetry

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.lf.crypto
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 /** Meta-data of a transaction visible to all parties that can see a part of

@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.ImmArray
 
 private[lf] sealed abstract class InitialSeeding extends Product with Serializable
 

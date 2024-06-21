@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.command._
-import com.daml.lf.data._
-import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue, TraceLog}
-import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue, TraceLog}
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.transaction.{
   Node,
   SubmittedTransaction,
   Versioned,
@@ -21,12 +21,12 @@ import com.daml.lf.transaction.{
 }
 
 import java.nio.file.Files
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
-import com.daml.lf.speedy.Speedy.Machine.newTraceLog
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.validation.Validation
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -41,10 +41,10 @@ object EngineLogger {
   def toTraceLog(logger: Option[EngineLogger]): TraceLog = logger match {
     case Some(value) =>
       new TraceLog {
-        override def add(message: String, optLocation: Option[com.daml.lf.data.Ref.Location])(
+        override def add(message: String, optLocation: Option[com.digitalasset.daml.lf.data.Ref.Location])(
             implicit loggingContext: LoggingContext
         ): Unit = value.add(message)
-        override def iterator: Iterator[(String, Option[com.daml.lf.data.Ref.Location])] =
+        override def iterator: Iterator[(String, Option[com.digitalasset.daml.lf.data.Ref.Location])] =
           Iterator.empty
       }
     case None => newTraceLog
@@ -530,7 +530,7 @@ class Engine(val config: EngineConfig) {
 
   def clearPackages(): Unit = compiledPackages.clear()
 
-  /** Note: it's important we return a [[com.daml.lf.CompiledPackages]],
+  /** Note: it's important we return a [[com.digitalasset.daml.lf.CompiledPackages]],
     * and not a [[ConcurrentCompiledPackages]], otherwise people would be able
     * to modify them.
     */

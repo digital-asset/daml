@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
+package com.digitalasset.daml.lf.language
 package iterable
 
-import com.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 
 private[lf] object ExprIterable {
   that =>

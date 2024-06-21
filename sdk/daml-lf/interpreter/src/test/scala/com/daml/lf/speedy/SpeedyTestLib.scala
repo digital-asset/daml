@@ -8,12 +8,12 @@ package speedy
 import data.Ref.PackageId
 import data.Time
 import SResult._
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
-import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.validation.{Validation, ValidationError}
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value

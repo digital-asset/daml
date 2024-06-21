@@ -1,14 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
-import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.value.Value._
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.value.Value._
 import scalaz.Monad
 
 import scala.annotation.tailrec

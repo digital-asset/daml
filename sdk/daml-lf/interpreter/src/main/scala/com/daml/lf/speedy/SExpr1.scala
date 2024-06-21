@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
 /** SExpr1 -- AST for the speedy compiler pipeline. (after closure conversion phase)
@@ -9,9 +9,9 @@ package speedy
   * These are *not* the expression forms which run on the speedy machine. See SExpr.
   */
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
 
 private[speedy] object SExpr1 {
 
@@ -88,7 +88,7 @@ private[speedy] object SExpr1 {
     * runtime, if the value resulting from evaluating [[expr]] is a
     * (partially applied) closure, the label of the closure is set to the
     * [[label]] given here.
-    * See [[com.daml.lf.speedy.Profile]] for an explanation why we use
+    * See [[com.digitalasset.daml.lf.speedy.Profile]] for an explanation why we use
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr

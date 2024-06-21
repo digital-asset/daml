@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.data._
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.test.TransactionBuilder.newCid
-import com.daml.lf.value.Value._
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.newCid
+import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.matchers.dsl.ResultOfATypeInvocation
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import com.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
@@ -29,8 +29,8 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     with TableDrivenPropertyChecks
     with Inside {
 
-  import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-  import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+  import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+  import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
   private implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor(majorLanguageVersion)

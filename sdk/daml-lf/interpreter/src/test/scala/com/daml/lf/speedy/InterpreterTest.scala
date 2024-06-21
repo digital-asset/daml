@@ -1,16 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.language.Util._
-import com.daml.lf.speedy.SExpr.LfDefRef
-import com.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
+import com.digitalasset.daml.lf.speedy.SResult._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -237,7 +237,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
         getPkg = { case pkgId if pkgId == ref.packageId => pkgs3 },
       )
       inside(result) { case Left(SError.SErrorCrash(loc, msg)) =>
-        loc shouldBe "com.daml.lf.speedy.Speedy.Machine.lookupVal"
+        loc shouldBe "com.digitalasset.daml.lf.speedy.Speedy.Machine.lookupVal"
         msg should include(s"definition ${LfDefRef(ref)} not found")
       }
     }

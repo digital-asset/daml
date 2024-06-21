@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
-import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SValue.{SParty, SUnit}
-import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
-import com.daml.lf.stablepackages.StablePackages
-import com.daml.lf.testing.parser
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.value.Value.{ValueRecord, ValueText}
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
+import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SValue.{SParty, SUnit}
+import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.testing.parser
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks

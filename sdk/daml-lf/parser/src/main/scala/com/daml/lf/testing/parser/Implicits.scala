@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing
+package com.digitalasset.daml.lf.testing
 package parser
 
-import com.daml.lf.data.{Numeric, Ref}
-import com.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
-//import com.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
+//import com.digitalasset.daml.lf.language.LanguageMajorVersion
 
 object Implicits {
 
