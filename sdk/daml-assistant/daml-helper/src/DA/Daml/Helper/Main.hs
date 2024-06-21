@@ -70,7 +70,7 @@ data Command
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
-    | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
+    | LedgerUploadDar { flags :: LedgerFlags, dryRun :: DryRun, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
@@ -319,10 +319,12 @@ commandParser = subparser $ fold
         <$> ledgerFlags (ShowJsonApi True)
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger if it doesn't exist"))
 
-    ledgerUploadDarCmd = LedgerUploadDar
-        <$> ledgerFlags (ShowJsonApi True)
-        <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
-
+    ledgerUploadDarCmd =
+        LedgerUploadDar
+            <$> ledgerFlags (ShowJsonApi True)
+            <*> (DryRun <$> switch (long "dry-run" <> help "Only check the DAR's validity according to the ledger, do not actually upload it."))
+            <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
+    
     ledgerFetchDarCmd = LedgerFetchDar
         <$> ledgerFlags (ShowJsonApi True)
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
@@ -528,7 +530,7 @@ runCommand = \case
     LedgerListParties {..} -> runLedgerListParties flags json
     PackagesList {..} -> runLedgerListPackages0 flags
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
-    LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
+    LedgerUploadDar {..} -> runLedgerUploadDar flags dryRun darPathM
     LedgerFetchDar {..} -> withSdkVersions $ runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
@@ -542,7 +544,7 @@ runCommand = \case
                 sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
                 putStrLn ("Listening at port " <> show sandboxPort)
                 forM_ darPaths $ \darPath -> do
-                    runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+                    runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
                 whenJust portFileM $ \portFile -> do
                     putStrLn ("Writing ledger API port to " <> portFile)
                     writeFileUTF8 portFile (show sandboxPort)
