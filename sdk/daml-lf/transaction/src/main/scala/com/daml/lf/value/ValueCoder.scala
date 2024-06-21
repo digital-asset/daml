@@ -1,13 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
+package com.digitalasset.daml
 package lf
 package value
 
+import com.daml.SafeProto
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
 import com.daml.scalautil.Statement.discard
@@ -16,7 +17,7 @@ import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances

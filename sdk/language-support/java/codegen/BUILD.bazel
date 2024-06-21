@@ -34,7 +34,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
-    main_class = "com.daml.lf.codegen.StandaloneMain",
+    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
 )

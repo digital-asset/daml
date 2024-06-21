@@ -10,7 +10,7 @@ import scalaz.Equal
   * that short-circuit when the tparam's equalIsNatural, so you're testing the
   * handwritten paths rather than the compiler-generated ones.
   */
-private[daml] final case class Unnatural[+A](a: A)
+final case class Unnatural[+A](a: A)
 
 private[daml] object Unnatural {
   implicit def arbUA[A: Arbitrary]: Arbitrary[Unnatural[A]] =

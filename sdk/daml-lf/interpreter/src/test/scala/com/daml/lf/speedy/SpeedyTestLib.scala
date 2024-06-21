@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
+package com.digitalasset.daml
 package lf
 package speedy
 
@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
-import scalautil.Statement.discard
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 

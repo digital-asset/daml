@@ -38,7 +38,7 @@ private[daml] sealed abstract class StablePackages {
   val Either: Ref.TypeConName
 }
 
-private[daml] final object StablePackagesV2
+final object StablePackagesV2
     extends StablePackagesImpl("compiler/damlc/stable-packages/stable-packages-manifest-v2.txt")
 
 private[daml] object StablePackages {

@@ -428,7 +428,7 @@ da_scala_dar_resources_library(
             dar_to_java(
                 name = "%s-tests-%s.java-codegen" % (test_name, target),
                 src = ":%s-tests-%s.dar" % (test_name, target),
-                package_prefix = "com.daml.ledger.test.java.%s" % test_name,
+                package_prefix = "com.digitalasset.daml.ledger.test.java.%s" % test_name,
                 tags = ["maven_coordinates=com.daml:test-common-%s-tests-java-%s:__VERSION__" % (
                     test_name.replace("_", "-"),
                     target,

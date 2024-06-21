@@ -3,13 +3,13 @@
 
 package com.daml.script.converter
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SValue}
-import com.daml.lf.stablepackages.StablePackagesV2
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.std.either._
 import scalaz.syntax.bind._
 
@@ -18,7 +18,7 @@ import scala.jdk.CollectionConverters._
 
 class ConverterException(message: String) extends RuntimeException(message)
 
-private[daml] object Converter {
+object Converter {
   import Implicits._
 
   type ErrorOr[+A] = Either[String, A]

@@ -71,7 +71,7 @@ da_scala_test_suite(
 da_scala_binary(
     name = "encoder_binary",
     srcs = glob(["src/main/scala/com/daml/lf/archive/testing/DamlLfEncoder.scala"]),
-    main_class = "com.daml.lf.archive.testing.DamlLfEncoder",
+    main_class = "com.digitalasset.daml.lf.archive.testing.DamlLfEncoder",
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -143,7 +143,7 @@ da_scala_binary(
             outs = ["TestDars-%s.scala" % mangle_for_java(keyword)],
             cmd = """
 cat > $@ <<EOF
-package com.daml.lf.archive.testing
+package com.digitalasset.daml.lf.archive.testing
 object TestDar {
     val fileName = \"daml-lf/encoder/test-%s.dar\"
 }
