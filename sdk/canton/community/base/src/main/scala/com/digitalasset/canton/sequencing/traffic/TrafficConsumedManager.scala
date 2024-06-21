@@ -43,6 +43,7 @@ class TrafficConsumedManager(
         current.copy(
           extraTrafficConsumed = trafficReceipt.extraTrafficConsumed,
           baseTrafficRemainder = trafficReceipt.baseTrafficRemainder,
+          lastConsumedCost = trafficReceipt.consumedCost,
           sequencingTimestamp = timestamp,
         )
       case current => current
@@ -101,7 +102,7 @@ class TrafficConsumedManager(
         }.discard
         Left(value)
       case Right(_) =>
-        val newState = trafficConsumed.updateAndGet {
+        val newState = updateAndGet {
           _.consume(timestamp, params, eventCost, logger)
         }
         logger.debug(s"Consumed ${eventCost.value} for $member at $timestamp: new state $newState")

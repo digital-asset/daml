@@ -33,7 +33,6 @@ import com.digitalasset.canton.domain.block.update.{
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerIntegration}
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{
@@ -128,7 +127,6 @@ class BlockSequencerStateManager(
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    rateLimitManager: SequencerRateLimitManager,
     unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
@@ -788,7 +786,6 @@ object BlockSequencerStateManager {
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      rateLimitManager: SequencerRateLimitManager,
       unifiedSequencer: Boolean,
   )(implicit
       executionContext: ExecutionContext,
@@ -809,7 +806,6 @@ object BlockSequencerStateManager {
         maybeLowerTopologyTimestampBound = maybeLowerTopologyTimestampBound,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
-        rateLimitManager = rateLimitManager,
         unifiedSequencer = unifiedSequencer,
       )
     }

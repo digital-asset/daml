@@ -436,23 +436,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that a threshold in the submitted transaction was higher than the number of members that would have to satisfy that threshold."
-  )
-  @Resolution(
-    """Submit the topology transaction with a lower threshold.
-      |The metadata details of this error contain the expected maximum in the field ``expectedMaximum``."""
-  )
-  object InvalidThreshold
-      extends ErrorCode(id = "INVALID_THRESHOLD", ErrorCategory.InvalidIndependentOfSystemState) {
-    final case class ThresholdTooHigh(actual: Int, expectedMaximum: Int)(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Threshold must not be higher than $expectedMaximum, but was $actual."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     "This error indicates that members referenced in a topology transaction have not declared at least one signing key or at least 1 encryption key or both."
   )
   @Resolution(
@@ -469,6 +452,20 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+        )
+        with TopologyManagerError
+  }
+
+  object PartyExceedsHostingLimit
+      extends ErrorCode(
+        id = "PARTY_EXCEEDS_HOSTING_LIMIT",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(party: PartyId, limit: Int, numParticipants: Int)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Party $party exceeds hosting limit of $limit with desired number of $numParticipants hosting participant."
         )
         with TopologyManagerError
   }
@@ -603,6 +600,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
               .mkString("; ")
             s"The following members are missing certain topology mappings: $mappingString"
           }
+        )
+        with TopologyManagerError
+
+    final case class MissingDomainParameters(effectiveTime: EffectiveTime)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Missing domain parameters at $effectiveTime"
         )
         with TopologyManagerError
   }

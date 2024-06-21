@@ -98,7 +98,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val p1p1B_k2 =
     mkAdd(
-      PartyToParticipant(
+      PartyToParticipant.tryCreate(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -109,7 +109,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val p1p6_k2 =
     mkAdd(
-      PartyToParticipant(
+      PartyToParticipant.tryCreate(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -121,7 +121,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val p1p6_k6 =
     mkAdd(
-      PartyToParticipant(
+      PartyToParticipant.tryCreate(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -133,7 +133,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val p1p6_k2k6 =
     mkAddMultiKey(
-      PartyToParticipant(
+      PartyToParticipant.tryCreate(
         party1b,
         None,
         threshold = PositiveInt.one,
@@ -145,7 +145,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val p1p6B_k3 =
     mkAdd(
-      PartyToParticipant(
+      PartyToParticipant.tryCreate(
         party1b,
         Some(domainId1),
         threshold = PositiveInt.one,

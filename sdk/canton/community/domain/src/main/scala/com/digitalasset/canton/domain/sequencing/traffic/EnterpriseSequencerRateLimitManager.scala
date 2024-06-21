@@ -587,7 +587,7 @@ class EnterpriseSequencerRateLimitManager(
           }
       } yield {
         // Here we correctly consumed the traffic, so submitted cost and consumed cost are the same
-        trafficConsumed.toTrafficReceipt(consumedCost = cost)
+        trafficConsumed.toTrafficReceipt
       }
     }
 
@@ -630,11 +630,13 @@ class EnterpriseSequencerRateLimitManager(
                     // Update the traffic consumed at sequencing time, and convert it to a receipt. Cost = 0 because we failed to consume traffic
                     ensureTrafficConsumedAtSequencingTime(snapshotAtSequencingTime)
                       .map(
-                        _.map(
-                          _.toTrafficReceipt(
-                            consumedCost = NonNegativeLong.zero
+                        _.map { trafficConsumed =>
+                          require(
+                            trafficConsumed.lastConsumedCost.unwrap == 0L,
+                            "Consumed cost should be zero",
                           )
-                        )
+                          trafficConsumed.toTrafficReceipt
+                        }
                       )
                   )
             } yield {

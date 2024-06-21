@@ -31,8 +31,10 @@ message TrafficState {
   int64 extra_traffic_consumed = 2;
   // Amount of base traffic remaining
   int64 base_traffic_remainder = 3;
+  // Cost deducted at `timestamp`, only present when traffic was consumed at `timestamp`, otherwise is set to 0
+  uint64 last_consumed_cost = 4;
   // Timestamp at which the state is valid
-  int64 timestamp = 4;
+  int64 timestamp = 5;
   // Optional serial of the balance update that updated the extra traffic limit
-  google.protobuf.UInt32Value serial = 5;
+  google.protobuf.UInt32Value serial = 6;
 }
