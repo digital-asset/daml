@@ -54,6 +54,7 @@ main = do
   damlHelper <-
     locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
   testDar <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test.dar")
+  testDar2 <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test2.dar")
   defaultMain $
     withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
     withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
@@ -151,8 +152,10 @@ main = do
                 fetchedPkgId == testDarPkgId @? "Fechted dar differs from uploaded dar.",
             testCase "dry-run succeeds without uploading" $ do
               sandboxPort <- getSandboxPort
-              testDarPkgId <- readDarMainPackageId testDar
-              -- upload-dar via gRPC
+              -- We use a different dar file to avoid conflicts with the 
+              -- previous test cases.
+              testDar2PkgId <- readDarMainPackageId testDar2
+              -- upload-dar via gRPC with --dry-run=true
               callCommand $
                 unwords
                   [ damlHelper
@@ -162,7 +165,7 @@ main = do
                   , "--host=localhost"
                   , "--port"
                   , show sandboxPort
-                  , testDar
+                  , testDar2
                   ]
               -- fetch dar via gRPC, but too small max-inbound-message-size
               withTempFile $ \tmp -> do
@@ -177,7 +180,7 @@ main = do
                        , "--port"
                        , show sandboxPort
                        , "--main-package-id"
-                       , testDarPkgId
+                       , testDar2PkgId
                        , "-o"
                        , tmp
                        ])

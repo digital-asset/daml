@@ -168,6 +168,7 @@ da_haskell_test(
     data = [
         "daml-helper",
         ":test.dar",
+        ":test2.dar",
         "//ledger-service/http-json:http-json-binary",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
@@ -231,5 +232,10 @@ da_haskell_test(
 
 daml_compile(
     name = "test",
+    srcs = glob(["test-data/Test.daml"]),
+)
+
+daml_compile(
+    name = "test2",
     srcs = glob(["test-data/Test.daml"]),
 )
