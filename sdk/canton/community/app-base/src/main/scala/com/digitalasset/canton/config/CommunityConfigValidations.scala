@@ -271,9 +271,10 @@ object CommunityConfigValidations
   )(parameters: CantonParameters): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
       val pv = config.init.domainParameters.protocolVersion.unwrap
-      val previewVersionEnabled =
-        config.init.domainParameters.previewVersionSupport || parameters.previewVersionSupport
-      if (pv.isPreview && !previewVersionEnabled)
+      val previewVersionOrDevVersionEnabled =
+        config.init.domainParameters.previewVersionSupport || parameters.previewVersionSupport || config.init.domainParameters.devVersionSupport || parameters.devVersionSupport
+
+      if (pv.isPreview && !previewVersionOrDevVersionEnabled)
         s"Using preview protocol $pv for node ${name} requires you to explicitly set canton.parameters.preview-version-support = yes" +: errors
       else errors
     }
