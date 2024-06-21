@@ -307,4 +307,28 @@ object Util {
     version = Ref.PackageVersion.assertFromString("0"),
     upgradedPackageId = None,
   )
+
+  def collectIdentifiers(mod: Module): Iterable[Ref.Identifier] = {
+    import iterable.{ExprIterable, TypeIterable}
+    def identifiersInTypes(typ: Type): Iterator[Ref.Identifier] = {
+      val ids = typ match {
+        case TTyCon(typeConName) => Iterator.single(typeConName)
+        case TSynApp(typeSynName, args @ _) => Iterator.single(typeSynName)
+        case otherwise @ _ => Iterator.empty
+      }
+      ids ++ TypeIterable(typ).iterator.flatMap(identifiersInTypes)
+    }
+
+    def identifiersInExpr(expr: Expr): Iterator[Ref.Identifier] = {
+      val ids = expr match {
+        case EVal(valRef) => Iterator.single(valRef)
+        case EAbs(binder @ _, body @ _, ref) => ref.iterator
+        case otherwise @ _ => Iterator.empty
+      }
+      ids ++ ExprIterable(expr).flatMap(identifiersInExpr)
+    }
+
+    TypeIterable(mod).flatMap(identifiersInTypes) ++
+      ExprIterable(mod).flatMap(identifiersInExpr)
+  }
 }

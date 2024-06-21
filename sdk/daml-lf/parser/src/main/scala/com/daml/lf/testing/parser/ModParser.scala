@@ -6,7 +6,7 @@ package testing.parser
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.iterable.{ExprIterable, TypeIterable}
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
@@ -38,36 +38,14 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     (definitions.result(), templates.result(), exceptions.result(), interfaces.result())
   }
 
-  private[this] def pkgIds(modules: Iterable[Module]): Set[Ref.PackageId] = {
-    def pkgIdsInType(acc: Set[Ref.PackageId], typ0: Type): Set[Ref.PackageId] = typ0 match {
-      case TSynApp(typeSynName, _) =>
-        TypeIterable(typ0).foldLeft(acc + typeSynName.packageId)(pkgIdsInType)
-      case TTyCon(typeConName) =>
-        acc + typeConName.packageId
-      case otherwise =>
-        TypeIterable(otherwise).foldLeft(acc)(pkgIdsInType)
-    }
-    def pkgIdsInExpr(acc: Set[Ref.PackageId], expr0: Expr): Set[Ref.PackageId] = expr0 match {
-      case EVal(valRef) =>
-        acc + valRef.packageId
-      case EAbs(binder @ _, body, ref) =>
-        ref.iterator.map(_.packageId).toSet |
-          ExprIterable(body).foldLeft(acc)(pkgIdsInExpr)
-      case otherwise =>
-        ExprIterable(otherwise).foldLeft(acc)(pkgIdsInExpr)
-    }
-
-    modules.foldLeft(Set.empty[Ref.PackageId]) { (acc, module) =>
-      val acc1 = TypeIterable(module).foldLeft(acc)(pkgIdsInType)
-      ExprIterable(module).foldLeft(acc1)(pkgIdsInExpr)
-    }
-  }
-
   lazy val pkg: Parser[Package] =
     metadata ~ rep(mod) ^^ { case metadata ~ modules =>
       Package.build(
         modules = modules,
-        directDeps = pkgIds(modules) - parameters.defaultPackageId,
+        directDeps = modules.iterator
+          .flatMap(AstUtil.collectIdentifiers)
+          .map(_.packageId)
+          .toSet - parameters.defaultPackageId,
         languageVersion = parameters.languageVersion,
         metadata = metadata,
       )
