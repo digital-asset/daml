@@ -60,7 +60,7 @@ using `da_scala_binary` as shown below.
 ```
 da_scala_binary(
     name = "daml-script-binary",
-    main_class = "com.daml.lf.engine.script.ScriptMain",
+    main_class = "com.digitalasset.daml.lf.engine.script.ScriptMain",
     resources = glob(["src/main/resources/**/*"]),
     scala_runtime_deps = [
         "@maven//:org_apache_pekko_pekko_slf4j",

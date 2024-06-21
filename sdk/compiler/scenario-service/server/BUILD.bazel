@@ -14,7 +14,7 @@ genrule(
 da_scala_binary(
     name = "scenario-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.daml.lf.scenario.ScenarioServiceMain",
+    main_class = "com.digitalasset.daml.lf.scenario.ScenarioServiceMain",
     resources = glob(["src/main/resources/*"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
