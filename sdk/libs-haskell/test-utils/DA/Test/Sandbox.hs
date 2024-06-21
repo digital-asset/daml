@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Tasty resource for starting sandbox
+{-# LANGUAGE MultiWayIf #-}
 module DA.Test.Sandbox
     ( SandboxConfig(..)
     , SandboxResource(..)
@@ -69,6 +70,7 @@ data SandboxConfig = SandboxConfig
     , mbSharedSecret :: Maybe String
     , mbLedgerId :: Maybe String
     , devVersionSupport :: Bool
+    , previewVersionSupport :: Bool
     }
 
 defaultSandboxConf :: SandboxConfig
@@ -80,6 +82,7 @@ defaultSandboxConf = SandboxConfig
     , mbSharedSecret = Nothing
     , mbLedgerId = Just "MyLedger"
     , devVersionSupport = False
+    , previewVersionSupport = False
     }
 
 getCerts :: IO Certs
@@ -170,7 +173,8 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
                 , [ "dev-version-support" Aeson..= devVersionSupport]
-                , [ "non-standard-config" Aeson..= devVersionSupport]
+                , [ "preview-version-support" Aeson..= previewVersionSupport]
+                , [ "non-standard-config" Aeson..= (devVersionSupport || previewVersionSupport)]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ (AesonKey.fromString $ getParticipantName conf) Aeson..= Aeson.object
@@ -189,7 +193,10 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
-                     , "parameters" Aeson..= Aeson.object [ "dev-version-support" Aeson..= devVersionSupport ]
+                     , "parameters" Aeson..= Aeson.object 
+                          [ "dev-version-support" Aeson..= devVersionSupport 
+                          , "preview-version-support" Aeson..= previewVersionSupport
+                          ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | Static <- [timeMode]
@@ -205,7 +212,10 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                         ] <>
                         [ "init" Aeson..= Aeson.object
                               [ "domain-parameters" Aeson..= Aeson.object
-                                  [ "protocol-version" Aeson..= (if devVersionSupport then "dev" else "5" :: T.Text) ]
+                                  [ "protocol-version" Aeson..= 
+                                    (if | devVersionSupport -> ("dev" :: T.Text)
+                                        | previewVersionSupport -> "6"
+                                        | otherwise -> "5") ]
                               ]
                         ]
                     )
