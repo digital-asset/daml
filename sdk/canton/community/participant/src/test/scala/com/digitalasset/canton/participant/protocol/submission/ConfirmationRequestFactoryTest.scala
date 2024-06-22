@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, Symboli
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
@@ -150,7 +151,7 @@ class ConfirmationRequestFactoryTest
           validatePackageVettings: Boolean,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, TransactionTreeConversionError, GenTransactionTree] = {
+      ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree] = {
         val actAs = submitterInfo.actAs.toSet
         if (actAs != Set(ExampleTransactionFactory.submitter))
           fail(
@@ -426,6 +427,7 @@ class ConfirmationRequestFactoryTest
               val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
               stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
             }
+            .failOnShutdown
         }
       }
 
@@ -461,7 +463,7 @@ class ConfirmationRequestFactoryTest
                 .valueOrFail("session key not found")
             )
 
-        for {
+        (for {
           firstSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
           secondSessionKeyInfo <- getSessionKeyFromConfirmationRequest(newCryptoSnapshot)
           // we add a tag that is to be appended to the encryption key id
@@ -471,7 +473,7 @@ class ConfirmationRequestFactoryTest
         } yield {
           firstSessionKeyInfo shouldBe secondSessionKeyInfo
           secondSessionKeyInfo should not be thirdSessionKeyInfo
-        }
+        }).valueOrFailShutdown("failed to get session key")
       }
     }
 
@@ -507,6 +509,7 @@ class ConfirmationRequestFactoryTest
               )
             )
           )
+          .failOnShutdown
       }
     }
 
@@ -543,6 +546,7 @@ class ConfirmationRequestFactoryTest
               )
             )
           )
+          .failOnShutdown
       }
     }
 
@@ -568,6 +572,7 @@ class ConfirmationRequestFactoryTest
           )
           .value
           .map(_ should equal(Left(TransactionTreeFactoryError(error))))
+          .failOnShutdown
       }
     }
 
@@ -606,6 +611,7 @@ class ConfirmationRequestFactoryTest
               )
             )
           )
+          .failOnShutdown
       }
     }
 
@@ -639,6 +645,7 @@ class ConfirmationRequestFactoryTest
               }
             case _ => fail("should have failed with a view message creation error")
           }
+          .failOnShutdown
       }
     }
   }

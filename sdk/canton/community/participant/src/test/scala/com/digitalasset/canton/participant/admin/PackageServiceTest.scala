@@ -41,7 +41,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 import scala.concurrent.Future
 
-object PackageServiceTest {
+object PackageServiceTest extends BaseTest {
 
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
   def loadExampleDar() =
@@ -77,7 +77,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
     val engine = DAMLe.newEngine(
       uniqueContractKeys = false,
       enableLfDev = true,
-      enableLfPreview = true,
+      enableLfBeta = true,
       enableStackTraces = false,
     )
 
@@ -225,7 +225,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       val dar = PackageServiceTest.loadExampleDar()
       val mainPackageId = DamlPackageStore.readPackageId(dar.main)
       val dependencyIds = com.daml.lf.archive.Decode.assertDecodeArchive(dar.main)._2.directDeps
-      for {
+      (for {
         _ <- sut
           .appendDarFromByteString(
             ByteString.copyFrom(bytes),
@@ -234,8 +234,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             false,
           )
           .valueOrFail("appending dar")
-          .failOnShutdown
-        deps <- packageDependencyResolver.packageDependencies(List(mainPackageId)).value
+        deps <- packageDependencyResolver.packageDependencies(mainPackageId).value
       } yield {
         // test for explict dependencies
         deps match {
@@ -244,7 +243,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             // all direct dependencies should be part of this
             (dependencyIds -- loaded) shouldBe empty
         }
-      }
+      }).failOnShutdown
     }
 
     "appendDar validates the package" in withEnv { env =>

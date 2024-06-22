@@ -22,10 +22,12 @@ object ReleaseVersionToProtocolVersions {
       ReleaseVersions.v2_7_0 -> List(v3, v4, v5),
       ReleaseVersions.v2_8_0 -> List(v3, v4, v5),
       ReleaseVersions.v2_9_0 -> List(v5),
+      ReleaseVersions.v2_10_0 -> List(v5),
     ).map { case (release, pvs) => (release.majorMinor, NonEmptyUtil.fromUnsafe(pvs)) }
 
-  val majorMinorToPreviewProtocolVersions: Map[(Int, Int), NonEmpty[List[ProtocolVersion]]] = Map(
-    ReleaseVersions.v2_9_0 -> List(v6)
+  val majorMinorToBetaProtocolVersions: Map[(Int, Int), NonEmpty[List[ProtocolVersion]]] = Map(
+    ReleaseVersions.v2_9_0 -> List(v6),
+    ReleaseVersions.v2_10_0 -> List(v6),
   ).map { case (release, pvs) => (release.majorMinor, NonEmptyUtil.fromUnsafe(pvs)) }
 
   def getOrElse(
@@ -34,8 +36,8 @@ object ReleaseVersionToProtocolVersions {
   ): NonEmpty[List[ProtocolVersion]] =
     majorMinorToStableProtocolVersions.getOrElse(releaseVersion.majorMinor, default)
 
-  def getPreviewProtocolVersions(releaseVersion: ReleaseVersion): List[ProtocolVersion] =
-    majorMinorToPreviewProtocolVersions
+  def getBetaProtocolVersions(releaseVersion: ReleaseVersion): List[ProtocolVersion] =
+    majorMinorToBetaProtocolVersions
       .get(releaseVersion.majorMinor)
       .map(_.forgetNE)
       .getOrElse(Nil)

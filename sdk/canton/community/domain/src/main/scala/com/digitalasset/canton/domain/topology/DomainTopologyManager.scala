@@ -236,13 +236,13 @@ class DomainTopologyManager(
       force: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DomainTopologyManagerError, Unit] =
-    for {
+  ): EitherT[FutureUnlessShutdown, DomainTopologyManagerError, Unit] =
+    (for {
       _ <- checkCorrectProtocolVersion(transaction)
       _ <- checkTransactionIsNotForAlienDomainEntities(transaction)
       _ <- checkNotAddingToWrongDomain(transaction)
       _ <- checkNotEnablingParticipantWithoutKeys(transaction)
-    } yield ()
+    } yield ()).mapK(FutureUnlessShutdown.outcomeK)
 
   private def checkNotAddingToWrongDomain(
       transaction: SignedTopologyTransaction[TopologyChangeOp]

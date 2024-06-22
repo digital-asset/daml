@@ -69,7 +69,7 @@ object CommunityConfigValidations
     List(
       backwardsCompatibleLoggingConfig,
       developmentProtocolSafetyCheckDomains,
-      previewProtocolSafetyCheck(_)(parameters),
+      betaProtocolSafetyCheck(_)(parameters),
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
       warnIfDeprecatedProtocolVersionEmbeddedDomain,
@@ -266,16 +266,16 @@ object CommunityConfigValidations
     NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
   }
 
-  private def previewProtocolSafetyCheck(
+  private def betaProtocolSafetyCheck(
       config: CantonConfig
   )(parameters: CantonParameters): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
       val pv = config.init.domainParameters.protocolVersion.unwrap
-      val previewVersionOrDevVersionEnabled =
-        config.init.domainParameters.previewVersionSupport || parameters.previewVersionSupport || config.init.domainParameters.devVersionSupport || parameters.devVersionSupport
+      val betaVersionOrDevVersionEnabled =
+        config.init.domainParameters.betaVersionSupport || parameters.betaVersionSupport || config.init.domainParameters.devVersionSupport || parameters.devVersionSupport
 
-      if (pv.isPreview && !previewVersionOrDevVersionEnabled)
-        s"Using preview protocol $pv for node ${name} requires you to explicitly set canton.parameters.preview-version-support = yes" +: errors
+      if (pv.isBeta && !betaVersionOrDevVersionEnabled)
+        s"Using beta protocol $pv for node ${name} requires you to explicitly set canton.parameters.beta-version-support = yes" +: errors
       else errors
     }
     NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)

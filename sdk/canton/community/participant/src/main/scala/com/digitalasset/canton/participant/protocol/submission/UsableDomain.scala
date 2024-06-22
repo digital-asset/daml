@@ -9,11 +9,12 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 
@@ -33,6 +34,7 @@ object UsableDomain {
 
     val packageVetted: EitherT[Future, UnknownPackage, Unit] =
       resolveParticipantsAndCheckPackagesVetted(domainId, snapshot, requiredPackagesByParty)
+        .failOnShutdownTo(AbortedDueToShutdownException("Usable domain checking"))
     val partiesConnected: EitherT[Future, MissingActiveParticipant, Unit] =
       checkConnectedParties(domainId, snapshot, requiredPackagesByParty.keySet)
     val compatibleProtocolVersion: EitherT[Future, UnsupportedMinimumProtocolVersion, Unit] =
@@ -61,7 +63,7 @@ object UsableDomain {
 
   private def unknownPackages(snapshot: TopologySnapshot)(
       participantIdAndRequiredPackages: (ParticipantId, Set[LfPackageId])
-  )(implicit ec: ExecutionContext): Future[List[PackageUnknownTo]] = {
+  )(implicit ec: ExecutionContext): FutureUnlessShutdown[List[PackageUnknownTo]] = {
     val (participantId, required) = participantIdAndRequiredPackages
     snapshot.findUnvettedPackagesOrDependencies(participantId, required).value.map {
       case Right(notVetted) =>
@@ -115,18 +117,20 @@ object UsableDomain {
       requiredPackagesByParty: Map[LfPartyId, Set[LfPackageId]],
   )(implicit
       ec: ExecutionContext
-  ): EitherT[Future, UnknownPackage, Unit] =
-    resolveParticipants(snapshot, requiredPackagesByParty).flatMap(
-      checkPackagesVetted(domainId, snapshot, _)
-    )
+  ): EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
+    resolveParticipants(snapshot, requiredPackagesByParty)
+      .mapK(FutureUnlessShutdown.outcomeK)
+      .flatMap(
+        checkPackagesVetted(domainId, snapshot, _)
+      )
 
-  def checkPackagesVetted(
+  private def checkPackagesVetted(
       domainId: DomainId,
       snapshot: TopologySnapshot,
       requiredPackages: Map[ParticipantId, Set[LfPackageId]],
   )(implicit
       ec: ExecutionContext
-  ): EitherT[Future, UnknownPackage, Unit] =
+  ): EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
     EitherT(
       requiredPackages.toList
         .parFlatTraverse(unknownPackages(snapshot))

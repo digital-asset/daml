@@ -26,12 +26,12 @@ object ProtocolVersionCompatibility {
       cantonNodeParameters: CantonNodeParameters,
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val unstableAndPreview =
+    val unstableAndBeta =
       if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
         ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
-          .getPreviewProtocolVersions(release)
-      else if (cantonNodeParameters.previewVersionSupport)
-        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+          .getBetaProtocolVersions(release)
+      else if (cantonNodeParameters.betaVersionSupport)
+        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(
@@ -39,21 +39,21 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstableAndPreview
+    ) ++ unstableAndBeta
   }
 
   /** Returns the protocol versions supported by the participant of the specified release.
     * includeUnstableVersions: include only dev versions
-    * includePreviewVersions: include only preview versions
+    * includeBetaVersions: include only Beta versions
     */
   def supportedProtocolsParticipant(
       includeUnstableVersions: Boolean,
-      includePreviewVersions: Boolean,
+      includeBetaVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val preview =
-      if (includePreviewVersions)
-        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+    val beta =
+      if (includeBetaVersions)
+        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
     val unstable =
@@ -66,7 +66,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ preview ++ unstable
+    ) ++ beta ++ unstable
   }
 
   /** Returns the protocol versions supported by the domain of the current release.
@@ -76,12 +76,12 @@ object ProtocolVersionCompatibility {
       cantonNodeParameters: CantonNodeParameters,
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val unstableAndPreview =
+    val unstableAndBeta =
       if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
         ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
-          .getPreviewProtocolVersions(release)
-      else if (cantonNodeParameters.previewVersionSupport)
-        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+          .getBetaProtocolVersions(release)
+      else if (cantonNodeParameters.betaVersionSupport)
+        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(
@@ -89,21 +89,21 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ unstableAndPreview
+    ) ++ unstableAndBeta
   }
 
   /** Returns the protocol versions supported by the domain of the specified release.
     * includeUnstableVersions: include only dev versions
-    * includePreviewVersions: include only preview versions
+    * includeBetaVersions: include only Beta versions
     */
   def trySupportedProtocolsDomain(
       includeUnstableVersions: Boolean,
-      includePreviewVersions: Boolean,
+      includeBetaVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
-    val preview =
-      if (includePreviewVersions)
-        ReleaseVersionToProtocolVersions.getPreviewProtocolVersions(release)
+    val beta =
+      if (includeBetaVersions)
+        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
     val unstable =
@@ -116,7 +116,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ preview ++ unstable
+    ) ++ beta ++ unstable
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
@@ -275,7 +275,7 @@ object DomainProtocolVersion {
           ProtocolVersionCompatibility
             .trySupportedProtocolsDomain(
               includeUnstableVersions = true,
-              includePreviewVersions = true,
+              includeBetaVersions = true,
               release = ReleaseVersion.current,
             )
             .contains(version),
@@ -284,7 +284,7 @@ object DomainProtocolVersion {
             version,
             ProtocolVersionCompatibility.trySupportedProtocolsDomain(
               includeUnstableVersions = false,
-              includePreviewVersions = true,
+              includeBetaVersions = true,
               release = ReleaseVersion.current,
             ),
           ),
@@ -316,7 +316,7 @@ object ParticipantProtocolVersion {
           ProtocolVersionCompatibility
             .supportedProtocolsParticipant(
               includeUnstableVersions = true,
-              includePreviewVersions = true,
+              includeBetaVersions = true,
               release = ReleaseVersion.current,
             )
             .contains(version),
@@ -325,7 +325,7 @@ object ParticipantProtocolVersion {
             version,
             ProtocolVersionCompatibility.supportedProtocolsParticipant(
               includeUnstableVersions = false,
-              includePreviewVersions = true,
+              includeBetaVersions = true,
               release = ReleaseVersion.current,
             ),
           ),
