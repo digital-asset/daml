@@ -22,6 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerTrafficStatus,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -43,9 +44,9 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -101,6 +102,7 @@ object DatabaseSequencer {
       clock,
       domainId,
       topologyClientMember,
+      trafficConsumedStore = None,
       protocolVersion,
       cryptoApi,
       metrics,
@@ -125,6 +127,7 @@ class DatabaseSequencer(
     clock: Clock,
     domainId: DomainId,
     topologyClientMember: Member,
+    trafficConsumedStore: Option[TrafficConsumedStore],
     protocolVersion: ProtocolVersion,
     cryptoApi: DomainSyncCryptoClient,
     metrics: SequencerMetrics,
@@ -164,7 +167,7 @@ class DatabaseSequencer(
     storageForAdminChanges.isActive
   )
 
-  private val store = writer.generalStore
+  private[sequencer] val store = writer.generalStore
 
   protected val memberValidator: SequencerMemberValidator = store
 
@@ -230,6 +233,7 @@ class DatabaseSequencer(
       cryptoApi,
       eventSignaller,
       topologyClientMember,
+      trafficConsumedStore,
       protocolVersion,
       timeouts,
       loggerFactory,
@@ -253,9 +257,10 @@ class DatabaseSequencer(
     } yield isEnabled
   }
 
-  /**  Package private to use access method in tests, see `TestDatabaseSequencerWrapper`.
-    */
-  override final def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+  override private[sequencing] final def registerMemberInternal(
+      member: Member,
+      timestamp: CantonTimestamp,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit] = {
     EitherT
@@ -396,8 +401,25 @@ class DatabaseSequencer(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, SequencerSnapshot] =
-    EitherT.right[String](store.readStateAtTimestamp(timestamp))
+  ): EitherT[Future, String, SequencerSnapshot] = {
+    for {
+      safeWatermarkO <- EitherT.right(store.safeWatermark)
+      // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
+      // at a timestamp that is not yet safe to read
+      _ <- {
+        safeWatermarkO match {
+          case Some(safeWatermark) =>
+            EitherTUtil.condUnitET[Future](
+              timestamp <= safeWatermark,
+              s"Requested snapshot at $timestamp is after the safe watermark $safeWatermark",
+            )
+          case None =>
+            EitherT.leftT[Future, Unit](s"No safe watermark found for the sequencer")
+        }
+      }
+      snapshot <- EitherT.right[String](store.readStateAtTimestamp(timestamp))
+    } yield snapshot
+  }
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     // Database sequencers are never bootstrapped

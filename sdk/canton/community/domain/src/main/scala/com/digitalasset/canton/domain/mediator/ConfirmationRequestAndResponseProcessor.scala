@@ -42,7 +42,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Scalable service to validate the received MediatorConfirmationRequests and ConfirmationResponses,
   * derive a verdict, and send ConfirmationResultMessages to informee participants.
   */
-private[mediator] class ConfirmationResponseProcessor(
+private[mediator] class ConfirmationRequestAndResponseProcessor(
     domainId: DomainId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
@@ -211,7 +211,7 @@ private[mediator] class ConfirmationResponseProcessor(
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    withSpan("TransactionConfirmationResponseProcessor.processRequest") {
+    withSpan("ConfirmationRequestAndResponseProcessor.processRequest") {
       val timeout = requestId.unwrap.plus(confirmationResponseTimeout.unwrap)
       implicit traceContext =>
         span =>
@@ -755,7 +755,7 @@ private[mediator] class ConfirmationResponseProcessor(
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    withSpan("TransactionConfirmationResponseProcessor.processResponse") {
+    withSpan("ConfirmationRequestAndResponseProcessor.processResponse") {
       implicit traceContext => span =>
         span.setAttribute("timestamp", ts.toString)
         span.setAttribute("counter", counter.toString)

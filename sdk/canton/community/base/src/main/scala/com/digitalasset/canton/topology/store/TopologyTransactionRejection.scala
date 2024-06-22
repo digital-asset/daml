@@ -10,14 +10,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.OnboardingRestriction
+import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.TopologyMapping
-import com.digitalasset.canton.topology.{
-  DomainId,
-  Member,
-  ParticipantId,
-  PartyId,
-  TopologyManagerError,
-}
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
@@ -43,18 +38,6 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.UnauthorizedTransaction.Failure(asString)
-  }
-
-  final case class ThresholdTooHigh(actual: Int, mustBeAtMost: Int)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Threshold must not be higher than $mustBeAtMost, but was $actual."
-
-    override def pretty: Pretty[ThresholdTooHigh] = prettyOfString(_ => asString)
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
-      TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
-    }
   }
 
   final case class UnknownParties(parties: Seq[PartyId]) extends TopologyTransactionRejection {
@@ -192,6 +175,25 @@ object TopologyTransactionRejection {
       )
   }
 
+  final case class PartyExceedsHostingLimit(
+      partyId: PartyId,
+      limit: Int,
+      numParticipants: Int,
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Party $partyId exceeds hosting limit of $limit with desired number of $numParticipants hosting participants."
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.PartyExceedsHostingLimit.Reject(partyId, limit, numParticipants)
+
+    override def pretty: Pretty[PartyExceedsHostingLimit.this.type] =
+      prettyOfClass(
+        param("partyId", _.partyId),
+        param("limit", _.limit),
+        param("number of hosting participants", _.numParticipants),
+      )
+  }
+
   final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
       extends TopologyTransactionRejection {
     override def asString: String = {
@@ -208,5 +210,15 @@ object TopologyTransactionRejection {
       TopologyManagerError.MissingTopologyMapping.Reject(missing)
 
     override def pretty: Pretty[MissingMappings.this.type] = prettyOfString(_ => asString)
+  }
+
+  final case class MissingDomainParameters(effective: EffectiveTime)
+      extends TopologyTransactionRejection {
+    override def asString: String = s"Missing domain parameters at $effective"
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MissingTopologyMapping.MissingDomainParameters(effective)
+
+    override def pretty: Pretty[MissingDomainParameters.this.type] = prettyOfString(_ => asString)
   }
 }

@@ -53,12 +53,14 @@ final class GeneratorsTrafficData(
       extraTrafficLimit <- Arbitrary.arbitrary[NonNegativeLong]
       extraTrafficConsumed <- Arbitrary.arbitrary[NonNegativeLong]
       baseTrafficRemainder <- Arbitrary.arbitrary[NonNegativeLong]
+      lastConsumedCost <- Arbitrary.arbitrary[NonNegativeLong]
       timestamp <- Arbitrary.arbitrary[CantonTimestamp]
       serial <- Arbitrary.arbitrary[Option[PositiveInt]]
     } yield TrafficState(
       extraTrafficLimit,
       extraTrafficConsumed,
       baseTrafficRemainder,
+      lastConsumedCost,
       timestamp,
       serial,
     )

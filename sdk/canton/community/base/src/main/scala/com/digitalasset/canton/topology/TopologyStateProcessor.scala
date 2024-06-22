@@ -167,6 +167,7 @@ class TopologyStateProcessor(
             s"${enqueuingOrStoring} topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
+          // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
             s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
           )

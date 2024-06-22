@@ -222,7 +222,6 @@ abstract class BlockSequencerFactory(
       nodeParameters.enableAdditionalConsistencyChecks,
       nodeParameters.processingTimeouts,
       domainLoggerFactory,
-      rateLimitManager,
       nodeParameters.useUnifiedSequencer,
     )
 
