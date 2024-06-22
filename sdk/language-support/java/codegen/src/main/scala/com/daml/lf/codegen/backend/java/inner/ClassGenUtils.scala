@@ -85,17 +85,31 @@ private[inner] object ClassGenUtils {
       .initializer("$S", packageName)
       .build()
 
-  def generatePackageVersionField(packageVersion: PackageVersion) =
+  def generatePackageVersionField(packageVersion: PackageVersion) = {
+    val packageVersionSegmentIntArrLiteral =
+      packageVersion.segments.toArray.mkString("{", ", ", "}")
+    val intArrayTypeName = ArrayTypeName.of(classOf[Int])
     FieldSpec
       .builder(
-        ClassName.get(classOf[String]),
+        ClassName.get(classOf[javaapi.data.PackageVersion]),
         packageVersionFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
         Modifier.PUBLIC,
       )
-      .initializer("$S", packageVersion.toString)
+      .initializer(
+        CodeBlock
+          .builder()
+          .add(
+            "new $T(new $T $L)",
+            ClassName.get(classOf[javaapi.data.PackageVersion]),
+            intArrayTypeName,
+            packageVersionSegmentIntArrLiteral,
+          )
+          .build()
+      )
       .build()
+  }
 
   def generateFlattenedCreateOrExerciseMethod(
       name: String,

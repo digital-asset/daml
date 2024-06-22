@@ -9,17 +9,18 @@ import com.daml.ledger.javaapi.data.PackageVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import tests.template1.SimpleTemplate;
+import tests.simpleinterface.SimpleInterface;
 
+// TODO: Merge with PackageNameAndVersionTest.java once interfaces are marked stable
 @RunWith(JUnitPlatform.class)
-public class PackageNameAndVersionTest {
+public class InterfacePackageNameAndVersionTest {
   @Test
   void packageName() {
-    assertEquals(SimpleTemplate.PACKAGE_NAME, "integration-tests-model");
+    assertEquals(SimpleInterface.PACKAGE_NAME, "integration-tests-model");
   }
 
   @Test
   void packageVersion() {
-    assertEquals(SimpleTemplate.PACKAGE_VERSION, PackageVersion.unsafeFromString("1.2.3"));
+    assertEquals(SimpleInterface.PACKAGE_VERSION, PackageVersion.unsafeFromString("1.2.3"));
   }
 }

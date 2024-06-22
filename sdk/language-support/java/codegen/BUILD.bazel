@@ -239,6 +239,7 @@ scala_source_jar(
             ],
             exclude = test_exclusions.get(ver, []),
         ),
+        enable_interfaces = ver == "2.dev",
         project_name = "integration-tests-model",
         target = ver,
         version = "1.2.3",
