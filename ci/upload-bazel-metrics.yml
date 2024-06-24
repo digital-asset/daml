@@ -39,7 +39,6 @@ steps:
         system_pullRequest_pullRequestNumber: "'"${SYSTEM_PULLREQUEST_PULLREQUESTNUMBER:-}"'",
         system_pullRequest_mergedAt: "'"${SYSTEM_PULLREQUEST_MERGEDAT:-}"'",
         system_pullRequest_sourceBranch: "'"${SYSTEM_PULLREQUEST_SOURCEBRANCH:-}"'",
-        system_pullRequest_targetBranch: "'"${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"'",
         system_pullRequest_sourceRepositoryUri: "'"${SYSTEM_PULLREQUEST_SOURCEREPOSITORYURI:-}"'",
         system_pullRequest_sourceCommitId: "'"${SYSTEM_PULLREQUEST_SOURCECOMMITID:-}"'",
         git_branch_sha: "$(git_branch_sha)",

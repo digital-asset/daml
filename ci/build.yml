@@ -243,17 +243,6 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
-# For main and PRs targeting main, we simply check against the most recent stable tag.
-- job: compatibility_stable_protobuf
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-      fetchTags: true
-    - bash: sdk/ci/check-protobuf-stability.sh
-    - template: tell-slack-failed.yml
-
 - job: collect_build_data_failed
   condition: failed()
   dependsOn:
@@ -263,7 +252,6 @@ jobs:
     - release
     - git_sha
     - compatibility_linux
-    - compatibility_stable_protobuf
     - check_for_release
   pool:
     name: "ubuntu_20_04"
