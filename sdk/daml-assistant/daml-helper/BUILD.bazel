@@ -169,6 +169,8 @@ da_haskell_test(
         "daml-helper",
         ":test.dar",
         ":test2.dar",
+        ":upgrade-test-v1.dar",
+        ":upgrade-test-v2.dar",
         "//ledger-service/http-json:http-json-binary",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
@@ -238,4 +240,20 @@ daml_compile(
 daml_compile(
     name = "test2",
     srcs = glob(["test-data/Test.daml"]),
+)
+
+daml_compile(
+    name = "upgrade-test-v1",
+    srcs = glob(["test-data/upgrade-test-v1/Main.daml"]),
+    project_name = "some-package",
+    target = "1.16",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "upgrade-test-v2",
+    srcs = glob(["test-data/upgrade-test-v2/Main.daml"]),
+    project_name = "some-package",
+    target = "1.16",
+    version = "2.0.0",
 )

@@ -1,0 +1,8 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+-- This is an incorrect upgrade of the T type in Upgraded.daml, in order to
+-- trigger a validation error in the dry-run test case of the Ledger.hs test.
+data T = T { x : Int }
