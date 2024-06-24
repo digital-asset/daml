@@ -3,8 +3,7 @@ package com.daml.ledger.javaapi.data;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Arrays;
-import java.util.Objects;
-import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 public class PackageVersion implements Comparable<PackageVersion> {
     private final int[] segments;
@@ -59,6 +58,7 @@ public class PackageVersion implements Comparable<PackageVersion> {
 
     @Override
     public String toString() {
-        return Arrays.stream(segments).map(i -> i.toString()).collect(Collectors.joining("."));
+        return Arrays.stream(segments).mapToObj(Integer::toString)
+                .collect(Collectors.joining("."));
     }
 }
