@@ -160,6 +160,9 @@ getMinor v = show (view SemVer.major v) <> "." <> show (view SemVer.minor v)
 unsupportedMinors :: Set String
 unsupportedMinors = Set.fromList ["2.0", "2.1", "2.2", "2.4", "2.5", "2.6"]
 
+unsupportedPatches :: Set String
+unsupportedPatches = Set.fromList ["2.8.7"]
+
 getVersionsFromTags :: IO (Set Version)
 getVersionsFromTags = do
     tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
@@ -167,6 +170,7 @@ getVersionsFromTags = do
            & mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v")
            & rights
            & filter (null . view SemVer.release)
+           & filter (\v -> Set.notMember (SemVer.toString v) unsupportedPatches)
            & latestPatchVersions
            & filter (\v -> Set.notMember (getMinor v) unsupportedMinors)
            & Set.fromList
