@@ -41,13 +41,7 @@ public class PackageVersion implements Comparable<PackageVersion> {
 
     @Override
     public int compareTo(PackageVersion other) {
-        int minLength = Math.min(this.segments.length, other.segments.length);
-        for (int i = 0; i < minLength; i++) {
-            if (this.segments[i] != other.segments[i]) {
-                return this.segments[i] - other.segments[i];
-            }
-        }
-        return this.segments.length - other.segments.length;
+        return Arrays.compare(this.segments, other.segments);
     }
 
     @Override
@@ -55,7 +49,7 @@ public class PackageVersion implements Comparable<PackageVersion> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PackageVersion that = (PackageVersion) o;
-        return Objects.deepEquals(segments, that.segments);
+        return Arrays.equals(segments, that.segments);
     }
 
     @Override
@@ -65,10 +59,6 @@ public class PackageVersion implements Comparable<PackageVersion> {
 
     @Override
     public String toString() {
-        StringJoiner sj = new StringJoiner(".");
-        for (int segment : segments) {
-            sj.add(Integer.toString(segment));
-        }
-        return sj.toString();
+        return Arrays.stream(segments).map(i -> i.toString()).collect(Collectors.joining("."));
     }
 }
