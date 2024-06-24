@@ -14,6 +14,7 @@ import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
 import DA.Ledger.Types (Party(..))
 import DA.Test.Sandbox
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import System.Environment.Blank
@@ -53,6 +54,8 @@ main = do
     locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
   testDar <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test.dar")
   testDar2 <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test2.dar")
+  testDarUpgradeV1 <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "upgrade-test-v1.dar")
+  testDarUpgradeV2 <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "upgrade-test-v2.dar")
   defaultMain $
     withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
     testGroup
@@ -170,7 +173,39 @@ main = do
                        , tmp
                        ])
                     ""
-                exitCode == ExitFailure 1 @? "Fetch after dry-run upload succeeded"
+                exitCode == ExitFailure 1 @? "Fetch after dry-run upload succeeded",
+            testCase "dry-run reports validation errors" $ do
+              sandboxPort <- getSandboxPort
+              -- upload-dar via gRPC
+              callCommand $
+                unwords
+                  [ damlHelper
+                  , "ledger"
+                  , "upload-dar"
+                  , "--host=localhost"
+                  , "--port"
+                  , show sandboxPort
+                  , testDarUpgradeV1
+                  ]
+              -- upload-dar via gRPC with --dry-run=true
+              (exitCode, out, _) <- 
+                readCreateProcessWithExitCode
+                  (shell $
+                    unwords
+                      [ damlHelper
+                      , "ledger"
+                      , "upload-dar"
+                      , "--dry-run"
+                      , "--host=localhost"
+                      , "--port"
+                      , show sandboxPort
+                      -- This dar contains a package that is a wrong upgrade of the
+                      -- package in testDarUpgradeV1. This should fail validation.
+                      , testDarUpgradeV2
+                      ])
+                ""
+              exitCode == ExitFailure 1 @? "Dry-run of a wrong update unexpectedely succeeded"
+              assertBool "Error message did not contain expected DAR_NOT_VALID_UPGRADE" ("DAR_NOT_VALID_UPGRADE" `L.isInfixOf` out)
           ]
       , testGroup "fetch-dar limited gRPC message size"
           [ testCase "fails if the message size is too low" $ do
