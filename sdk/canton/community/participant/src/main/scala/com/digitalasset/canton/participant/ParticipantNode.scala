@@ -69,6 +69,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
+import com.digitalasset.canton.topology.TopologyManagerError.InvalidTopologyMapping
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
@@ -254,21 +255,30 @@ class ParticipantNodeBootstrap(
           protocolVersion: ProtocolVersion,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
+      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = for {
+        ptp <- EitherT.fromEither[FutureUnlessShutdown](
+          PartyToParticipant
+            .create(
+              partyId,
+              None,
+              threshold = PositiveInt.one,
+              participants =
+                Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
+              groupAddressing = false,
+            )
+            .leftMap(err =>
+              ParticipantTopologyManagerError.IdentityManagerParentError(
+                InvalidTopologyMapping.Reject(err)
+              )
+            )
+        )
         // TODO(#14069) make this "extend" / not replace
         //    this will also be potentially racy!
-        performUnlessClosingEitherUSF(functionFullName)(
+        _ <- performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               TopologyChangeOp.Replace,
-              PartyToParticipant(
-                partyId,
-                None,
-                threshold = PositiveInt.one,
-                participants =
-                  Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
-                groupAddressing = false,
-              ),
+              ptp,
               serial = None,
               // TODO(#12390) auto-determine signing keys
               signingKeys = Seq(partyId.uid.namespace.fingerprint),
@@ -278,7 +288,7 @@ class ParticipantNodeBootstrap(
         )
           .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
           .map(_ => ())
-      }
+      } yield ()
 
     }
 

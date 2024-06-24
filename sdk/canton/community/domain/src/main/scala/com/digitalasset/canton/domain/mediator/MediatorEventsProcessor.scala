@@ -166,14 +166,14 @@ private[mediator] class MediatorEventsProcessor(
 private[mediator] object MediatorEventsProcessor {
   def apply(
       identityClientEventHandler: UnsignedProtocolEventHandler,
-      confirmationResponseProcessor: ConfirmationResponseProcessor,
+      processor: ConfirmationRequestAndResponseProcessor,
       mediatorEventDeduplicator: MediatorEventDeduplicator,
       metrics: MediatorMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): MediatorEventsProcessor = {
     new MediatorEventsProcessor(
       identityClientEventHandler,
-      confirmationResponseProcessor.handleRequestEvents,
+      processor.handleRequestEvents,
       mediatorEventDeduplicator,
       metrics,
       loggerFactory,

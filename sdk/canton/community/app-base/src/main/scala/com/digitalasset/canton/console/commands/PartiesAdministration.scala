@@ -309,7 +309,7 @@ class ParticipantPartiesAdministrationGroup(
         TopologyAdminCommands.Write.Propose(
           // TODO(#14048) properly set the serial or introduce auto-detection so we don't
           //              have to set it on the client side
-          mapping = PartyToParticipant(
+          mapping = PartyToParticipant.create(
             partyId,
             None,
             threshold,
@@ -326,6 +326,8 @@ class ParticipantPartiesAdministrationGroup(
           serial = None,
           store = AuthorizedStore.filterName,
           mustFullyAuthorize = mustFullyAuthorize,
+          change = TopologyChangeOp.Replace,
+          forceChanges = ForceFlags.none,
         )
       )
   }

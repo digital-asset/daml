@@ -299,6 +299,10 @@ trait PartyTopologySnapshotClient {
       parties: Seq[LfPartyId]
   )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
 
+  def activeParticipantsOfPartiesWithGroupAddressing(
+      parties: Seq[LfPartyId]
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]]
+
   /** Returns a list of all known parties on this domain */
   def inspectKnownParties(
       filterParty: String,
@@ -840,6 +844,11 @@ private[client] trait PartyTopologySnapshotLoader
       traceContext: TraceContext
   ): Future[Set[LfPartyId]] =
     loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
+
+  final override def activeParticipantsOfPartiesWithGroupAddressing(
+      parties: Seq[LfPartyId]
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
+    loadAndMapPartyInfos(parties, _.participants.keySet, _.groupAddressing)
 
   final override def consortiumThresholds(
       parties: Set[LfPartyId]

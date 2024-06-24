@@ -296,7 +296,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
   ): Boolean = {
     // check authorization
     val check = getAuthorizationCheckForNamespace(tx.mapping.identifier.namespace)
-    val keysAreValid = check.areValidAuthorizationKeys(tx.signingKeys, requireRoot = false)
+    val keysAreValid = check.existsAuthorizedKeyIn(tx.signingKeys, requireRoot = false)
     // update identifier delegation cache if necessary
     if (keysAreValid) {
       val updateOp: Set[AuthorizedIdentifierDelegation] => Set[AuthorizedIdentifierDelegation] =
@@ -360,7 +360,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
         )
         newDecentralizedNamespaceGraph
       }
-    val isAuthorized = dnsGraph.areValidAuthorizationKeys(tx.signingKeys, false)
+    val isAuthorized = dnsGraph.existsAuthorizedKeyIn(tx.signingKeys, requireRoot = false)
 
     (
       isAuthorized,

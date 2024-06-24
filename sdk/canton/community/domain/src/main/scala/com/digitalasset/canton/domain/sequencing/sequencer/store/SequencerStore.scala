@@ -532,6 +532,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): Future[Option[Watermark]]
 
+  /** Return the minimum watermark across all online sequencers
+    */
+  def safeWatermark(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
+
   /** Flag that we're going offline (likely due to a shutdown) */
   def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit]
 
@@ -790,10 +794,14 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             if (!memberStatus.enabled) eitherT(disableMember(id))
             else EitherT.rightT[Future, String](())
           _ <- eitherT(memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack)))
-          _ <- saveCounterCheckpoint(
-            id,
-            CounterCheckpoint(snapshot.heads(memberStatus.member), lastTs, Some(lastTs)),
-          ).leftMap(_.toString)
+          _ <-
+            // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
+            snapshot.heads.get(memberStatus.member).fold(eitherT[String](Future.unit)) { counter =>
+              saveCounterCheckpoint(
+                id,
+                CounterCheckpoint(counter, lastTs, Some(lastTs)),
+              ).leftMap(_.toString)
+            }
         } yield ()
       }
       _ <- saveLowerBound(lastTs).leftMap(_.toString)
