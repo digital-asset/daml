@@ -147,7 +147,7 @@ module Main where
 """ > Main.daml
 }
 
-init_daml_package_with_script () {
+init_daml_package_with_deps () {
 echo """
 sdk-version: $1
 name: test-daml-yaml-install
@@ -161,6 +161,7 @@ dependencies:
 - daml-prim
 - daml-stdlib
 - daml-script
+- ./dep.dar
 """ > daml.yaml
 
 echo """
@@ -171,6 +172,28 @@ import Daml.Script
 main : Script ()
 main = pure ()
 """ > Main.daml
+
+mkdir ./dep
+
+echo """
+sdk-version: $1
+name: test-daml-yaml-install-dep
+version: 1.0.0
+source: Dep.daml
+scenario: Dep:main
+parties:
+- Alice
+- Bob
+dependencies:
+- daml-prim
+- daml-stdlib
+build-options:
+- --output=../dep.dar
+""" > ./dep/daml.yaml
+
+echo """
+module Dep where
+""" > ./dep/Dep.daml
 }
 
 do_post_failed_tarball_install_behaviour () {
@@ -328,7 +351,10 @@ case "$command_to_run" in
   install_with_custom_version_and_build)
     custom_version=2.99.0
     "$(rlocation "head_sdk/$head_sdk_exe")" install --install-assistant yes --install-with-custom-version $custom_version "$(rlocation head_sdk/sdk-release-tarball-ce.tar.gz)"
-    init_daml_package_with_script $custom_version
+    init_daml_package_with_deps $custom_version
+    cd ./dep
+    $daml_exe build
+    cd ..
     $daml_exe build
     ;;
   install_and_build_from_tarball)

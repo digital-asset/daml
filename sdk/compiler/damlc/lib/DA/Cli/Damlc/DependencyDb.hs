@@ -16,7 +16,7 @@ import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
-import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion)
+import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion, releaseVersionFromReleaseVersion)
 import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF
@@ -32,6 +32,7 @@ import Data.Char
 import Data.List.Extra
 import qualified Data.Map.Strict as M
 import Data.Maybe
+import qualified Data.SemVer as V
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Yaml as Yaml
@@ -197,13 +198,16 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
     packageRefs pkg = Set.fromList [pid | LF.PRImport pid <- toListOf LF.packageRefs pkg]
     depsDir = dependenciesDir opts projRoot
 
--- | Check that only one sdk version is present in dependencies and it equals this sdk version.
+-- | Check that all dependencies match the main packages release (or sdk) version
+-- We check for both, as packages usually use the release version, but internal packages (like daml-script) use the sdk-version, as the
+-- release version cannot be known at compilation time
 checkSdkVersions :: ReleaseVersion -> [ExtractedDar] -> IO ()
 checkSdkVersions releaseVersion depsExtracted = do
+    let thisReleaseVer = T.unpack (V.toText (releaseVersionFromReleaseVersion releaseVersion))
     let thisSdkVer = T.unpack (sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion))
-    let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
+    let uniqSdkVersions = nubSort $ thisReleaseVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (== thisSdkVer) depsSdkVersions) $
+    unless (all (\ver -> ver == thisSdkVer || ver == thisReleaseVer) depsSdkVersions) $
         fail $
         "Package dependencies from different SDK versions: " ++ intercalate ", " uniqSdkVersions
 
