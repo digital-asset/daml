@@ -132,7 +132,7 @@ object PartyNotificationConfig {
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
     override val devVersionSupport: Boolean,
-    override val previewVersionSupport: Boolean,
+    override val betaVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
     override val initialProtocolVersion: ProtocolVersion,
 ) extends ProtocolConfig
@@ -504,7 +504,7 @@ final case class ParticipantNodeParameterConfig(
       ProtocolVersion.latestStable
     ),
     devVersionSupport: Boolean = false,
-    previewVersionSupport: Boolean = false,
+    betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)

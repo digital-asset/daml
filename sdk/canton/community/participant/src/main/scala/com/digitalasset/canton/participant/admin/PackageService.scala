@@ -121,7 +121,6 @@ class PackageService(
             case true => EitherT.leftT(new PackageVetted(packageId))
             case false => EitherT.rightT(())
           }
-          .mapK(FutureUnlessShutdown.outcomeK)
 
       for {
         _ <- neededForAdminWorkflow(packageId)
@@ -256,7 +255,6 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     packageOps
       .isPackageVetted(mainPkg)
-      .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap { isVetted =>
         if (!isVetted)
           EitherT.pure[FutureUnlessShutdown, CantonError](

@@ -39,7 +39,7 @@ object DAMLe {
   def newEngine(
       uniqueContractKeys: Boolean,
       enableLfDev: Boolean,
-      enableLfPreview: Boolean,
+      enableLfBeta: Boolean,
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       // 10000 is the default value in the engine configuration
@@ -49,7 +49,7 @@ object DAMLe {
       EngineConfig(
         allowedLanguageVersions = VersionRange(
           min = LanguageVersion.v1_14,
-          max = maxVersion(enableLfPreview = enableLfPreview, enableLfDev = enableLfDev),
+          max = maxVersion(enableLfBeta = enableLfBeta, enableLfDev = enableLfDev),
         ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
@@ -64,10 +64,10 @@ object DAMLe {
     )
 
   private def maxVersion(
-      enableLfPreview: Boolean,
+      enableLfBeta: Boolean,
       enableLfDev: Boolean,
   ) = if (enableLfDev) LanguageVersion.v1_dev
-  else if (enableLfPreview) LanguageVersion.EarlyAccessVersions.max
+  else if (enableLfBeta) LanguageVersion.EarlyAccessVersions.max
   else LanguageVersion.StableVersions.max
 
   /** Resolves packages by [[com.daml.lf.data.Ref.PackageId]].

@@ -39,7 +39,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
       "Canton" -> BuildInfo.version,
       "Daml Libraries" -> BuildInfo.damlLibrariesVersion,
       "Stable Canton protocol versions" -> BuildInfo.stableProtocolVersions.toString(),
-      "Preview Canton protocol versions" -> BuildInfo.previewProtocolVersions.toString(),
+      "Preview Canton protocol versions" -> BuildInfo.betaProtocolVersions.toString(),
     ) ++ additionalVersions) foreach { case (name, version) =>
       Console.out.println(s"$name: $version")
     }

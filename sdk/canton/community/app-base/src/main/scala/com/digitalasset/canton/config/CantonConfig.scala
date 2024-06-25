@@ -302,7 +302,7 @@ final case class RetentionPeriodDefaults(
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
   * @param devVersionSupport If true, allow domain nodes to use unstable protocol versions and participant nodes to connect to such domains
-  * @param previewVersionSupport If true, allow domain nodes to use preview protocol versions and participant nodes to connect to such domains
+  * @param betaVersionSupport If true, allow domain nodes to use beta protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
   * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures
@@ -314,7 +314,7 @@ final case class CantonParameters(
     startupParallelism: Option[PositiveInt] = None,
     nonStandardConfig: Boolean = false,
     devVersionSupport: Boolean = false,
-    previewVersionSupport: Boolean = false,
+    betaVersionSupport: Boolean = false,
     portsFile: Option[String] = None,
     timeouts: TimeoutSettings = TimeoutSettings(),
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
@@ -443,7 +443,7 @@ trait CantonConfig {
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           devVersionSupport = participantParameters.devVersionSupport,
-          previewVersionSupport = participantParameters.previewVersionSupport,
+          betaVersionSupport = participantParameters.betaVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
           initialProtocolVersion = participantParameters.initialProtocolVersion.unwrap,
         ),
@@ -548,8 +548,7 @@ private[config] object CantonNodeParameterConverter {
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
     CantonNodeParameters.Protocol.Impl(
       devVersionSupport = parent.parameters.devVersionSupport || config.devVersionSupport,
-      previewVersionSupport =
-        parent.parameters.previewVersionSupport || config.previewVersionSupport,
+      betaVersionSupport = parent.parameters.betaVersionSupport || config.betaVersionSupport,
       dontWarnOnDeprecatedPV = config.dontWarnOnDeprecatedPV,
       initialProtocolVersion = config.initialProtocolVersion,
     )

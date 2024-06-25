@@ -42,7 +42,7 @@ object MockedNodeParameters {
 
     override def devVersionSupport: Boolean = ???
 
-    override def previewVersionSupport: Boolean = ???
+    override def betaVersionSupport: Boolean = ???
 
     override def dontWarnOnDeprecatedPV: Boolean = ???
 

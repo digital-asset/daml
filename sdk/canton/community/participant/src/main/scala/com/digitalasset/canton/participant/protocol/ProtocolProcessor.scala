@@ -396,10 +396,12 @@ abstract class ProtocolProcessor[
               ephemeral.sessionKeyStore,
             )
             _ <- EitherT.right[SubmissionTrackingData](
-              inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
+              FutureUnlessShutdown.outcomeF(
+                inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
+              )
             )
           } yield batch
-          unlessError(batchF.mapK(FutureUnlessShutdown.outcomeK))(sendBatch)
+          unlessError(batchF)(sendBatch)
         }
     }
 

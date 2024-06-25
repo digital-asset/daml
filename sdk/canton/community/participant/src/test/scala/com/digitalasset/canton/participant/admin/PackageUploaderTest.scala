@@ -321,7 +321,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       engine = DAMLe.newEngine(
         uniqueContractKeys = false,
         enableLfDev = lfDev,
-        enableLfPreview = lfPreview,
+        enableLfBeta = lfPreview,
         enableStackTraces = false,
       ),
       hashOps = hashOps,

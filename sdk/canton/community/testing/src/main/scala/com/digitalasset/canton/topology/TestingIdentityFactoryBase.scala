@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.topology
 
-import cats.data.EitherT
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{
   DirectExecutionContext,
@@ -22,6 +20,7 @@ import com.digitalasset.canton.topology.client.{
   StoreBasedDomainTopologyClient,
   TopologySnapshot,
 }
+import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -143,7 +142,7 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
 
   def topologySnapshot(
       domainId: DomainId = DefaultTestIdentities.domainId,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]] =
+      packageDependencies: PackageDependencyResolverUS =
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot
