@@ -49,6 +49,11 @@ jobs:
         name_exp: "'${{parameters.name}}'"
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
+    - task: PublishPipelineArtifact@0
+      inputs:
+        targetPath: sdk/bazel-bin/release/sdk-release-tarball-ce.tar.gz
+        artifactName: sdk-release-tarball-ce
+      condition: succeeded()
     # Do not upload metrics for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: upload-bazel-metrics.yml
