@@ -14,7 +14,7 @@ load(
 
 proto_jars(
     name = "snapshot_proto",
-    srcs = ["src/main/protobuf/com/daml/lf/snapshot.proto"],
+    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/snapshot.proto"],
     maven_artifact_prefix = "daml-lf-snapshot",
     maven_group = "com.daml",
     strip_import_prefix = "src/main/protobuf/",

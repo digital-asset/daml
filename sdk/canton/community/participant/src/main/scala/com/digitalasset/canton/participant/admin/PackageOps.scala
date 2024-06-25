@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.parallel.*
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.ProcessingTimeout

@@ -42,7 +42,6 @@ class GrpcTrafficControlServiceTest
         extraTrafficPurchased = NonNegativeLong.tryCreate(5),
         extraTrafficConsumed = NonNegativeLong.tryCreate(6),
         baseTrafficRemainder = NonNegativeLong.tryCreate(7),
-        lastConsumedCost = NonNegativeLong.tryCreate(8),
         timestamp = CantonTimestamp.now(),
         serial = Some(PositiveInt.one),
       )

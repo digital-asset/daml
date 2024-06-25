@@ -673,9 +673,9 @@ create table sequencer_lower_bound (
 create table sequencer_events (
   ts bigint primary key,
   node_index smallint not null,
-  -- single char to indicate the event type: D for deliver event, E for deliver error, R for deliver receipt
+  -- single char to indicate the event type: D for deliver event, E for deliver error
   event_type char(1) not null
-      constraint event_type_enum check (event_type IN ('D', 'E', 'R')),
+      constraint event_type_enum check (event_type = 'D' or event_type = 'E'),
   message_id varchar(300) collate "C" null,
   sender integer null,
   -- null if event goes to everyone, otherwise specify member ids of recipients
@@ -935,8 +935,6 @@ create table seq_traffic_control_consumed_journal (
        extra_traffic_consumed bigint not null,
     -- base traffic remainder at sequencing_timestamp
        base_traffic_remainder bigint not null,
-    -- the last cost consumed at sequencing_timestamp
-       last_consumed_cost bigint not null,
     -- traffic entries have a unique sequencing_timestamp per member
        primary key (member, sequencing_timestamp)
 );

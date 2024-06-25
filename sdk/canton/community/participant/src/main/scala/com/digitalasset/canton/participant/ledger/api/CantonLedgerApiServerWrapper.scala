@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.ledger.api
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.engine.Engine
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.concurrent.{
@@ -39,21 +39,21 @@ object CantonLedgerApiServerWrapper extends NoTracing {
 
   /** Config for ledger API server and indexer
     *
-    * @param serverConfig          ledger API server configuration
-    * @param jsonApiConfig         JSON API configuration
-    * @param indexerConfig         indexer configuration
-    * @param indexerHaConfig       configuration for indexer HA
-    * @param participantId         unique participant id used e.g. for a unique ledger API server index db name
-    * @param engine                daml engine shared with Canton for performance reasons
-    * @param syncService           canton sync service implementing both read and write services
-    * @param storageConfig         canton storage config so that indexer can share the participant db
-    * @param cantonParameterConfig configurations meant to be overridden primarily in tests (applying to all participants)
-    * @param testingTimeService    an optional service during testing for advancing time, participant-specific
-    * @param adminToken            canton admin token for ledger api auth
-    * @param enableCommandInspection     whether canton should support inspection service or not
-    * @param loggerFactory         canton logger factory
-    * @param tracerProvider        tracer provider for open telemetry grpc injection
-    * @param metrics               upstream metrics module
+    * @param serverConfig             ledger API server configuration
+    * @param jsonApiConfig            JSON API configuration
+    * @param indexerConfig            indexer configuration
+    * @param indexerLockIds           Optional lock IDs to be used for indexer HA
+    * @param participantId            unique participant id used e.g. for a unique ledger API server index db name
+    * @param engine                   daml engine shared with Canton for performance reasons
+    * @param syncService              canton sync service implementing both read and write services
+    * @param storageConfig            canton storage config so that indexer can share the participant db
+    * @param cantonParameterConfig    configurations meant to be overridden primarily in tests (applying to all participants)
+    * @param testingTimeService       an optional service during testing for advancing time, participant-specific
+    * @param adminToken               canton admin token for ledger api auth
+    * @param loggerFactory            canton logger factory
+    * @param tracerProvider           tracer provider for open telemetry grpc injection
+    * @param metrics                  upstream metrics module
+    * @param maxDeduplicationDuration maximum time window during which commands can be deduplicated.
     */
   final case class Config(
       serverConfig: LedgerApiServerConfig,
@@ -67,7 +67,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       cantonParameterConfig: ParticipantNodeParameters,
       testingTimeService: Option[TimeServiceBackend],
       adminToken: CantonAdminToken,
-      enableCommandInspection: Boolean,
       override val loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
       metrics: LedgerApiServerMetrics,
@@ -128,7 +127,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             telemetry = new DefaultOpenTelemetry(config.tracerProvider.openTelemetry),
             futureSupervisor = futureSupervisor,
             parameters = parameters,
-            commandProgressTracker = config.syncService.commandProgressTracker,
           )
         val startFUS = for {
           _ <-

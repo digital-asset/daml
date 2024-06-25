@@ -42,7 +42,7 @@ def da_scala_dar_resources_library(
 cat > $@ <<EOF
 package com.daml.ledger.test
 
-import com.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 sealed trait TestDar {{ val path: String }}
 

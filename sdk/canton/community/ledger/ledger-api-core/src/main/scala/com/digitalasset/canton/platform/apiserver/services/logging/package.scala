@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.data.logging.*
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.logging.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}

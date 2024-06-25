@@ -13,7 +13,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
 import org.scalatest.Suite
 

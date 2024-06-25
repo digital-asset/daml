@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, Party, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, TypeConRef}
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
   InterfaceFilter,

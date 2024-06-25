@@ -11,11 +11,11 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
-import com.daml.lf.archive
-import com.daml.lf.archive.{DarParser, Error as LfArchiveError}
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.Engine
-import com.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.archive
+import com.digitalasset.daml.lf.archive.{DarParser, Error as LfArchiveError}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName

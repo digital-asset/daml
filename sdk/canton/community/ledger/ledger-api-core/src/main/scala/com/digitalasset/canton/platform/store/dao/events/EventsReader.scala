@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsByContractIdResponse}
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}

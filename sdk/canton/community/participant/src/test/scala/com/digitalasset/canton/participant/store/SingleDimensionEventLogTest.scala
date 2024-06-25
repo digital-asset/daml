@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp

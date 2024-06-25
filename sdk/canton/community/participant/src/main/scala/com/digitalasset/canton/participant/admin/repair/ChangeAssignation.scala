@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin.repair
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.discard.Implicits.DiscardOps

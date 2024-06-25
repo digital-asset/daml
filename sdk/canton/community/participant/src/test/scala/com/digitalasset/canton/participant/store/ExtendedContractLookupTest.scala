@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
-import com.daml.lf.value.Value.{ValueText, ValueUnit}
+import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore

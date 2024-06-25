@@ -1,0 +1,134 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// Please refer to the value spec (in daml-foundations/daml-lf/spec/value.rst)
+// which describes the semantics of Daml-LF values in more detail.
+//
+// [one-line] version summary
+// * 14 -- initial version
+// * 15 -- no change w.r.t. 14
+// * dev -- special staging area for the next version to be released
+syntax = "proto3";
+
+package com.digitalasset.daml.lf.value;
+
+option java_package = "com.digitalasset.daml.lf.value";
+
+import "google/protobuf/empty.proto";
+
+message VersionedValue {
+    string version = 1;
+    bytes value = 2;
+}
+
+// Each component of the module name and the name have additional
+// lexical restrictions besides non-emptiness -- see the value.rst
+// spec for more info.
+message Identifier {
+  string package_id = 1; // non-empty
+  repeated string module_name = 2; // at least length 1
+  repeated string name = 3; // at least length 1
+}
+
+// The universe of serializable Daml-LF values.
+// architecture-handbook-entry-begin: Value
+message Value {
+  oneof sum {
+
+    // literals
+
+    google.protobuf.Empty unit = 1;
+
+    bool bool = 2;
+
+    sint64 int64 = 3;
+
+    // days since the unix epoch. can go backwards. limited from
+    // 0001-01-01 to 9999-12-31, also to be compatible with
+    // https://www.ietf.org/rfc/rfc3339.txt
+    int32 date = 4;
+
+    // microseconds since the UNIX epoch. can go backwards. fixed
+    // since the vast majority of values will be greater than
+    // 2^28, since currently the number of microseconds since the
+    // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+    // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+    // https://www.ietf.org/rfc/rfc3339.txt
+    sfixed64 timestamp = 5;
+
+    // This field expressed a number in base-10 with at most
+    // 38 digits from which at most 37 can be used in the right hand side
+    // of the decimal point.
+    //
+    // See value.rst for the exact syntaxes.
+    string numeric = 6; // the field was named decimal in SDK 0.13.26 or earlier
+
+    string party = 7;
+
+    string text = 8;
+
+    bytes contract_id = 9;
+
+    // native data structures
+
+    Optional optional = 10;
+
+    List list = 11;
+
+    Map map = 12;
+
+    TextMap text_map = 1001;  // *Available in versions >= 2.dev
+
+    // user-defined datas
+
+    Record record = 13;
+
+    Variant variant = 14;
+
+    Enum enum = 15;
+  }
+
+  message Record {
+    repeated Field fields = 1;
+
+    message Field {
+        Value value = 1;
+    }
+  }
+
+
+  message Variant {
+    string constructor = 1;
+    Value value = 2;
+  }
+
+  message Enum {
+    string value = 1;
+  }
+
+  message List {
+    repeated Value elements = 1;
+  }
+
+  message Optional {
+    Value value = 1; // optional
+  }
+
+  message TextMap {
+    message Entry {
+      string key = 1;
+      Value value = 2;
+    }
+
+    repeated Entry entries = 1;
+  }
+
+  message Map {
+    message Entry {
+      Value key = 1;
+      Value value = 2;
+    }
+    repeated Entry entries = 1;
+  }
+}
+

@@ -6,7 +6,7 @@ package com.digitalasset.canton.http
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
@@ -84,7 +84,7 @@ package object domain {
 package domain {
 
   import com.daml.ledger.api.v2.commands.Commands
-  import com.daml.lf.data.Ref.HexString
+  import com.digitalasset.daml.lf.data.Ref.HexString
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
   import com.digitalasset.canton.topology.DomainId
 
@@ -197,7 +197,7 @@ package domain {
   final case object CanReadAsAnyParty extends UserRight
 
   object UserRights {
-    import com.daml.lf.data.Ref
+    import com.digitalasset.daml.lf.data.Ref
     import com.digitalasset.canton.ledger.api.domain.UserRight as LedgerUserRight
     import scalaz.syntax.std.either.*
     import scalaz.syntax.traverse.*
@@ -850,7 +850,7 @@ package domain {
 
   final case class AsyncWarningsWrapper(warnings: ServiceWarning)
 
-  import com.daml.lf.data.Ref
+  import com.digitalasset.daml.lf.data.Ref
 
   import scala.collection.IterableOps
 

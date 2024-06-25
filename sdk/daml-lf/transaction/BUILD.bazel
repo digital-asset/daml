@@ -12,7 +12,7 @@ load(
 
 proto_jars(
     name = "transaction_proto",
-    srcs = glob(["src/main/protobuf/com/daml/lf/**/*.proto"]),
+    srcs = glob(["src/main/protobuf/com/digitalasset/daml/lf/**/*.proto"]),
     maven_artifact_prefix = "daml-lf-transaction",
     maven_group = "com.daml",
     strip_import_prefix = "src/main/protobuf/",

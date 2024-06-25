@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Engine
 import com.daml.tls.TlsConfiguration
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config.RequireTypes.Port
@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
   UserManagementStore,
 }
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -30,7 +31,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
-  CommandProgressTracker,
   DynamicDomainParameterGetter,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -75,12 +75,12 @@ object ApiServiceOwner {
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
-      commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
-      writeService: state.WriteService,
+      optWriteService: Option[state.WriteService],
+      readService: ReadService,
       healthChecks: HealthChecks,
       metrics: LedgerApiServerMetrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -138,7 +138,8 @@ object ApiServiceOwner {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        writeService = writeService,
+        optWriteService = optWriteService,
+        readService = readService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
@@ -150,7 +151,6 @@ object ApiServiceOwner {
           ),
         submissionTracker = submissionTracker,
         initSyncTimeout = initSyncTimeout.underlying,
-        commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.lf.data.Ref.{PackageName, PackageVersion}
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset

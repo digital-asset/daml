@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt

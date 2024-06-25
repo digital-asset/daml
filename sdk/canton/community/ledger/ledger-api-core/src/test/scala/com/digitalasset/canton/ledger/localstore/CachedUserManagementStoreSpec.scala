@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.api.domain.{

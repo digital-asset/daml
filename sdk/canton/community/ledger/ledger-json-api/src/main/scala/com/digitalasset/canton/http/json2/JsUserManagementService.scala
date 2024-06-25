@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json2
 
 import com.daml.ledger.api.v2.admin.user_management_service
-import com.daml.lf.data.Ref.UserId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.http.json2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json2.JsSchema.JsCantonError

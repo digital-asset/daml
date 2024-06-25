@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.lf.crypto
+import com.digitalasset.daml.lf.crypto
 
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit

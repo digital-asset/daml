@@ -7,7 +7,7 @@ package integrationtest
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, PortLock}

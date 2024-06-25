@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,

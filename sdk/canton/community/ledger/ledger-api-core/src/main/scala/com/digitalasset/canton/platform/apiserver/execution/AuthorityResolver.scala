@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.lf.data.Ref.*
+import com.digitalasset.daml.lf.data.Ref.*
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver.AuthorityResponse
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext

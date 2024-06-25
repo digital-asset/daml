@@ -7,7 +7,7 @@ import java.util.UUID
 
 import org.apache.pekko.actor.ActorSystem
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth.{
   Claim,
   ClaimActAsParty,

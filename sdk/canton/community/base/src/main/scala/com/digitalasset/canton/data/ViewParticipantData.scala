@@ -56,13 +56,13 @@ import com.google.protobuf.ByteString
   *   For [[com.digitalasset.canton.protocol.WellFormedTransaction]]s, the creation therefore is not rolled
   *   back either as the archival can only refer to non-rolled back creates.
   * @param resolvedKeys
-  * Specifies how to resolve [[com.daml.lf.engine.ResultNeedKey]] requests from DAMLe (resulting from e.g., fetchByKey,
+  * Specifies how to resolve [[com.digitalasset.daml.lf.engine.ResultNeedKey]] requests from DAMLe (resulting from e.g., fetchByKey,
   * lookupByKey) when interpreting the view. The resolved contract IDs must be in the [[coreInputs]].
   * Stores only the resolution difference between this view's global key inputs
   * [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]]
   * and the aggregated global key inputs from the subviews
   * (see [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]] for the aggregation algorithm).
-  * In [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
+  * In [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
   * the [[com.digitalasset.canton.data.FreeKey]] resolutions must be checked during conflict detection.
   * @param actionDescription The description of the root action of the view
   * @param rollbackContext The rollback context of the root action of the view.
@@ -355,7 +355,7 @@ object ViewParticipantData
     * and the key is not in [[ViewParticipantData.resolvedKeys]].
     * @throws com.digitalasset.canton.serialization.SerializationCheckFailed if this instance cannot be serialized
     */
-  @throws[SerializationCheckFailed[com.daml.lf.value.ValueCoder.EncodeError]]
+  @throws[SerializationCheckFailed[com.digitalasset.daml.lf.value.ValueCoder.EncodeError]]
   def tryCreate(hashOps: HashOps)(
       coreInputs: Map[LfContractId, InputContract],
       createdCore: Seq[CreatedContract],

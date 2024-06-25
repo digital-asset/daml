@@ -6,10 +6,10 @@ package com.digitalasset.canton.platform.store.packagemeta
 import cats.kernel.Semigroup
 import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
-import com.daml.lf.language.util.PackageInfo
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.util.PackageInfo
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,

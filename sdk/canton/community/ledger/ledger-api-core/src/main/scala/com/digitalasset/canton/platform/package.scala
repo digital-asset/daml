@@ -3,22 +3,21 @@
 
 package com.digitalasset.canton
 
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** Type aliases used throughout the package */
 package object platform {
-  import com.daml.lf.value.{Value as lfval}
+  import com.digitalasset.daml.lf.value.{Value as lfval}
   private[platform] type ContractId = lfval.ContractId
-  private[platform] val ContractId = com.daml.lf.value.Value.ContractId
+  private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
   private[platform] type Contract = lfval.VersionedContractInstance
   private[platform] val Contract = lfval.VersionedContractInstance
 
-  import com.daml.lf.{transaction as lftx}
+  import com.digitalasset.daml.lf.{transaction as lftx}
   private[platform] type NodeId = lftx.NodeId
   private[platform] type Node = lftx.Node
   private[platform] type Create = lftx.Node.Create
@@ -26,7 +25,7 @@ package object platform {
   private[platform] type Key = lftx.GlobalKey
   private[platform] val Key = lftx.GlobalKey
 
-  import com.daml.lf.{data as lfdata}
+  import com.digitalasset.daml.lf.{data as lfdata}
   private[platform] type Party = lfdata.Ref.Party
   private[platform] val Party = lfdata.Ref.Party
   private[platform] type Identifier = lfdata.Ref.Identifier
@@ -63,7 +62,7 @@ package object platform {
 
   private[platform] type FilterRelation = Relation[lfdata.Ref.Identifier, Party]
 
-  import com.daml.lf.crypto
+  import com.digitalasset.daml.lf.crypto
   private[platform] type Hash = crypto.Hash
 
   private[platform] type PruneBuffers = Offset => Unit
@@ -77,18 +76,5 @@ package object platform {
         _ <- ResourceOwner.forReleasable(() => ())(_ => bodyF)
         t <- resourceOwner
       } yield t
-  }
-
-  implicit class ResourceOwnerFlagCloseableOps[T <: ResourceCloseable](
-      val resourceOwner: ResourceOwner[T]
-  ) extends AnyVal {
-    def acquireFlagCloseable(
-        name: String
-    )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[T] = {
-      val resource = resourceOwner.acquire()(ResourceContext(executionContext))
-      resource.asFuture.map(
-        _.registerResource(resource, name)
-      )
-    }
   }
 }

@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.daml.lf.value.json
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric as LfNumeric}
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.ScalazEqual.*
-import com.daml.lf.typesig
-import com.daml.lf.value.{Value as V}
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric as LfNumeric}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.ScalazEqual.*
+import com.digitalasset.daml.lf.typesig
+import com.digitalasset.daml.lf.value.{Value as V}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import NavigatorModelAliases.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits.*
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model

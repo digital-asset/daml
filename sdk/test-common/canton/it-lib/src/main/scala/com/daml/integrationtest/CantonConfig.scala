@@ -9,7 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder

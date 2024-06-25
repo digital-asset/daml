@@ -702,29 +702,30 @@ private[update] final class SubmissionRequestValidator(
       }
 
       topologyTimestampO = submissionRequest.topologyTimestamp
-      members =
-        groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender
       events =
         if (unifiedSequencer) {
           Map.empty[Member, Deliver[ClosedEnvelope]]
         } else {
-          members.toSeq.map { member =>
-            val groups = groupToMembers.collect {
-              case (groupAddress, members) if members.contains(member) => groupAddress
-            }.toSet
-            val deliver = Deliver.create(
-              state.tryNextCounter(member),
-              sequencingTimestamp,
-              domainId,
-              Option.when(member == submissionRequest.sender)(submissionRequest.messageId),
-              Batch.filterClosedEnvelopesFor(aggregatedBatch, member, groups),
-              topologyTimestampO,
-              protocolVersion,
-              Option.empty[TrafficReceipt],
-            )
-            member -> deliver
+          (groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender).toSeq.map {
+            member =>
+              val groups = groupToMembers.collect {
+                case (groupAddress, members) if members.contains(member) => groupAddress
+              }.toSet
+              val deliver = Deliver.create(
+                state.tryNextCounter(member),
+                sequencingTimestamp,
+                domainId,
+                Option.when(member == submissionRequest.sender)(submissionRequest.messageId),
+                Batch.filterClosedEnvelopesFor(aggregatedBatch, member, groups),
+                topologyTimestampO,
+                protocolVersion,
+                Option.empty[TrafficReceipt],
+              )
+              member -> deliver
           }.toMap
         }
+      members =
+        groupToMembers.values.flatten.toSet ++ submissionRequest.batch.allMembers + submissionRequest.sender
       aggregationUpdate = aggregationOutcome.map {
         case (aggregationId, inFlightAggregationUpdate, _) =>
           aggregationId -> inFlightAggregationUpdate

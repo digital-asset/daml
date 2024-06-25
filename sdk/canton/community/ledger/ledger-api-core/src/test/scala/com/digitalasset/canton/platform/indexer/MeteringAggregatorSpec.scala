@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset

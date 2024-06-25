@@ -3,11 +3,22 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
+
+import scala.concurrent.Future
 
 /** An interface for reading the state of a ledger participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -22,7 +33,7 @@ import org.apache.pekko.stream.scaladsl.Source
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
   */
-trait ReadService extends ReportsHealth {
+trait ReadService extends ReportsHealth with InternalStateServiceProvider {
 
   /** Get the stream of state [[Update]]s starting from the beginning or right
     * after the given [[com.digitalasset.canton.data.Offset]]
@@ -128,4 +139,65 @@ trait ReadService extends ReportsHealth {
   def stateUpdates(
       beginAfter: Option[Offset]
   )(implicit traceContext: TraceContext): Source[(Offset, Traced[Update]), NotUsed]
+
+  def getConnectedDomains(request: ReadService.ConnectedDomainRequest)(implicit
+      traceContext: TraceContext
+  ): Future[ReadService.ConnectedDomainResponse] =
+    throw new UnsupportedOperationException()
+
+  /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
+    *
+    * @param validAt The offset of validity in participant offset terms.
+    * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
+    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
+    *         the validAt offset, and only for the reassignments for which this participant is reassigning.
+    */
+  def incompleteReassignmentOffsets(
+      validAt: Offset,
+      stakeholders: Set[LfPartyId],
+  )(implicit traceContext: TraceContext): Future[Vector[Offset]] = {
+    val _ = validAt
+    val _ = stakeholders
+    val _ = traceContext
+    Future.successful(Vector.empty)
+  }
+
+  def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata =
+    throw new UnsupportedOperationException()
+
+  def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[PackageDescription]] =
+    throw new UnsupportedOperationException()
+
+  def getLfArchive(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[Archive]] =
+    throw new UnsupportedOperationException()
+
+  def validateDar(
+      dar: ByteString,
+      darName: String,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    throw new UnsupportedOperationException()
+}
+
+object ReadService {
+  final case class ConnectedDomainRequest(party: LfPartyId)
+
+  final case class ConnectedDomainResponse(
+      connectedDomains: Seq[ConnectedDomainResponse.ConnectedDomain]
+  )
+
+  object ConnectedDomainResponse {
+    final case class ConnectedDomain(
+        domainAlias: DomainAlias,
+        domainId: DomainId,
+        permission: ParticipantPermission,
+    )
+  }
 }

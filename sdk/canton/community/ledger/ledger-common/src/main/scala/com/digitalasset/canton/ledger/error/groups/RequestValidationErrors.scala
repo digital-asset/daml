@@ -14,9 +14,9 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{LookupError, Reference}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.{LookupError, Reference}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
   EarliestOffsetMetadataKey,
   LatestOffsetMetadataKey,

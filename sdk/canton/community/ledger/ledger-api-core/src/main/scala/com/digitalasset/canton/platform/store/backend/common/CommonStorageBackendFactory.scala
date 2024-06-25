@@ -16,6 +16,9 @@ import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
 
+  override val createParameterStorageBackend: ParameterStorageBackend =
+    ParameterStorageBackendImpl
+
   override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
     MeteringParameterStorageBackendImpl
 

@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.LedgerApiServer
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
@@ -75,7 +74,6 @@ class IndexerBenchmark extends NamedLogging {
         (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
-              CommandProgressTracker.NoOp,
               config.indexServiceConfig,
               256,
               metrics,
@@ -145,7 +143,7 @@ class IndexerBenchmark extends NamedLogging {
     Await
       .result(
         IndexerServiceOwner
-          .migrateOnly(config.dataSource.jdbcUrl, loggerFactory)(rc.executionContext, traceContext)
+          .migrateOnly(config.dataSource.jdbcUrl, loggerFactory)
           .map(_ => indexerFactory.initialized(logger))(indexerExecutionContext),
         Duration(5, "minute"),
       )

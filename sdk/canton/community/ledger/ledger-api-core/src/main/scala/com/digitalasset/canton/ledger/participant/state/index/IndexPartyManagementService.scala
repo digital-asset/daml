@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.daml.lf.data.Ref.{ParticipantId, Party}
+import com.digitalasset.daml.lf.data.Ref.{ParticipantId, Party}
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import org.apache.pekko.NotUsed

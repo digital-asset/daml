@@ -81,8 +81,7 @@ CREATE TABLE lapi_command_completions (
     trace_context BINARY LARGE OBJECT
 );
 
-CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
-CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
+CREATE INDEX lapi__command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events: create

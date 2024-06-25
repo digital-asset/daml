@@ -1,20 +1,20 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.transaction.{
   Node,
   NodeId,
   TransactionCoder,
   TransactionOuterClass,
   TransactionVersion,
 }
-import com.daml.lf.value.ValueCoder
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.canton.protocol.{
   LfNode,
   LfNodeId,

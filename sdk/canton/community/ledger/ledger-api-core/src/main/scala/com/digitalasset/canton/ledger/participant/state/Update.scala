@@ -4,10 +4,10 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.GrpcStatuses
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Bytes, Ref}
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -157,7 +157,7 @@ object Update {
     *                          [[TransactionMeta.ledgerEffectiveTime]].
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
-    *                          This data is opaque and can only be used in [[com.daml.lf.command.DisclosedContract]]s
+    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.command.DisclosedContract]]s
     *                          when submitting transactions trough the [[WriteService]].
     *                          If a contract created by this transaction is not element of this map,
     *                          its metadata is equal to the empty byte array.

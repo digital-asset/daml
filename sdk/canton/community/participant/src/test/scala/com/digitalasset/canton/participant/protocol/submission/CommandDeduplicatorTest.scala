@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.syntax.option.*
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{

@@ -8,15 +8,15 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.lf.crypto
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
-import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
+import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
@@ -28,7 +28,6 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -249,7 +248,7 @@ object InMemoryStateUpdaterSpec {
             flatEventWitnesses = Set(party2),
             submitters = Set.empty,
             createArgument =
-              com.daml.lf.transaction.Versioned(someCreateNode.version, someCreateNode.arg),
+              com.digitalasset.daml.lf.transaction.Versioned(someCreateNode.version, someCreateNode.arg),
             createSignatories = Set(party1),
             createObservers = Set(party2),
             createKeyHash = None,
@@ -296,7 +295,6 @@ object InMemoryStateUpdaterSpec {
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
-    val commandProgressTracker = CommandProgressTracker.NoOp
 
     val inOrder: InOrder = inOrder(
       ledgerEndCache,
@@ -317,7 +315,6 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
-      commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
 

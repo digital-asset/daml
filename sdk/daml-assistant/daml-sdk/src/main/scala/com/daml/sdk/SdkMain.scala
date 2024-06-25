@@ -4,7 +4,7 @@
 package com.daml.sdk
 
 import com.daml.codegen.{CodegenMain => Codegen}
-import com.daml.lf.engine.script.{ScriptMain => Script}
+import com.digitalasset.daml.lf.engine.script.{ScriptMain => Script}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {

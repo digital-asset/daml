@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

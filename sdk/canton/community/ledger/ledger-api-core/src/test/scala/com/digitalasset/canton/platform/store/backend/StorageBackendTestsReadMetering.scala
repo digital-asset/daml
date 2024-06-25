@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.ApplicationId
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,

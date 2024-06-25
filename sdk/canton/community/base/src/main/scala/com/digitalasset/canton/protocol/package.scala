@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction.*
-import com.daml.lf.value.Value
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.Value
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage

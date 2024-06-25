@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.util
 
 import com.daml.ledger.api.v2.value as api
-import com.daml.lf.data.{Numeric, Ref}
-import com.daml.lf.value.Value as Lf
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.value.Value as Lf
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.std.either.*
@@ -14,14 +14,14 @@ import scalaz.syntax.traverse.*
 
 import java.time.Instant
 
-/** Translates [[com.daml.lf.value.Value]] values to Ledger API values.
+/** Translates [[com.digitalasset.daml.lf.value.Value]] values to Ledger API values.
   *
   * All conversion functions are pure and total.
   *
   * Most conversion functions have a verbose flag:
   * - If verbose mode is disabled, then all resulting Api values have missing type identifiers and record field names.
   * - If verbose mode is enabled, then type identifiers and record field names are copied from the input Daml-LF values.
-  *   The caller is responsible for filling in missing type information using [[com.daml.lf.engine.ValueEnricher]],
+  *   The caller is responsible for filling in missing type information using [[com.digitalasset.daml.lf.engine.ValueEnricher]],
   *   which may involve loading Daml-LF packages.
   */
 object LfEngineToApi {

@@ -48,7 +48,6 @@ trait SequencerStoreTest
     val ts1 = ts(1)
     val ts2 = ts(2)
     val ts3 = ts(3)
-    val ts4 = ts(4)
 
     val payloadBytes1 = ByteString.copyFromUtf8("1")
     val payloadBytes2 = ByteString.copyFromUtf8("1")
@@ -58,7 +57,6 @@ trait SequencerStoreTest
     val messageId1 = MessageId.tryCreate("1")
     val messageId2 = MessageId.tryCreate("2")
     val messageId3 = MessageId.tryCreate("3")
-    val messageId4 = MessageId.tryCreate("4")
 
     val instanceDiscriminator1 = UUID.randomUUID()
     val instanceDiscriminator2 = UUID.randomUUID()
@@ -99,24 +97,6 @@ trait SequencerStoreTest
             NonEmpty(SortedSet, senderId, recipientIds.toSeq*),
             payloadId,
             None,
-            traceContext,
-          ),
-        )
-
-      def deliverReceipt(
-          ts: CantonTimestamp,
-          sender: Member,
-          messageId: MessageId,
-          topologyTimestamp: CantonTimestamp,
-      ): Future[Sequenced[PayloadId]] =
-        for {
-          senderId <- store.registerMember(sender, ts)
-        } yield Sequenced(
-          ts,
-          ReceiptStoreEvent(
-            senderId,
-            messageId,
-            topologyTimestampO = Some(topologyTimestamp),
             traceContext,
           ),
         )
@@ -167,35 +147,6 @@ trait SequencerStoreTest
               topologyTimestampO shouldBe expectedTopologyTimestamp
             case other =>
               fail(s"Expected deliver event but got $other")
-          }
-        }
-      }
-
-      def assertReceiptEvent(
-          event: Sequenced[Payload],
-          expectedTimestamp: CantonTimestamp,
-          expectedSender: Member,
-          expectedMessageId: MessageId,
-          expectedTopologyTimestamp: Option[CantonTimestamp],
-      ): Future[Assertion] = {
-        for {
-          senderId <- lookupRegisteredMember(expectedSender)
-        } yield {
-          event.timestamp shouldBe expectedTimestamp
-          event.event match {
-            case ReceiptStoreEvent(
-                  sender,
-                  messageId,
-                  topologyTimestampO,
-                  _traceContext,
-                ) =>
-              sender shouldBe senderId
-              messageId shouldBe expectedMessageId
-              event.event.members shouldBe Set(senderId)
-              event.event.payloadO shouldBe None
-              topologyTimestampO shouldBe expectedTopologyTimestamp
-            case other =>
-              fail(s"Expected deliver receipt but got $other")
           }
         }
       }
@@ -321,16 +272,15 @@ trait SequencerStoreTest
             payload2.id,
             recipients = Set(alice, bob),
           )
-          receiptAlice <- env.deliverReceipt(ts4, alice, messageId4, ts3)
           deliverEventBob <- env.deliverEvent(ts3, bob, messageId3, payload3.id)
           _ <- env.store.saveEvents(
             instanceIndex,
-            NonEmpty(Seq, deliverEventAlice, deliverEventAll, deliverEventBob, receiptAlice),
+            NonEmpty(Seq, deliverEventAlice, deliverEventAll, deliverEventBob),
           )
-          _ <- env.saveWatermark(receiptAlice.timestamp).valueOrFail("saveWatermark")
+          _ <- env.saveWatermark(deliverEventBob.timestamp).valueOrFail("saveWatermark")
           aliceEvents <- env.readEvents(alice)
           bobEvents <- env.readEvents(bob)
-          _ = aliceEvents should have size (3)
+          _ = aliceEvents should have size (2)
           _ = bobEvents should have size (2)
           _ <- env.assertDeliverEvent(aliceEvents(0), ts1, alice, messageId1, Set(alice), payload1)
           _ <- env.assertDeliverEvent(
@@ -340,13 +290,6 @@ trait SequencerStoreTest
             messageId2,
             Set(alice, bob),
             payload2,
-          )
-          _ <- env.assertReceiptEvent(
-            aliceEvents(2),
-            ts4,
-            alice,
-            messageId4,
-            ts3.some,
           )
           _ <- env.assertDeliverEvent(
             bobEvents(0),

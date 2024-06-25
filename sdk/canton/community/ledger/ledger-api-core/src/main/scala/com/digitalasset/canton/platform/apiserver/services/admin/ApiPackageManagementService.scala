@@ -6,12 +6,13 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 import com.daml.error.DamlError
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v2.admin.package_management_service.*
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.participant.state.{SubmissionResult, WriteService}
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.{ReadService, SubmissionResult}
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
@@ -23,7 +24,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[apiserver] final class ApiPackageManagementService private (
-    writeService: WriteService,
+    readService: ReadService,
+    packagesWrite: state.WritePackagesService,
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -50,7 +52,7 @@ private[apiserver] final class ApiPackageManagementService private (
       LoggingContextWithTrace(loggerFactory, telemetry)
 
     logger.info("Listing known packages.")
-    writeService
+    readService
       .listLfPackages()
       .map { pkgs =>
         ListKnownPackagesResponse(pkgs.map { pkgDescription =>
@@ -70,7 +72,7 @@ private[apiserver] final class ApiPackageManagementService private (
       logging.submissionId(submissionIdGenerator(request.submissionId))
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Validating DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
-      writeService
+      readService
         .validateDar(dar = request.darFile, darName = "defaultDarName")
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
@@ -86,7 +88,7 @@ private[apiserver] final class ApiPackageManagementService private (
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
-      writeService
+      packagesWrite
         .uploadDar(request.darFile, submissionId)
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(UploadDarFileResponse())
@@ -100,14 +102,16 @@ private[apiserver] final class ApiPackageManagementService private (
 private[apiserver] object ApiPackageManagementService {
 
   def createApiService(
-      writeService: WriteService,
+      readService: ReadService,
+      writeBackend: state.WritePackagesService,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
   ): PackageManagementServiceGrpc.PackageManagementService & GrpcApiService =
     new ApiPackageManagementService(
-      writeService,
+      readService,
+      writeBackend,
       augmentSubmissionId,
       telemetry,
       loggerFactory,

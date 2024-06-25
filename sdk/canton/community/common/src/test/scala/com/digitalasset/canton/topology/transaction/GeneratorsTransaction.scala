@@ -12,8 +12,6 @@ import com.digitalasset.canton.topology.{
   GeneratorsTopology,
   MediatorId,
   Namespace,
-  ParticipantId,
-  PartyId,
   SequencerId,
 }
 import com.digitalasset.canton.version.ProtocolVersion
@@ -21,8 +19,6 @@ import com.digitalasset.canton.{Generators, GeneratorsLf, LfPackageId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*
-
-import scala.math.Ordering.Implicits.*
 
 final class GeneratorsTransaction(
     protocolVersion: ProtocolVersion,
@@ -53,18 +49,6 @@ final class GeneratorsTransaction(
     Arbitrary(Generators.nonEmptySetGen[PublicKey].map(_.toSeq))
   implicit val topologyTransactionMappingsArb: Arbitrary[NonEmpty[Seq[TopologyMapping]]] =
     Arbitrary(Generators.nonEmptySetGen[TopologyMapping].map(_.toSeq))
-  implicit val topologyTransactionPartyIdsArb: Arbitrary[NonEmpty[Seq[PartyId]]] =
-    Arbitrary(Generators.nonEmptySetGen[PartyId].map(_.toSeq))
-  implicit val topologyTransactionHostingParticipantsArb
-      : Arbitrary[NonEmpty[Seq[HostingParticipant]]] =
-    Arbitrary(Generators.nonEmptySetGen[HostingParticipant].map(_.toSeq))
-
-  implicit val hostingParticipantArb: Arbitrary[HostingParticipant] = Arbitrary(
-    for {
-      pid <- Arbitrary.arbitrary[ParticipantId]
-      permission <- Arbitrary.arbitrary[ParticipantPermission]
-    } yield HostingParticipant(pid, permission)
-  )
 
   implicit val topologyMappingArb: Arbitrary[TopologyMapping] = genArbitrary
 
@@ -103,31 +87,6 @@ final class GeneratorsTransaction(
       domain <- Arbitrary.arbitrary[DomainId]
       mappings <- Arbitrary.arbitrary[NonEmpty[Seq[TopologyMapping]]]
     } yield PurgeTopologyTransaction.create(domain, mappings).value
-  )
-
-  implicit val authorityOfTopologyTransactionArb: Arbitrary[AuthorityOf] = Arbitrary(
-    for {
-      partyId <- Arbitrary.arbitrary[PartyId]
-      domain <- Arbitrary.arbitrary[Option[DomainId]]
-      authorizers <- Arbitrary.arbitrary[NonEmpty[Seq[PartyId]]]
-      // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
-      threshold <- Gen.choose(1, authorizers.size).map(PositiveInt.tryCreate)
-    } yield AuthorityOf.create(partyId, domain, threshold, authorizers).value
-  )
-
-  implicit val partyToParticipantTopologyTransactionArb: Arbitrary[PartyToParticipant] = Arbitrary(
-    for {
-      partyId <- Arbitrary.arbitrary[PartyId]
-      domain <- Arbitrary.arbitrary[Option[DomainId]]
-      participants <- Arbitrary.arbitrary[NonEmpty[Seq[HostingParticipant]]]
-      // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
-      threshold <- Gen
-        .choose(1, participants.count(_.permission >= ParticipantPermission.Confirmation).max(1))
-        .map(PositiveInt.tryCreate)
-      groupAddressing <- Arbitrary.arbitrary[Boolean]
-    } yield PartyToParticipant
-      .create(partyId, domain, threshold, participants, groupAddressing)
-      .value
   )
 
   implicit val sequencerDomainStateArb: Arbitrary[SequencerDomainState] = Arbitrary(

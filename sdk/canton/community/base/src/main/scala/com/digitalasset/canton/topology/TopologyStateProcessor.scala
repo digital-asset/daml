@@ -167,7 +167,6 @@ class TopologyStateProcessor(
             s"${enqueuingOrStoring} topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
-          // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
             s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
           )
@@ -297,13 +296,18 @@ class TopologyStateProcessor(
         authValidator
           .validateAndUpdateHeadAuthState(
             effective.value,
-            toValidate,
-            inStore,
+            Seq(toValidate),
+            inStore.map(tx => tx.mapping.uniqueKey -> tx).toList.toMap,
             expectFullAuthorization,
           )
       )
-      .subflatMap { case (_, tx) =>
-        tx.rejectionReason.toLeft(tx.transaction)
+      .subflatMap { case (_, txs) =>
+        // TODO(#12390) proper error
+        txs.headOption
+          .toRight[TopologyTransactionRejection](
+            TopologyTransactionRejection.Other("expected validation result doesn't exist")
+          )
+          .flatMap(tx => tx.rejectionReason.toLeft(tx.transaction))
       }
   }
 

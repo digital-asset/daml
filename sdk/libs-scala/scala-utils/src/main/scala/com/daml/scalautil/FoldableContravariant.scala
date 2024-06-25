@@ -9,13 +9,13 @@ import FoldableContravariant._
 // Specialized overrides for when a Foldable wraps another Foldable.
 // If you need to hand-write some of these, just mix in the traits you
 // don't want to hand-write.
-private[daml] trait FoldableContravariant[X[_], Y[_]]
+trait FoldableContravariant[X[_], Y[_]]
     extends CoreOps[X, Y]
     with Semigroupoids[X, Y]
     with Conversions[X, Y]
     with Lookups[X, Y]
 
-private[daml] object FoldableContravariant {
+object FoldableContravariant {
   trait CtMap[X[_], Y[_]] {
     protected[this] def Y: Foldable[Y]
     protected[this] def ctmap[A](ax: X[A]): Y[A]

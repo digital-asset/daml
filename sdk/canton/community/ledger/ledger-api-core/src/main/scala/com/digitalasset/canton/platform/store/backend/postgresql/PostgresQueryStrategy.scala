@@ -3,14 +3,11 @@
 
 package com.digitalasset.canton.platform.store.backend.postgresql
 
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
 }
 import com.digitalasset.canton.platform.store.backend.common.QueryStrategy
-
-import java.sql.Connection
 
 object PostgresQueryStrategy extends QueryStrategy {
 
@@ -37,8 +34,4 @@ object PostgresQueryStrategy extends QueryStrategy {
 
   override def analyzeTable(tableName: String): CompositeSql =
     cSQL"ANALYZE #$tableName"
-
-  override def forceSynchronousCommitForCurrentTransactionForPostgreSQL(
-      connection: Connection
-  ): Unit = SQL"SET LOCAL synchronous_commit TO ON".execute()(connection).discard
 }

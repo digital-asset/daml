@@ -8,8 +8,8 @@ import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
-import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.TransactionCoder
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.requireContractId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument

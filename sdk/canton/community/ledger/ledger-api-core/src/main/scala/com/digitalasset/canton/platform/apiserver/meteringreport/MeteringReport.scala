@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.meteringreport
 
-import com.daml.lf.data.Ref.{ApplicationId, ParticipantId}
-import com.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref.{ApplicationId, ParticipantId}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import spray.json.{DefaultJsonProtocol, RootJsonFormat, *}
 
 import java.time.Instant

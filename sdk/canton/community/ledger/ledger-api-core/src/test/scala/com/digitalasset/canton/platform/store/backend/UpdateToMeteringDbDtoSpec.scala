@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
-import com.daml.lf.transaction.{
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
+import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
   TransactionNodeStatistics,
   TransactionVersion,

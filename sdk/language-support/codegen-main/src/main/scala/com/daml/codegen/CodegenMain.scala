@@ -3,9 +3,9 @@
 
 package com.daml.codegen
 
-import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java}
-import com.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
-import com.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
+import com.digitalasset.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java}
+import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
+import com.digitalasset.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
 
 import scala.util.{Failure, Success, Try}
 

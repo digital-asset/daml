@@ -4,11 +4,11 @@
 package com.digitalasset.canton.ledger.service
 
 import com.daml.ledger.api.v2.package_service.GetPackageResponse
-import com.daml.lf.archive
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.lf.typesig.{DefDataType, PackageSignature}
+import com.digitalasset.daml.lf.archive
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
+import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.typesig.{DefDataType, PackageSignature}
 import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.TraverseFMSyntax.*
 import com.daml.timer.RetryStrategy

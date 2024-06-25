@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
@@ -43,7 +42,6 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
@@ -87,7 +85,6 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     parameters: ParticipantNodeParameters,
-    commandProgressTracker: CommandProgressTracker,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -213,7 +210,6 @@ class StartableStoppableLedgerApiServer(
     for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
-          commandProgressTracker,
           indexServiceConfig,
           config.serverConfig.commandService.maxCommandsInFlight,
           config.metrics,
@@ -221,7 +217,6 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
         )
-      timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       dbSupport <- DbSupport
         .owner(
@@ -279,18 +274,18 @@ class StartableStoppableLedgerApiServer(
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
         incompleteOffsets = (off, ps, tc) =>
-          timedWriteService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
+          timedReadService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
-        getPackageMetadataSnapshot = timedWriteService.getPackageMetadataSnapshot(_),
+        getPackageMetadataSnapshot = timedReadService.getPackageMetadataSnapshot(_),
         lfValueTranslation = new LfValueTranslation(
           metrics = config.metrics,
           engineO = Some(config.engine),
           loadPackage = (packageId, loggingContext) =>
-            timedWriteService.getLfArchive(packageId)(loggingContext.traceContext),
+            timedReadService.getLfArchive(packageId)(loggingContext.traceContext),
           loggerFactory = loggerFactory,
         ),
       )
-      _ = timedWriteService.registerInternalStateService(new InternalStateService {
+      _ = timedReadService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
             partyIds: Set[LfPartyId],
             validAt: Option[Offset],
@@ -321,10 +316,10 @@ class StartableStoppableLedgerApiServer(
       authenticateContract: AuthenticateContract = c =>
         serializableContractAuthenticator.authenticate(c)
 
+      timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       _ <- ApiServiceOwner(
-        indexService = indexService,
         submissionTracker = inMemoryState.submissionTracker,
-        commandProgressTracker = commandProgressTracker,
+        indexService = indexService,
         userManagementStore = userManagementStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
           dbSupport,
@@ -344,7 +339,8 @@ class StartableStoppableLedgerApiServer(
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
         port = config.serverConfig.port,
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
-        writeService = timedWriteService,
+        optWriteService = Some(timedWriteService),
+        readService = timedReadService,
         healthChecks = new HealthChecks(
           "read" -> timedReadService,
           "write" -> (() => config.syncService.currentWriteHealth()),
@@ -448,9 +444,7 @@ class StartableStoppableLedgerApiServer(
     .toList
 
   private def getLedgerFeatures: LedgerFeatures = LedgerFeatures(
-    staticTime = config.testingTimeService.isDefined,
-    commandInspectionService =
-      ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
+    staticTime = config.testingTimeService.isDefined
   )
 
   private def startHttpApiIfEnabled: ResourceOwner[Unit] =

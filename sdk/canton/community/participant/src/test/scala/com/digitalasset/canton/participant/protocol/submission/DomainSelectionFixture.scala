@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import com.daml.lf.data.Ref.QualifiedName
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
-import com.daml.lf.transaction.test.TransactionBuilder.Implicits.*
-import com.daml.lf.transaction.test.TreeTransactionBuilder.*
-import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
-import com.daml.lf.transaction.{Node, TransactionVersion}
-import com.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
+import com.digitalasset.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
+import com.digitalasset.daml.lf.transaction.{Node, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot

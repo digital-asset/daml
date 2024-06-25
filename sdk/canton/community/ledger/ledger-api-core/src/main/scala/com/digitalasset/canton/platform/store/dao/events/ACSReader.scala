@@ -9,10 +9,10 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteAssigned,
   IncompleteUnassigned,
 }
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.NodeId
 import com.daml.metrics.Timed
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing

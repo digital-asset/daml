@@ -12,9 +12,9 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.daml.lf.data.Ref
-import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace

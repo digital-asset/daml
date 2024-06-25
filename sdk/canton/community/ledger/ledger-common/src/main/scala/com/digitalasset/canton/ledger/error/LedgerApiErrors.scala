@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.error
 
 import com.daml.error.*
-import com.daml.lf.engine.Error.Validation.ReplayMismatch
-import com.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.engine.Error.Validation.ReplayMismatch
+import com.digitalasset.daml.lf.engine.Error as LfError
 import com.daml.metrics.ExecutorServiceMetrics
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup
 import org.slf4j.event.Level

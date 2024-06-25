@@ -162,9 +162,10 @@ class DbSequencerStore(
 
     case object Receipt extends EventTypeDiscriminator('R')
     case object Deliver extends EventTypeDiscriminator('D')
+
     case object Error extends EventTypeDiscriminator('E')
 
-    private val all = Seq[EventTypeDiscriminator](Deliver, Error, Receipt)
+    private val all = Seq[EventTypeDiscriminator](Deliver, Error)
 
     def fromChar(value: Char): Either[String, EventTypeDiscriminator] =
       all.find(_.value == value).toRight(s"Event type discriminator for value [$value] not found")
@@ -839,9 +840,6 @@ class DbSequencerStore(
     // `min` may return null that is wrapped into None
     query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
   }
-
-  override def safeWatermark(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
-    storage.query(safeWaterMarkDBIO, "query safe watermark")
 
   override def readStateAtTimestamp(
       timestamp: CantonTimestamp

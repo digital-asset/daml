@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteUnassigned,
 }
 import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
-import com.daml.lf.data.Time
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.LfContractId

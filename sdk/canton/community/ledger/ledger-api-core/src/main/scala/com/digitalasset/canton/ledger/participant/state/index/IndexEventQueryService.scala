@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.lf.data.Ref
-import com.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future

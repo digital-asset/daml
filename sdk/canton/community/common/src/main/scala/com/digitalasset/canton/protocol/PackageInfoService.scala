@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp

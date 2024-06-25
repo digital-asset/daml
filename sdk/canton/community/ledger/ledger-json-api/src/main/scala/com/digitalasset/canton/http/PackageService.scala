@@ -4,9 +4,9 @@
 package com.digitalasset.canton.http
 
 import com.daml.jwt.domain.Jwt
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref
-import com.daml.lf.typesig
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.typesig
 import com.digitalasset.canton.http.domain.ContractTypeId
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.{NonEmpty, Singleton}

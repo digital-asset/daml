@@ -9,7 +9,7 @@ load(
 da_scala_binary(
     name = "repl",
     srcs = glob(["src/main/**/*.scala"]),
-    main_class = "com.daml.lf.speedy.testing.Main",
+    main_class = "com.digitalasset.daml.lf.speedy.testing.Main",
     max_heap_size = "8g",
     scala_deps = [
         "@maven//:org_typelevel_paiges_core",

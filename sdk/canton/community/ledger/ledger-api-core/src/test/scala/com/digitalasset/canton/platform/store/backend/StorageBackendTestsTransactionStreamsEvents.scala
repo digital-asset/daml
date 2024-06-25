@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForFlatTx,
   EventPayloadSourceForTreeTx,

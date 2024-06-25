@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.engine.Engine
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
@@ -69,7 +69,6 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.topology.TopologyManagerError.InvalidTopologyMapping
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
@@ -255,30 +254,21 @@ class ParticipantNodeBootstrap(
           protocolVersion: ProtocolVersion,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = for {
-        ptp <- EitherT.fromEither[FutureUnlessShutdown](
-          PartyToParticipant
-            .create(
-              partyId,
-              None,
-              threshold = PositiveInt.one,
-              participants =
-                Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
-              groupAddressing = false,
-            )
-            .leftMap(err =>
-              ParticipantTopologyManagerError.IdentityManagerParentError(
-                InvalidTopologyMapping.Reject(err)
-              )
-            )
-        )
+      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
         // TODO(#14069) make this "extend" / not replace
         //    this will also be potentially racy!
-        _ <- performUnlessClosingEitherUSF(functionFullName)(
+        performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               TopologyChangeOp.Replace,
-              ptp,
+              PartyToParticipant(
+                partyId,
+                None,
+                threshold = PositiveInt.one,
+                participants =
+                  Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
+                groupAddressing = false,
+              ),
               serial = None,
               // TODO(#12390) auto-determine signing keys
               signingKeys = Seq(partyId.uid.namespace.fingerprint),
@@ -288,7 +278,7 @@ class ParticipantNodeBootstrap(
         )
           .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
           .map(_ => ())
-      } yield ()
+      }
 
     }
 

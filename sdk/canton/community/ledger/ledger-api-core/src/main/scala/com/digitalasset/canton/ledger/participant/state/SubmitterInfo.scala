@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.lf.data.Ref
-import com.daml.lf.transaction.TransactionNodeStatistics
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 

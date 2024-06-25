@@ -4,9 +4,9 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.TransactionNodeStatistics
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.platform.ApiOffset

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.localstore
 
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.platform.store.backend.Conversions.party
 
@@ -110,7 +110,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
       parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Set[Ref.Party] = if (parties.nonEmpty) {
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val filteredParties = cSQL"party in (${parties.map(_.toString)})"
 
@@ -132,7 +132,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   override def filterExistingParties(
       parties: Set[Ref.Party]
   )(connection: Connection): Set[Ref.Party] = if (parties.nonEmpty) {
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val filteredParties = cSQL"party in (${parties.map(_.toString)})"
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.offset
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
 import org.scalacheck.{Arbitrary, Gen}
 

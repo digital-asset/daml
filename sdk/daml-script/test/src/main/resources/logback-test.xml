@@ -6,7 +6,7 @@
         </encoder>
     </appender>
 
-    <appender name="TEST-LOGGER" class="com.daml.lf.engine.script.test.LogCollector" />
+    <appender name="TEST-LOGGER" class="com.digitalasset.daml.lf.engine.script.test.LogCollector" />
 
     <logger name="io.netty" level="WARN" />
     <logger name="io.grpc.netty" level="WARN" />

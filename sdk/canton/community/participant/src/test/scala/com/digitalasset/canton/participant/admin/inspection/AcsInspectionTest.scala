@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin.inspection
 
 import cats.data.OptionT
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{

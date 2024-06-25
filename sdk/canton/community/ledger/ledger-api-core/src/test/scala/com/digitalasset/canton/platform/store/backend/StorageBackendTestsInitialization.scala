@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import org.scalatest.flatspec.AnyFlatSpec

@@ -11,7 +11,6 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
@@ -73,28 +72,19 @@ class BatchingParallelIngestionPipeSpec
   }
 
   it should "hold the stream if a single ingestion takes too long" in {
-    val ingestedSizeAcc = new AtomicInteger(0)
-    val ingestedTailAcc = new AtomicInteger(0)
     runPipe(
       inputMapperHook = () => Threading.sleep(1L),
       ingesterHook = batch => {
         // due to timing issues it can be that other than full batches are formed, so we check if the batch contains 21
-        if (batch.min <= 21) {
-          ingestedSizeAcc.accumulateAndGet(batch.size, _ + _)
-        }
-        if (batch.max < 21) {
-          ingestedTailAcc.accumulateAndGet(batch.max, _ max _)
-        }
         if (batch.contains(21)) Threading.sleep(1000)
       },
       timeout = FiniteDuration(100, "milliseconds"),
     ).map { case (ingested, ingestedTail, err) =>
       err.value.getMessage shouldBe "timed out"
-      // 25 is the ideal case: due to timing issues it can be that other than full batches are formed, so either having < 20 before and < 5 after is possible
+      // 25 consists of 4 full batches before 21, then the one full batch after the frozen full batch since parallelism == 2
+      // 25 is the ideal case: due to timing issues it can be that other than full batches are formed, so either having < 20 before and < 5 after is possiblef
       ingested.size should be <= 25
-      ingestedTail.last should be < 21
-      ingested.size shouldBe ingestedSizeAcc.get()
-      ingestedTail.last shouldBe ingestedTailAcc.get()
+      ingestedTail.last shouldBe 20
     }
   }
 
@@ -179,7 +169,7 @@ class BatchingParallelIngestionPipeSpec
     val semaphore = new Object
     var ingested: Vector[(Int, String)] = Vector.empty
     var ingestedTail: Vector[Int] = Vector.empty
-    val indexingFlow =
+    val indexingSource: Source[Int, NotUsed] => Source[List[(Int, String)], NotUsed] =
       BatchingParallelIngestionPipe[Int, List[(Int, Int)], List[(Int, String)]](
         submissionBatchSize = MaxBatchSize.toLong,
         inputMappingParallelism = 2,
@@ -227,7 +217,7 @@ class BatchingParallelIngestionPipeSpec
     val timeoutF = org.apache.pekko.pattern.after(timeout, system.scheduler) {
       Future.failed(new Exception("timed out"))
     }
-    val indexingF = inputSource.via(indexingFlow).run().map { _ =>
+    val indexingF = indexingSource(inputSource).run().map { _ =>
       (ingested, ingestedTail, Option.empty[Throwable])
     }
     timeoutF.onComplete(p.tryComplete)

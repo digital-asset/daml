@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
-import com.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

@@ -11,15 +11,15 @@ import com.daml.ledger.api.v2.value.{
   Record as ApiRecord,
   Value as ApiValue,
 }
-import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, ValueEnricher}
-import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.*
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.VersionedValue
-import com.daml.lf.engine as LfEngine
+import com.digitalasset.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.{Engine, ValueEnricher}
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.engine as LfEngine
 import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{
@@ -205,7 +205,7 @@ final class LfValueTranslation(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
+      enrich: LfValue => LfEngine.Result[com.digitalasset.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
@@ -566,7 +566,7 @@ final class LfValueTranslation(
 
   private def computeInterfaceView(
       templateId: LfIdentifier,
-      value: com.daml.lf.value.Value,
+      value: com.digitalasset.daml.lf.value.Value,
       interfaceId: LfIdentifier,
   )(implicit
       loggingContext: LoggingContextWithTrace,

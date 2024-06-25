@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 import cats.data.{EitherT, OptionT}
 import cats.syntax.option.*
 import cats.syntax.parallel.*
-import com.daml.lf.engine
+import com.digitalasset.daml.lf.engine
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}

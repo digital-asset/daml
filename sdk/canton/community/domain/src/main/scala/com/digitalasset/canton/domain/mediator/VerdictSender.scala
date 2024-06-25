@@ -215,7 +215,7 @@ private[mediator] class DefaultVerdictSender(
             .map(Recipients.recipientGroups)
             .getOrElse(
               // Should never happen as the topology (same snapshot) is checked in
-              // `ConfirmationRequestAndResponseProcessor.validateRequest`
+              // `ConfirmationResponseProcessor.validateRequest`
               ErrorUtil.invalidState("No active participants for informees")
             )
 

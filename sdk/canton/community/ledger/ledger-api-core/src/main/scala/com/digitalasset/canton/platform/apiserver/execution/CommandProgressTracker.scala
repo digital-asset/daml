@@ -148,7 +148,7 @@ trait CommandResultHandle {
   def recordEnvelopeSizes(batchSize: Int, numRecipients: Int, numEnvelopes: Int): Unit
 
   def recordTransactionImpact(
-      transaction: com.daml.lf.transaction.SubmittedTransaction
+      transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
   ): Unit
 
 }
@@ -160,7 +160,7 @@ object CommandResultHandle {
     override def recordEnvelopeSizes(batchSize: Int, numRecipients: Int, numEnvelopes: Int): Unit =
       ()
     override def recordTransactionImpact(
-        transaction: com.daml.lf.transaction.SubmittedTransaction
+        transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
     ): Unit = ()
   }
 }
