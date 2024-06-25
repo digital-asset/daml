@@ -36,7 +36,7 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
+import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -90,7 +90,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.platform.apiserver.execution.{
+  AuthorityResolver,
+  CommandProgressTracker,
+}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -308,6 +311,10 @@ class CantonSyncService(
       syncDomainPersistentStateManager.get(domainId.unwrap).map(_.transferStore),
     protocolVersionFor = protocolVersionGetter,
   )
+  val commandProgressTracker: CommandProgressTracker =
+    if (parameters.commandProgressTracking.enabled)
+      new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
+    else CommandProgressTracker.NoOp
 
   private val commandDeduplicator = new CommandDeduplicatorImpl(
     participantNodePersistentState.map(_.commandDeduplicationStore),
@@ -406,6 +413,19 @@ class CantonSyncService(
       loggerFactory,
     )
 
+  private def trackSubmission(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+  ): Unit =
+    commandProgressTracker
+      .findHandle(
+        submitterInfo.commandId,
+        submitterInfo.applicationId,
+        submitterInfo.actAs,
+        submitterInfo.submissionId,
+      )
+      .recordTransactionImpact(transaction)
+
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -422,6 +442,7 @@ class CantonSyncService(
     withSpan("CantonSyncService.submitTransaction") { implicit traceContext => span =>
       span.setAttribute("command_id", submitterInfo.commandId)
       logger.debug(s"Received submit-transaction ${submitterInfo.commandId} from ledger-api server")
+      trackSubmission(submitterInfo, transaction)
       submitTransactionF(
         submitterInfo,
         optDomainId,
@@ -1405,6 +1426,7 @@ class CantonSyncService(
           missingKeysAlerter,
           transferCoordination,
           inFlightSubmissionTracker,
+          commandProgressTracker,
           clock,
           domainMetrics,
           futureSupervisor,
@@ -1755,8 +1777,8 @@ class CantonSyncService(
   }
 
   override def getConnectedDomains(
-      request: ReadService.ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): Future[ReadService.ConnectedDomainResponse] = {
+      request: WriteService.ConnectedDomainRequest
+  )(implicit traceContext: TraceContext): Future[WriteService.ConnectedDomainResponse] = {
     def getSnapshot(domainAlias: DomainAlias, domainId: DomainId): Future[TopologySnapshot] =
       syncCrypto.ips
         .forDomain(domainId)

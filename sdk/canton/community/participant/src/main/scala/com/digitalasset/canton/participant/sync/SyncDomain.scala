@@ -64,7 +64,10 @@ import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.platform.apiserver.execution.{
+  AuthorityResolver,
+  CommandProgressTracker,
+}
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
@@ -120,6 +123,7 @@ class SyncDomain(
     missingKeysAlerter: MissingKeysAlerter,
     transferCoordination: TransferCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
+    commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
     clock: Clock,
     metrics: SyncDomainMetrics,
@@ -186,6 +190,7 @@ class SyncDomain(
     sequencerClient,
     inFlightSubmissionTracker,
     ephemeral,
+    commandProgressTracker,
     metrics.transactionProcessing,
     timeouts,
     loggerFactory,
@@ -1003,6 +1008,7 @@ object SyncDomain {
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
+        commandProgressTracker: CommandProgressTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
         futureSupervisor: FutureSupervisor,
@@ -1029,6 +1035,7 @@ object SyncDomain {
         missingKeysAlerter: MissingKeysAlerter,
         transferCoordination: TransferCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
+        commandProgressTracker: CommandProgressTracker,
         clock: Clock,
         syncDomainMetrics: SyncDomainMetrics,
         futureSupervisor: FutureSupervisor,
@@ -1052,6 +1059,7 @@ object SyncDomain {
         missingKeysAlerter,
         transferCoordination,
         inFlightSubmissionTracker,
+        commandProgressTracker,
         MessageDispatcher.DefaultFactory,
         clock,
         syncDomainMetrics,

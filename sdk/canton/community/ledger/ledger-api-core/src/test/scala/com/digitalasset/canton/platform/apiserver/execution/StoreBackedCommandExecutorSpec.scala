@@ -26,7 +26,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -117,7 +117,7 @@ class StoreBackedCommandExecutorSpec
     new StoreBackedCommandExecutor(
       engine,
       Ref.ParticipantId.assertFromString("anId"),
-      mock[ReadService],
+      mock[WriteService],
       mock[ContractStore],
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
@@ -328,7 +328,7 @@ class StoreBackedCommandExecutorSpec
       val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
-        mock[ReadService],
+        mock[WriteService],
         store,
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,

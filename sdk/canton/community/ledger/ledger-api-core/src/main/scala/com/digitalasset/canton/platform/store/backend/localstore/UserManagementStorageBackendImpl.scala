@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.api.domain.UserRight.{
   ParticipantAdmin,
 }
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, UserRight}
-import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.digitalasset.canton.platform.{LedgerString, Party, UserId}
 

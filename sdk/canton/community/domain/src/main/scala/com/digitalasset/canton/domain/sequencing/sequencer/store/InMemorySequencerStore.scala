@@ -132,6 +132,9 @@ class InMemorySequencerStore(
   ): Future[Option[Watermark]] =
     Future.successful(watermark.get.map(Watermark(_, online = true)))
 
+  override def safeWatermark(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
+    Future.successful(watermark.get)
+
   override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
     Future.unit
 

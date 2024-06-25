@@ -110,7 +110,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
       parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Set[Ref.Party] = if (parties.nonEmpty) {
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val filteredParties = cSQL"party in (${parties.map(_.toString)})"
 
@@ -132,7 +132,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   override def filterExistingParties(
       parties: Set[Ref.Party]
   )(connection: Connection): Set[Ref.Party] = if (parties.nonEmpty) {
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val filteredParties = cSQL"party in (${parties.map(_.toString)})"
 

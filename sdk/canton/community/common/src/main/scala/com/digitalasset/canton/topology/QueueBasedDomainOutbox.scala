@@ -117,7 +117,7 @@ class QueueBasedDomainOutbox(
 
   private def hasUnsentTransactions: Boolean = domainOutboxQueue.numUnsentTransactions > 0
 
-  def newTransactionsAddedToAuthorizedStore(
+  def newTransactionsAdded(
       asOf: CantonTimestamp,
       num: Int,
   ): FutureUnlessShutdown[Unit] = {

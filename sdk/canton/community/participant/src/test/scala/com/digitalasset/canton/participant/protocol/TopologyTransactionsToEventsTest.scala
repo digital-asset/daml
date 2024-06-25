@@ -30,7 +30,7 @@ class TopologyTransactionsToEventsTest
       participants: List[ParticipantId],
   ): SignedTopologyTransaction[Replace, PartyToParticipant] = {
 
-    val mapping = PartyToParticipant(
+    val mapping = PartyToParticipant.tryCreate(
       partyId,
       None,
       PositiveInt.one,

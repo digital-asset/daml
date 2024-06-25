@@ -41,15 +41,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     new AtomicReference[Option[Offset]](Option.empty)
 
   protected final val nextOffset: () => Offset = {
-    val base = BigInt(1) << 32
-    val counter = new AtomicLong(0)
+    val counter = new AtomicLong(1)
     () => {
-      Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+      Offset.fromLong(counter.getAndIncrement())
     }
-  }
-
-  protected final implicit class OffsetToLong(offset: Offset) {
-    def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
   private[this] lazy val dar =

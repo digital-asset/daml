@@ -12,13 +12,14 @@ import com.daml.metrics.api.{MetricQualification, MetricsContext, MetricsInfoFil
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics, HistogramDefinition, MetricsFilterConfig}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.telemetry.OpenTelemetryFactory
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.metrics.Meter
@@ -26,6 +27,7 @@ import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
 import io.opentelemetry.instrumentation.runtimemetrics.java8.*
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
+import io.opentelemetry.sdk.metrics.internal.state.MetricStorage
 
 import java.io.File
 import java.util.concurrent.ScheduledExecutorService
@@ -43,6 +45,7 @@ final case class MetricsConfig(
     reporters: Seq[MetricsReporterConfig] = Seq.empty,
     jvmMetrics: Option[JvmMetrics] = None,
     histograms: Seq[HistogramDefinition] = Seq.empty,
+    cardinality: PositiveInt = PositiveInt.tryCreate(MetricStorage.DEFAULT_MAX_CARDINALITY),
     qualifiers: Seq[MetricQualification] = Seq[MetricQualification](
       MetricQualification.Errors,
       MetricQualification.Latency,
@@ -267,10 +270,15 @@ object MetricsRegistry extends LazyLogging {
 
       }
       .zip(config.reporters)
-      .foreach { case (reader, config) =>
-        sdkMeterProviderBuilder
-          .registerMetricReader(FilteringMetricsReader.create(config.filters, reader))
+      .foreach { case (reader, readerConfig) =>
+        OpenTelemetryFactory
+          .registerMetricsReaderWithCardinality(
+            sdkMeterProviderBuilder,
+            FilteringMetricsReader.create(readerConfig.filters, reader),
+            config.cardinality.unwrap,
+          )
           .discard
+
       }
     sdkMeterProviderBuilder
   }

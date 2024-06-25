@@ -1566,7 +1566,10 @@ filegroup(
     name = "ledger-api-protos-fg-admin",
     srcs = glob(
         ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/*.proto"],
-        exclude = ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
+        exclude = [
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto",  # TODO: haskell grpc client for participant pruning
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/command_inspection_service.proto",
+        ],
     ),
     visibility = ["//visibility:private"],
 )
@@ -1592,6 +1595,7 @@ genrule(
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
                 --proto com/daml/ledger/api/v2/admin/$$(basename $$src) \
                 --out $(@D)

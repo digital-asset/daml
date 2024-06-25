@@ -70,6 +70,7 @@ import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.sync.*
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
@@ -123,6 +124,7 @@ class TransactionProcessingSteps(
     authenticationValidator: AuthenticationValidator,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
+    tracker: CommandProgressTracker,
     protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
 )(implicit val ec: ExecutionContext)
@@ -384,6 +386,17 @@ class TransactionProcessingSteps(
           .mapK(FutureUnlessShutdown.outcomeK)
       } yield {
         val batchSize = batch.toProtoVersioned.serializedSize
+        val numRecipients = batch.allRecipients.size
+        val numEnvelopes = batch.envelopesCount
+        tracker
+          .findHandle(
+            submitterInfoWithDedupPeriod.commandId,
+            submitterInfoWithDedupPeriod.applicationId,
+            submitterInfoWithDedupPeriod.actAs,
+            submitterInfoWithDedupPeriod.submissionId,
+          )
+          .recordEnvelopeSizes(batchSize, numRecipients, numEnvelopes)
+
         metrics.protocolMessages.confirmationRequestSize.update(batchSize)(MetricsContext.Empty)
 
         new PreparedTransactionBatch(

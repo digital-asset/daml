@@ -91,7 +91,10 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
           PureResource(
-            new FlywayMigrations(dbConfig.jdbcUrl, loggerFactory = loggerFactory).migrate()
+            new FlywayMigrations(dbConfig.jdbcUrl, loggerFactory = loggerFactory)(
+              ec,
+              traceContext,
+            ).migrate()
           )
       }
       dbSupport <- DbSupport.owner(

@@ -17,8 +17,8 @@ import com.google.rpc.status.Status as StatusProto
 import io.grpc.Status
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
-private[platform] object CompletionFromTransaction {
-  private val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
+object CompletionFromTransaction {
+  val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
   private val RejectionTransactionId = ""
 
   def acceptedCompletion(
@@ -89,7 +89,7 @@ private[platform] object CompletionFromTransaction {
       offset = Some(ParticipantOffset.of(ParticipantOffset.Value.Absolute(offset.toApiString))),
     )
 
-  private[store] def toApiCompletion(
+  def toApiCompletion(
       commandId: String,
       transactionId: String,
       applicationId: String,

@@ -3,14 +3,24 @@
 
 package com.digitalasset.canton.ledger.participant.state.metrics
 
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.metrics.Timed
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.participant.state.WriteService.{
+  ConnectedDomainRequest,
+  ConnectedDomainResponse,
+}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
@@ -104,4 +114,58 @@ final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMe
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def getConnectedDomains(
+      request: ConnectedDomainRequest
+  )(implicit traceContext: TraceContext): Future[ConnectedDomainResponse] =
+    Timed.future(
+      metrics.services.read.getConnectedDomains,
+      delegate.getConnectedDomains(request),
+    )
+
+  override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): Future[Vector[Offset]] =
+    Timed.future(
+      metrics.services.read.getConnectedDomains,
+      delegate.incompleteReassignmentOffsets(validAt, stakeholders),
+    )
+
+  override def registerInternalStateService(internalStateService: InternalStateService): Unit =
+    delegate.registerInternalStateService(internalStateService)
+
+  override def internalStateService: Option[InternalStateService] =
+    delegate.internalStateService
+
+  override def unregisterInternalStateService(): Unit =
+    delegate.unregisterInternalStateService()
+
+  override def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata =
+    delegate.getPackageMetadataSnapshot
+
+  override def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[PackageDescription]] =
+    Timed.future(
+      metrics.services.read.listLfPackages,
+      delegate.listLfPackages(),
+    )
+
+  override def getLfArchive(
+      packageId: PackageId
+  )(implicit traceContext: TraceContext): Future[Option[Archive]] =
+    Timed.future(
+      metrics.services.read.getLfArchive,
+      delegate.getLfArchive(packageId),
+    )
+
+  override def validateDar(dar: ByteString, darName: String)(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    Timed.future(
+      metrics.services.read.validateDar,
+      delegate.validateDar(dar, darName),
+    )
 }

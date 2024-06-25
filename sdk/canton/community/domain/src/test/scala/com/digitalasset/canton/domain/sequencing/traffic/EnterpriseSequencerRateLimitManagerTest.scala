@@ -133,11 +133,12 @@ class EnterpriseSequencerRateLimitManagerTest
       expectedExtraTrafficPurchased: NonNegativeLong = trafficPurchased,
       expectedTrafficConsumed: NonNegativeLong = expectedExtraTrafficConsumed,
       expectedBaseTrafficRemainder: NonNegativeLong = NonNegativeLong.zero,
+      expectedLastConsumedCost: NonNegativeLong = eventCostNonNegative,
       expectedSerial: Option[PositiveInt] = serial,
       timestamp: CantonTimestamp = sequencingTs,
   )(implicit f: Env) = for {
     states <- f.rlm
-      .getStates(Set(sender), Some(sequencingTs), None, warnIfApproximate = false)
+      .getStates(Set(sender), Some(timestamp), None, warnIfApproximate = false)
       .failOnShutdown
   } yield states.get(sender) shouldBe Some(
     Right(
@@ -145,6 +146,7 @@ class EnterpriseSequencerRateLimitManagerTest
         expectedExtraTrafficPurchased,
         expectedTrafficConsumed,
         expectedBaseTrafficRemainder,
+        expectedLastConsumedCost,
         timestamp,
         expectedSerial,
       )
@@ -166,6 +168,7 @@ class EnterpriseSequencerRateLimitManagerTest
         expectedExtraTrafficPurchased,
         expectedTrafficConsumed,
         expectedBaseTrafficRemainder,
+        NonNegativeLong.zero,
         sequencingTs,
         expectedSerial,
       )
@@ -295,6 +298,7 @@ class EnterpriseSequencerRateLimitManagerTest
               NonNegativeLong.zero,
               NonNegativeLong.zero,
               maxBaseTrafficRemainder,
+              NonNegativeLong.zero,
               sequencerTs,
               None,
             ),
@@ -478,6 +482,46 @@ class EnterpriseSequencerRateLimitManagerTest
       }
     }
 
+    "consumed cost resets to 0 when advancing the timestamp with no traffic being used" in {
+      implicit f =>
+        returnCorrectCost
+
+        val expected = Right(
+          Some(
+            TrafficReceipt(
+              consumedCost = NonNegativeLong.one,
+              extraTrafficConsumed = NonNegativeLong.zero,
+              baseTrafficRemainder = maxBaseTrafficRemainder.tryAdd(-1L),
+            )
+          )
+        )
+
+        for {
+          _ <- purchaseTraffic
+          res <- consume( // only uses the base traffic
+            cost = Some(NonNegativeLong.one),
+            correctCost = NonNegativeLong.one,
+            sequencingTimestamp = sequencingTs.plusMillis(1),
+          )
+          _ <- assertTrafficConsumed(
+            timestamp = sequencingTs.plusMillis(1),
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder =
+              maxBaseTrafficRemainder.tryAdd(-1L), // only uses the base traffic
+            expectedLastConsumedCost = NonNegativeLong.one,
+          )
+          _ <- assertTrafficConsumed(
+            timestamp = sequencingTs.plusSeconds(1), // after a full second
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder =
+              maxBaseTrafficRemainder, // base traffic is back to maximum
+            expectedLastConsumedCost = NonNegativeLong.zero, // last consumed cost is reset to 0
+          )
+        } yield {
+          res shouldBe expected
+        }
+    }
+
     "advance traffic consumed timestamp even when not consuming because not enough traffic" in {
       implicit f =>
         returnCorrectCost
@@ -490,6 +534,7 @@ class EnterpriseSequencerRateLimitManagerTest
               NonNegativeLong.zero,
               NonNegativeLong.zero,
               maxBaseTrafficRemainder,
+              NonNegativeLong.zero,
               sequencingTs,
               None,
             ),
@@ -512,6 +557,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(4),
+          expectedLastConsumedCost = NonNegativeLong.one,
         )
         // then at sequencingTs.plusMillis(1)
         res2 <- consume(
@@ -522,6 +568,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+          expectedLastConsumedCost = NonNegativeLong.one,
           timestamp = sequencingTs.plusMillis(1),
         )
         // then repeat consume at sequencingTs, which simulates a crash recovery that replays the event
@@ -530,6 +577,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+          expectedLastConsumedCost = NonNegativeLong.one,
           timestamp = sequencingTs.plusMillis(1),
         )
       } yield {
@@ -562,7 +610,10 @@ class EnterpriseSequencerRateLimitManagerTest
         for {
           _ <- purchaseTraffic
           res <- consume(cost = Some(incorrectSubmissionCostNN))
-          _ <- assertTrafficConsumed(expectedTrafficConsumed = NonNegativeLong.one)
+          _ <- assertTrafficConsumed(
+            expectedTrafficConsumed = NonNegativeLong.one,
+            expectedLastConsumedCost = incorrectSubmissionCostNN,
+          )
         } yield {
           res shouldBe Right(
             Some(

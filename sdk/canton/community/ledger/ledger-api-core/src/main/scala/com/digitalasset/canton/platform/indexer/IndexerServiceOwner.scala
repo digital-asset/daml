@@ -48,7 +48,7 @@ final class IndexerServiceOwner(
       new FlywayMigrations(
         participantDataSourceConfig.jdbcUrl,
         loggerFactory,
-      )
+      )(executionContext, traceContext)
     val indexerFactory = new JdbcIndexer.Factory(
       participantId,
       participantDataSourceConfig,
@@ -104,7 +104,7 @@ object IndexerServiceOwner {
   def migrateOnly(
       jdbcUrl: String,
       loggerFactory: NamedLoggerFactory,
-  )(implicit rc: ResourceContext, traceContext: TraceContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
     val flywayMigrations =
       new FlywayMigrations(jdbcUrl, loggerFactory)
     flywayMigrations.migrate()

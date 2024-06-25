@@ -43,7 +43,7 @@ class CompletionStorageBackendTemplate(
   )(connection: Connection): Vector[CompletionStreamResponse] = {
     import ComposableQuery.*
     import com.digitalasset.canton.platform.store.backend.Conversions.applicationIdToStatement
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     val internedParties =
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
     if (internedParties.isEmpty) {

@@ -12,7 +12,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   MediatorGroupRecipient,
   OpenEnvelope,
-  ParticipantsOfParty,
   Recipients,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -57,32 +56,13 @@ final case class TransactionConfirmationRequest(
         val rootHashMessageEnvelopes =
           NonEmpty.from(recipientsOfRootHashMessage) match {
             case Some(recipientsNE) =>
-              // TODO(#13883) Use BCC also for group addresses
-              // val groupsWithMediator =
-              //   recipientsOfRootHashMessage.map(recipient => NonEmpty(Set, recipient, mediatorRecipient))
-              // val rootHashMessageEnvelope = OpenEnvelope(
-              //   rootHashMessage,
-              //   Recipients.recipientGroups(NonEmptyUtil.fromUnsafe(groupsWithMediator)),
-              // )(protocolVersion)
-              val groupAddressing = recipientsOfRootHashMessage.exists {
-                case ParticipantsOfParty(_) => true
-                case _ => false
-              }
-              // if using group addressing, we just place all recipients in one group instead of separately as before (it was separate for legacy reasons)
-              val rootHashMessageRecipients =
-                if (groupAddressing)
-                  Recipients.recipientGroups(
-                    NonEmpty.mk(Seq, recipientsNE.toSet ++ Seq(mediator))
-                  )
-                else
-                  Recipients.recipientGroups(
-                    recipientsNE.map(NonEmpty.mk(Set, _, mediator))
-                  )
-              List(
-                OpenEnvelope(rootHashMessage(ipsSnapshot.timestamp), rootHashMessageRecipients)(
-                  protocolVersion
-                )
-              )
+              val groupsWithMediator = recipientsNE.map(NonEmpty(Set, _, mediator))
+              val rootHashMessageEnvelope = OpenEnvelope(
+                rootHashMessage(ipsSnapshot.timestamp),
+                Recipients.recipientGroups(groupsWithMediator),
+              )(protocolVersion)
+
+              List(rootHashMessageEnvelope)
             case None =>
               loggingContext.warn("Confirmation request without root hash message recipients")
               List.empty

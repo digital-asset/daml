@@ -70,7 +70,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
     }
 
-    def mkAuth(
+    def mkAdd(
         nsd: NamespaceDelegation,
         key: SigningPublicKey,
     ): AuthorizedTopologyTransaction[NamespaceDelegation] = {
@@ -78,20 +78,30 @@ class DecentralizedNamespaceAuthorizationGraphTest
       AuthorizedTopologyTransaction(tx)
     }
 
+    def mkRemove(
+        nsd: NamespaceDelegation,
+        key: SigningPublicKey,
+    ): AuthorizedTopologyTransaction[NamespaceDelegation] = {
+      val tx = factory.mkRemove(nsd, NonEmpty(Set, key), PositiveInt.two)
+      AuthorizedTopologyTransaction(tx)
+    }
+
     def mkNs(namespace: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
       NamespaceDelegation.tryCreate(namespace, key, isRootDelegation)
 
-    val ns1k1k1 = mkAuth(mkNs(ns1, key1, isRootDelegation = true), key1)
-    val ns1k4k1 = mkAuth(mkNs(ns1, key4, isRootDelegation = true), key1)
+    val ns1k1k1 = mkAdd(mkNs(ns1, key1, isRootDelegation = true), key1)
 
-    val ns2k2k2 = mkAuth(mkNs(ns2, key2, isRootDelegation = true), key2)
-    val ns2k5k2 = mkAuth(mkNs(ns2, key5, isRootDelegation = true), key2)
-    val ns2k2k5 = mkAuth(mkNs(ns2, key5, isRootDelegation = true), key2)
-    val ns2k8k5 = mkAuth(mkNs(ns2, key8, isRootDelegation = true), key5)
-    val ns2k8k2_nonRoot = mkAuth(mkNs(ns2, key8, isRootDelegation = false), key2)
+    val ns2k2k2 = mkAdd(mkNs(ns2, key2, isRootDelegation = true), key2)
+    val ns2k2k2_remove = mkRemove(mkNs(ns2, key2, isRootDelegation = true), key2)
+    val ns2k5k2 = mkAdd(mkNs(ns2, key5, isRootDelegation = true), key2)
+    val ns2k5k2_remove = mkRemove(mkNs(ns2, key5, isRootDelegation = true), key2)
+    val ns2k2k5 = mkAdd(mkNs(ns2, key2, isRootDelegation = true), key5)
+    val ns2k8k5 = mkAdd(mkNs(ns2, key8, isRootDelegation = true), key5)
+    val ns2k8k5_remove = mkRemove(mkNs(ns2, key8, isRootDelegation = true), key5)
+    val ns2k8k2_nonRoot = mkAdd(mkNs(ns2, key8, isRootDelegation = false), key2)
+    val ns2k8k2_nonRoot_remove = mkRemove(mkNs(ns2, key8, isRootDelegation = false), key2)
 
-    val ns3k3k3 = mkAuth(mkNs(ns3, key3, isRootDelegation = true), key3)
-    val ns3k6k3 = mkAuth(mkNs(ns3, key6, isRootDelegation = true), key3)
+    val ns3k3k3 = mkAdd(mkNs(ns3, key3, isRootDelegation = true), key3)
 
     def replaceSignature[T <: TopologyMapping](
         authTx: AuthorizedTopologyTransaction[T],
@@ -114,7 +124,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
       requireRoot: Boolean,
       valid: Boolean,
   )(keys: SigningPublicKey*) = {
-    graph.areValidAuthorizationKeys(
+    graph.existsAuthorizedKeyIn(
       keys.map(_.fingerprint).toSet,
       requireRoot = requireRoot,
     ) shouldBe valid
@@ -164,7 +174,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         graph.addAuth(ns2k2k2)
         graph.addAuth(ns3k3k3)
 
-        graph.removeAuth(ns2k2k2)
+        graph.removeAuth(ns2k2k2_remove)
         check(graph, requireRoot = false, valid = false)(key1, key2)
         check(graph, requireRoot = false, valid = true)(key1, key3)
       }
@@ -180,7 +190,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         check(graph, requireRoot = false, valid = true)(key1, key5)
         check(graph, requireRoot = false, valid = true)(key1, key8)
         loggerFactory.assertLogs(
-          graph.removeAuth(ns2k5k2),
+          graph.removeAuth(ns2k5k2_remove),
           _.warningMessage should include("dangling"),
         )
         check(graph, requireRoot = false, valid = false)(key1, key5)
@@ -200,7 +210,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         check(graph, requireRoot = false, valid = true)(key1, key8)
         graph.addAuth(ns2k8k2_nonRoot)
         check(graph, requireRoot = false, valid = true)(key1, key8)
-        graph.removeAuth(ns2k8k2_nonRoot)
+        graph.removeAuth(ns2k8k2_nonRoot_remove)
         check(graph, requireRoot = false, valid = true)(key1, key8)
       }
 
@@ -222,7 +232,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
         graph.addAuth(ns2k5k2)
         graph.addAuth(ns2k8k5)
-        graph.removeAuth(ns2k2k2)
+        graph.removeAuth(ns2k2k2_remove)
         check(graph, requireRoot = false, valid = false)(key1, key2)
         check(graph, requireRoot = false, valid = false)(key1, key5)
         check(graph, requireRoot = false, valid = false)(key1, key8)
@@ -247,7 +257,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         // test that random key is not authorized
         check(graph, requireRoot = false, valid = false)(key1, key3)
         // remove first certificate
-        graph.removeAuth(ns2k5k2)
+        graph.removeAuth(ns2k5k2_remove)
         check(graph, requireRoot = true, valid = false)(key1, key5)
         // add other certificate (we don't remember removes, so we can do that in this test)
         graph.addAuth(ns2k5k2)
@@ -264,7 +274,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         graph.addAuth(ns2k8k5)
         check(graph, requireRoot = true, valid = true)(key1, key8)
 
-        graph.removeAuth(replaceSignature(ns2k8k5, key2))
+        graph.removeAuth(replaceSignature(ns2k8k5_remove, key2))
         check(graph, requireRoot = true, valid = false)(key1, key8)
       }
     }

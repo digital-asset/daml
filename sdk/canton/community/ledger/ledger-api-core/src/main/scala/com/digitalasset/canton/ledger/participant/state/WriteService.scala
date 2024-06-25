@@ -3,15 +3,28 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
-import com.digitalasset.canton.data.ProcessedDisclosedContract
+import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
+import com.digitalasset.canton.ledger.participant.state.WriteService.{
+  ConnectedDomainRequest,
+  ConnectedDomainResponse,
+}
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
+import scala.concurrent.Future
 
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -31,14 +44,14 @@ import java.util.concurrent.CompletionStage
   * The following methods are currently available for changing the state of a Daml ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
-  * - uploading a new package using [[WritePackagesService!.uploadDar]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
   */
 trait WriteService
     extends WritePackagesService
     with WritePartyService
     with WriteParticipantPruningService
-    with ReportsHealth {
+    with ReportsHealth
+    with InternalStateServiceProvider {
 
   /** Submit a transaction for acceptance to the ledger.
     *
@@ -147,4 +160,65 @@ trait WriteService
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]
+
+  def getConnectedDomains(request: ConnectedDomainRequest)(implicit
+      traceContext: TraceContext
+  ): Future[ConnectedDomainResponse] =
+    throw new UnsupportedOperationException()
+
+  /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
+    *
+    * @param validAt      The offset of validity in participant offset terms.
+    * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
+    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
+    *         the validAt offset, and only for the reassignments for which this participant is reassigning.
+    */
+  def incompleteReassignmentOffsets(
+      validAt: Offset,
+      stakeholders: Set[LfPartyId],
+  )(implicit traceContext: TraceContext): Future[Vector[Offset]] = {
+    val _ = validAt
+    val _ = stakeholders
+    val _ = traceContext
+    Future.successful(Vector.empty)
+  }
+
+  def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata =
+    throw new UnsupportedOperationException()
+
+  def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[PackageDescription]] =
+    throw new UnsupportedOperationException()
+
+  def getLfArchive(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[Archive]] =
+    throw new UnsupportedOperationException()
+
+  def validateDar(
+      dar: ByteString,
+      darName: String,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    throw new UnsupportedOperationException()
+}
+
+object WriteService {
+  final case class ConnectedDomainRequest(party: LfPartyId)
+
+  final case class ConnectedDomainResponse(
+      connectedDomains: Seq[ConnectedDomainResponse.ConnectedDomain]
+  )
+
+  object ConnectedDomainResponse {
+    final case class ConnectedDomain(
+        domainAlias: DomainAlias,
+        domainId: DomainId,
+        permission: ParticipantPermission,
+    )
+  }
 }

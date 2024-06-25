@@ -26,7 +26,7 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
 }
 import com.digitalasset.canton.platform.store.backend.common.MeteringParameterStorageBackendImpl.assertLedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.common.MeteringStorageBackendImpl.*
-import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.backend.{
   Conversions,
   MeteringStorageReadBackend,

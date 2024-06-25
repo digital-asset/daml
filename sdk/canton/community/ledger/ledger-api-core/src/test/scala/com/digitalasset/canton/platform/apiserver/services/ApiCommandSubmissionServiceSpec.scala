@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.api.validation.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.tracing.TestTelemetrySetup
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import org.mockito.captor.ArgCaptor
@@ -138,6 +139,7 @@ class ApiCommandSubmissionServiceSpec
       currentUtcTime = () => Instant.EPOCH,
       maxDeduplicationDuration = Duration.ZERO,
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
+      tracker = CommandProgressTracker.NoOp,
       metrics = LedgerApiServerMetrics.ForTesting,
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,

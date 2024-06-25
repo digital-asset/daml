@@ -18,6 +18,7 @@ import com.digitalasset.canton.{
   DoNotTraverseLikeFuture,
 }
 
+import java.util.concurrent.CompletionException
 import scala.concurrent.{Awaitable, ExecutionContext, Future}
 import scala.util.chaining.*
 import scala.util.{Failure, Success, Try}
@@ -81,8 +82,14 @@ object FutureUnlessShutdown {
     apply(f.transform({
       case Success(value) => Success(UnlessShutdown.Outcome(value))
       case Failure(AbortedDueToShutdownException(_)) => Success(UnlessShutdown.AbortedDueToShutdown)
+      case Failure(ce: CompletionException) =>
+        ce.getCause match {
+          case AbortedDueToShutdownException(_) => Success(UnlessShutdown.AbortedDueToShutdown)
+          case _ => Failure(ce)
+        }
       case Failure(other) => Failure(other)
     }))
+
 }
 
 /** Monad combination of `Future` and [[UnlessShutdown]]

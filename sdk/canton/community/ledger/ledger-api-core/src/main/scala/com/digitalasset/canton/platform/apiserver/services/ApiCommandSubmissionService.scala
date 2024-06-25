@@ -12,6 +12,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
   SubmitRequest,
   SubmitResponse,
 }
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.metrics.Timed
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.{SpanAttribute, Telemetry, TelemetryContext}
@@ -30,6 +31,10 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.execution.{
+  CommandProgressTracker,
+  CommandResultHandle,
+}
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.OptionUtil
 
@@ -45,6 +50,7 @@ final class ApiCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: Duration,
     submissionIdGenerator: SubmissionIdGenerator,
+    tracker: CommandProgressTracker,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -72,7 +78,34 @@ final class ApiCommandSubmissionService(
         loggingContextWithTrace,
         requestWithSubmissionId.commands.map(_.submissionId),
       )
-    Timed.timedAndTrackedFuture(
+    val resultHandle = requestWithSubmissionId.commands
+      .map {
+        case allCommands @ Commands(
+              workflowId,
+              applicationId,
+              commandId,
+              commands,
+              deduplicationPeriod,
+              minLedgerTimeAbs,
+              minLedgerTimeRel,
+              actAs,
+              readAs,
+              submissionId,
+              disclosedContracts,
+              domainId,
+              packageIdSelectionPreference,
+            ) =>
+          tracker.registerCommand(
+            commandId,
+            Option.when(submissionId.nonEmpty)(submissionId),
+            applicationId,
+            commands,
+            actAs = allCommands.actAs.toSet,
+          )(loggingContextWithTrace.traceContext)
+      }
+      .getOrElse(CommandResultHandle.NoOp)
+
+    val result = Timed.timedAndTrackedFuture(
       metrics.commands.submissions,
       metrics.commands.submissionsRunning,
       Timed
@@ -94,6 +127,7 @@ final class ApiCommandSubmissionService(
           commandSubmissionService.submit(_).map(_ => SubmitResponse()),
         ),
     )
+    resultHandle.extractFailure(result)
   }
 
   override def submitReassignment(

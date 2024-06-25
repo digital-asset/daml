@@ -25,31 +25,35 @@ final case class TrafficState(
     extraTrafficPurchased: NonNegativeLong,
     extraTrafficConsumed: NonNegativeLong,
     baseTrafficRemainder: NonNegativeLong,
+    lastConsumedCost: NonNegativeLong,
     timestamp: CantonTimestamp,
     serial: Option[PositiveInt],
 ) extends PrettyPrinting {
   def extraTrafficRemainder: Long = extraTrafficPurchased.value - extraTrafficConsumed.value
-  def availableTraffic: Long = extraTrafficRemainder + baseTrafficRemainder.value
+  // Need big decimal here because it could overflow a long especially if extraTrafficPurchased == Long.MAX
+  lazy val availableTraffic: BigDecimal =
+    BigDecimal(extraTrafficRemainder) + BigDecimal(baseTrafficRemainder.value)
 
   def toProtoV30: v30.TrafficState = v30.TrafficState(
     extraTrafficPurchased = extraTrafficPurchased.value,
     extraTrafficConsumed = extraTrafficConsumed.value,
     baseTrafficRemainder = baseTrafficRemainder.value,
+    lastConsumedCost = lastConsumedCost.value,
     timestamp = timestamp.toProtoPrimitive,
     serial = serial.map(_.value),
   )
 
-  def toTrafficConsumed(member: Member): TrafficConsumed = TrafficConsumed(
-    member = member,
-    sequencingTimestamp = timestamp,
-    extraTrafficConsumed = extraTrafficConsumed,
-    baseTrafficRemainder = baseTrafficRemainder,
-  )
+  def toTrafficConsumed(member: Member): TrafficConsumed =
+    TrafficConsumed(
+      member = member,
+      sequencingTimestamp = timestamp,
+      extraTrafficConsumed = extraTrafficConsumed,
+      baseTrafficRemainder = baseTrafficRemainder,
+      lastConsumedCost = lastConsumedCost,
+    )
 
-  def toTrafficReceipt(
-      consumedCost: NonNegativeLong
-  ): TrafficReceipt = TrafficReceipt(
-    consumedCost = consumedCost,
+  def toTrafficReceipt: TrafficReceipt = TrafficReceipt(
+    consumedCost = lastConsumedCost,
     extraTrafficConsumed = extraTrafficConsumed,
     baseTrafficRemainder = baseTrafficRemainder,
   )
@@ -67,6 +71,7 @@ final case class TrafficState(
     param("extraTrafficLimit", _.extraTrafficPurchased),
     param("extraTrafficConsumed", _.extraTrafficConsumed),
     param("baseTrafficRemainder", _.baseTrafficRemainder),
+    param("lastConsumedCost", _.lastConsumedCost),
     param("timestamp", _.timestamp),
     paramIfDefined("serial", _.serial),
   )
@@ -78,13 +83,15 @@ object TrafficState {
     pp >> Some(v.extraTrafficPurchased.value)
     pp >> Some(v.extraTrafficConsumed.value)
     pp >> Some(v.baseTrafficRemainder.value)
+    pp >> Some(v.lastConsumedCost.value)
     pp >> v.timestamp
     pp >> v.serial.map(_.value)
   }
 
   implicit val getResultTrafficState: GetResult[Option[TrafficState]] = {
     GetResult
-      .createGetTuple5(
+      .createGetTuple6(
+        nonNegativeLongOptionGetResult,
         nonNegativeLongOptionGetResult,
         nonNegativeLongOptionGetResult,
         nonNegativeLongOptionGetResult,
@@ -98,11 +105,13 @@ object TrafficState {
     NonNegativeLong.zero,
     NonNegativeLong.zero,
     NonNegativeLong.zero,
+    NonNegativeLong.zero,
     CantonTimestamp.Epoch,
     Option.empty,
   )
 
   def empty(timestamp: CantonTimestamp): TrafficState = TrafficState(
+    NonNegativeLong.zero,
     NonNegativeLong.zero,
     NonNegativeLong.zero,
     NonNegativeLong.zero,
@@ -116,12 +125,14 @@ object TrafficState {
     extraTrafficLimit <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficPurchased)
     extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficConsumed)
     baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(trafficStateP.baseTrafficRemainder)
+    lastConsumedCost <- ProtoConverter.parseNonNegativeLong(trafficStateP.lastConsumedCost)
     timestamp <- CantonTimestamp.fromProtoPrimitive(trafficStateP.timestamp)
     serial <- trafficStateP.serial.traverse(ProtoConverter.parsePositiveInt)
   } yield TrafficState(
     extraTrafficLimit,
     extraTrafficConsumed,
     baseTrafficRemainder,
+    lastConsumedCost,
     timestamp,
     serial,
   )

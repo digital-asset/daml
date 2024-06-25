@@ -1209,6 +1209,29 @@ class TopologyAdministrationGroup(
   @Help.Group("Party to participant mappings")
   object party_to_participant_mappings extends Helpful {
 
+    private def findCurrent(party: PartyId, store: String) = {
+      TopologyStoreId(store) match {
+        case TopologyStoreId.DomainStore(domainId, _) =>
+          expectAtMostOneResult(
+            list(
+              domainId,
+              filterParty = party.filterString,
+              // fetch both REPLACE and REMOVE to correctly determine the next serial
+              operation = None,
+            )
+          )
+
+        case TopologyStoreId.AuthorizedStore =>
+          expectAtMostOneResult(
+            list_from_authorized(
+              filterParty = party.filterString,
+              // fetch both REPLACE and REMOVE to correctly determine the next serial
+              operation = None,
+            )
+          )
+      }
+    }
+
     @Help.Summary("Change party to participant mapping")
     @Help.Description("""Change the association of a party to hosting participants.
       party: The unique identifier of the party whose set of participants or permission to modify.
@@ -1244,27 +1267,7 @@ class TopologyAdministrationGroup(
         store: String = AuthorizedStore.filterName,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
-      val currentO = TopologyStoreId(store) match {
-        case TopologyStoreId.DomainStore(domainId, _) =>
-          expectAtMostOneResult(
-            list(
-              domainId,
-              filterParty = party.filterString,
-              // fetch both REPLACE and REMOVE to correctly determine the next serial
-              operation = None,
-            )
-          )
-
-        case TopologyStoreId.AuthorizedStore =>
-          expectAtMostOneResult(
-            list_from_authorized(
-              filterParty = party.filterString,
-              // fetch both REPLACE and REMOVE to correctly determine the next serial
-              operation = None,
-            )
-          )
-      }
-
+      val currentO = findCurrent(party, store)
       val (existingPermissions, newSerial, threshold, groupAddressing) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
@@ -1361,7 +1364,7 @@ class TopologyAdministrationGroup(
       }
 
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = PartyToParticipant(
+        mapping = PartyToParticipant.create(
           partyId = party,
           domainId = domainId,
           threshold = threshold,
@@ -1373,6 +1376,7 @@ class TopologyAdministrationGroup(
         change = op,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
+        forceChanges = ForceFlags.none,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -1969,13 +1973,16 @@ class TopologyAdministrationGroup(
         ),
     ): SignedTopologyTransaction[TopologyChangeOp, AuthorityOf] = {
 
-      val command = TopologyAdminCommands.Write.Propose(
-        AuthorityOf(
+      val authorityOf = AuthorityOf
+        .create(
           partyId,
           domainId,
           PositiveInt.tryCreate(threshold),
           parties,
-        ),
+        )
+        .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
+      val command = TopologyAdminCommands.Write.Propose(
+        authorityOf,
         signedBy = signedBy.toList,
         serial = serial,
         store = store,
