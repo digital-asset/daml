@@ -207,6 +207,7 @@ da_haskell_library(
         "regex-tdfa",
         "safe",
         "safe-exceptions",
+        "semver",
         "shake",
         "some",
         "split",
