@@ -15,6 +15,7 @@ import org.junit.runners.Suite;
   DecoderTest.class,
   GenMapTest.class,
   ListTest.class,
+  PackageNameAndVersionTest.class,
   NumericTest.class,
   OptionalTest.class,
   ParametrizedContractIdTest.class,
