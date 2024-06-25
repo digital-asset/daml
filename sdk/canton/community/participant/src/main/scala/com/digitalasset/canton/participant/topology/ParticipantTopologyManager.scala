@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown.outcomeF
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManager.PostInitCallbacks
@@ -192,7 +193,9 @@ class ParticipantTopologyManager(
       participantId: ParticipantId,
       transaction: SignedTopologyTransaction[TopologyChangeOp],
       force: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     for {
       _ <- (transaction.transaction match {
         case TopologyStateUpdate(
@@ -203,40 +206,44 @@ class ParticipantTopologyManager(
             dependencies <- packageDependencyResolver
               .packageDependencies(packageIds.toList)
               .leftMap(ParticipantTopologyManagerError.CannotVetDueToMissingPackages.Missing(_))
-            unvetted <- EitherT.right(unvettedPackages(pid, dependencies))
+            unvetted <- EitherT.right(outcomeF(unvettedPackages(pid, dependencies)))
             _ <- EitherT
-              .cond[Future](
+              .cond[FutureUnlessShutdown](
                 unvetted.isEmpty,
                 (),
                 ParticipantTopologyManagerError.DependenciesNotVetted
                   .Reject(unvetted),
-              ): EitherT[Future, ParticipantTopologyManagerError, Unit]
+              ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
           } yield ()
         case TopologyStateUpdate(op, TopologyStateUpdateElement(_, vp @ VettedPackages(_, _))) =>
           if (force) {
             logger.info(show"Using force to authorize $op of $vp")
-            EitherT.rightT[Future, ParticipantTopologyManagerError](())
+            EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
           } else {
             EitherT.leftT(
               ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject()
             )
           }
         case _ =>
-          EitherT.rightT[Future, ParticipantTopologyManagerError](())
-      }): EitherT[Future, ParticipantTopologyManagerError, Unit]
+          EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
+      }): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
     } yield ()
 
   private def runWithParticipantId(
-      run: ParticipantId => EitherT[Future, ParticipantTopologyManagerError, Unit]
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
+      run: ParticipantId => EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     runIfInitialized(participantIdO, "Participant id is not set yet", run)
 
   private def runWithCallbacksAndParticipantId(
       run: (
           ParticipantId,
           PostInitCallbacks,
-      ) => EitherT[Future, ParticipantTopologyManagerError, Unit]
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
+      ) => EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     runWithParticipantId(participantId =>
       runIfInitialized(
         postInitCallbacks,
@@ -248,12 +255,14 @@ class ParticipantTopologyManager(
   private def runIfInitialized[A](
       itemO: AtomicReference[Option[A]],
       msg: String,
-      run: A => EitherT[Future, ParticipantTopologyManagerError, Unit],
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
+      run: A => EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     itemO
       .get()
       .fold(
-        EitherT.leftT[Future, Unit](
+        EitherT.leftT[FutureUnlessShutdown, Unit](
           ParticipantTopologyManagerError.UninitializedParticipant
             .Reject(msg): ParticipantTopologyManagerError
         )
@@ -262,14 +271,20 @@ class ParticipantTopologyManager(
   override protected def checkNewTransaction(
       transaction: SignedTopologyTransaction[TopologyChangeOp],
       force: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     transaction.transaction.element.mapping match {
       case x: PartyToParticipant if transaction.operation == TopologyChangeOp.Remove =>
         runWithCallbacksAndParticipantId((_, callbacks) =>
-          checkPartyHasActiveContracts(callbacks, x, force)
+          checkPartyHasActiveContracts(callbacks, x, force).mapK(FutureUnlessShutdown.outcomeK)
         )
       case x: OwnerToKeyMapping if transaction.operation == TopologyChangeOp.Add =>
-        runWithParticipantId(checkOwnerToKeyMappingRefersToExistingKeys(_, x, force))
+        runWithParticipantId(
+          checkOwnerToKeyMappingRefersToExistingKeys(_, x, force).mapK(
+            FutureUnlessShutdown.outcomeK
+          )
+        )
       case _: VettedPackages =>
         runWithParticipantId(checkPackageVettingRefersToExistingPackages(_, transaction, force))
       case _ => EitherT.rightT(())
@@ -351,6 +366,9 @@ class ParticipantTopologyManager(
           }
       }
 
+  /** @return A FutureUnlessShutdown that will return true if all the packages are
+    *         available following the timeout.network.duration.
+    */
   def waitForPackagesBeingVetted(
       packageSet: Set[LfPackageId],
       pid: ParticipantId,
@@ -365,8 +383,8 @@ class ParticipantTopologyManager(
             .clients()
             .parTraverse {
               _.await(
-                _.findUnvettedPackagesOrDependencies(pid, packageSet).value
-                  .map(_.exists(_.isEmpty)),
+                _.findUnvettedPackagesOrDependencies(pid, packageSet).value.unwrap
+                  .map(_.map(_.exists(_.isEmpty)).onShutdown(false)),
                 timeouts.network.duration,
               )
             }

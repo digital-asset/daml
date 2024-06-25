@@ -328,7 +328,7 @@ abstract class TopologyManager[E <: CantonError](
       force: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, E, Unit]
+  ): EitherT[FutureUnlessShutdown, E, Unit]
 
   protected def build[Op <: TopologyChangeOp](
       transaction: TopologyTransaction[Op],
@@ -516,9 +516,7 @@ abstract class TopologyManager[E <: CantonError](
         .leftMap(wrapError)
         .mapK(FutureUnlessShutdown.outcomeK)
       _ <- transactionIsNotDangerous(transaction, force).leftMap(wrapError)
-      _ <- checkNewTransaction(transaction, force).mapK(
-        FutureUnlessShutdown.outcomeK
-      ) // domain / participant specific checks
+      _ <- checkNewTransaction(transaction, force) // domain / participant specific checks
       deactivateExisting <- removeExistingTransactions(transaction, replaceExisting).mapK(
         FutureUnlessShutdown.outcomeK
       )

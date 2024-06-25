@@ -27,6 +27,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
   StoredTopologyTransactions,
   TimeQuery,
   TopologyStore,
@@ -305,7 +306,7 @@ class StoreBasedDomainTopologyClient(
     val protocolVersion: ProtocolVersion,
     store: TopologyStore[TopologyStoreId],
     initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    packageDependencies: PackageDependencyResolverUS,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -336,8 +337,13 @@ class StoreBasedDomainTopologyClient(
 
 object StoreBasedDomainTopologyClient {
 
-  def NoPackageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]] = { _ =>
-    EitherT(Future.successful(Either.right(Set.empty[PackageId])))
+  object NoPackageDependencies extends PackageDependencyResolverUS {
+
+    override def packageDependencies(packages: List[PackageId])(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = EitherT(
+      FutureUnlessShutdown.pure(Either.right(Set.empty[PackageId]))
+    )
   }
 }
 
@@ -354,7 +360,7 @@ class StoreBasedTopologySnapshot(
     store: TopologyStore[TopologyStoreId],
     initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
     useStateTxs: Boolean,
-    packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+    packageDependencies: PackageDependencyResolverUS,
     val loggerFactory: NamedLoggerFactory,
     protocolVersionValidation: ProtocolVersionValidation,
 )(implicit val executionContext: ExecutionContext)
@@ -706,9 +712,8 @@ class StoreBasedTopologySnapshot(
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]] = {
-
-    val vettedET = EitherT.right[PackageId](
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    val vettedF = FutureUnlessShutdown.outcomeF(
       findTransactions(
         asOfInclusive = false,
         includeSecondary = false,
@@ -723,21 +728,19 @@ class StoreBasedTopologySnapshot(
       }
     )
 
-    val dependenciesET = packageDependencies(packageId)
+    lazy val dependenciesET = packageDependencies.packageDependencies(packageId).value
 
-    for {
-      vetted <- vettedET
+    EitherT(for {
+      vetted <- vettedF
       // check that the main package is vetted
       res <-
         if (!vetted.contains(packageId))
-          EitherT.rightT[Future, PackageId](Set(packageId)) // main package is not vetted
+          FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
         else {
           // check which of the dependencies aren't vetted
-          for {
-            dependencies <- dependenciesET
-          } yield dependencies -- vetted
+          dependenciesET.map(_.map(_ -- vetted))
         }
-    } yield res
+    } yield res)
 
   }
 

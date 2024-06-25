@@ -25,7 +25,7 @@ class PackageOpsForTesting(
 
   override def isPackageVetted(packageId: PackageId)(implicit
       tc: TraceContext
-  ): EitherT[Future, CantonError, Boolean] =
+  ): EitherT[FutureUnlessShutdown, CantonError, Boolean] =
     EitherT.rightT(false)
 
   override def checkPackageUnused(packageId: PackageId)(implicit

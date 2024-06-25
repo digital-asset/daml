@@ -241,7 +241,7 @@ trait ProcessingSteps[
         actualDeduplicationOffset: DeduplicationPeriod.DeduplicationOffset,
         maxSequencingTime: CantonTimestamp,
         sessionKeyStore: SessionKeyStore,
-    ): EitherT[Future, SubmissionTrackingData, PreparedBatch]
+    ): EitherT[FutureUnlessShutdown, SubmissionTrackingData, PreparedBatch]
 
     /** Produce a `SubmissionError` to be returned by the [[com.digitalasset.canton.participant.protocol.ProtocolProcessor.submit]] method
       * to indicate that a shutdown has happened during in-flight registration.

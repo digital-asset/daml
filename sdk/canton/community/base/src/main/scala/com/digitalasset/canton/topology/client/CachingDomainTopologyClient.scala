@@ -17,9 +17,13 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -199,7 +203,7 @@ object CachingDomainTopologyClient {
       protocolVersion: ProtocolVersion,
       store: TopologyStore[TopologyStoreId.DomainStore],
       initKeys: Map[KeyOwner, Seq[SigningPublicKey]],
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
@@ -286,13 +290,13 @@ private class ForwardingTopologySnapshotClient(
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.findUnvettedPackagesOrDependencies(participantId, packages)
 
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
 
   /** returns the list of currently known mediators */
@@ -364,11 +368,12 @@ class CachingTopologySnapshot(
     .buildScaffeine()
     .buildAsyncFuture[KeyOwner, KeyCollection](parent.allKeys)
 
-  private val packageVettingCache = cachingConfigs.packageVettingCache
-    .buildScaffeine()
-    .buildAsyncFuture[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](x =>
-      loadUnvettedPackagesOrDependencies(x._1, x._2).value
-    )
+  private val packageVettingCache =
+    TracedScaffeine
+      .buildTracedAsyncFutureUS[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](
+        cache = cachingConfigs.packageVettingCache.buildScaffeine(),
+        _ => x => loadUnvettedPackagesOrDependencies(x._1, x._2).value,
+      )(logger)
 
   private val mediatorsCache = new AtomicReference[Option[Future[Seq[MediatorGroup]]]](None)
 
@@ -452,17 +457,17 @@ class CachingTopologySnapshot(
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,
-      (x, y) => EitherT(packageVettingCache.get((x, y))),
+      (x, y) => EitherT(packageVettingCache.getUS((x, y))),
     )
 
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     parent.loadUnvettedPackagesOrDependencies(participant, packageId)
 
   override def inspectKeys(
