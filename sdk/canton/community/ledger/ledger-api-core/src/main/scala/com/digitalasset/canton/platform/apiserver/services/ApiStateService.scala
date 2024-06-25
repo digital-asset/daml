@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, TransactionFilterValidator}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
   IndexTransactionsService,
@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiStateService(
     acsService: ACSBackend,
-    readService: ReadService,
+    writeService: WriteService,
     txService: IndexTransactionsService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
@@ -109,8 +109,8 @@ final class ApiStateService(
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         party =>
-          readService
-            .getConnectedDomains(ReadService.ConnectedDomainRequest(party))
+          writeService
+            .getConnectedDomains(WriteService.ConnectedDomainRequest(party))
             .map(response =>
               GetConnectedDomainsResponse(
                 response.connectedDomains.flatMap { connectedDomain =>

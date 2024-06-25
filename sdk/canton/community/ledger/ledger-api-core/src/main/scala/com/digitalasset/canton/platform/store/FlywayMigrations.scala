@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store
 
-import com.daml.ledger.resources.ResourceContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.FlywayMigrations.*
 import com.digitalasset.canton.platform.store.backend.VerifiedDataSource
@@ -18,10 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class FlywayMigrations(
     jdbcUrl: String,
     val loggerFactory: NamedLoggerFactory,
-)(implicit resourceContext: ResourceContext, traceContext: TraceContext)
+)(implicit ec: ExecutionContext, traceContext: TraceContext)
     extends NamedLogging {
   private val dbType = DbType.jdbcType(jdbcUrl)
-  implicit private val ec: ExecutionContext = resourceContext.executionContext
 
   private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
     VerifiedDataSource(jdbcUrl, loggerFactory).flatMap(dataSource =>

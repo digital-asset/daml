@@ -144,7 +144,7 @@ class ParticipantTopologyDispatcher(
       domains.values.toList
         .flatMap(_.forgetNE)
         .collect { case outbox: StoreBasedDomainOutbox => outbox }
-        .parTraverse(_.newTransactionsAddedToAuthorizedStore(timestamp, num))
+        .parTraverse(_.newTransactionsAdded(timestamp, num))
         .map(_ => ())
     }
   })
@@ -304,7 +304,7 @@ class ParticipantTopologyDispatcher(
                   timestamp: CantonTimestamp,
                   transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
               )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-                queueBasedDomainOutbox.newTransactionsAddedToAuthorizedStore(
+                queueBasedDomainOutbox.newTransactionsAdded(
                   timestamp,
                   transactions.size,
                 )

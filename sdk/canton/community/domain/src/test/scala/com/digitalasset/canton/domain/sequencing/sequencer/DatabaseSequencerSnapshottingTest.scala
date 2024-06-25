@@ -12,6 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSe
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.{MediatorId, TestingIdentityFactory, TestingTopology}
 import org.apache.pekko.stream.Materializer
 
@@ -55,6 +56,8 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
   override protected def supportAggregation: Boolean = false
 
+  override protected def defaultExpectedTrafficReceipt: Option[TrafficReceipt] = None
+
   "Database snapshotting" should {
 
     "allow a new separate database to be created" in { env =>
@@ -95,7 +98,16 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           )
           checkMessages(List(details), messages)
         }
-        snapshot <- valueOrFail(sequencer.snapshot(CantonTimestamp.MaxValue))("get snapshot")
+
+        error <- sequencer
+          .snapshot(CantonTimestamp.MaxValue)
+          .leftOrFail("snapshotting after the watermark is expected to fail")
+        _ <- error should include(" is after the safe watermark")
+
+        // Note: below we use the timestamp that is currently the safe watermark in the sequencer
+        snapshot <- valueOrFail(sequencer.snapshot(CantonTimestamp.Epoch.immediateSuccessor))(
+          "get snapshot"
+        )
 
         // create a second separate sequencer from the snapshot
         secondSequencer = createSequencerWithSnapshot(
@@ -103,8 +115,16 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           Some(snapshot),
         )
 
+        // TODO(#18405): Currently crash recovery of DBS resets the watermark to a wrong value (epoch) leading to
+        //  the second snapshot failing due to newly added watermark check. This is a temp workaround to avoid that.
+        _ <- secondSequencer.store
+          .saveWatermark(instanceIndex = 0, snapshot.lastTs)
+          .valueOrFail("save watermark")
+
         // the snapshot from the second sequencer should look the same except that the lastTs will become the lower bound
-        snapshot2 <- valueOrFail(secondSequencer.snapshot(CantonTimestamp.MaxValue))("get snapshot")
+        snapshot2 <- valueOrFail(
+          secondSequencer.snapshot(CantonTimestamp.Epoch.immediateSuccessor)
+        )("get snapshot")
         _ = {
           snapshot2 shouldBe (snapshot.copy(status =
             snapshot.status.copy(lowerBound = snapshot.lastTs)

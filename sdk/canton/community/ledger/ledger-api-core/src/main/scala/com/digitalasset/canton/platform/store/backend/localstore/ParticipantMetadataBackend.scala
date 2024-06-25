@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.localstore
 
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
-import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 
 import java.sql.Connection
 

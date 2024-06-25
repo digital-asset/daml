@@ -45,7 +45,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.reflectiveCalls
 
 @nowarn("msg=match may not be exhaustive")
-class ConfirmationResponseProcessorTest
+class ConfirmationRequestAndResponseProcessorTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
@@ -134,8 +134,8 @@ class ConfirmationResponseProcessorTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
   private lazy val topology: TestingTopology = TestingTopology(
-    Set(domainId),
-    Map(
+    domains = Set(domainId),
+    topology = Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
       signatory ->
         Map(participant -> ParticipantPermission.Confirmation),
@@ -144,8 +144,8 @@ class ConfirmationResponseProcessorTest
       extra ->
         Map(participant -> ParticipantPermission.Observation),
     ),
-    Set(mediatorGroup, mediatorGroup2),
-    sequencerGroup,
+    mediatorGroups = Set(mediatorGroup, mediatorGroup2),
+    sequencerGroup = sequencerGroup,
   )
 
   private lazy val identityFactory = TestingIdentityFactory(
@@ -158,14 +158,14 @@ class ConfirmationResponseProcessorTest
 
   private lazy val identityFactory2 = {
     val topology2 = TestingTopology(
-      Set(domainId),
-      Map(
+      domains = Set(domainId),
+      topology = Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
         signatory -> Map(participant2 -> ParticipantPermission.Confirmation),
         observer -> Map(participant3 -> ParticipantPermission.Confirmation),
       ),
-      Set(mediatorGroup),
-      sequencerGroup,
+      mediatorGroups = Set(mediatorGroup),
+      sequencerGroup = sequencerGroup,
     )
     TestingIdentityFactory(
       topology2,
@@ -190,12 +190,12 @@ class ConfirmationResponseProcessorTest
   private lazy val identityFactoryOnlySubmitter =
     TestingIdentityFactory(
       TestingTopology(
-        Set(domainId),
-        Map(
+        domains = Set(domainId),
+        topology = Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
-        Set(mediatorGroup0(NonEmpty.mk(Seq, mediatorId))),
-        sequencerGroup,
+        mediatorGroups = Set(mediatorGroup0(NonEmpty.mk(Seq, mediatorId))),
+        sequencerGroup = sequencerGroup,
       ),
       loggerFactory,
       dynamicDomainParameters = initialDomainParameters,
@@ -238,7 +238,7 @@ class ConfirmationResponseProcessorTest
       timeouts,
       loggerFactory,
     )
-    val processor = new ConfirmationResponseProcessor(
+    val processor = new ConfirmationRequestAndResponseProcessor(
       domainId,
       mediatorId,
       verdictSender,
@@ -290,7 +290,7 @@ class ConfirmationResponseProcessorTest
     .failOnShutdown
     .futureValue
 
-  "TransactionConfirmationResponseProcessor" should {
+  "ConfirmationRequestAndResponseProcessor" should {
     def shouldBeViewThresholdBelowMinimumAlarm(
         requestId: RequestId,
         viewPosition: ViewPosition,
@@ -518,10 +518,24 @@ class ConfirmationResponseProcessorTest
           ),
           Recipients.cc(MemberRecipient(participant3), mediatorGroupRecipient),
         ),
+        "group addresses and member recipients" -> Seq(
+          Recipients.recipientGroups(
+            NonEmpty.mk(
+              Seq,
+              NonEmpty.mk(
+                Set,
+                ParticipantsOfParty(PartyId.tryFromLfParty(submitter)),
+                mediatorGroupRecipient,
+              ),
+              NonEmpty.mk(Set, MemberRecipient(participant2), mediatorGroupRecipient),
+              NonEmpty.mk(Set, MemberRecipient(participant3), mediatorGroupRecipient),
+            )
+          )
+        ),
       )
 
-      sequentialTraverse_(tests.zipWithIndex) { case ((_testName, recipients), i) =>
-        withClueF("testname") {
+      sequentialTraverse_(tests.zipWithIndex) { case ((testName, recipients), i) =>
+        withClueF(testName) {
           val rootHashMessages =
             recipients.map(r => OpenEnvelope(rootHashMessage, r)(testedProtocolVersion))
           val ts = CantonTimestamp.ofEpochSecond(i.toLong)
@@ -645,7 +659,7 @@ class ConfirmationResponseProcessorTest
         correctRootHashMessage -> Recipients
           .cc(mediatorGroupRecipient, MemberRecipient(participant)),
         correctRootHashMessage.copy(
-          payload = SerializedRootHashMessagePayload(ByteString.copyFromUtf8("other paylroosoad"))
+          payload = SerializedRootHashMessagePayload(ByteString.copyFromUtf8("other payload"))
         ) -> Recipients
           .cc(mediatorGroupRecipient, MemberRecipient(otherParticipant)),
       )
@@ -681,7 +695,7 @@ class ConfirmationResponseProcessorTest
         (batchWithSuperfluousRootHashMessage -> show"Superfluous root hash message for members: $otherParticipant") ->
           List(Set[Member](participant, otherParticipant) -> correctViewType),
 
-        (batchWithDifferentPayloads -> show"Different payloads in root hash messages. Sizes: 0, 17.") ->
+        (batchWithDifferentPayloads -> show"Different payloads in root hash messages. Sizes: 0, 13.") ->
           List(Set[Member](participant, otherParticipant) -> correctViewType),
       )
       // format: on

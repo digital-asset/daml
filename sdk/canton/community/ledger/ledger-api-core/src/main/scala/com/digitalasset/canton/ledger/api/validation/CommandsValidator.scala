@@ -271,10 +271,6 @@ object CommandsValidator {
     commands.fold(noSubmitters)(effectiveSubmitters)
   }
 
-  def effectiveSubmittersV2(commands: Option[Commands]): Submitters[String] = {
-    commands.fold(noSubmitters)(effectiveSubmitters)
-  }
-
   def effectiveSubmitters(commands: Commands): Submitters[String] = {
     val actAs = commands.actAs.toSet
     val readAs = commands.readAs.toSet -- actAs

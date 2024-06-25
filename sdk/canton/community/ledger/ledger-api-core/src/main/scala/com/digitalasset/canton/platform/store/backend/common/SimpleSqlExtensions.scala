@@ -8,7 +8,7 @@ import anorm.{Cursor, Row, RowParser, SimpleSql}
 import java.sql.Connection
 import scala.util.{Failure, Success, Try}
 
-private[backend] object SimpleSqlAsVectorOf {
+private[backend] object SimpleSqlExtensions {
 
   implicit final class `SimpleSql ops`(val sql: SimpleSql[Row]) extends AnyVal {
 
@@ -46,6 +46,11 @@ private[backend] object SimpleSqlAsVectorOf {
         )
     }
 
+    def asSingle[A](parser: RowParser[A])(implicit connection: Connection): A =
+      sql.as(parser.single)
+
+    def asSingleOpt[A](parser: RowParser[A])(implicit connection: Connection): Option[A] =
+      sql.as(parser.singleOpt)
   }
 
 }

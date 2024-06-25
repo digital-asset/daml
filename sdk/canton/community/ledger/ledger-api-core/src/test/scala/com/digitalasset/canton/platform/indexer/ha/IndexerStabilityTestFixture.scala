@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.LedgerApiServer
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, IndexServiceConfig}
 import com.digitalasset.canton.platform.indexer.{
   IndexerConfig,
@@ -93,6 +94,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
         (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
+              commandProgressTracker = CommandProgressTracker.NoOp,
               IndexServiceConfig(),
               CommandServiceConfig.DefaultMaxCommandsInFlight,
               metrics,

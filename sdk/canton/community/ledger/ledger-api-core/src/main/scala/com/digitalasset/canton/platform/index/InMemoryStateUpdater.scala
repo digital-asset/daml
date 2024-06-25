@@ -18,6 +18,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
@@ -147,6 +148,8 @@ private[platform] object InMemoryStateUpdater {
     )
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
     trackSubmissions(inMemoryState.submissionTracker, result.updates)
+    // can be done at any point in the pipeline, it is for debugging only
+    trackCommandProgress(inMemoryState.commandProgressTracker, result.updates)
   }
 
   private def trackSubmissions(
@@ -169,10 +172,16 @@ private[platform] object InMemoryStateUpdater {
               )
             ) =>
           completionDetails.completionStreamResponse -> completionDetails.submitters
-        case Traced(rejected: TransactionLogUpdate.TransactionRejected) =>
-          rejected.completionDetails.completionStreamResponse -> rejected.completionDetails.submitters
+        case Traced(TransactionLogUpdate.TransactionRejected(_, completionDetails)) =>
+          completionDetails.completionStreamResponse -> completionDetails.submitters
       }
       .foreach(submissionTracker.onCompletion)
+
+  private def trackCommandProgress(
+      commandProgressTracker: CommandProgressTracker,
+      updates: Vector[Traced[TransactionLogUpdate]],
+  ): Unit =
+    updates.view.foreach(commandProgressTracker.processLedgerUpdate)
 
   private def updateCaches(
       inMemoryState: InMemoryState,
