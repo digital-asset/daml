@@ -240,6 +240,10 @@ genrule(
     # Remove JAR metadata
     rm -r $$DIR/html/app-dev/bindings-java/javadocs/META-INF
 
+    # Temp remove the htmls related to command inspection service until the nesting is fixed
+    rm -r $$DIR/html/app-dev/bindings-java/javadocs/com/daml/ledger/api/v2/admin/CommandInspectionServiceOuterClass.*
+    rm -r $$DIR/html/app-dev/bindings-java/javadocs/com/daml/ledger/api/v2/admin/class-use/CommandInspectionServiceOuterClass.*
+
     # Copy generated documentation for typescript libraries
     mkdir -p $$DIR/html/app-dev/bindings-ts/daml-react
     mkdir -p $$DIR/html/app-dev/bindings-ts/daml-ledger
