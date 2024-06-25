@@ -173,7 +173,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | Static <- [timeMode] ]
                 , [ "dev-version-support" Aeson..= devVersionSupport]
-                , [ "preview-version-support" Aeson..= previewVersionSupport]
+                , [ "beta-version-support" Aeson..= previewVersionSupport]
                 , [ "non-standard-config" Aeson..= (devVersionSupport || previewVersionSupport)]
                 ] )
             , "participants" Aeson..= Aeson.object
@@ -195,7 +195,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                           )
                      , "parameters" Aeson..= Aeson.object 
                           [ "dev-version-support" Aeson..= devVersionSupport 
-                          , "preview-version-support" Aeson..= previewVersionSupport
+                          , "beta-version-support" Aeson..= previewVersionSupport
                           ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]

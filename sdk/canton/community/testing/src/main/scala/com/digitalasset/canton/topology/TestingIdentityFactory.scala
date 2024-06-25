@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.topology
 
-import cats.data.EitherT
 import cats.syntax.functor.*
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.BaseTest.{
   defaultStaticDomainParameters,
   testedReleaseProtocolVersion,
@@ -32,7 +30,11 @@ import com.digitalasset.canton.topology.client.{
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  PackageDependencyResolverUS,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Add
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -42,7 +44,7 @@ import com.digitalasset.canton.{BaseTest, LfPartyId}
 import org.mockito.MockitoSugar.mock
 
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 
 /** Utility functions to setup identity & crypto apis for testing purposes
   *
@@ -198,7 +200,7 @@ class TestingIdentityFactory(
 
   def topologySnapshot(
       domainId: DomainId = DefaultTestIdentities.domainId,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]] =
+      packageDependencies: PackageDependencyResolverUS =
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       timestampForDomainParameters: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshot = {
@@ -607,7 +609,7 @@ object TestingIdentityFactory {
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
       cryptoO: Option[Crypto] = None,
-      packageDependencies: Option[PackageId => EitherT[Future, PackageId, Set[PackageId]]] = None,
+      packageDependencies: Option[PackageDependencyResolverUS] = None,
       useStateTxs: Boolean = true,
       initKeys: Map[KeyOwner, Seq[SigningPublicKey]] = Map(),
   )(implicit

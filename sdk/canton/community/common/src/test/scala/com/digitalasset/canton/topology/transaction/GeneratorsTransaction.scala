@@ -7,7 +7,7 @@ import better.files.File
 import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, X509CertificatePem}
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.testing.utils.TestResourceUtils
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, Namespace, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -60,6 +60,21 @@ final class GeneratorsTransaction(
     trustLevel <-
       if (permission.canConfirm) Gen.oneOf(trustLevels) else Gen.const(TrustLevel.Ordinary)
   } yield ParticipantState(side, domain, participant, permission, trustLevel))
+
+  implicit val namespaceDelegationArb: Arbitrary[NamespaceDelegation] = Arbitrary(
+    for {
+      isRootDelegation <- Arbitrary.arbitrary[Boolean]
+      target <- signingPublicKeyArb.arbitrary
+      namespace <-
+        if (!isRootDelegation) {
+          Arbitrary.arbitrary[Namespace] suchThat (_.fingerprint != target.fingerprint)
+        } else Arbitrary.arbitrary[Namespace]
+    } yield NamespaceDelegation(
+      isRootDelegation = isRootDelegation,
+      namespace = namespace,
+      target = target,
+    )
+  )
 
   implicit val topologyStateUpdateMappingArb: Arbitrary[TopologyStateUpdateMapping] = genArbitrary
   implicit val topologyStateUpdateElementArb: Arbitrary[TopologyStateUpdateElement] = genArbitrary

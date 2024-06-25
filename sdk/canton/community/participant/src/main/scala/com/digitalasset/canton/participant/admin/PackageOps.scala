@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait PackageOps extends NamedLogging {
   def isPackageVetted(packageId: PackageId)(implicit
       tc: TraceContext
-  ): EitherT[Future, CantonError, Boolean]
+  ): EitherT[FutureUnlessShutdown, CantonError, Boolean]
 
   def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
@@ -83,7 +83,7 @@ abstract class PackageOpsCommon(
 
   override def isPackageVetted(
       packageId: PackageId
-  )(implicit tc: TraceContext): EitherT[Future, CantonError, Boolean] = {
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Boolean] = {
     // Use the aliasManager to query all domains, even those that are currently disconnected
     val snapshotsForDomains: List[TopologySnapshot] =
       stateManager.getAll.view.keys
@@ -95,10 +95,7 @@ abstract class PackageOpsCommon(
       .parTraverse { snapshot =>
         snapshot
           .findUnvettedPackagesOrDependencies(participantId, Set(packageId))
-          .map { pkgId =>
-            val isVetted = pkgId.isEmpty
-            isVetted
-          }
+          .map(_.isEmpty)
       }
 
     packageIsVettedOn.bimap(PackageMissingDependencies.Reject(packageId, _), _.contains(true))
