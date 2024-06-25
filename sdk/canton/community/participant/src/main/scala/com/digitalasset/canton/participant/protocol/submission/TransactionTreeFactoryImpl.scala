@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -95,7 +96,7 @@ abstract class TransactionTreeFactoryImpl(
       validatePackageVettings: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionTreeConversionError, GenTransactionTree] = {
+  ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree] = {
     val metadata = transaction.metadata
     val state = stateForSubmission(
       transactionSeed,
@@ -138,22 +139,25 @@ abstract class TransactionTreeFactoryImpl(
     )
 
     for {
-      submitterMetadata <- EitherT.fromEither[Future](
-        SubmitterMetadata
-          .fromSubmitterInfo(cryptoOps)(
-            submitterActAs = submitterInfo.actAs,
-            submitterApplicationId = submitterInfo.applicationId,
-            submitterCommandId = submitterInfo.commandId,
-            submitterSubmissionId = submitterInfo.submissionId,
-            submitterDeduplicationPeriod = submitterInfo.deduplicationPeriod,
-            submitterParticipant = participantId,
-            salt = submitterMetadataSalt,
-            maxSequencingTime,
-            protocolVersion = protocolVersion,
-          )
-          .leftMap(SubmitterMetadataError)
-      )
-      rootViewDecompositions <- EitherT.liftF(rootViewDecompositionsF)
+
+      submitterMetadata <- SubmitterMetadata
+        .fromSubmitterInfo(cryptoOps)(
+          submitterActAs = submitterInfo.actAs,
+          submitterApplicationId = submitterInfo.applicationId,
+          submitterCommandId = submitterInfo.commandId,
+          submitterSubmissionId = submitterInfo.submissionId,
+          submitterDeduplicationPeriod = submitterInfo.deduplicationPeriod,
+          submitterParticipant = participantId,
+          salt = submitterMetadataSalt,
+          maxSequencingTime,
+          protocolVersion = protocolVersion,
+        )
+        .leftMap(SubmitterMetadataError)
+        .toEitherT[FutureUnlessShutdown]
+
+      rootViewDecompositions <- EitherT
+        .liftF(rootViewDecompositionsF)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = if (logger.underlying.isDebugEnabled) {
         val numRootViews = rootViewDecompositions.length
@@ -172,7 +176,7 @@ abstract class TransactionTreeFactoryImpl(
               requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
             )
             .leftMap(_.transformInto[UnknownPackageError])
-        else EitherT.rightT[Future, TransactionTreeConversionError](())
+        else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
 
       rootViews <- createRootViews(rootViewDecompositions, state, contractOfId)
         .map(rootViews =>
@@ -183,6 +187,7 @@ abstract class TransactionTreeFactoryImpl(
             MerkleSeq.fromSeq(cryptoOps, protocolVersion)(rootViews),
           )
         )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield rootViews
   }
 

@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.topology.store
 
+import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
@@ -943,5 +945,17 @@ object TopologyStore {
       timeout,
     )
   }
+
+}
+
+trait PackageDependencyResolverUS {
+
+  def packageDependencies(packages: List[PackageId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+
+  def packageDependencies(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = packageDependencies(List(packageId))
 
 }

@@ -25,6 +25,7 @@ import com.digitalasset.canton.data.{
   TransactionView,
   ViewPosition,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
@@ -93,7 +94,9 @@ class ModelConformanceChecker(
       requestCounter: RequestCounter,
       topologySnapshot: TopologySnapshot,
       commonData: CommonData,
-  )(implicit traceContext: TraceContext): EitherT[Future, ErrorWithSubTransaction, Result] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction, Result] = {
     val CommonData(transactionId, ledgerTime, submissionTime, confirmationPolicy) = commonData
 
     // Previous checks in Phase 3 ensure that all the root views are sent to the same
@@ -104,7 +107,7 @@ class ModelConformanceChecker(
 
     def findValidSubtransactions(
         views: Seq[(TransactionView, ViewPosition, Option[ParticipantId])]
-    ): Future[
+    ): FutureUnlessShutdown[
       (
           Seq[Error],
           Seq[(TransactionView, WithRollbackScope[WellFormedTransaction[WithSuffixes]])],
@@ -127,7 +130,7 @@ class ModelConformanceChecker(
           ).value
 
           errorsViewsTxs <- wfTxE match {
-            case Right(wfTx) => Future.successful((Seq.empty, Seq((view, wfTx))))
+            case Right(wfTx) => FutureUnlessShutdown.pure((Seq.empty, Seq((view, wfTx))))
 
             case Left(error) =>
               val subviewsWithInfo = view.subviews.unblindedElementsWithIndex.map {
@@ -197,7 +200,7 @@ class ModelConformanceChecker(
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Map[LfContractId, StoredContract]] = {
+  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, StoredContract]] = {
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, _ @InputContract(contract, _)) =>
@@ -211,13 +214,14 @@ class ModelConformanceChecker(
           .map(_ => cid -> StoredContract(contract, requestCounter, None))
       }
       .map(_.toMap)
+      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   private def buildPackageNameMap(
       packageIds: Set[PackageId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Map[PackageName, PackageId]] = {
+  ): EitherT[FutureUnlessShutdown, Error, Map[PackageName, PackageId]] = {
 
     EitherT(for {
       resolvedE <- packageIds.toSeq.parTraverse(pId =>
@@ -231,7 +235,8 @@ class ModelConformanceChecker(
       for {
         resolved <- resolvedE.separate match {
           case (Seq(), resolved) => Right(resolved)
-          case (unresolved, _) => Left(PackageNotFound(Map(participantId -> unresolved.toSet)))
+          case (unresolved, _) =>
+            Left(PackageNotFound(Map(participantId -> unresolved.toSet)): Error)
         }
         resolvedNameBindings = resolved
           .collect({
@@ -242,7 +247,7 @@ class ModelConformanceChecker(
           ConflictingNameBindings(Map(participantId -> conflicts))
         }
       } yield nameBindings
-    })
+    }).mapK(FutureUnlessShutdown.outcomeK)
   }
 
   private def checkView(
@@ -259,7 +264,9 @@ class ModelConformanceChecker(
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, WithRollbackScope[WellFormedTransaction[WithSuffixes]]] = {
+  ): EitherT[FutureUnlessShutdown, Error, WithRollbackScope[
+    WellFormedTransaction[WithSuffixes]
+  ]] = {
     val viewParticipantData = view.viewParticipantData.tryUnwrap
     val RootAction(cmd, authorizers, failed, packageIdPreference) =
       viewParticipantData.rootAction()
@@ -295,6 +302,7 @@ class ModelConformanceChecker(
         )(traceContext)
         .leftMap(DAMLeError(_, view.viewHash))
         .leftWiden[Error]
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       (lfTx, metadata, resolverFromReinterpretation, usedPackages) = lfTxAndMetadata
 
@@ -306,11 +314,12 @@ class ModelConformanceChecker(
       // again by re-running the `ContractStateMachine` and checks consistency
       // with the reconstructed view's global key inputs,
       // which by the view equality check is the same as the `resolverFromView`.
-      wfTx <- EitherT
-        .fromEither[Future](
-          WellFormedTransaction.normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
-        )
-        .leftMap[Error](err => TransactionNotWellformed(err, view.viewHash))
+      wfTxE =
+        WellFormedTransaction
+          .normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
+          .leftMap[Error](err => TransactionNotWellformed(err, view.viewHash))
+
+      wfTx <- EitherT(FutureUnlessShutdown.pure(wfTxE))
       salts = transactionTreeFactory.saltsFromView(view)
       reconstructedViewAndTx <- checked(
         transactionTreeFactory.tryReconstruct(
@@ -328,8 +337,10 @@ class ModelConformanceChecker(
           keyResolver = resolverFromReinterpretation,
         )
       ).leftMap(err => TransactionTreeError(err, view.viewHash))
+        .mapK(FutureUnlessShutdown.outcomeK)
       (reconstructedView, suffixedTx) = reconstructedViewAndTx
-      _ <- EitherT.cond[Future](
+
+      _ <- EitherT.cond[FutureUnlessShutdown](
         view == reconstructedView,
         (),
         ViewReconstructionError(view, reconstructedView): Error,
@@ -342,13 +353,15 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       packageIds: Set[PackageId],
-  ): EitherT[Future, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
     val informees: Set[LfPartyId] =
       view.viewCommonData.tryUnwrap.viewConfirmationParameters.informeesIds
 
     EitherT(for {
-      informeeParticipantsByParty <- snapshot.activeParticipantsOfParties(informees.toSeq)
+      informeeParticipantsByParty <- FutureUnlessShutdown.outcomeF(
+        snapshot.activeParticipantsOfParties(informees.toSeq)
+      )
       informeeParticipants = informeeParticipantsByParty.values.flatten.toSet
       unvettedResult <- informeeParticipants.toSeq
         .parTraverse(p => snapshot.findUnvettedPackagesOrDependencies(p, packageIds).map(p -> _))
@@ -373,7 +386,7 @@ class ModelConformanceChecker(
       snapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
     val packageIds = getReferencedPackageIds(view, implicitly[NamedLoggingContext])
     checkPackageVetting(view, snapshot, packageIds)
   }
@@ -382,7 +395,7 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       usedPackageIds: Set[PackageId],
-  ): EitherT[Future, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
     if (checkUsedPackages)
       checkPackageVetting(view, snapshot, usedPackageIds)
     else

@@ -33,7 +33,6 @@ private[transfer] object TransferKnownAndVetted {
         targetTopology,
         stakeholders.view.map(_ -> Set(packageId)).toMap,
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
       .leftMap(unknownPackage =>
         TransferOutProcessorError.PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
       )

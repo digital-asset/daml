@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
@@ -77,14 +78,16 @@ class ConfirmationRequestFactory(
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ConfirmationRequestCreationError, ConfirmationRequest] = {
+  ): EitherT[FutureUnlessShutdown, ConfirmationRequestCreationError, ConfirmationRequest] = {
     val transactionUuid = seedGenerator.generateUuid()
     val ledgerTime = wfTransaction.metadata.ledgerTime
 
     val keySeed = optKeySeed.getOrElse(createDefaultSeed(cryptoSnapshot.pureCrypto))
 
     for {
-      _ <- assertSubmittersNodeAuthorization(submitterInfo.actAs, cryptoSnapshot.ipsSnapshot)
+      _ <- assertSubmittersNodeAuthorization(submitterInfo.actAs, cryptoSnapshot.ipsSnapshot).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
 
       // Starting with Daml 1.6.0, the daml engine performs authorization validation.
 
@@ -109,7 +112,7 @@ class ConfirmationRequestFactory(
 
       rootViews = transactionTree.rootViews.unblindedElements.toList
       inputContracts = ExtractUsedContractsFromRootViews(rootViews)
-      _ <- EitherT.fromEither[Future](
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
         ContractConsistencyChecker
           .assertInputContractsInPast(inputContracts, ledgerTime)
           .leftMap(errs => ContractConsistencyError(errs))
@@ -121,7 +124,7 @@ class ConfirmationRequestFactory(
         sessionKeyStore,
         keySeed,
         protocolVersion,
-      )
+      ).mapK(FutureUnlessShutdown.outcomeK)
     } yield confirmationRequest
   }
 
@@ -242,7 +245,7 @@ class ConfirmationRequestFactory(
 
 object ConfirmationRequestFactory {
   def apply(submitterNode: ParticipantId, domainId: DomainId, protocolVersion: ProtocolVersion)(
-      cryptoOps: HashOps with HmacOps,
+      cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
       uniqueContractKeys: Boolean,

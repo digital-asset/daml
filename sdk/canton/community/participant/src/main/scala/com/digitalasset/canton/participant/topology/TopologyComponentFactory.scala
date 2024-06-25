@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.topology
 
-import cats.data.EitherT
-import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
@@ -20,8 +18,8 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessor,
   TopologyTransactionProcessorCommon,
 }
-import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
@@ -32,12 +30,12 @@ trait TopologyComponentFactory {
 
   def createTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit
 
   def createCachingTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -45,7 +43,7 @@ trait TopologyComponentFactory {
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot
 
@@ -87,7 +85,7 @@ class TopologyComponentFactoryOld(
 
   override def createTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
   )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit = {
     new StoreBasedDomainTopologyClient(
       clock,
@@ -105,7 +103,7 @@ class TopologyComponentFactoryOld(
 
   override def createCachingTopologyClient(
       protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -126,7 +124,7 @@ class TopologyComponentFactoryOld(
 
   override def createTopologySnapshot(
       asOf: CantonTimestamp,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
+      packageDependencies: PackageDependencyResolverUS,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
     val snapshot = new StoreBasedTopologySnapshot(

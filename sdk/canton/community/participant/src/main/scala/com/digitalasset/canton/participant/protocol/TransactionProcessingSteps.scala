@@ -23,7 +23,8 @@ import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.participant.state.v2.*
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown.outcomeF
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.LocalOffset
@@ -305,7 +306,7 @@ class TransactionProcessingSteps(
         actualDeduplicationOffset: DeduplicationPeriod.DeduplicationOffset,
         maxSequencingTime: CantonTimestamp,
         sessionKeyStore: SessionKeyStore,
-    ): EitherT[Future, SubmissionTrackingData, PreparedBatch] = {
+    ): EitherT[FutureUnlessShutdown, SubmissionTrackingData, PreparedBatch] = {
       logger.debug("Preparing batch for transaction submission")
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
@@ -352,8 +353,10 @@ class TransactionProcessingSteps(
               case Right(_) => ().asRight
             }
 
-            EitherT.fromEither[Future](result)
-          } else EitherT.pure[Future, TransactionSubmissionTrackingData.RejectionCause](())
+            EitherT.fromEither[FutureUnlessShutdown](result)
+          } else
+            EitherT.pure[FutureUnlessShutdown, TransactionSubmissionTrackingData.RejectionCause](())
+
         confirmationPolicy <- EitherT(
           ConfirmationPolicy
             .choose(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
@@ -368,12 +371,12 @@ class TransactionProcessingSteps(
                   )
                 )
             )
-        )
+        ).mapK(FutureUnlessShutdown.outcomeK)
 
         _submitters <- submitterInfo.actAs
           .parTraverse(rawSubmitter =>
             EitherT
-              .fromEither[Future](LfPartyId.fromString(rawSubmitter))
+              .fromEither[FutureUnlessShutdown](LfPartyId.fromString(rawSubmitter))
               .leftMap[TransactionSubmissionTrackingData.RejectionCause](msg =>
                 causeWithTemplate(msg, MalformedSubmitter(rawSubmitter))
               )
@@ -395,7 +398,7 @@ class TransactionProcessingSteps(
 
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
         // Perform phase 1 of the protocol that produces a confirmation request
-        request <- confirmationRequestTimer.timeEitherT(
+        request <- confirmationRequestTimer.timeEitherFUS(
           confirmationRequestFactory
             .createConfirmationRequest(
               wfTransaction,
@@ -451,20 +454,24 @@ class TransactionProcessingSteps(
 
       def mkError(
           rejectionCause: TransactionSubmissionTrackingData.RejectionCause
-      ): Success[Either[SubmissionTrackingData, PreparedBatch]] = {
+      ): Success[UnlessShutdown.Outcome[Either[SubmissionTrackingData, PreparedBatch]]] = {
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo(),
           rejectionCause,
           Some(domainId),
           protocolVersion,
         )
-        Success(Left(trackingData))
+        Success(UnlessShutdown.Outcome(Left(trackingData)))
       }
 
       // Make sure that we don't throw an error
+
       EitherT(result.value.transform {
-        case Success(Right(preparedBatch)) => Success(Right(preparedBatch))
-        case Success(Left(rejectionCause)) => mkError(rejectionCause)
+        case Success(UnlessShutdown.AbortedDueToShutdown) =>
+          Success(UnlessShutdown.AbortedDueToShutdown)
+        case Success(UnlessShutdown.Outcome(Right(preparedBatch))) =>
+          Success(UnlessShutdown.Outcome(Right(preparedBatch)))
+        case Success(UnlessShutdown.Outcome(Left(rejectionCause))) => mkError(rejectionCause)
         case Failure(PassiveInstanceException(_reason)) =>
           val rejectionCause = TransactionSubmissionTrackingData.CauseWithTemplate(
             SyncServiceInjectionError.PassiveReplica.Error(
@@ -479,6 +486,7 @@ class TransactionProcessingSteps(
           )
           mkError(rejectionCause)
       })
+
     }
 
     override def submissionTimeoutTrackingData: SubmissionTrackingData =
@@ -866,7 +874,9 @@ class TransactionProcessingSteps(
     def checkReplayedTransaction: Option[String] =
       Option.when(!freshOwnTimelyTx)("View %s belongs to a replayed transaction")
 
-    def doParallelChecks(enrichedTransaction: EnrichedTransaction): Future[ParallelChecksResult] = {
+    def doParallelChecks(
+        enrichedTransaction: EnrichedTransaction
+    ): FutureUnlessShutdown[ParallelChecksResult] = {
       val ledgerTime = enrichedTransaction.ledgerTime
       val rootViewTrees = enrichedTransaction.rootViewTreesWithSignatures.map {
         case (viewTree, _) =>
@@ -875,10 +885,12 @@ class TransactionProcessingSteps(
 
       for {
         authenticationResult <-
-          authenticationValidator.verifyViewSignatures(
-            requestId,
-            enrichedTransaction.rootViewTreesWithSignatures,
-            snapshot,
+          outcomeF(
+            authenticationValidator.verifyViewSignatures(
+              requestId,
+              enrichedTransaction.rootViewTreesWithSignatures,
+              snapshot,
+            )
           )
 
         consistencyResultE = ContractConsistencyChecker
@@ -887,7 +899,9 @@ class TransactionProcessingSteps(
             ledgerTime,
           )
 
-        domainParameters <- ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        domainParameters <- outcomeF(
+          ipsSnapshot.findDynamicDomainParametersOrDefault(protocolVersion)
+        )
 
         // `tryCommonData` should never throw here because all views have the same root hash
         // which already commits to the ParticipantMetadata and CommonMetadata
@@ -905,10 +919,12 @@ class TransactionProcessingSteps(
 
         replayCheckResult = if (amSubmitter) checkReplayedTransaction else None
 
-        authorizationResult <- authorizationValidator.checkAuthorization(
-          requestId,
-          rootViewTrees,
-          ipsSnapshot,
+        authorizationResult <- outcomeF(
+          authorizationValidator.checkAuthorization(
+            requestId,
+            rootViewTrees,
+            ipsSnapshot,
+          )
         )
 
         conformanceResultE <- modelConformanceChecker
@@ -921,10 +937,12 @@ class TransactionProcessingSteps(
           )
           .value
 
-        globalKeyHostedParties <- InternalConsistencyChecker.hostedGlobalKeyParties(
-          rootViewTrees,
-          participantId,
-          snapshot.ipsSnapshot,
+        globalKeyHostedParties <- outcomeF(
+          InternalConsistencyChecker.hostedGlobalKeyParties(
+            rootViewTrees,
+            participantId,
+            snapshot.ipsSnapshot,
+          )
         )
 
         internalConsistencyResultE = internalConsistencyChecker.check(
@@ -1068,7 +1086,7 @@ class TransactionProcessingSteps(
 
     val result =
       for {
-        parallelChecksResult <- FutureUnlessShutdown.outcomeF(doParallelChecks(enrichedTransaction))
+        parallelChecksResult <- doParallelChecks(enrichedTransaction)
         activenessResult <- awaitActivenessResult
         _ = crashOnUnknownKeys(activenessResult)
         transactionValidationResult = computeValidationResult(
@@ -1287,7 +1305,7 @@ class TransactionProcessingSteps(
       contractConsistencyE,
       authenticationResult,
       authorizationResult,
-      modelConformanceResultE,
+      modelConformanceResultET,
       internalConsistencyResultE,
       consumedInputsOfHostedParties,
       witnessedAndDivulged,
@@ -1313,7 +1331,7 @@ class TransactionProcessingSteps(
       transactionId,
       locallyRejected = locallyRejected,
       freshOwnTimelyTx,
-      modelConformanceResultE,
+      modelConformanceResultET,
       internalConsistencyResultE,
       workflowIdO,
       id.unwrap,

@@ -419,7 +419,7 @@ trait VettedPackagesSnapshotClient {
   def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]]
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
 
 }
 
@@ -739,13 +739,13 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
   private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]]
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
 
   protected def findUnvettedPackagesOrDependenciesUsingLoader(
       participantId: ParticipantId,
       packages: Set[PackageId],
-      loader: (ParticipantId, PackageId) => EitherT[Future, PackageId, Set[PackageId]],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+      loader: (ParticipantId, PackageId) => EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]],
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     packages.toList
       .parFlatTraverse(packageId => loader(participantId, packageId).map(_.toList))
       .map(_.toSet)
@@ -753,7 +753,7 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  ): EitherT[Future, PackageId, Set[PackageId]] =
+  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
     findUnvettedPackagesOrDependenciesUsingLoader(
       participantId,
       packages,

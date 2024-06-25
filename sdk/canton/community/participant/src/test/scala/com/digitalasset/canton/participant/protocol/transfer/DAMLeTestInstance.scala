@@ -41,7 +41,7 @@ object DAMLeTestInstance {
     val engine = DAMLe.newEngine(
       uniqueContractKeys = false,
       enableLfDev = false,
-      enableLfPreview = false,
+      enableLfBeta = false,
       enableStackTraces = false,
     )
     val timeouts = ProcessingTimeout()

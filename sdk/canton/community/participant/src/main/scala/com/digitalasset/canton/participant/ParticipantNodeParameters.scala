@@ -47,7 +47,7 @@ final case class ParticipantNodeParameters(
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
   override def devVersionSupport: Boolean = protocolConfig.devVersionSupport
-  override def previewVersionSupport: Boolean = protocolConfig.previewVersionSupport
+  override def betaVersionSupport: Boolean = protocolConfig.betaVersionSupport
   override def initialProtocolVersion: ProtocolVersion = protocolConfig.initialProtocolVersion
 
 }
@@ -87,7 +87,7 @@ object ParticipantNodeParameters {
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
       devVersionSupport = false,
-      previewVersionSupport = false,
+      betaVersionSupport = false,
       dontWarnOnDeprecatedPV = false,
       initialProtocolVersion = testedProtocolVersion,
     ),
