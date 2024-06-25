@@ -140,7 +140,8 @@ data GetTransactionsRequest = GetTransactionsRequest {
     begin :: LedgerOffset,
     end :: Maybe LedgerOffset,
     filter :: TransactionFilter,
-    verbose :: Verbosity
+    verbose :: Verbosity,
+    sendPrunedOffsets :: SendPrunedOffsets
     }
 
 filterEverythingForParty :: Party -> TransactionFilter
@@ -151,13 +152,14 @@ filterEverythingForParty party = TransactionFilter (Map.singleton (unParty party
 
 lowerRequest :: GetTransactionsRequest -> LL.GetTransactionsRequest
 lowerRequest = \case
-    GetTransactionsRequest{lid, begin, end, filter, verbose} ->
+    GetTransactionsRequest{lid, begin, end, filter, verbose, sendPrunedOffsets} ->
         LL.GetTransactionsRequest {
         getTransactionsRequestLedgerId = unLedgerId lid,
         getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
         getTransactionsRequestEnd = fmap lowerLedgerOffset end,
         getTransactionsRequestFilter = Just filter,
-        getTransactionsRequestVerbose = unVerbosity verbose
+        getTransactionsRequestVerbose = unVerbosity verbose,
+        getTransactionsRequestSendPrunedOffsets = unSendPrunedOffsets sendPrunedOffsets
         }
 
 mkByEventIdRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest

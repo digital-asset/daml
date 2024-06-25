@@ -38,6 +38,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Value(..),
     Variant(..),
     Verbosity(..),
+    SendPrunedOffsets(..),
 
     MicroSecondsSinceEpoch(..),
     DaysSinceEpoch(..),
@@ -308,6 +309,7 @@ instance A.FromJSON Party where
   parseJSON v = Party <$> A.parseJSON v
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
+newtype SendPrunedOffsets = SendPrunedOffsets { unSendPrunedOffsets :: Bool } deriving (Eq,Ord,Show)
 
 -- A wrapped UTCTime the can be read in ISO8601 format
 newtype IsoTime = IsoTime { unIsoTime :: Clock.UTCTime } deriving Show
