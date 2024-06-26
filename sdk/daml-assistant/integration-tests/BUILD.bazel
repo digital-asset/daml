@@ -288,4 +288,4 @@ da_haskell_test(
         # Exclusive until we stop hardcoding port numbers in index.test.ts
         ["exclusive"],
     deps = [":create-daml-app-tests-lib"],
-) if not (is_windows or is_arm or True) else None
+) if not (is_windows or is_arm) else None

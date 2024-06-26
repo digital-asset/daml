@@ -78,53 +78,48 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
-readPackageNameAndVersion :: String -> (PackageName, PackageVersion)
-readPackageNameAndVersion nameAndVersion = (PackageName name, PackageVersion version)
-  where
-    pieces = splitOn "-" nameAndVersion
-    name = T.pack (intercalate "-" (init pieces))
-    version = T.pack (last pieces)
-
 -- Build a list of packages from a list of DAR file paths.
-readPackages :: [FilePath] -> IO [(PackageId, (Package, PackageReference))]
+readPackages :: [FilePath] -> IO [(PackageId, Package)]
 readPackages dars = concatMapM darToPackages dars
   where
-    darToPackages :: FilePath -> IO [(PackageId, (Package, PackageReference))]
+    darToPackages :: FilePath -> IO [(PackageId, Package)]
     darToPackages dar = do
       dar <- B.readFile dar
       let archive = Zip.toArchive $ BSL.fromStrict dar
       dalfs <- either fail pure $ DAR.readDalfs archive
-      DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
-      let mbPkgNmVer = readPackageNameAndVersion <$> packageName
-      forM ((DAR.mainDalf dalfs, mbPkgNmVer) : map (, Nothing) (DAR.dalfs dalfs)) $
-        \(dalf, mbPkgNmVer) -> do
-          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-          let pkgRef :: PackageReference = maybe (PkgId pkgId) PkgNameVer mbPkgNmVer
-          pure (pkgId, (pkg, pkgRef))
+      forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf ->
+        either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+
+unitIdToText :: (PackageName, PackageVersion) -> T.Text
+unitIdToText (pkgName, pkgVersion) = unPackageName pkgName <> "-" <> unPackageVersion pkgVersion
+
+packageUnitId :: Package -> Maybe (PackageName, PackageVersion)
+packageUnitId pkg' = (\PackageMetadata {..} -> (packageName, packageVersion)) <$> packageMetadata pkg'
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
-mergePackageMap :: [(PackageId, (Package, PackageReference))] ->
+mergePackageMap :: [(PackageId, Package)] ->
                    Either T.Text (Map.Map PackageId (PackageReference, Package))
-mergePackageMap ps = foldM merge Map.empty ps
+mergePackageMap ps = fst <$> foldM merge mempty ps
   where
-    merge :: Map.Map PackageId (PackageReference, Package) ->
-                  (PackageId, (Package, PackageReference)) ->
-                  Either T.Text (Map.Map PackageId (PackageReference, Package))
-    merge pkgs (pkgId, (pkg, pkgRef)) = do
-        let pkgRefs = map fst (Map.elems pkgs)
+    merge :: (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion)) ->
+                  (PackageId, Package) ->
+                  Either T.Text (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion))
+    merge (pkgs, usedUnitIds) (pkgId, pkg) = do
+        let mOwnUnitId = packageUnitId pkg
+            pkgRef =
+              case packageMetadata pkg of
+                Just (PackageMetadata {..}) | packageLfVersion pkg `supports` featurePackageUpgrades ->
+                  PkgNameVer (packageName, packageVersion)
+                _ ->
+                  PkgId pkgId
+            newUsedUnitIds = maybe usedUnitIds (`Set.insert` usedUnitIds) mOwnUnitId
+
         -- Check if there is a package with the same name but a
         -- different package id.
-        when (pkgId `Map.notMember` pkgs && pkgRef `elem` pkgRefs) $
-            Left $ "Duplicate name '" <> forFilePath pkgRef <> "' for different packages detected"
-        let update mbOld = case mbOld of
-                Nothing -> pure $ Just (pkgRef, pkg)
-                Just (oldPkgRef, _) -> do
-                    -- Check if we have colliding names for the same
-                    -- package.
-                    when (oldPkgRef /= pkgRef) $ Left $ "Different names ('" <> forFilePath oldPkgRef <> "' and '" <> forFilePath pkgRef <> "') for the same package (" <> unPackageId pkgId <> " detected"
-                    pure $ Just (pkgRef, pkg)
-        Map.alterF update pkgId pkgs
+        forM_ mOwnUnitId $ \ownUnitId -> when (pkgId `Map.notMember` pkgs && ownUnitId `Set.member` usedUnitIds) $
+            Left $ "Duplicate name '" <> unitIdToText ownUnitId <> "' for different packages detected"
+        pure (Map.insert pkgId (pkgRef, pkg) pkgs, newUsedUnitIds)
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
@@ -149,6 +144,7 @@ main = do
                      let pkgDesc = case pkgRef of
                            PkgId _ -> unPackageId pkgId
                            PkgNameVer (pkgName, _) -> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
+                         pkgUnitId = maybe (unPackageId pkgId) unitIdToText $ packageUnitId pkg
                      T.putStrLn $ "Generating " <> pkgDesc
                      daml2js Daml2jsParams{..}
 
@@ -157,22 +153,19 @@ data PackageReference
     | PkgId PackageId
  deriving (Eq, Ord)
 
-forFilePath :: PackageReference -> T.Text
-forFilePath (PkgNameVer (n, v)) = unPackageName n <> "-" <> unPackageVersion v
-forFilePath (PkgId i) = unPackageId i
-
 forTemplateId :: PackageReference -> T.Text
 forTemplateId (PkgNameVer (nm, _)) = "#" <> unPackageName nm
 forTemplateId (PkgId id) = unPackageId id
 
 newtype Scope = Scope {unScope :: T.Text}
-newtype Dependency = Dependency {_unDependency :: PackageReference} deriving (Eq, Ord)
+newtype Dependency = Dependency {_unDependency :: T.Text} deriving (Eq, Ord)
 
 data Daml2jsParams = Daml2jsParams
   { opts :: Options  -- cli args
   , pkgMap :: Map.Map PackageId (PackageReference, Package)
   , pkgId :: PackageId
   , pkg :: Package
+  , pkgUnitId :: T.Text
   , pkgRef :: PackageReference
   , releaseVersion :: ReleaseVersion
   }
@@ -183,7 +176,7 @@ daml2js Daml2jsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2js'.
-        packageDir = scopeDir </> T.unpack (forFilePath pkgRef)
+        packageDir = scopeDir </> T.unpack pkgUnitId
           -- The directory into which we write this package e.g. '/path/to/daml2js/davl-0.0.4'.
         packageSrcDir = packageDir </> "lib"
           -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/lib'.
@@ -234,7 +227,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgRef mod
         (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) (ifaceDecls ++ decls)
         -- ifaceDecls need to come before decls, otherwise (JavaScript) interface choice objects
         -- will not be defined in template object.
-        depends = Set.map (Dependency . getPkgRef pkgMap) externalImports
+        depends = Set.map (Dependency . unitIdStr pkgMap) externalImports
    in Just ((makeMod ES5 jsBody, makeMod ES6 tsDeclsBody), depends)
   where
     modName = moduleName mod
@@ -297,14 +290,14 @@ genModule pkgMap (Scope scope) curPkgId curPkgRef mod
         -> PackageId
         -> T.Text
     externalImportDecl jsSyntax pkgMap pkgId =
-        importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> (forFilePath $ getPkgRef pkgMap pkgId))
+        importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> unitIdStr pkgMap pkgId)
 
     -- Produce a package name for a package ref.
-    getPkgRef :: Map.Map PackageId (PackageReference, Package) -> PackageId -> PackageReference
-    getPkgRef pkgMap pkgId =
+    unitIdStr :: Map.Map PackageId (PackageReference, Package) -> PackageId -> T.Text
+    unitIdStr pkgMap pkgId =
         case Map.lookup pkgId pkgMap of
-          Nothing -> error ("IMPOSSIBLE : package map malformed : missing pkgId " <> T.unpack (unPackageId pkgId))
-          Just (pkgRef, _) -> pkgRef
+          Nothing -> error "IMPOSSIBLE : package map malformed"
+          Just (_, pkg) -> maybe (unPackageId pkgId) unitIdToText $ packageUnitId pkg
 
 newtype InterfaceChoices = InterfaceChoices (NM.Name TemplateImplements -> Set.Set ChoiceName)
 
@@ -1039,7 +1032,7 @@ packageJsonDependencies :: Scope -> [Dependency] -> Value
 packageJsonDependencies (Scope scope) dependencies = object $
     [ "@mojotech/json-type-validation" .= jtvVersion
     ] ++
-    [ Aeson.fromText (scope <> "/" <> forFilePath pkgRef) .= ("file:../" <> forFilePath pkgRef) | Dependency pkgRef <- dependencies ]
+    [ Aeson.fromText (scope <> "/" <> unitId) .= ("file:../" <> unitId) | Dependency unitId <- dependencies ]
 
 packageJsonPeerDependencies:: ReleaseVersion ->  Value
 packageJsonPeerDependencies releaseVersion = object
