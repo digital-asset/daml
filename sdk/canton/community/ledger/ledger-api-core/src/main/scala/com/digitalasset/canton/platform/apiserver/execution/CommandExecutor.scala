@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.crypto
+import com.daml.lf.crypto
 import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause

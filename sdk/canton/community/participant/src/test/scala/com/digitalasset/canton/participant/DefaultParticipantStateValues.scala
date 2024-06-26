@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant
 
 import cats.syntax.option.*
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.DefaultDamlValues.*
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.*
@@ -43,7 +43,6 @@ object DefaultParticipantStateValues {
       commandId: CommandId = DefaultDamlValues.commandId(),
       optDeduplicationPeriod: Option[DeduplicationPeriod] = Some(deduplicationDuration),
       submissionId: Option[Ref.SubmissionId] = DefaultDamlValues.submissionId().some,
-      statistics: Option[LedgerTransactionNodeStatistics] = None,
   ): CompletionInfo =
     CompletionInfo(
       actAs,
@@ -51,7 +50,6 @@ object DefaultParticipantStateValues {
       commandId.unwrap,
       optDeduplicationPeriod,
       submissionId,
-      statistics,
     )
 
   def transactionMeta(

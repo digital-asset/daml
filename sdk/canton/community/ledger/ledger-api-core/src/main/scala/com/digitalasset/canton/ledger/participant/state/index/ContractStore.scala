@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import com.digitalasset.canton.platform.store.backend.localstore.UserManagementStorageBackend.DbUserPayload
 import com.digitalasset.canton.platform.store.backend.localstore.{

@@ -12,12 +12,12 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{ApplicationId, Party}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain

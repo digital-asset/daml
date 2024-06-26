@@ -142,6 +142,8 @@ abstract class SequencerApiTest
 
   protected def supportAggregation: Boolean
 
+  protected def defaultExpectedTrafficReceipt: Option[TrafficReceipt]
+
   protected def runSequencerApiTests(): Unit = {
     "The sequencers" should {
       "send a batch to one recipient" in { env =>
@@ -160,7 +162,7 @@ abstract class SequencerApiTest
             SequencerCounter(0),
             sender,
             Some(request.messageId),
-            None,
+            defaultExpectedTrafficReceipt,
             EnvelopeDetails(messageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -253,7 +255,7 @@ abstract class SequencerApiTest
             SequencerCounter.Genesis,
             sender,
             Some(request1.messageId),
-            None,
+            defaultExpectedTrafficReceipt,
             EnvelopeDetails(normalMessageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -278,7 +280,7 @@ abstract class SequencerApiTest
             SequencerCounter.Genesis,
             member,
             Option.when(member == sender)(request.messageId),
-            None,
+            if (member == sender) defaultExpectedTrafficReceipt else None,
             EnvelopeDetails(messageContent, recipients.forMember(member, Set.empty).value),
           )
         }
@@ -323,12 +325,26 @@ abstract class SequencerApiTest
         } yield {
           // p6 gets the receipt immediately
           checkMessages(
-            Seq(EventDetails(SequencerCounter.Genesis, p6, Some(request1.messageId), None)),
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p6,
+                Some(request1.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
             reads1,
           )
           // p9 gets the receipt only
           checkMessages(
-            Seq(EventDetails(SequencerCounter.Genesis, p9, Some(request2.messageId), None)),
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p9,
+                Some(request2.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
             reads2,
           )
           // p10 gets the message
@@ -337,8 +353,8 @@ abstract class SequencerApiTest
               EventDetails(
                 SequencerCounter.Genesis,
                 p10,
-                None,
-                None,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(messageContent, Recipients.cc(p10)),
               )
             ),
@@ -429,7 +445,7 @@ abstract class SequencerApiTest
             }
             reads3 <- readForMembers(Seq(p6), sequencer)
           } yield {
-            checkRejection(reads3, p6, request1.messageId) {
+            checkRejection(reads3, p6, request1.messageId, defaultExpectedTrafficReceipt) {
               case SequencerErrors.MaxSequencingTimeTooFar(reason) =>
                 reason should (
                   include(s"Max sequencing time") and
@@ -522,7 +538,14 @@ abstract class SequencerApiTest
           )
         } yield {
           checkMessages(
-            Seq(EventDetails(SequencerCounter.Genesis, p11, Some(request1.messageId), None)),
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p11,
+                Some(request1.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
             reads11,
           )
           checkMessages(
@@ -531,14 +554,14 @@ abstract class SequencerApiTest
                 SequencerCounter.Genesis,
                 p12,
                 Some(request1.messageId),
-                None,
+                defaultExpectedTrafficReceipt,
                 EnvelopeDetails(content2, recipients2, envs1(1).signatures ++ envs2(1).signatures),
               ),
               EventDetails(
                 SequencerCounter.Genesis,
                 p13,
-                None,
-                None,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(content1, recipients1, envs1(0).signatures ++ envs2(0).signatures),
                 EnvelopeDetails(content2, recipients2, envs1(1).signatures ++ envs2(1).signatures),
               ),
@@ -550,15 +573,15 @@ abstract class SequencerApiTest
               EventDetails(
                 SequencerCounter.Genesis + 1,
                 p11,
-                None,
-                None,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(content1, recipients1, envs1(0).signatures ++ envs2(0).signatures),
               )
             ),
             reads12a,
           )
 
-          checkRejection(reads13, p13, messageId3) {
+          checkRejection(reads13, p13, messageId3, defaultExpectedTrafficReceipt) {
             case SequencerErrors.AggregateSubmissionAlreadySent(reason) =>
               reason should (
                 include(s"The aggregatable request with aggregation ID") and
@@ -635,10 +658,17 @@ abstract class SequencerApiTest
           reads15 <- readForMembers(Seq(p15), sequencer)
         } yield {
           checkMessages(
-            Seq(EventDetails(SequencerCounter.Genesis, p14, Some(request1.messageId), None)),
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p14,
+                Some(request1.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
             reads14,
           )
-          checkRejection(reads14a, p14, messageId2) {
+          checkRejection(reads14a, p14, messageId2, defaultExpectedTrafficReceipt) {
             case SequencerErrors.AggregateSubmissionStuffing(reason) =>
               reason should include(
                 s"The sender ${p14} previously contributed to the aggregatable submission with ID"
@@ -653,7 +683,13 @@ abstract class SequencerApiTest
 
           checkMessages(
             Seq(
-              EventDetails(SequencerCounter.Genesis + 2, p14, None, None, deliveredEnvelopeDetails)
+              EventDetails(
+                SequencerCounter.Genesis + 2,
+                p14,
+                messageId = None,
+                trafficReceipt = None,
+                deliveredEnvelopeDetails,
+              )
             ),
             reads14b,
           )
@@ -663,7 +699,7 @@ abstract class SequencerApiTest
                 SequencerCounter.Genesis,
                 p15,
                 Some(messageId3),
-                None,
+                defaultExpectedTrafficReceipt,
                 deliveredEnvelopeDetails,
               )
             ),
@@ -725,7 +761,7 @@ abstract class SequencerApiTest
           _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
           reads <- readForMembers(Seq(p17), sequencer)
         } yield {
-          checkRejection(reads, p17, messageId) {
+          checkRejection(reads, p17, messageId, defaultExpectedTrafficReceipt) {
             case SequencerErrors.SubmissionRequestMalformed(reason) =>
               reason should include("Threshold 2 cannot be reached")
           }
@@ -755,7 +791,7 @@ abstract class SequencerApiTest
           _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
           reads <- readForMembers(Seq(p18), sequencer)
         } yield {
-          checkRejection(reads, p18, messageId) {
+          checkRejection(reads, p18, messageId, defaultExpectedTrafficReceipt) {
             case SequencerErrors.SubmissionRequestMalformed(reason) =>
               reason should include("Sender is not eligible according to the aggregation rule")
           }
@@ -921,7 +957,7 @@ trait SequencerApiTestUtils
       got: Seq[(Member, OrdinarySerializedEvent)],
       sender: Member,
       expectedMessageId: MessageId,
-      expectedTrafficReceipt: Option[TrafficReceipt] = None,
+      expectedTrafficReceipt: Option[TrafficReceipt],
   )(assertReason: PartialFunction[Status, Assertion]): Assertion = {
     got match {
       case Seq((`sender`, event)) =>

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.daml.lf.value.Value as Lf
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.value.Value as Lf
 import scalaz.syntax.tag.*
 import scalaz.{@@, Tag}
 

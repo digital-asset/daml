@@ -669,7 +669,8 @@ create or replace view debug.seq_traffic_control_consumed_journal as
     member,
     debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
     extra_traffic_consumed,
-    base_traffic_remainder
+    base_traffic_remainder,
+    last_consumed_cost
   from seq_traffic_control_consumed_journal;
 
 create or replace view debug.seq_traffic_control_initial_timestamp as

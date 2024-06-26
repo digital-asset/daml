@@ -10,7 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100}

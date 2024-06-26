@@ -109,6 +109,7 @@ class BlockSequencer(
       clock,
       domainId,
       sequencerId,
+      Some(blockRateLimitManager.trafficConsumedStore),
       protocolVersion,
       cryptoApi,
       SequencerMetrics.noop("TODO"), // TODO(#18406)
@@ -464,11 +465,8 @@ class BlockSequencer(
               .toSequencerSnapshot(protocolVersion, trafficPurchased, trafficConsumed)
               .tap(snapshot =>
                 if (logger.underlying.isDebugEnabled()) {
-                  logger.debug(
+                  logger.trace(
                     s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
-                  )
-                  logger.debug(
-                    s"Resulting snapshot for timestamp $timestamp:\n$snapshot"
                   )
                 }
               )
@@ -476,17 +474,25 @@ class BlockSequencer(
         )
       finalSnapshot <- {
         if (unifiedSequencer) {
-          super.snapshot(timestamp).map { dbsSnapshot =>
+          super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
             dbsSnapshot.copy(
+              latestBlockHeight = bsSnapshot.latestBlockHeight,
               inFlightAggregations = bsSnapshot.inFlightAggregations,
               additional = bsSnapshot.additional,
+              trafficPurchased = bsSnapshot.trafficPurchased,
+              trafficConsumed = bsSnapshot.trafficConsumed,
             )(dbsSnapshot.representativeProtocolVersion)
           }
         } else {
           EitherT.pure[Future, String](bsSnapshot)
         }
       }
-    } yield finalSnapshot
+    } yield {
+      logger.trace(
+        s"Resulting snapshot for timestamp $timestamp:\n$finalSnapshot"
+      )
+      finalSnapshot
+    }
   }
 
   override def pruningStatus(implicit
@@ -700,14 +706,27 @@ class BlockSequencer(
   override def trafficStatus(requestedMembers: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] = {
-    trafficStatesForMembers(
-      if (requestedMembers.isEmpty) {
-        // If requestedMembers get the traffic states of all known member in the head state
-        stateManager.getHeadState.chunk.ephemeral.status.membersMap.keySet
-      } else requestedMembers.toSet,
-      selector,
-    )
-      .map(SequencerTrafficStatus.apply)
+    for {
+      members <-
+        if (requestedMembers.isEmpty) {
+          // If requestedMembers is not set get the traffic states of all known members
+          if (unifiedSequencer) {
+            FutureUnlessShutdown.outcomeF(
+              cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
+            )
+          } else {
+            FutureUnlessShutdown.pure(
+              stateManager.getHeadState.chunk.ephemeral.status.membersMap.keySet
+            )
+          }
+        } else {
+          FutureUnlessShutdown.pure(requestedMembers.toSet)
+        }
+      trafficState <- trafficStatesForMembers(
+        members,
+        selector,
+      )
+    } yield SequencerTrafficStatus(trafficState)
   }
 
   override def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit

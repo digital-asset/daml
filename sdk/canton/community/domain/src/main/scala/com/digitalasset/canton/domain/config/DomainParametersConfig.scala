@@ -37,6 +37,7 @@ final case class DomainParametersConfig(
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
+    override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
 ) extends ProtocolConfig
     with PrettyPrinting {

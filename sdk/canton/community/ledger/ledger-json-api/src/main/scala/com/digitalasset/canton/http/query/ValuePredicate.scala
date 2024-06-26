@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.query
 
-import com.digitalasset.daml.lf.value.Value as V
+import com.daml.lf.value.Value as V
 
 object ValuePredicate {
   type LfV = V

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.CompletionStage

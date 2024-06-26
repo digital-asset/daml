@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.ledger.localstore.api.PartyRecordStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace

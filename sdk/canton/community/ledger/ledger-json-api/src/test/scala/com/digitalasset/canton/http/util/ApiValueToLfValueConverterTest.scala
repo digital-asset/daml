@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.daml.lf.value.test.TypedValueGenerators.genAddend
-import com.digitalasset.daml.lf.value.test.ValueGenerators.coidGen
-import com.digitalasset.daml.lf.value.Value as V
+import com.daml.lf.value.test.TypedValueGenerators.genAddend
+import com.daml.lf.value.test.ValueGenerators.coidGen
+import com.daml.lf.value.Value as V
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.Arbitrary
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.daml.lf.data.Bytes as LfBytes
+import com.daml.lf.data.Bytes as LfBytes
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}

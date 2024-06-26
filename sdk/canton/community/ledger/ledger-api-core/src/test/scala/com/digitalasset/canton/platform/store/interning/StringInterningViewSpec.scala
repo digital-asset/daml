@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.topology.DomainId
 import org.scalatest.Assertion

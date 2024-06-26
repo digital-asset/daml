@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.Party
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.LfContractId

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Identifier
 import com.digitalasset.canton.ProtoDeserializationError.ValueDeserializationError
 
 object RefIdentifierSyntax {

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.LedgerEndService

@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.crypto.Hash as LfHash
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes as LfBytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
+import com.daml.lf.crypto.Hash as LfHash
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Bytes as LfBytes, ImmArray}
+import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
+import com.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.*
@@ -610,13 +610,8 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
       commandId,
       deduplicateUntil,
       submissionId,
-      statistics,
     ) =
       completionInfo
-    require(
-      statistics.isEmpty,
-      "Statistics are only set before emitting CompletionInfo in CantonSyncService",
-    )
     v30.CompletionInfo(
       actAs,
       applicationId,
@@ -645,7 +640,6 @@ object SerializableCompletionInfo {
       commandId,
       deduplicateUntil,
       submissionId,
-      statistics = None,
     )
   }
 }

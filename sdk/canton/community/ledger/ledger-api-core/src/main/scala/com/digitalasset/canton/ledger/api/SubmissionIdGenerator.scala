@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.SubmissionId
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.SubmissionId
 
 import java.util.UUID
 

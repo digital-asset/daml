@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.ProtoDeserializationError.{
   FieldNotSet,
   OtherError,

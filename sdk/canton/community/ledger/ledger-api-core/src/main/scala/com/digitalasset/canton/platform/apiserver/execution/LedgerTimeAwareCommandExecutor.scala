@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.crypto
+import com.daml.lf.data.Time
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain.Commands
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

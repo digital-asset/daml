@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.endpoints
 
 import org.apache.pekko.http.scaladsl.model.*
-import com.digitalasset.daml.lf.value.Value as LfValue
+import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.domain.{

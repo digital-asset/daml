@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.store.backend
 
 import anorm.Column.nonNull
 import anorm.*
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.ledger.EventId
+import com.daml.lf.value.Value
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -230,8 +230,8 @@ private[backend] object Conversions {
       s.setLong(index, v.micros)
   }
 
-  def timestampFromMicros(name: String): RowParser[com.digitalasset.daml.lf.data.Time.Timestamp] =
-    SqlParser.get[Long](name).map(com.digitalasset.daml.lf.data.Time.Timestamp.assertFromLong)
+  def timestampFromMicros(name: String): RowParser[com.daml.lf.data.Time.Timestamp] =
+    SqlParser.get[Long](name).map(com.daml.lf.data.Time.Timestamp.assertFromLong)
 
   // Hash
 

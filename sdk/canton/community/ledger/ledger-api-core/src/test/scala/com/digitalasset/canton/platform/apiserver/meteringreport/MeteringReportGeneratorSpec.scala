@@ -7,8 +7,8 @@ import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiMeteringReportService.toProtoTimestamp
 import com.google.protobuf.struct.Struct

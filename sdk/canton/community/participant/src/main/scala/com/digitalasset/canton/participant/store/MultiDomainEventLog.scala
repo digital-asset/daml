@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.{EitherT, OptionT}
 import cats.syntax.option.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveLong}
@@ -51,7 +52,6 @@ import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LedgerSubmissionId, LedgerTransactionId}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -139,11 +139,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
   def lookupByEventIds(eventIds: Seq[EventId])(implicit
       traceContext: TraceContext
   ): Future[Map[EventId, (GlobalOffset, TimestampedEvent, CantonTimestamp)]]
-
-  /** Find the domain of a committed transaction. */
-  def lookupTransactionDomain(transactionId: LedgerTransactionId)(implicit
-      traceContext: TraceContext
-  ): OptionT[Future, DomainId]
 
   /** Yields the greatest local offsets for the underlying [[SingleDimensionEventLog]] with global offset less than
     * or equal to `upToInclusive`.

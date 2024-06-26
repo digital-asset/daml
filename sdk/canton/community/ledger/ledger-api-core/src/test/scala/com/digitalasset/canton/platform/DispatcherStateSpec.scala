@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform
 
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors

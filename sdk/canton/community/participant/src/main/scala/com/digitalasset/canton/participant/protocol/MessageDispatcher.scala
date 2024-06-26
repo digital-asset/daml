@@ -426,7 +426,10 @@ trait MessageDispatcher { this: NamedLogging =>
     )
   } yield goodRequest
 
-  /** Return only the root hash messages sent to a mediator, along with the set of all mediator recipients */
+  /** Return only the root hash messages sent to a mediator, along with the mediator group recipient.
+    * The mediator group recipient can be `None` if there is no root hash message sent to a mediator group.
+    * @throws IllegalArgumentException if there are root hash messages that address more than one mediator group.
+    */
   private def filterRootHashMessagesToMediator(
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],

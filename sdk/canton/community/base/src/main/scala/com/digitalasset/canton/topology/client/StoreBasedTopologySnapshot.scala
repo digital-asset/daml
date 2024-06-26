@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp

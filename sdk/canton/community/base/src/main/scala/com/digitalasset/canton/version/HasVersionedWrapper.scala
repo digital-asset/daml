@@ -62,7 +62,10 @@ trait HasVersionedWrapper[ValueClass] extends HasVersionedToByteString {
   def toByteArray(version: ProtocolVersion): Array[Byte] = toByteString(version).toByteArray
 
   /** Writes the byte string representation of the corresponding `UntypedVersionedMessage` wrapper of this instance to a file. */
-  def writeToFile(outputFile: String, version: ProtocolVersion = ProtocolVersion.latest): Unit = {
+  def writeToFile(
+      outputFile: String,
+      version: ProtocolVersion = ProtocolVersion.latest,
+  ): Unit = {
     val bytes = toByteString(version)
     BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
   }

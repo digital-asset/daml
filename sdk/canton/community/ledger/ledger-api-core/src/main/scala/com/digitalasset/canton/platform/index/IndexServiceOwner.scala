@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.index
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.data.Offset

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SigningPublicKey

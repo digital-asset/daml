@@ -20,10 +20,10 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.ledger.api.v2.event as apiEvent
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
@@ -183,7 +183,7 @@ private[events] object TransactionLogUpdatesConversions {
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               events = flatEvents,
               offset = ApiOffset.toApiString(transactionAccepted.offset),
-              domainId = transactionAccepted.domainId.getOrElse(""),
+              domainId = transactionAccepted.domainId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )
@@ -388,7 +388,7 @@ private[events] object TransactionLogUpdatesConversions {
               offset = ApiOffset.toApiString(transactionAccepted.offset),
               eventsById = eventsById,
               rootEventIds = rootEventIds,
-              domainId = transactionAccepted.domainId.getOrElse(""),
+              domainId = transactionAccepted.domainId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )

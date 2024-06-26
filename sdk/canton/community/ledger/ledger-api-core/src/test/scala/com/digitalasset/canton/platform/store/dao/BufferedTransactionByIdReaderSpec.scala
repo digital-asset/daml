@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -15,6 +15,7 @@ import com.digitalasset.canton.platform.store.dao.BufferedTransactionByIdReader.
   ToApiResponse,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.Traced
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -29,6 +30,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
   )
 
   private val requestingParties = Set("p1", "p2").map(Ref.Party.assertFromString)
+  private val someDomainId = DomainId.tryFromString("some::domain-id")
 
   private val bufferedTransactionId1 = "bufferedTid_1"
   private val bufferedTransactionId2 = "bufferedTid_2"
@@ -103,7 +105,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
       offset = Offset.beforeBegin,
       events = Vector(null),
       completionDetails = None,
-      domainId = None,
+      domainId = someDomainId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )
 }

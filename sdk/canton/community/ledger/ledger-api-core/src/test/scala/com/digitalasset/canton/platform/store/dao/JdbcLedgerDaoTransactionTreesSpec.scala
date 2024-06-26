@@ -5,9 +5,9 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.data.Ref
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.{Node, NodeId}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.platform.ApiOffset

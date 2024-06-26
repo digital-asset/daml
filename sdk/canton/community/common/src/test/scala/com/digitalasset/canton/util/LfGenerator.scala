@@ -5,8 +5,8 @@ package com.digitalasset.canton.util
 
 import cats.data.StateT
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.value.test.ValueGenerators
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.value.test.ValueGenerators
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder.*

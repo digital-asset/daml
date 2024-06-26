@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, NodeId}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.{BlindingInfo, NodeId}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

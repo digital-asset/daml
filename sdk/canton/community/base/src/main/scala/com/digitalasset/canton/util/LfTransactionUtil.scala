@@ -4,9 +4,9 @@
 package com.digitalasset.canton.util
 
 import cats.{Monad, Order}
-import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.*
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.Value
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.*
 
@@ -61,7 +61,7 @@ object LfTransactionUtil {
     case n: LfNodeLookupByKey => n.result
   }
 
-  /** All contract IDs referenced with a Daml `com.digitalasset.daml.lf.value.Value` */
+  /** All contract IDs referenced with a Daml `com.daml.lf.value.Value` */
   def referencedContractIds(value: Value): Set[LfContractId] = value.cids
 
   /** Whether or not a node has a random seed */
@@ -106,7 +106,7 @@ object LfTransactionUtil {
 
   /** Monadic visit to all nodes of the transaction in execution order.
     * Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
-    * Crashes on malformed transactions (see `com.digitalasset.daml.lf.transaction.GenTransaction.isWellFormed`)
+    * Crashes on malformed transactions (see `com.daml.lf.transaction.GenTransaction.isWellFormed`)
     */
   @nowarn("msg=match may not be exhaustive")
   def foldExecutionOrderM[F[_], A](tx: LfTransaction, initial: A)(

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.util
 
 import com.daml.ledger.api.v2.value.Value
-import com.digitalasset.daml.lf.data.Time.{Timestamp as LfTimestamp}
+import com.daml.lf.data.Time.{Timestamp as LfTimestamp}
 import com.google.protobuf.timestamp.{Timestamp as ProtoTimestamp}
 
 import java.time.Instant

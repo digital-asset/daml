@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
   PartyDetails as ProtoPartyDetails,
 }
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest

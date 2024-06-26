@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
+import com.daml.lf.data.Ref
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 
@@ -39,14 +38,13 @@ final case class SubmitterInfo(
   /** The ID for the ledger change */
   val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
-  def toCompletionInfo(statistics: Option[TransactionNodeStatistics] = None): CompletionInfo =
+  def toCompletionInfo: CompletionInfo =
     CompletionInfo(
       actAs,
       applicationId,
       commandId,
       Some(deduplicationPeriod),
       submissionId,
-      statistics,
     )
 }
 

@@ -10,10 +10,10 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyInactive
-import com.digitalasset.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.transaction.ContractStateMachine.KeyInactive
+import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
@@ -609,14 +609,14 @@ class TransactionTreeFactoryImpl(
     *
     * All resolved contract IDs in the map difference are core input contracts by the following argument:
     * Suppose that the map difference resolves a key `k` to a contract ID `cid`.
-    * - In mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
+    * - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
     *   the first node (in execution order) involving the key `k` determines the key's resolution for the view.
     *   So the first node `n` in execution order involving `k` is an Exercise, Fetch, or positive LookupByKey node.
-    * - In mode [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
+    * - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]],
     *   the first by-key node (in execution order, including Creates) determines the global key input of the view.
     *   So the first by-key node `n` is an ExerciseByKey, FetchByKey, or positive LookupByKey node.
     * In particular, `n` cannot be a Create node because then the resolution for the view
-    * would be [[com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyInactive]].
+    * would be [[com.daml.lf.transaction.ContractStateMachine.KeyInactive]].
     * If this node `n` is in the core of the view, then `cid` is a core input and we are done.
     * If this node `n` is in a proper subview, then the aggregated global key inputs
     * [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]]
@@ -750,7 +750,7 @@ class TransactionTreeFactoryImpl(
   }
 
   /** Check that we correctly reconstruct the csm state machine
-    * Canton does not distinguish between the different com.digitalasset.daml.lf.transaction.Transaction.KeyInactive forms right now
+    * Canton does not distinguish between the different com.daml.lf.transaction.Transaction.KeyInactive forms right now
     */
   private def checkCsmStateMatchesView(
       csmState: ContractStateMachine.State[Unit],
@@ -1001,9 +1001,9 @@ object TransactionTreeFactoryImpl {
     val keyVersionAndMaintainers: mutable.Map[LfGlobalKey, (LfTransactionVersion, Set[LfPartyId])] =
       mutable.Map.empty
 
-    /** Out parameter for the [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State]]
+    /** Out parameter for the [[com.daml.lf.transaction.ContractStateMachine.State]]
       *
-      * The state of the [[com.digitalasset.daml.lf.transaction.ContractStateMachine]]
+      * The state of the [[com.daml.lf.transaction.ContractStateMachine]]
       * after iterating over the following nodes in execution order:
       * 1. The iteration starts at the root node of the current view.
       * 2. The iteration includes all processed nodes of the view. This includes the nodes of fully processed subviews.
@@ -1011,7 +1011,7 @@ object TransactionTreeFactoryImpl {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var csmState: ContractStateMachine.State[Unit] = initialCsmState
 
-    /** This resolver is used to feed [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]].
+    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]].
       */
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var currentResolver: LfKeyResolver = initialResolver

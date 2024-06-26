@@ -4,9 +4,8 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.platform.ApiOffset
@@ -242,7 +241,6 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
-            statistics = Some(statistics),
           )
         ),
         recordTime = Timestamp.now(),
@@ -267,7 +265,6 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
-            statistics = Some(statistics),
           )
         ),
         recordTime = Timestamp.now(),
@@ -285,7 +282,6 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
   private val party2 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec2")
   private val party3 = Ref.Party.assertFromString("JdbcLedgerDaoCompletionsSpec3")
   private val parties = Set(party1, party2, party3)
-  private val statistics = TransactionNodeStatistics.Empty
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetOf(response: CompletionStreamResponse): Offset =

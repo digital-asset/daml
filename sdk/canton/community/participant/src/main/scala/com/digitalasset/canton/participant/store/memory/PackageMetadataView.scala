@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store.memory
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.daml.lf.archive.Decode
+import com.daml.lf.archive.Decode
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}

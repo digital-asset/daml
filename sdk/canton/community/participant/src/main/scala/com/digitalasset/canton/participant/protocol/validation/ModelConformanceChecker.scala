@@ -8,7 +8,7 @@ import cats.implicits.toTraverseOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
+import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{

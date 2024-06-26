@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future

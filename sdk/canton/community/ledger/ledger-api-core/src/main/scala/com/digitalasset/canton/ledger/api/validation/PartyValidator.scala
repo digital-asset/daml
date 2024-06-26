@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.Party
 import io.grpc.StatusRuntimeException
 
 class PartyValidator(

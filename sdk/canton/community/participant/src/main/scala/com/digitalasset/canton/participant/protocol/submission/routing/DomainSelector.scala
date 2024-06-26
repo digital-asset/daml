@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import cats.syntax.alternative.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

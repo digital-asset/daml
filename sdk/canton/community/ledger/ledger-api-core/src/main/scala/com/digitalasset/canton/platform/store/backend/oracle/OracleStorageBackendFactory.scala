@@ -9,6 +9,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   CompletionStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
+  ParameterStorageBackendImpl,
   PartyStorageBackendTemplate,
 }
 import com.digitalasset.canton.platform.store.backend.{
@@ -18,6 +19,7 @@ import com.digitalasset.canton.platform.store.backend.{
   DataSourceStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
+  ParameterStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
@@ -29,6 +31,9 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(OracleQueryStrategy, OracleSchema.schema)
+
+  override val createParameterStorageBackend: ParameterStorageBackend =
+    new ParameterStorageBackendImpl(OracleQueryStrategy)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
@@ -53,6 +58,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
     new OracleEventStorageBackend(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
+      parameterStorageBackend = createParameterStorageBackend,
       loggerFactory = loggerFactory,
     )
 

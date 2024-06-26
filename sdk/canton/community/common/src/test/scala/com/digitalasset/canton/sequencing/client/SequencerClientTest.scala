@@ -789,6 +789,7 @@ class SequencerClientTest
             CantonTimestamp.MinValue.immediateSuccessor,
             trafficReceipt.extraTrafficConsumed,
             trafficReceipt.baseTrafficRemainder,
+            trafficReceipt.consumedCost,
           )
         }
 
@@ -838,6 +839,7 @@ class SequencerClientTest
             CantonTimestamp.MinValue.immediateSuccessor,
             trafficReceipt.extraTrafficConsumed,
             trafficReceipt.baseTrafficRemainder,
+            trafficReceipt.consumedCost,
           )
         }
 
@@ -1152,6 +1154,7 @@ class SequencerClientTest
               extraTrafficConsumed =
                 NonNegativeLong.tryCreate(Math.abs(request.timestamp.toProtoPrimitive)),
               baseTrafficRemainder = NonNegativeLong.zero,
+              lastConsumedCost = NonNegativeLong.zero,
               timestamp = request.timestamp,
               serial = None,
             )

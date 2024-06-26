@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore

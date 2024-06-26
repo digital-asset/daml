@@ -13,7 +13,7 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.WriteServiceRejectionErrorGroup
 
 @Explanation(

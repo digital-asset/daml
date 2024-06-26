@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.messages.command.submission
 
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 
 final case class SubmitReassignmentRequest(

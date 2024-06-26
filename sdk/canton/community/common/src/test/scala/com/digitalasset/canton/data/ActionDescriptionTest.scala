@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.value.Value
 import com.digitalasset.canton.data.ActionDescription.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder

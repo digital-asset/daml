@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.daml.lf.transaction.Versioned
+import com.daml.lf.transaction.Versioned
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*

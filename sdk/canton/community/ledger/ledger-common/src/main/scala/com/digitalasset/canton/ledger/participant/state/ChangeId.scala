@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref
 
 /** Identifier for ledger changes used by command deduplication.
   * Equality is defined in terms of the cryptographic hash.

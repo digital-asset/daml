@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,

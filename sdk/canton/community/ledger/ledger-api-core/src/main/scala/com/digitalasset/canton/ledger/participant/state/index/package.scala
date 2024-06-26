@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.*
 
 package index {
 
-  import com.digitalasset.daml.lf.data.Time.Timestamp
+  import com.daml.lf.data.Time.Timestamp
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *

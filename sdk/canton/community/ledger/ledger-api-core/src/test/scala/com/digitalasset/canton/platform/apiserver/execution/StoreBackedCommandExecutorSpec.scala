@@ -3,21 +3,21 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{
+import com.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.daml.lf.engine.*
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   SubmittedTransaction,
   Transaction,
   Versioned,
 }
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueTrue}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -26,7 +26,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -83,7 +83,7 @@ class StoreBackedCommandExecutorSpec
         packagePreference = any[Set[Ref.PackageId]],
         submitters = any[Set[Ref.Party]],
         readAs = any[Set[Ref.Party]],
-        cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
+        cmds = any[com.daml.lf.command.ApiCommands],
         disclosures = any[ImmArray[LfDisclosedContract]],
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
@@ -117,7 +117,7 @@ class StoreBackedCommandExecutorSpec
     new StoreBackedCommandExecutor(
       engine,
       Ref.ParticipantId.assertFromString("anId"),
-      mock[ReadService],
+      mock[WriteService],
       mock[ContractStore],
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
@@ -280,7 +280,7 @@ class StoreBackedCommandExecutorSpec
           packagePreference = any[Set[Ref.PackageId]],
           submitters = any[Set[Ref.Party]],
           readAs = any[Set[Ref.Party]],
-          cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
+          cmds = any[com.daml.lf.command.ApiCommands],
           disclosures = any[ImmArray[LfDisclosedContract]],
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
@@ -328,7 +328,7 @@ class StoreBackedCommandExecutorSpec
       val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
-        mock[ReadService],
+        mock[WriteService],
         store,
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,

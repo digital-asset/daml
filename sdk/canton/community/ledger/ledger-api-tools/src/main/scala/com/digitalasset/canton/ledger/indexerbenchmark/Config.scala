@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.indexerbenchmark
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.config.IndexServiceConfig

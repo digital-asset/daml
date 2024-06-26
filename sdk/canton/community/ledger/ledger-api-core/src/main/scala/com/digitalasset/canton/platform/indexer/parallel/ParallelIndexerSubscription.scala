@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
@@ -50,6 +50,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     submissionBatchSize: Long,
     maxOutputBatchedBufferSize: Int,
     maxTailerBatchSize: Int,
+    excludedPackageIds: Set[Ref.PackageId],
     metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     stringInterningView: StringInterning & InternizingStringInterningView,
@@ -73,52 +74,56 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
   )(implicit traceContext: TraceContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
       import MetricsContext.Implicits.empty
-      val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
-        submissionBatchSize = submissionBatchSize,
-        inputMappingParallelism = inputMappingParallelism,
-        inputMapper = inputMapperExecutor.execute(
-          inputMapper(
-            metrics,
-            mapInSpan(
-              UpdateToDbDto(
-                participantId = participantId,
-                translation = translation,
-                compressionStrategy = compressionStrategy,
-                metrics = metrics,
+      val (killSwitch, completionFuture) = initialized.readServiceSource
+        .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
+        .via(
+          BatchingParallelIngestionPipe(
+            submissionBatchSize = submissionBatchSize,
+            inputMappingParallelism = inputMappingParallelism,
+            inputMapper = inputMapperExecutor.execute(
+              inputMapper(
+                metrics,
+                mapInSpan(
+                  UpdateToDbDto(
+                    participantId = participantId,
+                    translation = translation,
+                    compressionStrategy = compressionStrategy,
+                    metrics = metrics,
+                  )
+                ),
+                UpdateToMeteringDbDto(
+                  metrics = metrics.indexerEvents,
+                  excludedPackageIds = excludedPackageIds,
+                ),
+                logger,
               )
             ),
-            UpdateToMeteringDbDto(metrics = metrics.indexerEvents),
-            logger,
+            seqMapperZero =
+              seqMapperZero(initialized.initialEventSeqId, initialized.initialStringInterningId),
+            seqMapper = seqMapper(
+              dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
+              metrics,
+            ),
+            batchingParallelism = batchingParallelism,
+            batcher = batcherExecutor.execute(
+              batcher(ingestionStorageBackend.batch(_, stringInterningView))
+            ),
+            ingestingParallelism = ingestionParallelism,
+            ingester = ingester(
+              ingestFunction = ingestionStorageBackend.insertBatch,
+              zeroDbBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView),
+              dbDispatcher = dbDispatcher,
+              metrics = metrics,
+            ),
+            maxTailerBatchSize = maxTailerBatchSize,
+            ingestTail = ingestTail[DB_BATCH](
+              parameterStorageBackend.updateLedgerEnd,
+              dbDispatcher,
+              metrics,
+              logger,
+            ),
           )
-        ),
-        seqMapperZero =
-          seqMapperZero(initialized.initialEventSeqId, initialized.initialStringInterningId),
-        seqMapper = seqMapper(
-          dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
-          metrics,
-        ),
-        batchingParallelism = batchingParallelism,
-        batcher = batcherExecutor.execute(
-          batcher(ingestionStorageBackend.batch(_, stringInterningView))
-        ),
-        ingestingParallelism = ingestionParallelism,
-        ingester = ingester(
-          ingestFunction = ingestionStorageBackend.insertBatch,
-          zeroDbBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView),
-          dbDispatcher = dbDispatcher,
-          metrics = metrics,
-        ),
-        maxTailerBatchSize = maxTailerBatchSize,
-        ingestTail = ingestTail[DB_BATCH](
-          parameterStorageBackend.updateLedgerEnd,
-          dbDispatcher,
-          metrics,
-          logger,
-        ),
-      )(
-        initialized.readServiceSource
-          .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
-      )
+        )
         .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
         .buffered(
           counter = metrics.parallelIndexer.outputBatchedBufferLength,

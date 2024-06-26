@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.entries
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.SubmissionId
 

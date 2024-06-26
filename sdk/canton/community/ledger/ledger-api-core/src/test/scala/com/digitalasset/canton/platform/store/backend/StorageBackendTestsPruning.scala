@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.PruningDto.*

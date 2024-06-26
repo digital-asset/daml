@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
 import com.digitalasset.canton.protocol.*

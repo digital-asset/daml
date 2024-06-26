@@ -9,8 +9,8 @@ import com.digitalasset.canton.http.endpoints.MeteringReportEndpoint.{MeteringRe
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v2.admin.metering_report_service
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref.ApplicationId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.{MeteringReportService, domain}
 import com.google.protobuf

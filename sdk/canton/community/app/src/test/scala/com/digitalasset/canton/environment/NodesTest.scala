@@ -97,6 +97,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       dbMigrateAndStart: Boolean = false,
       disableUpgradeValidation: Boolean = false,
       devVersionSupport: Boolean = false,
+      betaVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
       exitOnFatalFailures: Boolean = true,

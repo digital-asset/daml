@@ -21,6 +21,7 @@ import com.digitalasset.canton.config.{
 final case class SequencerNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
+    override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     override val batching: BatchingConfig = BatchingConfig(),

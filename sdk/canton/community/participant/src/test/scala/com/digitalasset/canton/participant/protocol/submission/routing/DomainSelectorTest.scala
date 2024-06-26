@@ -4,9 +4,9 @@
 package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.{

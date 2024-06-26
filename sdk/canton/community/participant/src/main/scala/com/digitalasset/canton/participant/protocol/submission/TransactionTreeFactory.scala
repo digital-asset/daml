@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.transaction.TransactionErrors.KeyInputError
+import com.daml.lf.transaction.TransactionErrors.KeyInputError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{Salt, SaltSeed}
 import com.digitalasset.canton.data.{

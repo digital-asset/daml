@@ -27,7 +27,7 @@ import com.digitalasset.canton.http.util.Logging.{
 }
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
-import com.digitalasset.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload, LedgerApiError}
 import com.digitalasset.canton.logging.TracedLogger

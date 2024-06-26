@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.daml.lf.data.Ref.LedgerString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

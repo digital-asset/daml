@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import org.scalatest.OptionValues

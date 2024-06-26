@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,

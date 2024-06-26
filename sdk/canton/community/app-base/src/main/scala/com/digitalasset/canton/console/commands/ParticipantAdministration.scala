@@ -96,6 +96,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{DomainAlias, SequencerAlias, config}
 
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 
 sealed trait DomainChoice
@@ -430,6 +431,7 @@ class LocalParticipantTestingGroup(
        This is because the combined event log isn't guaranteed to have increasing timestamps.
     """
   )
+  @nowarn("msg=usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer")
   def event_search(
       domain: Option[DomainAlias] = None,
       from: Option[Instant] = None,
@@ -461,6 +463,7 @@ class LocalParticipantTestingGroup(
        Note that if the domain is left blank, the values of `from` and `to` cannot be set.
        This is because the combined event log isn't guaranteed to have increasing timestamps.
     """)
+  @nowarn("msg=usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer")
   def transaction_search(
       domain: Option[DomainAlias] = None,
       from: Option[Instant] = None,

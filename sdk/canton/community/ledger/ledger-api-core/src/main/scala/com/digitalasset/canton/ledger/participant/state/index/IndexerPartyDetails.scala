@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 /** Represents a party with additional known information.
   *

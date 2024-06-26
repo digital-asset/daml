@@ -6,7 +6,7 @@ package com.digitalasset.canton.http.endpoints
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import com.digitalasset.daml.lf.value.Value as LfValue
+import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.http.ContractsService.SearchResult
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.{ET, IntoEndpointsError}

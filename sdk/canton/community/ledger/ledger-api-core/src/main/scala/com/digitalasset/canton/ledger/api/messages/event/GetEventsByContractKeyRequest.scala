@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.api.messages.event
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.value.Value
 
 final case class GetEventsByContractKeyRequest(
     contractKey: Value,

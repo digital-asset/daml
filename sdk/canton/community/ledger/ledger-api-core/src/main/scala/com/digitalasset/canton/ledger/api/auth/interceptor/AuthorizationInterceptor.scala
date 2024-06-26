@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.auth.interceptor
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.UserId
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.domain

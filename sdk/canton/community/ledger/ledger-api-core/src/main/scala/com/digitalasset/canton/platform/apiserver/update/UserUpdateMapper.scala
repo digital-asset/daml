@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.User
 import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, UserUpdate}

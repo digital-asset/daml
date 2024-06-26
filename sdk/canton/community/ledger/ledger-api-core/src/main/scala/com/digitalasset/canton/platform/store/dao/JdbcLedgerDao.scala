@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.entries.LoggingEntry
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId

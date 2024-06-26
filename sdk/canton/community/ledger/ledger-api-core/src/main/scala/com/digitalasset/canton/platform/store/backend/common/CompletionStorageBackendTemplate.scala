@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -43,7 +43,7 @@ class CompletionStorageBackendTemplate(
   )(connection: Connection): Vector[CompletionStreamResponse] = {
     import ComposableQuery.*
     import com.digitalasset.canton.platform.store.backend.Conversions.applicationIdToStatement
-    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     val internedParties =
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
     if (internedParties.isEmpty) {

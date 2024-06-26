@@ -514,7 +514,7 @@ object WebSocketService extends NoTracing {
           .decodeUnderlyingValuesToLf(a, jwt)
           .run
           .map(
-            _.valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit))
+            _.valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit))
           ) // unit will not match any key
     }
 

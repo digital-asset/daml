@@ -5,9 +5,9 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Ref.{Party, TypeConRef}
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl, TemplateFilter}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion

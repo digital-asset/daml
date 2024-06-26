@@ -11,8 +11,8 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   ListKnownPartiesRequest,
   PartyDetails as ApiPartyDetails,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderId,
   ObjectMeta,

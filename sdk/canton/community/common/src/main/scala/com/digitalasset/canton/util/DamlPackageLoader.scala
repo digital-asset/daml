@@ -4,9 +4,9 @@
 package com.digitalasset.canton.util
 
 import cats.implicits.*
-import com.digitalasset.daml.lf.archive.{DarDecoder, DarReader}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
+import com.daml.lf.archive.{DarDecoder, DarReader}
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
 import java.io.{ByteArrayInputStream, File, InputStream}

@@ -56,12 +56,14 @@ object CantonNodeParameters {
   }
   trait Protocol {
     def devVersionSupport: Boolean
+    def betaVersionSupport: Boolean
     def dontWarnOnDeprecatedPV: Boolean
   }
 
   object Protocol {
     final case class Impl(
         devVersionSupport: Boolean,
+        betaVersionSupport: Boolean,
         dontWarnOnDeprecatedPV: Boolean,
     ) extends CantonNodeParameters.Protocol
   }
@@ -94,5 +96,6 @@ trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {
   protected def protocol: CantonNodeParameters.Protocol
 
   def devVersionSupport: Boolean = protocol.devVersionSupport
+  def betaVersionSupport: Boolean = protocol.betaVersionSupport
   def dontWarnOnDeprecatedPV: Boolean = protocol.dontWarnOnDeprecatedPV
 }

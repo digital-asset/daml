@@ -5,7 +5,7 @@ package com.digitalasset.canton.http.util
 
 import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
 import com.digitalasset.canton.http.EndpointsCompanion.Unauthorized
-import com.digitalasset.daml.lf.value.test.ValueGenerators.party as partyGen
+import com.daml.lf.value.test.ValueGenerators.party as partyGen
 import com.daml.scalautil.Statement.discard
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*

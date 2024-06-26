@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -68,7 +68,7 @@ class PackageDependencyResolver(
                 Future(
                   Either
                     .catchOnly[Exception](
-                      com.digitalasset.daml.lf.archive.Decode.assertDecodeArchive(pckg)._2.directDeps
+                      com.daml.lf.archive.Decode.assertDecodeArchive(pckg)._2.directDeps
                     )
                     .leftMap { e =>
                       logger.error(

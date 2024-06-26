@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.daml.lf.data.Ref.HexString
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Ref.HexString
+import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.daml.lf.value.json.ApiCodecCompressed

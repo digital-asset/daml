@@ -13,9 +13,9 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.*
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.Engine
+import com.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -36,7 +36,7 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.ReadService.ConnectedDomainResponse
+import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -56,7 +56,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -90,7 +89,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
+import com.digitalasset.canton.platform.apiserver.execution.{
+  AuthorityResolver,
+  CommandProgressTracker,
+}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -188,37 +190,6 @@ class CantonSyncService(
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
-  // Augment event with transaction statistics "as late as possible" as stats are redundant data and so that
-  // we don't need to persist stats and deal with versioning stats changes. Also every event is usually consumed
-  // only once.
-  private[sync] def augmentTransactionStatistics(
-      e: LedgerSyncEvent
-  ): LedgerSyncEvent = e match {
-    case e: LedgerSyncEvent.TransactionAccepted =>
-      e.copy(completionInfoO =
-        e.completionInfoO.map(completionInfo =>
-          completionInfo.copy(statistics =
-            Some(LedgerTransactionNodeStatistics(e.transaction, excludedPackageIds))
-          )
-        )
-      )
-    case e => e
-  }
-
-  private val excludedPackageIds: Set[LfPackageId] =
-    if (parameters.excludeInfrastructureTransactions) {
-      Set(
-        canton.internal.ping.Ping.TEMPLATE_ID,
-        canton.internal.bong.BongProposal.TEMPLATE_ID,
-        canton.internal.bong.Bong.TEMPLATE_ID,
-        canton.internal.bong.Merge.TEMPLATE_ID,
-        canton.internal.bong.Explode.TEMPLATE_ID,
-        canton.internal.bong.Collapse.TEMPLATE_ID,
-      ).map(x => LfPackageId.assertFromString(x.getPackageId))
-    } else {
-      Set.empty[LfPackageId]
-    }
-
   private type ConnectionListener = Traced[DomainId] => Unit
 
   // Listeners to domain connections
@@ -308,6 +279,10 @@ class CantonSyncService(
       syncDomainPersistentStateManager.get(domainId.unwrap).map(_.transferStore),
     protocolVersionFor = protocolVersionGetter,
   )
+  val commandProgressTracker: CommandProgressTracker =
+    if (parameters.commandProgressTracking.enabled)
+      new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
+    else CommandProgressTracker.NoOp
 
   private val commandDeduplicator = new CommandDeduplicatorImpl(
     participantNodePersistentState.map(_.commandDeduplicationStore),
@@ -406,6 +381,19 @@ class CantonSyncService(
       loggerFactory,
     )
 
+  private def trackSubmission(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+  ): Unit =
+    commandProgressTracker
+      .findHandle(
+        submitterInfo.commandId,
+        submitterInfo.applicationId,
+        submitterInfo.actAs,
+        submitterInfo.submissionId,
+      )
+      .recordTransactionImpact(transaction)
+
   // Submit a transaction (write service implementation)
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -422,6 +410,7 @@ class CantonSyncService(
     withSpan("CantonSyncService.submitTransaction") { implicit traceContext => span =>
       span.setAttribute("command_id", submitterInfo.commandId)
       logger.debug(s"Received submit-transaction ${submitterInfo.commandId} from ledger-api server")
+      trackSubmission(submitterInfo, transaction)
       submitTransactionF(
         submitterInfo,
         optDomainId,
@@ -637,7 +626,6 @@ class CantonSyncService(
               .subscribe(beginStartingAt)
               .mapConcat { case (offset, event) =>
                 event
-                  .map(augmentTransactionStatistics)
                   .traverse(_.toDamlUpdate)
                   .map { e =>
                     logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
@@ -1405,6 +1393,7 @@ class CantonSyncService(
           missingKeysAlerter,
           transferCoordination,
           inFlightSubmissionTracker,
+          commandProgressTracker,
           clock,
           domainMetrics,
           futureSupervisor,
@@ -1755,8 +1744,8 @@ class CantonSyncService(
   }
 
   override def getConnectedDomains(
-      request: ReadService.ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): Future[ReadService.ConnectedDomainResponse] = {
+      request: WriteService.ConnectedDomainRequest
+  )(implicit traceContext: TraceContext): Future[WriteService.ConnectedDomainResponse] = {
     def getSnapshot(domainAlias: DomainAlias, domainId: DomainId): Future[TopologySnapshot] =
       syncCrypto.ips
         .forDomain(domainId)

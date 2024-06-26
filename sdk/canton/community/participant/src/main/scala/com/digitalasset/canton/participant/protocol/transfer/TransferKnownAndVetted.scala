@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain

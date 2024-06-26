@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.client.services.admin
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
 import com.daml.ledger.api.v2.admin.identity_provider_config_service as proto
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,

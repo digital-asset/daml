@@ -34,6 +34,7 @@ trait TrafficConsumedStoreTest
         t1,
         NonNegativeLong.tryCreate(3),
         NonNegativeLong.tryCreate(20L),
+        NonNegativeLong.tryCreate(5L),
       )
     val consumedAlice2 = consumedAlice1.copy(sequencingTimestamp = t2)
     val consumedAlice3 = consumedAlice1.copy(sequencingTimestamp = t3)
@@ -43,6 +44,7 @@ trait TrafficConsumedStoreTest
         t1,
         NonNegativeLong.tryCreate(3),
         NonNegativeLong.tryCreate(20L),
+        NonNegativeLong.tryCreate(10L),
       )
     val consumedBob2 = consumedBob1.copy(sequencingTimestamp = t2)
     val consumedBob3 = consumedBob1.copy(sequencingTimestamp = t3)
@@ -168,21 +170,35 @@ trait TrafficConsumedStoreTest
         val store = mk()
 
         val aliceConsumed = Seq(
-          TrafficConsumed(alice.member, t1, NonNegativeLong.one, NonNegativeLong.tryCreate(5L)),
+          TrafficConsumed(
+            alice.member,
+            t1,
+            NonNegativeLong.one,
+            NonNegativeLong.tryCreate(5L),
+            NonNegativeLong.tryCreate(5L),
+          ),
           TrafficConsumed(
             alice.member,
             t3,
             NonNegativeLong.tryCreate(2),
             NonNegativeLong.tryCreate(55L),
+            NonNegativeLong.tryCreate(4L),
           ),
         )
         val bobConsumed = Seq(
-          TrafficConsumed(bob.member, t2, NonNegativeLong.one, NonNegativeLong.tryCreate(10L)),
+          TrafficConsumed(
+            bob.member,
+            t2,
+            NonNegativeLong.one,
+            NonNegativeLong.tryCreate(10L),
+            NonNegativeLong.tryCreate(5L),
+          ),
           TrafficConsumed(
             bob.member,
             t4,
             NonNegativeLong.tryCreate(2),
             NonNegativeLong.tryCreate(100L),
+            NonNegativeLong.tryCreate(3L),
           ),
         )
 

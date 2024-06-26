@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.pruning
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}

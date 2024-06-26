@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http
 
 import com.daml.jwt.domain.Jwt
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.*
 import com.digitalasset.canton.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}

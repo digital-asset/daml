@@ -7,17 +7,18 @@ import cats.data.NonEmptyVector
 import cats.implicits.toBifunctorOps
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.daml.lf.data.Ref.HexString
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
-import com.digitalasset.daml.lf.transaction.NodeId
+import com.daml.lf.data.Ref.HexString
+import com.daml.lf.engine.Blinding
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.Node.{Create, Exercise}
+import com.daml.lf.transaction.NodeId
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
@@ -147,6 +148,8 @@ private[platform] object InMemoryStateUpdater {
     )
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
     trackSubmissions(inMemoryState.submissionTracker, result.updates)
+    // can be done at any point in the pipeline, it is for debugging only
+    trackCommandProgress(inMemoryState.commandProgressTracker, result.updates)
   }
 
   private def trackSubmissions(
@@ -169,10 +172,16 @@ private[platform] object InMemoryStateUpdater {
               )
             ) =>
           completionDetails.completionStreamResponse -> completionDetails.submitters
-        case Traced(rejected: TransactionLogUpdate.TransactionRejected) =>
-          rejected.completionDetails.completionStreamResponse -> rejected.completionDetails.submitters
+        case Traced(TransactionLogUpdate.TransactionRejected(_, completionDetails)) =>
+          completionDetails.completionStreamResponse -> completionDetails.submitters
       }
       .foreach(submissionTracker.onCompletion)
+
+  private def trackCommandProgress(
+      commandProgressTracker: CommandProgressTracker,
+      updates: Vector[Traced[TransactionLogUpdate]],
+  ): Unit =
+    updates.view.foreach(commandProgressTracker.processLedgerUpdate)
 
   private def updateCaches(
       inMemoryState: InMemoryState,
@@ -278,13 +287,13 @@ private[platform] object InMemoryStateUpdater {
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
-            create.keyOpt.map(k => com.digitalasset.daml.lf.transaction.Versioned(create.version, k.value)),
+            create.keyOpt.map(k => com.daml.lf.transaction.Versioned(create.version, k.value)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = create.stakeholders,
           submitters = txAccepted.completionInfoO
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
-          createArgument = com.digitalasset.daml.lf.transaction.Versioned(create.version, create.arg),
+          createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
           createSignatories = create.signatories,
           createObservers = create.stakeholders.diff(create.signatories),
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
@@ -306,7 +315,7 @@ private[platform] object InMemoryStateUpdater {
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
-            exercise.keyOpt.map(k => com.digitalasset.daml.lf.transaction.Versioned(exercise.version, k.value)),
+            exercise.keyOpt.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.value)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
           submitters = txAccepted.completionInfoO
@@ -355,7 +364,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,
-      domainId = Some(txAccepted.domainId.toProtoPrimitive),
+      domainId = txAccepted.domainId.toProtoPrimitive,
       recordTime = txAccepted.recordTime,
     )
   }
@@ -447,13 +456,13 @@ private[platform] object InMemoryStateUpdater {
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey =
-                create.keyOpt.map(k => com.digitalasset.daml.lf.transaction.Versioned(create.version, k.value)),
+                create.keyOpt.map(k => com.daml.lf.transaction.Versioned(create.version, k.value)),
               treeEventWitnesses = Set.empty,
               flatEventWitnesses = u.reassignmentInfo.hostedStakeholders.toSet,
               submitters = u.optCompletionInfo
                 .map(_.actAs.toSet)
                 .getOrElse(Set.empty),
-              createArgument = com.digitalasset.daml.lf.transaction.Versioned(create.version, create.arg),
+              createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
               createSignatories = create.signatories,
               createObservers = create.stakeholders.diff(create.signatories),
               createKeyHash = create.keyOpt.map(_.globalKey.hash),

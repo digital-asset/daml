@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,

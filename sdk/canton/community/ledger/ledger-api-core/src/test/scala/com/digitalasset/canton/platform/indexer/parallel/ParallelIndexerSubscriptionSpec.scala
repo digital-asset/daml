@@ -4,11 +4,11 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
-import com.digitalasset.daml.lf.transaction.{
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
+import com.daml.lf.transaction.{
   CommittedTransaction,
   TransactionNodeStatistics,
   TransactionVersion,
@@ -250,7 +250,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
-      statistics = Some(statistics),
     )
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),

@@ -4,12 +4,12 @@
 package com.digitalasset.canton.platform.indexer.ha
 
 import cats.syntax.bifunctor.toBifunctorOps
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TreeTransactionBuilder}
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.crypto
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.test.{TestNodeBuilder, TreeTransactionBuilder}
+import com.daml.lf.value.Value
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.{
@@ -153,7 +153,6 @@ object EndlessReadService {
   val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   val templateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
   val choiceName: Ref.Name = Ref.Name.assertFromString("SomeChoice")
-  val statistics: TransactionNodeStatistics = TransactionNodeStatistics.Empty
 
   // Note: all methods in this object MUST be fully deterministic
   def index(o: Offset): Int = Integer.parseInt(o.toHexString, 16)
@@ -170,7 +169,6 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
-    statistics = Some(statistics),
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

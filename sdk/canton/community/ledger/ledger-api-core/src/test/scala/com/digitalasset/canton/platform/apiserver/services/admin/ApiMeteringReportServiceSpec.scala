@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin.metering_report_service.GetMeteringReportRequest
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore

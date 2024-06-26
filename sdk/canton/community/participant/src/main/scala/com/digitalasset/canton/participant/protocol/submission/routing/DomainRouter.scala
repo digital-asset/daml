@@ -8,7 +8,7 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.ProcessedDisclosedContract

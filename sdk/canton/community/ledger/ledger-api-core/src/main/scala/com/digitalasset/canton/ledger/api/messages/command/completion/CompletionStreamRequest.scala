@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.messages.command.completion
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 
 final case class CompletionStreamRequest(

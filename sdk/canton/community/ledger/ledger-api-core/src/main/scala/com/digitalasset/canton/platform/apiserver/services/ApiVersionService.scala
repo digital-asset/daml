@@ -73,7 +73,8 @@ private[apiserver] final class ApiVersionService(
       ),
       experimental = Some(
         ExperimentalFeatures.of(
-          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime))
+          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
+          commandInspectionService = Some(ledgerFeatures.commandInspectionService),
         )
       ),
     )

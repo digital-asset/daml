@@ -6,7 +6,7 @@ package com.digitalasset.canton.http
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.stream.scaladsl.*
-import com.digitalasset.daml.lf
+import com.daml.lf
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.canton.http.domain.{

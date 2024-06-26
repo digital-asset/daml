@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.Generators.{OptionalPackageIdGen, contractGen, contractIdGen, contractLocatorGen, exerciseCmdGen, genDomainTemplateId, genDomainTemplateIdO, genServiceWarning, genUnknownParties, genUnknownTemplateIds, genWarningsWrapper}
 import com.digitalasset.canton.http.domain

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*

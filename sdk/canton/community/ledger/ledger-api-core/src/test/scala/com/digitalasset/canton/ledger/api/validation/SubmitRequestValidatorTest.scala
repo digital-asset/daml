@@ -13,12 +13,12 @@ import com.daml.ledger.api.v2.value.{
   TextMap as ApiTextMap,
   *,
 }
-import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
-import com.digitalasset.daml.lf.data.Ref.TypeConRef
-import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.value.Value.ValueRecord
-import com.digitalasset.daml.lf.value.Value as Lf
+import com.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
+import com.daml.lf.data.Ref.TypeConRef
+import com.daml.lf.data.*
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.DomainMocks.{
   applicationId,

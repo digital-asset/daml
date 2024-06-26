@@ -59,15 +59,16 @@ final case class SubmissionRequest private (
 
   @VisibleForTesting
   def isConfirmationRequest: Boolean = {
-    val hasParticipantRecipient = batch.allMembers.exists {
-      case _: ParticipantId => true
-      case _: Member => false
+    val hasParticipantOrPopRecipient = batch.allRecipients.exists {
+      case MemberRecipient(_: ParticipantId) => true
+      case ParticipantsOfParty(_) => true
+      case _ => false
     }
     val hasMediatorRecipient = batch.allRecipients.exists {
       case _: MediatorGroupRecipient => true
       case _: Recipient => false
     }
-    hasParticipantRecipient && hasMediatorRecipient
+    hasParticipantOrPopRecipient && hasMediatorRecipient
   }
 
   // Caches the serialized request to be able to do checks on its size without re-serializing

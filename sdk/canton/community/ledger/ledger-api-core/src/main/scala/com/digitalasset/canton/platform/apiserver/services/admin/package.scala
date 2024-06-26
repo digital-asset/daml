@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 import java.util.UUID
 

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.entries
 
-import com.digitalasset.daml.lf.data.Relation
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId}
+import com.daml.lf.data.Relation
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.digitalasset.canton.platform.*
 
 private[platform] sealed abstract class LedgerEntry extends Product with Serializable

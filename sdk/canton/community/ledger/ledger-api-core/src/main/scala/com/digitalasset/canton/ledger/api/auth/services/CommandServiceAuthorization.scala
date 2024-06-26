@@ -27,7 +27,7 @@ final class CommandServiceAuthorization(
     with GrpcApiService {
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -39,7 +39,7 @@ final class CommandServiceAuthorization(
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -51,7 +51,7 @@ final class CommandServiceAuthorization(
   override def submitAndWaitForUpdateId(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForUpdateIdResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -63,7 +63,7 @@ final class CommandServiceAuthorization(
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,

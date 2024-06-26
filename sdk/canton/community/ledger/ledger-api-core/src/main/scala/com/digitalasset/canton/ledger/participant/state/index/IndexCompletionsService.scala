@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import org.apache.pekko.NotUsed

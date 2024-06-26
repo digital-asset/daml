@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.participant.state.{ReadService, Update}

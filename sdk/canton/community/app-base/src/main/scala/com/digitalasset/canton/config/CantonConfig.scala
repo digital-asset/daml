@@ -70,6 +70,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.config.*
+import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.{
   EngineLoggingConfig,
@@ -238,6 +239,7 @@ final case class RetentionPeriodDefaults(
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
   * @param devVersionSupport If true, allow domain nodes to use unstable protocol versions and participant nodes to connect to such domains
+  * @param betaVersionSupport If true, allow domain nodes to use beta protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
   * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures
@@ -251,6 +253,7 @@ final case class CantonParameters(
     nonStandardConfig: Boolean = true,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     devVersionSupport: Boolean = true,
+    betaVersionSupport: Boolean = false,
     portsFile: Option[String] = None,
     timeouts: TimeoutSettings = TimeoutSettings(),
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
@@ -378,6 +381,7 @@ trait CantonConfig {
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           devVersionSupport = participantParameters.devVersionSupport,
+          betaVersionSupport = participantParameters.BetaVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
         ),
         ledgerApiServerParameters = participantParameters.ledgerApiServer,
@@ -388,6 +392,7 @@ trait CantonConfig {
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
+        commandProgressTracking = participantParameters.commandProgressTracker,
       )
     }
 
@@ -519,6 +524,7 @@ private[canton] object CantonNodeParameterConverter {
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
     CantonNodeParameters.Protocol.Impl(
       devVersionSupport = parent.parameters.devVersionSupport || config.devVersionSupport,
+      betaVersionSupport = parent.parameters.betaVersionSupport || config.betaVersionSupport,
       dontWarnOnDeprecatedPV = config.dontWarnOnDeprecatedPV,
     )
 
@@ -971,9 +977,12 @@ object CantonConfig {
       deriveReader[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigReader: ConfigReader[CantonEngineConfig] =
       deriveReader[CantonEngineConfig]
-    lazy implicit val participantNodeParameterConfigReader
-        : ConfigReader[ParticipantNodeParameterConfig] =
+    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigReader
+        : ConfigReader[ParticipantNodeParameterConfig] = {
+      implicit val commandProgressTrackerConfigReader: ConfigReader[CommandProgressTrackerConfig] =
+        deriveReader[CommandProgressTrackerConfig]
       deriveReader[ParticipantNodeParameterConfig]
+    }
     lazy implicit val timeTrackerConfigReader: ConfigReader[DomainTimeTrackerConfig] =
       deriveReader[DomainTimeTrackerConfig]
     lazy implicit val timeRequestConfigReader: ConfigReader[TimeProofRequestConfig] =
@@ -1385,9 +1394,12 @@ object CantonConfig {
       deriveWriter[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigWriter: ConfigWriter[CantonEngineConfig] =
       deriveWriter[CantonEngineConfig]
-    lazy implicit val participantNodeParameterConfigWriter
-        : ConfigWriter[ParticipantNodeParameterConfig] =
+    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigWriter
+        : ConfigWriter[ParticipantNodeParameterConfig] = {
+      implicit val commandProgressTrackerConfigWriter: ConfigWriter[CommandProgressTrackerConfig] =
+        deriveWriter[CommandProgressTrackerConfig]
       deriveWriter[ParticipantNodeParameterConfig]
+    }
     lazy implicit val timeTrackerConfigWriter: ConfigWriter[DomainTimeTrackerConfig] =
       deriveWriter[DomainTimeTrackerConfig]
     lazy implicit val timeRequestConfigWriter: ConfigWriter[TimeProofRequestConfig] =

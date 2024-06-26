@@ -4,12 +4,12 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
+import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
@@ -60,6 +61,7 @@ import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceCon
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
@@ -85,6 +87,8 @@ class StartableStoppableLedgerApiServer(
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     parameters: ParticipantNodeParameters,
+    commandProgressTracker: CommandProgressTracker,
+    excludedPackageIds: Set[LfPackageId],
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -210,6 +214,7 @@ class StartableStoppableLedgerApiServer(
     for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
+          commandProgressTracker,
           indexServiceConfig,
           config.serverConfig.commandService.maxCommandsInFlight,
           config.metrics,
@@ -217,6 +222,7 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
         )
+      timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       dbSupport <- DbSupport
         .owner(
@@ -247,6 +253,7 @@ class StartableStoppableLedgerApiServer(
         ),
         highAvailability = config.indexerHaConfig,
         indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
+        excludedPackageIds,
       )
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
@@ -274,18 +281,18 @@ class StartableStoppableLedgerApiServer(
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
         incompleteOffsets = (off, ps, tc) =>
-          timedReadService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
+          timedWriteService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
-        getPackageMetadataSnapshot = timedReadService.getPackageMetadataSnapshot(_),
+        getPackageMetadataSnapshot = timedWriteService.getPackageMetadataSnapshot(_),
         lfValueTranslation = new LfValueTranslation(
           metrics = config.metrics,
           engineO = Some(config.engine),
           loadPackage = (packageId, loggingContext) =>
-            timedReadService.getLfArchive(packageId)(loggingContext.traceContext),
+            timedWriteService.getLfArchive(packageId)(loggingContext.traceContext),
           loggerFactory = loggerFactory,
         ),
       )
-      _ = timedReadService.registerInternalStateService(new InternalStateService {
+      _ = timedWriteService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
             partyIds: Set[LfPartyId],
             validAt: Option[Offset],
@@ -316,10 +323,10 @@ class StartableStoppableLedgerApiServer(
       authenticateContract: AuthenticateContract = c =>
         serializableContractAuthenticator.authenticate(c)
 
-      timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       _ <- ApiServiceOwner(
-        submissionTracker = inMemoryState.submissionTracker,
         indexService = indexService,
+        submissionTracker = inMemoryState.submissionTracker,
+        commandProgressTracker = commandProgressTracker,
         userManagementStore = userManagementStore,
         identityProviderConfigStore = getIdentityProviderConfigStore(
           dbSupport,
@@ -339,8 +346,7 @@ class StartableStoppableLedgerApiServer(
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
         port = config.serverConfig.port,
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
-        optWriteService = Some(timedWriteService),
-        readService = timedReadService,
+        writeService = timedWriteService,
         healthChecks = new HealthChecks(
           "read" -> timedReadService,
           "write" -> (() => config.syncService.currentWriteHealth()),
@@ -444,7 +450,9 @@ class StartableStoppableLedgerApiServer(
     .toList
 
   private def getLedgerFeatures: LedgerFeatures = LedgerFeatures(
-    staticTime = config.testingTimeService.isDefined
+    staticTime = config.testingTimeService.isDefined,
+    commandInspectionService =
+      ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
   )
 
   private def startHttpApiIfEnabled: ResourceOwner[Unit] =

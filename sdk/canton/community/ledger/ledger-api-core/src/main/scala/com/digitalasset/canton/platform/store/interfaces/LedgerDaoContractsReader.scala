@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.interfaces
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
@@ -36,7 +36,7 @@ private[platform] trait LedgerDaoContractsReader {
 }
 
 object LedgerDaoContractsReader {
-  import com.digitalasset.daml.lf.value.Value as lfval
+  import com.daml.lf.value.Value as lfval
   private type ContractId = lfval.ContractId
   private type Value = lfval.VersionedValue
   private type Contract = lfval.VersionedContractInstance

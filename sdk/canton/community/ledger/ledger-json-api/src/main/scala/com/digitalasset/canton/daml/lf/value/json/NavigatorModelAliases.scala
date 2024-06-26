@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.Ref as DamlLfRef
-import com.digitalasset.daml.lf.typesig
-import com.digitalasset.daml.lf.value.Value as V
+import com.daml.lf.data.Ref as DamlLfRef
+import com.daml.lf.typesig
+import com.daml.lf.value.Value as V
 
 /** Aliases used by navigator's Scala backend, from which this package
   * was derived.

@@ -22,8 +22,8 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   UpdatePartyIdentityProviderIdRequest,
   UpdatePartyIdentityProviderIdResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.v1.page_tokens.ListPartiesPageTokenPayload
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps

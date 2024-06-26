@@ -10,10 +10,10 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.GetCommandStatusR
 }
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
-import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
+import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.transaction.Node.LeafOnlyAction
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
@@ -127,7 +127,7 @@ class CommandProgressTrackerImpl(
         .discard
 
     def recordTransactionImpact(
-        transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
+        transaction: LfSubmittedTransaction
     ): Unit = {
       val creates = mutable.ListBuffer.empty[CommandUpdates.Contract]
       val archives = mutable.ListBuffer.empty[CommandUpdates.Contract]

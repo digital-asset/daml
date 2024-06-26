@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -41,6 +41,7 @@ object JdbcIndexer {
       participantId: Ref.ParticipantId,
       participantDataSourceConfig: ParticipantDataSourceConfig,
       config: IndexerConfig,
+      excludedPackageIds: Set[Ref.PackageId],
       readService: state.ReadService,
       metrics: LedgerApiServerMetrics,
       inMemoryState: InMemoryState,
@@ -110,6 +111,7 @@ object JdbcIndexer {
           submissionBatchSize = config.submissionBatchSize,
           maxTailerBatchSize = config.maxTailerBatchSize,
           maxOutputBatchedBufferSize = config.maxOutputBatchedBufferSize,
+          excludedPackageIds = excludedPackageIds,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
           stringInterningView = inMemoryState.stringInterningView,

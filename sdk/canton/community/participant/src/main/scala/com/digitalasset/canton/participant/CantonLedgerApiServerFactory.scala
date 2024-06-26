@@ -6,8 +6,7 @@ package com.digitalasset.canton.participant
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.canton.LedgerParticipantId
+import com.daml.lf.engine.Engine
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -27,6 +26,7 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
+import com.digitalasset.canton.{LedgerParticipantId, LfPackageId}
 import org.apache.pekko.actor.ActorSystem
 
 class CantonLedgerApiServerFactory(
@@ -49,6 +49,7 @@ class CantonLedgerApiServerFactory(
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
+      excludedPackageIds: Set[LfPackageId],
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -110,6 +111,7 @@ class CantonLedgerApiServerFactory(
             cantonParameterConfig = parameters,
             testingTimeService = ledgerTestingTimeService,
             adminToken = adminToken,
+            enableCommandInspection = config.ledgerApi.enableCommandInspection,
             loggerFactory = loggerFactory,
             tracerProvider = tracerProvider,
             metrics = metrics,
@@ -127,6 +129,7 @@ class CantonLedgerApiServerFactory(
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
           parameters = parameters,
+          excludedPackageIds = excludedPackageIds,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message

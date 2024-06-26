@@ -12,9 +12,9 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
@@ -85,7 +85,7 @@ private[platform] trait LedgerDaoEventsReader {
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
 //  def getEventsByContractKey(
-//      contractKey: com.digitalasset.daml.lf.value.Value,
+//      contractKey: com.daml.lf.value.Value,
 //      templateId: Ref.Identifier,
 //      requestingParties: Set[Party],
 //      endExclusiveSeqId: Option[Long],

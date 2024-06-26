@@ -91,6 +91,7 @@ abstract class MediatorNodeConfigCommon(
 final case class MediatorNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
+    override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
@@ -491,7 +492,7 @@ class MediatorNodeBootstrap(
         else
           // TODO(#15561) Remove NonEmpty construct once stableAndSupported is NonEmpty again
           NonEmpty
-            .from(ProtocolVersion.stableAndSupported)
+            .from(ProtocolVersion.stable)
             .getOrElse(sys.error("no protocol version is considered stable in this release")),
       minimumProtocolVersion = Some(ProtocolVersion.minimum),
       dontWarnOnDeprecatedPV = parameterConfig.dontWarnOnDeprecatedPV,
