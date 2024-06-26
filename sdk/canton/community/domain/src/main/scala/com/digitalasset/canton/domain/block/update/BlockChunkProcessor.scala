@@ -336,6 +336,7 @@ private[update] final class BlockChunkProcessor(
           case Some(params) =>
             newMembers.toList
               .parTraverse_ { case (member, timestamp) =>
+                // Note: in unified sequencer mode, rate limiter uses a default value if member is not present in its state
                 rateLimitManager
                   .registerNewMemberAt(
                     member,
@@ -505,8 +506,8 @@ private[update] final class BlockChunkProcessor(
         {
           case LedgerBlockEvent.Send(_, signedSubmissionRequest, payloadSize) =>
             val mc = SequencerMetrics.submissionTypeMetricsContext(
-              signedSubmissionRequest.content.content.batch.allRecipients,
-              signedSubmissionRequest.content.content.sender,
+              signedSubmissionRequest.submissionRequest.batch.allRecipients,
+              signedSubmissionRequest.submissionRequest.sender,
               logger,
             )
             metrics.block.blockEvents.mark()(mc)

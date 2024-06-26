@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.GenTransactionTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -20,6 +19,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future

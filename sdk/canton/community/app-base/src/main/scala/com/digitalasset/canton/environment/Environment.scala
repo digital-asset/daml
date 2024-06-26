@@ -82,6 +82,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       histogramInventory = histogramInventory,
       histogramFilter = baseFilter,
       histogramConfigs = config.monitoring.metrics.histograms,
+      config.monitoring.metrics.cardinality.unwrap,
       loggerFactory,
     )
   }

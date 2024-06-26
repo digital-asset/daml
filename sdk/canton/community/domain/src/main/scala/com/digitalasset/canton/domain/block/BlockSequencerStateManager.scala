@@ -33,7 +33,6 @@ import com.digitalasset.canton.domain.block.update.{
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerIntegration}
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{
@@ -50,7 +49,7 @@ import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, MapsUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, MapsUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.KillSwitches
@@ -128,7 +127,6 @@ class BlockSequencerStateManager(
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    rateLimitManager: SequencerRateLimitManager,
     unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
@@ -402,12 +400,13 @@ class BlockSequencerStateManager(
           )
           .map { case (_, event) =>
             if (event.isTombstone) {
-              val err =
-                s"Encountered tombstone ${event.counter} and ${event.timestamp} for $member"
-              logger.warn(s"Terminating subscription due to: $err")(event.traceContext)
-              Left(
-                SequencerSubscriptionError.TombstoneEncountered.Error(err)
+              val err = SequencerSubscriptionError.TombstoneEncountered.Error(
+                event.counter,
+                member,
+                event.timestamp,
               )
+              logger.warn(s"Terminating subscription due to: ${err.cause}")(event.traceContext)
+              Left(err)
             } else {
               Right(event)
             }
@@ -445,20 +444,6 @@ class BlockSequencerStateManager(
         resolveWaitingForMemberDisablement(member)
         newHead
       }
-
-  private def updateMemberCounterSupportedAfter(member: Member, counter: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    store
-      .updateMemberCounterSupportedAfter(member, counter)
-      .map(_ =>
-        countersSupportedAfter.getAndUpdate { previousCounters =>
-          if (previousCounters.get(member).exists(_ >= counter))
-            previousCounters
-          else
-            previousCounters + (member -> counter)
-        }.discard
-      )
 
   private def handleChunkUpdate(
       priorHead: HeadState,
@@ -553,13 +538,6 @@ class BlockSequencerStateManager(
           membersDisabled = Seq.empty,
           inFlightAggregationUpdates = update.inFlightAggregationUpdates,
         )
-        _ <- MonadUtil.sequentialTraverse[(Member, SequencerCounter), Future, Unit](
-          update.events
-            .flatMap(_.events)
-            .collect {
-              case (member, tombstone) if tombstone.isTombstone => member -> tombstone.counter
-            }
-        ) { case (member, counter) => updateMemberCounterSupportedAfter(member, counter) }
       } yield {
         // head state update must happen before member counters are updated
         // as otherwise, if we have a registration in between counter-signalling and head-state,
@@ -788,7 +766,6 @@ object BlockSequencerStateManager {
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      rateLimitManager: SequencerRateLimitManager,
       unifiedSequencer: Boolean,
   )(implicit
       executionContext: ExecutionContext,
@@ -809,7 +786,6 @@ object BlockSequencerStateManager {
         maybeLowerTopologyTimestampBound = maybeLowerTopologyTimestampBound,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
-        rateLimitManager = rateLimitManager,
         unifiedSequencer = unifiedSequencer,
       )
     }

@@ -415,7 +415,6 @@ class ProtocolProcessorTest
           changeId.commandId,
           None,
           Some(subId),
-          None,
         ),
         TransactionSubmissionTrackingData.TimeoutCause,
         domain,

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -16,6 +14,8 @@ import com.digitalasset.canton.{
   LfValue,
   LfVersioned,
 }
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializableContractTest extends AnyWordSpec with BaseTest {

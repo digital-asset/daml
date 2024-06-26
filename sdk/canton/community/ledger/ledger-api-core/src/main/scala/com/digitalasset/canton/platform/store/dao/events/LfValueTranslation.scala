@@ -11,15 +11,6 @@ import com.daml.ledger.api.v2.value.{
   Record as ApiRecord,
   Value as ApiValue,
 }
-import com.digitalasset.daml.lf.data.Bytes
-import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.{Engine, ValueEnricher}
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.*
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.engine as LfEngine
 import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{
@@ -49,6 +40,15 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
+import com.digitalasset.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.{Engine, ValueEnricher}
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.engine as LfEngine
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp as ApiTimestamp
 import com.google.rpc.Status

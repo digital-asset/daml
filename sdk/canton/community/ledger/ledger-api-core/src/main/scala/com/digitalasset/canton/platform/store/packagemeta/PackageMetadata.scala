@@ -6,15 +6,15 @@ package com.digitalasset.canton.platform.store.packagemeta
 import cats.kernel.Semigroup
 import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.util.PackageInfo
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
 }
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.util.PackageInfo
 
 // TODO(#17635): Move to [[com.digitalasset.canton.participant.store.memory.PackageMetadataView]]
 final case class PackageMetadata(

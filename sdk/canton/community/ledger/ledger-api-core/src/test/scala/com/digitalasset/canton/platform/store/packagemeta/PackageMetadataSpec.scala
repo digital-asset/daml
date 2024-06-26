@@ -4,13 +4,13 @@
 package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

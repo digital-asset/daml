@@ -18,6 +18,6 @@ class CantonHistograms()(implicit val inventory: HistogramInventory) {
   private[metrics] val participant: ParticipantHistograms =
     new ParticipantHistograms(prefix)
   private[metrics] val mediator: MediatorHistograms = new MediatorHistograms(prefix)
-  private[metrics] val sequencer: SequencerHistograms = new SequencerHistograms(prefix)
+  private[canton] val sequencer: SequencerHistograms = new SequencerHistograms(prefix)
 
 }

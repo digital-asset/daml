@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.actor.Scheduler
 
 import java.time.Instant

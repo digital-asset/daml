@@ -9,10 +9,6 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteAssigned,
   IncompleteUnassigned,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.NodeId
 import com.daml.metrics.Timed
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
@@ -48,6 +44,10 @@ import com.digitalasset.canton.platform.store.utils.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.NodeId
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes

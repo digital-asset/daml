@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -15,6 +14,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 trait ParticipantTopologyManagerOps {
   def allocateParty(

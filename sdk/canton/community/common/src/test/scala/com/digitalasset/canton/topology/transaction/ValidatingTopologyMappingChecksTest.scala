@@ -5,12 +5,16 @@ package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
+  InvalidTopologyMapping,
+  PartyExceedsHostingLimit,
+}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -97,34 +101,63 @@ class ValidatingTopologyMappingChecksTest
       }
     }
 
-    "validating PartyToParticipant" should {
+    "validating DecentralizedNamespaceDefinition" should {
+      "reject namespaces not derived from their owners' namespaces" in {
+        val (checks, store) = mk()
+        val keys = NonEmpty.mk(
+          Set,
+          factory.SigningKeys.key1,
+          factory.SigningKeys.key2,
+          factory.SigningKeys.key3,
+        )
+        val (namespaces, rootCerts) =
+          keys.map { key =>
+            val namespace = Namespace(key.fingerprint)
+            namespace -> factory.mkAdd(
+              NamespaceDelegation.tryCreate(
+                namespace,
+                key,
+                isRootDelegation = true,
+              ),
+              signingKey = key,
+            )
+          }.unzip
 
-      "reject an invalid threshold" in {
-        val (checks, _) = mk()
+        addToStore(store, rootCerts.toSeq*)
 
-        val failureCases = Seq[(PositiveInt, Seq[HostingParticipant])](
-          PositiveInt.two -> Seq(participant1 -> Observation, participant2 -> Confirmation),
-          PositiveInt.two -> Seq(participant1 -> Observation, participant2 -> Submission),
-          PositiveInt.two -> Seq(participant1 -> Submission),
-          PositiveInt.one -> Seq(participant1 -> Observation),
+        val dns = factory.mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              Namespace(Fingerprint.tryCreate("bogusNamespace")),
+              PositiveInt.one,
+              NonEmpty.from(namespaces).value.toSet,
+            )
+            .value,
+          signingKeys = keys,
+          // using serial=2 here to test that we don't special case serial=1
+          serial = PositiveInt.two,
         )
 
-        failureCases.foreach { case (threshold, participants) =>
-          val ptp = factory.mkAdd(
-            PartyToParticipant(
-              party1,
-              None,
-              threshold,
-              participants,
-              groupAddressing = false,
-            )
-          )
-
-          checkTransaction(checks, ptp) should matchPattern {
-            case Left(TopologyTransactionRejection.ThresholdTooHigh(`threshold`.value, _)) =>
-          }
+        checkTransaction(checks, dns, None) should matchPattern {
+          case Left(TopologyTransactionRejection.InvalidTopologyMapping(err))
+              if err.contains("not derived from the owners") =>
         }
       }
+
+      // TODO(#19716) how does one produce a key with a specific hash? by using symbolic crypto?
+      "reject if a root certificate with the same namespace already exists" ignore {
+        fail("TODO(#19716)")
+      }
+    }
+
+    "validating NamespaceDelegation" should {
+      // TODO(#19715) how does one produce a key with a specific hash? by using symbolic crypto?
+      "reject a root certificate if a decentralized namespace with the same namespace already exists" ignore {
+        fail("TODO(#19715)")
+      }
+    }
+
+    "validating PartyToParticipant" should {
 
       "reject when participants don't have a DTC" in {
         val (checks, store) = mk()
@@ -134,7 +167,7 @@ class ValidatingTopologyMappingChecksTest
 
         failureCases.foreach { participants =>
           val ptp = factory.mkAdd(
-            PartyToParticipant(
+            PartyToParticipant.tryCreate(
               party1,
               None,
               PositiveInt.one,
@@ -163,7 +196,7 @@ class ValidatingTopologyMappingChecksTest
 
         missingKeyCases.foreach { participant =>
           val ptp = factory.mkAdd(
-            PartyToParticipant(
+            PartyToParticipant.tryCreate(
               party1,
               None,
               PositiveInt.one,
@@ -175,6 +208,40 @@ class ValidatingTopologyMappingChecksTest
             TopologyTransactionRejection.InsufficientKeys(Seq(participant))
           )
         }
+      }
+
+      "reject when the party exceeds the explicitly issued PartyHostingLimits" in {
+        def mkPTP(numParticipants: Int) = {
+          val hostingParticipants = Seq[HostingParticipant](
+            participant1 -> Observation,
+            participant2 -> Submission,
+            participant3 -> Submission,
+          )
+          factory.mkAdd(
+            PartyToParticipant.tryCreate(
+              partyId = party1,
+              domainId = None,
+              threshold = PositiveInt.one,
+              participants = hostingParticipants.take(numParticipants),
+              groupAddressing = false,
+            )
+          )
+        }
+
+        val (checks, store) = mk()
+        val limits = factory.mkAdd(PartyHostingLimits(domainId, party1, 2))
+        addToStore(store, p1_otk, p1_dtc, p2_otk, p2_dtc, p3_otk, p3_dtc, limits)
+
+        // 2 participants are at the limit
+        val twoParticipants = mkPTP(numParticipants = 2)
+        checkTransaction(checks, twoParticipants) shouldBe Right(())
+
+        // 3 participants exceed the limit imposed by the domain
+        val threeParticipants = mkPTP(numParticipants = 3)
+        checkTransaction(checks, threeParticipants) shouldBe Left(
+          PartyExceedsHostingLimit(party1, 2, 3)
+        )
+
       }
 
       "report no errors for valid mappings" in {
@@ -195,7 +262,7 @@ class ValidatingTopologyMappingChecksTest
 
         validCases.foreach { case (threshold, participants) =>
           val ptp = factory.mkAdd(
-            PartyToParticipant(
+            PartyToParticipant.tryCreate(
               party1,
               None,
               threshold,
@@ -213,7 +280,7 @@ class ValidatingTopologyMappingChecksTest
       "reject a removal when the participant still hosts a party" in {
         val (checks, store) = mk()
         val ptp = factory.mkAdd(
-          PartyToParticipant(
+          PartyToParticipant.tryCreate(
             party1,
             None,
             PositiveInt.one,
@@ -385,35 +452,6 @@ class ValidatingTopologyMappingChecksTest
           )
         )
       }
-
-      "report ThresholdTooHigh" in {
-        val (checks, store) = mk()
-        val (Seq(med1, med2), transactions) = generateMemberIdentities(2, MediatorId(_))
-        addToStore(store, transactions*)
-
-        // using reflection to create an instance via the private constructor
-        // so we can bypass the checks in MediatorDomainState.create
-        val ctr = classOf[MediatorDomainState].getConstructor(
-          classOf[DomainId],
-          classOf[NonNegativeInt],
-          classOf[PositiveInt],
-          classOf[Object],
-          classOf[Seq[MediatorId]],
-        )
-        val invalidMapping = ctr.newInstance(
-          domainId,
-          NonNegativeInt.zero,
-          PositiveInt.three, // threshold higher than number of active mediators
-          NonEmpty(Seq, med1, med2),
-          Seq.empty,
-        )
-
-        val mds = factory.mkAdd(invalidMapping, factory.SigningKeys.key1)
-
-        checkTransaction(checks, mds) shouldBe Left(
-          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
-        )
-      }
     }
 
     "validating SequencerDomainState" should {
@@ -491,33 +529,6 @@ class ValidatingTopologyMappingChecksTest
           )
         )
       }
-
-      "report ThresholdTooHigh" in {
-        val (checks, store) = mk()
-        val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
-        addToStore(store, transactions*)
-
-        // using reflection to create an instance via the private constructor
-        // so we can bypass the checks in SequencerDomainState.create
-        val ctr = classOf[SequencerDomainState].getConstructor(
-          classOf[DomainId],
-          classOf[PositiveInt],
-          classOf[Object],
-          classOf[Seq[SequencerId]],
-        )
-        val invalidMapping = ctr.newInstance(
-          domainId,
-          PositiveInt.three, // threshold higher than number of active sequencers
-          NonEmpty(Seq, seq1, seq2),
-          Seq.empty,
-        )
-
-        val sds = factory.mkAdd(invalidMapping, factory.SigningKeys.key1)
-
-        checkTransaction(checks, sds) shouldBe Left(
-          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
-        )
-      }
     }
 
     "validating OwnerToKeyMapping" should {
@@ -582,7 +593,7 @@ class ValidatingTopologyMappingChecksTest
     "validating AuthorityOf" should {
       val ptps @ Seq(p1_ptp, p2_ptp, p3_ptp) = Seq(party1, party2, party3).map { party =>
         factory.mkAdd(
-          PartyToParticipant(
+          PartyToParticipant.tryCreate(
             party,
             None,
             PositiveInt.one,
@@ -596,7 +607,9 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, ptps*)
 
         val authorityOf =
-          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.two, Seq(party2, party3)))
+          factory.mkAdd(
+            AuthorityOf.create(party1, None, PositiveInt.two, Seq(party2, party3)).value
+          )
         checkTransaction(checks, authorityOf) shouldBe Right(())
       }
 
@@ -605,38 +618,29 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, p1_ptp)
 
         val missingAuthorizingParty =
-          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1)))
+          factory.mkAdd(AuthorityOf.create(party2, None, PositiveInt.one, Seq(party1)).value)
         checkTransaction(checks, missingAuthorizingParty) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2))
         )
 
         val missingAuthorizedParty =
-          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.one, Seq(party2)))
+          factory.mkAdd(AuthorityOf.create(party1, None, PositiveInt.one, Seq(party2)).value)
         checkTransaction(checks, missingAuthorizedParty) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2))
         )
 
         val missingAllParties =
-          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party3)))
+          factory.mkAdd(AuthorityOf.create(party2, None, PositiveInt.one, Seq(party3)).value)
         checkTransaction(checks, missingAllParties) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
         )
 
         val missingMixedParties =
-          factory.mkAdd(AuthorityOf(party2, None, PositiveInt.one, Seq(party1, party3)))
+          factory.mkAdd(
+            AuthorityOf.create(party2, None, PositiveInt.one, Seq(party1, party3)).value
+          )
         checkTransaction(checks, missingMixedParties) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
-        )
-      }
-
-      "report ThresholdTooHigh if the threshold is higher than the number of authorized parties" in {
-        val (checks, store) = mk()
-        addToStore(store, ptps*)
-
-        val thresholdTooHigh =
-          factory.mkAdd(AuthorityOf(party1, None, PositiveInt.three, Seq(party2, party3)))
-        checkTransaction(checks, thresholdTooHigh) shouldBe Left(
-          TopologyTransactionRejection.ThresholdTooHigh(3, 2)
         )
       }
     }

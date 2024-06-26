@@ -88,8 +88,8 @@ trait Sequencer
     */
   def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean]
 
-  def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
+  private[sequencing] def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit]
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
@@ -262,7 +262,8 @@ object Sequencer extends HasLoggerName {
     * such that after the request is ordered and processed by all sequencers, each sequencer knows which sequencer received the submission request.
     * The signature here will always be one of a sequencer.
     */
-  type SequencerSigned[A <: HasCryptographicEvidence] = SignedContent[SenderSigned[A]]
+  type SequencerSigned[A <: HasCryptographicEvidence] =
+    SignedContent[OrderingRequest[SenderSigned[A]]]
 
   /** Ordering request signed by the sequencer.
     * Outer signature is the signature of the sequencer that received the submission request.
@@ -290,9 +291,8 @@ object Sequencer extends HasLoggerName {
 
   implicit class SignedOrderingRequestOps(val value: SignedOrderingRequest) extends AnyVal {
     def signedSubmissionRequest: SignedContent[SubmissionRequest] =
-      value.content
+      value.content.content
     def submissionRequest: SubmissionRequest = signedSubmissionRequest.content
-    def toByteString = value.toByteString
   }
 
   type RegisterError = SequencerWriteError[RegisterMemberError]

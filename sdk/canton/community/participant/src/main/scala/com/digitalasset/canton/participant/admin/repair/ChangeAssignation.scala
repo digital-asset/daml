@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin.repair
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -22,6 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
+import com.digitalasset.daml.lf.data.Bytes
 
 import scala.concurrent.{ExecutionContext, Future}
 

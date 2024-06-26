@@ -3,12 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.index.{
@@ -16,6 +10,12 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTimeService,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.mockito.captor.{ArgCaptor, Captor}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.digitalasset.canton.LedgerTransactionId
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
 import com.digitalasset.canton.admin.participant.v30.{
   GetConfigForSlowCounterParticipants,
@@ -15,7 +14,6 @@ import com.digitalasset.canton.admin.participant.v30.{
   LookupOffsetByTime,
   LookupReceivedAcsCommitments,
   LookupSentAcsCommitments,
-  LookupTransactionDomain,
   SetConfigForSlowCounterParticipants,
 }
 import com.digitalasset.canton.data.CantonTimestamp
@@ -25,6 +23,7 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import io.grpc.{Status, StatusRuntimeException}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
@@ -56,26 +55,6 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
     }
   }
 
-  override def lookupTransactionDomain(
-      request: LookupTransactionDomain.Request
-  ): Future[LookupTransactionDomain.Response] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    LedgerTransactionId.fromString(request.transactionId) match {
-      case Left(err) =>
-        Future.failed(
-          new IllegalArgumentException(
-            s"""String "${request.transactionId}" doesn't parse as a transaction ID: $err"""
-          )
-        )
-      case Right(txId) =>
-        syncStateInspection.lookupTransactionDomain(txId).map { domainId =>
-          LookupTransactionDomain.Response(
-            domainId.fold(throw new StatusRuntimeException(Status.NOT_FOUND))(_.toProtoPrimitive)
-          )
-        }
-    }
-  }
-
   override def lookupOffsetByTime(
       request: LookupOffsetByTime.Request
   ): Future[LookupOffsetByTime.Response] = {
@@ -94,6 +73,7 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
     }
   }
 
+  @nowarn("msg=usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer")
   override def lookupOffsetByIndex(
       request: LookupOffsetByIndex.Request
   ): Future[LookupOffsetByIndex.Response] = {

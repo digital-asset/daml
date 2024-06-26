@@ -13,7 +13,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v2.admin.user_management_service as proto
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
@@ -40,6 +39,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.UserUpdateMapper
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either.*
 import scalaz.std.list.*

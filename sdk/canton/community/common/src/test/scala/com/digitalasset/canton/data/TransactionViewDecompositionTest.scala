@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.NodeWrapper
-import com.digitalasset.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.TransactionViewDecomposition.*
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
@@ -19,6 +16,13 @@ import com.digitalasset.canton.{
   LfPartyId,
   LfValue,
   NeedsNewLfContractIds,
+}
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.NodeWrapper
+import com.digitalasset.daml.lf.transaction.test.{
+  TestIdFactory,
+  TestNodeBuilder,
+  TreeTransactionBuilder,
 }
 import org.scalatest.wordspec.AnyWordSpec
 

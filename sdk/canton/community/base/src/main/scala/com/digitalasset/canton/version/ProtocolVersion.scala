@@ -9,7 +9,14 @@ import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.ProtocolVersion.{deleted, deprecated, supported, unstable}
+import com.digitalasset.canton.version.ProtocolVersion.{
+  beta,
+  deleted,
+  deprecated,
+  stable,
+  supported,
+  unstable,
+}
 import pureconfig.error.FailureReason
 import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -48,7 +55,13 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   *    As a result, you may have to modify a couple of protobuf definitions and mark them as stable as well.
   *
   *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
-  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.protocolVersions]].
+  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.stableProtocolVersions]].
+  *
+  * How to release a protocol version `N` as Beta:
+  *  - Switch the type parameter of the protocol version constant `v<N>` from
+  *    [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Unstable]] to [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Beta]]
+  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
+  *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.betaProtocolVersions]].
   *
   *  - Check the test jobs for protocol versions:
   *    Likely `N` will become the default protocol version used by the `test` job,
@@ -67,7 +80,10 @@ sealed case class ProtocolVersion private[version] (v: Int)
   def isDeprecated: Boolean = deprecated.contains(this)
 
   def isUnstable: Boolean = unstable.contains(this)
-  def isStable: Boolean = !isUnstable
+
+  def isBeta: Boolean = beta.contains(this)
+
+  def isStable: Boolean = stable.contains(this)
 
   def isDeleted: Boolean = deleted.contains(this)
 
@@ -90,12 +106,18 @@ object ProtocolVersion {
     type Status = S
   }
 
-  private[version] def stable(v: Int): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
+  private[version] def createStable(
+      v: Int
+  ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
     createWithStatus[ProtocolVersionAnnotation.Stable](v)
-  private[version] def unstable(
+  private[version] def createUnstable(
       v: Int
   ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
     createWithStatus[ProtocolVersionAnnotation.Unstable](v)
+  private[version] def createBeta(
+      v: Int
+  ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta] =
+    createWithStatus[ProtocolVersionAnnotation.Beta](v)
 
   private def createWithStatus[S <: ProtocolVersionAnnotation.Status](
       v: Int
@@ -121,12 +143,9 @@ object ProtocolVersion {
       pv: ProtocolVersion,
       includeDeleted: Boolean = false,
   ) = {
-    val supportedStablePVs = stableAndSupported.map(_.toString)
+    val deleted = Option.when(includeDeleted)(ProtocolVersion.deleted.forgetNE).getOrElse(Nil)
 
-    val supportedPVs = if (includeDeleted) {
-      val deletedPVs = deleted.map(pv => s"(${pv.toString})")
-      supportedStablePVs ++ deletedPVs
-    } else supportedStablePVs
+    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).map(_.toString)
 
     s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
   }
@@ -201,13 +220,11 @@ object ProtocolVersion {
 
   // All stable protocol versions supported by this release
   // TODO(#15561) Switch to non-empty again
-  val stableAndSupported: List[ProtocolVersion] =
-    BuildInfo.protocolVersions
-      .map(parseUnchecked)
-      .map(_.valueOr(sys.error))
-      .toList
+  val stable: List[ProtocolVersion] =
+    parseFromBuildInfo(BuildInfo.stableProtocolVersions.toSeq)
 
   private val deprecated: Seq[ProtocolVersion] = Seq()
+
   private val deleted: NonEmpty[Seq[ProtocolVersion]] =
     NonEmpty(
       Seq,
@@ -222,27 +239,36 @@ object ProtocolVersion {
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable]]] =
     NonEmpty.mk(List, ProtocolVersion.v31, ProtocolVersion.dev)
 
-  val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ stableAndSupported).sorted
+  val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
+    parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
+      .map(pv => ProtocolVersion.createBeta(pv.v))
 
-  private val allProtocolVersions = deprecated ++ deleted ++ unstable ++ stableAndSupported
+  val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ beta ++ stable).sorted
+
+  private val allProtocolVersions = deprecated ++ deleted ++ unstable ++ beta ++ stable
 
   require(
     allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
     s"All the protocol versions should be distinct." +
-      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "unstable" -> unstable, "stable" -> stableAndSupported)}",
+      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "unstable" -> unstable, "stable" -> stable)}",
   )
 
   // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
-  val latest: ProtocolVersion = stableAndSupported.lastOption.getOrElse(unstable.head1)
+  val latest: ProtocolVersion = stable.lastOption.getOrElse(unstable.head1)
 
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    ProtocolVersion.unstable(Int.MaxValue)
+    ProtocolVersion.createUnstable(Int.MaxValue)
 
   lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    ProtocolVersion.unstable(31)
+    ProtocolVersion.createUnstable(31)
 
   // Minimum stable protocol version introduced
   lazy val minimum: ProtocolVersion = v31
+
+  private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
+    pv.map(parseUnchecked)
+      .map(_.valueOr(sys.error))
+      .toList
 }
 
 /*

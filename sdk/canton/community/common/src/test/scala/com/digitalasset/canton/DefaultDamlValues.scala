@@ -4,7 +4,6 @@
 package com.digitalasset.canton
 
 import cats.Id
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,
@@ -13,6 +12,7 @@ import com.digitalasset.canton.protocol.{
   LfTransactionVersion,
   LfVersionedTransaction,
 }
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 
 /** Default values for objects from the Daml repo for unit testing */
 object DefaultDamlValues {

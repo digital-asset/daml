@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.index
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.participant.state.index.{
   ContractState,
@@ -14,6 +11,9 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTimeService,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.Future
 import scala.util.chaining.scalaUtilChainingOps

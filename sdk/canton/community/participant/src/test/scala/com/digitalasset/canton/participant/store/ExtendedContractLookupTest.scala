@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
@@ -18,6 +17,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
+import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future

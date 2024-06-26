@@ -14,6 +14,7 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
@@ -22,7 +23,6 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
-import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.google.common.io.BaseEncoding
 import org.slf4j.event.Level
 

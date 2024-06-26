@@ -7,16 +7,16 @@ import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.resources.ResourceContext
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.Node
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalacheck.Gen

@@ -7,10 +7,6 @@ import cats.data.EitherT
 import cats.implicits.{catsSyntaxParallelTraverse1, toBifunctorOps, toTraverseOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
-import com.digitalasset.daml.lf.archive.{Dar as LfDar, DarParser, Decode}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -38,6 +34,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
+import com.digitalasset.daml.lf.archive.{Dar as LfDar, DarParser, Decode}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
 import java.nio.file.Paths

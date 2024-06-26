@@ -5,7 +5,6 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.ProtoDeserializationError.{
   FieldNotSet,
   OtherError,
@@ -34,6 +33,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
+import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.protobuf.ByteString
 
 /** Summarizes the information that is needed in addition to the other fields of [[ViewParticipantData]] for

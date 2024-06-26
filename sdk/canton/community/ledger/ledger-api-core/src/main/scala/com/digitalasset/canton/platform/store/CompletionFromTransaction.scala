@@ -7,11 +7,11 @@ import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.duration.Duration
 import com.google.rpc.status.Status as StatusProto
 import io.grpc.Status

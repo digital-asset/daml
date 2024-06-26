@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.syntax.option.*
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
@@ -37,6 +36,7 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, DefaultDamlValues, RequestCounter}
+import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.Code
 import com.google.rpc.status.Status as RpcStatus
 import org.scalatest.wordspec.AsyncWordSpec

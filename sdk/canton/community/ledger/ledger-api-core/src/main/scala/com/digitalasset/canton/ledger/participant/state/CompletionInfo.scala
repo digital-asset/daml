@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.daml.lf.data.Ref
 
 /** Information about a completion for a submission.
   *
@@ -37,8 +36,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
   *
   *                               Optional as entries created by the participant.state.v1 API do not have this filled.
   *                               Only set for participant.state.v2 created entries
-  *
-  * @param statistics             The statistics that will be used by participant metering.
   */
 final case class CompletionInfo(
     actAs: List[Ref.Party],
@@ -46,7 +43,6 @@ final case class CompletionInfo(
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
-    statistics: Option[TransactionNodeStatistics],
 ) extends PrettyPrinting {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
@@ -62,7 +58,7 @@ final case class CompletionInfo(
 
 object CompletionInfo {
   implicit val `CompletionInfo to LoggingValue`: ToLoggingValue[CompletionInfo] = {
-    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
+    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
         "applicationId " -> applicationId,

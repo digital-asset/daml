@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.ledger.indexerbenchmark
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.config.Readers.*
 import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.digitalasset.daml.lf.data.Ref
 import scopt.OptionParser
 
 import java.time.Duration

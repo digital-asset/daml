@@ -57,7 +57,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, SequencerCounter, config}
+import com.digitalasset.canton.{DomainAlias, SequencerCounter, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -1052,29 +1052,6 @@ object ParticipantAdminCommands {
           LfContractId.assertFromString(id) -> domain
         }
       )
-
-      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
-    }
-
-    final case class LookupTransactionDomain(transactionId: LedgerTransactionId)
-        extends Base[
-          v30.LookupTransactionDomain.Request,
-          v30.LookupTransactionDomain.Response,
-          DomainId,
-        ] {
-      override def createRequest() = Right(v30.LookupTransactionDomain.Request(transactionId))
-
-      override def submitRequest(
-          service: InspectionServiceStub,
-          request: v30.LookupTransactionDomain.Request,
-      ): Future[v30.LookupTransactionDomain.Response] =
-        service.lookupTransactionDomain(request)
-
-      override def handleResponse(
-          response: v30.LookupTransactionDomain.Response
-      ): Either[String, DomainId] =
-        DomainId.fromString(response.domainId)
 
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
 

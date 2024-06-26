@@ -4,9 +4,6 @@
 package com.digitalasset.canton.participant.sync
 
 import com.daml.error.GrpcStatuses
-import com.digitalasset.daml.lf.CantonOnly
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.*
@@ -24,6 +21,9 @@ import com.digitalasset.canton.{
   LfWorkflowId,
   TransferCounter,
 }
+import com.digitalasset.daml.lf.CantonOnly
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.google.rpc.status.Status as RpcStatus
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*

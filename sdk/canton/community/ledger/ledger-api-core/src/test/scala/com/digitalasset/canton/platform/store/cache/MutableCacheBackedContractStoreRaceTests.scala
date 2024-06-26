@@ -5,11 +5,6 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -26,6 +21,11 @@ import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractSt
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source

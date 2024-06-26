@@ -6,17 +6,6 @@ package com.digitalasset.canton.protocol
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.Versioned
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  ValueContractId,
-  ValueOptional,
-  ValueRecord,
-  ValueUnit,
-  VersionedValue,
-}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.*
@@ -53,6 +42,17 @@ import com.digitalasset.canton.util.LfTransactionUtil.{
 }
 import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{
+  ValueContractId,
+  ValueOptional,
+  ValueRecord,
+  ValueUnit,
+  VersionedValue,
+}
 import org.scalatest.EitherValues
 
 import java.time.Duration as JDuration

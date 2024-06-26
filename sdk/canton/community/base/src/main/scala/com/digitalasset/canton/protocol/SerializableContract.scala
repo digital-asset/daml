@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
@@ -16,6 +15,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfTimestamp, admin, crypto, protocol}
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.scalaland.chimney.dsl.*

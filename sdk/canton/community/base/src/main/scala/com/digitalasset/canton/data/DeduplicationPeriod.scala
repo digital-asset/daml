@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import java.time.Duration
 import scala.util.{Failure, Success, Try}

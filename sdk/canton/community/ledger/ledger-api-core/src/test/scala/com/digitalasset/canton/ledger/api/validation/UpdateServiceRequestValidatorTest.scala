@@ -21,9 +21,9 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.daml.ledger.api.v2.value.Identifier
+import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
-import com.digitalasset.canton.ledger.api.domain
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec

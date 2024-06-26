@@ -5,12 +5,12 @@ package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion}
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.StatusRuntimeException
 

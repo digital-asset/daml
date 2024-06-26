@@ -8,7 +8,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.ProcessedDisclosedContract
@@ -45,6 +44,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -4,10 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.configuration
 
 import cats.implicits.catsSyntaxOptionId
-import com.digitalasset.daml.lf.engine.EngineLogger
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.engine.EngineLogger
 import org.slf4j.event.Level
 
 /** Control logging of Daml `debug` statements

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton
 
-import com.digitalasset.daml.lf.transaction.Versioned
-import com.digitalasset.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{
@@ -18,6 +16,8 @@ import com.digitalasset.canton.protocol.{
   Unicum,
 }
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsLf {

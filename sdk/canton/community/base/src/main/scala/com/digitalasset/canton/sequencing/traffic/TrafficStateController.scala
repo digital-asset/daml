@@ -163,12 +163,18 @@ class TrafficStateController(
           GroupAddressResolver.resolveGroupsToMembers(groups.toSet, snapshot)
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-    } yield eventCostCalculator.computeEventCost(
-      batch.map(_.closeEnvelope),
-      trafficControl.readVsWriteScalingFactor,
-      groupToMembers,
-      protocolVersion,
-    )
+    } yield {
+      val costDetails = eventCostCalculator.computeEventCost(
+        batch.map(_.closeEnvelope),
+        trafficControl.readVsWriteScalingFactor,
+        groupToMembers,
+        protocolVersion,
+      )
+      logger.debug(
+        s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"
+      )
+      costDetails.eventCost
+    }
 
     costFO.value.map {
       _.map { cost =>

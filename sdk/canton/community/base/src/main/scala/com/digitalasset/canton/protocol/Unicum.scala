@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.daml.lf.data.Bytes
 
 /** A hash-based identifier for contracts.
   * Must be paired with a discriminator to obtain a complete contract ID.

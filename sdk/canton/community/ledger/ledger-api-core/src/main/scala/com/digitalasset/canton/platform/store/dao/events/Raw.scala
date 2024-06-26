@@ -10,15 +10,15 @@ import com.daml.ledger.api.v2.event.{
   ExercisedEvent as PbExercisedEvent,
 }
 import com.daml.ledger.api.v2.transaction.TreeEvent as PbTreeEvent
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Identifier
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.serialization.Compression
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}

@@ -43,6 +43,8 @@ object MockedNodeParameters {
 
     override def devVersionSupport: Boolean = ???
 
+    override def betaVersionSupport: Boolean = ???
+
     override def dontWarnOnDeprecatedPV: Boolean = ???
 
     override def dbMigrateAndStart: Boolean = false

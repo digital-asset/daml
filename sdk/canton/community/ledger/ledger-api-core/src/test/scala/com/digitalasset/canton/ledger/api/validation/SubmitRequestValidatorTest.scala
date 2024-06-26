@@ -13,12 +13,6 @@ import com.daml.ledger.api.v2.value.{
   TextMap as ApiTextMap,
   *,
 }
-import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
-import com.digitalasset.daml.lf.data.Ref.TypeConRef
-import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.value.Value.ValueRecord
-import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.DomainMocks.{
   applicationId,
@@ -30,6 +24,12 @@ import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
+import com.digitalasset.daml.lf.data.Ref.TypeConRef
+import com.digitalasset.daml.lf.data.*
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.value.Value as Lf
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT

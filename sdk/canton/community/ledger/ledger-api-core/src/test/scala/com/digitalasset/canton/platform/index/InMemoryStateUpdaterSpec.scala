@@ -8,15 +8,6 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
@@ -28,6 +19,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -44,6 +36,15 @@ import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutorServiceGeneric, TestEssentials}
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
+import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.Done
@@ -208,7 +209,7 @@ object InMemoryStateUpdaterSpec {
         offset = offset(1L),
         events = Vector(),
         completionDetails = None,
-        domainId = Some(domainId1.toProtoPrimitive),
+        domainId = domainId1.toProtoPrimitive,
         recordTime = Timestamp.Epoch,
       )
     )(emptyTraceContext)
@@ -247,8 +248,8 @@ object InMemoryStateUpdaterSpec {
             treeEventWitnesses = Set.empty,
             flatEventWitnesses = Set(party2),
             submitters = Set.empty,
-            createArgument =
-              com.digitalasset.daml.lf.transaction.Versioned(someCreateNode.version, someCreateNode.arg),
+            createArgument = com.digitalasset.daml.lf.transaction
+              .Versioned(someCreateNode.version, someCreateNode.arg),
             createSignatories = Set(party1),
             createObservers = Set(party2),
             createKeyHash = None,
@@ -295,6 +296,7 @@ object InMemoryStateUpdaterSpec {
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
+    val commandProgressTracker = CommandProgressTracker.NoOp
 
     val inOrder: InOrder = inOrder(
       ledgerEndCache,
@@ -315,6 +317,7 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
 
@@ -367,7 +370,7 @@ object InMemoryStateUpdaterSpec {
           offset = tx_accepted_withCompletionDetails_offset,
           events = (1 to 3).map(_ => mock[TransactionLogUpdate.Event]).toVector,
           completionDetails = Some(tx_accepted_completionDetails),
-          domainId = None,
+          domainId = domainId1.toProtoPrimitive,
           recordTime = Timestamp(1),
         )
       )(emptyTraceContext)
@@ -509,7 +512,6 @@ object InMemoryStateUpdaterSpec {
         commandId = Ref.CommandId.assertFromString("cmdId"),
         optDeduplicationPeriod = None,
         submissionId = None,
-        statistics = None,
       ),
       reasonTemplate = FinalReason(new Status()),
       domainId = DomainId.tryFromString("da::default"),

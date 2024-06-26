@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v2.commands.DisclosedContract
 import com.daml.ledger.api.v2.value.Identifier
+import com.digitalasset.canton.LfValue
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
@@ -14,7 +15,6 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionVersion,
 }
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord, ValueTrue}
-import com.digitalasset.canton.LfValue
 import com.google.protobuf.ByteString
 
 object DisclosedContractCreator {

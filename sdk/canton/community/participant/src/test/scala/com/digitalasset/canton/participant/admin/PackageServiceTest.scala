@@ -8,12 +8,6 @@ import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
-import com.digitalasset.daml.lf.archive
-import com.digitalasset.daml.lf.archive.testing.Encode
-import com.digitalasset.daml.lf.archive.{Dar as LfDar, DarParser, DarWriter}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -35,6 +29,12 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext, LfPackageId}
+import com.digitalasset.daml.lf.archive
+import com.digitalasset.daml.lf.archive.testing.Encode
+import com.digitalasset.daml.lf.archive.{Dar as LfDar, DarParser, DarWriter}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -79,7 +79,7 @@ class PackageServiceTest
     val packageDependencyResolver =
       new PackageDependencyResolver(packageStore, processingTimeouts, loggerFactory)
     private val engine =
-      DAMLe.newEngine(enableLfDev = false, enableStackTraces = false)
+      DAMLe.newEngine(enableLfDev = false, enableLfBeta = false, enableStackTraces = false)
 
     val sut: PackageService = PackageService
       .createAndInitialize(
@@ -192,7 +192,8 @@ class PackageServiceTest
 
       val dar = PackageServiceTest.loadExampleDar()
       val mainPackageId = DamlPackageStore.readPackageId(dar.main)
-      val dependencyIds = com.digitalasset.daml.lf.archive.Decode.assertDecodeArchive(dar.main)._2.directDeps
+      val dependencyIds =
+        com.digitalasset.daml.lf.archive.Decode.assertDecodeArchive(dar.main)._2.directDeps
       (for {
         _ <- sut
           .upload(

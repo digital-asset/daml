@@ -3,7 +3,29 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
+import com.daml.logging.LoggingContext
+import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
+import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
+import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
+import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackageName
+import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
+import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
+import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{BaseTest, LfValue}
+import com.digitalasset.daml.lf.command.{
+  ApiCommands as LfCommands,
+  DisclosedContract as LfDisclosedContract,
+}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -18,25 +40,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueTrue}
-import com.daml.logging.LoggingContext
-import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
-import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.ReadService
-import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
-import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.PackageName
-import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
-import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfValue}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -117,7 +120,7 @@ class StoreBackedCommandExecutorSpec
     new StoreBackedCommandExecutor(
       engine,
       Ref.ParticipantId.assertFromString("anId"),
-      mock[ReadService],
+      mock[WriteService],
       mock[ContractStore],
       AuthorityResolver(),
       authenticateContract = _ => Right(()),
@@ -328,7 +331,7 @@ class StoreBackedCommandExecutorSpec
       val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
-        mock[ReadService],
+        mock[WriteService],
         store,
         AuthorityResolver(),
         authenticateContract = _ => authenticationResult,

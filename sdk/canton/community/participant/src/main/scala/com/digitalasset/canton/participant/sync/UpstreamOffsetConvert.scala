@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
 import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
 import com.google.protobuf.ByteString
 
 import java.nio.{ByteBuffer, ByteOrder}

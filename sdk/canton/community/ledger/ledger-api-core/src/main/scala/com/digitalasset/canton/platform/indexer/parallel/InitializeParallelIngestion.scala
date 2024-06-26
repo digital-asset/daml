@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.participant.state.{ReadService, Update}
@@ -18,6 +17,7 @@ import com.digitalasset.canton.platform.store.backend.{
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source

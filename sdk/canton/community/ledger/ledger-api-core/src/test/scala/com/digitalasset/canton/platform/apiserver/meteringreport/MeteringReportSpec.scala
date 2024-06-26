@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.meteringreport
 
+import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.*
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{enrichAny, *}

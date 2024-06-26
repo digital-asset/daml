@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref.*
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TemplateWildcardFilter}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+import com.digitalasset.daml.lf.data.Ref.*
 
 import scala.collection.View
 

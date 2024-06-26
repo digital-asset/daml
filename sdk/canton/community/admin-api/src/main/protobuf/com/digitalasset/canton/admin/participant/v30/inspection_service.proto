@@ -18,8 +18,6 @@ service InspectionService {
   // Lookup the domain where a contract is currently active.
   // Supports querying many contracts at once.
   rpc LookupContractDomain(LookupContractDomain.Request) returns (LookupContractDomain.Response);
-  // Lookup the domain that the transaction was committed over. Can fail with NOT_FOUND if no domain was found.
-  rpc LookupTransactionDomain(LookupTransactionDomain.Request) returns (LookupTransactionDomain.Response);
   // Look up the ledger offset corresponding to the timestamp, specifically the largest offset such that no later
   // offset corresponds to a later timestamp than the specified one.
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);

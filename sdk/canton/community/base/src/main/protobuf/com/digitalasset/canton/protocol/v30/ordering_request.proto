@@ -1,0 +1,16 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "google/protobuf/wrappers.proto";
+import "scalapb/scalapb.proto";
+
+message OrderingRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  string sequencer_id = 1; // Id of the sequencer requesting ordering of the request
+  google.protobuf.BytesValue content = 2; // Content of the request to be ordered
+}

@@ -13,8 +13,8 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.WriteServiceRejectionErrorGroup
+import com.digitalasset.daml.lf.transaction.GlobalKey
 
 @Explanation(
   "Generic submission rejection errors returned by the backing ledger's write service."

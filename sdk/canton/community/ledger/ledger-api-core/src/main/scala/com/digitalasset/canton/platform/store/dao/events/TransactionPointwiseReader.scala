@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.{GetTransactionResponse, GetTransactionTreeResponse}
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -16,6 +15,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.deserializeEntry
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
+import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}

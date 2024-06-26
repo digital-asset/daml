@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.protocol
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
-import com.digitalasset.canton.data.CantonTimestamp
 
 /** Collects the metadata of a LF transaction to the extent that is needed in Canton
   *

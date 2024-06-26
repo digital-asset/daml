@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.daml.lf.data.logging.*
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
@@ -19,6 +15,10 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionFilter,
   TransactionId,
 }
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.logging.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {

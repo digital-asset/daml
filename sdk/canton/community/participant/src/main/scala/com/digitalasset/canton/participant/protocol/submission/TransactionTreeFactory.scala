@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.transaction.TransactionErrors.KeyInputError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{Salt, SaltSeed}
 import com.digitalasset.canton.data.{
@@ -27,6 +26,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.TransactionErrors.KeyInputError
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}

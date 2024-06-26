@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.digitalasset.daml.lf.transaction.Versioned
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
@@ -15,6 +13,8 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, defaultTemplateId}
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 

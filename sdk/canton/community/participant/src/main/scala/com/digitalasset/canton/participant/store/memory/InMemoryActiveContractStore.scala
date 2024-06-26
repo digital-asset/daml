@@ -10,7 +10,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -47,6 +46,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicInteger

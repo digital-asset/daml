@@ -4,8 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
@@ -22,6 +20,8 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>

@@ -6,8 +6,6 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
@@ -15,6 +13,8 @@ import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -6,12 +6,16 @@ package com.digitalasset.canton
 import cats.Functor
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
+import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
+import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
@@ -21,6 +25,9 @@ import com.digitalasset.canton.version.{
   ReleaseProtocolVersion,
 }
 import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.sdk.OpenTelemetrySdk
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
+import io.opentelemetry.sdk.trace.SdkTracerProvider
 import org.mockito.{ArgumentMatchers, ArgumentMatchersSugar}
 import org.scalacheck.Test
 import org.scalactic.source.Position
@@ -119,6 +126,31 @@ trait BaseTest
     with AppendedClues { self =>
 
   import scala.language.implicitConversions
+
+  /** A metrics factory constructed from an OpenTelemetryOnDemandMetricsReader which allows to make assertion
+    * on the content of the metrics registry.
+    */
+  def testableMetricsFactory(
+      testName: String,
+      onDemandMetricsReader: OpenTelemetryOnDemandMetricsReader,
+      histograms: Set[String],
+  ): OpenTelemetryMetricsFactory = {
+    val sdkBuilder = OpenTelemetrySdk.builder()
+    val meterProvider = SdkMeterProvider.builder()
+    meterProvider.registerMetricReader(onDemandMetricsReader)
+    sdkBuilder.setMeterProvider(meterProvider.build())
+    val openTelemetry = ConfiguredOpenTelemetry(
+      sdkBuilder.build(),
+      SdkTracerProvider.builder(),
+      onDemandMetricsReader,
+    )
+    new OpenTelemetryMetricsFactory(
+      openTelemetry.openTelemetry.meterBuilder(testName).build(),
+      histograms,
+      None,
+      MetricsContext.Empty,
+    )
+  }
 
   /** Allows for invoking `myEitherT.futureValue` when `myEitherT: EitherT[Future, _, _]`.
     */

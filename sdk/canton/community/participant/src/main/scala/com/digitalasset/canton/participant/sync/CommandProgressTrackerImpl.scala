@@ -10,10 +10,6 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.GetCommandStatusR
 }
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
-import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
@@ -33,6 +29,10 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.daml.lf.data.Ref.TypeConName
+import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import io.grpc.StatusRuntimeException
 import monocle.macros.syntax.lens.*
 
@@ -127,7 +127,7 @@ class CommandProgressTrackerImpl(
         .discard
 
     def recordTransactionImpact(
-        transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
+        transaction: LfSubmittedTransaction
     ): Unit = {
       val creates = mutable.ListBuffer.empty[CommandUpdates.Contract]
       val archives = mutable.ListBuffer.empty[CommandUpdates.Contract]

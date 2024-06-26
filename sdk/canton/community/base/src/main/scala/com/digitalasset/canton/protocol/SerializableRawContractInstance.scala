@@ -4,8 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
-import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
@@ -14,6 +12,8 @@ import com.digitalasset.canton.serialization.{
   SerializationCheckFailed,
 }
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens

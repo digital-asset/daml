@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.entries
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.SubmissionId
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 private[platform] sealed abstract class PartyLedgerEntry() extends Product with Serializable {
   val submissionIdOpt: Option[SubmissionId]

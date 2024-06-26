@@ -5,18 +5,12 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.*
 import cats.syntax.all.*
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.transaction.*
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -33,6 +27,12 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.util.Checked
+import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -45,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    readService: ReadService,
+    writeService: WriteService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
@@ -256,7 +256,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           packageLoader
             .loadPackage(
               packageId = packageId,
-              delegate = readService.getLfArchive(_)(loggingContext.traceContext),
+              delegate = writeService.getLfArchive(_)(loggingContext.traceContext),
               metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>

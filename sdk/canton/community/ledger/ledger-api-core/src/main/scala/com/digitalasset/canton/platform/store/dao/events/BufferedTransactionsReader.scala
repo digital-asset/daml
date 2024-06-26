@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.daml.lf.data.Ref.TransactionId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -30,6 +29,7 @@ import com.digitalasset.canton.platform.store.dao.{
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Ref.TransactionId
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 

@@ -12,9 +12,9 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.ConsistencyErrorGroup
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.ConsistencyErrorGroup
 
 import java.time.Instant
 

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -32,6 +30,8 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.localstore.PartyRecordStorageBackend
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Party
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}

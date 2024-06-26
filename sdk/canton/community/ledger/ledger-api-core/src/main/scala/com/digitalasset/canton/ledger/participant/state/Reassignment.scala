@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 
 sealed trait Reassignment {
   def kind: String

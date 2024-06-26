@@ -4,11 +4,11 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{InterfaceFilter, TemplateFilter}
 import com.digitalasset.canton.ledger.api.messages.transaction
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.rpc.error_details
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException

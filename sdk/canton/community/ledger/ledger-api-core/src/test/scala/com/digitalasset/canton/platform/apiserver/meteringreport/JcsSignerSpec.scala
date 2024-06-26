@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.meteringreport
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.platform.apiserver.meteringreport.JcsSigner.VerificationStatus.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.{
   ApplicationReport,
@@ -12,6 +10,8 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.
   ParticipantReport,
   Request,
 }
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.*

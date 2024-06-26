@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.*
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 sealed trait ContractStateEvent extends Product with Serializable {
   def eventOffset: Offset

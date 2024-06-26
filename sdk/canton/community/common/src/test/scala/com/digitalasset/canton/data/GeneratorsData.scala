@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
@@ -28,6 +27,7 @@ import com.digitalasset.canton.util.SeqUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
+import com.digitalasset.daml.lf.value.Value.ValueInt64
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*

@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForFlatTx,
   EventPayloadSourceForTreeTx,
 }
 import com.digitalasset.canton.platform.store.dao.events.Raw.{FlatEvent, TreeEvent}
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

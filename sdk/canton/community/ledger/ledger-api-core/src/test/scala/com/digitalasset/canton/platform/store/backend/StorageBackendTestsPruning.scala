@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.scalautil.Statement
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.PruningDto.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Checkpoints, OptionValues}

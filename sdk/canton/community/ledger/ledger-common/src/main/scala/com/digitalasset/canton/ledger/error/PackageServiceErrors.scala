@@ -4,13 +4,13 @@
 package com.digitalasset.canton.ledger.error
 
 import com.daml.error.*
+import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.Error
 import com.digitalasset.daml.lf.validation.UpgradeError
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
-import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
 

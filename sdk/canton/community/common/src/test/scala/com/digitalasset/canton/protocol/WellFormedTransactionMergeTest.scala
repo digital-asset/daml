@@ -4,8 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import com.daml.ledger.javaapi.data.Identifier
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ComparesLfTransactions.{TxTree, buildLfTransaction}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -22,6 +20,8 @@ import com.digitalasset.canton.{
   LfValue,
   NeedsNewLfContractIds,
 }
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import org.scalatest.wordspec.AnyWordSpec
 
 /** Tests WellFormedTransaction.merge particularly with respect to handling of top-level rollback nodes.
@@ -70,7 +70,9 @@ class WellFormedTransactionMergeTest
             arg = args(
               LfValue.ValueParty(alice.toLf),
               LfValue.ValueParty(alice.toLf),
-              args(LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("0.0"))),
+              args(
+                LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("0.0"))
+              ),
             ),
           )
         ),
@@ -324,7 +326,9 @@ class WellFormedTransactionMergeTest
           args(
             LfValue.ValueParty(lfPayer),
             LfValue.ValueParty(lfOwner),
-            args(LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("0.0"))),
+            args(
+              LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("0.0"))
+            ),
             valueList(lfObservers.map(LfValue.ValueParty)),
           )
         case _ => arg

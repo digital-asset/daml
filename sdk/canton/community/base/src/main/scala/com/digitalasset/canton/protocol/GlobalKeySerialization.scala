@@ -4,11 +4,11 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.{LfVersioned, ProtoDeserializationError}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 object GlobalKeySerialization {
 

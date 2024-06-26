@@ -4,9 +4,9 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, Event}
+import com.digitalasset.canton.platform.store.dao.events.TransactionConversion.removeTransient
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.canton.platform.store.dao.events.TransactionConversion.removeTransient
 import com.google.protobuf.ByteString
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers

@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import scala.concurrent.Future
 

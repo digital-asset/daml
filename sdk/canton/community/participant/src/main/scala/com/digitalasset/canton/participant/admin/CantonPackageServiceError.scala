@@ -4,14 +4,14 @@
 package com.digitalasset.canton.participant.admin
 
 import com.daml.error.{DamlError, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ParentCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
 import scala.annotation.nowarn

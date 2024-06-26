@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.participant.state
@@ -13,6 +12,7 @@ import com.digitalasset.canton.platform.apiserver.services.admin.SynchronousResp
   Accepted,
   Rejected,
 }
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.stream.{KillSwitches, Materializer}

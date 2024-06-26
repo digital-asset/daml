@@ -3,10 +3,14 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref.PackageVersion
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueText}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
+import com.digitalasset.daml.lf.data.Ref.PackageVersion
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+  Versioned,
+}
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueText}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Inside, LoneElement, OptionValues}

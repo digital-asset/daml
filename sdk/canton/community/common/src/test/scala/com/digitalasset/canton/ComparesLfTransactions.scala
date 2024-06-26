@@ -4,14 +4,17 @@
 package com.digitalasset.canton
 
 import com.daml.ledger.javaapi.data.Identifier
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
-import com.digitalasset.daml.lf.transaction.NodeId
-import com.digitalasset.daml.lf.transaction.test.NodeIdTransactionBuilder
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{toIdentifier, toPackageId}
 import com.digitalasset.canton.ComparesLfTransactions.TxTree
 import com.digitalasset.canton.logging.pretty.PrettyTestInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
+import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.transaction.test.NodeIdTransactionBuilder
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
+  toIdentifier,
+  toPackageId,
+}
 import org.scalatest.{Assertion, Suite}
 
 /** Test utility to compare actual and expected lf transactions using a human-readable, hierarchical serialization of lf

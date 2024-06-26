@@ -4,10 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
-import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   CommandExecutionErrors,
@@ -15,6 +11,10 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
+import com.digitalasset.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 
 sealed abstract class ErrorCause extends Product with Serializable
 

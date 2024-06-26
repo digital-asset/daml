@@ -6,15 +6,15 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.ErrorValidations
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scalaz.std.either.*
 import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance

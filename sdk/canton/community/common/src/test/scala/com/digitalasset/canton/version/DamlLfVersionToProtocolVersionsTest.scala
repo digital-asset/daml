@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.daml.lf.transaction.TransactionVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.math.Ordered.orderingToOrdered

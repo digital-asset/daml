@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
@@ -22,6 +19,9 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.canton.platform.{Contract, ContractId, *}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.value.Value.VersionedValue
 
 import java.io.{ByteArrayInputStream, InputStream}
 import scala.concurrent.{ExecutionContext, Future}

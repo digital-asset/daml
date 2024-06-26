@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.util.{Failure, Success, Try}
 

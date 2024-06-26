@@ -44,7 +44,10 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
     def onlyRunWith(protocolVersion: ProtocolVersion): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion == protocolVersion)
 
-    def onlyRunWithLessThan(
+    def onlyRunWhen(condition: ProtocolVersion => Boolean): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, condition(testedProtocolVersion))
+
+    def onlyRunLessThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion < minProtocolVersion)
@@ -204,12 +207,17 @@ trait ProtocolVersionChecksAsyncWordSpec {
     def onlyRunWithOrGreaterThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =
-      new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion >= minProtocolVersion)
+      onlyRunWhen(_ >= minProtocolVersion)
 
     def onlyRunWithOrLessThan(
         minProtocolVersion: ProtocolVersion
     ): OnlyRunWhenWordSpecStringWrapper =
-      new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion <= minProtocolVersion)
+      onlyRunWhen(testedProtocolVersion <= minProtocolVersion)
+
+    private def onlyRunWhen(
+        condition: ProtocolVersion => Boolean
+    ): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, condition(testedProtocolVersion))
   }
 
   protected final class OnlyRunWhenWordSpecStringWrapper(

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
 import com.digitalasset.canton.data.Offset
@@ -11,11 +10,15 @@ import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexedUpdatesMetrics
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
 
 object UpdateToMeteringDbDto {
 
   def apply(
       clock: () => Long = () => Timestamp.now().micros,
+      excludedPackageIds: Set[Ref.PackageId],
       metrics: IndexedUpdatesMetrics,
   )(implicit
       mc: MetricsContext
@@ -29,12 +32,12 @@ object UpdateToMeteringDbDto {
       val ledgerOffset = input.last._1.toHexString
 
       (for {
-        optCompletionInfo <- input.collect { case (_, Traced(ta: TransactionAccepted)) =>
-          ta.completionInfoO
-        }
-        ci <- optCompletionInfo.iterator
-        statistics <- ci.statistics
-      } yield (ci.applicationId, statistics.committed.actions + statistics.rolledBack.actions))
+        (completionInfo, transactionAccepted) <- input.iterator
+          .collect { case (_, Traced(ta: TransactionAccepted)) => ta }
+          .flatMap(ta => ta.completionInfoO.iterator.map(_ -> ta))
+        applicationId = completionInfo.applicationId
+        statistics = TransactionNodeStatistics(transactionAccepted.transaction, excludedPackageIds)
+      } yield (applicationId, statistics.committed.actions + statistics.rolledBack.actions)).toList
         .groupMapReduce(_._1)(_._2)(_ + _)
         .toList
         .filter(_._2 != 0)

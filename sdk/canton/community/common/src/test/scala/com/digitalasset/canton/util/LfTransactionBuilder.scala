@@ -5,12 +5,12 @@ package com.digitalasset.canton.util
 
 import cats.Monad
 import cats.data.StateT
+import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.{LfInterfaceId, LfPackageId}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.{LfInterfaceId, LfPackageId}
 
 import scala.collection.immutable.HashMap
 
