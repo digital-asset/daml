@@ -195,7 +195,7 @@ object ProtocolVersion {
   ) = {
     val deleted = Option.when(includeDeleted)(ProtocolVersion.deleted).getOrElse(Nil)
 
-    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted ++ beta).map(_.toString)
+    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).map(_.toString)
 
     s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
   }
