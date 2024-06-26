@@ -14,12 +14,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Versioned,
-}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
@@ -66,7 +61,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "compileWithContractDisclosures" should {
-    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val version = pkg.languageVersion
     val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
     val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
     val disclosedCid1 =

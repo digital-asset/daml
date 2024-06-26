@@ -44,7 +44,6 @@ class NodeIdTransactionBuilder extends TestIdFactory {
   }
 
   def build(): VersionedTransaction = ids.synchronized {
-    import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
       case (nid, rb: Node.Rollback) =>
         rb.copy(children = children(nid).toImmArray)

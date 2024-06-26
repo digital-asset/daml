@@ -4,65 +4,70 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.language.LanguageVersion
-
-sealed abstract class TransactionVersion private (
-    val protoValue: String,
-    private[transaction] val index: Int,
-) extends Product
-    with Serializable
 
 /** Currently supported versions of the Daml-LF transaction specification.
   */
 object TransactionVersion {
 
-  case object V31 extends TransactionVersion("2.1", 1)
-  case object VDev extends TransactionVersion("dev", Int.MaxValue)
+  private[lf] val All: List[TransactionVersion] = LanguageVersion.AllV2
 
-  val All = List(V31, VDev)
+  private[this] val fromStringMapping = Map(
+    "2.1" -> LanguageVersion.v2_1,
+    "dev" -> LanguageVersion.v2_dev,
+  )
 
-  private[lf] val maxNonDev = All.reverse(1)
+  private[this] val fromIntMapping = Map(
+    1 -> LanguageVersion.v2_1,
+    Int.MaxValue -> LanguageVersion.v1_dev,
+  )
 
-  implicit val Ordering: scala.Ordering[TransactionVersion] =
-    scala.Ordering.by(_.index)
+  private[this] val toStringMapping = fromStringMapping.map { case (k, v) => v -> k }
 
-  private[this] val stringMapping = All.view.map(v => v.protoValue -> v).toMap
+  private[this] val toIntMapping = fromIntMapping.map { case (k, v) => v -> k }
 
-  private[this] val intMapping = All.view.map(v => v.index -> v).toMap
+  private[lf] def fromString(vs: String): Either[String, TransactionVersion] =
+    fromStringMapping.get(vs).toRight(s"Unsupported transaction version '$vs'")
 
-  def fromString(vs: String): Either[String, TransactionVersion] =
-    stringMapping.get(vs).toRight(s"Unsupported transaction version '$vs'")
+  private[lf] def fromInt(i: Int): Either[String, TransactionVersion] =
+    fromIntMapping.get(i).toRight(s"Unsupported transaction version '$i'")
 
-  def assertFromString(vs: String): TransactionVersion =
-    data.assertRight(fromString(vs))
+  private[lf] def toProtoValue(ver: LanguageVersion): String =
+    toStringMapping
+      .get(ver)
+      .getOrElse(
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"Internal Error: unexpected language version $ver",
+        )
+      )
 
-  def fromInt(i: Int): Either[String, TransactionVersion] =
-    intMapping.get(i).toRight(s"Unsupported transaction version '$i'")
-
-  def assertFromInt(i: Int): TransactionVersion =
-    data.assertRight(fromInt(i))
+  private[lf] def toInt(ver: LanguageVersion): Int =
+    toIntMapping
+      .get(ver)
+      .getOrElse(
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"Internal Error: unexpected language version $ver",
+        )
+      )
 
   val minVersion: TransactionVersion = All.min
-  def maxVersion: TransactionVersion = VDev
+  val maxVersion: TransactionVersion = All.max
 
-  private[lf] val minContractKeys = VDev
+  private[lf] val minContractKeys = LanguageVersion.Features.contractKeys
 
-  private[lf] val minTextMap = VDev
+  private[lf] val minTextMap = LanguageVersion.Features.textMap
 
-  private[lf] val minChoiceAuthorizers = VDev
+  private[lf] val minChoiceAuthorizers = LanguageVersion.Features.choiceAuthority
 
-  private[lf] val minPackageVersion = VDev
+  private[lf] val minPackageVersion = LanguageVersion.Features.persistedPackageVersion
 
-  private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
-    import LanguageVersion._
-    Map(
-      v2_1 -> V31,
-      v2_dev -> VDev,
-    )
-  }
+  val VDev = LanguageVersion.v2_dev
 
   private[lf] def txVersion(tx: Transaction) = {
-    import scala.Ordering.Implicits.infixOrderingOps
+    import scala.Ordering.Implicits._
     tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
       case (acc, _: Node.Rollback) => acc
@@ -75,12 +80,9 @@ object TransactionVersion {
     VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.StableVersions(LanguageVersion.default.major).map(assignNodeVersion)
-
-  private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.EarlyAccessVersions(LanguageVersion.default.major).map(assignNodeVersion)
+    LanguageVersion.StableVersions(LanguageVersion.Major.V2)
 
   private[lf] val DevVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.AllVersions(LanguageVersion.default.major).map(assignNodeVersion)
+    LanguageVersion.AllVersions(LanguageVersion.default.major)
 
 }

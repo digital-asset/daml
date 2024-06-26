@@ -158,7 +158,7 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
 
   object langNodeBuilder extends TestNodeBuilder {
     override def transactionVersion(packageId: PackageId): Option[TransactionVersion] =
-      Some(TransactionVersion.assignNodeVersion(langVersion))
+      Some(langVersion).filter(TransactionVersion.All.contains)
   }
 
   val engine = Engine.DevEngine(majorLanguageVersion)

@@ -343,8 +343,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion =
-    TransactionVersion.assignNodeVersion(languageVersion)
+  private val testTxVersion: TransactionVersion = languageVersion
 
   private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
     Versioned(
