@@ -83,5 +83,5 @@ validateDarFile bytes =
         let LL.PackageManagementService {packageManagementServiceValidateDarFile=rpc} = service
         let request = LL.ValidateDarFileRequest bytes TL.empty {- let server allocate submission id -}
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
-            <&> fmap (\LL.ValidateDarFileResponse{} -> ())
+            >>= unwrapWithInvalidArgumentAndMetadata
+            <&> bimap collapseUploadError (\LL.ValidateDarFileResponse{} -> ())

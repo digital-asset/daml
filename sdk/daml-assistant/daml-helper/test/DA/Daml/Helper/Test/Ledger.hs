@@ -221,6 +221,8 @@ main = do
                 ""
               exitCode == ExitFailure 1 @? "Dry-run of a wrong update unexpectedely succeeded"
               assertBool "Error message did not contain expected DAR_NOT_VALID_UPGRADE" ("DAR_NOT_VALID_UPGRADE" `L.isInfixOf` out)
+              assertBool "Error message did not contain expected reason" $
+                "Reason: The upgraded data type T has added new fields, but those fields are not Optional." `L.isInfixOf` out
           ]
       , testGroup "fetch-dar"
           [ testCase "succeeds against HTTP JSON API" $ do
