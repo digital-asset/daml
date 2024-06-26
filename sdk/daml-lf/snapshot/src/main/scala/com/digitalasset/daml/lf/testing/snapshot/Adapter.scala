@@ -115,7 +115,7 @@ object Adapter {
       extends NodeIdTransactionBuilder
       with TestNodeBuilder {
     override def transactionVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
-      Some(TransactionVersion.assignNodeVersion(pkgLangVer(packageId)))
+      Some(pkgLangVer(packageId))
     }
   }
 }

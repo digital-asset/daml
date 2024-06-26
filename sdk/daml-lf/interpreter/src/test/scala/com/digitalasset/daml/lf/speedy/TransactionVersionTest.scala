@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.digitalasset.daml.lf.testing.parser
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Versioned}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -67,7 +67,7 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
         inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
+          transaction.version shouldBe newVersion
         }
       }
     }
@@ -94,7 +94,7 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
         inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(commonVersion)
+          transaction.version shouldBe commonVersion
         }
       }
     }
@@ -212,7 +212,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val implementsContract: Versioned[Value.ContractInstance] = Versioned(
-    TransactionVersion.assignNodeVersion(newVersion),
+    newVersion,
     Value.ContractInstance(
       implementsPkg.pkgName,
       implementsPkg.pkgVersion,

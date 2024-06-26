@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
-  TransactionVersion,
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -67,7 +66,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "compileWithContractDisclosures" should {
-    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val version = pkg.languageVersion
     val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
     val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
     val disclosedCid1 =
