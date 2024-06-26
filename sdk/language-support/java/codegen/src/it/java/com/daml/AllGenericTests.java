@@ -15,6 +15,7 @@ import org.junit.runners.Suite;
   ContractKeysTest.class,
   DecoderTest.class,
   ListTest.class,
+  PackageNameAndVersionTest.class,
   OptionalTest.class,
   ParametrizedContractIdTest.class,
   RecordTest.class,
