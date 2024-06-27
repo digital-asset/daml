@@ -152,7 +152,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       ts,
       domainId,
       MessageId.fromUuid(new UUID(0, 1)),
-      SequencerErrors.SubmissionRequestMalformed("Some error"),
+      SequencerErrors.SubmissionRequestRefused("Some error"),
       testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )

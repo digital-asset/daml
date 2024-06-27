@@ -42,7 +42,7 @@ object DatabaseSequencerConfig {
   // TODO(#18407): Allow configuration of database sequencer as a part of unified sequencer
   //  instead of hardcoding the values below
   private[sequencer] final case class ForBlockSequencer(
-      writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
+      writer: SequencerWriterConfig = SequencerWriterConfig.HighThroughput(),
       reader: SequencerReaderConfig = new SequencerReaderConfig {
         override val readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize
         override val checkpointInterval: NonNegativeFiniteDuration =

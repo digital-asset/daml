@@ -1284,7 +1284,7 @@ trait MessageDispatcherTest {
           CantonTimestamp.ofEpochSecond(3),
           domainId,
           messageId3,
-          SequencerErrors.SubmissionRequestMalformed("invalid batch"),
+          SequencerErrors.SubmissionRequestRefused("invalid batch"),
           testedProtocolVersion,
           Option.empty[TrafficReceipt],
         )

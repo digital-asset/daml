@@ -4,13 +4,11 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.error.utils.DecodedCantonError
-import com.daml.ledger.api.v2.admin.command_inspection_service.GetCommandStatusResponse.CommandStatus.{
-  CommandUpdates,
-  RequestStatistics,
-}
 import com.daml.ledger.api.v2.admin.command_inspection_service.{
   CommandState,
-  GetCommandStatusResponse,
+  CommandStatus as ApiCommandStatus,
+  CommandUpdates,
+  RequestStatistics,
 }
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
@@ -35,8 +33,8 @@ final case class CommandStatus(
     requestStatistics: RequestStatistics,
     updates: CommandUpdates,
 ) extends PrettyPrinting {
-  def toProto: GetCommandStatusResponse.CommandStatus = {
-    GetCommandStatusResponse.CommandStatus(
+  def toProto: ApiCommandStatus = {
+    ApiCommandStatus(
       started = Some(started.toProtoTimestamp),
       completed = completed.map(_.toProtoTimestamp),
       completion = Some(completion),
@@ -92,9 +90,9 @@ final case class CommandStatus(
 
 object CommandStatus {
   def fromProto(
-      proto: GetCommandStatusResponse.CommandStatus
+      proto: ApiCommandStatus
   ): Either[ProtoDeserializationError, CommandStatus] = {
-    val GetCommandStatusResponse.CommandStatus(
+    val ApiCommandStatus(
       startedP,
       completedP,
       completionP,

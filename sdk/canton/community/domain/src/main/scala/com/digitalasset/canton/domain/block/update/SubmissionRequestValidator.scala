@@ -781,24 +781,34 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, InFlightAggregationUpdate] =
+  ): EitherT[Future, SubmissionRequestOutcome, InFlightAggregationUpdate] = {
+    val rule = submissionRequest.aggregationRule.getOrElse(
+      ErrorUtil.internalError(
+        new IllegalStateException(
+          "A submission request with an aggregation id must have an aggregation rule"
+        )
+      )
+    )
+
     for {
-      inFlightAggregationAndUpdate <- {
-        EitherT
-          .fromOption(inFlightAggregationO, ())
-          .map(_ -> InFlightAggregationUpdate.empty)
-          .leftFlatMap { _ =>
-            val rule = submissionRequest.aggregationRule.getOrElse(
-              ErrorUtil.internalError(
-                new IllegalStateException(
-                  "A submission request with an aggregation id must have an aggregation rule"
-                )
-              )
+      inFlightAggregationAndUpdate <- inFlightAggregationO match {
+        case None =>
+          // New aggregation
+          validateAggregationRule(state, submissionRequest, sequencingTimestamp, rule).map { _ =>
+            val fresh = FreshInFlightAggregation(submissionRequest.maxSequencingTime, rule)
+            InFlightAggregation.initial(fresh) -> InFlightAggregationUpdate(
+              Some(fresh),
+              Chain.empty,
             )
-            validateAggregationRule(state, submissionRequest, sequencingTimestamp, rule)
           }
+
+        case Some(inFlightAggregation) =>
+          // Existing aggregation
+          wellFormedAggregationRule(submissionRequest, rule)
+            .map(_ => inFlightAggregation -> InFlightAggregationUpdate.empty)
       }
       (inFlightAggregation, inFlightAggregationUpdate) = inFlightAggregationAndUpdate
+
       aggregatedSender = AggregatedSender(
         submissionRequest.sender,
         AggregationBySender(
@@ -856,6 +866,7 @@ private[update] final class SubmissionRequestValidator(
         },
       )
     } yield fullInFlightAggregationUpdate
+  }
 
   private def validateAggregationRule(
       state: BlockUpdateEphemeralState,
@@ -865,20 +876,10 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, (InFlightAggregation, InFlightAggregationUpdate)] =
+  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
     for {
-      _ <- EitherT.fromEither(
-        SequencerValidations
-          .wellformedAggregationRule(submissionRequest.sender, rule)
-          .leftMap(message =>
-            invalidSubmissionRequest(
-              state,
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestMalformed(message),
-            )
-          )
-      )
+      _ <- wellFormedAggregationRule(submissionRequest, rule)
+
       unregisteredEligibleMembers <- {
         if (unifiedSequencer) {
           EitherT.right(
@@ -909,10 +910,25 @@ private[update] final class SubmissionRequestValidator(
           ),
         ),
       )
-      fresh = FreshInFlightAggregation(submissionRequest.maxSequencingTime, rule)
-    } yield InFlightAggregation.initial(fresh) -> InFlightAggregationUpdate(
-      Some(fresh),
-      Chain.empty,
+    } yield ()
+
+  private def wellFormedAggregationRule(
+      submissionRequest: SubmissionRequest,
+      rule: AggregationRule,
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
+    EitherT.fromEither(
+      SequencerValidations
+        .wellformedAggregationRule(submissionRequest.sender, rule)
+        .leftMap { message =>
+          val alarm = SequencerErrors.SubmissionRequestMalformed
+            .Error(submissionRequest, message)
+          alarm.report()
+
+          SubmissionRequestOutcome.discardSubmissionRequest
+        }
     )
 
   private def deliverReceipt(
