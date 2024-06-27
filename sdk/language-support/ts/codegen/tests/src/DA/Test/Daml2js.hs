@@ -85,7 +85,7 @@ tests damlc daml2js = testGroup "daml2js tests"
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2js ([groverDar, elmoDar] ++ ["-o", daml2jsDir]) ""
         assertBool "daml2js is expected to fail but succeeded" (exitCode /= ExitSuccess)
-        assertInfixOf "Duplicate name 'grover-1.0' for different packages detected" err
+        assertInfixOf "Duplicate unit ID 'grover-1.0' for different packages detected" err
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"

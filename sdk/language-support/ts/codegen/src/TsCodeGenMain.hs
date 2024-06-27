@@ -79,45 +79,35 @@ optionsParserInfo = info (optionsParser <**> helper)
     )
 
 -- Build a list of packages from a list of DAR file paths.
-readPackages :: [FilePath] -> IO [(PackageId, (Package, Maybe PackageName))]
+readPackages :: [FilePath] -> IO [(PackageId, Package)]
 readPackages dars = concatMapM darToPackages dars
   where
-    darToPackages :: FilePath -> IO [(PackageId, (Package, Maybe PackageName))]
+    darToPackages :: FilePath -> IO [(PackageId, Package)]
     darToPackages dar = do
       dar <- B.readFile dar
       let archive = Zip.toArchive $ BSL.fromStrict dar
       dalfs <- either fail pure $ DAR.readDalfs archive
-      DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
-      packageName <- pure (PackageName . T.pack <$> packageName)
-      forM ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $
-        \(dalf, mbPkgName) -> do
+      forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $
+        \dalf -> do
           (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-          pure (pkgId, (pkg, mbPkgName))
+          pure (pkgId, pkg)
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
-mergePackageMap :: [(PackageId, (Package, Maybe PackageName))] ->
-                   Either T.Text (Map.Map PackageId (Maybe PackageName, Package))
-mergePackageMap ps = foldM merge Map.empty ps
+mergePackageMap :: [(PackageId, Package)] ->
+                   Either T.Text (Map.Map PackageId Package)
+mergePackageMap ps = snd <$> foldM merge (Set.empty, Map.empty) ps
   where
-    merge :: Map.Map PackageId (Maybe PackageName, Package) ->
-                  (PackageId, (Package, Maybe PackageName)) ->
-                  Either T.Text (Map.Map PackageId (Maybe PackageName, Package))
-    merge pkgs (pkgId, (pkg, mbPkgName)) = do
-        let pkgNames = mapMaybe fst (Map.elems pkgs)
+    merge :: (Set.Set T.Text, Map.Map PackageId Package) ->
+                  (PackageId, Package) ->
+                  Either T.Text (Set.Set T.Text, Map.Map PackageId Package)
+    merge (usedUnitIds, pkgs) (pkgId, pkg) = do
+        let ownUnitId = unitIdText pkgId pkg
         -- Check if there is a package with the same name but a
         -- different package id.
-        whenJust mbPkgName $ \name -> when (pkgId `Map.notMember` pkgs && name `elem` pkgNames) $
-            Left $ "Duplicate name '" <> unPackageName name <> "' for different packages detected"
-        let update mbOld = case mbOld of
-                Nothing -> pure (Just (mbPkgName, pkg))
-                Just (mbOldPkgName, _) -> do
-                    -- Check if we have colliding names for the same
-                    -- package.
-                    whenJust (liftA2 (,) mbOldPkgName mbPkgName) $ \(name1, name2) ->
-                        when (name1 /= name2) $ Left $ "Different names ('" <> unPackageName name1 <> "' and '" <> unPackageName name2 <> "') for the same package detected"
-                    pure (Just (mbOldPkgName <|> mbPkgName, pkg))
-        Map.alterF update pkgId pkgs
+        when (pkgId `Map.notMember` pkgs && ownUnitId `Set.member` usedUnitIds) $
+                    Left $ "Duplicate unit ID '" <> ownUnitId <> "' for different packages detected"
+        pure (Set.insert ownUnitId usedUnitIds, Map.insert pkgId pkg pkgs)
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
@@ -138,27 +128,28 @@ main = do
           Left err -> fail . T.unpack $ err
           Right pkgMap -> do
               forM_ (Map.toList pkgMap) $
-                \(pkgId, (mbPkgName, pkg)) -> do
-                     let id = unPackageId pkgId
-                         pkgName = packageNameText pkgId mbPkgName
-                     let pkgDesc = case mbPkgName of
-                           Nothing -> id
-                           Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
-                     T.putStrLn $ "Generating " <> pkgDesc
+                \(pkgId, pkg) -> do
+                     let -- id = unPackageId pkgId
+                         unitId = unitIdText pkgId pkg
+                     T.putStrLn $ "Generating " <> unitId
                      daml2js Daml2jsParams{..}
 
-packageNameText :: PackageId -> Maybe PackageName -> T.Text
-packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
+unitIdText :: PackageId -> Package -> T.Text
+unitIdText pkgId Package{..} = case packageMetadata of
+  Just (PackageMetadata{..}) ->
+    unPackageName packageName <> "-" <> unPackageVersion packageVersion
+  Nothing ->
+    unPackageId pkgId
+
 
 newtype Scope = Scope {unScope :: T.Text}
 newtype Dependency = Dependency {_unDependency :: T.Text} deriving (Eq, Ord)
 
 data Daml2jsParams = Daml2jsParams
   { opts :: Options  -- cli args
-  , pkgMap :: Map.Map PackageId (Maybe PackageName, Package)
+  , pkgMap :: Map.Map PackageId Package
   , pkgId :: PackageId
   , pkg :: Package
-  , pkgName :: T.Text
   , releaseVersion :: ReleaseVersion
   }
 
@@ -168,7 +159,7 @@ daml2js Daml2jsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2js'.
-        packageDir = scopeDir </> T.unpack pkgName
+        packageDir = scopeDir </> T.unpack (unitIdText pkgId pkg)
           -- The directory into which we write this package e.g. '/path/to/daml2js/davl-0.0.4'.
         packageSrcDir = packageDir </> "lib"
           -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/lib'.
@@ -199,7 +190,7 @@ daml2js Daml2jsParams {..} = do
             pure (Just (moduleName mod), ds)
 
 -- Generate the .ts content for a single module.
-genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
+genModule :: Map.Map PackageId Package ->
      Scope -> PackageId -> Module -> Maybe ((T.Text, T.Text), Set.Set Dependency)
 genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs && null ifaces =
@@ -264,11 +255,11 @@ genModule pkgMap (Scope scope) curPkgId mod
             (modPath (rootPath ++ unModuleName modName ++ ["module"]))
 
     -- The choice names for an interface from a package map.
-    interfaceChoices :: Map.Map PackageId (Maybe PackageName, Package)
+    interfaceChoices :: Map.Map PackageId Package
                      -> PackageId -> InterfaceChoices
     interfaceChoices pkgMap selfPkg = InterfaceChoices $ \name@Qualified{qualPackage, qualModule, qualObject} ->
       fromMaybe (error $ "reference interface missing: " <> show name) $ do
-        (_, pkg) <- Map.lookup (case qualPackage of
+        pkg <- Map.lookup (case qualPackage of
                                   PRSelf -> selfPkg
                                   PRImport pkgId -> pkgId) pkgMap
         mod <- qualModule `NM.lookup` packageModules pkg
@@ -278,18 +269,18 @@ genModule pkgMap (Scope scope) curPkgId mod
     -- Calculate an import declaration for a module from another package.
     externalImportDecl
         :: JSSyntax
-        -> Map.Map PackageId (Maybe PackageName, Package)
+        -> Map.Map PackageId Package
         -> PackageId
         -> T.Text
     externalImportDecl jsSyntax pkgMap pkgId =
         importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> pkgRefStr pkgMap pkgId)
 
     -- Produce a package name for a package ref.
-    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageId -> T.Text
+    pkgRefStr :: Map.Map PackageId Package -> PackageId -> T.Text
     pkgRefStr pkgMap pkgId =
         case Map.lookup pkgId pkgMap of
           Nothing -> error "IMPOSSIBLE : package map malformed"
-          Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
+          Just pkg -> unitIdText pkgId pkg
 
 newtype InterfaceChoices = InterfaceChoices (NM.Name TemplateImplements -> Set.Set ChoiceName)
 
