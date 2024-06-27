@@ -8,7 +8,26 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.DisclosedContract
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TemplateFilter,
+  TransactionFilter,
+}
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.test.java.model.test._
+import com.daml.ledger.test.java.semantic.divulgencetests.DummyFlexibleController
+
+import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionServiceQueryIT extends LedgerTestSuite {
   import CompanionImplicits._
@@ -225,4 +244,191 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       )
     }
   })
+
+  test(
+    "TXFlatTransactionByIdExplicitDisclosure",
+    "GetTransactionById returns an empty transaction when an explicitly disclosed contract is exercised",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, owner, stranger)) =>
+    testFlatExplicitDisclosure(
+      ledger = ledger,
+      owner = owner,
+      stranger = stranger,
+      submitAndWaitRequest = (disclosedContract, contractId) =>
+        ledger
+          .submitAndWaitRequest(stranger, contractId.exerciseFlexibleConsume(stranger).commands)
+          .update(_.commands.disclosedContracts := scala.Seq(disclosedContract)),
+      getTransaction = (updateId, stranger) => ledger.flatTransactionById(updateId, stranger),
+      getTransactionTree = (updateId, stranger) => ledger.transactionTreeById(updateId, stranger),
+    )
+  })
+
+  test(
+    "TXFlatTransactionByEventIdExplicitDisclosure",
+    "GetTransactionByEventId returns an empty transaction when an explicitly disclosed contract is exercised",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, owner, stranger)) =>
+    testFlatExplicitDisclosure(
+      ledger = ledger,
+      owner = owner,
+      stranger = stranger,
+      submitAndWaitRequest = (disclosedContract, contractId) =>
+        ledger
+          .submitAndWaitRequest(stranger, contractId.exerciseFlexibleConsume(stranger).commands)
+          .update(_.commands.disclosedContracts := scala.Seq(disclosedContract)),
+      getTransaction = (updateId, stranger) =>
+        ledger.transactionTreeById(updateId, stranger).flatMap { txTree =>
+          ledger.flatTransactionByEventId(txTree.rootEventIds.head, stranger)
+        },
+      getTransactionTree = (updateId, stranger) => ledger.transactionTreeById(updateId, stranger),
+    )
+  })
+
+  test(
+    "TXFlatTransactionByIdTransientContract",
+    "GetTransactionById returns an empty transaction on a transient contract",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    for {
+      response <- ledger.submitAndWaitForTransactionId(
+        ledger.submitAndWaitRequest(owner, new Dummy(owner).createAnd().exerciseArchive().commands)
+      )
+      _ <- fetchAndCompareTransactions(
+        getTransaction = ledger.flatTransactionById(response.transactionId, owner),
+        getTransactionTree = ledger.transactionTreeById(response.transactionId, owner),
+      )
+    } yield ()
+  })
+
+  test(
+    "TXFlatTransactionByEventIdTransientContract",
+    "GetTransactionById returns an empty transaction on a transient contract",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    for {
+      response <- ledger.submitAndWaitForTransactionTree(
+        ledger.submitAndWaitRequest(owner, new Dummy(owner).createAnd().exerciseArchive().commands)
+      )
+      eventId = response.transaction.get.rootEventIds.head
+      _ <- fetchAndCompareTransactions(
+        getTransaction = ledger.flatTransactionByEventId(eventId, owner),
+        getTransactionTree = ledger.transactionTreeByEventId(eventId, owner),
+      )
+    } yield ()
+  })
+
+  test(
+    "TXFlatTransactionByIdNonConsumingChoice",
+    "GetTransactionById returns an empty transaction when command contains only a nonconsuming choice",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    for {
+      contractId: Dummy.ContractId <- ledger.create(owner, new Dummy(owner))
+      response <- ledger.submitAndWaitForTransactionId(
+        ledger.submitAndWaitRequest(owner, contractId.exerciseDummyNonConsuming().commands)
+      )
+      _ <- fetchAndCompareTransactions(
+        getTransaction = ledger.flatTransactionById(response.transactionId, owner),
+        getTransactionTree = ledger.transactionTreeById(response.transactionId, owner),
+      )
+    } yield ()
+  })
+
+  test(
+    "TXFlatTransactionByEventIdNonConsumingChoice",
+    "GetTransactionById returns an empty transaction when command contains only a nonconsuming choice",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    for {
+      contractId: Dummy.ContractId <- ledger.create(owner, new Dummy(owner))
+      response <- ledger.submitAndWaitForTransactionTree(
+        ledger.submitAndWaitRequest(owner, contractId.exerciseDummyNonConsuming().commands)
+      )
+      eventId = response.transaction.get.rootEventIds.head
+      _ <- fetchAndCompareTransactions(
+        getTransaction = ledger.flatTransactionByEventId(eventId, owner),
+        getTransactionTree = ledger.transactionTreeByEventId(eventId, owner),
+      )
+    } yield ()
+  })
+
+  private def testFlatExplicitDisclosure(
+      ledger: ParticipantTestContext,
+      owner: Party,
+      stranger: Party,
+      submitAndWaitRequest: (
+          DisclosedContract,
+          DummyFlexibleController.ContractId,
+      ) => SubmitAndWaitRequest,
+      getTransaction: (String, Party) => Future[Transaction],
+      getTransactionTree: (String, Party) => Future[TransactionTree],
+  )(implicit ec: ExecutionContext): Future[Unit] = for {
+    contractId: DummyFlexibleController.ContractId <- ledger.create(
+      owner,
+      new DummyFlexibleController(owner),
+    )
+    witnessTxs <- ledger.transactionTrees(
+      new GetTransactionsRequest(
+        filter = Some(filterByPartyAndTemplate(owner, DummyFlexibleController.TEMPLATE_ID)),
+        begin = Some(ledger.begin),
+        end = Some(ledger.end),
+      )
+    )
+    tx = assertSingleton("Owners' transactions", witnessTxs)
+    create = assertSingleton("The create", createdEvents(tx))
+    disclosedContract = createEventToDisclosedContract(create)
+    submitResponse <- ledger.submitAndWaitForTransactionId(
+      submitAndWaitRequest(disclosedContract, contractId)
+    )
+    _ <- fetchAndCompareTransactions(
+      getTransaction = getTransaction(submitResponse.transactionId, stranger),
+      getTransactionTree = getTransactionTree(submitResponse.transactionId, stranger),
+    )
+  } yield ()
+
+  private def fetchAndCompareTransactions(
+      getTransaction: => Future[Transaction],
+      getTransactionTree: => Future[TransactionTree],
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    for {
+      flatTransaction <- getTransaction
+      transactionTree <- getTransactionTree
+    } yield assertEquals(
+      "The flat transaction should contain the same details (except events) as the transaction tree",
+      flatTransaction,
+      Transaction(
+        commandId = transactionTree.commandId,
+        workflowId = transactionTree.workflowId,
+        effectiveAt = transactionTree.effectiveAt,
+        events = Seq.empty,
+        offset = transactionTree.offset,
+        traceContext = transactionTree.traceContext,
+      ),
+    )
+
+  private def filterByPartyAndTemplate(
+      owner: Party,
+      templateId: javaapi.data.Identifier,
+  ): TransactionFilter = {
+    val templateIdScalaPB = Identifier.fromJavaProto(templateId.toProto)
+
+    new TransactionFilter(
+      Map(
+        owner.getValue -> new Filters(
+          Some(
+            InclusiveFilters(templateFilters =
+              Seq(TemplateFilter(Some(templateIdScalaPB), includeCreatedEventBlob = true))
+            )
+          )
+        )
+      )
+    )
+  }
+
+  private def createEventToDisclosedContract(ev: CreatedEvent): DisclosedContract =
+    DisclosedContract(
+      templateId = ev.templateId,
+      contractId = ev.contractId,
+      createdEventBlob = ev.createdEventBlob,
+    )
 }
