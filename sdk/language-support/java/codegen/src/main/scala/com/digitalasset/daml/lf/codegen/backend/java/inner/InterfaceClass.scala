@@ -8,8 +8,7 @@ import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.typesig
-import typesig.DefInterface
+import com.daml.lf.typesig.{DefInterface, PackageMetadata}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.-\/
@@ -26,6 +25,7 @@ object InterfaceClass extends StrictLogging {
       typeDeclarations: AuxiliarySignatures,
       packageId: PackageId,
       interfaceId: QualifiedName,
+      packageMetadata: Option[PackageMetadata],
   )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
       logger.info("Start")
@@ -80,9 +80,13 @@ object InterfaceClass extends StrictLogging {
           // interface classes are not inhabited
           MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build()
         }
-        .build()
+      packageMetadata foreach { meta =>
+        interfaceType
+          .addField(ClassGenUtils.generatePackageNameField(meta.name))
+          .addField(ClassGenUtils.generatePackageVersionField(meta.version))
+      }
       logger.debug("End")
-      interfaceType
+      interfaceType.build()
     }
 
   private[inner] val companionName = "INTERFACE"
