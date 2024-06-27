@@ -665,6 +665,7 @@ optics 0.15.0 : Apache License 2.0
 optics-core 0.4.1 : BSD 3-clause "New" or "Revised" License
 optics-extra 0.4.2.1 : BSD 3-clause "New" or "Revised" License
 optional-args 1.0.2 : BSD 3-clause "New" or "Revised" License
+optparse-applicative 0.17.1.0 : 
 optparse-generic 1.4.8 : BSD 3-clause "New" or "Revised" License
 ora 5.4.1 : MIT License
 Oracle Database JDBC Drivers 19.18.0.0 : Basic Proprietary Commercial License
