@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.participant.sync
 
-import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
-import com.daml.ledger.api.v2.admin.command_inspection_service.GetCommandStatusResponse.CommandStatus.{
+import com.daml.ledger.api.v2.admin.command_inspection_service.{
+  CommandState,
   CommandUpdates,
+  Contract,
   RequestStatistics,
 }
 import com.daml.ledger.api.v2.commands.Command
@@ -129,8 +130,8 @@ class CommandProgressTrackerImpl(
     def recordTransactionImpact(
         transaction: LfSubmittedTransaction
     ): Unit = {
-      val creates = mutable.ListBuffer.empty[CommandUpdates.Contract]
-      val archives = mutable.ListBuffer.empty[CommandUpdates.Contract]
+      val creates = mutable.ListBuffer.empty[Contract]
+      val archives = mutable.ListBuffer.empty[Contract]
       final case class Stats(
           exercised: Int = 0,
           fetched: Int = 0,
@@ -140,8 +141,8 @@ class CommandProgressTrackerImpl(
           templateId: TypeConName,
           coid: String,
           keyOpt: Option[GlobalKeyWithMaintainers],
-      ): CommandUpdates.Contract = {
-        CommandUpdates.Contract(
+      ): Contract = {
+        Contract(
           templateId = Some(
             Identifier(
               templateId.packageId,

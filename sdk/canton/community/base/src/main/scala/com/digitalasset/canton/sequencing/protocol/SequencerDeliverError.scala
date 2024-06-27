@@ -7,7 +7,13 @@ import com.daml.error.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.error.{BaseCantonError, TransactionError, TransactionErrorImpl}
+import com.digitalasset.canton.error.{
+  Alarm,
+  AlarmErrorCode,
+  BaseCantonError,
+  TransactionError,
+  TransactionErrorImpl,
+}
 import com.digitalasset.canton.topology.Member
 import com.google.rpc.status.Status
 
@@ -36,15 +42,24 @@ sealed abstract class SequencerDeliverErrorCode(id: String, category: ErrorCateg
 
 @Explanation("""Delivery errors wrapped into sequenced events""")
 object SequencerErrors extends SequencerErrorGroup {
-  @Explanation("""This error occurs when the sequencer cannot parse the submission request.""")
-  @Resolution(
-    """This usually indicates a misconfiguration of the system components or an application bug and requires operator intervention."""
-  )
+  @Explanation("""
+      |This error occurs when the sequencer receives an invalid submission request, e.g. it has an
+      |aggregation rule with an unreachable threshold.
+      |Malformed requests will not emit any deliver event.
+      |""".stripMargin)
+  @Resolution("""
+      |Check if the sender is running an attack.
+      |If you can rule out an attack, please reach out to Canton support.
+      |""".stripMargin)
   case object SubmissionRequestMalformed
-      extends SequencerDeliverErrorCode(
-        id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      )
+      extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED") {
+    final case class Error(
+        submissionRequest: SubmissionRequest,
+        error: String,
+    ) extends Alarm({
+          s"Send request [${submissionRequest.messageId}] is malformed. Discarding request. $error"
+        })
+  }
 
   @Explanation(
     """This error occurs when the sequencer cannot accept submission request due to the current state of the system."""

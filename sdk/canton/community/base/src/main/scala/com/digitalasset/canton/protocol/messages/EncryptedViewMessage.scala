@@ -20,7 +20,6 @@ import com.digitalasset.canton.protocol.messages.EncryptedView.checkEncryptionKe
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.{
   SessionKeyCreationError,
   SyncCryptoDecryptError,
-  WrongRandomnessLength,
 }
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{v30, *}
@@ -386,91 +385,73 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
           .toEitherT[FutureUnlessShutdown]
       } yield randomness
 
-    encrypted.sessionKey
-      .collectFirst {
-        case AsymmetricEncrypted(ciphertext, encryptedFor)
-            // if we're using no encryption, it means we're using group addressing
-            // which currently does not support encryption of the randomness
-            if encryptedFor == AsymmetricEncrypted.noEncryptionFingerprint =>
-          SecureRandomness
-            .fromByteString(randomnessLength)(encrypted.randomness.ciphertext)
-            .leftMap[EncryptedViewMessageError](_ =>
-              WrongRandomnessLength(ciphertext.size(), randomnessLength)
-            )
-            .toEitherT[FutureUnlessShutdown]
-      }
-      .getOrElse {
-        for {
-          /* We first need to check whether the target private encryption key exists and is active in the store; otherwise,
-           * we cannot decrypt and should abort. This situation can occur
-           * if an encryption key has been added to this participant's topology by another entity with the
-           * correct rights to do so, but this participant does not have the corresponding private key in the store.
-           */
-          encryptionKeys <- EitherT
-            .right(
-              FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.encryptionKeys(participantId))
-            )
-            .map(_.map(_.id).toSet)
-          encryptedSessionKeyForParticipant <- encrypted.sessionKey
-            .find(e => encryptionKeys.contains(e.encryptedFor))
-            .toRight(
-              EncryptedViewMessageError.MissingParticipantKey(participantId)
-            )
-            .toEitherT[FutureUnlessShutdown]
-          _ <- snapshot.crypto.cryptoPrivateStore
-            .existsDecryptionKey(encryptedSessionKeyForParticipant.encryptedFor)
-            .leftMap(err => EncryptedViewMessageError.PrivateKeyStoreVerificationError(err))
-            .subflatMap {
-              Either.cond(
-                _,
-                (),
-                EncryptedViewMessageError.PrivateKeyStoreVerificationError(
-                  FailedToReadKey(
-                    encryptedSessionKeyForParticipant.encryptedFor,
-                    "matching private key does not exist",
-                  )
-                ),
+    for {
+      /* We first need to check whether the target private encryption key exists and is active in the store; otherwise,
+       * we cannot decrypt and should abort. This situation can occur
+       * if an encryption key has been added to this participant's topology by another entity with the
+       * correct rights to do so, but this participant does not have the corresponding private key in the store.
+       */
+      encryptionKeys <- EitherT
+        .right(
+          FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.encryptionKeys(participantId))
+        )
+        .map(_.map(_.id).toSet)
+      encryptedSessionKeyForParticipant <- encrypted.sessionKey
+        .find(e => encryptionKeys.contains(e.encryptedFor))
+        .toRight(
+          EncryptedViewMessageError.MissingParticipantKey(participantId)
+        )
+        .toEitherT[FutureUnlessShutdown]
+      _ <- snapshot.crypto.cryptoPrivateStore
+        .existsDecryptionKey(encryptedSessionKeyForParticipant.encryptedFor)
+        .leftMap(err => EncryptedViewMessageError.PrivateKeyStoreVerificationError(err))
+        .subflatMap {
+          Either.cond(
+            _,
+            (),
+            EncryptedViewMessageError.PrivateKeyStoreVerificationError(
+              FailedToReadKey(
+                encryptedSessionKeyForParticipant.encryptedFor,
+                "matching private key does not exist",
               )
-            }
-          _ <- checkEncryptionKeyScheme(
-            snapshot.crypto.cryptoPublicStore,
-            encryptedSessionKeyForParticipant.encryptedFor,
-            allowedEncryptionKeySchemes,
+            ),
           )
-            .leftMap(err =>
-              EncryptedViewMessageError
-                .SyncCryptoDecryptError(
-                  SyncCryptoDecryptionError(err)
-                )
+        }
+      _ <- checkEncryptionKeyScheme(
+        snapshot.crypto.cryptoPublicStore,
+        encryptedSessionKeyForParticipant.encryptedFor,
+        allowedEncryptionKeySchemes,
+      )
+        .leftMap(err =>
+          EncryptedViewMessageError
+            .SyncCryptoDecryptError(
+              SyncCryptoDecryptionError(err)
             )
+        )
 
-          // we get the randomness for the session key from the message or by searching the cache,
-          // which means that a previous view with the same recipients has been received before.
-          skRandom <-
-            // we try to search for the cached session key randomness. If it does not exist
-            // (or is disabled) we decrypt and store it
-            // the result in the cache. There is no need to sync on this read-write operation because
-            // there is not problem if the value gets re-written.
-            sessionKeyStore
-              .getSessionKeyRandomness(
-                snapshot.crypto.privateCrypto,
-                encrypted.viewEncryptionScheme.keySizeInBytes,
-                encryptedSessionKeyForParticipant,
-              )
-              .leftMap[EncryptedViewMessageError](err =>
-                SyncCryptoDecryptError(
-                  SyncCryptoDecryptionError(err)
-                )
-              )
-          viewRandomness <- decryptViewRandomness(skRandom)
-        } yield viewRandomness
-      }
+      // we get the randomness for the session key from the message or by searching the cache,
+      // which means that a previous view with the same recipients has been received before.
+      skRandom <-
+        // we try to search for the cached session key randomness. If it does not exist
+        // (or is disabled) we decrypt and store it
+        // the result in the cache. There is no need to sync on this read-write operation because
+        // there is not problem if the value gets re-written.
+        sessionKeyStore
+          .getSessionKeyRandomness(
+            snapshot.crypto.privateCrypto,
+            encrypted.viewEncryptionScheme.keySizeInBytes,
+            encryptedSessionKeyForParticipant,
+          )
+          .leftMap[EncryptedViewMessageError](err =>
+            SyncCryptoDecryptError(
+              SyncCryptoDecryptionError(err)
+            )
+          )
+      viewRandomness <- decryptViewRandomness(skRandom)
+    } yield viewRandomness
   }
 
-  final case class RecipientsInfo(
-      informeeParticipants: Set[ParticipantId],
-      doNotEncrypt: Boolean,
-  )
+  final case class RecipientsInfo(informeeParticipants: Set[ParticipantId])
 
   private def eitherT[VT <: ViewType, B](value: Either[EncryptedViewMessageError, B])(implicit
       ec: ExecutionContext

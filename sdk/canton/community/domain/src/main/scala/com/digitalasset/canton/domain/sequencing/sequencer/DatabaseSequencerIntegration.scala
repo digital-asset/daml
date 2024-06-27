@@ -6,11 +6,14 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.sequencing.protocol.SendAsyncError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.{MonadUtil, retry}
 
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 /** This trait defines the interface for BlockSequencer's BlockUpdateGenerator to use on DatabaseSequencer
@@ -49,6 +52,26 @@ object SequencerIntegration {
 
 trait DatabaseSequencerIntegration extends SequencerIntegration {
   this: DatabaseSequencer =>
+
+  private implicit val retryConditionIfOverloaded: retry.Success[Either[SendAsyncError, Unit]] =
+    new retry.Success({
+      // We only retry overloaded as other possible error here:
+      // * Unavailable - indicates a programming bug and should not happen during normal operation
+      // * ShuttingDown - should not be retried as the sequencer is shutting down
+      case Left(SendAsyncError.Overloaded(_)) => false
+      case _ => true
+    })
+  private val retryWithBackoff = retry.Backoff(
+    logger = logger,
+    flagCloseable = this,
+    maxRetries = retry.Forever,
+    // TODO(#18407): Consider making the values below configurable
+    initialDelay = 10.milliseconds,
+    maxDelay = 250.milliseconds,
+    operationName = "block-sequencer-write-internal",
+    longDescription = "Write the processed submissions into database sequencer store",
+  )
+
   override def blockSequencerAcknowledge(acknowledgements: Map[Member, CantonTimestamp])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -70,8 +93,13 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
         case _: SubmissionOutcome.Discard.type =>
           EitherT.pure[Future, String](())
         case outcome: DeliverableSubmissionOutcome =>
-          this
-            .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
-            .leftMap(_.toString)
+          EitherT(
+            retryWithBackoff(
+              this
+                .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
+                .value,
+              NoExnRetryable,
+            )
+          ).leftMap(_.toString)
       }
 }

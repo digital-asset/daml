@@ -20,7 +20,6 @@ import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -65,10 +64,7 @@ object EncryptedViewMessageFactory {
         partiesWithGroupAddressing <- EitherT.right(
           cryptoSnapshot.ipsSnapshot.partiesWithGroupAddressing(informeeParties)
         )
-      } yield RecipientsInfo(
-        informeeParticipants = informeeParticipants,
-        doNotEncrypt = partiesWithGroupAddressing.nonEmpty,
-      )
+      } yield RecipientsInfo(informeeParticipants = informeeParticipants)
     }
 
     def generateAndEncryptSessionKeyRandomness(
@@ -172,45 +168,25 @@ object EncryptedViewMessageFactory {
         signature: Option[Signature],
         encryptedView: EncryptedView[VT],
     ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessage[VT]] =
-      (if (!recipientsInfo.doNotEncrypt) {
-         for {
-           sessionKeyAndRandomnessMap <- getSessionKey(recipientsInfo)
-           (sessionKey, sessionKeyRandomnessMap) = sessionKeyAndRandomnessMap
-           sessionKeyRandomnessMapNE <- EitherT.fromEither[Future](
-             NonEmpty
-               .from(sessionKeyRandomnessMap)
-               .toRight(
-                 UnableToDetermineSessionKeyRandomness(
-                   "The session key randomness map is empty"
-                 )
-               )
-           )
-           encryptedSessionKeyInfo <- encryptRandomnessWithSessionKey(sessionKey).map(
-             encryptedRandomness => (encryptedRandomness, sessionKeyRandomnessMapNE)
-           )
-         } yield encryptedSessionKeyInfo
-       } else {
-         val encryptedRandomness = Encrypted.fromByteString[SecureRandomness](randomness.unwrap)
-         eitherT(
-           Right(
-             (
-               encryptedRandomness,
-               NonEmpty(
-                 Seq,
-                 AsymmetricEncrypted[SecureRandomness](
-                   ByteString.EMPTY,
-                   AsymmetricEncrypted.noEncryptionFingerprint,
-                 ),
-               ),
-             )
-           )
-         )
-       }).map { case (randomnessV2, sessionKeyMap) =>
+      for {
+        sessionKeyAndRandomnessMap <- getSessionKey(recipientsInfo)
+        (sessionKey, sessionKeyRandomnessMap) = sessionKeyAndRandomnessMap
+        sessionKeyRandomnessMapNE <- EitherT.fromEither[Future](
+          NonEmpty
+            .from(sessionKeyRandomnessMap)
+            .toRight(
+              UnableToDetermineSessionKeyRandomness(
+                "The session key randomness map is empty"
+              )
+            )
+        )
+        encryptedRandomness <- encryptRandomnessWithSessionKey(sessionKey)
+      } yield {
         EncryptedViewMessage[VT](
           signature,
           viewTree.viewHash,
-          randomnessV2,
-          sessionKeyMap,
+          encryptedRandomness,
+          sessionKeyRandomnessMapNE,
           encryptedView,
           viewTree.domainId,
           viewEncryptionScheme,
@@ -277,7 +253,6 @@ object EncryptedViewMessageFactory {
           cryptoSnapshot.domainId,
         ): EncryptedViewMessageCreationError
       }
-      .map(_.toMap)
 
   sealed trait EncryptedViewMessageCreationError
       extends Product

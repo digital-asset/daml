@@ -54,7 +54,7 @@ object SequencerValidations {
       _ <- Either.cond(
         eligibleSenders.contains(sender),
         (),
-        "Sender is not eligible according to the aggregation rule",
+        s"Sender [$sender] is not eligible according to the aggregation rule",
       )
     } yield ()
   }

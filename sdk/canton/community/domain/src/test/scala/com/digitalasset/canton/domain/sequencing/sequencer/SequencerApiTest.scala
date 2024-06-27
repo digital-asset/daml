@@ -15,8 +15,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscrip
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
-import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
@@ -363,7 +363,7 @@ abstract class SequencerApiTest
         }
       }
 
-      "bounce on write path aggregate submissions with maxSequencingTime exceeding bound" onlyRunWhen (testAggregation) in {
+      "bounce on write path aggregate submissions with maxSequencingTime exceeding bound" onlyRunWhen testAggregation in {
         env =>
           import env.*
 
@@ -742,8 +742,9 @@ abstract class SequencerApiTest
         import env.*
 
         // TODO(i10412): See above
+        val faultyThreshold = PositiveInt.tryCreate(2)
         val aggregationRule =
-          AggregationRule(NonEmpty(Seq, p17, p17), PositiveInt.tryCreate(2), testedProtocolVersion)
+          AggregationRule(NonEmpty(Seq, p17, p17), faultyThreshold, testedProtocolVersion)
 
         val messageId = MessageId.tryCreate("unreachable-threshold")
         val request = SubmissionRequest.tryCreate(
@@ -758,13 +759,27 @@ abstract class SequencerApiTest
         )
 
         for {
-          _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
-          reads <- readForMembers(Seq(p17), sequencer)
+          reads <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            for {
+              _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
+              reads <- readForMembers(Seq(p17), sequencer, timeout = 5.seconds)
+            } yield reads,
+            LogEntry.assertLogSeq(
+              Seq(
+                (
+                  _.shouldBeCantonError(
+                    SequencerErrors.SubmissionRequestMalformed,
+                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                      s"Discarding request. Threshold $faultyThreshold cannot be reached",
+                  ),
+                  "p17's submission generates an alarm",
+                )
+              )
+            ),
+          )
         } yield {
-          checkRejection(reads, p17, messageId, defaultExpectedTrafficReceipt) {
-            case SequencerErrors.SubmissionRequestMalformed(reason) =>
-              reason should include("Threshold 2 cannot be reached")
-          }
+          // p17 gets nothing
+          checkMessages(Seq(), reads)
         }
       }
 
@@ -775,7 +790,7 @@ abstract class SequencerApiTest
         val aggregationRule =
           AggregationRule(NonEmpty(Seq, p17), PositiveInt.tryCreate(1), testedProtocolVersion)
 
-        val messageId = MessageId.tryCreate("unreachable-threshold")
+        val messageId = MessageId.tryCreate("first-sender-not-eligible")
         val request = SubmissionRequest.tryCreate(
           p18,
           messageId,
@@ -788,13 +803,130 @@ abstract class SequencerApiTest
         )
 
         for {
-          _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
-          reads <- readForMembers(Seq(p18), sequencer)
+          reads <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            for {
+              _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFailShutdown("Sent async")
+              reads <- readForMembers(Seq(p18), sequencer, timeout = 5.seconds)
+            } yield reads,
+            LogEntry.assertLogSeq(
+              Seq(
+                (
+                  _.shouldBeCantonError(
+                    SequencerErrors.SubmissionRequestMalformed,
+                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                      s"Discarding request. Sender [$p18] is not eligible according to the aggregation rule",
+                  ),
+                  "p18's submission generates an alarm",
+                )
+              )
+            ),
+          )
         } yield {
-          checkRejection(reads, p18, messageId, defaultExpectedTrafficReceipt) {
-            case SequencerErrors.SubmissionRequestMalformed(reason) =>
-              reason should include("Sender is not eligible according to the aggregation rule")
-          }
+          // p18 gets nothing
+          checkMessages(Seq(), reads)
+        }
+      }
+
+      "prevent non-eligible senders from contributing" onlyRunWhen testAggregation in { env =>
+        import env.*
+
+        val messageContent = "aggregatable-message"
+        val aggregationRule =
+          AggregationRule(NonEmpty(Seq, p1, p2), PositiveInt.tryCreate(2), testedProtocolVersion)
+
+        val requestFromP1 = createSendRequest(
+          sender = p1,
+          messageContent,
+          Recipients.cc(p3),
+          maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
+          aggregationRule = Some(aggregationRule),
+          topologyTimestamp = Some(CantonTimestamp.Epoch),
+        )
+
+        // Request with non-eligible sender
+        val messageId = MessageId.tryCreate("further-sender-not-eligible")
+        val requestFromP4 = requestFromP1.copy(sender = p4, messageId = messageId)
+
+        val requestFromP2 =
+          requestFromP1.copy(sender = p2, messageId = MessageId.fromUuid(new UUID(1, 2)))
+
+        for {
+          _ <- sequencer
+            .sendAsyncSigned(sign(requestFromP1))
+            .valueOrFailShutdown("Sent async for participant1")
+
+          readsForP1 <- readForMembers(Seq(p1), sequencer)
+
+          readsForP4 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            for {
+              _ <- sequencer
+                .sendAsyncSigned(sign(requestFromP4))
+                .valueOrFailShutdown("Sent async for non-eligible participant4")
+              reads <- readForMembers(Seq(p4), sequencer, timeout = 5.seconds)
+            } yield reads,
+            LogEntry.assertLogSeq(
+              Seq(
+                (
+                  _.shouldBeCantonError(
+                    SequencerErrors.SubmissionRequestMalformed,
+                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                      s"Discarding request. Sender [$p4] is not eligible according to the aggregation rule",
+                  ),
+                  "p4's submission generates an alarm",
+                )
+              )
+            ),
+          )
+
+          _ <- sequencer
+            .sendAsyncSigned(sign(requestFromP2))
+            .valueOrFailShutdown("Sent async for participant2")
+
+          readsForP2 <- readForMembers(Seq(p2), sequencer)
+          readsForP3 <- readForMembers(Seq(p3), sequencer)
+        } yield {
+          // p1 gets the receipt immediately
+          checkMessages(
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p1,
+                Some(requestFromP1.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
+            readsForP1,
+          )
+
+          // p2 gets the receipt only
+          checkMessages(
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p2,
+                Some(requestFromP2.messageId),
+                defaultExpectedTrafficReceipt,
+              )
+            ),
+            readsForP2,
+          )
+
+          // p3 gets the message
+          checkMessages(
+            Seq(
+              EventDetails(
+                SequencerCounter.Genesis,
+                p3,
+                None,
+                None,
+                EnvelopeDetails(messageContent, Recipients.cc(p3)),
+              )
+            ),
+            readsForP3,
+          )
+
+          // p4 gets nothing
+          checkMessages(Seq(), readsForP4)
         }
       }
 

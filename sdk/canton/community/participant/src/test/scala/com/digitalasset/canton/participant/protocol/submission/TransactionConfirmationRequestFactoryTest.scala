@@ -28,7 +28,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, OpenEnvelope, Recipient}
+import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, OpenEnvelope}
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.store.SessionKeyStoreWithInMemoryCache
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -246,7 +246,7 @@ class TransactionConfirmationRequestFactoryTest
     val cryptoPureApi = cryptoSnapshot.pureCrypto
     val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
 
-    val privateKeysetCache: TrieMap[NonEmpty[Set[Recipient]], SecureRandomness] =
+    val privateKeysetCache: TrieMap[NonEmpty[Set[ParticipantId]], SecureRandomness] =
       TrieMap.empty
 
     val expectedTransactionViewMessages = example.transactionViewTreesWithWitnesses.map {
@@ -307,7 +307,9 @@ class TransactionConfirmationRequestFactoryTest
           {
             // simulates session key cache
             val keySeedSession = privateKeysetCache.getOrElseUpdate(
-              recipients.leafRecipients,
+              NonEmpty
+                .from(participants)
+                .getOrElse(fail("View without active participants of informees")),
               cryptoPureApi
                 .computeHkdf(
                   cryptoPureApi.generateSecureRandomness(keySeed.unwrap.size()).unwrap,

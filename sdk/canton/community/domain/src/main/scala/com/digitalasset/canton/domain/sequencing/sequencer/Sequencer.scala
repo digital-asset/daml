@@ -258,7 +258,7 @@ object Sequencer extends HasLoggerName {
     */
   type SenderSigned[A <: HasCryptographicEvidence] = SignedContent[A]
 
-  /** Type alias for content that has been signed but the sequencer. The purpose of this is to identify which sequencer has processed a submission request,
+  /** Type alias for content that has been signed by the sequencer. The purpose of this is to identify which sequencer has processed a submission request,
     * such that after the request is ordered and processed by all sequencers, each sequencer knows which sequencer received the submission request.
     * The signature here will always be one of a sequencer.
     */

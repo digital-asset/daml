@@ -43,31 +43,35 @@ message GetCommandStatusRequest {
 }
 
 message GetCommandStatusResponse {
-  message CommandStatus {
-    google.protobuf.Timestamp started = 1;
-    google.protobuf.Timestamp completed = 2;
-    Completion completion = 3;
-    CommandState state = 4;
-    repeated Command commands = 5;
-    message RequestStatistics {
-      uint32 envelopes = 1;
-      uint32 request_size = 2;
-      uint32 recipients = 3;
-    }
-    RequestStatistics request_statistics = 6;
-    message CommandUpdates {
-      message Contract {
-        Identifier template_id = 1;
-        string contract_id = 2;
-        Value contract_key = 3;
-      }
-      repeated Contract created = 1;
-      repeated Contract archived = 2;
-      uint32 exercised = 3;
-      uint32 fetched = 4;
-      uint32 looked_up_by_key = 5;
-    }
-    CommandUpdates updates = 7;
-  }
   repeated CommandStatus command_status = 1;
+}
+
+message CommandStatus {
+  google.protobuf.Timestamp started = 1;
+  google.protobuf.Timestamp completed = 2;
+  Completion completion = 3;
+  CommandState state = 4;
+  repeated Command commands = 5;
+  RequestStatistics request_statistics = 6;
+  CommandUpdates updates = 7;
+}
+
+message RequestStatistics {
+  uint32 envelopes = 1;
+  uint32 request_size = 2;
+  uint32 recipients = 3;
+}
+
+message CommandUpdates {
+  repeated Contract created = 1;
+  repeated Contract archived = 2;
+  uint32 exercised = 3;
+  uint32 fetched = 4;
+  uint32 looked_up_by_key = 5;
+}
+
+message Contract {
+  Identifier template_id = 1;
+  string contract_id = 2;
+  Value contract_key = 3;
 }

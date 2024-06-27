@@ -207,10 +207,6 @@ final case class AsymmetricEncrypted[+M](
   def encrypted: Encrypted[M] = new Encrypted(ciphertext)
 }
 
-object AsymmetricEncrypted {
-  val noEncryptionFingerprint = Fingerprint.tryCreate("no-encryption")
-}
-
 /** Key schemes for asymmetric/hybrid encryption. */
 sealed trait EncryptionKeyScheme extends Product with Serializable with PrettyPrinting {
   def name: String

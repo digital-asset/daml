@@ -560,10 +560,12 @@ class GrpcSequencerServiceTest
         )
       loggerFactory.assertLogs(
         sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message should include("Sender is not eligible according to the aggregation rule")
+          message should include(
+            s"Sender [$participant] is not eligible according to the aggregation rule"
+          )
         },
         _.warningMessage should include(
-          "Sender is not eligible according to the aggregation rule"
+          s"Sender [$participant] is not eligible according to the aggregation rule"
         ),
       )
     }
