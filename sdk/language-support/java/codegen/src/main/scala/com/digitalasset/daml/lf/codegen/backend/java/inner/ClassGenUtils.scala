@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId}
+import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -52,6 +52,8 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val packageNameFieldName = "PACKAGE_NAME"
+  val packageVersionFieldName = "PACKAGE_VERSION"
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
@@ -72,6 +74,44 @@ private[inner] object ClassGenUtils {
         name,
       )
       .build()
+
+  def generatePackageNameField(packageName: PackageName) =
+    FieldSpec
+      .builder(
+        ClassName.get(classOf[String]),
+        packageNameFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer("$S", packageName)
+      .build()
+
+  def generatePackageVersionField(packageVersion: PackageVersion) = {
+    val packageVersionSegmentIntArrLiteral =
+      packageVersion.segments.toArray.mkString("{", ", ", "}")
+    val intArrayTypeName = ArrayTypeName.of(classOf[Int])
+    FieldSpec
+      .builder(
+        ClassName.get(classOf[javaapi.data.PackageVersion]),
+        packageVersionFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer(
+        CodeBlock
+          .builder()
+          .add(
+            "new $T(new $T $L)",
+            ClassName.get(classOf[javaapi.data.PackageVersion]),
+            intArrayTypeName,
+            packageVersionSegmentIntArrLiteral,
+          )
+          .build()
+      )
+      .build()
+  }
 
   def generateFlattenedCreateOrExerciseMethod(
       name: String,

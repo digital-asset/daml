@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompanion}
+import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
@@ -105,6 +105,11 @@ private[inner] object TemplateClass extends StrictLogging {
           .addType(
             generateByKeyClass(className, \/-(template.implementedInterfaces))
           )
+      }
+      typeWithContext.interface.metadata foreach { meta =>
+        templateType
+          .addField(ClassGenUtils.generatePackageNameField(meta.name))
+          .addField(ClassGenUtils.generatePackageVersionField(meta.version))
       }
       logger.debug("End")
       (templateType.build(), staticImports)
