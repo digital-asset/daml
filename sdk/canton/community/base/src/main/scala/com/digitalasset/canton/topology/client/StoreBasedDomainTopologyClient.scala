@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
 import cats.syntax.functor.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -26,6 +25,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}

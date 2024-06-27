@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -16,7 +15,9 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Time
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -37,6 +38,7 @@ class InMemoryFanoutBufferSpec
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
   private val BeginOffset = offset(0L)
   private val offsets = offsetIdx.map(i => offset(i.toLong))
+  private val someDomainId = DomainId.tryFromString("some::domain-id")
 
   private val IdentityFilter: Traced[TransactionLogUpdate] => Option[TransactionLogUpdate] =
     tracedUpdate => Some(tracedUpdate.value)
@@ -499,7 +501,7 @@ class InMemoryFanoutBufferSpec
       events = Vector.empty,
       completionDetails = None,
       commandId = "",
-      domainId = None,
+      domainId = someDomainId.toProtoPrimitive,
       recordTime = Time.Timestamp.Epoch,
     )
 

@@ -9,6 +9,8 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   SqlStringInterpolation,
 }
 
+import java.sql.Connection
+
 object QueryStrategy {
 
   /** This populates the following part of the query:
@@ -135,4 +137,6 @@ trait QueryStrategy {
   }
 
   def analyzeTable(tableName: String): CompositeSql
+
+  def forceSynchronousCommitForCurrentTransactionForPostgreSQL(connection: Connection): Unit = ()
 }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -24,6 +23,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.SortedMap

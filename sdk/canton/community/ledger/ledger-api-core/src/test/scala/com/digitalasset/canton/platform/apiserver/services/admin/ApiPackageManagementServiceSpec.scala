@@ -11,26 +11,30 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
   ValidateDarFileRequest,
   ValidateDarFileResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
   InternalStateService,
-  ReadService,
+  PruningResult,
+  ReassignmentCommand,
   SubmissionResult,
-  Update,
+  SubmitterInfo,
+  TransactionMeta,
 }
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext, Traced}
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
+import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.Eventually
@@ -38,6 +42,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.DEBUG
 
+import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 
 // TODO(#17635) Very thin layer. Revisit utility of testing
@@ -111,8 +116,7 @@ class ApiPackageManagementServiceSpec
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
     ApiPackageManagementService.createApiService(
-      TestReadService(testTelemetrySetup.tracer),
-      TestWritePackagesService(testTelemetrySetup.tracer),
+      TestWriteService(testTelemetrySetup.tracer),
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
     )
@@ -122,8 +126,7 @@ class ApiPackageManagementServiceSpec
 object ApiPackageManagementServiceSpec {
   private val aSubmissionId = "aSubmission"
 
-  private final case class TestWritePackagesService(tracer: Tracer)
-      extends state.WritePackagesService {
+  private final case class TestWriteService(tracer: Tracer) extends state.WriteService {
     override def uploadDar(
         dar: ByteString,
         submissionId: Ref.SubmissionId,
@@ -137,9 +140,7 @@ object ApiPackageManagementServiceSpec {
       )
       Future.successful(state.SubmissionResult.Acknowledged)
     }
-  }
 
-  private final case class TestReadService(tracer: Tracer) extends ReadService {
     override def validateDar(dar: ByteString, darName: String)(implicit
         traceContext: TraceContext
     ): Future[SubmissionResult] = {
@@ -151,11 +152,6 @@ object ApiPackageManagementServiceSpec {
       Future.successful(state.SubmissionResult.Acknowledged)
     }
 
-    override def stateUpdates(beginAfter: Option[Offset])(implicit
-        traceContext: TraceContext
-    ): Source[(Offset, Traced[Update]), NotUsed] =
-      throw new UnsupportedOperationException()
-
     override def internalStateService: Option[InternalStateService] =
       throw new UnsupportedOperationException()
 
@@ -166,6 +162,41 @@ object ApiPackageManagementServiceSpec {
       throw new UnsupportedOperationException()
 
     override def currentHealth(): HealthStatus =
+      throw new UnsupportedOperationException()
+
+    override def submitTransaction(
+        submitterInfo: SubmitterInfo,
+        optDomainId: Option[DomainId],
+        transactionMeta: TransactionMeta,
+        transaction: SubmittedTransaction,
+        estimatedInterpretationCost: Long,
+        globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+        processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+      throw new UnsupportedOperationException()
+
+    override def submitReassignment(
+        submitter: Party,
+        applicationId: ApplicationId,
+        commandId: CommandId,
+        submissionId: Option[SubmissionId],
+        workflowId: Option[WorkflowId],
+        reassignmentCommand: ReassignmentCommand,
+    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+      throw new UnsupportedOperationException()
+
+    override def allocateParty(
+        hint: Option[Party],
+        displayName: Option[String],
+        submissionId: SubmissionId,
+    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+      throw new UnsupportedOperationException()
+
+    override def prune(
+        pruneUpToInclusive: Offset,
+        submissionId: SubmissionId,
+        pruneAllDivulgedContracts: Boolean,
+    ): CompletionStage[PruningResult] =
       throw new UnsupportedOperationException()
   }
 }

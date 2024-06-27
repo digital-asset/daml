@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.store
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
@@ -40,6 +39,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.duration.Duration

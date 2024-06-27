@@ -15,6 +15,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.{SubmissionRequest, TrafficState}
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostDetails
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumedManager.NotEnoughTraffic
 import com.digitalasset.canton.sequencing.traffic.{TrafficPurchased, TrafficReceipt}
 import com.digitalasset.canton.topology.Member
@@ -61,11 +62,13 @@ trait SequencerRateLimitManager extends AutoCloseable {
     * Requests with a an invalid cost or a cost that exceeds the traffic credit will be rejected.
     * @param submissionTimestamp The timestamp the sender of the submission request claims to have used to compute
     *                            the submission cost.
+    * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
     */
   def validateRequestAtSubmissionTime(
       request: SubmissionRequest,
       submissionTimestamp: Option[CantonTimestamp],
       lastSequencedTimestamp: CantonTimestamp,
+      lastSequencerEventTimestamp: Option[CantonTimestamp],
   )(implicit
       tc: TraceContext,
       closeContext: CloseContext,
@@ -83,8 +86,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
     * processed by this method in the order T1 -> T2.
     * However, if T1 and T2 have been processed in the correct order, it is then ok to call the method with T1 again,
     * which will result in the same output as when it was first called.
-    *
-    * @param eventMetricsContext metrics context containing metrics tags about the event
+    * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
     */
   def validateRequestAndConsumeTraffic(
       request: SubmissionRequest,
@@ -188,26 +190,34 @@ object SequencerRateLimitError extends SequencerErrorGroup {
         member: Member,
         submissionTimestamp: Option[CantonTimestamp],
         submittedEventCost: Option[NonNegativeLong],
-        correctEventCost: NonNegativeLong,
         validationTimestamp: CantonTimestamp,
         sequencerProcessingSubmissionRequest: Option[Fingerprint],
         trafficReceipt: Option[TrafficReceipt] = None,
+        correctCostDetails: EventCostDetails,
     ) extends Alarm(
           s"Missing or incorrect event cost provided by member $member at $submissionTimestamp." +
-            s" Submitted: $submittedEventCost, valid: $correctEventCost, validationTimestamp: $validationTimestamp. " +
+            s" Submitted: $submittedEventCost, valid: ${correctCostDetails.eventCost}, validationTimestamp: $validationTimestamp. " +
             s"Processing sequencer: $sequencerProcessingSubmissionRequest"
         )
         with SequencingCostValidationError
         with PrettyPrinting {
+      override val correctEventCost: NonNegativeLong = correctCostDetails.eventCost
       override def pretty: Pretty[Error] = prettyOfClassWithName("IncorrectEventCost")(
         param("member", _.member),
         param("submissionTimestamp", _.submissionTimestamp),
         paramIfDefined("submittedEventCost", _.submittedEventCost),
-        param("correctEventCost", _.correctEventCost),
         param("validationTimestamp", _.validationTimestamp),
         paramIfDefined(
           "sequencerProcessingSubmissionRequest",
           _.sequencerProcessingSubmissionRequest,
+        ),
+        paramIfDefined(
+          "trafficReceipt",
+          _.trafficReceipt,
+        ),
+        param(
+          "correctCostDetails",
+          _.correctCostDetails,
         ),
       )
     }

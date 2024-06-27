@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import cats.data.Chain
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -37,6 +35,8 @@ import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, RequestCounter, TransferCounter}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpecLike
 

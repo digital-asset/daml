@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
 import cats.syntax.option.*
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -18,6 +17,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LedgerTransactionId, SequencerCounter, checked}
+import com.digitalasset.daml.lf.data.ImmArray
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID

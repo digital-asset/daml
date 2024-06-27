@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.auth.interceptor
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.UserId
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.domain
@@ -18,6 +16,8 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.UserId
 import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}

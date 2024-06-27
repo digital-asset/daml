@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.store.memory.{
 import com.digitalasset.canton.protocol.DomainParameters
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostDetails
 import com.digitalasset.canton.sequencing.traffic.{
   EventCostCalculator,
   TrafficPurchased,
@@ -133,11 +134,12 @@ class EnterpriseSequencerRateLimitManagerTest
       expectedExtraTrafficPurchased: NonNegativeLong = trafficPurchased,
       expectedTrafficConsumed: NonNegativeLong = expectedExtraTrafficConsumed,
       expectedBaseTrafficRemainder: NonNegativeLong = NonNegativeLong.zero,
+      expectedLastConsumedCost: NonNegativeLong = eventCostNonNegative,
       expectedSerial: Option[PositiveInt] = serial,
       timestamp: CantonTimestamp = sequencingTs,
   )(implicit f: Env) = for {
     states <- f.rlm
-      .getStates(Set(sender), Some(sequencingTs), None, warnIfApproximate = false)
+      .getStates(Set(sender), Some(timestamp), None, warnIfApproximate = false)
       .failOnShutdown
   } yield states.get(sender) shouldBe Some(
     Right(
@@ -145,6 +147,7 @@ class EnterpriseSequencerRateLimitManagerTest
         expectedExtraTrafficPurchased,
         expectedTrafficConsumed,
         expectedBaseTrafficRemainder,
+        expectedLastConsumedCost,
         timestamp,
         expectedSerial,
       )
@@ -166,6 +169,7 @@ class EnterpriseSequencerRateLimitManagerTest
         expectedExtraTrafficPurchased,
         expectedTrafficConsumed,
         expectedBaseTrafficRemainder,
+        NonNegativeLong.zero,
         sequencingTs,
         expectedSerial,
       )
@@ -184,6 +188,7 @@ class EnterpriseSequencerRateLimitManagerTest
         defaultSubmissionRequest.copy(submissionCost = cost),
         submissionTimestamp,
         lastKnownSequencedEvent,
+        None,
       )
       .value
       .failOnShutdown
@@ -208,6 +213,12 @@ class EnterpriseSequencerRateLimitManagerTest
       content: String = "hello",
   )(implicit f: Env) = {
     val batch = mkBatch(content)
+    val eventCostDetails = EventCostDetails(
+      trafficConfig.readVsWriteScalingFactor,
+      groupToMembersSize = Map.empty, // Unused in this test
+      envelopes = List.empty, // Unused in this test
+      correctCost,
+    )
     when(
       f.eventCostCalculator
         .computeEventCost(
@@ -216,7 +227,7 @@ class EnterpriseSequencerRateLimitManagerTest
           any[Map[GroupRecipient, Set[Member]]],
           any[ProtocolVersion],
         )(any[TraceContext])
-    ).thenReturn(correctCost)
+    ).thenReturn(eventCostDetails)
 
     f.rlm
       .validateRequestAndConsumeTraffic(
@@ -248,6 +259,12 @@ class EnterpriseSequencerRateLimitManagerTest
   private def returnIncorrectCostFromSender(
       cost: NonNegativeLong = incorrectSubmissionCostNN
   )(implicit f: Env) = {
+    val eventCostDetails = EventCostDetails(
+      trafficConfig.readVsWriteScalingFactor,
+      groupToMembersSize = Map.empty, // Unused in this test
+      envelopes = List.empty, // Unused in this test
+      cost,
+    )
     when(
       f.eventCostCalculator
         .computeEventCost(
@@ -257,10 +274,16 @@ class EnterpriseSequencerRateLimitManagerTest
           any[ProtocolVersion],
         )(any[TraceContext])
     )
-      .thenReturn(cost)
+      .thenReturn(eventCostDetails)
   }
 
   private def returnCorrectCost(implicit f: Env) = {
+    val eventCostDetails = EventCostDetails(
+      trafficConfig.readVsWriteScalingFactor,
+      groupToMembersSize = Map.empty, // Unused in this test
+      envelopes = List.empty, // Unused in this test
+      eventCostNonNegative,
+    )
     when(
       f.eventCostCalculator
         .computeEventCost(
@@ -270,7 +293,7 @@ class EnterpriseSequencerRateLimitManagerTest
           any[ProtocolVersion],
         )(any[TraceContext])
     )
-      .thenReturn(eventCostNonNegative)
+      .thenReturn(eventCostDetails)
   }
 
   "traffic control when processing submission request" should {
@@ -295,6 +318,7 @@ class EnterpriseSequencerRateLimitManagerTest
               NonNegativeLong.zero,
               NonNegativeLong.zero,
               maxBaseTrafficRemainder,
+              NonNegativeLong.zero,
               sequencerTs,
               None,
             ),
@@ -377,9 +401,15 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(senderTs),
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               sequencerTs,
               None,
+              None,
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
+              ),
             )
           )
         }
@@ -404,9 +434,15 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(submissionTimestamp),
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               sequencerTs,
               None,
+              None,
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
+              ),
             )
           )
         }
@@ -425,9 +461,15 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               None,
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               sequencerTs,
-              None,
+              sequencerProcessingSubmissionRequest = None,
+              trafficReceipt = None,
+              correctCostDetails = EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
+              ),
             )
           )
         }
@@ -446,9 +488,15 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(sequencerTs.immediateSuccessor),
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               sequencerTs,
               None,
+              None,
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
+              ),
             )
           )
         }
@@ -478,6 +526,46 @@ class EnterpriseSequencerRateLimitManagerTest
       }
     }
 
+    "consumed cost resets to 0 when advancing the timestamp with no traffic being used" in {
+      implicit f =>
+        returnCorrectCost
+
+        val expected = Right(
+          Some(
+            TrafficReceipt(
+              consumedCost = NonNegativeLong.one,
+              extraTrafficConsumed = NonNegativeLong.zero,
+              baseTrafficRemainder = maxBaseTrafficRemainder.tryAdd(-1L),
+            )
+          )
+        )
+
+        for {
+          _ <- purchaseTraffic
+          res <- consume( // only uses the base traffic
+            cost = Some(NonNegativeLong.one),
+            correctCost = NonNegativeLong.one,
+            sequencingTimestamp = sequencingTs.plusMillis(1),
+          )
+          _ <- assertTrafficConsumed(
+            timestamp = sequencingTs.plusMillis(1),
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder =
+              maxBaseTrafficRemainder.tryAdd(-1L), // only uses the base traffic
+            expectedLastConsumedCost = NonNegativeLong.one,
+          )
+          _ <- assertTrafficConsumed(
+            timestamp = sequencingTs.plusSeconds(1), // after a full second
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder =
+              maxBaseTrafficRemainder, // base traffic is back to maximum
+            expectedLastConsumedCost = NonNegativeLong.zero, // last consumed cost is reset to 0
+          )
+        } yield {
+          res shouldBe expected
+        }
+    }
+
     "advance traffic consumed timestamp even when not consuming because not enough traffic" in {
       implicit f =>
         returnCorrectCost
@@ -490,6 +578,7 @@ class EnterpriseSequencerRateLimitManagerTest
               NonNegativeLong.zero,
               NonNegativeLong.zero,
               maxBaseTrafficRemainder,
+              NonNegativeLong.zero,
               sequencingTs,
               None,
             ),
@@ -512,6 +601,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(4),
+          expectedLastConsumedCost = NonNegativeLong.one,
         )
         // then at sequencingTs.plusMillis(1)
         res2 <- consume(
@@ -522,6 +612,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+          expectedLastConsumedCost = NonNegativeLong.one,
           timestamp = sequencingTs.plusMillis(1),
         )
         // then repeat consume at sequencingTs, which simulates a crash recovery that replays the event
@@ -530,6 +621,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- assertTrafficConsumed(
           expectedTrafficConsumed = NonNegativeLong.zero,
           expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+          expectedLastConsumedCost = NonNegativeLong.one,
           timestamp = sequencingTs.plusMillis(1),
         )
       } yield {
@@ -562,7 +654,10 @@ class EnterpriseSequencerRateLimitManagerTest
         for {
           _ <- purchaseTraffic
           res <- consume(cost = Some(incorrectSubmissionCostNN))
-          _ <- assertTrafficConsumed(expectedTrafficConsumed = NonNegativeLong.one)
+          _ <- assertTrafficConsumed(
+            expectedTrafficConsumed = NonNegativeLong.one,
+            expectedLastConsumedCost = incorrectSubmissionCostNN,
+          )
         } yield {
           res shouldBe Right(
             Some(
@@ -626,7 +721,6 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(senderTs),
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
               Some(Signature.noSignature.signedBy),
               Some(
@@ -635,6 +729,12 @@ class EnterpriseSequencerRateLimitManagerTest
                   extraTrafficConsumed = NonNegativeLong.zero,
                   baseTrafficRemainder = maxBaseTrafficRemainder,
                 )
+              ),
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
               ),
             )
           )
@@ -662,7 +762,6 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(submissionTs),
               Some(submissionCostNN),
-              eventCostNonNegative,
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
               Some(Signature.noSignature.signedBy),
               Some(
@@ -671,6 +770,12 @@ class EnterpriseSequencerRateLimitManagerTest
                   extraTrafficConsumed = NonNegativeLong.zero,
                   baseTrafficRemainder = maxBaseTrafficRemainder,
                 )
+              ),
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
               ),
             )
           )
@@ -690,7 +795,6 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               None,
               Some(submissionCostNN),
-              eventCostNonNegative,
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
               Some(Signature.noSignature.signedBy),
               Some(
@@ -699,6 +803,12 @@ class EnterpriseSequencerRateLimitManagerTest
                   extraTrafficConsumed = NonNegativeLong.zero,
                   baseTrafficRemainder = maxBaseTrafficRemainder,
                 )
+              ),
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
               ),
             )
           )
@@ -719,7 +829,6 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(sequencingTs.immediateSuccessor),
               Some(incorrectSubmissionCostNN),
-              eventCostNonNegative,
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
               Some(Signature.noSignature.signedBy),
               Some(
@@ -728,6 +837,12 @@ class EnterpriseSequencerRateLimitManagerTest
                   extraTrafficConsumed = NonNegativeLong.zero,
                   baseTrafficRemainder = maxBaseTrafficRemainder,
                 )
+              ),
+              EventCostDetails(
+                trafficConfig.readVsWriteScalingFactor,
+                Map.empty,
+                List.empty,
+                eventCostNonNegative,
               ),
             )
           )
@@ -740,7 +855,12 @@ class EnterpriseSequencerRateLimitManagerTest
     val consumedStore = new InMemoryTrafficConsumedStore(loggerFactory)
     val manager = mkTrafficPurchasedManager(store)
     val eventCostCalculator = mock[EventCostCalculator]
-
+    val eventCostDetails = EventCostDetails(
+      trafficConfig.readVsWriteScalingFactor,
+      groupToMembersSize = Map.empty, // Unused in this test
+      envelopes = List.empty, // Unused in this test
+      eventCostNonNegative,
+    )
     when(
       eventCostCalculator
         .computeEventCost(
@@ -750,7 +870,7 @@ class EnterpriseSequencerRateLimitManagerTest
           any[ProtocolVersion],
         )(any[TraceContext])
     )
-      .thenReturn(eventCostNonNegative)
+      .thenReturn(eventCostDetails)
 
     val rateLimiter = mkRateLimiter(manager, consumedStore, eventCostCalculator)
     val env = Env(

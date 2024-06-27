@@ -112,6 +112,5 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
       result shouldBe a[ParsingResult[?]]
       result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
-
   }
 }

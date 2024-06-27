@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin.inspection
 
 import cats.data.OptionT
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
@@ -39,6 +38,7 @@ import com.digitalasset.canton.{
   RequestCounterDiscriminator,
   TransferCounter,
 }
+import com.digitalasset.daml.lf.data.Ref
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers

@@ -5,14 +5,6 @@ package com.digitalasset.canton.participant.util
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.VersionRange
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, TransactionVersion, Versioned}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
@@ -32,6 +24,19 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId, LfVersioned}
+import com.digitalasset.daml.lf.VersionRange
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
+import com.digitalasset.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  TransactionVersion,
+  Versioned,
+}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -41,6 +46,7 @@ import scala.util.{Failure, Success}
 object DAMLe {
   def newEngine(
       enableLfDev: Boolean,
+      enableLfBeta: Boolean,
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
@@ -48,14 +54,10 @@ object DAMLe {
   ): Engine =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions =
-          if (enableLfDev)
-            LanguageVersion.AllVersions(LanguageMajorVersion.V2)
-          else
-            VersionRange(
-              LanguageVersion.v2_1,
-              LanguageVersion.StableVersions(LanguageMajorVersion.V2).max,
-            ),
+        allowedLanguageVersions = VersionRange(
+          LanguageVersion.v2_1,
+          maxVersion(enableLfDev, enableLfBeta),
+        ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
         stackTraceMode = enableStackTraces,
@@ -65,6 +67,11 @@ object DAMLe {
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
     )
+
+  private def maxVersion(enableLfDev: Boolean, enableLfBeta: Boolean) =
+    if (enableLfDev) v2_dev
+    else if (enableLfBeta) LanguageVersion.EarlyAccessVersions(LanguageVersion.Major.V2).max
+    else LanguageVersion.StableVersions(LanguageVersion.Major.V2).max
 
   /** Resolves packages by [[com.digitalasset.daml.lf.data.Ref.PackageId]].
     * The returned packages must have been validated

@@ -15,7 +15,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{DomainAlias, LfTimestamp}
 import org.scalatest.exceptions.TestFailedException
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 object IntegrationTestUtilities {
@@ -37,6 +37,7 @@ object IntegrationTestUtilities {
     def maxCount: Int = pcsCount max acceptedTransactionCount
   }
 
+  @nowarn("msg=usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer")
   def grabCountsRemote(
       domain: DomainAlias,
       pr: SyncStateInspection,

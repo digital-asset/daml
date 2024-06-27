@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.ledger.EventId
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
@@ -18,6 +15,9 @@ import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
+import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
 
 object UpdateToDbDto {

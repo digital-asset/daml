@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.configuration
 
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.LedgerEndService
@@ -11,6 +10,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.configuration.LedgerEndObserverFromIndex.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}

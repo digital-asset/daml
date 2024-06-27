@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -17,6 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.daml.lf.data.Ref
 
 import java.util.concurrent.CompletionStage
 

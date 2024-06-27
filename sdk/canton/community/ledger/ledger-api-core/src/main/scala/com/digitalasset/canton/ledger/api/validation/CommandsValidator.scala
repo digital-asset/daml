@@ -13,9 +13,6 @@ import com.daml.ledger.api.v2.commands.Command.Command.{
   ExerciseByKey as ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v2.commands.{Command, Commands}
-import com.digitalasset.daml.lf.command.*
-import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
@@ -24,6 +21,9 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   effectiveSubmitters,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.daml.lf.command.*
+import com.digitalasset.daml.lf.data.*
+import com.digitalasset.daml.lf.value.Value as Lf
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
@@ -268,10 +268,6 @@ object CommandsValidator {
   final case class Submitters[T](actAs: Set[T], readAs: Set[T])
 
   def effectiveSubmitters(commands: Option[Commands]): Submitters[String] = {
-    commands.fold(noSubmitters)(effectiveSubmitters)
-  }
-
-  def effectiveSubmittersV2(commands: Option[Commands]): Submitters[String] = {
     commands.fold(noSubmitters)(effectiveSubmitters)
   }
 

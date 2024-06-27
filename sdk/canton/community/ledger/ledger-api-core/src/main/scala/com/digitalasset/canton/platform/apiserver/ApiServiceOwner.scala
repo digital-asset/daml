@@ -5,8 +5,6 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
 import com.daml.tls.TlsConfiguration
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config.RequireTypes.Port
@@ -22,7 +20,6 @@ import com.digitalasset.canton.ledger.localstore.api.{
   UserManagementStore,
 }
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.ReadService
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -31,6 +28,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   AuthorityResolver,
+  CommandProgressTracker,
   DynamicDomainParameterGetter,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -44,6 +42,8 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -75,12 +75,12 @@ object ApiServiceOwner {
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
+      commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
-      optWriteService: Option[state.WriteService],
-      readService: ReadService,
+      writeService: state.WriteService,
       healthChecks: HealthChecks,
       metrics: LedgerApiServerMetrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -138,8 +138,7 @@ object ApiServiceOwner {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        optWriteService = optWriteService,
-        readService = readService,
+        writeService = writeService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
@@ -151,6 +150,7 @@ object ApiServiceOwner {
           ),
         submissionTracker = submissionTracker,
         initSyncTimeout = initSyncTimeout.underlying,
+        commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,

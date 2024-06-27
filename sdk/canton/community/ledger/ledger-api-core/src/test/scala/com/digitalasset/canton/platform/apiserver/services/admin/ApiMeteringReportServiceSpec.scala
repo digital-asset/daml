@@ -4,8 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin.metering_report_service.GetMeteringReportRequest
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore
@@ -18,6 +16,8 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportK
   EnterpriseKey,
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiMeteringReportService.toProtoTimestamp
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.wordspec.AsyncWordSpec
 

@@ -676,7 +676,6 @@ class TransferOutProcessingSteps(
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
-            statistics = None,
           )
         )
     } yield LedgerSyncEvent.TransferredOut(

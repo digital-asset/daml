@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
@@ -14,6 +12,8 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
 

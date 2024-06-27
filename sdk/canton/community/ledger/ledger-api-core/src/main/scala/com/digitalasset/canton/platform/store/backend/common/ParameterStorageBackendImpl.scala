@@ -17,12 +17,14 @@ import scalaz.syntax.tag.*
 
 import java.sql.Connection
 
-private[backend] object ParameterStorageBackendImpl extends ParameterStorageBackend {
+private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
+    extends ParameterStorageBackend {
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd
   )(connection: Connection): Unit = {
     import Conversions.OffsetToStatement
+    queryStrategy.forceSynchronousCommitForCurrentTransactionForPostgreSQL(connection)
     discard(
       SQL"""
         UPDATE

@@ -13,6 +13,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Transac
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import org.scalatest.Assertion
@@ -51,6 +52,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
       defaultStaticDomainParameters.protocolVersion,
       loggerFactory,
     ),
+    CommandProgressTracker.NoOp,
     loggerFactory = loggerFactory,
     FutureSupervisor.Noop,
   )

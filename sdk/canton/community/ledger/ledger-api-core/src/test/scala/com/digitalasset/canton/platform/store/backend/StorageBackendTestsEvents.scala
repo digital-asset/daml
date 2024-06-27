@@ -5,10 +5,10 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.transaction.TreeEvent
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

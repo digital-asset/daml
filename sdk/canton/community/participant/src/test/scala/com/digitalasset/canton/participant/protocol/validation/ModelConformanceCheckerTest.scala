@@ -5,11 +5,6 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
-import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -42,6 +37,11 @@ import com.digitalasset.canton.{
   LfPartyId,
   RequestCounter,
 }
+import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
+import com.digitalasset.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 

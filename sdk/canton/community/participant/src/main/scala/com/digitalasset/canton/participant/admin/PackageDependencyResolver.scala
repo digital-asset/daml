@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -15,6 +14,7 @@ import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.*
@@ -68,7 +68,10 @@ class PackageDependencyResolver(
                 Future(
                   Either
                     .catchOnly[Exception](
-                      com.digitalasset.daml.lf.archive.Decode.assertDecodeArchive(pckg)._2.directDeps
+                      com.digitalasset.daml.lf.archive.Decode
+                        .assertDecodeArchive(pckg)
+                        ._2
+                        .directDeps
                     )
                     .leftMap { e =>
                       logger.error(

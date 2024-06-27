@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
   PartyDetails as ProtoPartyDetails,
 }
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest
@@ -31,6 +30,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer

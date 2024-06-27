@@ -6,7 +6,6 @@ package com.digitalasset.canton.data
 import cats.data.Chain
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
@@ -16,6 +15,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.LfTransactionUtil
+import com.digitalasset.daml.lf.transaction.NodeId
 
 import scala.concurrent.{ExecutionContext, Future}
 

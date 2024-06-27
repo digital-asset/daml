@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100, String36}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -20,6 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -16,6 +15,7 @@ import com.digitalasset.canton.protocol.{
   SerializableRawContractInstance,
   UnicumGenerator,
 }
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 trait SerializableContractAuthenticator {
 

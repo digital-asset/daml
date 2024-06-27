@@ -41,7 +41,6 @@ private[tracing] class ReportingTracerProvider(
         SdkTracerProvider.builder
           .addSpanProcessor(SimpleSpanProcessor.create(exporter)),
         NoOpOnDemandMetricsReader$,
-        metricsEnabled = false,
       ),
       name,
       attributes,

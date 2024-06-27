@@ -9,7 +9,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
@@ -53,19 +52,17 @@ object CommunityConfigValidations
   type Validation = CantonCommunityConfig => Validated[NonEmpty[Seq[String]], Unit]
 
   override protected val validations: List[Validation] =
-    List[Validation](noDuplicateStorage, atLeastOneNode) ++ genericValidations[
-      CantonCommunityConfig
-    ]
+    List[Validation](noDuplicateStorage, atLeastOneNode) ++
+      genericValidations[CantonCommunityConfig]
 
   /** Validations applied to all community and enterprise Canton configurations. */
   private[config] def genericValidations[C <: CantonConfig]
-      : List[C => Validated[NonEmpty[Seq[String]], Unit]] = {
+      : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
       developmentProtocolSafetyCheck,
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
     )
-  }
 
   /** Group node configs by db access to find matching db storage configs.
     * Overcomplicated types used are to work around that at this point nodes could have conflicting names so we can't just
@@ -207,19 +204,22 @@ object CommunityConfigValidations
         devVersionSupport = nodeConfig.parameters.devVersionSupport,
       )
     }
+
   }
 
   private def warnIfUnsafeMinProtocolVersion(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    config.participants.toSeq.foreach { case (name, config) =>
+    val errors = config.participants.toSeq.mapFilter { case (name, config) =>
       val minimum = config.parameters.minimumProtocolVersion.map(_.unwrap)
       val isMinimumDeprecatedVersion = minimum.getOrElse(ProtocolVersion.minimum).isDeprecated
 
-      if (isMinimumDeprecatedVersion && !config.parameters.dontWarnOnDeprecatedPV)
-        DeprecatedProtocolVersion.WarnParticipant(name, minimum).discard
+      Option.when(isMinimumDeprecatedVersion && !config.parameters.dontWarnOnDeprecatedPV)(
+        DeprecatedProtocolVersion.WarnParticipant(name, minimum).cause
+      )
     }
-    Validated.valid(())
+
+    NonEmpty.from(errors).map(Validated.invalid).getOrElse(Validated.valid(()))
   }
 
   private def adminTokenSafetyCheckParticipants(

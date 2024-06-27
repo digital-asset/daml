@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -40,6 +39,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPackageId}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.mockito.ArgumentMatchersSugar
 import org.scalatest.wordspec.AsyncWordSpec
 

@@ -4,10 +4,10 @@
 package com.digitalasset.canton.tracing
 
 import cats.Show.Shown
-import com.digitalasset.daml.lf.data.NoCopy
 import com.daml.nonempty.NonEmpty
 import com.daml.tracing as damlTelemetry
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
+import com.digitalasset.daml.lf.data.NoCopy
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context as OpenTelemetryContext
 

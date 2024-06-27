@@ -4,10 +4,6 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.daml.lf.VersionRange
-import com.digitalasset.daml.lf.interpretation.Limits
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
@@ -18,6 +14,10 @@ import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.DataSourceProperties
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
+import com.digitalasset.daml.lf.VersionRange
+import com.digitalasset.daml.lf.interpretation.Limits
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import io.netty.handler.ssl.ClientAuth
 import org.scalacheck.Gen
 

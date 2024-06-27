@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -26,6 +25,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag

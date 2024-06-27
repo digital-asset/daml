@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

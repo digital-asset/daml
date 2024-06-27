@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -18,6 +18,7 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
+import com.digitalasset.daml.lf.data.Ref
 import org.mockito.{InOrder, Mockito, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -144,6 +145,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
     val dispatcherState = mock[DispatcherState]
     val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
     val submissionTracker = mock[SubmissionTracker]
+    val commandProgressTracker = CommandProgressTracker.NoOp
 
     // Mocks should be called in the asserted order
     val inOrderMockCalls = Mockito.inOrder(
@@ -163,6 +165,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )
 

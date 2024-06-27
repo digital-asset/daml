@@ -4,8 +4,6 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
@@ -24,6 +22,8 @@ import com.digitalasset.canton.platform.store.backend.{
   ParameterStorageBackend,
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.mockito.MockitoSugar
 import org.mockito.captor.ArgCaptor
 import org.scalatest.matchers.should.Matchers

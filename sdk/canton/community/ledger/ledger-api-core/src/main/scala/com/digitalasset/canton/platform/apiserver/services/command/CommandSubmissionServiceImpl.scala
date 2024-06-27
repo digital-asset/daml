@@ -5,8 +5,6 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.ErrorCode.LoggedApiException
-import com.digitalasset.daml.lf.command.ApiCommand
-import com.digitalasset.daml.lf.crypto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.daml.tracing.Telemetry
@@ -42,6 +40,8 @@ import com.digitalasset.canton.platform.apiserver.services.{
 }
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.crypto
 import io.opentelemetry.api.trace.Tracer
 
 import java.time.Duration

@@ -10,10 +10,6 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyInactive
-import com.digitalasset.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
@@ -37,6 +33,15 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyInactive
+import com.digitalasset.daml.lf.transaction.Transaction.{
+  KeyActive,
+  KeyCreate,
+  KeyInput,
+  NegativeKeyLookup,
+}
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
 import io.scalaland.chimney.dsl.*
 
 import java.util.UUID

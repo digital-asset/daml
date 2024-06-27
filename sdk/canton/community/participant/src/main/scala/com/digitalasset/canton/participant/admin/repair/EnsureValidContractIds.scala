@@ -8,7 +8,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -23,6 +22,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}

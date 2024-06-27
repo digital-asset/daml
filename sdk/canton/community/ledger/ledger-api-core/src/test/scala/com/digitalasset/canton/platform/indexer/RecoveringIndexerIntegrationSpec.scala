@@ -4,8 +4,6 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.daml.lf.data.Ref.{Party, SubmissionId}
-import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.{
@@ -24,6 +22,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.LedgerApiServer
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IndexServiceConfig,
@@ -42,6 +41,8 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWithNewTraceContext}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
+import com.digitalasset.daml.lf.data.Ref.{Party, SubmissionId}
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -254,6 +255,7 @@ class RecoveringIndexerIntegrationSpec
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer
           .createInMemoryStateAndUpdater(
+            commandProgressTracker = CommandProgressTracker.NoOp,
             IndexServiceConfig(),
             CommandServiceConfig.DefaultMaxCommandsInFlight,
             metrics,
@@ -291,6 +293,7 @@ class RecoveringIndexerIntegrationSpec
         ),
         highAvailability = HaConfig(),
         indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
+        excludedPackageIds = Set.empty,
       )(materializer, traceContext)
     } yield (participantState._2, dbSupport)
   }

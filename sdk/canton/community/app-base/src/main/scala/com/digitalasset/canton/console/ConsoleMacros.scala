@@ -20,7 +20,6 @@ import com.daml.ledger.api.v2.value.{
   RecordField,
   Value,
 }
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.ContractData
@@ -65,6 +64,7 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{BinaryFileUtil, EitherUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Encoder

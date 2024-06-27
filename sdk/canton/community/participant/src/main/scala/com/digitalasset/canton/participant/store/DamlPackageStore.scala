@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.Hash
@@ -20,6 +19,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.{ExecutionContext, Future}
 

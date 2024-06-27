@@ -132,18 +132,9 @@ class SequencerMetrics(
 
     val trafficConsumption = new TrafficConsumptionMetrics(prefix, openTelemetryMetricsFactory)
 
-    val balanceCache: CacheMetrics =
-      new CacheMetrics(prefix :+ "balance-cache", openTelemetryMetricsFactory)
+    val purchaseCache: CacheMetrics =
+      new CacheMetrics(prefix :+ "purchase-cache", openTelemetryMetricsFactory)
 
-    val eventReceived: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "event-received-size",
-        summary = "Raw size of an event received in the sequencer.",
-        description =
-          """This the raw payload size of an event, on the write path. Final event cost calculation.""",
-        qualification = MetricQualification.Traffic,
-      )
-    )
     val consumedCache: CacheMetrics =
       new CacheMetrics(prefix :+ "consumed-cache", openTelemetryMetricsFactory)
 

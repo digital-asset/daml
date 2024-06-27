@@ -15,7 +15,10 @@ import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
-import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
+import io.opentelemetry.sdk.metrics.`export`.MetricReader
+import io.opentelemetry.sdk.metrics.internal.SdkMeterProviderUtil
+import io.opentelemetry.sdk.metrics.internal.`export`.CardinalityLimitSelector
+import io.opentelemetry.sdk.metrics.{InstrumentType, SdkMeterProvider, SdkMeterProviderBuilder}
 import io.opentelemetry.sdk.trace.`export`.{
   BatchSpanProcessor,
   BatchSpanProcessorBuilder,
@@ -30,6 +33,23 @@ import scala.util.chaining.scalaUtilChainingOps
 
 object OpenTelemetryFactory {
 
+  def registerMetricsReaderWithCardinality(
+      builder: SdkMeterProviderBuilder,
+      reader: MetricReader,
+      cardinality: Int,
+  ): SdkMeterProviderBuilder = {
+    val cardinalityLimit = new CardinalityLimitSelector {
+      override def getCardinalityLimit(instrumentType: InstrumentType): Int = cardinality
+    }
+    SdkMeterProviderUtil
+      .registerMetricReaderWithCardinalitySelector(
+        builder,
+        reader,
+        cardinalityLimit,
+      )
+    builder
+  }
+
   def initializeOpenTelemetry(
       initializeGlobalOpenTelemetry: Boolean,
       testingSupportAdhocMetrics: Boolean,
@@ -39,6 +59,7 @@ object OpenTelemetryFactory {
       histogramInventory: HistogramInventory,
       histogramFilter: MetricsInfoFilter,
       histogramConfigs: Seq[HistogramDefinition],
+      cardinality: Int,
       loggerFactory: NamedLoggerFactory,
   ): ConfiguredOpenTelemetry = {
     val logger: TracedLogger = loggerFactory.getTracedLogger(getClass)
@@ -74,7 +95,10 @@ object OpenTelemetryFactory {
       .setSampler(sampler)
 
     def setMetricsReader: SdkMeterProviderBuilder => SdkMeterProviderBuilder = builder =>
-      if (metricsEnabled) builder.registerMetricReader(onDemandMetricReader).pipe(attachReporters)
+      if (metricsEnabled)
+        registerMetricsReaderWithCardinality(builder, onDemandMetricReader, cardinality).pipe(
+          attachReporters
+        )
       else builder
 
     val meterProviderBuilder =
@@ -104,7 +128,6 @@ object OpenTelemetryFactory {
       tracerProviderBuilder = tracerProviderBuilder,
       onDemandMetricsReader =
         if (metricsEnabled) onDemandMetricReader else NoOpOnDemandMetricsReader$,
-      metricsEnabled = metricsEnabled,
     )
 
   }

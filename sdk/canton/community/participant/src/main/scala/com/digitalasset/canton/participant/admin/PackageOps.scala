@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -27,6 +26,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.{ExecutionContext, Future}
 

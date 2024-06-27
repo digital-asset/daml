@@ -49,13 +49,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  DomainAlias,
-  LedgerTransactionId,
-  LfPartyId,
-  RequestCounter,
-  TransferCounter,
-}
+import com.digitalasset.canton.{DomainAlias, LfPartyId, RequestCounter, TransferCounter}
 
 import java.io.OutputStream
 import java.time.Instant
@@ -114,13 +108,6 @@ final class SyncStateInspection(
       }
       .map(_.flatten.toMap)
   }
-
-  def lookupTransactionDomain(transactionId: LedgerTransactionId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[DomainId]] =
-    participantNodePersistentState.value.multiDomainEventLog
-      .lookupTransactionDomain(transactionId)
-      .value
 
   /** returns the potentially big ACS of a given domain */
   def findAcs(
@@ -295,6 +282,10 @@ final class SyncStateInspection(
       .findM { case (_, store) => AcsInspection.hasActiveContracts(store, partyId) }
       .map(_.nonEmpty)
 
+  @deprecated(
+    "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
+    "3.1",
+  )
   def findAcceptedTransactions(
       domain: Option[DomainAlias] = None,
       from: Option[CantonTimestamp] = None,
@@ -316,6 +307,10 @@ final class SyncStateInspection(
     * multi-domain event log. `from` and `to` only have an effect if the domain isn't empty.
     * @throws scala.RuntimeException (by Await.result and if lookup fails)
     */
+  @deprecated(
+    "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
+    "3.1",
+  )
   def findEvents(
       domain: Option[DomainAlias] = None,
       from: Option[CantonTimestamp] = None,
@@ -460,6 +455,10 @@ final class SyncStateInspection(
   }
 
   /** Update the prehead for clean requests to the given value, bypassing all checks. Only used for testing. */
+  @deprecated(
+    "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
+    "3.1",
+  )
   def forceCleanPrehead(
       newHead: Option[RequestCounterCursorPrehead],
       domain: DomainAlias,
@@ -471,6 +470,10 @@ final class SyncStateInspection(
       .toRight(s"Unknown domain $domain")
   }
 
+  @deprecated(
+    "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
+    "3.1",
+  )
   def forceCleanSequencerCounterPrehead(
       newHead: Option[SequencerCounterCursorPrehead],
       domain: DomainAlias,
@@ -497,6 +500,10 @@ final class SyncStateInspection(
   private[this] def getPersistentState(domain: DomainAlias): Option[SyncDomainPersistentState] =
     syncDomainPersistentStateManager.getByAlias(domain)
 
+  @deprecated(
+    "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
+    "3.1",
+  )
   def locateOffset(
       numTransactions: Long
   )(implicit traceContext: TraceContext): Future[Either[String, ParticipantOffset]] = {

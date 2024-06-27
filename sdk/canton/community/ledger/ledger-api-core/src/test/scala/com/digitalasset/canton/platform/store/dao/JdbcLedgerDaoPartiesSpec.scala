@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry.AllocationAccepted
 import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AsyncFlatSpec

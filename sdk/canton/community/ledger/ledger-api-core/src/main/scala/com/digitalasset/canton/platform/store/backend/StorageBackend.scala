@@ -4,9 +4,6 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.PackageVersion
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -34,6 +31,9 @@ import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.PackageVersion
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import java.sql.Connection
 import javax.sql.DataSource

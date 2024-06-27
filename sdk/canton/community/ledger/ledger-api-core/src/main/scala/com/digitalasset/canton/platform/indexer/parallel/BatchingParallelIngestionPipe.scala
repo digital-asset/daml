@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.BatchN
 import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.concurrent.Future
 
@@ -23,11 +23,11 @@ object BatchingParallelIngestionPipe {
       ingester: DB_BATCH => Future[DB_BATCH],
       maxTailerBatchSize: Int,
       ingestTail: Vector[DB_BATCH] => Future[Vector[DB_BATCH]],
-  )(source: Source[IN, NotUsed]): Source[DB_BATCH, NotUsed] =
+  ): Flow[IN, DB_BATCH, NotUsed] = {
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
-    source
+    Flow[IN]
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .batchN(submissionBatchSize.toInt, inputMappingParallelism)
+      .via(BatchN(submissionBatchSize.toInt, inputMappingParallelism))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
@@ -43,4 +43,5 @@ object BatchingParallelIngestionPipe {
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .mapConcat(identity)
+  }
 }

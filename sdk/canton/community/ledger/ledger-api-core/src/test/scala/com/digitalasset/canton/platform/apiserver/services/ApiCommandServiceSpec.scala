@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.api.v2.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.MockMessages.*
@@ -21,6 +20,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.empty.Empty
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

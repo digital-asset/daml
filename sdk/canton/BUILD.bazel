@@ -44,10 +44,11 @@ case object BuildInfo {{
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val protocolVersions = Seq()
+  val stableProtocolVersions = List()
+  val betaProtocolVersions = List()
   override val toString: String = {{
-    "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, protocolVersions: %s".format(
-      version, scalaVersion, sbtVersion, damlLibrariesVersion, protocolVersions
+     "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, stableProtocolVersions: %s, betaProtocolVersions: %s".format(
+       version, scalaVersion, sbtVersion, damlLibrariesVersion, stableProtocolVersions, betaProtocolVersions
     )
   }}
 }}

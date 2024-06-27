@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.option.*
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
@@ -30,6 +29,7 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
 }
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 

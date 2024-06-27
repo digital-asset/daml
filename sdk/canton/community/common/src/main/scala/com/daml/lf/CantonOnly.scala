@@ -3,6 +3,13 @@
 
 package com.digitalasset.daml.lf
 
+import com.digitalasset.canton.protocol.{
+  LfNode,
+  LfNodeId,
+  LfTransaction,
+  LfTransactionVersion,
+  LfVersionedTransaction,
+}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
@@ -15,13 +22,6 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionVersion,
 }
 import com.digitalasset.daml.lf.value.ValueCoder
-import com.digitalasset.canton.protocol.{
-  LfNode,
-  LfNodeId,
-  LfTransaction,
-  LfTransactionVersion,
-  LfVersionedTransaction,
-}
 
 /** As part of upstream Daml-LF refactoring, previously accessible capabilities have become Canton-private. This
   * enables Daml-LF to limit it's API surface area while still allowing Canton deeper visibility into transaction

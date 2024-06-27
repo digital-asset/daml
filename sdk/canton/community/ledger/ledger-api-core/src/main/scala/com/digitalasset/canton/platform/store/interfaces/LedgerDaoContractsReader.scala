@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.platform.store.interfaces
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.GlobalKey
 
 import scala.concurrent.Future
 

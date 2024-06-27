@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.platform.store.backend.StorageBackendProvider
 import com.digitalasset.canton.platform.store.backend.localstore.{
   PartyRecordStorageBackend,
   PartyRecordStorageBackendImpl,
   ResourceVersionOps,
 }
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.freespec.AsyncFreeSpec
 
 import java.sql.Connection

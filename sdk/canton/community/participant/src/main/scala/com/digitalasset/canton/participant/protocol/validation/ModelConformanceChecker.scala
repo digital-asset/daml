@@ -8,7 +8,6 @@ import cats.implicits.toTraverseOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{
@@ -53,6 +52,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, RequestCounter, checked}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}

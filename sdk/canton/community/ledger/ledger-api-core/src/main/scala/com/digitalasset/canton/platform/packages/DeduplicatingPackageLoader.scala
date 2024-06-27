@@ -4,12 +4,12 @@
 package com.digitalasset.canton.platform.packages
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.daml.metrics.Timed
-import com.daml.metrics.api.MetricHandle.Timer
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future, Promise}

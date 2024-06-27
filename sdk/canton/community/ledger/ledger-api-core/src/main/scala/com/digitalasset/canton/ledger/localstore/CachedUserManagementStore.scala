@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.canton.caching.CaffeineCache
 import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.digitalasset.canton.ledger.api.domain
@@ -12,6 +10,8 @@ import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.github.benmanes.caffeine.cache as caffeine
 
 import java.time.Duration

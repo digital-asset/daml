@@ -10,7 +10,6 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LedgerTransactionId
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -31,7 +30,6 @@ import com.digitalasset.canton.participant.store.MultiDomainEventLog.{
 }
 import com.digitalasset.canton.participant.store.db.DbMultiDomainEventLog.*
 import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLog, TransferStore}
-import com.digitalasset.canton.participant.sync.TimestampedEvent.TransactionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
@@ -43,10 +41,9 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.{
   getResultPackageId as _,
 }
 import com.digitalasset.canton.resource.DbStorage.Profile
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -517,22 +514,6 @@ class DbMultiDomainEventLog private[db] (
         }.toMap
       }
     case _ => Future.successful(Map.empty)
-  }
-
-  override def lookupTransactionDomain(transactionId: LedgerTransactionId)(implicit
-      traceContext: TraceContext
-  ): OptionT[Future, DomainId] = {
-    storage
-      .querySingle(
-        sql"""select log_id from par_event_log where event_id = ${TransactionEventId(
-            transactionId
-          )}"""
-          .as[Int]
-          .headOption,
-        functionFullName,
-      )
-      .flatMap(idx => IndexedDomain.fromDbIndexOT("event_log", indexedStringStore)(idx))
-      .map(_.domainId)
   }
 
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset](

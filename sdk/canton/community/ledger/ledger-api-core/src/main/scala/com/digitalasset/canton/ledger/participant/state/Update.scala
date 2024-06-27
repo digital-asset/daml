@@ -4,14 +4,14 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.GrpcStatuses
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
-import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
 
 /** An update to the (abstract) participant state.

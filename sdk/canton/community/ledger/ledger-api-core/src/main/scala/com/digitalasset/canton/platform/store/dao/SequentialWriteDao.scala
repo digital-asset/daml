@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
@@ -24,6 +23,7 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterning,
 }
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
 import scala.concurrent.{Future, blocking}

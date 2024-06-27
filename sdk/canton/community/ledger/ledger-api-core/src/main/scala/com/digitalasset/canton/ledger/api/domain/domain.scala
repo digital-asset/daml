@@ -3,17 +3,20 @@
 
 package com.digitalasset.canton.ledger.api.domain
 
-import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, DisclosedContract as LfDisclosedContract}
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.command.{
+  ApiCommands as LfCommands,
+  DisclosedContract as LfDisclosedContract,
+}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.Value as Lf
-import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.topology.DomainId
 import scalaz.@@
 import scalaz.syntax.tag.*
 

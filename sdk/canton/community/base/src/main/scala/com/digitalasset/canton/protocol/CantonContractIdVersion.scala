@@ -4,12 +4,12 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.data.Bytes
 import com.google.protobuf.ByteString
 
 object CantonContractIdVersion {

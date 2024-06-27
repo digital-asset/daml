@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton
 
-import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Type aliases used throughout the package */
 package object platform {
@@ -76,5 +77,18 @@ package object platform {
         _ <- ResourceOwner.forReleasable(() => ())(_ => bodyF)
         t <- resourceOwner
       } yield t
+  }
+
+  implicit class ResourceOwnerFlagCloseableOps[T <: ResourceCloseable](
+      val resourceOwner: ResourceOwner[T]
+  ) extends AnyVal {
+    def acquireFlagCloseable(
+        name: String
+    )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[T] = {
+      val resource = resourceOwner.acquire()(ResourceContext(executionContext))
+      resource.asFuture.map(
+        _.registerResource(resource, name)
+      )
+    }
   }
 }

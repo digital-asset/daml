@@ -6,10 +6,10 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_submission_service.{SubmitReassignmentRequest, SubmitRequest}
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
-import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
+import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException
 
 import java.time.{Duration, Instant}

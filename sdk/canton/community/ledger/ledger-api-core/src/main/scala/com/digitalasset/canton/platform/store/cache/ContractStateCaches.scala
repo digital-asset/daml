@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -16,6 +15,7 @@ import com.digitalasset.canton.platform.store.cache.ContractStateValue.{
 }
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.GlobalKey
 
 import scala.concurrent.ExecutionContext
 

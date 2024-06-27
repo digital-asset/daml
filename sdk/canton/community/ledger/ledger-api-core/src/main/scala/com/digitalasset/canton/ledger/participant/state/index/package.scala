@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.*
+import com.digitalasset.daml.lf.data.Ref
 
 package index {
 

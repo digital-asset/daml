@@ -4,13 +4,13 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfVersioned}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionContext {

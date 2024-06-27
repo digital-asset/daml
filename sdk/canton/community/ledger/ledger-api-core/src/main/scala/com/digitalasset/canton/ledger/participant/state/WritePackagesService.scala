@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 
 import scala.concurrent.Future

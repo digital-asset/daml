@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.pruning
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
@@ -69,6 +68,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 

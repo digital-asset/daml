@@ -296,7 +296,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
     private def scheduleCheck(): Unit = {
       performUnlessClosing(functionFullName) {
-        val nextCheckDuration = idlenessDuration.toJava.minus(elapsed(stateRef.get()))
+        val nextCheckDuration =
+          idlenessDuration.toJava.minus(durationFromLastEventToNow(stateRef.get()))
         val _ = materializer.scheduleOnce(nextCheckDuration.toScala, () => checkIfIdle())
       }.onShutdown(())
     }
@@ -315,25 +316,35 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
     private def checkIfIdle(): Unit = {
       val stateSnapshot = stateRef.get()
-      val elapsedDuration = elapsed(stateSnapshot)
-      val isIdle = elapsedDuration.compareTo(idlenessDuration.toJava) >= 0
+      val lastEventTime = stateSnapshot.lastEventAt.getOrElse(stateSnapshot.startedAt).toInstant
+      val elapsedDuration =
+        java.time.Duration.between(stateSnapshot.startedAt.toInstant, lastEventTime)
+      val isIdle = durationFromLastEventToNow(stateSnapshot).compareTo(idlenessDuration.toJava) >= 0
 
       if (isIdle) {
-        idleP
-          .trySuccess(
-            EventsReceivedReport(
-              elapsedDuration.toScala,
-              totalEventsReceived = stateSnapshot.eventCounter,
-              finishedAtCounter = stateSnapshot.lastCounter,
+        if (pendingSends.sizeIs > 0) {
+          idleP
+            .tryFailure(
+              new IllegalStateException(s"There are ${pendingSends.size} pending send requests")
             )
-          )
-          .discard
+            .discard
+        } else {
+          idleP
+            .trySuccess(
+              EventsReceivedReport(
+                elapsedDuration.toScala,
+                totalEventsReceived = stateSnapshot.eventCounter,
+                finishedAtCounter = stateSnapshot.lastCounter,
+              )
+            )
+            .discard
+        }
       } else {
         scheduleCheck() // schedule the next check
       }
     }
 
-    private def elapsed(stateSnapshot: State) = {
+    private def durationFromLastEventToNow(stateSnapshot: State) = {
       val from = stateSnapshot.lastEventAt.getOrElse(stateSnapshot.startedAt)
       java.time.Duration.between(from.toInstant, Instant.now())
     }

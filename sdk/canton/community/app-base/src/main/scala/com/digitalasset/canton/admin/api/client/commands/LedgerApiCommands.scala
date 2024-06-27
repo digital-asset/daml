@@ -4,6 +4,14 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
+import cats.syntax.traverse.*
+import com.daml.ledger.api.v2.admin.command_inspection_service.CommandInspectionServiceGrpc.CommandInspectionServiceStub
+import com.daml.ledger.api.v2.admin.command_inspection_service.{
+  CommandInspectionServiceGrpc,
+  CommandState,
+  GetCommandStatusRequest,
+  GetCommandStatusResponse,
+}
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.*
 import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportServiceStub
@@ -135,6 +143,7 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
+import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
@@ -352,6 +361,34 @@ object LedgerApiCommands {
     }
 
   }
+
+  object CommandInspectionService {
+    abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
+      override type Svc = CommandInspectionServiceStub
+
+      override def createService(channel: ManagedChannel): CommandInspectionServiceStub =
+        CommandInspectionServiceGrpc.stub(channel)
+    }
+
+    final case class GetCommandStatus(commandIdPrefix: String, state: CommandState, limit: Int)
+        extends BaseCommand[GetCommandStatusRequest, GetCommandStatusResponse, Seq[CommandStatus]] {
+      override def createRequest(): Either[String, GetCommandStatusRequest] = Right(
+        GetCommandStatusRequest(commandIdPrefix = commandIdPrefix, state = state, limit = limit)
+      )
+
+      override def submitRequest(
+          service: CommandInspectionServiceStub,
+          request: GetCommandStatusRequest,
+      ): Future[GetCommandStatusResponse] = service.getCommandStatus(request)
+
+      override def handleResponse(
+          response: GetCommandStatusResponse
+      ): Either[String, Seq[CommandStatus]] = {
+        response.commandStatus.traverse(CommandStatus.fromProto).leftMap(_.message)
+      }
+    }
+  }
+
   object ParticipantPruningService {
     abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = ParticipantPruningServiceStub

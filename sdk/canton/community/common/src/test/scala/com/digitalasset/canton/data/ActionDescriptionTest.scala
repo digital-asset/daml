@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.ActionDescription.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfVersioned}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
 
 class ActionDescriptionTest extends AnyWordSpec with BaseTest {

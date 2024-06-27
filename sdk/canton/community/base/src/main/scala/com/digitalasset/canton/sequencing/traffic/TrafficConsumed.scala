@@ -24,18 +24,18 @@ import slick.jdbc.GetResult
   * @param sequencingTimestamp sequencing timestamp at which this traffic consumed state is valid
   * @param extraTrafficConsumed extra traffic consumed at this sequencing timestamp
   * @param baseTrafficRemainder base traffic remaining at this sequencing timestamp
+  * @param lastConsumedCost last cost deducted from the traffic balance (base and if not enough, extra)
   */
 final case class TrafficConsumed(
     member: Member,
     sequencingTimestamp: CantonTimestamp,
     extraTrafficConsumed: NonNegativeLong,
     baseTrafficRemainder: NonNegativeLong,
+    lastConsumedCost: NonNegativeLong,
 ) extends PrettyPrinting {
 
-  def toTrafficReceipt(
-      consumedCost: NonNegativeLong
-  ): TrafficReceipt = TrafficReceipt(
-    consumedCost = consumedCost,
+  def toTrafficReceipt: TrafficReceipt = TrafficReceipt(
+    consumedCost = lastConsumedCost,
     extraTrafficConsumed,
     baseTrafficRemainder,
   )
@@ -48,6 +48,7 @@ final case class TrafficConsumed(
       trafficPurchased.map(_.extraTrafficPurchased).getOrElse(NonNegativeLong.zero),
       extraTrafficConsumed,
       baseTrafficRemainder,
+      lastConsumedCost,
       trafficPurchased
         .map(_.sequencingTimestamp.max(sequencingTimestamp))
         .getOrElse(sequencingTimestamp),
@@ -105,6 +106,7 @@ final case class TrafficConsumed(
     copy(
       baseTrafficRemainder = baseTrafficRemainderAtCurrentTime,
       sequencingTimestamp = timestamp,
+      lastConsumedCost = NonNegativeLong.zero,
     )
   }
 
@@ -127,6 +129,7 @@ final case class TrafficConsumed(
       baseTrafficRemainder = baseTrafficRemainderAfterConsume,
       extraTrafficConsumed = this.extraTrafficConsumed + extraTrafficConsumed,
       sequencingTimestamp = sequencingTimestamp,
+      lastConsumedCost = cost,
     )
   }
 
@@ -157,6 +160,7 @@ final case class TrafficConsumed(
       param("member", _.member),
       param("extraTrafficConsumed", _.extraTrafficConsumed),
       param("baseTrafficRemainder", _.baseTrafficRemainder),
+      param("lastConsumedCost", _.lastConsumedCost),
       param("sequencingTimestamp", _.sequencingTimestamp),
     )
 
@@ -166,6 +170,7 @@ final case class TrafficConsumed(
       extraTrafficConsumed = extraTrafficConsumed.value,
       baseTrafficRemainder = baseTrafficRemainder.value,
       sequencingTimestamp = sequencingTimestamp.toProtoPrimitive,
+      lastConsumedCost = lastConsumedCost.value,
     )
   }
 }
@@ -177,7 +182,13 @@ object TrafficConsumed {
   /** TrafficConsumed object for members the first time they submit a submission request
     */
   def init(member: Member): TrafficConsumed =
-    TrafficConsumed(member, CantonTimestamp.MinValue, NonNegativeLong.zero, NonNegativeLong.zero)
+    TrafficConsumed(
+      member,
+      CantonTimestamp.MinValue,
+      NonNegativeLong.zero,
+      NonNegativeLong.zero,
+      NonNegativeLong.zero,
+    )
 
   def empty(
       member: Member,
@@ -188,16 +199,18 @@ object TrafficConsumed {
     timestamp,
     NonNegativeLong.zero,
     baseTraffic,
+    NonNegativeLong.zero,
   )
 
   implicit val trafficConsumedOrdering: Ordering[TrafficConsumed] =
     Ordering.by(_.sequencingTimestamp)
 
   implicit val trafficConsumedGetResult: GetResult[TrafficConsumed] =
-    GetResult.createGetTuple4[Member, CantonTimestamp, NonNegativeLong, NonNegativeLong].andThen {
-      case (member, ts, trafficConsumed, baseTraffic) =>
-        TrafficConsumed(member, ts, trafficConsumed, baseTraffic)
-    }
+    GetResult
+      .createGetTuple5[Member, CantonTimestamp, NonNegativeLong, NonNegativeLong, NonNegativeLong]
+      .andThen { case (member, ts, trafficConsumed, baseTraffic, lastConsumedCost) =>
+        TrafficConsumed(member, ts, trafficConsumed, baseTraffic, lastConsumedCost)
+      }
 
   def fromProtoV30(trafficConsumedP: TrafficConsumedP): ParsingResult[TrafficConsumed] =
     for {
@@ -211,10 +224,14 @@ object TrafficConsumed {
       sequencingTimestamp <- CantonTimestamp.fromProtoPrimitive(
         trafficConsumedP.sequencingTimestamp
       )
+      lastConsumedCost <- ProtoConverter.parseNonNegativeLong(
+        trafficConsumedP.lastConsumedCost
+      )
     } yield TrafficConsumed(
       member = member,
       extraTrafficConsumed = extraTrafficConsumed,
       baseTrafficRemainder = baseTrafficRemainder,
       sequencingTimestamp = sequencingTimestamp,
+      lastConsumedCost = lastConsumedCost,
     )
 }

@@ -87,13 +87,13 @@ private[update] class TrafficControlValidator(
   ): FutureUnlessShutdown[SubmissionRequestValidationResult] = {
     lazy val metricsContext = SequencerMetrics
       .submissionTypeMetricsContext(
-        signedOrderingRequest.content.content.batch.allRecipients,
-        signedOrderingRequest.content.content.sender,
+        signedOrderingRequest.submissionRequest.batch.allRecipients,
+        signedOrderingRequest.submissionRequest.sender,
         logger,
         warnOnUnexpected = false,
       )
       .withExtraLabels(
-        "sequencer" -> signedOrderingRequest.signature.signedBy.toString
+        "sequencer" -> signedOrderingRequest.content.sequencerId.member.toProtoPrimitive
       )
 
     submissionValidation.run
@@ -195,9 +195,7 @@ private[update] class TrafficControlValidator(
               sender,
               // When above traffic limit we don't consume traffic, hence cost = 0
               Some(
-                error.trafficState.toTrafficReceipt(
-                  consumedCost = NonNegativeLong.zero
-                )
+                error.trafficState.copy(lastConsumedCost = NonNegativeLong.zero).toTrafficReceipt
               ),
             )
         // Outdated event costs are possible if the sender is too far behind and out of the tolerance window.
@@ -273,7 +271,7 @@ private[update] class TrafficControlValidator(
       metricsContext: MetricsContext,
   )(implicit traceContext: TraceContext) = {
     val messageId = signedOrderingRequest.submissionRequest.messageId
-    val sequencerFingerprint = signedOrderingRequest.signature.signedBy
+    val sequencerId = signedOrderingRequest.content.sequencerId
     val sender = signedOrderingRequest.submissionRequest.sender
     val byteSize =
       signedOrderingRequest.signedSubmissionRequest.getCryptographicEvidence.size().toLong
@@ -282,9 +280,9 @@ private[update] class TrafficControlValidator(
     // So it does not protect against malicious sequencers, only notifies when honest sequencers let requests to be sequenced
     // which end up being invalidated on the read path
     logger.debug(
-      s"Wasted sequencing of event with raw byte size $byteSize for messageId $messageId accepted by sequencer $sequencerFingerprint from sender $sender."
+      s"Wasted sequencing of event with raw byte size $byteSize for messageId $messageId accepted by sequencer $sequencerId from sender $sender."
     )
-    metrics.trafficControl.eventDelivered.mark(byteSize)(metricsContext)
+    metrics.trafficControl.wastedTraffic.mark(byteSize)(metricsContext)
   }
 
 }

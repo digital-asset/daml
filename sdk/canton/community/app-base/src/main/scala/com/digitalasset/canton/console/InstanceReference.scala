@@ -401,9 +401,6 @@ class ExternalLedgerApiClient(
   override val loggerFactory: NamedLoggerFactory =
     consoleEnvironment.environment.loggerFactory.append("client", name)
 
-  override protected def domainOfTransaction(transactionId: String): DomainId =
-    throw new NotImplementedError("domain_of is not implemented for external ledger api clients")
-
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
@@ -413,6 +410,7 @@ class ExternalLedgerApiClient(
   override protected def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
+      txDomainId: String,
       optTimeout: Option[NonNegativeDuration],
   ): Tx = tx
 

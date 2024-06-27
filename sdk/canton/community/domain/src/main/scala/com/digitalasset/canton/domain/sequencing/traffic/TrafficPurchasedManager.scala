@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.traffic
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.flatMap.*
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.caching.CaffeineCache
 import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.digitalasset.canton.checked
@@ -87,7 +88,7 @@ class TrafficPurchasedManager(
               )
           )
         ),
-      sequencerMetrics.trafficControl.balanceCache,
+      sequencerMetrics.trafficControl.purchaseCache,
     )
   }
 
@@ -180,8 +181,17 @@ class TrafficPurchasedManager(
             .map(_ => balances)
         case balances => Future.successful(balances)
       }
-      // Increment the metric
-      .flatTap(_ => Future.successful(sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()))
+      // Increment the metrics
+      .flatTap(_ =>
+        Future.successful {
+          sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()
+          sequencerMetrics.trafficControl.trafficConsumption
+            .extraTrafficPurchased(
+              MetricsContext("member" -> balance.member.toProtoPrimitive)
+            )
+            .updateValue(balance.extraTrafficPurchased.value)
+        }
+      )
       .map { balances =>
         updateAndCompletePendingUpdates(balance.sequencingTimestamp)
       }

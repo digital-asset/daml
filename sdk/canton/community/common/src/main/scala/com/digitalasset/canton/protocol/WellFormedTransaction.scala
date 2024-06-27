@@ -7,7 +7,6 @@ import cats.data.{NonEmptyChain, Validated}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
-import com.digitalasset.daml.lf.data.ImmArray
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ActionDescription
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
@@ -16,6 +15,7 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, LfTransactionUtil, MonadUtil}
 import com.digitalasset.canton.{checked, protocol}
+import com.digitalasset.daml.lf.data.ImmArray
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable

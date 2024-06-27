@@ -3,19 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.{LookupError, Reference}
-import com.digitalasset.daml.lf.transaction.*
-import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
@@ -37,6 +24,23 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
+import com.digitalasset.daml.lf.language.{LookupError, Reference}
+import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
+import com.digitalasset.daml.lf.transaction.test.{
+  TestNodeBuilder,
+  TransactionBuilder,
+  TreeTransactionBuilder,
+}
+import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

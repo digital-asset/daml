@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.api.domain.{
@@ -29,6 +28,7 @@ import com.digitalasset.canton.ledger.localstore.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.daml.lf.data.Ref
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
 

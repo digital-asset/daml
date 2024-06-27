@@ -4,14 +4,14 @@
 package com.digitalasset.canton.platform.packages
 
 import com.daml.daml_lf_dev.DamlLf
-import com.digitalasset.daml.lf.archive.DarParser
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.util.JarResourceUtils
+import com.digitalasset.daml.lf.archive.DarParser
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers

@@ -12,12 +12,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
@@ -27,6 +21,12 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.Repo
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Party}
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 

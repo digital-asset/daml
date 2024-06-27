@@ -3,12 +3,12 @@
 
 package com.digitalasset
 
+import com.digitalasset.canton.data.{Counter, CounterCompanion}
+import com.digitalasset.canton.serialization.DeterministicEncoding.encodeLong
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.data.{IdString, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{ContractStateMachine, Versioned}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.canton.data.{Counter, CounterCompanion}
-import com.digitalasset.canton.serialization.DeterministicEncoding.encodeLong
 import com.google.protobuf.ByteString
 
 package object canton {

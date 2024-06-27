@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform
 
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.pekkostreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.MockitoSugar

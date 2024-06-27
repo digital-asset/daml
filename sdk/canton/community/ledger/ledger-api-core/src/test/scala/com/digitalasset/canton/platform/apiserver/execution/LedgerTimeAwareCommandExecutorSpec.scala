@@ -3,14 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
@@ -20,6 +12,14 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.LedgerTime
+import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec

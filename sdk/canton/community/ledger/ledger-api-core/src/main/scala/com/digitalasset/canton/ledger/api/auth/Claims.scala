@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.daml.lf.data.Ref
 
 import java.time.{Duration, Instant}
 

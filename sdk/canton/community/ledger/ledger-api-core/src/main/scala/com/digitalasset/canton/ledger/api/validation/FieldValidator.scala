@@ -5,9 +5,6 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl, TemplateFilter}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
@@ -19,6 +16,9 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
+import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 

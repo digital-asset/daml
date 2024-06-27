@@ -43,7 +43,7 @@ trait TransactionAuthorizationValidator {
 
   protected def pureCrypto: CryptoPureApi
 
-  def isCurrentlyAuthorized(
+  def validateSignaturesAndDetermineMissingAuthorizers(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
   )(implicit
@@ -72,41 +72,41 @@ trait TransactionAuthorizationValidator {
     val namespaceWithRootAuthorizations =
       required.namespacesWithRoot.map { ns =>
         val check = getAuthorizationCheckForNamespace(ns)
-        val keysWithDelegation = check.getValidAuthorizationKeys(
+        val keysUsed = check.keysSupportingAuthorization(
           signingKeys,
           requireRoot = true,
         )
         val keysAuthorizeNamespace =
-          check.areValidAuthorizationKeys(signingKeys, requireRoot = true)
-        (ns -> (keysAuthorizeNamespace, keysWithDelegation))
+          check.existsAuthorizedKeyIn(signingKeys, requireRoot = true)
+        (ns -> (keysAuthorizeNamespace, keysUsed))
       }.toMap
 
     // Now let's determine which namespaces and uids actually delegated to any of the keys
     val namespaceAuthorizations = required.namespaces.map { ns =>
       val check = getAuthorizationCheckForNamespace(ns)
-      val keysWithDelegation = check.getValidAuthorizationKeys(
+      val keysUsed = check.keysSupportingAuthorization(
         signingKeys,
         requireRoot = false,
       )
-      val keysAuthorizeNamespace = check.areValidAuthorizationKeys(signingKeys, requireRoot = false)
-      (ns -> (keysAuthorizeNamespace, keysWithDelegation))
+      val keysAuthorizeNamespace = check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
+      (ns -> (keysAuthorizeNamespace, keysUsed))
     }.toMap
 
     val uidAuthorizations =
       required.uids.map { uid =>
         val check = getAuthorizationCheckForNamespace(uid.namespace)
-        val keysWithDelegation = check.getValidAuthorizationKeys(
+        val keysUsed = check.keysSupportingAuthorization(
           signingKeys,
           requireRoot = false,
         )
         val keysAuthorizeNamespace =
-          check.areValidAuthorizationKeys(signingKeys, requireRoot = false)
+          check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
 
         val keyForUid =
           getAuthorizedIdentifierDelegation(check, uid, toValidate.signatures.map(_.signedBy))
             .map(_.mapping.target)
 
-        (uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysWithDelegation ++ keyForUid))
+        (uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid))
       }.toMap
 
     val extraKeyAuthorizations = {
@@ -132,7 +132,7 @@ trait TransactionAuthorizationValidator {
           .toMap
     }
 
-    val allAuthorizingKeys =
+    val allKeysUsedForAuthorization =
       (namespaceWithRootAuthorizations.values ++
         namespaceAuthorizations.values ++
         uidAuthorizations.values ++
@@ -145,9 +145,9 @@ trait TransactionAuthorizationValidator {
     logAuthorizations("Authorizations for UIDs", uidAuthorizations)
     logAuthorizations("Authorizations for extraKeys", extraKeyAuthorizations)
 
-    logger.debug(s"All authorizing keys: ${allAuthorizingKeys.keySet}")
+    logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
 
-    val superfluousKeys = signingKeys -- allAuthorizingKeys.keys
+    val superfluousKeys = signingKeys -- allKeysUsedForAuthorization.keys
     for {
       _ <- Either.cond[TopologyTransactionRejection, Unit](
         // there must be at least 1 key used for the signatures for one of the delegation mechanisms
@@ -160,7 +160,7 @@ trait TransactionAuthorizationValidator {
         },
       )
 
-      txWithValidSignatures <- toValidate
+      txWithSignaturesToVerify <- toValidate
         .removeSignatures(superfluousKeys)
         .toRight({
           logger.info(
@@ -169,9 +169,9 @@ trait TransactionAuthorizationValidator {
           TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
         })
 
-      _ <- txWithValidSignatures.signatures.forgetNE.toList
+      _ <- txWithSignaturesToVerify.signatures.forgetNE.toList
         .traverse_(sig =>
-          allAuthorizingKeys
+          allKeysUsedForAuthorization
             .get(sig.signedBy)
             .toRight({
               val msg =
@@ -182,7 +182,7 @@ trait TransactionAuthorizationValidator {
             .flatMap(key =>
               pureCrypto
                 .verifySignature(
-                  txWithValidSignatures.hash.hash,
+                  txWithSignaturesToVerify.hash.hash,
                   key,
                   sig,
                 )
@@ -202,7 +202,7 @@ trait TransactionAuthorizationValidator {
         extraKeys = onlyFullyAuthorized(extraKeyAuthorizations),
       )
       (
-        txWithValidSignatures,
+        txWithSignaturesToVerify,
         requiredAuth
           .satisfiedByActualAuthorizers(actual)
           .fold(identity, _ => RequiredAuthAuthorizations.empty),
@@ -236,7 +236,7 @@ trait TransactionAuthorizationValidator {
   ): Option[AuthorizedIdentifierDelegation] = {
     getIdentifierDelegationsForUid(uid)
       .find(aid =>
-        authKeys(aid.mapping.target.id) && graph.areValidAuthorizationKeys(
+        authKeys(aid.mapping.target.id) && graph.existsAuthorizedKeyIn(
           aid.signingKeys,
           requireRoot = false,
         )
@@ -254,9 +254,7 @@ trait TransactionAuthorizationValidator {
       namespace: Namespace
   ): AuthorizationCheck = {
     val decentralizedNamespaceCheck = decentralizedNamespaceCache.get(namespace).map(_._2)
-    val namespaceCheck = namespaceCache.get(
-      namespace
-    )
+    val namespaceCheck = namespaceCache.get(namespace)
     decentralizedNamespaceCheck
       .orElse(namespaceCheck)
       .getOrElse(AuthorizationCheck.empty)

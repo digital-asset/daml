@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
 import com.daml.tls.TlsVersion.TlsVersion
 import com.daml.tls.{TlsConfiguration, TlsVersion}
@@ -33,6 +32,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
+import com.digitalasset.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert

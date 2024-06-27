@@ -5,7 +5,6 @@ package com.digitalasset.canton.serialization
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.ProtoDeserializationError.{
@@ -32,6 +31,7 @@ import com.digitalasset.canton.{
   LfWorkflowId,
   ProtoDeserializationError,
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.timestamp.Timestamp
 import com.google.protobuf.{ByteString, CodedInputStream, InvalidProtocolBufferException}
 

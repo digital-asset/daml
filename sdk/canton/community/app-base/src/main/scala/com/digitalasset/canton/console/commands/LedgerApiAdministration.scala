@@ -8,6 +8,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
@@ -39,19 +40,15 @@ import com.daml.ledger.javaapi.data.{
   TransactionTree,
 }
 import com.daml.ledger.javaapi as javab
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedContractEntry,
   WrappedIncompleteAssigned,
   WrappedIncompleteUnassigned,
-}
-import com.digitalasset.canton.admin.api.client.commands.{
-  LedgerApiCommands,
-  ParticipantAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.ConsoleCommandTimeout
@@ -83,11 +80,13 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
+import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
-import com.digitalasset.canton.{LedgerTransactionId, LfPackageId, LfPartyId, config}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -118,10 +117,10 @@ trait BaseLedgerApiAdministration extends NoTracing {
     }
     .getOrElse(LedgerApiCommands.defaultApplicationId)
 
-  protected def domainOfTransaction(transactionId: String): DomainId
   protected def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
+      txDomainId: String,
       optTimeout: Option[config.NonNegativeDuration],
   ): Tx
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
@@ -402,13 +401,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
-
-      @Help.Summary("Get the domain that a transaction was committed over.")
-      @Help.Description(
-        """Get the domain that a transaction was committed over. Throws an error if the transaction is not (yet) known
-          |to the participant or if the transaction has been pruned via `pruning.prune`."""
-      )
-      def domain_of(transactionId: String): DomainId = domainOfTransaction(transactionId)
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -462,7 +454,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         }
-        optionallyAwait(tx, tx.updateId, optTimeout)
+        optionallyAwait(tx, tx.updateId, tx.domainId, optTimeout)
       }
 
       @Help.Summary(
@@ -512,7 +504,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         }
-        optionallyAwait(tx, tx.updateId, optTimeout)
+        optionallyAwait(tx, tx.updateId, tx.domainId, optTimeout)
       }
 
       @Help.Summary("Submit command asynchronously", FeatureFlag.Testing)
@@ -552,6 +544,36 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         }
+      }
+
+      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
+      )
+      def status(
+          commandIdPrefix: String = "",
+          state: CommandState = CommandState.COMMAND_STATE_UNSPECIFIED,
+          limit: PositiveInt = PositiveInt.tryCreate(10),
+      ): Seq[CommandStatus] = check(FeatureFlag.Preview) {
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.CommandInspectionService.GetCommandStatus(
+              commandIdPrefix = commandIdPrefix,
+              state = state,
+              limit = limit.unwrap,
+            )
+          )
+        }
+      }
+
+      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Same as status(..., state = CommandState.Failed)."""
+      )
+      def failed(commandId: String = "", limit: PositiveInt = PositiveInt.tryCreate(10)): Seq[
+        CommandStatus
+      ] = check(FeatureFlag.Preview) {
+        status(commandId, CommandState.COMMAND_STATE_FAILED, limit)
       }
 
       @Help.Summary(
@@ -795,6 +817,36 @@ trait BaseLedgerApiAdministration extends NoTracing {
             LedgerApiCommands.StateService.GetConnectedDomains(partyId.toLf)
           )
         })
+
+      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
+      )
+      def status(
+          commandIdPrefix: String = "",
+          state: CommandState = CommandState.COMMAND_STATE_UNSPECIFIED,
+          limit: PositiveInt = PositiveInt.tryCreate(10),
+      ): Seq[CommandStatus] = check(FeatureFlag.Preview) {
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.CommandInspectionService.GetCommandStatus(
+              commandIdPrefix = commandIdPrefix,
+              state = state,
+              limit = limit.unwrap,
+            )
+          )
+        }
+      }
+
+      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
+      @Help.Description(
+        """Same as status(..., state = CommandState.Failed)."""
+      )
+      def failed(commandId: String = "", limit: PositiveInt = PositiveInt.tryCreate(10)): Seq[
+        CommandStatus
+      ] = check(FeatureFlag.Preview) {
+        status(commandId, CommandState.COMMAND_STATE_FAILED, limit)
+      }
 
       @Help.Summary("Read active contracts", FeatureFlag.Testing)
       @Help.Group("Active Contracts")
@@ -1788,7 +1840,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           }
           javab.data.TransactionTree.fromProto(
-            TransactionTreeProto.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
+            TransactionTreeProto.toJavaProto(
+              optionallyAwait(tx, tx.updateId, tx.domainId, optTimeout)
+            )
           )
         }
 
@@ -1841,7 +1895,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           }
           javab.data.Transaction.fromProto(
-            TransactionV2.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
+            TransactionV2.toJavaProto(optionallyAwait(tx, tx.updateId, tx.domainId, optTimeout))
           )
         }
 
@@ -2248,13 +2302,6 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   implicit protected val consoleEnvironment: ConsoleEnvironment
   protected val name: String
 
-  override protected def domainOfTransaction(transactionId: String): DomainId = {
-    val txId = LedgerTransactionId.assertFromString(transactionId)
-    consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.Inspection.LookupTransactionDomain(txId))
-    }
-  }
-
   import com.digitalasset.canton.util.ShowUtil.*
 
   private def awaitTransaction(
@@ -2283,9 +2330,10 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   }
 
   private[console] def involvedParticipants(
-      transactionId: String
+      transactionId: String,
+      txDomainId: String,
   ): Map[ParticipantReference, PartyId] = {
-    val txDomain = ledger_api.updates.domain_of(transactionId)
+    val txDomain = DomainId.tryFromString(txDomainId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
     // changes during the command's execution. We'll have to live with it for the moment, as there's no convenient
@@ -2348,12 +2396,13 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   protected def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
+      txDomainId: String,
       optTimeout: Option[config.NonNegativeDuration],
   ): Tx = {
     optTimeout match {
       case None => tx
       case Some(timeout) =>
-        val involved = involvedParticipants(txId)
+        val involved = involvedParticipants(txId, txDomainId)
         logger.debug(show"Awaiting transaction ${txId.unquoted} at ${involved.keys.mkShow()}")
         awaitTransaction(txId, involved, timeout)
         tx

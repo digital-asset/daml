@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.multidomain
 
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AsyncFlatSpec
 
 class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTest {

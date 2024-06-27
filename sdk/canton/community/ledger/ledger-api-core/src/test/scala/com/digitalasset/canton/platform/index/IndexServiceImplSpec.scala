@@ -4,8 +4,6 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
@@ -25,6 +23,8 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
-import com.digitalasset.daml.lf.data.Ref.{ParticipantId, Party}
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.daml.lf.data.Ref.{ParticipantId, Party}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 

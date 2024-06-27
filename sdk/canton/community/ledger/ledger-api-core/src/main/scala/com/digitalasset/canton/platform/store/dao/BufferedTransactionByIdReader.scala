@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedTransactionByIdReader.{
@@ -12,6 +11,7 @@ import com.digitalasset.canton.platform.store.dao.BufferedTransactionByIdReader.
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.TransactionAccepted
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.daml.lf.data.Ref.Party
 
 import scala.concurrent.Future
 

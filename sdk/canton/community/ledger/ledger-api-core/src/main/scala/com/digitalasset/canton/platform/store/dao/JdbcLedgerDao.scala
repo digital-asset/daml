@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.entries.LoggingEntry
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
@@ -37,6 +33,10 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source

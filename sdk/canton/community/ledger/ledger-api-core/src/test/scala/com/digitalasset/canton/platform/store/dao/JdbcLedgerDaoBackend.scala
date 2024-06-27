@@ -6,9 +6,6 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.daml.resources.PureResource
@@ -35,6 +32,9 @@ import com.digitalasset.canton.platform.store.dao.events.{
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, DbType, FlywayMigrations}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.Suite
 
@@ -91,7 +91,10 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
           PureResource(
-            new FlywayMigrations(dbConfig.jdbcUrl, loggerFactory = loggerFactory).migrate()
+            new FlywayMigrations(dbConfig.jdbcUrl, loggerFactory = loggerFactory)(
+              ec,
+              traceContext,
+            ).migrate()
           )
       }
       dbSupport <- DbSupport.owner(

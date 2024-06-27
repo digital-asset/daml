@@ -38,6 +38,7 @@ class JsVersionService(versionClient: VersionClient)(implicit
 
 object JsVersionServiceCodecs {
   implicit val est: Codec[experimental_features.ExperimentalStaticTime] = deriveCodec
+  implicit val ecis: Codec[experimental_features.ExperimentalCommandInspectionService] = deriveCodec
   implicit val ef: Codec[experimental_features.ExperimentalFeatures] = deriveCodec
   implicit val umf: Codec[version_service.UserManagementFeature] = deriveCodec
   implicit val pmf: Codec[version_service.PartyManagementFeature] = deriveCodec

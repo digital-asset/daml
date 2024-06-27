@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,
 }
 import com.digitalasset.canton.platform.store.backend.localstore.PartyRecordStorageBackend
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
