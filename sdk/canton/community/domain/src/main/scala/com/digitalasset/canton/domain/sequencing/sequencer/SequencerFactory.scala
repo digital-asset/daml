@@ -14,12 +14,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequ
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{MemoryStorage, Storage}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -42,6 +43,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
+      runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -66,6 +68,16 @@ abstract class DatabaseSequencerFactory(
     //  create it in this factory, and pass the same one to DBS and use here;
     //  this will allow using in-memory stores for testing sequencer onboarding.
     //  Close context then should be changed to the sequencer's close context.
+    storage match {
+      case _: MemoryStorage =>
+        ErrorUtil.internalError(
+          new UnsupportedOperationException(
+            "In-memory storage is not supported for database sequencer initialization"
+          )
+        )
+      case _ =>
+    }
+
     val generalStore: SequencerStore =
       SequencerStore(
         storage,
@@ -79,7 +91,7 @@ abstract class DatabaseSequencerFactory(
         overrideCloseContext = Some(this.closeContext),
       )
 
-    generalStore.initializeFromSnapshot(initialState.snapshot)
+    generalStore.initializeFromSnapshot(initialState)
   }
 }
 
@@ -105,6 +117,7 @@ class CommunityDatabaseSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
+      runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -124,6 +137,7 @@ class CommunityDatabaseSequencerFactory(
       metrics,
       loggerFactory,
       nodeParameters.useUnifiedSequencer,
+      runtimeReady,
     )
 
     Future.successful(config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer))

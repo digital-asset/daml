@@ -11,7 +11,6 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerSubscription,
   SubscriptionErrorRetryPolicy,
 }
-import com.digitalasset.canton.sequencing.handshake.SupportsHandshake
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -19,7 +18,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 /** Implementation dependent operations for a client to write to a domain sequencer. */
-trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshake {
+trait SequencerClientTransportCommon extends FlagCloseable {
 
   /** Sends a signed submission request to the sequencer.
     * If we failed to make the request, an error will be returned.

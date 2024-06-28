@@ -59,7 +59,7 @@ object DatabaseSequencer {
   /** Creates a single instance of a database sequencer. */
   def single(
       config: DatabaseSequencerConfig,
-      initialSnapshot: Option[SequencerSnapshot],
+      initialState: Option[SequencerInitialState],
       timeouts: ProcessingTimeout,
       storage: Storage,
       clock: Clock,
@@ -70,6 +70,7 @@ object DatabaseSequencer {
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
       unifiedSequencer: Boolean,
+      runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
       tracer: Tracer,
@@ -86,7 +87,7 @@ object DatabaseSequencer {
     new DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
       config,
-      initialSnapshot,
+      initialState,
       TotalNodeCountValues.SingleSequencerTotalNodeCount,
       new LocalSequencerStateEventSignaller(
         timeouts,
@@ -108,6 +109,7 @@ object DatabaseSequencer {
       metrics,
       loggerFactory,
       unifiedSequencer,
+      runtimeReady,
     )
   }
 }
@@ -115,7 +117,7 @@ object DatabaseSequencer {
 class DatabaseSequencer(
     writerStorageFactory: SequencerWriterStoreFactory,
     config: DatabaseSequencerConfig,
-    initialSnapshot: Option[SequencerSnapshot],
+    initialState: Option[SequencerInitialState],
     totalNodeCount: PositiveInt,
     eventSignaller: EventSignaller,
     keepAliveInterval: Option[NonNegativeFiniteDuration],
@@ -133,6 +135,7 @@ class DatabaseSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
+    runtimeReady: FutureUnlessShutdown[Unit],
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
       loggerFactory,
@@ -171,10 +174,12 @@ class DatabaseSequencer(
 
   protected val memberValidator: SequencerMemberValidator = store
 
+  protected def resetWatermarkTo: Option[CantonTimestamp] = None
+
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
-      writer.startOrLogError(initialSnapshot)
+      writer.startOrLogError(initialState, resetWatermarkTo)
     )
 
     pruningScheduler.foreach(ps =>

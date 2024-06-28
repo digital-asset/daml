@@ -9,10 +9,12 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{MediatorId, TestingIdentityFactory, TestingTopology}
 import org.apache.pekko.stream.Materializer
 
@@ -27,7 +29,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
   def createSequencerWithSnapshot(
       crypto: DomainSyncCryptoClient,
-      initialSnapshot: Option[SequencerSnapshot],
+      initialState: Option[SequencerInitialState],
   )(implicit materializer: Materializer): DatabaseSequencer = {
     if (clock == null)
       clock = createClock()
@@ -40,7 +42,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
     DatabaseSequencer.single(
       TestDatabaseSequencerConfig(),
-      initialSnapshot,
+      initialState,
       DefaultProcessingTimeouts.testing,
       new MemoryStorage(loggerFactory, timeouts),
       clock,
@@ -51,6 +53,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       metrics,
       loggerFactory,
       unifiedSequencer = testedUseUnifiedSequencer,
+      runtimeReady = FutureUnlessShutdown.unit,
     )(executorService, tracer, materializer)
   }
 
@@ -109,17 +112,24 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           "get snapshot"
         )
 
+        _ = {
+          // This makes DBS start with the clock.now timestamp being set to watermark
+          // and allow taking snapshot2 without triggering the check of the watermark
+          clock.asInstanceOf[SimClock].advanceTo(CantonTimestamp.Epoch.immediateSuccessor)
+        }
+
         // create a second separate sequencer from the snapshot
         secondSequencer = createSequencerWithSnapshot(
           topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId),
-          Some(snapshot),
+          Some(
+            SequencerInitialState(
+              domainId,
+              snapshot,
+              latestSequencerEventTimestamp = None,
+              initialTopologyEffectiveTimestamp = None,
+            )
+          ),
         )
-
-        // TODO(#18405): Currently crash recovery of DBS resets the watermark to a wrong value (epoch) leading to
-        //  the second snapshot failing due to newly added watermark check. This is a temp workaround to avoid that.
-        _ <- secondSequencer.store
-          .saveWatermark(instanceIndex = 0, snapshot.lastTs)
-          .valueOrFail("save watermark")
 
         // the snapshot from the second sequencer should look the same except that the lastTs will become the lower bound
         snapshot2 <- valueOrFail(

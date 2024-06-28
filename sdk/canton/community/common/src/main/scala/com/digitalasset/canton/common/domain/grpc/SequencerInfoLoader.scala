@@ -112,7 +112,8 @@ class SequencerInfoLoader(
           performUnlessClosing = closeContext.context,
           maxRetries = retries,
           delay = timeouts.sequencerInfo.asFiniteApproximation.div(retries.toLong),
-          operationName = functionFullName,
+          operationName =
+            s"${domainAlias.toProtoPrimitive}/${sequencerAlias.toProtoPrimitive}: $functionFullName",
         )
         .apply(
           getBootstrapInfoDomainParameters(domainAlias, sequencerAlias, client).value,

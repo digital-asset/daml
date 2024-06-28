@@ -15,6 +15,7 @@ import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.TracedLogger
@@ -103,6 +104,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         metrics,
         loggerFactory,
         unifiedSequencer = testedUseUnifiedSequencer,
+        runtimeReady = FutureUnlessShutdown.unit,
       )(parallelExecutionContext, tracer, materializer)
 
     def readAsSeq(

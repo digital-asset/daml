@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{Member, ParticipantId}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -206,6 +206,9 @@ trait SequencerStoreTest
 
       def saveWatermark(ts: CantonTimestamp): EitherT[Future, SaveWatermarkError, Unit] =
         store.saveWatermark(instanceIndex, ts)
+
+      def resetWatermark(ts: CantonTimestamp): EitherT[Future, SaveWatermarkError, Unit] =
+        store.resetWatermark(instanceIndex, ts)
     }
 
     def checkpoint(
@@ -1055,8 +1058,14 @@ trait SequencerStoreTest
         def createFromSnapshot(snapshot: SequencerSnapshot) = {
           val env = Env()
           import env.*
+          val initialState = SequencerInitialState(
+            domainId = DefaultTestIdentities.domainId, // not used
+            snapshot = snapshot,
+            latestSequencerEventTimestamp = None,
+            initialTopologyEffectiveTimestamp = None,
+          )
           for {
-            _ <- store.initializeFromSnapshot(snapshot).value.map {
+            _ <- store.initializeFromSnapshot(initialState).value.map {
               case Left(error) =>
                 fail(s"Failed to initialize from snapshot $error")
               case _ => ()
@@ -1113,6 +1122,25 @@ trait SequencerStoreTest
 
           stateAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
           stateFromNewStoreAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
+        }
+      }
+    }
+
+    "resetting watermark" should {
+      "reset watermark if the ts if before the current watermark" in {
+        val env = Env()
+        import env.*
+        for {
+          _ <- saveWatermark(ts(5)).valueOrFail("saveWatermark=5 failed")
+          _ <- resetWatermark(ts(7)).valueOrFail("resetWatermark=7 failed")
+          watermark1 <- store.fetchWatermark(0)
+          _ <- resetWatermark(ts(4)).valueOrFail("resetWatermark=4 failed")
+          watermark2 <- store.fetchWatermark(0)
+        } yield {
+          watermark1 shouldBe Some(
+            Watermark(ts(5), online = true)
+          ) // ts(5) was not touched and still online
+          watermark2 shouldBe Some(Watermark(ts(4), online = false)) // ts(5) was reset and offline
         }
       }
     }

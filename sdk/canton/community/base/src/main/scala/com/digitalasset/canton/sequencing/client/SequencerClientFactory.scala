@@ -27,7 +27,6 @@ import com.digitalasset.canton.sequencing.client.transports.replay.{
   ReplayingSendsSequencerClientTransportImpl,
   ReplayingSendsSequencerClientTransportPekko,
 }
-import com.digitalasset.canton.sequencing.handshake.SequencerHandshake
 import com.digitalasset.canton.sequencing.protocol.{GetTrafficStateForMemberRequest, TrafficState}
 import com.digitalasset.canton.sequencing.traffic.{EventCostCalculator, TrafficStateController}
 import com.digitalasset.canton.store.*
@@ -114,13 +113,13 @@ object SequencerClientFactory {
           loggerFactory,
         )
 
-        for {
-          sequencerTransportsMap <- makeTransport(
-            sequencerConnections,
-            member,
-            requestSigner,
-          )
+        val sequencerTransportsMap = makeTransport(
+          sequencerConnections,
+          member,
+          requestSigner,
+        )
 
+        for {
           sequencerTransports <- EitherT.fromEither[Future](
             SequencerTransports.from(
               sequencerTransportsMap,
@@ -240,70 +239,51 @@ object SequencerClientFactory {
           executionSequencerFactory: ExecutionSequencerFactory,
           materializer: Materializer,
           traceContext: TraceContext,
-      ): EitherT[Future, String, SequencerClientTransport & SequencerClientTransportPekko] = {
+      ): SequencerClientTransport & SequencerClientTransportPekko = {
         // TODO(#13789) Use only `SequencerClientTransportPekko` as the return type
         def mkRealTransport(): SequencerClientTransport & SequencerClientTransportPekko =
           connection match {
             case grpc: GrpcSequencerConnection => grpcTransport(grpc, member)
           }
 
-        val transport: SequencerClientTransport & SequencerClientTransportPekko =
-          replayConfigForMember(member).filter(_ => allowReplay) match {
-            case None => mkRealTransport()
-            case Some(ReplayConfig(recording, SequencerEvents)) =>
-              new ReplayingEventsSequencerClientTransport(
-                domainParameters.protocolVersion,
-                recording.fullFilePath,
-                processingTimeout,
-                loggerFactory,
-              )
-            case Some(ReplayConfig(recording, replaySendsConfig: SequencerSends)) =>
-              if (replaySendsConfig.usePekko) {
-                val underlyingTransport = mkRealTransport()
-                new ReplayingSendsSequencerClientTransportPekko(
-                  domainParameters.protocolVersion,
-                  recording.fullFilePath,
-                  replaySendsConfig,
-                  member,
-                  underlyingTransport,
-                  requestSigner,
-                  metrics,
-                  processingTimeout,
-                  loggerFactory,
-                )
-              } else {
-                val underlyingTransport = mkRealTransport()
-                new ReplayingSendsSequencerClientTransportImpl(
-                  domainParameters.protocolVersion,
-                  recording.fullFilePath,
-                  replaySendsConfig,
-                  member,
-                  underlyingTransport,
-                  requestSigner,
-                  metrics,
-                  processingTimeout,
-                  loggerFactory,
-                )
-              }
-          }
-
-        for {
-          // handshake to check that sequencer client supports the protocol version required by the sequencer
-          _ <- SequencerHandshake
-            .handshake(
-              supportedProtocolVersions,
-              minimumProtocolVersion,
-              transport,
-              config,
+        replayConfigForMember(member).filter(_ => allowReplay) match {
+          case None => mkRealTransport()
+          case Some(ReplayConfig(recording, SequencerEvents)) =>
+            new ReplayingEventsSequencerClientTransport(
+              domainParameters.protocolVersion,
+              recording.fullFilePath,
               processingTimeout,
               loggerFactory,
             )
-            .leftMap { error =>
-              // make sure to close transport in case of handshake failure
-              transport.close()
-              error
+          case Some(ReplayConfig(recording, replaySendsConfig: SequencerSends)) =>
+            if (replaySendsConfig.usePekko) {
+              val underlyingTransport = mkRealTransport()
+              new ReplayingSendsSequencerClientTransportPekko(
+                domainParameters.protocolVersion,
+                recording.fullFilePath,
+                replaySendsConfig,
+                member,
+                underlyingTransport,
+                requestSigner,
+                metrics,
+                processingTimeout,
+                loggerFactory,
+              )
+            } else {
+              val underlyingTransport = mkRealTransport()
+              new ReplayingSendsSequencerClientTransportImpl(
+                domainParameters.protocolVersion,
+                recording.fullFilePath,
+                replaySendsConfig,
+                member,
+                underlyingTransport,
+                requestSigner,
+                metrics,
+                processingTimeout,
+                loggerFactory,
+              )
             }
-        } yield transport
+        }
       }
 
       private def createChannel(conn: GrpcSequencerConnection)(implicit

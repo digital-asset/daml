@@ -23,7 +23,6 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransportCommon,
   SequencerClientTransportPekko,
 }
-import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
   OrdinarySerializedEvent,
@@ -402,11 +401,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
     EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
-
-  override def handshake(request: HandshakeRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, HandshakeRequestError, HandshakeResponse] =
-    EitherT.rightT(HandshakeResponse.Success(protocolVersion))
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

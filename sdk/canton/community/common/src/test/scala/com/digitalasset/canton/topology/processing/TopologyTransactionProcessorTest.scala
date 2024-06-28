@@ -623,19 +623,19 @@ abstract class TopologyTransactionProcessorTest
       // block1: first proposal to update topology change delay
       // use proc.processEnvelopes directly so that the effective time is properly computed from topology change delays
       proc
-        .processEnvelopes(SequencerCounter(0), SequencedTime(ts(0)), block1)
+        .processEnvelopes(SequencerCounter(0), SequencedTime(ts(0)), None, block1)
         .flatMap(_.unwrap)
         .futureValueUS
 
       // block2: second proposal to update the topology change delay, making it fully authorized
       proc
-        .processEnvelopes(SequencerCounter(1), SequencedTime(ts(1)), block2)
+        .processEnvelopes(SequencerCounter(1), SequencedTime(ts(1)), None, block2)
         .flatMap(_.unwrap)
         .futureValueUS
 
       // block3: any topology transaction is now processed with the updated topology change delay
       proc
-        .processEnvelopes(SequencerCounter(2), SequencedTime(ts(2)), block3)
+        .processEnvelopes(SequencerCounter(2), SequencedTime(ts(2)), None, block3)
         .flatMap(_.unwrap)
         .futureValueUS
 

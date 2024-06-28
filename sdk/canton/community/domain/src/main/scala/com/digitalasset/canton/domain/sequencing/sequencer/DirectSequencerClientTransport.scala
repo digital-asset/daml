@@ -22,13 +22,10 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportPekko,
 }
-import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   GetTrafficStateForMemberRequest,
   GetTrafficStateForMemberResponse,
-  HandshakeRequest,
-  HandshakeResponse,
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
@@ -202,14 +199,6 @@ class DirectSequencerClientTransport(
   override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
     // unlikely there will be any errors with this direct transport implementation
     SubscriptionErrorRetryPolicyPekko.never
-
-  override def handshake(request: HandshakeRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, HandshakeRequestError, HandshakeResponse] =
-    // never called - throwing an exception so tests fail if this ever changes
-    throw new UnsupportedOperationException(
-      "handshake is not implemented for DirectSequencerClientTransport"
-    )
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

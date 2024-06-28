@@ -17,13 +17,10 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportPekko,
 }
-import com.digitalasset.canton.sequencing.handshake.HandshakeRequestError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   GetTrafficStateForMemberRequest,
   GetTrafficStateForMemberResponse,
-  HandshakeRequest,
-  HandshakeResponse,
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
@@ -118,12 +115,6 @@ class ReplayingEventsSequencerClientTransport(
   /** Will never request a retry. */
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     SubscriptionErrorRetryPolicy.never
-
-  /** Will always succeed. */
-  override def handshake(request: HandshakeRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, HandshakeRequestError, HandshakeResponse] =
-    EitherT.rightT(HandshakeResponse.Success(protocolVersion))
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
       traceContext: TraceContext

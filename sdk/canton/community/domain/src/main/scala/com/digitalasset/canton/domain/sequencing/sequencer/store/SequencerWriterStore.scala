@@ -55,6 +55,11 @@ trait SequencerWriterStore extends AutoCloseable {
   ): Future[Unit] =
     store.saveEvents(instanceIndex, events)
 
+  def resetWatermark(ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SaveWatermarkError, Unit] =
+    store.resetWatermark(instanceIndex, ts)
+
   /** Write the watermark that we promise not to write anything earlier than.
     * Does not indicate that there is an event written by this sequencer for this timestamp as there may be no activity
     * at the sequencer, but updating the timestamp allows the sequencer to indicate that it's still alive.
