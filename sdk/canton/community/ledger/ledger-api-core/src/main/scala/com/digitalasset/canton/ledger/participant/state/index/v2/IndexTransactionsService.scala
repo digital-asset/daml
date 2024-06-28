@@ -25,6 +25,7 @@ trait IndexTransactionsService extends LedgerEndService {
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
       filter: TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed]
@@ -33,6 +34,7 @@ trait IndexTransactionsService extends LedgerEndService {
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
       filter: TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed]

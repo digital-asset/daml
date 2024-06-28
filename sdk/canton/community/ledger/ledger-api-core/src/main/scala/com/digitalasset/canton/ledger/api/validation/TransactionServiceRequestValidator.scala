@@ -41,6 +41,7 @@ class TransactionServiceRequestValidator(
       transactionFilter: TransactionFilter,
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],
+      sendPrunedOffsets: Boolean,
       knownParties: Set[Ref.Party],
   )
 
@@ -54,11 +55,13 @@ class TransactionServiceRequestValidator(
       convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
       convertedEnd <- LedgerOffsetValidator.validateOptional(req.end, "end")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
+      sendPrunedOffsets <- validateSendPrunedOffset(req.sendPrunedOffsets, convertedEnd)
     } yield PartialValidation(
       ledgerId,
       filter,
       convertedBegin,
       convertedEnd,
+      sendPrunedOffsets,
       knownParties,
     )
 
@@ -90,9 +93,29 @@ class TransactionServiceRequestValidator(
         partial.begin,
         partial.end,
         convertedFilter,
+        req.sendPrunedOffsets,
         req.verbose,
       )
     }
+  }
+
+  private def validateSendPrunedOffset(
+      sendPrunedOffset: Boolean,
+      end: Option[LedgerOffset],
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Boolean] = {
+    (sendPrunedOffset, end) match {
+      case (false, _) => Right(false)
+      case (true, None) => Right(true)
+      case (true, _) =>
+        Left(
+          invalidArgument(
+            "Pruning offsets requested on a stream with an explicit end"
+          )
+        )
+    }
+
   }
 
   def validateTree(
@@ -121,6 +144,7 @@ class TransactionServiceRequestValidator(
         partial.begin,
         partial.end,
         convertedFilter,
+        req.sendPrunedOffsets,
         req.verbose,
       )
     }

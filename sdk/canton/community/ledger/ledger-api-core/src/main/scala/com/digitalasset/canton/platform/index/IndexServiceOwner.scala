@@ -55,6 +55,7 @@ final class IndexServiceOwner(
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
+    pruningOffsetCache: PruningOffsetCache,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -135,6 +136,7 @@ final class IndexServiceOwner(
         },
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
+        pruningOffsetCache = pruningOffsetCache,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )

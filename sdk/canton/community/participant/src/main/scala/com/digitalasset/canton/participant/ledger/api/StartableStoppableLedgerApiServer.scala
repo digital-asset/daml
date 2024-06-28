@@ -61,6 +61,7 @@ import com.digitalasset.canton.platform.localstore.*
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
@@ -277,6 +278,7 @@ class StartableStoppableLedgerApiServer(
           loggerFactory = loggerFactory,
         )
       }
+      pruningOffsetCache = new PruningOffsetCache()
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
         ledgerId = domain.LedgerId(config.ledgerId),
@@ -290,6 +292,7 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
         incompleteOffsets = timedReadService.incompleteReassignmentOffsets(_, _)(_),
         contractLoader = contractLoader,
+        pruningOffsetCache = pruningOffsetCache,
       )
       userManagementStore = getUserManagementStore(dbSupport, loggerFactory)
       partyRecordStore = new PersistentPartyRecordStore(
@@ -365,6 +368,7 @@ class StartableStoppableLedgerApiServer(
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        pruningOffsetCache = pruningOffsetCache,
       )
       _ <- startHttpApiIfEnabled
       _ <- {
