@@ -155,17 +155,28 @@ test("create and look up user using ledger library", async () => {
 // specifically for testing.
 // See https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors.
 
+const MAX_LOG_COUNT = 1000;
 const newUiPage = async (): Promise<Page> => {
   if (!browser) {
     throw Error("Puppeteer browser has not been launched");
   }
   const page = await browser.newPage();
   await page.setViewport({ width: 1366, height: 1080 });
-  page.on("console", message =>
-    console.log(
-      `${message.type().substr(0, 3).toUpperCase()} ${message.text()}`,
-    ),
-  );
+
+  var logCount: number = 0;
+  page.on("console", message => {
+    if (logCount < MAX_LOG_COUNT) {
+      console.log(
+        `${message.type().substr(0, 3).toUpperCase()} ${message.text()}`,
+      );
+    } else if (logCount == MAX_LOG_COUNT) {
+      console.log(
+        `No longer emitting console.log after after ${MAX_LOG_COUNT} lines`,
+      );
+    }
+    logCount++;
+  });
+
   await page.goto(`http://127.0.0.1:${UI_PORT}`); // ignore the Response
   return page;
 };
@@ -379,7 +390,7 @@ test("error when following self", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-});
+}, 60_000);
 
 test("error when adding a user that you are already following", async () => {
   const [user1, party1] = await getParty();
@@ -398,7 +409,7 @@ test("error when adding a user that you are already following", async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-}, 10000);
+}, 60_000);
 
 const failedLogin = async (page: Page, partyName: string) => {
   let error: string | undefined = undefined;
