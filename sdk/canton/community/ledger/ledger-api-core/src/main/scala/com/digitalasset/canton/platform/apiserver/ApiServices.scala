@@ -54,6 +54,7 @@ import com.digitalasset.canton.platform.localstore.api.{
   UserManagementStore,
 }
 import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -118,6 +119,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
+      pruningOffsetCache: PruningOffsetCache,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -496,6 +498,7 @@ object ApiServices {
               ApiParticipantPruningService.createApiService(
                 indexService,
                 writeService,
+                pruningOffsetCache,
                 metrics,
                 telemetry,
                 loggerFactory,

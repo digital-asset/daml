@@ -67,6 +67,7 @@ final class ApiUpdateService(
             begin = request.beginExclusive.map(toV1),
             end = request.endInclusive.map(toV1),
             filter = request.filter.map(v2TxFilter => TransactionFilter(v2TxFilter.filtersByParty)),
+            sendPrunedOffsets = request.sendPrunedOffsets,
             verbose = request.verbose,
           ),
           ledgerEnd,
@@ -90,7 +91,14 @@ final class ApiUpdateService(
               }
               logger.trace(s"Update request: $req.")
               transactionsService
-                .transactions(req.startExclusive, req.endInclusive, req.filter, req.verbose, true)
+                .transactions(
+                  req.startExclusive,
+                  req.endInclusive,
+                  req.filter,
+                  req.sendPrunedOffsets,
+                  req.verbose,
+                  multiDomainEnabled = true,
+                )
                 .via(logger.enrichedDebugStream("Responding with updates.", updatesLoggable))
                 .via(logger.logErrorsOnStream)
                 .via(StreamMetrics.countElements(metrics.daml.lapi.streams.updates))
@@ -116,6 +124,7 @@ final class ApiUpdateService(
             begin = request.beginExclusive.map(toV1),
             end = request.endInclusive.map(toV1),
             filter = request.filter.map(v2TxFilter => TransactionFilter(v2TxFilter.filtersByParty)),
+            sendPrunedOffsets = request.sendPrunedOffsets,
             verbose = request.verbose,
           ),
           ledgerEnd,
@@ -143,6 +152,7 @@ final class ApiUpdateService(
                   req.startExclusive,
                   req.endInclusive,
                   req.filter,
+                  req.sendPrunedOffsets,
                   req.verbose,
                   true,
                 )

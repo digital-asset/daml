@@ -158,6 +158,8 @@ object ApiConversions {
     getUpdatesResponse.update match {
       case GetUpdatesResponse.Update.Transaction(txV2) =>
         Seq(GetTransactionsResponseV1(Seq(toV1(txV2))))
+      case _ if getUpdatesResponse.prunedOffset.nonEmpty =>
+        Seq(GetTransactionsResponseV1(prunedOffset = getUpdatesResponse.prunedOffset))
       case _ => Nil
     }
 
@@ -165,6 +167,8 @@ object ApiConversions {
     getUpdateTreesResponse.update match {
       case GetUpdateTreesResponse.Update.TransactionTree(txV2) =>
         Seq(GetTransactionTreesResponseV1(Seq(toV1(txV2))))
+      case _ if getUpdateTreesResponse.prunedOffset.nonEmpty =>
+        Seq(GetTransactionTreesResponseV1(prunedOffset = getUpdateTreesResponse.prunedOffset))
       case _ => Nil
     }
 
