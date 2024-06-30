@@ -39,6 +39,7 @@ import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   HasCloseContext,
   Lifecycle,
+  PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -91,10 +92,11 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, config, lifecycle}
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import org.apache.pekko.actor.ActorSystem
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 final case class SequencerAuthenticationConfig(
     nonceExpirationInterval: config.NonNegativeFiniteDuration,
@@ -142,6 +144,7 @@ class SequencerRuntime(
     topologyStateForInitializationService: TopologyStateForInitializationService,
     maybeDomainOutboxFactory: Option[DomainOutboxFactorySingleCreate],
     protected val loggerFactory: NamedLoggerFactory,
+    runtimeReadyPromise: PromiseUnlessShutdown[Unit],
 )(implicit
     executionContext: ExecutionContext,
     actorSystem: ActorSystem,
@@ -152,13 +155,9 @@ class SequencerRuntime(
 
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
-  private val isTopologyInitializedPromise = Promise[Unit]()
-
   def domainId: DomainId = indexedDomain.domainId
 
-  def initialize(
-      topologyInitIsCompleted: Boolean = true
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  def initialize()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     def keyCheckET =
       EitherT {
         val snapshot = syncCrypto
@@ -191,12 +190,7 @@ class SequencerRuntime(
     for {
       _ <- keyCheckET
       _ <- registerInitialMembers
-    } yield {
-      // if we run embedded, we complete the future here
-      if (topologyInitIsCompleted) {
-        isTopologyInitializedPromise.success(())
-      }
-    }
+    } yield ()
   }
 
   protected val sequencerDomainParamsLookup
@@ -259,7 +253,9 @@ class SequencerRuntime(
       // it's important to disconnect the member AFTER we expired the token, as otherwise, the member
       // can still re-subscribe with the token just before we removed it
       Traced.lift(sequencerService.disconnectMember(_)(_)),
-      isTopologyInitializedPromise.future,
+      runtimeReadyPromise.future.map(_ =>
+        ()
+      ), // on shutdown, MemberAuthenticationStore will be closed via closeContext
     )
 
     val sequencerAuthenticationService =
@@ -370,7 +366,8 @@ class SequencerRuntime(
     },
   )
 
-  private val topologyManagerSequencerCounterTrackerStore =
+  @VisibleForTesting
+  protected[canton] val topologyManagerSequencerCounterTrackerStore =
     SequencerCounterTrackerStore(
       storage,
       indexedDomain,
@@ -479,7 +476,7 @@ class SequencerRuntime(
 
   def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {
-      _ <- initialize(topologyInitIsCompleted = false)
+      _ <- initialize()
       _ = logger.debug("Subscribing topology client within sequencer runtime")
       _ <- EitherT.right(
         client.subscribeTracking(
@@ -496,7 +493,8 @@ class SequencerRuntime(
         .map(_.startup().onShutdown(Right(())))
         .getOrElse(EitherT.rightT[Future, String](()))
     } yield {
-      isTopologyInitializedPromise.success(())
+      logger.info("Sequencer runtime initialized")
+      runtimeReadyPromise.outcome(())
     }
   }
 

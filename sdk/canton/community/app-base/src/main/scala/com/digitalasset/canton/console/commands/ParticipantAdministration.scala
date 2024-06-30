@@ -1515,12 +1515,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         if (!config.manualConnect) {
           reconnect(config.domain.unwrap, retry = false).discard
           // now update the domain settings to auto-connect
-          modify(config.domain.unwrap, _.copy(manualConnect = false))
+          modify(config.domain.unwrap, _.copy(manualConnect = false), validation)
         }
         // architecture-handbook-entry-end: OnboardParticipantConnect
       } else if (!config.manualConnect) {
         reconnect(config.domain, retry = false).discard
-        modify(config.domain.unwrap, _.copy(manualConnect = false))
+        modify(config.domain.unwrap, _.copy(manualConnect = false), validation)
       }
       synchronize.foreach { timeout =>
         ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)

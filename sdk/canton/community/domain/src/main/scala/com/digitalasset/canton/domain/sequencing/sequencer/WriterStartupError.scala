@@ -69,4 +69,13 @@ object WriterStartupError {
   final case class FailedToInitializeFromSnapshot(message: String) extends WriterStartupError {
     override val retryable = true
   }
+
+  /** Failed to reset the watermark during the recovery
+    * @param message
+    */
+  final case class WatermarkResetError(message: String) extends WriterStartupError {
+    // only possible via concurrent modification, which is only possible via misconfiguration,
+    // as in unified sequencer there should only be one writer
+    override val retryable = false
+  }
 }

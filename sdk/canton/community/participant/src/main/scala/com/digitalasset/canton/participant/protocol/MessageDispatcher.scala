@@ -79,8 +79,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def requestProcessors: RequestProcessors
 
-  protected def topologyProcessor
-      : (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
+  protected def topologyProcessor: ParticipantTopologyProcessor
   protected def trafficProcessor: TrafficControlProcessor
   protected def acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType
   protected def requestCounterAllocator: RequestCounterAllocator
@@ -197,6 +196,7 @@ trait MessageDispatcher { this: NamedLogging =>
       identityResult <- processTopologyTransactions(
         sc,
         SequencedTime(ts),
+        deliver.topologyTimestampO,
         envelopesWithCorrectDomainId,
       )
       trafficResult <- processTraffic(ts, topologyTimestampO, envelopesWithCorrectDomainId)
@@ -229,11 +229,12 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def processTopologyTransactions(
       sc: SequencerCounter,
       ts: SequencedTime,
+      topologyTimestampO: Option[CantonTimestamp],
       envelopes: List[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
       TopologyTransaction,
-      topologyProcessor(sc, ts, Traced(envelopes)),
+      topologyProcessor(sc, ts, topologyTimestampO, Traced(envelopes)),
     )
 
   protected def processTraffic(
@@ -703,6 +704,13 @@ trait MessageDispatcher { this: NamedLogging =>
 
 private[participant] object MessageDispatcher {
 
+  type ParticipantTopologyProcessor = (
+      SequencerCounter,
+      SequencedTime,
+      Option[CantonTimestamp],
+      Traced[List[DefaultOpenEnvelope]],
+  ) => HandlerResult
+
   trait RequestProcessors {
     /* A bit of a round-about way to make the Scala compiler recognize that pattern matches on `viewType` refine
      * the type Processor.
@@ -776,11 +784,7 @@ private[participant] object MessageDispatcher {
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         requestProcessors: RequestProcessors,
-        topologyProcessor: (
-            SequencerCounter,
-            SequencedTime,
-            Traced[List[DefaultOpenEnvelope]],
-        ) => HandlerResult,
+        topologyProcessor: ParticipantTopologyProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
@@ -848,11 +852,7 @@ private[participant] object MessageDispatcher {
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         requestProcessors: RequestProcessors,
-        topologyProcessor: (
-            SequencerCounter,
-            SequencedTime,
-            Traced[List[DefaultOpenEnvelope]],
-        ) => HandlerResult,
+        topologyProcessor: ParticipantTopologyProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,

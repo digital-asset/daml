@@ -80,18 +80,35 @@ class DbSequencerStateManagerStore(
     /* We have an index on (storeId, member, counter) so fetching the max counter for each member in this fashion
      * is significantly quicker than using a window function or another approach.
      */
-    val counterQ = {
-      (sql"""select latest_counters.member, latest_counters.counter
-             from (
+    val counterQ = storage.profile match {
+      case _: Postgres =>
+        /* With the Postgres store we can use a lateral join that is able to use the index (member,ts) to speedup this
+         * query. This is needed when the seq_state_manager_events table is *REALLY* big (like 4TB). But lateral joins
+         * only work for Postgres so we special case it here, for other stores we use a normal join.
+         */
+        sql"""select latest_counters.member, latest_counters.counter
+              from seq_state_manager_members members, lateral (
+                 select member, counter
+                 from   seq_state_manager_events
+                 where  member = members.member  -- lateral reference
+                 and ts <= $timestamp AND counter is not null
+                 order by ts desc
+                 #${storage.limit(1)}
+              ) latest_counters
+        """
+          .as[(Member, SequencerCounter)]
+      case _ =>
+        sql"""select latest_counters.member, latest_counters.counter
+              from (
                 select members.member,
                        (select counter from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) counter
                 from seq_state_manager_members members
-             ) latest_counters
-             where latest_counters.counter is not null
-          """)
-        .as[(Member, SequencerCounter)]
+              ) latest_counters
+              where latest_counters.counter is not null
+        """
+          .as[(Member, SequencerCounter)]
     }
 
     // Prefer `zip` over a `for` comprehension to tell Slick that all queries are independent of each other.
