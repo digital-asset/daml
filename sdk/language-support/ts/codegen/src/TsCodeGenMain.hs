@@ -184,11 +184,13 @@ daml2js Daml2jsParams {..} = do
           -- The scope e.g. '@daml.js'.
           -- We use this, for example, when generating import declarations e.g.
           --   import * as pkgd14e08_DA_Internal_Template from '@daml.js/d14e08/lib/DA/Internal/Template';
+        mPkgRef = if packageLfVersion pkg `supports` featurePackageUpgrades then Just pkgRef else Nothing
+          -- Used for exporting the `packageReference` value in the generated module
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
     (nonEmptyModNames, dependenciesSets) <- Control.Monad.mapAndUnzipM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
-    writeIndexTs pkgId pkgRef packageSrcDir (catMaybes nonEmptyModNames)
+    writeIndexTs pkgId mPkgRef packageSrcDir (catMaybes nonEmptyModNames)
     let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
     writeTsConfig packageDir
@@ -1056,9 +1058,9 @@ writePackageJson packageDir releaseVersion scope dependencies =
   in
   BSL.writeFile (packageDir </> "package.json") (encodePretty packageJson)
 
-writeIndexTs :: PackageId -> PackageReference -> FilePath -> [ModuleName] -> IO ()
-writeIndexTs pkgId pkgRef packageSrcDir modNames =
-  processIndexTree pkgId pkgRef packageSrcDir (buildIndexTree modNames)
+writeIndexTs :: PackageId -> Maybe PackageReference -> FilePath -> [ModuleName] -> IO ()
+writeIndexTs pkgId mPkgRef packageSrcDir modNames =
+  processIndexTree pkgId mPkgRef packageSrcDir (buildIndexTree modNames)
 
 -- NOTE(MH): The module structure of a Daml package can have "holes", i.e.,
 -- you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
@@ -1088,19 +1090,23 @@ buildIndexTree = foldl' merge empty . map path
       , children = Map.unionWith merge (children t1) (children t2)
       }
 
-processIndexTree :: PackageId -> PackageReference -> FilePath -> IndexTree -> IO ()
-processIndexTree pkgId pkgRef srcDir root = do
+processIndexTree :: PackageId -> Maybe PackageReference -> FilePath -> IndexTree -> IO ()
+processIndexTree pkgId mPkgRef srcDir root = do
   T.writeFileUtf8 (srcDir </> "index.d.ts") $ T.unlines $
     reexportChildren ES6 root ++
     [ "export declare const packageId = '" <> unPackageId pkgId <> "';"
-    , "export declare const packageReference = '" <> forTemplateId pkgRef <> "';"
-    ]
+    ] ++ maybe [] (\pkgRef ->
+      [ "export declare const packageReference = '" <> forTemplateId pkgRef <> "';"
+      ]
+    ) mPkgRef
   T.writeFileUtf8 (srcDir </> "index.js") $ T.unlines $
     commonjsPrefix ++
     reexportChildren ES5 root ++
     [ "exports.packageId = '" <> unPackageId pkgId <> "';"
-    , "exports.packageReference = '" <> forTemplateId pkgRef <> "';"
-    ]
+    ] ++ maybe [] (\pkgRef ->
+      [ "exports.packageReference = '" <> forTemplateId pkgRef <> "';"
+      ]
+    ) mPkgRef
   processChildren (ModuleName []) root
   where
     processChildren :: ModuleName -> IndexTree -> IO ()
