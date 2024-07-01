@@ -22,6 +22,7 @@ import {
   Party,
   Template,
   lookupTemplate,
+  templateIdWithPackageId,
 } from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
@@ -617,6 +618,15 @@ function doCreateFetchAndExercise<Pkg extends string>(
 }
 
 test(
+  "create, fetch and exercise with package name",
+  // Since the buildAndLint package runs in LF1.dev, it's default templateId will use the package name.
+  doCreateFetchAndExercise(
+    buildAndLint.Main.Person,
+    buildAndLint.Main.AllTypes,
+    buildAndLint.Lib.Mod.NonTopLevel,
+  ),
+);
+test(
   "create, fetch and exercise with package id",
   doCreateFetchAndExercise(
     {
@@ -630,20 +640,6 @@ test(
     {
       ...buildAndLint.Lib.Mod.NonTopLevel,
       templateId: `${buildAndLint.packageId}:Lib.Mod:NonTopLevel`,
-    },
-  ),
-);
-test(
-  "create, fetch and exercise with package name",
-  doCreateFetchAndExercise(
-    { ...buildAndLint.Main.Person, templateId: "#build-and-lint:Main:Person" },
-    {
-      ...buildAndLint.Main.AllTypes,
-      templateId: "#build-and-lint:Main:AllTypes",
-    },
-    {
-      ...buildAndLint.Lib.Mod.NonTopLevel,
-      templateId: "#build-and-lint:Lib.Mod:NonTopLevel",
     },
   ),
 );
@@ -837,11 +833,14 @@ describe("interfaces", () => {
       Asset.toInterface(Token, ifaceContract.contractId),
       { newOwner: BOB_PARTY },
     );
+    const assetTemplateId = templateIdWithPackageId(buildAndLint.Main.Asset)(
+      buildAndLint.packageId,
+    );
     expect(events1).toMatchObject([
-      { archived: { templateId: buildAndLint.Main.Asset.templateId } },
+      { archived: { templateId: assetTemplateId } },
       {
         created: {
-          templateId: buildAndLint.Main.Asset.templateId,
+          templateId: assetTemplateId,
           signatories: [ALICE_PARTY],
           payload: { issuer: ALICE_PARTY, owner: BOB_PARTY },
         },
@@ -1029,18 +1028,21 @@ test("createAndExercise", async () => {
     { name: "Alice", party: ALICE_PARTY, age: "10", friends: [] },
     {},
   );
+  const personTemplateId = templateIdWithPackageId(buildAndLint.Main.Person)(
+    buildAndLint.packageId,
+  );
   expect(events).toMatchObject([
     {
       created: {
-        templateId: buildAndLint.Main.Person.templateId,
+        templateId: personTemplateId,
         signatories: [ALICE_PARTY],
         payload: { name: "Alice", age: "10" },
       },
     },
-    { archived: { templateId: buildAndLint.Main.Person.templateId } },
+    { archived: { templateId: personTemplateId } },
     {
       created: {
-        templateId: buildAndLint.Main.Person.templateId,
+        templateId: personTemplateId,
         signatories: [ALICE_PARTY],
         payload: { name: "Alice", age: "11" },
       },
