@@ -108,7 +108,7 @@ beforeAll(async () => {
 
   // Launch a single browser for all tests.
   console.debug("Starting puppeteer");
-  browser = await puppeteer.launch();
+  browser = await puppeteer.launch({ args: ["--no-sandbox"] });
   console.debug("Puppeteer is running");
 }, 60_000);
 
