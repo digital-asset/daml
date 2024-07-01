@@ -431,8 +431,9 @@ object SyncDomainEphemeralStateFactory {
     * so that crash recovery will still work.
     */
   def crashRecoveryPruningBoundInclusive(
+      requestCounterCursorPrehead: Option[RequestCounterCursorPrehead],
+      sequencerCounterCursorPrehead: Option[SequencerCounterCursorPrehead],
       requestJournalStore: RequestJournalStore,
-      sequencerCounterTrackerStore: SequencerCounterTrackerStore,
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] = {
     // Crash recovery cleans up the stores before replay starts,
     // however we may have used some of the deleted information to determine the starting points for the replay.
@@ -445,7 +446,7 @@ object SyncDomainEphemeralStateFactory {
     // * The first request whose commit time is after the clean request prehead timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      requestReplayTs <- requestJournalStore.preheadClean.flatMap {
+      requestReplayTs <- requestCounterCursorPrehead match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           Future.successful(CantonTimestamp.MinValue)
@@ -459,9 +460,9 @@ object SyncDomainEphemeralStateFactory {
             if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor
           }
       }
-      preheadSequencerCounterTs <- sequencerCounterTrackerStore.preheadSequencerCounter.map {
-        _.fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
-      }
+      preheadSequencerCounterTs = sequencerCounterCursorPrehead.fold(CantonTimestamp.MinValue)(
+        _.timestamp.immediatePredecessor
+      )
     } yield requestReplayTs.min(preheadSequencerCounterTs)
   }
 

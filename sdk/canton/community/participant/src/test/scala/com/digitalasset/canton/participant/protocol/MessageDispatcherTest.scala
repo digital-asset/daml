@@ -100,11 +100,7 @@ trait MessageDispatcherTest {
       requestTracker: RequestTracker,
       testProcessor: RequestProcessor[TestViewType],
       otherTestProcessor: RequestProcessor[OtherTestViewType],
-      topologyProcessor: (
-          SequencerCounter,
-          SequencedTime,
-          Traced[List[DefaultOpenEnvelope]],
-      ) => HandlerResult,
+      topologyProcessor: ParticipantTopologyProcessor,
       trafficProcessor: TrafficControlProcessor,
       acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
       requestCounterAllocator: RequestCounterAllocator,
@@ -122,7 +118,7 @@ trait MessageDispatcherTest {
             ParticipantId,
             RequestTracker,
             RequestProcessors,
-            (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
+            ParticipantTopologyProcessor,
             TrafficControlProcessor,
             AcsCommitmentProcessor.ProcessorType,
             RequestCounterAllocator,
@@ -166,14 +162,12 @@ trait MessageDispatcherTest {
       val otherTestViewProcessor = mock[RequestProcessor[OtherTestViewType]]
       mockMethods(otherTestViewProcessor)
 
-      val identityProcessor =
-        mock[
-          (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
-        ]
+      val identityProcessor = mock[ParticipantTopologyProcessor]
       when(
         identityProcessor.apply(
           any[SequencerCounter],
           any[SequencedTime],
+          any[Option[CantonTimestamp]],
           any[Traced[List[DefaultOpenEnvelope]]],
         )
       )
@@ -366,7 +360,7 @@ trait MessageDispatcherTest {
           ParticipantId,
           RequestTracker,
           RequestProcessors,
-          (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult,
+          ParticipantTopologyProcessor,
           TrafficControlProcessor,
           AcsCommitmentProcessor.ProcessorType,
           RequestCounterAllocator,
@@ -442,6 +436,7 @@ trait MessageDispatcherTest {
       verify(sut.topologyProcessor).apply(
         isEq(sc),
         isEq(SequencedTime(ts)),
+        any[Option[CantonTimestamp]],
         any[Traced[List[DefaultOpenEnvelope]]],
       )
       succeed
@@ -660,6 +655,7 @@ trait MessageDispatcherTest {
           .apply(
             any[SequencerCounter],
             any[SequencedTime],
+            any[Option[CantonTimestamp]],
             any[Traced[List[DefaultOpenEnvelope]]],
           )
       )
@@ -701,6 +697,7 @@ trait MessageDispatcherTest {
           .apply(
             any[SequencerCounter],
             any[SequencedTime],
+            any[Option[CantonTimestamp]],
             any[Traced[List[DefaultOpenEnvelope]]],
           )
       )
@@ -834,6 +831,7 @@ trait MessageDispatcherTest {
           verify(sut.topologyProcessor).apply(
             isEq(sc),
             isEq(SequencedTime(ts)),
+            isEq(None),
             isEq(Traced(List.empty)),
           )
 

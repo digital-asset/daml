@@ -13,6 +13,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore.CheckpointDataAtCounter
@@ -52,7 +53,7 @@ class InMemorySequencerStore(
   private val members = TrieMap[Member, RegisteredMember]()
   private val payloads = new ConcurrentSkipListMap[CantonTimestamp, StoredPayload]()
   private val events = new ConcurrentSkipListMap[CantonTimestamp, StoreEvent[PayloadId]]()
-  private val watermark = new AtomicReference[Option[CantonTimestamp]](None)
+  private val watermark = new AtomicReference[Option[Watermark]](None)
   private val checkpoints =
     TrieMap[SequencerMemberId, ConcurrentSkipListMap[SequencerCounter, CheckpointDataAtCounter]]()
   // using a concurrent hash map for the thread safe computeIfPresent updates
@@ -120,20 +121,31 @@ class InMemorySequencerStore(
       }
     )
 
+  override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SaveWatermarkError, Unit] =
+    EitherT.pure[Future, SaveWatermarkError] {
+      watermark.getAndUpdate {
+        case None => Some(Watermark(ts, online = false))
+        case Some(current) if ts <= current.timestamp => Some(Watermark(ts, online = false))
+        case Some(current) => Some(current)
+      }.discard
+    }
+
   override def saveWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SaveWatermarkError, Unit] =
     EitherT.pure[Future, SaveWatermarkError] {
-      watermark.set(Some(ts))
+      watermark.set(Some(Watermark(ts, online = true)))
     }
 
   override def fetchWatermark(instanceIndex: Int, maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
   ): Future[Option[Watermark]] =
-    Future.successful(watermark.get.map(Watermark(_, online = true)))
+    Future.successful(watermark.get())
 
   override def safeWatermark(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
-    Future.successful(watermark.get)
+    Future.successful(watermark.get.map(_.timestamp))
 
   override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
     Future.unit
@@ -143,7 +155,7 @@ class InMemorySequencerStore(
   ): Future[CantonTimestamp] =
     Future.successful {
       // we're the only sequencer that can write the watermark so just take the provided value
-      watermark.set(now.some)
+      watermark.set(Some(Watermark(now, online = true)))
       now
     }
 
@@ -163,7 +175,7 @@ class InMemorySequencerStore(
         Payload(payloadId, storedPayload.content)
       }
 
-    val watermarkO = watermark.get()
+    val watermarkO = watermark.get().map(_.timestamp)
 
     // if there's no watermark, we can't return any events
     watermarkO.fold[ReadEvents](SafeWatermark(watermarkO)) { watermark =>
@@ -461,7 +473,7 @@ class InMemorySequencerStore(
         !disabledClients.members.contains(member) && registeredFrom <= timestamp
       }.toSeq
       val validEvents = events
-        .headMap(if (watermark < timestamp) watermark else timestamp, true)
+        .headMap(if (watermark.timestamp < timestamp) watermark.timestamp else timestamp, true)
         .asScala
         .toSeq
 

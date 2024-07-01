@@ -58,7 +58,10 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRef
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.SequencerCounterTrackerStore
+import com.digitalasset.canton.store.CursorPrehead.{
+  RequestCounterCursorPrehead,
+  SequencerCounterCursorPrehead,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -2008,7 +2011,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
   /** The latest commitment tick before or at the given time at which it is safe to prune. */
   def safeToPrune(
       requestJournalStore: RequestJournalStore,
-      sequencerCounterTrackerStore: SequencerCounterTrackerStore,
+      requestCounterCursorPrehead: Option[RequestCounterCursorPrehead],
+      sequencerCounterCursorPrehead: Option[SequencerCounterCursorPrehead],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
@@ -2020,7 +2024,11 @@ object AcsCommitmentProcessor extends HasLoggerName {
   ): Future[Option[CantonTimestampSecond]] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val cleanReplayF = SyncDomainEphemeralStateFactory
-      .crashRecoveryPruningBoundInclusive(requestJournalStore, sequencerCounterTrackerStore)
+      .crashRecoveryPruningBoundInclusive(
+        requestCounterCursorPrehead,
+        sequencerCounterCursorPrehead,
+        requestJournalStore,
+      )
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)

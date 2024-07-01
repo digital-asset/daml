@@ -173,7 +173,7 @@ object GrpcSequencerConnectionService {
                 )
                 .leftMap(_.cause)
 
-              sequencerTransportsMap <- transportFactory
+              sequencerTransportsMap = transportFactory
                 .makeTransport(
                   newEndpointsInfo.sequencerConnections,
                   member,

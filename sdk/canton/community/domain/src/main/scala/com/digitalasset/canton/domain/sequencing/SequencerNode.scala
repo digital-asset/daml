@@ -42,7 +42,12 @@ import com.digitalasset.canton.health.{
   LivenessHealthService,
   MutableHealthQuasiComponent,
 }
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  HasCloseContext,
+  Lifecycle,
+  PromiseUnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
@@ -564,6 +569,10 @@ class SequencerNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           )
+          runtimeReadyPromise = new PromiseUnlessShutdown[Unit](
+            "sequencer-runtime-ready",
+            futureSupervisor,
+          )
           sequencer <- EitherT.liftF[Future, String, Sequencer](
             sequencerFactory.create(
               domainId,
@@ -573,6 +582,7 @@ class SequencerNodeBootstrap(
               syncCrypto,
               futureSupervisor,
               config.trafficConfig,
+              runtimeReadyPromise.futureUS,
             )
           )
           domainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
@@ -634,7 +644,7 @@ class SequencerNodeBootstrap(
             None,
             loggerFactory,
             futureSupervisor,
-            sequencer.firstSequencerCounterServeableForSequencer,
+            sequencer.firstSequencerCounterServeableForSequencer, // TODO(#17076): Review this value
           )
           timeTracker = DomainTimeTracker(
             config.timeTracker,
@@ -677,6 +687,7 @@ class SequencerNodeBootstrap(
             ),
             Some(domainOutboxFactory),
             domainLoggerFactory,
+            runtimeReadyPromise,
           )
           _ <- sequencerRuntime.initializeAll()
           // TODO(#14073) subscribe to processor BEFORE sequencer client is created

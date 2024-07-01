@@ -103,7 +103,7 @@ object SequencerConnectClient {
               connection,
               timeouts,
               traceContextPropagation,
-              loggerFactory,
+              loggerFactory.append("sequencer", connection.sequencerAlias.toProtoPrimitive),
             )
           )
       }

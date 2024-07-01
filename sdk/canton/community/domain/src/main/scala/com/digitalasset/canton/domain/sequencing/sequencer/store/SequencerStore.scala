@@ -393,6 +393,8 @@ sealed trait SaveWatermarkError
 object SaveWatermarkError {
   case object WatermarkFlaggedOffline extends SaveWatermarkError
 
+  case object WatermarkFlaggedOnline extends SaveWatermarkError
+
   /** We expect that there is only a single writer for a given watermark that is not written concurrently.
     * If when checking the value we find it is not what we expect, it likely indicates a configuration error
     * causing multiple sequencer processes to be written as the same sequencer node index.
@@ -515,6 +517,13 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Unit]
+
+  /** Reset the watermark to an earlier value, i.e. in case of working as a part of block sequencer.
+    * Also sets the sequencer as offline. If current watermark value is before `ts`, it will be left unchanged.
+    */
+  def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SaveWatermarkError, Unit]
 
   /** Write the watermark that we promise not to write anything earlier than.
     * Does not indicate that there is an event written by this sequencer for this timestamp as there may be no activity
@@ -780,11 +789,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): Future[SequencerSnapshot]
 
-  def initializeFromSnapshot(snapshot: SequencerSnapshot)(implicit
+  def initializeFromSnapshot(initialState: SequencerInitialState)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
   ): EitherT[Future, String, Unit] = {
     import EitherT.right as eitherT
+    val snapshot = initialState.snapshot
     val lastTs = snapshot.lastTs
     for {
       _ <- snapshot.status.members.parTraverse { memberStatus =>
@@ -799,7 +809,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             snapshot.heads.get(memberStatus.member).fold(eitherT[String](Future.unit)) { counter =>
               saveCounterCheckpoint(
                 id,
-                CounterCheckpoint(counter, lastTs, Some(lastTs)),
+                CounterCheckpoint(counter, lastTs, initialState.latestSequencerEventTimestamp),
               ).leftMap(_.toString)
             }
         } yield ()

@@ -88,6 +88,7 @@ class BlockSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
+    runtimeReady: FutureUnlessShutdown[Unit],
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
@@ -115,6 +116,7 @@ class BlockSequencer(
       SequencerMetrics.noop("TODO"), // TODO(#18406)
       loggerFactory,
       unifiedSequencer,
+      runtimeReady,
     )
     with DatabaseSequencerIntegration
     with NamedLogging
@@ -136,7 +138,11 @@ class BlockSequencer(
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
-  private val (killSwitch, localEventsQueue, done) = {
+  override protected def resetWatermarkTo: Option[CantonTimestamp] = {
+    Some(stateManager.getHeadState.block.lastTs)
+  }
+
+  private val (killSwitchF, localEventsQueue, done) = {
     val headState = stateManager.getHeadState
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
 
@@ -154,8 +160,17 @@ class BlockSequencer(
       memberValidator = memberValidator,
     )(CloseContext(cryptoApi))
 
-    val driverSource = blockOrderer
-      .subscribe()(TraceContext.empty)
+    val driverSource = Source
+      .futureSource(runtimeReady.unwrap.map {
+        case UnlessShutdown.AbortedDueToShutdown =>
+          logger.debug("Not initiating subscription to block source due to shutdown")(
+            TraceContext.empty
+          )
+          Source.empty.viaMat(KillSwitches.single)(Keep.right)
+        case UnlessShutdown.Outcome(_) =>
+          logger.debug("Subscribing to block source")(TraceContext.empty)
+          blockOrderer.subscribe()(TraceContext.empty)
+      })
       // Explicit async to make sure that the block processing runs in parallel with the block retrieval
       .async
       .map(updateGenerator.extractBlockEvents)
@@ -175,12 +190,12 @@ class BlockSequencer(
       .map { case Traced(lastTs) =>
         metrics.sequencerClient.handler.delay.updateValue((clock.now - lastTs).toMillis)
       }
-    val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
+    val ((killSwitchF, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
         combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
       },
     )
-    (killSwitch, localEventsQueue, done)
+    (killSwitchF, localEventsQueue, done)
   }
 
   done onComplete {
@@ -630,7 +645,11 @@ class BlockSequencer(
         timeouts.shutdownProcessing,
       ),
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
-      SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
+      AsyncCloseable(
+        "killSwitchF(_.shutdown())",
+        killSwitchF.map(_.shutdown()),
+        timeouts.shutdownProcessing,
+      ),
       SyncCloseable(
         "DatabaseSequencer.onClose()",
         super[DatabaseSequencer].onClosed(),

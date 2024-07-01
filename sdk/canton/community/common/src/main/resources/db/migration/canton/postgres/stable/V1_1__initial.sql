@@ -135,6 +135,9 @@ create table seq_state_manager_events (
 -- instant.
 create index idx_seq_state_manager_events_ts on seq_state_manager_events (ts desc);
 
+-- Index to speed up fetching latest counters (at a certain timestamp).
+create index idx_seq_state_manager_events_member_ts on seq_state_manager_events (member, ts);
+
 -- inclusive lower bound of when events can be read
 -- if empty it means all events from epoch can be read
 -- is updated when sequencer is pruned meaning that earlier events can no longer be read (and likely no longer exist)

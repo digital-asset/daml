@@ -1445,7 +1445,8 @@ class AcsCommitmentProcessorTest
         )
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(0), CantonTimestamp.Epoch)),
+          Some(CursorPrehead(SequencerCounter(0), CantonTimestamp.Epoch)),
           constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1464,14 +1465,13 @@ class AcsCommitmentProcessorTest
         .thenAnswer { (ts: CantonTimestamp, _: TraceContext) =>
           Future.successful(Some(ts.min(CantonTimestamp.Epoch)))
         }
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       for {
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          None,
+          None,
           constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1543,7 +1543,8 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.advancePreheadCleanTo(CursorPrehead(RequestCounter(2), ts2))
         res1 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(2), ts2)),
+          Some(CursorPrehead(SequencerCounter(3), ts3)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1561,7 +1562,8 @@ class AcsCommitmentProcessorTest
         )
         res2 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(2), ts2)),
+          Some(CursorPrehead(SequencerCounter(4), ts4)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1621,7 +1623,8 @@ class AcsCommitmentProcessorTest
         )
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(2), tsCleanRequest)),
+          Some(CursorPrehead(SequencerCounter(4), ts3)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1665,7 +1668,8 @@ class AcsCommitmentProcessorTest
         )
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(2), tsCleanRequest)),
+          Some(CursorPrehead(SequencerCounter(0), ts1)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1749,7 +1753,8 @@ class AcsCommitmentProcessorTest
         )
         res1 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
+          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1760,7 +1765,8 @@ class AcsCommitmentProcessorTest
         () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId))
         res2 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
+          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1771,7 +1777,8 @@ class AcsCommitmentProcessorTest
         () <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId))
         res3 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          sequencerCounterTrackerStore,
+          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
+          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
