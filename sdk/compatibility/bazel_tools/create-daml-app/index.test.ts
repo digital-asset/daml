@@ -199,7 +199,7 @@ beforeAll(async () => {
   await waitOn({ resources: [`tcp:127.0.0.1:${UI_PORT}`] });
 
   // Launch a single browser for all tests.
-  browser = await puppeteer.launch();
+  browser = await puppeteer.launch({ args: ["--no-sandbox"] });
 }, 60_000);
 
 afterAll(async () => {
