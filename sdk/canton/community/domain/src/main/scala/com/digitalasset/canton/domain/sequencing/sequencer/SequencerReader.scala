@@ -35,7 +35,7 @@ import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySeriali
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.CombinedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
@@ -488,6 +488,11 @@ class SequencerReader(
           (nextSequencerCounter + n, event)
         }
         val newReadState = readState.update(readEvents, config.readBatchSize)
+        if (newReadState.nextReadTimestamp < readState.nextReadTimestamp) {
+          ErrorUtil.invalidState(
+            s"Read state is going backwards in time: ${newReadState.changeString(readState)}"
+          )
+        }
         if (logger.underlying.isDebugEnabled) {
           newReadState.changeString(readState).foreach(logger.debug(_))
         }
@@ -533,24 +538,26 @@ class SequencerReader(
 
     private def getTrafficReceipt(senderMemberId: SequencerMemberId, timestamp: CantonTimestamp)(
         implicit traceContext: TraceContext
-    ): Future[Option[TrafficReceipt]] = {
-      if (registeredMember.memberId == senderMemberId) { // traffic receipt is only for the sender
-        trafficConsumedStoreO match { // and only if we have traffic management enabled
-          case Some(trafficConsumedStore) =>
-            trafficConsumedStore.lookupAt(member, timestamp).map {
-              case Some(trafficConsumed) => Some(trafficConsumed.toTrafficReceipt)
-              case None =>
-                logger.debug(
-                  s"Traffic consumed not found for member $member, receipt will contain init value"
-                )
-                TrafficConsumed.init(member).toTrafficReceipt.some
-            }
-          case None =>
-            Future.successful(None)
+    ): Future[Option[TrafficReceipt]] = member match {
+      case _: SequencerId => Future.successful(None)
+      case _ =>
+        if (registeredMember.memberId == senderMemberId) { // traffic receipt is only for the sender
+          trafficConsumedStoreO match { // and only if we have traffic management enabled
+            case Some(trafficConsumedStore) =>
+              trafficConsumedStore.lookupAt(member, timestamp).map {
+                case Some(trafficConsumed) => Some(trafficConsumed.toTrafficReceipt)
+                case None =>
+                  logger.debug(
+                    s"Traffic consumed not found for member $member, receipt will contain init value"
+                  )
+                  TrafficConsumed.init(member).toTrafficReceipt.some
+              }
+            case None =>
+              Future.successful(None)
+          }
+        } else {
+          Future.successful(None)
         }
-      } else {
-        Future.successful(None)
-      }
     }
 
     /** Takes our stored event and turns it back into a real sequenced event.

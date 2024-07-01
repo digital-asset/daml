@@ -49,10 +49,13 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     performUnlessClosingF(functionFullName) {
       for {
+        requestCounterCursorPrehead <- requestJournalStore.preheadClean
+        sequencerCounterCursorPrehead <- sequencerCounterTrackerStore.preheadSequencerCounter
         safeToPruneTsO <-
           AcsCommitmentProcessor.safeToPrune(
             requestJournalStore,
-            sequencerCounterTrackerStore,
+            requestCounterCursorPrehead,
+            sequencerCounterCursorPrehead,
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,

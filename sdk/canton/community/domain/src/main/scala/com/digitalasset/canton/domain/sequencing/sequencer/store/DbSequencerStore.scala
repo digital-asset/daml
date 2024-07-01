@@ -596,6 +596,57 @@ class DbSequencerStore(
     )
   }
 
+  override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SaveWatermarkError, Unit] = {
+    import SaveWatermarkError.*
+
+    def save: DBIOAction[Int, NoStream, Effect.Write with Effect.Transactional] =
+      profile match {
+        case _: Postgres =>
+          sqlu"""insert into sequencer_watermarks (node_index, watermark_ts, sequencer_online)
+               values ($instanceIndex, $ts, false)
+               on conflict (node_index) do
+                 update set watermark_ts = $ts, sequencer_online = ${false}
+                 where sequencer_watermarks.watermark_ts >= $ts
+               """
+        case _: H2 =>
+          sqlu"""merge into sequencer_watermarks using dual
+                  on (node_index = $instanceIndex)
+                  when matched and watermark_ts >= $ts then
+                    update set watermark_ts = $ts, sequencer_online = ${false}
+                  when not matched then
+                    insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${false})
+                """
+        case _: Oracle =>
+          sqlu"""merge into sequencer_watermarks using dual
+                  on (node_index = $instanceIndex)
+                  when matched and watermark_ts >= $ts then
+                    update set watermark_ts = $ts, sequencer_online = ${false}
+                  when not matched then
+                    insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${false})
+                """
+      }
+
+    for {
+      _ <- EitherT.right(storage.update(save, functionFullName))
+      updatedWatermarkO <- EitherT.right(fetchWatermark(instanceIndex))
+      // we should have just inserted or updated a watermark, so should certainly exist
+      updatedWatermark <- EitherT.fromEither[Future](
+        updatedWatermarkO.toRight(
+          WatermarkUnexpectedlyChanged("The watermark we should have written has been removed")
+        )
+      ): EitherT[Future, SaveWatermarkError, Watermark]
+      _ = {
+        if (updatedWatermark.online || updatedWatermark.timestamp != ts) {
+          logger.debug(
+            s"Watermark was not reset to $ts as it is already set to an earlier date, kept ${updatedWatermark}"
+          )
+        }
+      }
+    } yield ()
+  }
+
   override def saveWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SaveWatermarkError, Unit] = {
@@ -746,7 +797,6 @@ class DbSequencerStore(
   )(implicit
       traceContext: TraceContext
   ): Future[ReadEvents] = {
-
     // fromTimestampO is an exclusive lower bound if set
     // to make inclusive we add a microsecond (the smallest unit)
     // this comparison can then be used for the absolute lower bound if unset

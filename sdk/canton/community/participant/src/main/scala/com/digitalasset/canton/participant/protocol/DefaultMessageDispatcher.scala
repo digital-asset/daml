@@ -10,7 +10,10 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.protocol.MessageDispatcher.RequestProcessors
+import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
+  ParticipantTopologyProcessor,
+  RequestProcessors,
+}
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -45,11 +48,7 @@ class DefaultMessageDispatcher(
     override protected val participantId: ParticipantId,
     override protected val requestTracker: RequestTracker,
     override protected val requestProcessors: RequestProcessors,
-    override protected val topologyProcessor: (
-        SequencerCounter,
-        SequencedTime,
-        Traced[List[DefaultOpenEnvelope]],
-    ) => HandlerResult,
+    override protected val topologyProcessor: ParticipantTopologyProcessor,
     override protected val trafficProcessor: TrafficControlProcessor,
     override protected val acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
     override protected val requestCounterAllocator: RequestCounterAllocator,
@@ -175,7 +174,7 @@ class DefaultMessageDispatcher(
     for {
       // Signal to the topology processor that all messages up to timestamp `ts` have arrived
       // Publish the empty ACS change only afterwards as this may trigger an ACS commitment computation which accesses the topology state.
-      _unit <- runAsyncResult(topologyProcessor(sc, SequencedTime(ts), Traced(List.empty)))
+      _unit <- runAsyncResult(topologyProcessor(sc, SequencedTime(ts), None, Traced(List.empty)))
     } yield {
       // Make sure that the tick is not lost
       requestTracker.tick(sc, ts)

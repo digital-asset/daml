@@ -235,15 +235,17 @@ class SequencerWriter(
     * to externally restart the sequencer.
     */
   def startOrLogError(
-      initialSnapshot: Option[SequencerSnapshot]
+      initialSnapshot: Option[SequencerInitialState],
+      resetWatermarkTo: => Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] =
-    start(initialSnapshot).fold(
+    start(initialSnapshot, resetWatermarkTo).fold(
       err => logger.error(s"Failed to startup sequencer writer: $err"),
       identity,
     )
 
   def start(
-      initialSnapshot: Option[SequencerSnapshot] = None
+      initialSnapshot: Option[SequencerInitialState] = None,
+      resetWatermarkTo: => Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, WriterStartupError, Unit] =
     performUnlessClosingEitherT[WriterStartupError, Unit](
       functionFullName,
@@ -280,8 +282,19 @@ class SequencerWriter(
                       _ <- expectedCommitMode
                         .fold(EitherTUtil.unit[String])(writerStore.validateCommitMode)
                         .leftMap(WriterStartupError.BadCommitMode)
+                      resetWatermarkToO = resetWatermarkTo
+                      _ <- {
+                        resetWatermarkToO
+                          .fold(EitherTUtil.unit[String]) { watermark =>
+                            logger.debug(
+                              s"Resetting the watermark to an externally passed value of $watermark"
+                            )
+                            writerStore.resetWatermark(watermark).leftMap(_.toString)
+                          }
+                          .leftMap(WriterStartupError.WatermarkResetError)
+                      }
                       onlineTimestamp <- EitherT.right[WriterStartupError](
-                        runRecovery(writerStore)
+                        runRecovery(writerStore, resetWatermarkToO)
                       )
                       _ <- EitherT.right[WriterStartupError](waitForOnline(onlineTimestamp))
                     } yield ()
@@ -334,12 +347,13 @@ class SequencerWriter(
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def runRecovery(
-      store: SequencerWriterStore
+      store: SequencerWriterStore,
+      resetWatermarkTo: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] =
     for {
       _ <- store.deleteEventsPastWatermark()
-      onlineTimestamp <- store.goOnline(clock.now)
-      _ = if (clock.isSimClock) {
+      onlineTimestamp <- store.goOnline(resetWatermarkTo.getOrElse(clock.now))
+      _ = if (clock.isSimClock && clock.now < onlineTimestamp) {
         logger.debug(s"The sequencer will not start unless sim clock moves to $onlineTimestamp")
         logger.debug(
           s"In order to prevent deadlocking in tests the clock's timestamp will now be advanced to $onlineTimestamp"
@@ -415,7 +429,7 @@ class SequencerWriter(
             FutureUtil.doNotAwait(
               // Wait for the writer store to be closed before re-starting, otherwise we might end up with
               // concurrent write stores trying to connect to the DB within the same sequencer node
-              closed.flatMap(_ => startOrLogError(None)(traceContext)),
+              closed.flatMap(_ => startOrLogError(None, None)(traceContext)),
               "SequencerWriter recovery",
             )
           } else {

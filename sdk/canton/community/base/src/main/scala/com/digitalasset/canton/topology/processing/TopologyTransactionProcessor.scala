@@ -16,14 +16,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   ProtocolMessage,
   TopologyTransactionsBroadcast,
 }
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.protocol.{Deliver, DeliverError}
+import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, Deliver, DeliverError}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.{
   CachingDomainTopologyClient,
@@ -211,20 +211,18 @@ class TopologyTransactionProcessor(
   def processEnvelopes(
       sc: SequencerCounter,
       ts: SequencedTime,
+      topologyTimestampO: Option[CantonTimestamp],
       envelopes: Traced[List[DefaultOpenEnvelope]],
   ): HandlerResult =
     envelopes.withTraceContext { implicit traceContext => env =>
-      internalProcessEnvelopes(
-        sc,
-        ts,
-        extractTopologyUpdatesAndValidateEnvelope(env),
-      )
+      val broadcasts = validateEnvelopes(sc, ts, topologyTimestampO, env)
+      internalProcessEnvelopes(sc, ts, broadcasts)
     }
 
   private def internalProcessEnvelopes(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
-      updatesF: FutureUnlessShutdown[List[TopologyTransactionsBroadcast]],
+      updates: List[TopologyTransactionsBroadcast],
   )(implicit traceContext: TraceContext): HandlerResult = {
     def computeEffectiveTime(
         updates: List[TopologyTransactionsBroadcast]
@@ -250,7 +248,6 @@ class TopologyTransactionProcessor(
     }
 
     for {
-      updates <- updatesF
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
         s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter ${sc} at ${sequencedTime}",
@@ -297,28 +294,27 @@ class TopologyTransactionProcessor(
         MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
           _.withTraceContext { implicit traceContext =>
             {
-              // TODO(#13883) Topology transactions must not specify a topology timestamp. Check this.
-              case Deliver(sc, ts, _, _, batch, _, _) =>
+              case Deliver(sc, ts, _, _, batch, topologyTimestampO, _) =>
                 logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
                 val sequencedTime = SequencedTime(ts)
-                val transactionsF = extractTopologyUpdatesAndValidateEnvelope(
-                  ProtocolMessage.filterDomainsEnvelopes(
-                    batch,
-                    domainId,
-                    (wrongMsgs: List[DefaultOpenEnvelope]) =>
-                      TopologyManagerError.TopologyManagerAlarm
-                        .Warn(
-                          s"received messages with wrong domain ids: ${wrongMsgs.map(_.protocolMessage.domainId)}"
-                        )
-                        .report(),
-                  )
+                val envelopesForRightDomain = ProtocolMessage.filterDomainsEnvelopes(
+                  batch,
+                  domainId,
+                  (wrongMsgs: List[DefaultOpenEnvelope]) =>
+                    TopologyManagerError.TopologyManagerAlarm
+                      .Warn(
+                        s"received messages with wrong domain ids: ${wrongMsgs.map(_.protocolMessage.domainId)}"
+                      )
+                      .report(),
                 )
-                internalProcessEnvelopes(sc, sequencedTime, transactionsF)
+                val broadcasts =
+                  validateEnvelopes(sc, sequencedTime, topologyTimestampO, envelopesForRightDomain)
+                internalProcessEnvelopes(sc, sequencedTime, broadcasts)
               case err: DeliverError =>
                 internalProcessEnvelopes(
                   err.counter,
                   SequencedTime(err.timestamp),
-                  FutureUnlessShutdown.pure(Nil),
+                  Nil,
                 )
             }
           }
@@ -331,6 +327,50 @@ class TopologyTransactionProcessor(
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         TopologyTransactionProcessor.this.subscriptionStartsAt(start, domainTimeTracker)
     }
+
+  /** Checks that topology broadcast envelopes satisfy the following conditions:
+    * <ol>
+    *   <li>the only recipient is AllMembersOfDomain</li>
+    *   <li>the topology timestamp is not specified</li>
+    * </ol>
+    *  If any of the conditions are violated, a topology manager warning is logged and the corresponding envelope is skipped.
+    *  @return the topology broadcasts that satisfy the validation conditions
+    */
+  private def validateEnvelopes(
+      sc: SequencerCounter,
+      sequencedTime: SequencedTime,
+      topologyTimestampO: Option[CantonTimestamp],
+      envelopes: List[DefaultOpenEnvelope],
+  )(implicit errorLoggingContext: ErrorLoggingContext): List[TopologyTransactionsBroadcast] = {
+    val (invalidRecipients, topologyBroadcasts) = extractTopologyUpdatesWithValidRecipients(
+      envelopes
+    )
+    if (invalidRecipients.nonEmpty) {
+      TopologyManagerError.TopologyManagerAlarm
+        .Warn(
+          s"Discarding a topology broadcast with sc=$sc at $sequencedTime with invalid recipients: $invalidRecipients"
+        )
+        .report()
+    }
+    topologyTimestampO.filter(_ => topologyBroadcasts.nonEmpty) match {
+      case Some(topologyTimestamp) =>
+        // Skip processing broadcasts with an explicit topology timestamp, because:
+        // 1. this could cause the group resolution to be done with the wrong timestamp
+        // 2. which could lead to not all members active at sequenced time to receive the topology broadcast
+        // 3. which then results in a ledger fork
+        TopologyManagerError.TopologyManagerAlarm
+          .Warn(
+            s"Discarding a topology broadcast with sc=$sc at $sequencedTime with explicit topology timestamp $topologyTimestamp"
+          )
+          .report()
+
+        // we return the empty list, to signify that we filtered out all invalid envelopes
+        Nil
+      case None =>
+        topologyBroadcasts
+    }
+
+  }
 
   override def onClosed(): Unit = {
     Lifecycle.close(
@@ -366,14 +406,22 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[EffectiveTime] =
     TopologyTimestampPlusEpsilonTracker.initialize(timeAdjuster, store, processorTs)
 
-  private def extractTopologyUpdatesAndValidateEnvelope(
+  /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
+  private def extractTopologyUpdatesWithValidRecipients(
       envelopes: List[DefaultOpenEnvelope]
-  ): FutureUnlessShutdown[List[TopologyTransactionsBroadcast]] = {
-    FutureUnlessShutdown.pure(
-      envelopes
-        .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcast])
-        .map(_.protocolMessage)
-    )
+  ): (List[DefaultOpenEnvelope], List[TopologyTransactionsBroadcast]) = {
+    envelopes
+      .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcast])
+      .partitionMap(env => {
+        Either.cond(
+          // it's important that we only check that AllMembersOfDomain is existent and not the only recipient.
+          // Otherwise an attacker could add a node as bcc recipient, which only that node would see and subsequently
+          // discard the topology transaction, while all other nodes would happily process it and therefore lead to a ledger fork.
+          env.recipients.allRecipients.contains(AllMembersOfDomain),
+          env.protocolMessage,
+          env,
+        )
+      })
   }
 
   private[processing] def process(

@@ -109,6 +109,7 @@ class BatchingParallelIngestionPipeSpec
         })
         ()
       },
+      inputSource = Source(Iterator.continually(util.Random.nextInt()).take(1000).toList),
     ).map { case (_, _, err) =>
       // The first and last batches can be smaller than `MaxBatchSize`
       // so we assert the average batch size instead of the sizes of individual batches

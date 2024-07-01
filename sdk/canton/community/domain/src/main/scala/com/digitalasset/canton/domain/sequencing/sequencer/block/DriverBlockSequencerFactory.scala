@@ -14,6 +14,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerF
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.environment.CantonNodeParameters
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
@@ -73,6 +74,7 @@ class DriverBlockSequencerFactory[C](
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
+      runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
       materializer: Materializer,
@@ -110,6 +112,7 @@ class DriverBlockSequencerFactory[C](
       metrics,
       domainLoggerFactory,
       unifiedSequencer = nodeParameters.useUnifiedSequencer,
+      runtimeReady = runtimeReady,
     )
 }
 

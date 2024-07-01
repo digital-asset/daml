@@ -131,7 +131,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       clock.advanceTo(ts(3))
       setupNextGoOnlineTimestamp(ts(4))
 
-      val startET = writer.start()
+      val startET = writer.start(None, None)
 
       for {
         _ <- allowScheduledFuturesToComplete
@@ -163,7 +163,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       )
 
       for {
-        _ <- valueOrFail(writer.start())("Starting writer")
+        _ <- valueOrFail(writer.start(None, None))("Starting writer")
         _ = writer.isRunning shouldBe true
         // set the next goOffline timestamp to way in the future to delay the recovery so we can run assertions
         _ = setupNextGoOnlineTimestamp(ts(10))
