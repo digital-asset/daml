@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.platform.index
 
+import cats.data.OptionT
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
@@ -45,6 +47,7 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -343,9 +346,43 @@ private[index] class IndexServiceImpl(
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    transactionsReader
-      .lookupFlatTransactionById(transactionId.unwrap, requestingParties)
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    implicit val ec = directEc
+    OptionT(
+      transactionsReader.lookupFlatTransactionById(transactionId.unwrap, requestingParties)
+    )
+      .orElse(
+        OptionT(
+          transactionsReader
+            .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
+        ).map { tree =>
+          logger.debug(
+            s"Transaction not found in flat transaction lookup for transactionId $transactionId and requestingParties $requestingParties, falling back to transaction tree lookup."
+          )
+          // When a command submission completes successfully,
+          // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding flat transaction that either:
+          // * has only non-consuming events
+          // * has only events of contracts which have stakeholders that are not amongst the requestingParties
+          // In these situations, we fallback to a transaction tree lookup and populate the flat transaction response
+          // with its details but no events.
+          GetTransactionResponse(
+            tree.transaction.map(transaction =>
+              Transaction(
+                updateId = transaction.updateId,
+                commandId = transaction.commandId,
+                workflowId = transaction.workflowId,
+                effectiveAt = transaction.effectiveAt,
+                events = Seq.empty,
+                offset = transaction.offset,
+                domainId = transaction.domainId,
+                traceContext = transaction.traceContext,
+              )
+            )
+          )
+        }
+      )
+      .value
+  }
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
