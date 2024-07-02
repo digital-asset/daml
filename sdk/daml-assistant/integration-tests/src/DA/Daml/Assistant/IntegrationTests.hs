@@ -102,7 +102,7 @@ damlStart tmpDir disableUpgradeValidation = do
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
     writeFileUTF8 (projDir </> "daml.yaml") $
-        unlines
+        unlines $
             [ "sdk-version: " <> sdkVersion
             , "name: assistant-integration-tests"
             , "version: \"1.0\""
@@ -112,7 +112,6 @@ damlStart tmpDir disableUpgradeValidation = do
             , "  - daml-stdlib"
             , "  - daml3-script"
             -- TODO(#14706): remove build-options once the default major version is 2
-            , "build-options: [--target=2.1]"
             , "init-script: Main:init"
             , "script-options:"
             , "  - --output-file"
@@ -123,7 +122,9 @@ damlStart tmpDir disableUpgradeValidation = do
             , "    npm-scope: daml.js"
             , "  java:"
             , "    output-directory: ui/java"
-            ]
+            , "build-options:"
+            , "- --target=2.1"
+            ] ++ ["- --warn-bad-interface-instances=yes" |  disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"
@@ -535,7 +536,9 @@ cantonTests = testGroup "daml sandbox"
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
             --   the REPL output is full of color codes.
-            Just res0 <- pure (find (isInfixOf "res0") outputLines)
+            res0 <- case (find (isInfixOf "res0") outputLines) of
+                      Just res0 -> pure res0
+                      _ -> fail output
             assertBool "sandbox participant is not running" ("true" `isInfixOf` res0)
             Just res1 <- pure (find (isInfixOf "res1") outputLines)
             assertBool "local domain is not running" ("true" `isInfixOf` res1)

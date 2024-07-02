@@ -6,6 +6,7 @@ version: 0.0.1
 build-options:
   - --target=2.1
   - --enable-interfaces=yes
+  - --warn-bad-interface-instances=yes
 # script-build-options-end
 # script-dependencies-begin
 dependencies:
