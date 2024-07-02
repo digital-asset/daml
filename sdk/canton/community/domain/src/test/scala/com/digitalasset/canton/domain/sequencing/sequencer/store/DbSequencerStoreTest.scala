@@ -27,6 +27,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         MaxInClauseSize,
         timeouts,
         loggerFactory,
+        unifiedSequencer = testedUseUnifiedSequencer,
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -36,6 +37,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         MaxInClauseSize,
         timeouts,
         loggerFactory,
+        unifiedSequencer = testedUseUnifiedSequencer,
       )
     )
   }

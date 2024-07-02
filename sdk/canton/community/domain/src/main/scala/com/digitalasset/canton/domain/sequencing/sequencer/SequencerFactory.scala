@@ -85,6 +85,8 @@ abstract class DatabaseSequencerFactory(
         DefaultMaxSqlInListSize,
         timeouts,
         loggerFactory,
+        unifiedSequencer =
+          true, // // TODO(#18401): does not affect the usage below, but should be correctly set
         // At the moment this store instance is only used for the sequencer initialization,
         // if it is retrying a db operation and the factory is closed, the store will be closed as well;
         // if request succeeds, the store will no be retrying and doesn't need to be closed

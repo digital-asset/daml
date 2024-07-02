@@ -18,6 +18,8 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerStartupMode,
 }
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
+import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import io.opentelemetry.api.trace.Tracer
@@ -91,6 +93,8 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             NoOpMetricsFactory,
           )
         }
+        mutableLedgerEndCache = MutableLedgerEndCache()
+        stringInterningView = new StringInterningView(loggerFactory)
         (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
@@ -101,7 +105,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
               executionContext,
               tracer,
               loggerFactory,
-            )
+            )(mutableLedgerEndCache, stringInterningView)
             .acquire()
 
         // Create an indexer and immediately start it

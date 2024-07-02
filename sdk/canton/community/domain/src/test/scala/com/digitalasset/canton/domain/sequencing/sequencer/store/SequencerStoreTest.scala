@@ -461,7 +461,7 @@ trait SequencerStoreTest
     }
 
     "save payloads" should {
-      "return an error if there is a conflicting id" in {
+      "return an error if there is a conflicting id for database sequencer" onlyRunWhen (!testedUseUnifiedSequencer) in {
         val env = Env()
         val Seq(p1, p2, p3) =
           0.until(3).map(n => Payload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
@@ -476,6 +476,23 @@ trait SequencerStoreTest
             env.store.savePayloads(NonEmpty(Seq, p2, p3), instanceDiscriminator2)
           )("savePayloads2")
         } yield error shouldBe SavePayloadsError.ConflictingPayloadId(p2.id, instanceDiscriminator1)
+      }
+
+      "succeed on a conflicting payload id for unified sequencer" onlyRunWhen (testedUseUnifiedSequencer) in {
+        val env = Env()
+        val Seq(p1, p2, p3) =
+          0.until(3).map(n => Payload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
+
+        // we'll first write p1 and p2 that should work
+        // then write p2 and p3 with a separate instance discriminator which should fail due to a conflicting id
+        for {
+          _ <- valueOrFail(env.store.savePayloads(NonEmpty(Seq, p1, p2), instanceDiscriminator1))(
+            "savePayloads1"
+          )
+          _ <- valueOrFail(
+            env.store.savePayloads(NonEmpty(Seq, p2, p3), instanceDiscriminator2)
+          )("savePayloads2")
+        } yield succeed
       }
     }
 
@@ -1141,6 +1158,21 @@ trait SequencerStoreTest
             Watermark(ts(5), online = true)
           ) // ts(5) was not touched and still online
           watermark2 shouldBe Some(Watermark(ts(4), online = false)) // ts(5) was reset and offline
+        }
+      }
+    }
+
+    "deleteEventsPastWatermark" should {
+      "return the watermark used for the deletion" in {
+        val testWatermark = CantonTimestamp.assertFromLong(1719841168208718L)
+        val env = Env()
+        import env.*
+
+        for {
+          _ <- saveWatermark(testWatermark).valueOrFail("saveWatermark")
+          watermark <- store.deleteEventsPastWatermark(0)
+        } yield {
+          watermark shouldBe Some(testWatermark)
         }
       }
     }

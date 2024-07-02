@@ -30,6 +30,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerPruningStatus,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
@@ -54,6 +55,7 @@ class DbSequencerBlockStore(
     enableAdditionalConsistencyChecks: Boolean,
     private val checkedInvariant: Option[Member],
     override protected val loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
 )(implicit override protected val executionContext: ExecutionContext)
     extends SequencerBlockStore
     with DbStore {
@@ -74,7 +76,19 @@ class DbSequencerBlockStore(
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     storage.query(
       for {
-        blockInfoO <- readLatestBlockInfo()
+        blockInfoO <- {
+          if (unifiedSequencer) {
+            for {
+              watermark <- safeWaterMarkDBIO
+              blockInfoO <- watermark match {
+                case Some(watermark) => findBlockContainingTimestamp(watermark)
+                case None => readLatestBlockInfo()
+              }
+            } yield blockInfoO
+          } else {
+            readLatestBlockInfo()
+          }
+        }
         state <- blockInfoO match {
           case None => DBIO.successful(BlockEphemeralState.empty)
           case Some(blockInfo) =>
@@ -92,16 +106,32 @@ class DbSequencerBlockStore(
       functionFullName,
     )
 
+  private def safeWaterMarkDBIO: DBIOAction[Option[CantonTimestamp], NoStream, Effect.Read] = {
+    val query = storage.profile match {
+      case _: H2 | _: Postgres =>
+        // TODO(#18401): Below only works for a single instance database sequencer
+        sql"select min(watermark_ts) from sequencer_watermarks"
+      case _: Oracle =>
+        sql"select min(watermark_ts) from sequencer_watermarks"
+    }
+    // `min` may return null that is wrapped into None
+    query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
+  }
+
+  private def findBlockContainingTimestamp(
+      timestamp: CantonTimestamp
+  ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
+    (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
+      .as[BlockInfo]
+      .headOption
+
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): EitherT[Future, InvalidTimestamp, BlockEphemeralState] =
     EitherT(
       storage.query(
         for {
-          heightAndTimestamp <-
-            (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
-              .as[BlockInfo]
-              .headOption
+          heightAndTimestamp <- findBlockContainingTimestamp(timestamp)
           state <- heightAndTimestamp match {
             case None => DBIO.successful(Left(InvalidTimestamp(timestamp)))
             case Some(block) => readAtBlock(block).map(Right.apply)

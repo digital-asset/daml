@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
+import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
@@ -174,7 +175,7 @@ class DatabaseSequencer(
 
   protected val memberValidator: SequencerMemberValidator = store
 
-  protected def resetWatermarkTo: Option[CantonTimestamp] = None
+  protected def resetWatermarkTo: ResetWatermark = SequencerWriter.ResetWatermarkToClockNow
 
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>

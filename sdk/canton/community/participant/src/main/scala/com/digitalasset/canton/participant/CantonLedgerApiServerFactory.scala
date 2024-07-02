@@ -130,6 +130,7 @@ class CantonLedgerApiServerFactory(
           futureSupervisor = futureSupervisor,
           parameters = parameters,
           excludedPackageIds = excludedPackageIds,
+          ledgerApiStore = participantNodePersistentState.map(_.ledgerApiStore),
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message

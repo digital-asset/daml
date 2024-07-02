@@ -567,10 +567,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** Delete all events that are ahead of the watermark of this sequencer.
     * These events will not have been read and should be removed before returning the sequencer online.
     * Should not be called alongside updating the watermark for this sequencer and only while the sequencer is offline.
+    * Returns the watermark that was used for the deletion.
     */
   def deleteEventsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): Future[Option[CantonTimestamp]]
 
   /** Save a checkpoint that as of a certain timestamp the member has this counter value.
     * Any future subscriptions can then use this as a starting point for serving their event stream rather than starting from 0.
@@ -827,10 +828,16 @@ object SequencerStore {
       maxInClauseSize: PositiveNumeric[Int],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      unifiedSequencer: Boolean,
       overrideCloseContext: Option[CloseContext] = None,
   )(implicit executionContext: ExecutionContext): SequencerStore =
     storage match {
-      case _: MemoryStorage => new InMemorySequencerStore(protocolVersion, loggerFactory)
+      case _: MemoryStorage =>
+        new InMemorySequencerStore(
+          protocolVersion,
+          unifiedSequencer = unifiedSequencer,
+          loggerFactory,
+        )
       case dbStorage: DbStorage =>
         new DbSequencerStore(
           dbStorage,
@@ -838,6 +845,7 @@ object SequencerStore {
           maxInClauseSize,
           timeouts,
           loggerFactory,
+          unifiedSequencer = unifiedSequencer,
           overrideCloseContext,
         )
     }

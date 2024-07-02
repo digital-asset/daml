@@ -14,6 +14,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
 import com.digitalasset.canton.domain.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
@@ -148,6 +149,7 @@ class SequencerWriter(
       maxSqlInListSize,
       timeouts,
       loggerFactory,
+      unifiedSequencer = unifiedSequencer,
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
       overrideCloseContext = Some(this.closeContext),
@@ -236,7 +238,7 @@ class SequencerWriter(
     */
   def startOrLogError(
       initialSnapshot: Option[SequencerInitialState],
-      resetWatermarkTo: => Option[CantonTimestamp],
+      resetWatermarkTo: => ResetWatermark,
   )(implicit traceContext: TraceContext): Future[Unit] =
     start(initialSnapshot, resetWatermarkTo).fold(
       err => logger.error(s"Failed to startup sequencer writer: $err"),
@@ -244,8 +246,9 @@ class SequencerWriter(
     )
 
   def start(
+      // TODO(#18401): Move initialization from snapshot into the sequencer factory
       initialSnapshot: Option[SequencerInitialState] = None,
-      resetWatermarkTo: => Option[CantonTimestamp],
+      resetWatermarkTo: => ResetWatermark,
   )(implicit traceContext: TraceContext): EitherT[Future, WriterStartupError, Unit] =
     performUnlessClosingEitherT[WriterStartupError, Unit](
       functionFullName,
@@ -282,19 +285,21 @@ class SequencerWriter(
                       _ <- expectedCommitMode
                         .fold(EitherTUtil.unit[String])(writerStore.validateCommitMode)
                         .leftMap(WriterStartupError.BadCommitMode)
-                      resetWatermarkToO = resetWatermarkTo
+                      resetWatermarkToValue = resetWatermarkTo
                       _ <- {
-                        resetWatermarkToO
-                          .fold(EitherTUtil.unit[String]) { watermark =>
+                        (resetWatermarkToValue match {
+                          case SequencerWriter.ResetWatermarkToClockNow |
+                              SequencerWriter.DoNotResetWatermark =>
+                            EitherT.pure[Future, String](())
+                          case SequencerWriter.ResetWatermarkToTimestamp(timestamp) =>
                             logger.debug(
-                              s"Resetting the watermark to an externally passed value of $watermark"
+                              s"Resetting the watermark to the externally passed timestamp of $timestamp"
                             )
-                            writerStore.resetWatermark(watermark).leftMap(_.toString)
-                          }
-                          .leftMap(WriterStartupError.WatermarkResetError)
+                            writerStore.resetWatermark(timestamp).leftMap(_.toString)
+                        }).leftMap(WriterStartupError.WatermarkResetError)
                       }
                       onlineTimestamp <- EitherT.right[WriterStartupError](
-                        runRecovery(writerStore, resetWatermarkToO)
+                        runRecovery(writerStore, resetWatermarkToValue)
                       )
                       _ <- EitherT.right[WriterStartupError](waitForOnline(onlineTimestamp))
                     } yield ()
@@ -348,11 +353,23 @@ class SequencerWriter(
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def runRecovery(
       store: SequencerWriterStore,
-      resetWatermarkTo: Option[CantonTimestamp],
+      resetWatermarkTo: ResetWatermark,
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] =
     for {
-      _ <- store.deleteEventsPastWatermark()
-      onlineTimestamp <- store.goOnline(resetWatermarkTo.getOrElse(clock.now))
+      pastWatermarkO <- store.deleteEventsPastWatermark()
+      goOnlineAt = resetWatermarkTo match {
+        case SequencerWriter.ResetWatermarkToClockNow =>
+          clock.now
+        case SequencerWriter.ResetWatermarkToTimestamp(timestamp) =>
+          timestamp
+        case SequencerWriter.DoNotResetWatermark =>
+          // Used in unified sequencer mode only, do not jump to now
+          // the default value ensures that we are not ahead of BlockSequencer's timestamps, when rehydrating
+          pastWatermarkO.getOrElse(CantonTimestamp.MinValue)
+      }
+      onlineTimestamp <- store.goOnline(
+        goOnlineAt
+      ) // actual online timestamp depends on other instances
       _ = if (clock.isSimClock && clock.now < onlineTimestamp) {
         logger.debug(s"The sequencer will not start unless sim clock moves to $onlineTimestamp")
         logger.debug(
@@ -411,7 +428,7 @@ class SequencerWriter(
             .getAndSet(None)
             .parTraverse_(_.close())
             .recover { case NonFatal(e) =>
-              logger.debug("Failed to close running writer", e)
+              logger.debug("Running writer will be recovered, due to non-fatal error:", e)
             }
 
           // determine whether we can run recovery or not
@@ -429,7 +446,9 @@ class SequencerWriter(
             FutureUtil.doNotAwait(
               // Wait for the writer store to be closed before re-starting, otherwise we might end up with
               // concurrent write stores trying to connect to the DB within the same sequencer node
-              closed.flatMap(_ => startOrLogError(None, None)(traceContext)),
+              closed.flatMap(_ =>
+                startOrLogError(None, SequencerWriter.DoNotResetWatermark)(traceContext)
+              ),
               "SequencerWriter recovery",
             )
           } else {
@@ -515,5 +534,10 @@ object SequencerWriter {
       unifiedSequencer = unifiedSequencer,
     )
   }
+
+  sealed trait ResetWatermark
+  final case object DoNotResetWatermark extends ResetWatermark
+  final case object ResetWatermarkToClockNow extends ResetWatermark
+  final case class ResetWatermarkToTimestamp(timestamp: CantonTimestamp) extends ResetWatermark
 
 }

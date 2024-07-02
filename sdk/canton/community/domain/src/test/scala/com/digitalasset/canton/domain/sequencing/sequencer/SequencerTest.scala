@@ -73,7 +73,11 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       Some(parallelExecutionContext),
     )
     private val materializer = implicitly[Materializer]
-    val store = new InMemorySequencerStore(testedProtocolVersion, loggerFactory)
+    val store = new InMemorySequencerStore(
+      protocolVersion = testedProtocolVersion,
+      unifiedSequencer = testedUseUnifiedSequencer,
+      loggerFactory = loggerFactory,
+    )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto: DomainSyncCryptoClient = valueOrFail(
       TestingTopology(sequencerGroup =

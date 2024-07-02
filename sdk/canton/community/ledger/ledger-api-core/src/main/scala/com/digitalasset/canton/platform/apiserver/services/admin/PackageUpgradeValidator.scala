@@ -32,29 +32,29 @@ class PackageUpgradeValidator(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  def validateUpgrade(upgradingPackage: (Ref.PackageId, Ast.Package))(implicit
+  def validateUpgrade(uploadedPackage: (Ref.PackageId, Ast.Package))(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
     val packageMap = getPackageMap(loggingContext)
-    val (upgradingPackageId, upgradingPackageAst) = upgradingPackage
-    val optUpgradingDar = Some(upgradingPackage)
+    val (uploadedPackageId, uploadedPackageAst) = uploadedPackage
+    val optUpgradingDar = Some(uploadedPackage)
     logger.info(
-      s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}."
+      s"Uploading DAR file for $uploadedPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
-    existingVersionedPackageId(upgradingPackageAst, packageMap) match {
-      case Some(uploadedPackageId) =>
-        if (uploadedPackageId == upgradingPackageId) {
+    existingVersionedPackageId(uploadedPackageAst, packageMap) match {
+      case Some(existingPackageId) =>
+        if (existingPackageId == uploadedPackageId) {
           logger.info(
-            s"Ignoring upload of package $upgradingPackageId as it has been previously uploaded"
+            s"Ignoring upload of package $uploadedPackageId as it has been previously uploaded"
           )
           EitherT.rightT[Future, DamlError](())
         } else {
           EitherT.leftT[Future, Unit](
             Validation.UpgradeVersion
               .Error(
-                uploadedPackageId,
-                upgradingPackageId,
-                upgradingPackageAst.metadata.version,
+                uploadedPackageId = uploadedPackageId,
+                existingPackage = existingPackageId,
+                packageVersion = uploadedPackageAst.metadata.version,
               ): DamlError
           )
         }
@@ -63,7 +63,7 @@ class PackageUpgradeValidator(
         for {
           optMaximalDar <- EitherT.right[DamlError](
             maximalVersionedDar(
-              upgradingPackageAst,
+              uploadedPackageAst,
               packageMap,
             )
           )
@@ -73,14 +73,14 @@ class PackageUpgradeValidator(
             optMaximalDar,
           )
           optMinimalDar <- EitherT.right[DamlError](
-            minimalVersionedDar(upgradingPackageAst, packageMap)
+            minimalVersionedDar(uploadedPackageAst, packageMap)
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MinimalDarCheck,
             optMinimalDar,
             optUpgradingDar,
           )
-          _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+          _ = logger.info(s"Typechecking upgrades for $uploadedPackageId succeeded.")
         } yield ()
     }
   }
@@ -165,7 +165,12 @@ class PackageUpgradeValidator(
                     .toEither
                 )
               ).leftMap[DamlError] {
-                case err: UpgradeError => Validation.Upgradeability.Error(newPkgId1, oldPkgId2, err)
+                case err: UpgradeError =>
+                  Validation.Upgradeability.Error(
+                    upgradingPackage = newPkgId1,
+                    upgradedPackage = oldPkgId2,
+                    upgradeError = err,
+                  )
                 case unhandledErr =>
                   InternalError.Unhandled(
                     unhandledErr,

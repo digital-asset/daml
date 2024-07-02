@@ -38,6 +38,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
+import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWithNewTraceContext}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
@@ -252,6 +253,8 @@ class RecoveringIndexerIntegrationSpec
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
+      mutableLedgerEndCache = MutableLedgerEndCache()
+      stringInterningView = new StringInterningView(loggerFactory)
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer
           .createInMemoryStateAndUpdater(
@@ -262,7 +265,7 @@ class RecoveringIndexerIntegrationSpec
             parallelExecutionContext,
             tracer,
             loggerFactory,
-          )
+          )(mutableLedgerEndCache, stringInterningView)
       dbSupport <- DbSupport
         .owner(
           serverRole = ServerRole.Testing(getClass),

@@ -23,7 +23,6 @@ import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.chaining.*
 
 /** Wrapper and life-cycle manager for the in-memory Ledger API state. */
 private[platform] class InMemoryState(
@@ -83,6 +82,9 @@ object InMemoryState {
       executionContext: ExecutionContext,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
+  )(
+      mutableLedgerEndCache: MutableLedgerEndCache,
+      stringInterningView: StringInterningView,
   )(implicit traceContext: TraceContext): ResourceOwner[InMemoryState] = {
     val initialLedgerEnd = LedgerEnd.beforeBegin
 
@@ -95,10 +97,7 @@ object InMemoryState {
         loggerFactory,
       )
     } yield new InMemoryState(
-      ledgerEndCache = MutableLedgerEndCache()
-        .tap(
-          _.set((initialLedgerEnd.lastOffset, initialLedgerEnd.lastEventSeqId))
-        ),
+      ledgerEndCache = mutableLedgerEndCache,
       dispatcherState = dispatcherState,
       contractStateCaches = ContractStateCaches.build(
         initialLedgerEnd.lastOffset,
@@ -113,7 +112,7 @@ object InMemoryState {
         maxBufferedChunkSize = bufferedStreamsPageSize,
         loggerFactory = loggerFactory,
       ),
-      stringInterningView = new StringInterningView(loggerFactory),
+      stringInterningView = stringInterningView,
       submissionTracker = submissionTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,

@@ -306,6 +306,7 @@ object SequencerBlockStore {
       enableAdditionalConsistencyChecks: Boolean,
       checkedInvariant: Option[Member],
       loggerFactory: NamedLoggerFactory,
+      unifiedSequencer: Boolean,
   )(implicit
       executionContext: ExecutionContext
   ): SequencerBlockStore =
@@ -320,6 +321,7 @@ object SequencerBlockStore {
           enableAdditionalConsistencyChecks,
           checkedInvariant,
           loggerFactory,
+          unifiedSequencer = unifiedSequencer,
         )
     }
 
