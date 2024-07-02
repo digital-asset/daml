@@ -5,6 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, PackageName, PackageRef, PackageVersion}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -15,6 +16,8 @@ import com.daml.ledger.javaapi
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 
 import javax.lang.model.element.Modifier
+
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 private[inner] object ClassGenUtils {
 
@@ -58,7 +61,17 @@ private[inner] object ClassGenUtils {
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
-  def generateTemplateIdField(packageRef: PackageRef, moduleName: String, name: String) =
+  def generateTemplateIdField(
+      pkgId: PackageId,
+      pkgName: Option[PackageName],
+      lfVer: LanguageVersion,
+      moduleName: String,
+      name: String,
+  ) = {
+    val packageRef = pkgName match {
+      case Some(name) if lfVer >= LanguageVersion.Features.packageUpgrades => PackageRef.Name(name)
+      case _ => PackageRef.Id(pkgId)
+    }
     FieldSpec
       .builder(
         ClassName.get(classOf[javaapi.data.Identifier]),
@@ -75,6 +88,7 @@ private[inner] object ClassGenUtils {
         name,
       )
       .build()
+  }
 
   def generatePackageIdField(packageId: PackageId) =
     FieldSpec
