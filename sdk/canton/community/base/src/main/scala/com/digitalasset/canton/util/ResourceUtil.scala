@@ -62,7 +62,8 @@ object ResourceUtil {
     )(implicit M: MonadThrow[M], TM: Thereafter[M], executionContext: ExecutionContext): M[V] = {
       import Thereafter.syntax.*
       import cats.syntax.flatMap.*
-      MonadThrow[M].fromTry(Try(f(r))).flatten.thereafter(_ => r.close())
+      val resource: T = r
+      MonadThrow[M].fromTry(Try(f(resource))).flatten.thereafter(_ => resource.close())
     }
   }
 
