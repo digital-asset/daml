@@ -59,6 +59,7 @@ class DbSequencerStore(
     maxInClauseSize: PositiveNumeric[Int],
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore
@@ -392,6 +393,30 @@ class DbSequencerStore(
       functionFullName,
     )
 
+  /** In unified sequencer payload ids are deterministic (these are sequencing times from the block sequencer),
+    * so we can somewhat safely ignore conflicts arising from sequencer restarts, crash recovery, ha lock loses,
+    * unlike the complicate `savePayloads` method below
+    */
+  private def savePayloadsUS(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SavePayloadsError, Unit] = {
+    val insertSql =
+      """insert into sequencer_payloads (id, instance_discriminator, content) values (?, ?, ?) on conflict do nothing"""
+
+    EitherT.right[SavePayloadsError](
+      storage
+        .queryAndUpdate(
+          DbStorage.bulkOperation(insertSql, payloads, storage.profile) { pp => payload =>
+            pp >> payload.id.unwrap
+            pp >> instanceDiscriminator
+            pp >> payload.content
+          },
+          functionFullName,
+        )
+        .map(_ => ())
+    )
+  }
+
   /** Save the provided payloads to the store.
     *
     * For DB implementations we suspect that this will be a hot spot for performance primarily due to size of the payload
@@ -424,7 +449,10 @@ class DbSequencerStore(
     *  - Finally we filter to payloads that haven't yet been successfully inserted and go back to the first step attempting
     *    to reinsert just this subset.
     */
-  override def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+  private def savePayloadsResolvingConflicts(
+      payloads: NonEmpty[Seq[Payload]],
+      instanceDiscriminator: UUID,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[Future, SavePayloadsError, Unit] = {
 
@@ -543,6 +571,15 @@ class DbSequencerStore(
 
     go(payloads)
   }
+
+  override def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SavePayloadsError, Unit] =
+    if (unifiedSequencer) {
+      savePayloadsUS(payloads, instanceDiscriminator)
+    } else {
+      savePayloadsResolvingConflicts(payloads, instanceDiscriminator)
+    }
 
   override def saveEvents(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
@@ -987,21 +1024,32 @@ class DbSequencerStore(
 
   override def deleteEventsPastWatermark(
       instanceIndex: Int
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
     for {
+      watermarkO <- storage.query(
+        sql"select watermark_ts from sequencer_watermarks where node_index = $instanceIndex"
+          .as[CantonTimestamp]
+          .headOption,
+        functionFullName,
+      )
+      watermark = watermarkO.getOrElse(CantonTimestamp.MinValue)
+      // TODO(#18401): Also cleanup payloads (beyond the payload to event margin)
       eventsRemoved <- storage.update(
         {
           sqlu"""
             delete from sequencer_events
             where node_index = $instanceIndex
-                and ts > coalesce((select watermark_ts from sequencer_watermarks where node_index = $instanceIndex), -1)
+                and ts > $watermark
            """
         },
         functionFullName,
       )
-    } yield logger.debug(
-      s"Removed at least $eventsRemoved that were past the last watermark for this sequencer"
-    )
+    } yield {
+      logger.debug(
+        s"Removed at least $eventsRemoved that were past the last watermark ($watermarkO) for this sequencer"
+      )
+      watermarkO
+    }
 
   override def saveCounterCheckpoint(
       memberId: SequencerMemberId,

@@ -9,6 +9,8 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
+import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
+import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
@@ -23,6 +25,9 @@ object LedgerApiServer {
       executionContext: ExecutionContext,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
+  )(
+      mutableLedgerEndCache: MutableLedgerEndCache,
+      stringInterningView: StringInterningView,
   )(implicit
       traceContext: TraceContext
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
@@ -40,7 +45,7 @@ object LedgerApiServer {
         metrics = metrics,
         tracer = tracer,
         loggerFactory = loggerFactory,
-      )
+      )(mutableLedgerEndCache, stringInterningView)
 
       inMemoryStateUpdater <- InMemoryStateUpdater.owner(
         inMemoryState = inMemoryState,

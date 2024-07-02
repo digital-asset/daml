@@ -92,8 +92,11 @@ trait SequencerWriterStore extends AutoCloseable {
   /** Delete all events that are ahead of the watermark of this sequencer.
     * These events will not have been read and should be removed before returning the sequencer online.
     * Should not be called alongside updating the watermark for this sequencer and only while the sequencer is offline.
+    * Returns the watermark that was used for the deletion.
     */
-  def deleteEventsPastWatermark()(implicit traceContext: TraceContext): Future[Unit] =
+  def deleteEventsPastWatermark()(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] =
     store.deleteEventsPastWatermark(instanceIndex)
 
 }

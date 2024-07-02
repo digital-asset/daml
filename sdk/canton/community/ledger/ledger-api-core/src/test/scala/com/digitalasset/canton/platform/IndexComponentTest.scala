@@ -32,7 +32,9 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
+import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
+import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref
@@ -93,6 +95,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     val engine = new Engine(
       EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
     )
+    val mutableLedgerEndCache = MutableLedgerEndCache()
+    val stringInterningView = new StringInterningView(loggerFactory)
 
     val indexResourceOwner =
       for {
@@ -104,7 +108,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-        )
+        )(mutableLedgerEndCache, stringInterningView)
         dbSupport <- DbSupport
           .owner(
             serverRole = ServerRole.ApiServer,

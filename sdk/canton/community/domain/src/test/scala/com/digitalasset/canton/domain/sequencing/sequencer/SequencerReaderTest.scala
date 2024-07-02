@@ -116,7 +116,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
     val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
     implicit val materializer: Materializer = Materializer(actorSystem)
-    val store = new InMemorySequencerStore(testedProtocolVersion, loggerFactory)
+    val store = new InMemorySequencerStore(
+      protocolVersion = testedProtocolVersion,
+      unifiedSequencer = testedUseUnifiedSequencer,
+      loggerFactory = loggerFactory,
+    )
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
     val storeSpy: InMemorySequencerStore = spy[InMemorySequencerStore](store)

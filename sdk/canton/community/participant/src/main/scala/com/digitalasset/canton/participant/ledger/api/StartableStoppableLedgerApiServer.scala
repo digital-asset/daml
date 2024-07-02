@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import cats.Eval
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -49,7 +50,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   ThreadpoolCheck,
 }
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
-import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, ServerRole}
+import com.digitalasset.canton.platform.config.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.indexer.{
   IndexerConfig,
@@ -57,7 +58,6 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerStartupMode,
 }
 import com.digitalasset.canton.platform.store.DbSupport
-import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
@@ -76,19 +76,16 @@ import scala.concurrent.Future
   * depending on whether the participant node is a High Availability active or passive replica.
   *
   * @param config ledger api server configuration
-  * @param participantDataSourceConfig configuration for the data source (e.g., jdbc url)
-  * @param dbConfig the Index DB config
   * @param executionContext the execution context
   */
 class StartableStoppableLedgerApiServer(
     config: CantonLedgerApiServerWrapper.Config,
-    participantDataSourceConfig: ParticipantDataSourceConfig,
-    dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
     parameters: ParticipantNodeParameters,
     commandProgressTracker: CommandProgressTracker,
     excludedPackageIds: Set[LfPackageId],
+    ledgerApiStore: Eval[LedgerApiStore],
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -178,7 +175,6 @@ class StartableStoppableLedgerApiServer(
 
   private def buildLedgerApiServerOwner(
   )(implicit traceContext: TraceContext) = {
-
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
 
@@ -188,8 +184,7 @@ class StartableStoppableLedgerApiServer(
       case _ => IndexerStartupMode.JustStart
     }
     val numIndexer = config.indexerConfig.ingestionParallelism.unwrap
-    val numLedgerApi = dbConfig.connectionPool.connectionPoolSize
-    logger.info(s"Creating storage, num-indexer: $numIndexer, num-ledger-api: $numLedgerApi")
+    logger.info(s"Creating indexer storage, num-indexer: $numIndexer")
 
     val indexServiceConfig = config.serverConfig.indexService
 
@@ -210,6 +205,7 @@ class StartableStoppableLedgerApiServer(
       override def bindService(): ServerServiceDefinition =
         ApiInfoServiceGrpc.bindService(this, executionContext)
     }
+    val dbSupport = ledgerApiStore.value.ledgerApiDbSupport
 
     for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
@@ -221,19 +217,12 @@ class StartableStoppableLedgerApiServer(
           executionContext,
           tracer,
           loggerFactory,
-        )
+        )(ledgerApiStore.value.ledgerEndCache, ledgerApiStore.value.stringInterningView)
       timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       timedReadService = new TimedReadService(config.syncService, config.metrics)
-      dbSupport <- DbSupport
-        .owner(
-          serverRole = ServerRole.ApiServer,
-          metrics = config.metrics,
-          dbConfig = dbConfig,
-          loggerFactory = loggerFactory,
-        )
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
-        participantDataSourceConfig,
+        DbSupport.ParticipantDataSourceConfig(ledgerApiStore.value.ledgerApiStorage.jdbcUrl),
         timedReadService,
         config.indexerConfig,
         config.metrics,

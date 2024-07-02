@@ -43,6 +43,7 @@ class UniqueKeyViolationException(message: String) extends RuntimeException(mess
 
 class InMemorySequencerStore(
     protocolVersion: ProtocolVersion,
+    unifiedSequencer: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     protected val executionContext: ExecutionContext
@@ -99,8 +100,13 @@ class InMemorySequencerStore(
         .flatMap { existingPayload =>
           // if we found an existing payload it must have a matching instance discriminator
           if (existingPayload.instanceDiscriminator == instanceDiscriminator) None // no error
-          else
-            SavePayloadsError.ConflictingPayloadId(id, existingPayload.instanceDiscriminator).some
+          else {
+            if (unifiedSequencer) {
+              None
+            } else {
+              SavePayloadsError.ConflictingPayloadId(id, existingPayload.instanceDiscriminator).some
+            }
+          }
         }
         .toLeft(())
         .leftWiden[SavePayloadsError]
@@ -212,8 +218,8 @@ class InMemorySequencerStore(
   /** No implementation as only required for crash recovery */
   override def deleteEventsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    Future.unit
+  ): Future[Option[CantonTimestamp]] =
+    Future.successful(watermark.get().map(_.timestamp))
 
   override def saveCounterCheckpoint(
       memberId: SequencerMemberId,

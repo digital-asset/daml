@@ -6,8 +6,12 @@ package com.digitalasset.canton.participant.store
 import cats.Eval
 import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.LedgerParticipantId
+import com.digitalasset.canton.concurrent.{
+  ExecutionContextIdlenessExecutorService,
+  FutureSupervisor,
+}
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
@@ -20,6 +24,8 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
+import com.digitalasset.canton.participant.config.LedgerApiServerConfig
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.resource.Storage
@@ -32,7 +38,6 @@ import com.digitalasset.canton.util.{ErrorUtil, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
 /** Some of the state of a participant that is not tied to a domain and must survive restarts.
@@ -41,6 +46,7 @@ import scala.concurrent.duration.*
   */
 class ParticipantNodePersistentState private (
     val settingsStore: ParticipantSettingsStore,
+    val ledgerApiStore: LedgerApiStore,
     val participantEventLog: ParticipantEventLog,
     val multiDomainEventLog: MultiDomainEventLog,
     val inFlightSubmissionStore: InFlightSubmissionStore,
@@ -58,6 +64,7 @@ class ParticipantNodePersistentState private (
       inFlightSubmissionStore,
       commandDeduplicationStore,
       pruningStore,
+      ledgerApiStore,
     )(logger)
 }
 
@@ -65,17 +72,20 @@ trait ParticipantNodePersistentStateFactory {
   def create(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
+      storageConfig: StorageConfig,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
+      ledgerParticipantId: LedgerParticipantId,
+      ledgerApiServerConfig: LedgerApiServerConfig,
       indexedStringStore: IndexedStringStore,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextIdlenessExecutorService,
       mat: Materializer,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Eval[ParticipantNodePersistentState]]
@@ -85,28 +95,34 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
   override def create(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
+      storageConfig: StorageConfig,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
+      ledgerParticipantId: LedgerParticipantId,
+      ledgerApiServerConfig: LedgerApiServerConfig,
       indexedStringStore: IndexedStringStore,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextIdlenessExecutorService,
       mat: Materializer,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Eval[ParticipantNodePersistentState]] = ParticipantNodePersistentState
     .create(
       syncDomainPersistentStates,
       storage,
+      storageConfig,
       clock,
       maxDeduplicationDurationO,
       batching,
       releaseProtocolVersion,
       metrics,
+      ledgerParticipantId,
+      ledgerApiServerConfig,
       indexedStringStore,
       timeouts,
       futureSupervisor,
@@ -122,17 +138,20 @@ object ParticipantNodePersistentState extends HasLoggerName {
   def create(
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
+      storageConfig: StorageConfig,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
+      ledgerParticipantId: LedgerParticipantId,
+      ledgerApiServerConfig: LedgerApiServerConfig,
       indexedStringStore: IndexedStringStore,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextIdlenessExecutorService,
       mat: Materializer,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[ParticipantNodePersistentState] = {
@@ -235,10 +254,22 @@ object ParticipantNodePersistentState extends HasLoggerName {
           loggerFactory,
         )
       )
+      ledgerApiStore <- FutureUnlessShutdown.outcomeF(
+        LedgerApiStore.initialize(
+          storageConfig = storageConfig,
+          ledgerParticipantId = ledgerParticipantId,
+          legderApiDatabaseConnectionTimeout = ledgerApiServerConfig.databaseConnectionTimeout,
+          ledgerApiPostgresDataSourceConfig = ledgerApiServerConfig.postgresDataSource,
+          timeouts = timeouts,
+          loggerFactory = loggerFactory,
+          metrics = metrics.ledgerApiServer,
+        )
+      )
       _ = flagCloseable.close()
     } yield {
       new ParticipantNodePersistentState(
         settingsStore,
+        ledgerApiStore,
         participantEventLog,
         multiDomainEventLog,
         inFlightSubmissionStore,

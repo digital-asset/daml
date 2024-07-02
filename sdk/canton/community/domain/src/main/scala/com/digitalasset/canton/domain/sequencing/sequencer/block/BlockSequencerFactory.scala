@@ -71,6 +71,7 @@ abstract class BlockSequencerFactory(
       nodeParameters.enableAdditionalConsistencyChecks && !nodeParameters.useUnifiedSequencer
     )(sequencerId),
     loggerFactory,
+    unifiedSequencer = nodeParameters.useUnifiedSequencer,
   )
 
   private val trafficPurchasedStore = TrafficPurchasedStore(

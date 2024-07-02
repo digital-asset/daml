@@ -295,6 +295,8 @@ class BlockSequencerStateManager(
                 s"and ${chunk.inFlightAggregationUpdates.size} in-flight aggregation updates"
             )(handleChunkUpdate(priorHead, chunk, dbSequencerIntegration)(traceContext))
           case complete: CompleteBlockUpdate =>
+            // TODO(#18401): Consider: wait for the DBS watermark to be updated to the blocks last timestamp
+            //  in a supervisory manner, to detect things not functioning properly
             LoggerUtil.clueF(
               s"Storing completion of block $currentBlockNumber"
             )(handleComplete(priorHead, complete.block)(traceContext))

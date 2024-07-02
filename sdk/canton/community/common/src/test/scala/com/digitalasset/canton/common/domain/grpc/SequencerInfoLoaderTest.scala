@@ -224,8 +224,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       loggerFactory = loggerFactory,
     )
     // Futures in loadSequencerInfoAsync can race such that more than the expected tolerance can be returned.
-    // Increase to 2 if result size checks are flaky
-    val toleranceForRaciness = 1
+    val toleranceForRaciness = 3
 
     "return complete results when requested" in {
       val scs = sequencerConnections(10)

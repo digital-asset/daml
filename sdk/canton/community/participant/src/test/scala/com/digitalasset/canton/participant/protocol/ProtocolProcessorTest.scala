@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
+  CommunityStorageConfig,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
   TestingConfigInternal,
@@ -26,6 +27,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
@@ -258,11 +260,14 @@ class ProtocolProcessorTest
         .create(
           syncDomainPersistentStates,
           new MemoryStorage(loggerFactory, timeouts),
+          CommunityStorageConfig.Memory(),
           clock,
           None,
           BatchingConfig(),
           testedReleaseProtocolVersion,
           ParticipantTestMetrics,
+          participant.toLf,
+          LedgerApiServerConfig(),
           indexedStringStore,
           timeouts,
           futureSupervisor,

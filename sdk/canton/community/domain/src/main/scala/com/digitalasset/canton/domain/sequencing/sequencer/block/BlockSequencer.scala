@@ -138,9 +138,8 @@ class BlockSequencer(
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
-  override protected def resetWatermarkTo: Option[CantonTimestamp] = {
-    Some(stateManager.getHeadState.block.lastTs)
-  }
+  override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
+    SequencerWriter.ResetWatermarkToTimestamp(stateManager.getHeadState.block.lastTs)
 
   private val (killSwitchF, localEventsQueue, done) = {
     val headState = stateManager.getHeadState
