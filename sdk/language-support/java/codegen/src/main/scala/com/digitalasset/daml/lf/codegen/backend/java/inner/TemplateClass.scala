@@ -11,6 +11,7 @@ import Ref.ChoiceName
 import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Exercised, Update}
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.typesig
 import typesig._
 import com.squareup.javapoet._
@@ -20,6 +21,7 @@ import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 private[inner] object TemplateClass extends StrictLogging {
 
@@ -46,6 +48,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
         .addField(generateTemplateIdField(typeWithContext))
+        .addField(ClassGenUtils.generatePackageIdField(typeWithContext.packageId))
         .addMethod(generateCreateMethod(className))
         .addMethods(
           generateDeprecatedStaticExerciseByKeyMethods(
@@ -501,12 +504,19 @@ private[inner] object TemplateClass extends StrictLogging {
       )
     )
 
-  private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
+  private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec = {
+    val lfVer = typeWithContext.interface.languageVersion
+    val packageRef = typeWithContext.interface.metadata match {
+      case Some(meta) if lfVer >= LanguageVersion.Features.packageUpgrades =>
+        Ref.PackageRef.Name(meta.name)
+      case _ => Ref.PackageRef.Id(typeWithContext.packageId)
+    }
     ClassGenUtils.generateTemplateIdField(
-      typeWithContext.packageId,
+      packageRef,
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )
+  }
 
   def generateChoicesMetadata(
       templateClassName: ClassName,

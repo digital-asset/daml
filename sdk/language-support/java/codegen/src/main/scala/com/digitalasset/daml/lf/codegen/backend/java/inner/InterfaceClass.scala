@@ -7,7 +7,8 @@ import com.daml.ledger.javaapi.data.ContractFilter
 import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
-import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{ChoiceName, PackageId, PackageRef, QualifiedName}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.typesig.{DefInterface, PackageMetadata}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -15,6 +16,7 @@ import scalaz.-\/
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 object InterfaceClass extends StrictLogging {
 
@@ -25,6 +27,7 @@ object InterfaceClass extends StrictLogging {
       typeDeclarations: AuxiliarySignatures,
       packageId: PackageId,
       interfaceId: QualifiedName,
+      languageVersion: LanguageVersion,
       packageMetadata: Option[PackageMetadata],
   )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
@@ -32,7 +35,8 @@ object InterfaceClass extends StrictLogging {
       val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
-        .addField(generateTemplateIdField(packageId, interfaceId))
+        .addField(generateTemplateIdField(packageId, interfaceId, languageVersion, packageMetadata))
+        .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addFields(
           TemplateClass
             .generateChoicesMetadata(
@@ -149,12 +153,22 @@ object InterfaceClass extends StrictLogging {
       .build()
   }
 
-  private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
+  private def generateTemplateIdField(
+      packageId: PackageId,
+      name: QualifiedName,
+      lfVer: LanguageVersion,
+      meta: Option[PackageMetadata],
+  ): FieldSpec = {
+    val packageRef = meta match {
+      case Some(m) if lfVer >= LanguageVersion.Features.packageUpgrades => PackageRef.Name(m.name)
+      case _ => PackageRef.Id(packageId)
+    }
     ClassGenUtils.generateTemplateIdField(
-      packageId,
+      packageRef,
       name.module.toString,
       name.name.toString,
     )
+  }
 
   private def generateContractFilterMethod(
       interfaceName: ClassName,

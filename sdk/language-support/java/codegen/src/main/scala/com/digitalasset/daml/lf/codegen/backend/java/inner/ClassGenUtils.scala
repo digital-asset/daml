@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
+import Ref.{ChoiceName, PackageId, PackageName, PackageRef, PackageVersion}
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -52,12 +52,13 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val packageIdFieldName = "PACKAGE_ID"
   val packageNameFieldName = "PACKAGE_NAME"
   val packageVersionFieldName = "PACKAGE_VERSION"
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
-  def generateTemplateIdField(packageId: PackageId, moduleName: String, name: String) =
+  def generateTemplateIdField(packageRef: PackageRef, moduleName: String, name: String) =
     FieldSpec
       .builder(
         ClassName.get(classOf[javaapi.data.Identifier]),
@@ -69,10 +70,22 @@ private[inner] object ClassGenUtils {
       .initializer(
         "new $T($S, $S, $S)",
         classOf[javaapi.data.Identifier],
-        packageId,
+        packageRef,
         moduleName,
         name,
       )
+      .build()
+
+  def generatePackageIdField(packageId: PackageId) =
+    FieldSpec
+      .builder(
+        ClassName.get(classOf[String]),
+        packageIdFieldName,
+        Modifier.STATIC,
+        Modifier.FINAL,
+        Modifier.PUBLIC,
+      )
+      .initializer("$S", packageId)
       .build()
 
   def generatePackageNameField(packageName: PackageName) =
