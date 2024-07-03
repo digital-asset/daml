@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.{Clock, Instant}
+
 import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -104,6 +104,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
+  GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
@@ -125,8 +126,8 @@ import io.grpc.StatusRuntimeException
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.protobuf.StatusProto
 import io.grpc.stub.StreamObserver
-
 import java.util.{List => JList}
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -463,6 +464,12 @@ final class SingleParticipantTestContext private[participant] (
   ): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(transactionFilter(parties, Seq(templateId))))
 
+  override def rawFlatTransactions(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionsResponse]] =
+    transactions(take, request, services.transaction.getTransactions)
+
   override def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     transactions(request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
@@ -499,7 +506,11 @@ final class SingleParticipantTestContext private[participant] (
   ): Future[Vector[TransactionTree]] =
     transactions(take, request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
-
+  override def rawTransactionTrees(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionTreesResponse]] =
+    transactions(take, request, services.transaction.getTransactionTrees)
   override def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]] =
     transactionTrees(take, getTransactionsRequest(transactionFilter(parties)))
 
