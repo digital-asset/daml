@@ -145,8 +145,17 @@ main = do
                            PkgId _ -> unPackageId pkgId
                            PkgNameVer (pkgName, _) -> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
                          pkgUnitId = maybe (unPackageId pkgId) unitIdToText $ packageUnitId pkg
-                     T.putStrLn $ "Generating " <> pkgDesc
-                     daml2js Daml2jsParams{..}
+                         isUtilityPackage =
+                          all (\mod ->
+                            null (moduleTemplates mod)
+                              && null (moduleInterfaces mod)
+                              && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
+                          ) $ packageModules pkg
+                     if isUtilityPackage
+                       then T.putStrLn $ "Skipping " <> pkgDesc <> " as it does not define any serializable types"
+                       else do
+                         T.putStrLn $ "Generating " <> pkgDesc
+                         daml2js Daml2jsParams{..}
 
 data PackageReference
     = PkgNameVer (PackageName, PackageVersion)
