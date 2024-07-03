@@ -75,6 +75,10 @@ message GetUpdatesRequest {
   // for record fields.
   // Optional
   bool verbose = 4;
+
+  // If set to true, the server will send responses containing pruned offset upon pruning completion.
+  // Optional
+  bool send_pruned_offsets = 5;
 }
 
 message GetUpdatesResponse {
@@ -84,6 +88,14 @@ message GetUpdatesResponse {
     Transaction transaction = 1;
     Reassignment reassignment = 2;
   }
+
+  // Current pruned offset. It is sent when following three conditions are met:
+  // - a pruning operation has completed
+  // - the transaction stream tails the LEDGER_END
+  // - the `send_pruned_offsets` field was set on the corresponding request.
+  // The conditions for including the `pruned_offset` in messages may change in the future implementations.
+  // When `pruned_offset` is set, the message does not contain any transactions in the transactions field.
+  string pruned_offset = 3;
 }
 
 message GetUpdateTreesResponse {
@@ -93,6 +105,14 @@ message GetUpdateTreesResponse {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
   }
+
+  // Current pruned offset. It is sent when following three conditions are met:
+  // - a pruning operation has completed
+  // - the transaction stream tails the LEDGER_END
+  // - the `send_pruned_offsets` field was set on the corresponding request.
+  // The conditions for including the `pruned_offset` in messages may change in the future implementations.
+  // When `pruned_offset` is set, the message does not contain any transactions in the transactions field.
+  string pruned_offset = 3;
 }
 
 message GetTransactionByEventIdRequest {

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.platform.index
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
 import com.daml.nonempty.NonEmpty
@@ -15,6 +17,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionFilter,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
@@ -25,10 +28,18 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   PackageResolution,
 }
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
+import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.{HasExecutorServiceGeneric, TestEssentials}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.mockito.MockitoSugar
+import org.scalatest.Assertions.fail
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, OptionValues}
+
+import scala.concurrent.duration.DurationInt
 
 class IndexServiceImplSpec
     extends AnyFlatSpec
@@ -478,10 +489,64 @@ class IndexServiceImplSpec
       template2.qualifiedName,
     ) shouldBe Set.empty
   }
+
+  behavior of "IndexServiceImpl.Enhancer"
+
+  it should "not send pruning offsets when same from inception" in new Scope {
+
+    private val pruningOffsets = List(Some(toOffset("4")))
+    // private val pruningResponses = pruningOffsets.headOption.flatten.toList.map(generatePruningTransaction)
+    private val getter = pruningOffsetGetter(pruningOffsets)
+
+    private val enhancer = Enhancer[GetTransactionsResponse](getter, Source.repeat(1).take(3))
+    private val messages =
+      enhancer(generatePruningTransaction, Source.empty)
+        .runWith(Sink.seq)
+        .futureValue
+    messages shouldBe empty
+  }
+
+  it should "not send pruning offsets when they don't change" in new Scope {
+
+    private val pruningOffsets = List(None, Some(toOffset("4")))
+    private val pruningResponses = List(generatePruningTransaction(toOffset("4")))
+    private val getter = pruningOffsetGetter(pruningOffsets)
+
+    private val enhancer = Enhancer[GetTransactionsResponse](getter, Source.repeat(1).take(3))
+    private val messages =
+      enhancer(
+        generatePruningTransaction,
+        Source.single(generateTransaction(toOffset("100"))).delay(1.day),
+      )
+        .runWith(Sink.seq)
+        .futureValue
+    messages should contain theSameElementsInOrderAs pruningResponses
+  }
+
+  it should "interleave pruning offsets with the other updates" in new Scope {
+
+    private val pruningOffsets = List(None, Some("4"), Some("8"), Some("12")).map(_.map(toOffset))
+    private val pruningResponses = pruningOffsets.collect { case Some(o) =>
+      generatePruningTransaction(o)
+    }
+    private val trOffsets = List("104", "108").map(toOffset)
+    private val trResponses = trOffsets.map(generateTransaction)
+
+    private val getter = pruningOffsetGetter(pruningOffsets)
+
+    private val enhancer = Enhancer[GetTransactionsResponse](getter, Source.repeat(1).take(3))
+    private val messages =
+      enhancer(generatePruningTransaction, Source(trResponses))
+        .runWith(Sink.seq)
+        .futureValue
+    messages should contain theSameElementsInOrderAs interleave(pruningResponses, trResponses)
+  }
 }
 
 object IndexServiceImplSpec {
-  trait Scope extends MockitoSugar {
+  trait Scope extends MockitoSugar with TestEssentials with HasExecutorServiceGeneric {
+    override def handleFailure(message: String): Nothing = fail(message)
+
     val party: Party = Party.assertFromString("party")
     val party2: Party = Party.assertFromString("party2")
     val templateQualifiedName1: QualifiedName =
@@ -525,5 +590,28 @@ object IndexServiceImplSpec {
       ),
       allPackageIdsForName = NonEmpty(Set, template1.packageId),
     )
+
+    val pruningOffsetGetter: List[Option[Offset]] => () => Option[Offset] = givenOffsets => {
+      var offsets = givenOffsets
+      () => {
+        offsets match {
+          case Nil => None
+          case head :: Nil => head
+          case head :: rest =>
+            offsets = rest
+            head
+        }
+      }
+    }
+    def toOffset: String => Offset = o => Offset.fromByteArray(o.getBytes)
+    def interleave[A](as: List[A], bs: List[A]): List[A] =
+      as.zip(bs).flatMap { case (a, b) => List(a, b) }
+    def generateTransaction(offset: Offset): GetTransactionsResponse =
+      GetTransactionsResponse(Seq(Transaction(offset = offset.toString)))
+    def generatePruningTransaction(offset: Offset): GetTransactionsResponse =
+      GetTransactionsResponse(prunedOffset = offset.toString)
+    implicit val actorSystem: ActorSystem =
+      PekkoUtil.createActorSystem("IndexServiceImplSpec")(executorService)
+    implicit val materializer: Materializer = Materializer(actorSystem)
   }
 }

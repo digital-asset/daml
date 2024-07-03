@@ -89,24 +89,33 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       begin: domain.LedgerOffset,
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, verbose, multiDomainEnabled),
+      delegate.transactions(begin, endAt, filter, sendPrunedOffsets, verbose, multiDomainEnabled),
     )
 
   override def transactionTrees(
       begin: domain.LedgerOffset,
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactionTrees,
-      delegate.transactionTrees(begin, endAt, filter, verbose, multiDomainEnabled),
+      delegate.transactionTrees(
+        begin,
+        endAt,
+        filter,
+        sendPrunedOffsets,
+        verbose,
+        multiDomainEnabled,
+      ),
     )
 
   override def getTransactionById(

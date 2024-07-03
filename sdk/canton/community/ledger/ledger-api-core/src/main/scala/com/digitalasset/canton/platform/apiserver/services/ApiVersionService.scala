@@ -83,6 +83,7 @@ private[apiserver] final class ApiVersionService private (
           acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
           templateFilters = Some(TransactionsWithTemplateFilters(supported = true)),
           commandInspectionService = Some(ledgerFeatures.commandInspectionService),
+          prunedOffsets = Some(StreamingPrunedOffsets(supported = true)),
         )
       ),
     )

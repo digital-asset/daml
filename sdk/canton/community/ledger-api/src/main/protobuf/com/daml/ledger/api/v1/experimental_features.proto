@@ -27,6 +27,7 @@ message ExperimentalFeatures {
   AcsActiveAtOffsetFeature acs_active_at_offset = 9;
   TransactionsWithTemplateFilters template_filters = 10;
   ExperimentalCommandInspectionService command_inspection_service = 11;
+  StreamingPrunedOffsets pruned_offsets = 12;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -134,5 +135,10 @@ message TransactionsWithTemplateFilters {
 
 // Whether the Ledger API supports command inspection service
 message ExperimentalCommandInspectionService {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports streaming pruned offsets in the transaction streams
+message StreamingPrunedOffsets {
   bool supported = 1;
 }

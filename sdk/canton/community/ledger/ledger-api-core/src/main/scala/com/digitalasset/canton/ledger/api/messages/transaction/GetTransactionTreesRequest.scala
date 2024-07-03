@@ -11,5 +11,6 @@ final case class GetTransactionTreesRequest(
     startExclusive: LedgerOffset,
     endInclusive: Option[LedgerOffset],
     parties: Set[Party],
+    sendPrunedOffsets: Boolean,
     verbose: Boolean,
 )

@@ -112,8 +112,9 @@ private[apiserver] final class TransactionServiceImpl private (
         request.startExclusive,
         request.endInclusive,
         request.filter,
+        request.sendPrunedOffsets,
         request.verbose,
-        false,
+        multiDomainEnabled = false,
       )
       .mapConcat(ApiConversions.toV1)
       .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
@@ -142,8 +143,9 @@ private[apiserver] final class TransactionServiceImpl private (
         request.startExclusive,
         request.endInclusive,
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
+        request.sendPrunedOffsets,
         request.verbose,
-        false,
+        multiDomainEnabled = false,
       )
       .mapConcat(ApiConversions.toV1)
       .via(
