@@ -405,7 +405,7 @@ EOF
 s#^haskell_toolchain_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^haskell_toolchain_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^haskell_cabal_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_dev_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
+s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 T;p
@@ -430,7 +430,7 @@ EOF
 s#^haskell_toolchain_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^haskell_toolchain_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^haskell_cabal_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_dev_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
+s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 T;p

@@ -8,8 +8,8 @@ genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java_pom",
         "//canton:libbindings-java.jar",
         "//canton:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
@@ -40,8 +40,8 @@ genrule(
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \\
         "com.daml" "daml-lf-archive" \\
-        $$(echo $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) | xargs -n1 echo | grep -v -- '-src\\.jar$$') \\
-        $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
+        $$(echo $(locations //daml-lf/archive:daml_lf_archive_proto_java) | xargs -n1 echo | grep -v -- '-src\\.jar$$') \\
+        $(location //daml-lf/archive:daml_lf_archive_proto_java_pom)
       install_mvn \\
         "com.daml" "bindings-java" \\
         $(location //canton:libbindings-java.jar) \\

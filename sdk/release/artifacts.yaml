@@ -9,9 +9,9 @@
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_2.1_archive_proto_java
   type: jar-proto
-- target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
+- target: //daml-lf/archive:daml_lf_archive_proto_jar
   type: jar-lib
-- target: //daml-lf/archive:daml_lf_dev_archive_proto_java
+- target: //daml-lf/archive:daml_lf_archive_proto_java
   type: jar-proto
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala

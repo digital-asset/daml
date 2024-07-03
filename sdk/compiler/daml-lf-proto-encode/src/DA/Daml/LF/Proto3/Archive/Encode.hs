@@ -9,7 +9,7 @@ module DA.Daml.LF.Proto3.Archive.Encode
   ) where
 
 import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Com.Daml.DamlLfDev.DamlLf as ProtoLF
+import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf as ProtoLF
 import qualified DA.Daml.LF.Ast           as LF
 import qualified DA.Daml.LF.Proto3.Encode as Encode
 import DA.Daml.LF.Proto3.Util (encodeHash)

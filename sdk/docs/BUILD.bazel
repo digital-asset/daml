@@ -371,7 +371,7 @@ java_binary(
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
         "//canton:bindings-java",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//language-support/java/bindings-rxjava",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_code_gson_gson",

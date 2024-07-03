@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.api.noop.NoOpMetricsFactory

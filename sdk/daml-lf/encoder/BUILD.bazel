@@ -31,8 +31,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/crypto",
@@ -57,8 +57,8 @@ da_scala_test_suite(
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -80,8 +80,8 @@ da_scala_binary(
     deps = [
         ":encoder",
         "//:sdk-version-scala-lib",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive/encoder",
         "//daml-lf/data",
         "//daml-lf/language",

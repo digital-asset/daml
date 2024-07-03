@@ -253,7 +253,7 @@ da_haskell_library(
         "//daml-assistant:daml-lib",
         "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-gcp-logger",
         "//libs-haskell/da-hs-base",

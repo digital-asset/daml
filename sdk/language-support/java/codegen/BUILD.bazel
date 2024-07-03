@@ -54,8 +54,8 @@ da_scala_library(
     deps = [
         "//canton:bindings-java",
         "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",

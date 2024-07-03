@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.daml_lf_dev.DamlLf
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent}
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails

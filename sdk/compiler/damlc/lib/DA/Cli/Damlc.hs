@@ -163,7 +163,7 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals (installSignalHandlers)
-import qualified Com.Daml.DamlLfDev.DamlLf as PLF
+import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf as PLF
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson

@@ -6,7 +6,7 @@ module DA.Daml.LF.Proto3.Encode
   ) where
 
 import qualified Data.Text.Lazy as TL
-import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
+import Com.Digitalasset.Daml.Lf.Archive.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 
