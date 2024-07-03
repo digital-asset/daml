@@ -1,0 +1,8 @@
+module Baz where
+
+template Baz
+  with
+    p : Party
+    upgrade : Optional Text
+  where
+    signatory p

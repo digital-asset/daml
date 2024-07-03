@@ -82,7 +82,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .beginControlFlow("switch (name)")
       fields.zipWithIndex.foreach { case (f, i) =>
         val statement = f.damlType match {
-          case TypePrim(PrimTypeOptional, _) =>  "case $S: return $T.at($L, $L, java.util.Optional.empty())"
+          case TypePrim(PrimTypeOptional, _) =>
+            "case $S: return $T.at($L, $L, java.util.Optional.empty())"
           case _ => "case $S: return $T.at($L, $L)"
         }
         block.addStatement(
