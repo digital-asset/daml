@@ -66,6 +66,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       className: ClassName,
       typeParams: IndexedSeq[String],
   )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
+    import com.daml.lf.typesig._
+
     val typeName = className.parameterized(typeParams)
 
     val argNames = {
@@ -79,8 +81,12 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .beginControlFlow("name ->")
         .beginControlFlow("switch (name)")
       fields.zipWithIndex.foreach { case (f, i) =>
+        val statement = f.damlType match {
+          case TypePrim(PrimTypeOptional, _) =>  "case $S: return $T.at($L, $L, java.util.Optional.empty())"
+          case _ => "case $S: return $T.at($L, $L)"
+        }
         block.addStatement(
-          "case $S: return $T.at($L, $L)",
+          statement,
           f.damlName,
           decodeClass.nestedClass("JavaArg"),
           i,
