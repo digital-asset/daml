@@ -741,6 +741,24 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    # Tests asserting the fix for Canton issue #19707: SubmitAndWaitForTransaction leading to a transaction with non-visible events leads to TRANSACTION_NOT_FOUND
+    {
+        # After last snapshot: 2.9.0-snapshot.20240612
+        "start": "2.9.0-snapshot.20240613",
+        "platform_ranges": [
+            {
+                "end": "2.9.0-snapshot.20240612",
+                "exclusions": [
+                    "TransactionServiceQueryIT:TXFlatTransactionByIdExplicitDisclosure",
+                    "TransactionServiceQueryIT:TXFlatTransactionByEventIdExplicitDisclosure",
+                    "TransactionServiceQueryIT:TXFlatTransactionByIdTransientContract",
+                    "TransactionServiceQueryIT:TXFlatTransactionByEventIdTransientContract",
+                    "TransactionServiceQueryIT:TXFlatTransactionByIdNonConsumingChoice",
+                    "TransactionServiceQueryIT:TXFlatTransactionByEventIdNonConsumingChoice",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
