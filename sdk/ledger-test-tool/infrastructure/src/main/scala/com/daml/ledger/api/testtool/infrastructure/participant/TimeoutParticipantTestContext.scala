@@ -4,9 +4,9 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.Instant
 import java.util.concurrent.TimeoutException
+
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
 import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
@@ -66,6 +66,7 @@ import com.daml.ledger.api.v1.event_query_service.{
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
+  GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
@@ -76,8 +77,8 @@ import com.daml.timer.Delayed
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
-
 import java.util.{List => JList}
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -263,6 +264,15 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Flat transaction by template id $templateId for parties $parties",
     delegate.flatTransactionsByTemplateId(templateId, parties: _*),
   )
+
+  override def rawFlatTransactions(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionsResponse]] =
+    withTimeout(
+      s"Flat transactions for request $request",
+      delegate.rawFlatTransactions(take, request),
+    )
   override def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     withTimeout(s"Flat transactions for request $request", delegate.flatTransactions(request))
   override def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
@@ -286,6 +296,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Transaction trees by template id $templateId for parties $parties",
     delegate.transactionTreesByTemplateId(templateId, parties: _*),
   )
+  override def rawTransactionTrees(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionTreesResponse]] =
+    withTimeout(
+      s"Transaction trees for request $request",
+      delegate.rawTransactionTrees(take, request),
+    )
   override def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
     withTimeout(s"Transaction trees for request $request", delegate.transactionTrees(request))
   override def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =

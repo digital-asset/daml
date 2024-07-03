@@ -32,6 +32,12 @@ import com.daml.ledger.test.java.semantic.divulgencetests
 import com.daml.logging.LoggingContext
 
 import java.util.{List => JList}
+
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -905,6 +911,142 @@ class ParticipantPruningIT extends LedgerTestSuite {
       assertEquals("Expected single create event after prune", events1, 1)
       assertEquals("Expected create and consume event before prune", events2, 2)
       assertEquals("Expected no events following prune", events3, 0)
+    }
+  })
+
+  test(
+    "PRTPFailToRequestPruningOffsetsWithEnd",
+    "Pruning offsets should not be served on streams with end specified",
+    allocate(SingleParty),
+    enabled = _.prunedOffsets,
+    disabledReason = "Ledger does not support pruned offset streaming",
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) => {
+      val req = ledger
+        .getTransactionsRequest(ledger.transactionFilter(parties = Seq(party)))
+        .copy(sendPrunedOffsets = true)
+
+      for {
+        flatFailure <- ledger
+          .rawFlatTransactions(1, req)
+          .mustFail("subscribing past the ledger end")
+        treeFailure <- ledger
+          .rawTransactionTrees(1, req)
+          .mustFail("subscribing past the ledger end")
+      } yield {
+        assertGrpcError(
+          flatFailure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some("Pruning offsets requested on a stream with an explicit end"),
+        )
+        assertGrpcError(
+          treeFailure,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some("Pruning offsets requested on a stream with an explicit end"),
+        )
+      }
+    }
+  })
+
+  test(
+    "PRTServePruningOffsets",
+    "Pruning offsets should be served when requested",
+    allocate(SingleParty),
+    enabled = _.prunedOffsets,
+    disabledReason = "Ledger does not support pruned offset streaming",
+    runConcurrently = false,
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) => {
+      val expectedMsgs = 11
+
+      def validate[Response](
+          transactions: Vector[Response],
+          extractOffset: Response => String,
+          offsetToPruneUpTo: LedgerOffset,
+      ): Unit = {
+        assert(
+          transactions.size == expectedMsgs,
+          s"$expectedMsgs should have been submitted but ${transactions.size} were instead",
+        )
+        val expectedOffset = offsetToPruneUpTo.value.absolute.fold("")(identity)
+        assert(
+          transactions.exists(extractOffset(_) == expectedOffset),
+          s"pruning offset of $expectedOffset should have been received",
+        )
+      }
+
+      val req = ledger
+        .getTransactionsRequest(ledger.transactionFilter(parties = Seq(party)))
+        .copy(sendPrunedOffsets = true)
+        .copy(end = None)
+      val flatsF = ledger.rawFlatTransactions(expectedMsgs, req)
+      val treesF = ledger.rawTransactionTrees(expectedMsgs, req)
+      for {
+        offsetToPruneUpTo <- ledger.currentEnd()
+        _ <- Future.sequence(
+          Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
+        )
+        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- Future.sequence(
+          Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
+        )
+        flats <- flatsF
+        trees <- treesF
+
+      } yield {
+        validate[GetTransactionsResponse](flats, _.prunedOffset, offsetToPruneUpTo)
+        validate[GetTransactionTreesResponse](trees, _.prunedOffset, offsetToPruneUpTo)
+      }
+    }
+  })
+
+  test(
+    "PRTDontServePruningOffsets",
+    "Pruning offsets should not be served when not requested",
+    allocate(SingleParty),
+    enabled = _.prunedOffsets,
+    disabledReason = "Ledger does not support pruned offset streaming",
+    runConcurrently = false,
+  )(implicit ec => {
+    case Participants(Participant(ledger, party)) => {
+      val expectedMsgs = 10
+
+      def validate[Response](
+          transactions: Vector[Response],
+          validateNoOffset: Response => Boolean,
+      ): Unit = {
+        assert(
+          transactions.size == expectedMsgs,
+          s"$expectedMsgs should have been submitted but ${transactions.size} were instead",
+        )
+        assert(
+          transactions.forall(validateNoOffset),
+          s"pruning offset was received",
+        )
+      }
+
+      val req = ledger
+        .getTransactionsRequest(ledger.transactionFilter(parties = Seq(party)))
+        .copy(sendPrunedOffsets = false)
+        .copy(end = None)
+      val flatsF = ledger.rawFlatTransactions(expectedMsgs, req)
+      val treesF = ledger.rawTransactionTrees(expectedMsgs, req)
+      for {
+        offsetToPruneUpTo <- ledger.currentEnd()
+        _ <- Future.sequence(
+          Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
+        )
+        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- Future.sequence(
+          Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
+        )
+        flats <- flatsF
+        trees <- treesF
+
+      } yield {
+        validate[GetTransactionsResponse](flats, _.prunedOffset.isEmpty)
+        validate[GetTransactionTreesResponse](trees, _.prunedOffset.isEmpty)
+      }
     }
   })
 
