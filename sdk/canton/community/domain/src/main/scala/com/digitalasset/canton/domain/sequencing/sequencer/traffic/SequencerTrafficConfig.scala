@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{BatchAggregatorConfig, NonNegativeFiniteD
   *        Balances older than this duration will be pruned at regular intervals.
   * @param trafficConsumedCacheTTL the duration for which consumed traffic entries are kept in the cache after the last time they've been accessed.
   * @param maximumTrafficConsumedCacheSize Maximum number of entries (members) to keep in the traffic consumed cache.
+  * @param submissionTimestampInFutureTolerance the tolerance window that should be added to future dated submission timestamp that can still be accepted by this sequencer.
   */
 final case class SequencerTrafficConfig(
     trafficPurchasedCacheSizePerMember: PositiveInt = PositiveInt.tryCreate(3),
@@ -22,4 +23,6 @@ final case class SequencerTrafficConfig(
     pruningRetentionWindow: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
     trafficConsumedCacheTTL: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
     maximumTrafficConsumedCacheSize: PositiveInt = PositiveInt.tryCreate(1000),
+    submissionTimestampInFutureTolerance: NonNegativeFiniteDuration =
+      NonNegativeFiniteDuration.ofSeconds(5),
 )

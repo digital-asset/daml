@@ -9,21 +9,19 @@ import com.digitalasset.canton.util.ResourceUtil
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
-import java.io.FileOutputStream
-import scala.concurrent.Promise
-import scala.language.reflectiveCalls
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-private[commands] class GrpcByteChunksToFileObserver[
-    T <: GrpcByteChunksToFileObserver.ByteStringChunk
-](
+private[commands] class FileStreamObserver[T](
     inputFile: File,
-    requestComplete: Promise[String],
+    converter: T => ByteString,
 ) extends StreamObserver[T] {
-  private val os: FileOutputStream = inputFile.newFileOutputStream(append = false)
+  private val os = inputFile.newFileOutputStream(append = false)
+  private val requestComplete: Promise[Unit] = Promise[Unit]()
 
+  def result: Future[Unit] = requestComplete.future
   override def onNext(value: T): Unit = {
-    Try(os.write(value.chunk.toByteArray)) match {
+    Try(os.write(converter(value).toByteArray)) match {
       case Failure(exception) =>
         ResourceUtil.closeAndAddSuppressed(Some(exception), os)
         throw exception
@@ -37,11 +35,7 @@ private[commands] class GrpcByteChunksToFileObserver[
   }
 
   override def onCompleted(): Unit = {
-    requestComplete.trySuccess(inputFile.pathAsString).discard
+    requestComplete.trySuccess(()).discard
     ResourceUtil.closeAndAddSuppressed(None, os)
   }
-}
-
-private[commands] object GrpcByteChunksToFileObserver {
-  type ByteStringChunk = { val chunk: ByteString }
 }

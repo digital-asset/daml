@@ -8,6 +8,7 @@ import cats.implicits.catsSyntaxEitherId
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -28,6 +29,7 @@ import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsResponse,
   ListPurgeTopologyTransactionRequest,
   ListPurgeTopologyTransactionResponse,
+  Store,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.client.DomainTopologyClient
@@ -69,11 +71,14 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcUtils, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, topology}
 import com.google.protobuf.ByteString
+import com.google.protobuf.timestamp.Timestamp
+import io.grpc.stub.StreamObserver
 
+import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class BaseQuery(
@@ -178,6 +183,7 @@ class GrpcTopologyManagerReadService(
     stores: => Seq[topology.store.TopologyStore[TopologyStoreId]],
     crypto: Crypto,
     topologyClientLookup: TopologyStoreId => Option[DomainTopologyClient],
+    processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends adminProto.TopologyManagerReadServiceGrpc.TopologyManagerReadService
@@ -805,70 +811,89 @@ class GrpcTopologyManagerReadService(
       res
     }
 
-  override def genesisState(request: GenesisStateRequest): Future[GenesisStateResponse] = {
+  override def genesisState(
+      request: GenesisStateRequest,
+      responseObserver: StreamObserver[GenesisStateResponse],
+  ): Unit = {
+    GrpcUtils.streamResponse(
+      (out: OutputStream) => getGenesisState(request.filterDomainStore, request.timestamp, out),
+      responseObserver,
+      byteString => GenesisStateResponse(byteString),
+      processingTimeout.unbounded.duration,
+      None,
+    )
+  }
+
+  private def getGenesisState(
+      filterDomainStore: Option[Store],
+      timestamp: Option[Timestamp],
+      out: OutputStream,
+  ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val result: EitherT[Future, CantonError, GenesisStateResponse] = for {
-      _ <- member match {
-        case _: ParticipantId =>
-          wrapErr(
-            ProtoConverter
-              .required("filter_domain_store", request.filterDomainStore)
-          )
+    val res: EitherT[Future, CantonError, Unit] =
+      for {
+        _ <- member match {
+          case _: ParticipantId =>
+            wrapErr(
+              ProtoConverter
+                .required("filter_domain_store", filterDomainStore)
+            )
 
-        case _ => EitherT.rightT[Future, CantonError](())
-      }
-      topologyStoreO <- wrapErr(
-        request.filterDomainStore.traverse(TopologyStore.fromProto(_, "filter_domain_store"))
-      )
-      domainTopologyStore <- collectDomainStore(topologyStoreO)
-      timestampO <- wrapErr(
-        request.timestamp
-          .traverse(CantonTimestamp.fromProtoTimestamp)
-      )
-
-      sequencedTimestamp <- timestampO match {
-        case Some(value) => EitherT.rightT[Future, CantonError](value)
-        case None =>
-          val sequencedTimeF = domainTopologyStore
-            .maxTimestamp()
-            .collect {
-              case Some((sequencedTime, _)) =>
-                Right(sequencedTime.value)
-
-              case None =>
-                Left(
-                  TopologyManagerError.InternalError.Other(s"No sequenced time found")
-                )
-            }
-
-          EitherT(sequencedTimeF)
-      }
-
-      // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
-      topologySnapshot <- EitherT.right[CantonError](
-        domainTopologyStore.findEssentialStateAtSequencedTime(
-          SequencedTime(sequencedTimestamp),
-          excludeMappings = Seq(TopologyMapping.Code.TrafficControlState),
+          case _ => EitherT.rightT[Future, CantonError](())
+        }
+        topologyStoreO <- wrapErr(
+          filterDomainStore.traverse(TopologyStore.fromProto(_, "filter_domain_store"))
         )
-      )
-      // reset effective time and sequenced time if we are initializing the sequencer from the beginning
-      genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
-        StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
-          topologySnapshot.result.map(stored =>
-            StoredTopologyTransaction(
-              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-              stored.validUntil.map(_ =>
-                EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
-              ),
-              stored.transaction,
+        domainTopologyStore <- collectDomainStore(topologyStoreO)
+        timestampO <- wrapErr(
+          timestamp
+            .traverse(CantonTimestamp.fromProtoTimestamp)
+        )
+
+        sequencedTimestamp <- timestampO match {
+          case Some(value) => EitherT.rightT[Future, CantonError](value)
+          case None =>
+            val sequencedTimeF = domainTopologyStore
+              .maxTimestamp()
+              .collect {
+                case Some((sequencedTime, _)) =>
+                  Right(sequencedTime.value)
+
+                case None =>
+                  Left(
+                    TopologyManagerError.InternalError.Other(s"No sequenced time found")
+                  )
+              }
+
+            EitherT(sequencedTimeF)
+        }
+
+        // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
+        topologySnapshot <- EitherT.right[CantonError](
+          domainTopologyStore.findEssentialStateAtSequencedTime(
+            SequencedTime(sequencedTimestamp),
+            excludeMappings = Seq(TopologyMapping.Code.TrafficControlState),
+          )
+        )
+        // reset effective time and sequenced time if we are initializing the sequencer from the beginning
+        genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
+          StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
+            topologySnapshot.result.map(stored =>
+              StoredTopologyTransaction(
+                SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+                EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+                stored.validUntil.map(_ =>
+                  EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+                ),
+                stored.transaction,
+              )
             )
           )
-        )
-
-    } yield GenesisStateResponse(genesisState.toByteString(ProtocolVersion.latest))
-    CantonGrpcUtil.mapErrNew(result)
+      } yield {
+        genesisState.toByteString(ProtocolVersion.latest).writeTo(out)
+      }
+    CantonGrpcUtil.mapErrNew(res)
   }
 
   override def listPurgeTopologyTransaction(

@@ -30,7 +30,7 @@ import com.digitalasset.canton.util.ResourceUtil
 import io.grpc.StatusRuntimeException
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, Promise, TimeoutException}
+import scala.concurrent.{Await, TimeoutException}
 
 class HealthAdministration[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
@@ -70,9 +70,8 @@ class HealthAdministration[S <: data.NodeStatus.Status](
       timeout: NonNegativeDuration = timeouts.unbounded,
       chunkSize: Option[Int] = None,
   ): String = consoleEnvironment.run {
-    val requestComplete = Promise[String]()
     val responseObserver =
-      new GrpcByteChunksToFileObserver[v30.HealthDumpResponse](outputFile, requestComplete)
+      new FileStreamObserver[v30.HealthDumpResponse](outputFile, _.chunk)
 
     def call = consoleEnvironment.run {
       adminCommand(new StatusAdminCommands.GetHealthDump(responseObserver, chunkSize))
@@ -81,8 +80,8 @@ class HealthAdministration[S <: data.NodeStatus.Status](
     try {
       ResourceUtil.withResource(call) { _ =>
         CommandSuccessful(
-          Await.result(requestComplete.future, timeout.duration)
-        )
+          Await.result(responseObserver.result, timeout.duration)
+        ).map(_ => outputFile.pathAsString)
       }
     } catch {
       case sre: StatusRuntimeException =>

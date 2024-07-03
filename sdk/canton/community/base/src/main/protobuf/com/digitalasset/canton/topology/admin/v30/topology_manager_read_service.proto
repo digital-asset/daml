@@ -38,7 +38,7 @@ service TopologyManagerReadService {
   rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (ExportTopologySnapshotResponse);
   // Fetch the genesis topology state.
   // The returned bytestring can be used directly to initialize a sequencer.
-  rpc GenesisState(GenesisStateRequest) returns (GenesisStateResponse);
+  rpc GenesisState(GenesisStateRequest) returns (stream GenesisStateResponse);
 }
 
 message BaseQuery {
@@ -310,5 +310,5 @@ message GenesisStateRequest {
 
 message GenesisStateResponse {
   // versioned stored topology transactions
-  bytes genesis_state_for_sequencer = 1;
+  bytes chunk = 1;
 }

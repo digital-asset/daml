@@ -35,7 +35,9 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
-import io.grpc.ManagedChannel
+import io.grpc.Context.CancellableContext
+import io.grpc.stub.StreamObserver
+import io.grpc.{Context, ManagedChannel}
 
 import java.time.Instant
 import scala.concurrent.Future
@@ -571,12 +573,13 @@ object TopologyAdminCommands {
     }
 
     final case class GenesisState(
+        observer: StreamObserver[GenesisStateResponse],
         filterDomainStore: Option[String],
         timestamp: Option[CantonTimestamp],
     ) extends BaseCommand[
           v30.GenesisStateRequest,
-          v30.GenesisStateResponse,
-          ByteString,
+          CancellableContext,
+          CancellableContext,
         ] {
       override def createRequest(): Either[String, v30.GenesisStateRequest] = {
         val domainStore = filterDomainStore.traverse(DomainId.fromString)
@@ -593,13 +596,17 @@ object TopologyAdminCommands {
       override def submitRequest(
           service: TopologyManagerReadServiceStub,
           request: v30.GenesisStateRequest,
-      ): Future[v30.GenesisStateResponse] = service.genesisState(request)
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.genesisState(request, observer))
+        Future.successful(context)
+      }
 
       override def handleResponse(
-          response: v30.GenesisStateResponse
-      ): Either[String, ByteString] =
-        Right(response.genesisStateForSequencer)
-      //  command will potentially take a long time
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
   }

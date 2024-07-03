@@ -588,6 +588,7 @@ abstract class CantonNodeBootstrapImpl[
               sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,
+              processingTimeout = parameterConfig.processingTimeouts,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,

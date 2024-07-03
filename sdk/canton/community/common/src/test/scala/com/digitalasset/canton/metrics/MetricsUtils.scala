@@ -48,4 +48,12 @@ trait MetricsUtils { this: BaseTest =>
     getMetricValues[MetricValue.LongPoint](name).loneElement.value shouldBe expected
   }
 
+  def assertNoValue(name: String)(implicit
+      onDemandMetricsReader: OnDemandMetricsReader
+  ): Assertion = {
+    onDemandMetricsReader
+      .read()
+      .exists(_.getName.contains(name)) shouldBe false
+  }
+
 }

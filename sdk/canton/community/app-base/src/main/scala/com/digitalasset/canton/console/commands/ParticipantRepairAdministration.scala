@@ -6,12 +6,10 @@ package com.digitalasset.canton.console.commands
 import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.admin.api.client.commands.{
-  GrpcAdminCommand,
-  ParticipantAdminCommands,
-}
-import com.digitalasset.canton.admin.participant.v30.{ExportAcsRequest, ExportAcsResponse}
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
+import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -25,7 +23,6 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.RepairContract
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNode
@@ -38,12 +35,11 @@ import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 import com.google.protobuf.ByteString
-import io.grpc.Context.CancellableContext
 import io.grpc.StatusRuntimeException
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{Await, Promise, TimeoutException}
+import scala.concurrent.{Await, TimeoutException}
 
 class ParticipantRepairAdministration(
     val consoleEnvironment: ConsoleEnvironment,
@@ -52,6 +48,7 @@ class ParticipantRepairAdministration(
 ) extends FeatureFlagFilter
     with NoTracing
     with Helpful {
+  private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
 
   @Help.Summary("Purge contracts with specified Contract IDs from local participant.")
   @Help.Description(
@@ -145,59 +142,32 @@ class ParticipantRepairAdministration(
       timestamp: Option[Instant] = None,
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
       force: Boolean = false,
+      timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit = {
     check(FeatureFlag.Repair) {
-      val collector = AcsSnapshotFileCollector[ExportAcsRequest, ExportAcsResponse](outputFile)
-      val command = ParticipantAdminCommands.ParticipantRepairManagement
-        .ExportAcs(
-          parties,
-          partiesOffboarding = partiesOffboarding,
-          filterDomainId,
-          timestamp,
-          collector.observer,
-          contractDomainRenames,
-          force = force,
-        )
-      collector.materializeFile(command)
-    }
-  }
-
-  private case class AcsSnapshotFileCollector[
-      Req,
-      Resp <: GrpcByteChunksToFileObserver.ByteStringChunk,
-  ](outputFile: String) {
-    private val target = File(outputFile)
-    private val requestComplete = Promise[String]()
-    val observer = new GrpcByteChunksToFileObserver[Resp](
-      target,
-      requestComplete,
-    )
-    private val timeout = consoleEnvironment.commandTimeouts.ledgerCommand
-
-    def materializeFile(
-        command: GrpcAdminCommand[
-          Req,
-          CancellableContext,
-          CancellableContext,
-        ]
-    ): Unit = {
       consoleEnvironment.run {
+        val file = File(outputFile)
+        val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
 
         def call = consoleEnvironment.run {
           runner.adminCommand(
-            command
+            ParticipantAdminCommands.ParticipantRepairManagement
+              .ExportAcs(
+                parties,
+                partiesOffboarding = partiesOffboarding,
+                filterDomainId,
+                timestamp,
+                responseObserver,
+                contractDomainRenames,
+                force = force,
+              )
           )
         }
 
         try {
           ResourceUtil.withResource(call) { _ =>
             CommandSuccessful(
-              Await
-                .result(
-                  requestComplete.future,
-                  timeout.duration,
-                )
-                .discard
+              Await.result(responseObserver.result, timeout.duration)
             )
           }
         } catch {
@@ -206,7 +176,7 @@ class ParticipantRepairAdministration(
               GrpcError("Generating acs snapshot file", "download_acs_snapshot", sre).toString
             )
           case _: TimeoutException =>
-            target.delete(swallowIOExceptions = true)
+            file.delete(swallowIOExceptions = true)
             CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
         }
       }
