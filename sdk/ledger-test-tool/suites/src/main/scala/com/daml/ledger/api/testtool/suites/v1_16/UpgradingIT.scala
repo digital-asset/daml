@@ -62,7 +62,7 @@ class UpgradingIT extends LedgerTestSuite {
     .withPackageId(PkgNameRef.toString)
 
   private val PkgRefId_UA_V1 =
-    PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.TEMPLATE_ID.getPackageId))
+    PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.PACKAGE_ID))
 
   test(
     "USubscriptionsUnknownPackageNames",

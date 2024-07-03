@@ -532,7 +532,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     allocate(SingleParty),
     enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val packageId = I.TEMPLATE_ID.getPackageId
+    val packageId = I.PACKAGE_ID
     val moduleName = I.TEMPLATE_ID.getModuleName
     val unknownTemplate = new javaapi.data.Identifier(packageId, moduleName, "TemplateDoesNotExist")
     val unknownInterface =
