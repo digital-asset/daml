@@ -8,8 +8,8 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
-import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.DisclosedContract
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TemplateFilter,
   TransactionFilter,
 }
-import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.Party
@@ -367,16 +366,13 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       owner,
       new DummyFlexibleController(owner),
     )
-    witnessTxs <- ledger.transactionTrees(
-      new GetTransactionsRequest(
-        filter = Some(filterByPartyAndTemplate(owner, DummyFlexibleController.TEMPLATE_ID)),
-        begin = Some(ledger.begin),
-        end = Some(ledger.end),
+    ownerAcs <- ledger.activeContracts(
+      new GetActiveContractsRequest(
+        filter = Some(filterByPartyAndTemplate(owner, DummyFlexibleController.TEMPLATE_ID))
       )
     )
-    tx = assertSingleton("Owners' transactions", witnessTxs)
-    create = assertSingleton("The create", createdEvents(tx))
-    disclosedContract = createEventToDisclosedContract(create)
+    createdEvent = assertSingleton("Owners' created event", ownerAcs._2)
+    disclosedContract = createEventToDisclosedContract(createdEvent)
     submitResponse <- ledger.submitAndWaitForTransactionId(
       submitAndWaitRequest(disclosedContract, contractId)
     )
@@ -397,6 +393,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       "The flat transaction should contain the same details (except events) as the transaction tree",
       flatTransaction,
       Transaction(
+        transactionId = transactionTree.transactionId,
         commandId = transactionTree.commandId,
         workflowId = transactionTree.workflowId,
         effectiveAt = transactionTree.effectiveAt,
