@@ -481,6 +481,8 @@ object ParticipantAdminCommands {
           response: CancellableContext
       ): Either[String, CancellableContext] = Right(response)
 
+      override def timeoutType: GrpcAdminCommand.TimeoutType =
+        GrpcAdminCommand.DefaultUnboundedTimeout
     }
 
     final case class ImportAcs(

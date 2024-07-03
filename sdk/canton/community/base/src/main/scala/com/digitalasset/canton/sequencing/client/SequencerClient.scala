@@ -328,7 +328,7 @@ abstract class SequencerClientImpl(
         .mapK(FutureUnlessShutdown.outcomeK)
 
       if (replayEnabled) {
-        val syncCryptoApi = syncCryptoClient.headSnapshot
+        val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
         for {
           costO <- EitherT
             .liftF(
@@ -392,7 +392,7 @@ abstract class SequencerClientImpl(
           })
 
         // Snapshot used both for cost computation and signing the submission request
-        val syncCryptoApi = syncCryptoClient.headSnapshot
+        val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
         for {
           cost <- EitherT
             .liftF(

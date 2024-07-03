@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.admin.api.client.data.DynamicDomainParameters as ConsoleDynamicDomainParameters
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
+import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -33,10 +33,12 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStore}
+import com.digitalasset.canton.topology.admin.v30.GenesisStateResponse
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -50,14 +52,15 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
+import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.protobuf.ByteString
+import io.grpc.{Context, StatusRuntimeException}
 
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
@@ -72,6 +75,9 @@ class TopologyAdministrationGroup(
 
   protected val runner: AdminCommandRunner = instance
   import runner.*
+  private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
+  implicit protected[canton] lazy val executionContext: ExecutionContext =
+    consoleEnvironment.environment.executionContext
 
   @Help.Summary("Initialize the node with a unique identifier")
   @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
@@ -389,17 +395,37 @@ class TopologyAdministrationGroup(
     def genesis_state(
         filterDomainStore: String = "",
         timestamp: Option[CantonTimestamp] = None,
+        timeout: NonNegativeDuration = timeouts.unbounded,
     ): ByteString = {
-      consoleEnvironment
-        .run {
+      consoleEnvironment.run {
+        val responseObserver = new ByteStringStreamObserver[GenesisStateResponse]
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
           adminCommand(
             TopologyAdminCommands.Read.GenesisState(
+              responseObserver,
               filterDomainStore = OptionUtil
                 .emptyStringAsNone(filterDomainStore),
               timestamp = timestamp,
             )
           )
+
+        call.flatMap { call =>
+          try {
+            ResourceUtil.withResource(call) { _ =>
+              CommandSuccessful(
+                Await.result(responseObserver.result, timeout.duration)
+              )
+            }
+          } catch {
+            case sre: StatusRuntimeException =>
+              GenericCommandError(GrpcError("Generating genesis state", "", sre).toString)
+            case _: TimeoutException =>
+              CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
+          }
         }
+      }
+
     }
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
@@ -2562,7 +2588,6 @@ class TopologyAdministrationGroup(
         domainId: DomainId,
         newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     )(implicit traceContext: TraceContext): Unit = {
-      implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
 
       // See i9028 for a detailed design.
       // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca

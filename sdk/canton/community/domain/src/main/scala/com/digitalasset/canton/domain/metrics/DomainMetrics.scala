@@ -42,6 +42,7 @@ class SequencerHistograms(val parent: MetricName)(implicit
   private[metrics] val prefix = parent :+ "sequencer"
   private[metrics] val sequencerClient = new SequencerClientHistograms(parent)
   private[metrics] val dbStorage = new DbStorageHistograms(parent)
+  private[metrics] val bftOrdering: BftOrderingHistograms = new BftOrderingHistograms(prefix)
 }
 
 class SequencerMetrics(
@@ -52,6 +53,15 @@ class SequencerMetrics(
 ) extends BaseMetrics {
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  def bftOrdering: BftOrderingMetrics =
+    new BftOrderingMetrics(
+      histograms.bftOrdering,
+      openTelemetryMetricsFactory,
+      new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "bftordering"),
+      new HealthMetrics(openTelemetryMetricsFactory),
+    )
+
   override def storageMetrics: DbStorageMetrics = dbStorage
 
   object block extends BlockMetrics(prefix, openTelemetryMetricsFactory)
@@ -138,21 +148,29 @@ class SequencerMetrics(
     val consumedCache: CacheMetrics =
       new CacheMetrics(prefix :+ "consumed-cache", openTelemetryMetricsFactory)
 
-    val wastedTraffic: Meter =
+    val wastedSequencing: Meter =
       openTelemetryMetricsFactory.meter(
         MetricInfo(
-          prefix :+ "wasted-traffic",
+          prefix :+ "wasted-sequencing",
           summary =
-            "Cost of events that got sequenced but failed to pass validation steps after sequencing",
+            "Byte size of events that got sequenced but failed to pass validation steps after sequencing",
           description =
-            """It's possible for events to be sequenced but not delivered because of failed validation related
-              |to traffic control or other validations performed after sequencing.
-              |For instance if the event would cause the balance of the sender to become negative,
-              |or if the submitted cost was incorrect and outside of the tolerance window.
+            """Record the raw byte size of events that are ordered but were not delivered because of traffic enforcement.
               |""",
           qualification = MetricQualification.Traffic,
         )
       )
+
+    val wastedTraffic: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ "wasted-traffic",
+        summary = "Cost of event that was deducted but not delivered.",
+        description = """Events can have their cost deducted but still not be delivered
+            | due to other failed validation after ordering. This metrics records the traffic cost
+            | of such events.""",
+        qualification = MetricQualification.Traffic,
+      )
+    )
 
     val eventDelivered: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(

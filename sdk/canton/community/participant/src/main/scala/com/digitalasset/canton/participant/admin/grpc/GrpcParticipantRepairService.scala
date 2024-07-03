@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
-import better.files.*
 import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
@@ -15,10 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
-import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.{
-  DefaultChunkSize,
-  ValidExportAcsRequest,
-}
+import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.inspection
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds, RepairServiceError}
@@ -26,15 +22,16 @@ import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, ResourceUtil}
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, GrpcUtils, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter}
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
-import java.io.ByteArrayOutputStream
+import java.io.{ByteArrayOutputStream, OutputStream}
 import java.util.concurrent.atomic.AtomicReference
+import java.util.zip.GZIPOutputStream
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -206,74 +203,46 @@ final class GrpcParticipantRepairService(
   override def exportAcs(
       request: ExportAcsRequest,
       responseObserver: StreamObserver[ExportAcsResponse],
-  ): Unit = {
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      val temporaryFile = File.newTemporaryFile(ExportAcsTemporaryFileNamePrefix, suffix = ".gz")
-      val outputStream = temporaryFile.newGzipOutputStream()
+  ): Unit =
+    GrpcUtils.streamResponse(
+      (out: OutputStream) => createAcsSnapshotTemporaryFile(request, out),
+      responseObserver,
+      byteString => ExportAcsResponse(byteString),
+      processingTimeout.unbounded.duration,
+      chunkSizeO = None,
+    )
 
-      def createAcsSnapshotTemporaryFile(
-          validRequest: ValidExportAcsRequest
-      ): EitherT[Future, RepairServiceError, Unit] = {
-        val timestampAsString = validRequest.timestamp.fold("head")(ts => s"at $ts")
-        logger.info(
-          s"Exporting active contract set ($timestampAsString) to $temporaryFile for parties ${validRequest.parties}"
-        )
-        ResourceUtil
-          .withResourceEitherT(outputStream)(
-            sync.stateInspection
-              .exportAcsDumpActiveContracts(
-                _,
-                _.filterString.startsWith(request.filterDomainId),
-                validRequest.parties,
-                validRequest.timestamp,
-                validRequest.contractDomainRenames,
-                skipCleanTimestampCheck = validRequest.force,
-                partiesOffboarding = validRequest.partiesOffboarding,
-              )
-          )
-          .leftMap(toRepairServiceError)
-      }
-
-      // Create a context that will be automatically cancelled after the processing timeout deadline
-      val context = io.grpc.Context.current().withCancellation()
-
-      context.run { () =>
-        val result =
-          for {
-            validRequest <- EitherT.fromEither[Future](
-              ValidExportAcsRequest(request, sync.stateInspection.allProtocolVersions)
+  private def createAcsSnapshotTemporaryFile(
+      request: ExportAcsRequest,
+      out: OutputStream,
+  ): Future[Unit] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val gzipOut = new GZIPOutputStream(out)
+    val res = for {
+      validRequest <- EitherT.fromEither[Future](
+        ValidExportAcsRequest(request, sync.stateInspection.allProtocolVersions)
+      )
+      timestampAsString = validRequest.timestamp.fold("head")(ts => s"at $ts")
+      _ = logger.info(
+        s"Exporting active contract set ($timestampAsString) for parties ${validRequest.parties}"
+      )
+      _ <- ResourceUtil
+        .withResourceEitherT(gzipOut)(
+          sync.stateInspection
+            .exportAcsDumpActiveContracts(
+              _,
+              _.filterString.startsWith(request.filterDomainId),
+              validRequest.parties,
+              validRequest.timestamp,
+              validRequest.contractDomainRenames,
+              skipCleanTimestampCheck = validRequest.force,
+              partiesOffboarding = validRequest.partiesOffboarding,
             )
-            _ <- createAcsSnapshotTemporaryFile(validRequest)
-          } yield {
-            temporaryFile.newInputStream
-              .buffered(DefaultChunkSize.value)
-              .autoClosed { s =>
-                Iterator
-                  .continually(s.readNBytes(DefaultChunkSize.value))
-                  .takeWhile(_.nonEmpty && !context.isCancelled)
-                  .foreach { chunk =>
-                    responseObserver.onNext(ExportAcsResponse(ByteString.copyFrom(chunk)))
-                  }
-              }
-          }
+        )
+        .leftMap(toRepairServiceError)
+    } yield ()
 
-        Await
-          .result(result.value, processingTimeout.unbounded.duration) match {
-          case Right(_) =>
-            if (!context.isCancelled) responseObserver.onCompleted()
-            else {
-              context.cancel(new io.grpc.StatusRuntimeException(io.grpc.Status.CANCELLED))
-              ()
-            }
-          case Left(error) =>
-            responseObserver.onError(error.asGrpcError)
-            context.cancel(new io.grpc.StatusRuntimeException(io.grpc.Status.CANCELLED))
-            ()
-        }
-        // clean the temporary file used to store the acs
-        temporaryFile.delete()
-      }
-    }
+    mapErrNew(res)
   }
 
   /** New endpoint to upload contracts for a party which uses the versioned ActiveContract

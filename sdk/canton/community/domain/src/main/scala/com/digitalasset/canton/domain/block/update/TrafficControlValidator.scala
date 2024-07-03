@@ -144,11 +144,6 @@ private[update] class TrafficControlValidator(
             }
             .merge
         case (_, result) =>
-          recordSequencingWasted(
-            signedOrderingRequest,
-            metricsContext
-              .withExtraLabels("reason" -> result.wastedTrafficReason.getOrElse("unknown")),
-          )
           FutureUnlessShutdown.pure(result)
       }
   }
@@ -260,7 +255,7 @@ private[update] class TrafficControlValidator(
       s"Wasted traffic cost${costO.map(c => s" (cost = $c)").getOrElse("")} for messageId $messageId accepted by sequencer $sequencerFingerprint from sender $sender."
     )
     costO.foreach { cost =>
-      metrics.trafficControl.eventDelivered.mark(cost)(metricsContext)
+      metrics.trafficControl.wastedTraffic.mark(cost)(metricsContext)
     }
   }
 
@@ -282,7 +277,7 @@ private[update] class TrafficControlValidator(
     logger.debug(
       s"Wasted sequencing of event with raw byte size $byteSize for messageId $messageId accepted by sequencer $sequencerId from sender $sender."
     )
-    metrics.trafficControl.wastedTraffic.mark(byteSize)(metricsContext)
+    metrics.trafficControl.wastedSequencing.mark(byteSize)(metricsContext)
   }
 
 }

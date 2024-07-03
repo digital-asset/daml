@@ -430,19 +430,12 @@ class EnterpriseSequencerRateLimitManagerTest
           )
         } yield {
           res shouldBe Left(
-            SequencerRateLimitError.IncorrectEventCost.Error(
+            SequencerRateLimitError.OutdatedEventCost(
               participant1.member,
-              Some(submissionTimestamp),
               Some(incorrectSubmissionCostNN),
+              submissionTimestamp,
+              eventCostNonNegative,
               sequencerTs,
-              None,
-              None,
-              EventCostDetails(
-                trafficConfig.readVsWriteScalingFactor,
-                Map.empty,
-                List.empty,
-                eventCostNonNegative,
-              ),
             )
           )
         }
@@ -695,7 +688,7 @@ class EnterpriseSequencerRateLimitManagerTest
               Some(incorrectSubmissionCostNN),
               submissionTs,
               eventCostNonNegative,
-              cryptoClient.headSnapshot.ipsSnapshot.timestamp,
+              sequencingTs,
               Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,
@@ -741,45 +734,37 @@ class EnterpriseSequencerRateLimitManagerTest
         }
     }
 
-    "fail if the cost is incorrect according to sequencing time and incorrect according to submission time outside the tolerance window" in {
-      implicit f =>
-        val submissionCost = 6L
-        val submissionCostNN = NonNegativeLong.tryCreate(submissionCost)
+    "fail if the cost is outside the tolerance window" in { implicit f =>
+      val submissionCost = 6L
 
-        // Mock an incorrect cost event according to submission time topology
-        returnIncorrectCostFromSender(NonNegativeLong.tryCreate(submissionCost + 1))
-        val submissionTs =
-          (sequencingTs - defaultDDP.submissionCostTimestampTopologyTolerance).immediatePredecessor
-        for {
-          res <- consume(
-            cost = Some(incorrectSubmissionCostNN),
-            submissionTimestamp = Some(submissionTs),
+      // Mock an incorrect cost event according to submission time topology
+      returnIncorrectCostFromSender(NonNegativeLong.tryCreate(submissionCost + 1))
+      val submissionTs =
+        (sequencingTs - defaultDDP.submissionCostTimestampTopologyTolerance).immediatePredecessor
+      for {
+        res <- consume(
+          cost = Some(incorrectSubmissionCostNN),
+          submissionTimestamp = Some(submissionTs),
+        )
+        _ <- assertTrafficNotConsumed()
+      } yield {
+        res shouldBe Left(
+          SequencerRateLimitError.OutdatedEventCost(
+            participant1.member,
+            Some(incorrectSubmissionCostNN),
+            submissionTs,
+            eventCostNonNegative,
+            sequencingTs,
+            trafficReceipt = Some(
+              TrafficReceipt(
+                consumedCost = NonNegativeLong.zero,
+                extraTrafficConsumed = NonNegativeLong.zero,
+                baseTrafficRemainder = maxBaseTrafficRemainder,
+              )
+            ),
           )
-          _ <- assertTrafficNotConsumed()
-        } yield {
-          res shouldBe Left(
-            SequencerRateLimitError.IncorrectEventCost.Error(
-              participant1.member,
-              Some(submissionTs),
-              Some(submissionCostNN),
-              cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.signedBy),
-              Some(
-                TrafficReceipt(
-                  consumedCost = NonNegativeLong.zero,
-                  extraTrafficConsumed = NonNegativeLong.zero,
-                  baseTrafficRemainder = maxBaseTrafficRemainder,
-                )
-              ),
-              EventCostDetails(
-                trafficConfig.readVsWriteScalingFactor,
-                Map.empty,
-                List.empty,
-                eventCostNonNegative,
-              ),
-            )
-          )
-        }
+        )
+      }
     }
 
     "fail if the cost is incorrect according to sequencing time and no submission timestamp was provided" in {
@@ -815,34 +800,60 @@ class EnterpriseSequencerRateLimitManagerTest
         }
     }
 
-    "fail if the cost is incorrect according to sequencing time and submission time is in the future" in {
+    "fail if the cost is incorrect according to sequencing time and submission time is in the future and inside the submission window" in {
       implicit f =>
+        val submissionTs = sequencingTs.immediateSuccessor
         for {
           res <- consume(
             cost = Some(incorrectSubmissionCostNN),
-            submissionTimestamp = Some(sequencingTs.immediateSuccessor),
+            submissionTimestamp = Some(submissionTs),
           )
           _ <- assertTrafficNotConsumed()
         } yield {
           res shouldBe Left(
-            SequencerRateLimitError.IncorrectEventCost.Error(
+            SequencerRateLimitError.OutdatedEventCost(
               participant1.member,
-              Some(sequencingTs.immediateSuccessor),
               Some(incorrectSubmissionCostNN),
-              cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.signedBy),
-              Some(
+              submissionTs,
+              eventCostNonNegative,
+              sequencingTs,
+              trafficReceipt = Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,
                   extraTrafficConsumed = NonNegativeLong.zero,
                   baseTrafficRemainder = maxBaseTrafficRemainder,
                 )
               ),
-              EventCostDetails(
-                trafficConfig.readVsWriteScalingFactor,
-                Map.empty,
-                List.empty,
-                eventCostNonNegative,
+            )
+          )
+        }
+    }
+
+    "fail if the cost is incorrect according to sequencing time and submission time is in the future outside the tolerance window" in {
+      implicit f =>
+        val submissionTs = sequencingTs
+          .plus(sequencerTrafficConfig.submissionTimestampInFutureTolerance.asJava)
+          .immediateSuccessor
+        for {
+          res <- consume(
+            cost = Some(incorrectSubmissionCostNN),
+            submissionTimestamp = Some(submissionTs),
+          )
+          _ <- assertTrafficNotConsumed()
+        } yield {
+          res shouldBe Left(
+            SequencerRateLimitError.OutdatedEventCost(
+              participant1.member,
+              Some(incorrectSubmissionCostNN),
+              submissionTs,
+              eventCostNonNegative,
+              sequencingTs,
+              trafficReceipt = Some(
+                TrafficReceipt(
+                  consumedCost = NonNegativeLong.zero,
+                  extraTrafficConsumed = NonNegativeLong.zero,
+                  baseTrafficRemainder = maxBaseTrafficRemainder,
+                )
               ),
             )
           )
