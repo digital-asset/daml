@@ -75,8 +75,8 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
-        ":test-daml.dar",
         ":test-baz.dar",
+        ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
         ":test-daml-with-same-dependencies-but-different-target-version.dar",
         ":test-daml-with-same-source-project-name.dar",
