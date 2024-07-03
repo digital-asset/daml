@@ -60,8 +60,9 @@ getTransactionsPF lid party = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
     let filter = filterEverythingForParty party
     let verbose = Verbosity False
-    let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
-    let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
+    let sendPrunedOffsets = SendPrunedOffsets False
+    let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose sendPrunedOffsets
+    let req2 = GetTransactionsRequest lid now         Nothing    filter verbose sendPrunedOffsets
     stream <- getTransactions req1
     future <- getTransactions req2
     Just past <- withTimeout $ liftIO $ streamToList stream
@@ -94,7 +95,7 @@ withGetAllTransactions
     -> LedgerService a
 withGetAllTransactions lid party verbose act = do
     let filter = filterEverythingForParty party
-    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
+    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose (SendPrunedOffsets False)
     withGetTransactions req act
 
 withGetTransactionsPF
@@ -105,8 +106,9 @@ withGetTransactionsPF lid party act = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
     let filter = filterEverythingForParty party
     let verbose = Verbosity False
-    let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
-    let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
+    let sendPrunedOffsets = SendPrunedOffsets False
+    let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose sendPrunedOffsets
+    let req2 = GetTransactionsRequest lid now         Nothing    filter verbose sendPrunedOffsets
     withGetTransactions req1 $ \stream -> do
     withGetTransactions req2 $ \future -> do
     Just past <- withTimeout $ liftIO $ streamToList stream
@@ -119,5 +121,5 @@ withGetAllTransactionTrees
     -> LedgerService a
 withGetAllTransactionTrees lid party verbose act = do
     let filter = filterEverythingForParty party
-    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
+    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose (SendPrunedOffsets False)
     withGetTransactionTrees req act

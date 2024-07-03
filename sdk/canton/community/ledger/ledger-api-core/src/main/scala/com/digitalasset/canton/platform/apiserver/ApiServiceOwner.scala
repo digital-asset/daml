@@ -49,6 +49,7 @@ import com.digitalasset.canton.platform.localstore.{
   PackageMetadataStore,
 }
 import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{BindableService, ServerInterceptor}
 import io.opentelemetry.api.trace.Tracer
@@ -114,6 +115,7 @@ object ApiServiceOwner {
       loggerFactory: NamedLoggerFactory,
       authenticateUpgradableContract: AuthenticateUpgradableContract,
       dynParamGetter: DynamicDomainParameterGetter,
+      pruningOffsetCache: PruningOffsetCache,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -187,6 +189,7 @@ object ApiServiceOwner {
         multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
+        pruningOffsetCache = pruningOffsetCache,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

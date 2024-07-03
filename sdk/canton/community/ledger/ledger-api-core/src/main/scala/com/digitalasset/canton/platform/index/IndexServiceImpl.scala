@@ -57,6 +57,7 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
@@ -69,6 +70,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.Success
 
 private[index] class IndexServiceImpl(
@@ -82,6 +84,7 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
+    pruningOffsetCache: PruningOffsetCache,
     metrics: Metrics,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
@@ -113,47 +116,52 @@ private[index] class IndexServiceImpl(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
       transactionFilter: domain.TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
-      between(startExclusive, endInclusive) { (from, to) =>
-        from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-        )
-        to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-        )
-        dispatcher()
-          .startingAt(
-            from.getOrElse(Offset.beforeBegin),
-            RangeSource {
-              val memoFilter =
-                memoizedTransactionFilterProjection(
-                  packageMetadataView,
-                  transactionFilter,
-                  verbose,
-                  alwaysPopulateArguments = false,
-                )
-              (startExclusive, endInclusive) =>
-                Source(memoFilter().toList)
-                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
-                    transactionsReader
-                      .getFlatTransactions(
-                        startExclusive,
-                        endInclusive,
-                        templateFilter,
-                        eventProjectionProperties,
-                        multiDomainEnabled,
-                      )
-                  }
-            },
-            to,
+      enhanceWithPrunedOffsets(
+        sendPrunedOffsets,
+        o => new GetUpdatesResponse(prunedOffset = o.toApiString),
+        between(startExclusive, endInclusive) { (from, to) =>
+          from.foreach(offset =>
+            Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
           )
-          .mapError(shutdownError)
-          .map(_._2)
-          .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
-      }.wireTap(
+          to.foreach(offset =>
+            Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+          )
+          dispatcher()
+            .startingAt(
+              from.getOrElse(Offset.beforeBegin),
+              RangeSource {
+                val memoFilter =
+                  memoizedTransactionFilterProjection(
+                    packageMetadataView,
+                    transactionFilter,
+                    verbose,
+                    alwaysPopulateArguments = false,
+                  )
+                (startExclusive, endInclusive) =>
+                  Source(memoFilter().toList)
+                    .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+                      transactionsReader
+                        .getFlatTransactions(
+                          startExclusive,
+                          endInclusive,
+                          templateFilter,
+                          eventProjectionProperties,
+                          multiDomainEnabled,
+                        )
+                    }
+              },
+              to,
+            )
+            .mapError(shutdownError)
+            .map(_._2)
+            .buffered(metrics.daml.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
+        },
+      ).wireTap(
         _.update match {
           case GetUpdatesResponse.Update.Transaction(transaction) =>
             Spans.addEventToCurrentSpan(
@@ -168,48 +176,53 @@ private[index] class IndexServiceImpl(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
       transactionFilter: domain.TransactionFilter,
+      sendPrunedOffsets: Boolean,
       verbose: Boolean,
       multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       val parties = transactionFilter.filtersByParty.keySet
-      between(startExclusive, endInclusive) { (from, to) =>
-        from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
-        )
-        to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
-        )
-        dispatcher()
-          .startingAt(
-            from.getOrElse(Offset.beforeBegin),
-            RangeSource {
-              val memoFilter =
-                memoizedTransactionFilterProjection(
-                  packageMetadataView,
-                  transactionFilter,
-                  verbose,
-                  alwaysPopulateArguments = true,
-                )
-              (startExclusive, endInclusive) =>
-                Source(memoFilter().toList)
-                  .flatMapConcat { case (_, eventProjectionProperties) =>
-                    transactionsReader
-                      .getTransactionTrees(
-                        startExclusive,
-                        endInclusive,
-                        parties, // on the query filter side we treat every party as wildcard party
-                        eventProjectionProperties,
-                        multiDomainEnabled,
-                      )
-                  }
-            },
-            to,
+      enhanceWithPrunedOffsets(
+        sendPrunedOffsets,
+        o => new GetUpdateTreesResponse(prunedOffset = o.toApiString),
+        between(startExclusive, endInclusive) { (from, to) =>
+          from.foreach(offset =>
+            Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
           )
-          .mapError(shutdownError)
-          .map(_._2)
-          .buffered(metrics.daml.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
-      }.wireTap(
+          to.foreach(offset =>
+            Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+          )
+          dispatcher()
+            .startingAt(
+              from.getOrElse(Offset.beforeBegin),
+              RangeSource {
+                val memoFilter =
+                  memoizedTransactionFilterProjection(
+                    packageMetadataView,
+                    transactionFilter,
+                    verbose,
+                    alwaysPopulateArguments = true,
+                  )
+                (startExclusive, endInclusive) =>
+                  Source(memoFilter().toList)
+                    .flatMapConcat { case (_, eventProjectionProperties) =>
+                      transactionsReader
+                        .getTransactionTrees(
+                          startExclusive,
+                          endInclusive,
+                          parties, // on the query filter side we treat every party as wildcard party
+                          eventProjectionProperties,
+                          multiDomainEnabled,
+                        )
+                    }
+              },
+              to,
+            )
+            .mapError(shutdownError)
+            .map(_._2)
+            .buffered(metrics.daml.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
+        },
+      ).wireTap(
         _.update match {
           case GetUpdateTreesResponse.Update.TransactionTree(transactionTree) =>
             Spans.addEventToCurrentSpan(
@@ -222,6 +235,18 @@ private[index] class IndexServiceImpl(
         }
       )
     }(ErrorLoggingContext(logger, loggingContext))
+
+  private def enhanceWithPrunedOffsets[Response](
+      sendPrunedOffsets: Boolean,
+      createResponse: Offset => Response,
+      original: Source[Response, NotUsed],
+  ): Source[Response, NotUsed] =
+    if (sendPrunedOffsets) {
+      Enhancer(() => pruningOffsetCache.get, Source.tick[Int](1.second, 1.second, 1))(
+        createResponse,
+        original,
+      )
+    } else original
 
   override def getCompletions(
       startExclusive: LedgerOffset,
@@ -803,5 +828,34 @@ object IndexServiceImpl {
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
         party
     }.toSet
+  }
+
+  private[index] final case class Enhancer[Response](
+      offsetGetter: () => Option[Offset],
+      ticker: Source[Int, ?],
+  ) {
+    def apply(
+        createResponse: Offset => Response,
+        original: Source[Response, NotUsed],
+    ): Source[Response, NotUsed] = {
+      val initial = offsetGetter()
+      val ticking = ticker
+        .map(_ => offsetGetter())
+        .statefulMap[Option[Offset], Option[Offset]](() => initial)(
+          {
+            case (None, Some(current)) =>
+              (Some(current), Some(current))
+            case (Some(previous), Some(current)) if previous != current =>
+              (Some(current), Some(current))
+            case (optPrev, _) => (optPrev, None)
+          },
+          _ => None,
+        )
+        .collect { case Some(s) =>
+          createResponse(s)
+        }
+      original.mergePreferred(ticking, preferred = true, eagerComplete = true)
+    }
+
   }
 }

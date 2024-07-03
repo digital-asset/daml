@@ -10,5 +10,6 @@ final case class GetTransactionsRequest(
     startExclusive: LedgerOffset,
     endInclusive: Option[LedgerOffset],
     filter: TransactionFilter,
+    sendPrunedOffsets: Boolean,
     verbose: Boolean,
 )

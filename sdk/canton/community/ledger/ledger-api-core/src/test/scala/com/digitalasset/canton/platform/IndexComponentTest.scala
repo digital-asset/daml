@@ -30,6 +30,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.google.protobuf.ByteString
@@ -156,6 +157,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           loggerFactory = loggerFactory,
           incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
           contractLoader = contractLoader,
+          pruningOffsetCache = new PruningOffsetCache(),
         )
       } yield indexService
 

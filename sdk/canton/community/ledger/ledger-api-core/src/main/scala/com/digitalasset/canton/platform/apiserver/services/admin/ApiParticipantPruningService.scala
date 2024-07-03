@@ -40,6 +40,7 @@ import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -49,6 +50,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
+    pruningOffsetCache: PruningOffsetCache,
     metrics: Metrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -108,6 +110,8 @@ final class ApiParticipantPruningService private (
                 request.pruneAllDivulgedContracts,
               )(loggingContext),
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
+
+            _ = pruningOffsetCache.set(pruneUpTo)
 
           } yield pruneResponse)
             .andThen(logger.logErrorsOnCall[PruneResponse](loggingContext.traceContext))
@@ -228,12 +232,20 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
+      pruningOffsetCache: PruningOffsetCache,
       metrics: Metrics,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend, metrics, telemetry, loggerFactory)
+    new ApiParticipantPruningService(
+      readBackend,
+      writeBackend,
+      pruningOffsetCache,
+      metrics,
+      telemetry,
+      loggerFactory,
+    )
 
 }
