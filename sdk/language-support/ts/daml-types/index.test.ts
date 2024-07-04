@@ -16,8 +16,8 @@ function makeArr<T>(it: Iterator<T, undefined, undefined>): T[] {
 describe("@daml/types", () => {
   it("optional", () => {
     const dict = Optional(Text);
-    expect(dict.decoder.run(undefined).ok).toBe(true);
     expect(dict.decoder.run(null).ok).toBe(true);
+    expect(dict.decoder.run(undefined).ok).toBe(true);
     expect(dict.decoder.run("X").ok).toBe(true);
     expect(dict.decoder.run([]).ok).toBe(false);
     expect(dict.decoder.run(["X"]).ok).toBe(false);
