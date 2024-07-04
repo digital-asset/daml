@@ -564,7 +564,9 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
         }
       };
     }
-    this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
+    this.decoder = jtv
+      .optional(jtv.oneOf(jtv.constant(null), this.innerDecoder))
+      .map(x => (x === undefined ? null : x));
   }
 }
 
