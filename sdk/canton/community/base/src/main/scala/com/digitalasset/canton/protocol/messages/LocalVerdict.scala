@@ -153,13 +153,20 @@ sealed trait LocalReject extends LocalVerdict with TransactionError with Transac
   def _resourcesType: Option[ErrorResource] = None
 
   /** The affected resources.
-    * Will be logged as part of the context information.
-    * If this error is converted to an rpc Status, this field is included as com.google.rpc.ResourceInfo.
+    * It is used as follows:
+    * - It will be logged as part of the context information.
+    * - It may be included into the resulting LocalReject.
+    *   The computation of LocalReject performs truncation so this may or may not be included.
+    * - The LocalReject is sent via the sequencer to the mediator. Therefore: do not include any confidential data!
+    * - The LocalReject is also output through the ledger API.
     */
   def _resources: Seq[String] = Seq()
 
   override def resources: Seq[(ErrorResource, String)] =
     _resourcesType.fold(Seq.empty[(ErrorResource, String)])(rt => _resources.map(rs => (rt, rs)))
+
+  override def context: Map[String, String] =
+    _resourcesType.map(_.asString -> _resources.show).toList.toMap ++ super.context
 
   protected[messages] def toProtoV0: v0.LocalVerdict =
     v0.LocalVerdict(v0.LocalVerdict.SomeLocalVerdict.LocalReject(toLocalRejectProtoV0))
@@ -363,7 +370,6 @@ object LocalReject extends LocalRejectionGroup {
       ) extends LocalRejectImpl(
             _causePrefix = "Rejected transaction is referring to locked keys ",
             _resourcesType = Some(CantonErrorResource.ContractKey),
-            _details = _resources.mkString(", "),
           )
 
       object Reject {
