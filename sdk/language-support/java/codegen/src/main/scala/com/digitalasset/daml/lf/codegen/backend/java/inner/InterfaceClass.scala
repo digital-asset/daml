@@ -34,7 +34,7 @@ object InterfaceClass extends StrictLogging {
       val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
-        .addField(generateTemplateIdField(packageId, interfaceId, languageVersion, packageMetadata))
+        .addField(generateTemplateIdField(packageId, interfaceId, languageVersion))
         .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addFields(
           TemplateClass
@@ -156,14 +156,13 @@ object InterfaceClass extends StrictLogging {
       packageId: PackageId,
       name: QualifiedName,
       lfVer: LanguageVersion,
-      meta: Option[PackageMetadata],
   ): FieldSpec =
     ClassGenUtils.generateTemplateIdField(
-      packageId,
-      meta.map(_.name),
-      lfVer,
-      name.module.toString,
-      name.name.toString,
+      pkgId = packageId,
+      pkgName = None, // For now, interfaces must always be identified by package id.
+      lfVer = lfVer,
+      moduleName = name.module.toString,
+      name = name.name.toString,
     )
 
   private def generateContractFilterMethod(
