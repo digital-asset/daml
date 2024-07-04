@@ -131,7 +131,7 @@ class PackageServiceTest
             fileNameO = Some("CantonExamples"),
             submissionIdO = None,
             vetAllPackages = false,
-            synchronizeVetting = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
           )
           .value
           .map(_.valueOrFail("append dar"))
@@ -154,7 +154,7 @@ class PackageServiceTest
             fileNameO = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
             vetAllPackages = false,
-            synchronizeVetting = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
           )
           .value
           .map(_.valueOrFail("should be right"))
@@ -201,7 +201,7 @@ class PackageServiceTest
             fileNameO = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
             vetAllPackages = false,
-            synchronizeVetting = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
           )
           .valueOrFail("appending dar")
         deps <- packageDependencyResolver.packageDependencies(mainPackageId).value
@@ -253,7 +253,7 @@ class PackageServiceTest
             Some(badDarPath),
             None,
             vetAllPackages = false,
-            synchronizeVetting = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
           )
         )("append illformed.dar").failOnShutdown
       } yield {
@@ -299,7 +299,7 @@ class PackageServiceTest
     "requested by PackageService.vetDar" should {
       "reject the request with an error" in withEnv(
         rejectOnMissingDar(
-          _.vetDar(unknownDarHash, synchronize = true),
+          _.vetDar(unknownDarHash, PackageVettingSynchronization.NoSync),
           unknownDarHash,
           "DAR archive vetting",
         )
@@ -326,9 +326,9 @@ class PackageServiceTest
               sut.upload(
                 darBytes = payload,
                 fileNameO = Some(darName),
-                None,
+                submissionIdO = None,
                 vetAllPackages = false,
-                synchronizeVetting = false,
+                synchronizeVetting = PackageVettingSynchronization.NoSync,
               )
             )
         }

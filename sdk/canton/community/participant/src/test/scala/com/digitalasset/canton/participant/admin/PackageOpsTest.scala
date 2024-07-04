@@ -208,7 +208,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         arrangeCurrentlyVetted(List(pkgId1))
         expectNewVettingState(List(pkgId1, pkgId2))
         packageOps
-          .vetPackages(Seq(pkgId1, pkgId2), synchronize = false)
+          .vetPackages(Seq(pkgId1, pkgId2), PackageVettingSynchronization.NoSync)
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) => succeed })
@@ -222,7 +222,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         // Not ordered to prove that we check set-equality not ordered
         arrangeCurrentlyVetted(List(pkgId2, pkgId1))
         packageOps
-          .vetPackages(Seq(pkgId1, pkgId2), synchronize = false)
+          .vetPackages(Seq(pkgId1, pkgId2), PackageVettingSynchronization.NoSync)
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>

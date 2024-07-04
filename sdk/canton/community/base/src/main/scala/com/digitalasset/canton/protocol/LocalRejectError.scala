@@ -60,13 +60,19 @@ sealed trait LocalRejectError
   def _resourcesType: Option[ErrorResource] = None
 
   /** The affected resources.
-    * Will be logged as part of the context information.
-    * If this error is converted to an rpc Status, this field is included as com.google.rpc.ResourceInfo.
+    * It is used as follows:
+    * - It will be logged as part of the context information.
+    * - It is included into the resulting LocalReject.
+    * - The LocalReject is sent via the sequencer to the mediator. Therefore: do not include any confidential data!
+    * - The LocalReject is also output through the ledger API.
     */
   def _resources: Seq[String] = Seq()
 
   override def resources: Seq[(ErrorResource, String)] =
     _resourcesType.fold(Seq.empty[(ErrorResource, String)])(rt => _resources.map(rs => (rt, rs)))
+
+  override def context: Map[String, String] =
+    _resourcesType.map(_.asString -> _resources.show).toList.toMap ++ super.context
 
   override def pretty: Pretty[LocalRejectError] =
     prettyOfClass(

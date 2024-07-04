@@ -233,6 +233,7 @@ class SequencerNodeBootstrap(
         storage,
         sequencerId,
         arguments.parameterConfig,
+        arguments.futureSupervisor,
         loggerFactory,
       )(config.sequencer)
       addCloseable(ret)

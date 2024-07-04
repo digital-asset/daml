@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.CloseableTest
+import com.digitalasset.canton.config.DefaultPorts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
@@ -83,7 +84,9 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
           config
       )
     }
-    val finalConfig = configTransform(pluginConfig)
+
+    // Once all the plugins and config transformation is done apply the defaults
+    val finalConfig = configTransform(pluginConfig).withDefaults(new DefaultPorts())
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
     val environmentFixture =
