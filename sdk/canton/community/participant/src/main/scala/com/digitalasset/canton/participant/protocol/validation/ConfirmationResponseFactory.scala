@@ -68,23 +68,24 @@ class ConfirmationResponseFactory(
         viewValidationResult.activenessResult
 
       if (inactive.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to inactive contract(s) $inactive"
         )
       if (alreadyLocked.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to contention on contract(s) $alreadyLocked"
         )
-      if (duplicateKeys.nonEmpty)
-        logger.debug(
+      if (duplicateKeys.nonEmpty) {
+        logger.info(
           show"View $viewHash of request $requestId rejected due to duplicate keys $duplicateKeys"
         )
+      }
       if (inconsistentKeys.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to inconsistent keys $inconsistentKeys"
         )
       if (alreadyLockedKeys.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to contention on key(s) $alreadyLockedKeys"
         )
 
@@ -134,33 +135,48 @@ class ConfirmationResponseFactory(
         if (inactiveInputs.nonEmpty) {
           // The transaction uses an inactive contract. Reject.
           Some(
-            LocalReject.ConsistencyRejections.InactiveContracts
-              .Reject(inactiveInputs.toSeq.map(_.coid))(verdictProtocolVersion)
+            logged(
+              requestId,
+              LocalReject.ConsistencyRejections.InactiveContracts
+                .Reject(inactiveInputs.toSeq.map(_.coid))(verdictProtocolVersion),
+            )
           )
         } else if (duplicateKeysForParty.nonEmpty) {
           // The transaction would assign several contracts to the same key. Reject.
           Some(
-            LocalReject.ConsistencyRejections.DuplicateKey
-              .Reject(duplicateKeysForParty.map(_.toString()))(verdictProtocolVersion)
+            logged(
+              requestId,
+              LocalReject.ConsistencyRejections.DuplicateKey
+                .Reject(duplicateKeysForParty.map(_.toString()))(verdictProtocolVersion),
+            )
           )
         } else if (inconsistentKeysForParty.nonEmpty) {
           // The key lookups / creations / exercise by key have inconsistent key resolutions. Reject.
           Some(
-            LocalReject.ConsistencyRejections.InconsistentKey
-              .Reject(inconsistentKeysForParty.map(_.toString()))(verdictProtocolVersion)
+            logged(
+              requestId,
+              LocalReject.ConsistencyRejections.InconsistentKey
+                .Reject(inconsistentKeysForParty.map(_.toString()))(verdictProtocolVersion),
+            )
           )
         } else if (lockedInputs.nonEmpty | lockedForActivation.nonEmpty) {
           // The transaction would create / use a locked contract. Reject.
           val allLocked = lockedForActivation ++ lockedInputs
           Some(
-            LocalReject.ConsistencyRejections.LockedContracts
-              .Reject(allLocked.toSeq.map(_.coid))(verdictProtocolVersion)
+            logged(
+              requestId,
+              LocalReject.ConsistencyRejections.LockedContracts
+                .Reject(allLocked.toSeq.map(_.coid))(verdictProtocolVersion),
+            )
           )
         } else if (lockedKeys.nonEmpty) {
           // The transaction would resolve a locked key. Reject.
           Some(
-            LocalReject.ConsistencyRejections.LockedKeys
-              .Reject(lockedKeys.map(_.toString()))(verdictProtocolVersion)
+            logged(
+              requestId,
+              LocalReject.ConsistencyRejections.LockedKeys
+                .Reject(lockedKeys.map(_.toString()))(verdictProtocolVersion),
+            )
           )
         } else {
           // Everything ok from the perspective of conflict detection.
