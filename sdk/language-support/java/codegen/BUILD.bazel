@@ -75,6 +75,7 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
+        ":test-baz.dar",
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
         ":test-daml-with-same-dependencies-but-different-target-version.dar",
@@ -96,6 +97,7 @@ da_scala_test(
     deps = [
         ":lib",
         ":test-daml-java",
+        ":test-daml-java-baz",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:bindings-java",
         "//daml-lf/api-type-signature",
@@ -143,6 +145,11 @@ daml_compile(
 )
 
 daml_compile(
+    name = "test-baz",
+    srcs = ["src/test/daml/Baz.daml"],
+)
+
+daml_compile(
     name = "test-depending-on-bar-template",
     srcs = ["src/test/daml/UsingBar.daml"],
     data_dependencies = [
@@ -163,6 +170,12 @@ dar_to_java(
     name = "test-daml-java",
     src = ":test-contract-id-daml.dar",
     package_prefix = "ut",
+)
+
+dar_to_java(
+    name = "test-daml-java-baz",
+    src = ":test-baz.dar",
+    package_prefix = "baz",
 )
 
 copy_file(
