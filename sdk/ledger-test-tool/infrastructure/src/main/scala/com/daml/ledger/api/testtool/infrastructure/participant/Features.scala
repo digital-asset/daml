@@ -27,6 +27,7 @@ final case class Features(
     userAndPartyLocalMetadataExtensions: Boolean = false,
     acsActiveAtOffsetFeature: Boolean = false,
     templateFilters: Boolean = false,
+    prunedOffsets: Boolean = false,
 )
 
 object Features {
@@ -56,6 +57,7 @@ object Features {
         experimental.getUserAndPartyLocalMetadataExtensions.supported,
       acsActiveAtOffsetFeature = experimental.getAcsActiveAtOffset.supported,
       templateFilters = experimental.getTemplateFilters.supported,
+      prunedOffsets = experimental.getPrunedOffsets.supported,
     )
   }
 }

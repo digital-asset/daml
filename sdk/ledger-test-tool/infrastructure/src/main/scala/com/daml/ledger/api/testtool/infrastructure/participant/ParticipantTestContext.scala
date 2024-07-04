@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.Instant
+
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
   CompletionResponse,
@@ -68,6 +68,7 @@ import com.daml.ledger.api.v1.event_query_service.{
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
+  GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
 }
@@ -226,6 +227,13 @@ trait ParticipantTestContext extends UserManagementTestContext {
       parties: Party*
   ): Future[Vector[Transaction]]
 
+  /** Non-managed version of [[rawFlatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def rawFlatTransactions(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionsResponse]]
+
   /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]]
@@ -245,6 +253,13 @@ trait ParticipantTestContext extends UserManagementTestContext {
       templateId: Identifier,
       parties: Party*
   ): Future[Vector[TransactionTree]]
+
+  /** Non-managed version of [[rawTransactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def rawTransactionTrees(
+      take: Int,
+      request: GetTransactionsRequest,
+  ): Future[Vector[GetTransactionTreesResponse]]
 
   /** Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
