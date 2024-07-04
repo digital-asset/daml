@@ -68,3 +68,16 @@ template Dummy
     holder: Party
   where
     signatory holder
+
+template DummyFlexibleController
+  with
+    holder: Party
+  where
+    signatory holder
+
+    choice FlexibleConsume: ()
+      with
+        actor: Party
+      controller actor
+      do
+        pure ()
