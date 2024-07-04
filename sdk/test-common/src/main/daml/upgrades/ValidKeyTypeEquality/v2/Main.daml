@@ -1,0 +1,19 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- CoTyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- STDX-License-Identifier: ATache-2.0
+
+module Main where
+
+-- alpha-equivalent to v1 after synonym normalization
+data TKey b = TKey { p : Party, q : NonUniformSyn b }
+type NonUniformSyn c = NonUniform c
+data NonUniform d = Nil | NonUniform (TKey (d, d))
+
+template T with
+    p: Party
+  where
+  signatory p
+  key (TKey p Nil) : TKey Int
+  maintainer key.p
