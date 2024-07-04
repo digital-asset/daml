@@ -160,6 +160,7 @@ trait MkSequencerFactory {
       storage: Storage,
       sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
+      futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
       sequencerConfig: SequencerConfig
@@ -177,6 +178,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
       storage: Storage,
       sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
+      futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(sequencerConfig: SequencerConfig)(implicit
       executionContext: ExecutionContext

@@ -40,7 +40,10 @@ class PackageOpsForTesting(
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     EitherT.rightT(())
 
-  override def vetPackages(packages: Seq[PackageId], synchronize: Boolean)(implicit
+  override def vetPackages(
+      packages: Seq[PackageId],
+      synchronizeVetting: PackageVettingSynchronization,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     EitherT.rightT(())

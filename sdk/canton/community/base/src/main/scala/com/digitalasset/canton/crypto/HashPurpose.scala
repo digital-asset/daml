@@ -91,4 +91,5 @@ object HashPurpose {
   val OrderingRequestSignature = HashPurpose(42, "OrderingRequestSignature")
   val TopologyMappingUniqueKey = HashPurpose(43, "TopologyMappingUniqueKey")
   val CantonScript = HashPurpose(44, "CantonScriptHash")
+  val BftAvailabilityAck = HashPurpose(45, "BftAvailabilityAck")
 }

@@ -67,11 +67,11 @@ class TransactionConfirmationResponseFactory(
         viewValidationResult.activenessResult
 
       if (inactive.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to inactive contract(s) $inactive"
         )
       if (alreadyLocked.nonEmpty)
-        logger.debug(
+        logger.info(
           show"View $viewHash of request $requestId rejected due to contention on contract(s) $alreadyLocked"
         )
 

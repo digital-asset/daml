@@ -11,8 +11,8 @@ import com.digitalasset.canton.admin.participant.v30.{DarDescription as ProtoDar
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
-import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.{PackageService, PackageVettingSynchronization}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
 import com.digitalasset.canton.{LfPackageId, protocol}
@@ -24,6 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcPackageService(
     service: PackageService,
+    synchronizeVetting: PackageVettingSynchronization,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends PackageServiceGrpc.PackageService
@@ -62,7 +63,9 @@ class GrpcPackageService(
           fileNameO = Some(request.filename),
           submissionIdO = None,
           vetAllPackages = request.vetAllPackages,
-          synchronizeVetting = request.synchronizeVetting,
+          synchronizeVetting =
+            if (request.synchronizeVetting) synchronizeVetting
+            else PackageVettingSynchronization.NoSync,
         )
       } yield UploadDarResponse(
         UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))
@@ -109,7 +112,10 @@ class GrpcPackageService(
     val ret = for {
       hash <- EitherT.fromEither[Future](extractHash(request.darHash))
       _unit <- service
-        .vetDar(hash, request.synchronize)
+        .vetDar(
+          hash,
+          if (request.synchronize) synchronizeVetting else PackageVettingSynchronization.NoSync,
+        )
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield VetDarResponse()

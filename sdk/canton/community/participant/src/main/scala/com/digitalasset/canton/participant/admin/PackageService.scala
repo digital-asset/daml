@@ -60,7 +60,7 @@ trait DarService {
       fileNameO: Option[String],
       submissionIdO: Option[LedgerSubmissionId],
       vetAllPackages: Boolean,
-      synchronizeVetting: Boolean,
+      synchronizeVetting: PackageVettingSynchronization,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
 
   def validateDar(
@@ -150,12 +150,15 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     ifDarExists(darHash)(removeDarLf(_, _))(ifNotExistsOperationFailed = "DAR archive removal")
 
-  def vetDar(darHash: Hash, synchronize: Boolean)(implicit
+  def vetDar(
+      darHash: Hash,
+      synchronizeVetting: PackageVettingSynchronization,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     ifDarExists(darHash) { (_, darLf) =>
       packageOps
-        .vetPackages(darLf.all.map(readPackageId), synchronize)
+        .vetPackages(darLf.all.map(readPackageId), synchronizeVetting)
         .leftWiden[CantonError]
     }(ifNotExistsOperationFailed = "DAR archive vetting")
 
@@ -305,14 +308,16 @@ class PackageService(
     * @param fileNameO The DAR filename, present if uploaded via the Admin API.
     * @param submissionIdO upstream submissionId for ledger api server to recognize previous package upload requests
     * @param vetAllPackages if true, then the packages will be vetted automatically
-    * @param synchronizeVetting if true, the future will terminate once the participant observed the package vetting on all connected domains
+    * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected domains.
+    *                            The Future returned by the check will complete once all domains have observed the vetting for the new packages.
+    *                            The caller may also pass be a no-op implementation that immediately returns, depending no the caller's needs for synchronization.
     */
   def upload(
       darBytes: ByteString,
       fileNameO: Option[String],
       submissionIdO: Option[LedgerSubmissionId],
       vetAllPackages: Boolean,
-      synchronizeVetting: Boolean,
+      synchronizeVetting: PackageVettingSynchronization,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
     val submissionId =
       submissionIdO.getOrElse(LedgerSubmissionId.assertFromString(UUID.randomUUID().toString))
@@ -348,11 +353,14 @@ class PackageService(
         .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
     )
 
-  def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
+  def vetPackages(
+      packages: Seq[PackageId],
+      synchronizeVetting: PackageVettingSynchronization,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
     packageOps
-      .vetPackages(packages, syncVetting)
+      .vetPackages(packages, synchronizeVetting)
       .leftMap[DamlError] { err =>
         implicit val code = err.code
         CantonPackageServiceError.IdentityManagerParentError(err)

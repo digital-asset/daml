@@ -1077,9 +1077,9 @@ class ParticipantReplicationAdministrationGroup(
 
   @Help.Summary("Set the participant replica to passive")
   @Help.Description(
-    "Trigger a graceful fail-over from this active replica to another passive replica."
+    "Trigger a graceful fail-over from this active replica to another passive replica. Returns true if another replica became active."
   )
-  def set_passive(): Unit = {
+  def set_passive(): Boolean = {
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.Replication.SetPassiveCommand()

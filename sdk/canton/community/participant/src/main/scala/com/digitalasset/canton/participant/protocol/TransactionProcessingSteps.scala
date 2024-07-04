@@ -10,7 +10,6 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.error.utils.DecodedCantonError
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
@@ -1089,15 +1088,7 @@ class TransactionProcessingSteps(
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
-    val rejectionReasonStatus = rejectionReason.reason()
-    val mappedRejectionReason =
-      DecodedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
-        case Right(error) => rejectionReasonStatus
-        case Left(err) =>
-          logger.warn(s"Failed to parse the rejection reason: $err")
-          rejectionReasonStatus
-      }
-    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(mappedRejectionReason)
+    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason())
 
     val tseO = completionInfoO.map(info =>
       TimestampedEvent(

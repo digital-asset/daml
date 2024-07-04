@@ -206,7 +206,10 @@ abstract class SequencerApiTest
               }) or include("Detected new members without sequencer counter") or
                 include regex "Creating .* at block height None" or
                 include("Subscribing to block source from") or
-                include("Advancing sim clock"))
+                include("Advancing sim clock") or
+                (include("Creating ForkJoinPool with parallelism") and include(
+                  "to avoid starvation"
+                )))
             },
           )
         } yield {

@@ -222,6 +222,44 @@ class CantonSyncService(
     loggerFactory,
   )
 
+  /** Validates that the provided packages are vetted on the currently connected domains. */
+  // TODO(#15087) remove this waiting logic once topology events are published on the ledger api
+  val synchronizeVettingOnConnectedDomains: PackageVettingSynchronization =
+    new PackageVettingSynchronization {
+      override def sync(packages: Set[PackageId])(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
+        // wait for packages to be vetted on the currently connected domains
+        EitherT
+          .right[ParticipantTopologyManagerError](
+            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
+              syncDomain.topologyClient
+                .await(
+                  _.findUnvettedPackagesOrDependencies(participantId, packages)
+                    .bimap(
+                      _missingPackage => false,
+                      unvettedPackages => unvettedPackages.nonEmpty,
+                    )
+                    .merge
+                    .onShutdown(false),
+                  timeouts.network.duration,
+                )
+                .map(domainId -> _)
+            }
+          )
+          .map { result =>
+            result.foreach { case (domainId, successful) =>
+              if (!successful)
+                logger.warn(
+                  s"Waiting for vetting of packages $packages on domain $domainId timed out."
+                )
+            }
+            result
+          }
+          .void
+      }
+    }
+
   private case class AttemptReconnect(
       alias: DomainAlias,
       last: CantonTimestamp,
@@ -661,7 +699,7 @@ class CantonSyncService(
             fileNameO = None,
             submissionIdO = Some(submissionId),
             vetAllPackages = true,
-            synchronizeVetting = false,
+            synchronizeVetting = synchronizeVettingOnConnectedDomains,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))

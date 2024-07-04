@@ -172,7 +172,7 @@ class AdminWorkflowServices(
                   packageService
                     .vetPackages(
                       AdminWorkflowServices.AdminWorkflowPackages.keys.toSeq,
-                      syncVetting = false,
+                      synchronizeVetting = PackageVettingSynchronization.NoSync,
                     )
                 )
               )
@@ -200,7 +200,7 @@ class AdminWorkflowServices(
           fileNameO = Some(AdminWorkflowServices.AdminWorkflowDarResourceName),
           submissionIdO = None,
           vetAllPackages = true,
-          synchronizeVetting = false,
+          synchronizeVetting = PackageVettingSynchronization.NoSync,
         )
         .void
     )
