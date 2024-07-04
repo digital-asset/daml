@@ -16,6 +16,7 @@ function makeArr<T>(it: Iterator<T, undefined, undefined>): T[] {
 describe("@daml/types", () => {
   it("optional", () => {
     const dict = Optional(Text);
+    expect(dict.decoder.run(undefined).ok).toBe(true);
     expect(dict.decoder.run(null).ok).toBe(true);
     expect(dict.decoder.run("X").ok).toBe(true);
     expect(dict.decoder.run([]).ok).toBe(false);
@@ -25,12 +26,14 @@ describe("@daml/types", () => {
   it("nested optionals", () => {
     const dict = Optional(Optional(Text));
     expect(dict.decoder.run(null).ok).toBe(true);
+    expect(dict.decoder.run(undefined).ok).toBe(true);
     expect(dict.decoder.run([]).ok).toBe(true);
     expect(dict.decoder.run(["X"]).ok).toBe(true);
     expect(dict.decoder.run("X").ok).toBe(false);
     expect(dict.decoder.run([["X"]]).ok).toBe(false);
     expect(dict.decoder.run([[]]).ok).toBe(false);
     expect(dict.decoder.run([null]).ok).toBe(false);
+    expect(dict.decoder.run([undefined]).ok).toBe(false);
   });
   it("genmap", () => {
     const { encode, decoder } = Map(Text, Text);
