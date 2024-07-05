@@ -38,8 +38,9 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)
-  protected val refTemplateId = Ref.Identifier(packageId, templateQualifiedName)
-  protected val refTemplateId2 = Ref.Identifier(packageId2, templateQualifiedName)
+  protected val refTemplateId = Ref.TypeConRef(Ref.PackageRef.Id(packageId), templateQualifiedName)
+  protected val refTemplateId2 =
+    Ref.TypeConRef(Ref.PackageRef.Id(packageId2), templateQualifiedName)
 
   private val expectedTemplates = Set(
     Ref.TypeConRef(
