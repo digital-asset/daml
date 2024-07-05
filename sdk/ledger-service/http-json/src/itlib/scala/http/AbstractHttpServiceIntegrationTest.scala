@@ -658,7 +658,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
-  "should handle multiple package ids with the same name but different target (supporting or not package name)" in withHttpService {
+  "should not identify templates from old packages (<=LF 1.15) using a package name" in withHttpService {
     fixture =>
       import AbstractHttpServiceIntegrationTestFuns.{
         fooV1DarOldTarget,
@@ -672,7 +672,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         _ <- uploadPackage(fixture)(fooV2Dar)
 
         (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        // create v1 and v2 versions of contract, using the package name and package id.
+        // create v1 and v2 versions of contract, using the package id.
         // v1 versions of contract, using the package id
         _ <- postCreate(
           fixture,
