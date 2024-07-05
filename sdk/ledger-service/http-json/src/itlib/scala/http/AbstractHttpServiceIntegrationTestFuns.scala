@@ -63,7 +63,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
 
   private[http] val fooV1Dar = requiredResource("ledger-service/http-json/FooV1.dar")
-  private[http] val fooV1DarOldTarget = requiredResource("ledger-service/http-json/FooV1OldTarget.dar")
+  private[http] val fooV1DarOldTarget = requiredResource(
+    "ledger-service/http-json/FooV1OldTarget.dar"
+  )
   private[http] val fooV2Dar = requiredResource("ledger-service/http-json/FooV2.dar")
 
   private[this] def packageIdOfDar(darFile: java.io.File): Ref.PackageId = {

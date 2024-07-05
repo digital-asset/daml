@@ -658,91 +658,101 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
-  "should handle multiple package ids with the same name but different target (supporting or not package name)" in withHttpService { fixture =>
-    import AbstractHttpServiceIntegrationTestFuns.{fooV1DarOldTarget, fooV2Dar, pkgIdFooV1OldTarget, pkgIdFooV2}
-
-    for {
-      _ <- uploadPackage(fixture)(fooV1DarOldTarget)
-      _ <- uploadPackage(fixture)(fooV2Dar)
-
-      (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      // create v1 and v2 versions of contract, using the package name and package id.
-      // v1 versions of contract, using the package id
-      cidV1PkgId <- postCreate(
-        fixture,
-        jsObject(s"""{"templateId": "$pkgIdFooV1OldTarget:Foo:Bar", "payload": {"owner": "$alice"}}"""),
-        hdrs,
-      )
-      cidV1PkgNm <- postCreate(
-        fixture,
-        // Payload per V1 but interpreted as V2, as the current highest version with this name.
-        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
-        hdrs,
-      )
-      cidV1PkgNmWithV1Pref <- postCreate(
-        fixture,
-        // Payload per V1 and interpreted as V1, due to the explicit package id preference.
-        jsObject(
-          s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}, "meta":{"packageIdSelectionPreference":["$pkgIdFooV1OldTarget"]}}"""
-        ),
-        hdrs,
-      )
-      // v2 versions of contract, using the package id, payload from V2
-      cidV2PkgId <- postCreate(
-        fixture,
-        jsObject(
-          s"""{"templateId": "$pkgIdFooV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
-        ),
-        hdrs,
-      )
-      // v2 versions of contract, using the package name, payload from V2
-      cidV2PkgNm <- postCreate(
-        fixture,
-        jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""),
-        hdrs,
-      )
-
-      // Queries using both package ids and package name.
-      // Query 1. via package id V1
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["$pkgIdFooV1OldTarget:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(
-          cidV1PkgId,
-          cidV1PkgNmWithV1Pref,
-        )
+  "should handle multiple package ids with the same name but different target (supporting or not package name)" in withHttpService {
+    fixture =>
+      import AbstractHttpServiceIntegrationTestFuns.{
+        fooV1DarOldTarget,
+        fooV2Dar,
+        pkgIdFooV1OldTarget,
+        pkgIdFooV2,
       }
-      // Query 2. via package id V2
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["$pkgIdFooV2:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(
-          cidV1PkgNm,
-          cidV2PkgId,
-          cidV2PkgNm,
+
+      for {
+        _ <- uploadPackage(fixture)(fooV1DarOldTarget)
+        _ <- uploadPackage(fixture)(fooV2Dar)
+
+        (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        // create v1 and v2 versions of contract, using the package name and package id.
+        // v1 versions of contract, using the package id
+        cidV1PkgId <- postCreate(
+          fixture,
+          jsObject(
+            s"""{"templateId": "$pkgIdFooV1OldTarget:Foo:Bar", "payload": {"owner": "$alice"}}"""
+          ),
+          hdrs,
         )
-      }
-      // Query 3. via package name
-      // When ask for the package name contracts with old target version should not appear
-      _ <- searchExpectOk(
-        Nil,
-        jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
-        fixture,
-        hdrs,
-      ) map { results =>
-        results.map(_.contractId) should contain theSameElementsAs List(
-          cidV1PkgNm,
-          cidV2PkgId,
-          cidV2PkgNm,
+        cidV1PkgNm <- postCreate(
+          fixture,
+          // Payload per V1 but interpreted as V2, as the current highest version with this name.
+          jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+          hdrs,
         )
-      }
-    } yield succeed
+        cidV1PkgNmWithV1Pref <- postCreate(
+          fixture,
+          // Payload per V1 and interpreted as V1, due to the explicit package id preference.
+          jsObject(
+            s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}, "meta":{"packageIdSelectionPreference":["$pkgIdFooV1OldTarget"]}}"""
+          ),
+          hdrs,
+        )
+        // v2 versions of contract, using the package id, payload from V2
+        cidV2PkgId <- postCreate(
+          fixture,
+          jsObject(
+            s"""{"templateId": "$pkgIdFooV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+          ),
+          hdrs,
+        )
+        // v2 versions of contract, using the package name, payload from V2
+        cidV2PkgNm <- postCreate(
+          fixture,
+          jsObject(
+            s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+          ),
+          hdrs,
+        )
+
+        // Queries using both package ids and package name.
+        // Query 1. via package id V1
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["$pkgIdFooV1OldTarget:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) should contain theSameElementsAs List(
+            cidV1PkgId,
+            cidV1PkgNmWithV1Pref,
+          )
+        }
+        // Query 2. via package id V2
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["$pkgIdFooV2:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) should contain theSameElementsAs List(
+            cidV1PkgNm,
+            cidV2PkgId,
+            cidV2PkgNm,
+          )
+        }
+        // Query 3. via package name
+        // When ask for the package name contracts with old target version should not appear
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) should contain theSameElementsAs List(
+            cidV1PkgNm,
+            cidV2PkgId,
+            cidV2PkgNm,
+          )
+        }
+      } yield succeed
   }
 
   "should support create and exerciseByKey with package names" in withHttpService { fixture =>
