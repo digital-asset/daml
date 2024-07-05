@@ -536,7 +536,7 @@ cantonTests = testGroup "daml sandbox"
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
             --   the REPL output is full of color codes.
-            res0 <- case (find (isInfixOf "res0") outputLines) of
+            res0 <- case find (isInfixOf "res0") outputLines of
                       Just res0 -> pure res0
                       _ -> fail output
             assertBool "sandbox participant is not running" ("true" `isInfixOf` res0)
