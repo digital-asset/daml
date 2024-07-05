@@ -4,7 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
+import ClassGenUtils.{
+  companionFieldName,
+  generateGetCompanion,
+  templateIdFieldName,
+  typeConRefFieldName,
+}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
@@ -46,6 +51,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
         .addField(generateTemplateIdField(typeWithContext))
+        .addField(generateTypeConRefField(typeWithContext))
         .addMethod(generateCreateMethod(className))
         .addMethods(
           generateDeprecatedStaticExerciseByKeyMethods(
@@ -137,7 +143,7 @@ private[inner] object TemplateClass extends StrictLogging {
         parameterizedTypeName(createUpdateClassName, contractIdClassName, createdType),
         classOf[javaapi.data.CreateCommand],
         name,
-        templateIdFieldName,
+        typeConRefFieldName,
         contractIdClassName,
       )
       .build()
@@ -508,6 +514,15 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.name,
     )
 
+  private def generateTypeConRefField(context: TypeWithContext): FieldSpec =
+    ClassGenUtils.generateTypeConRefField(
+      context.packageId,
+      context.interface.metadata.map(_.name),
+      context.interface.languageVersion,
+      context.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
+      context.name,
+    )
+
   def generateChoicesMetadata(
       templateClassName: ClassName,
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
@@ -600,11 +615,12 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
+          "$Znew $T<>($>$Z$S,$W$N,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
           Seq(
             fieldClass,
             templateClassName,
             templateIdFieldName,
+            typeConRefFieldName,
             contractIdName,
             valueDecoderLambdaArgName,
             templateClassName,

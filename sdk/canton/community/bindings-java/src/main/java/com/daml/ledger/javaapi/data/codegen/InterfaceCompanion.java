@@ -48,7 +48,8 @@ public abstract class InterfaceCompanion<I, Id, View>
       ValueDecoder<View> valueDecoder,
       FromJson<View> fromJson,
       List<Choice<I, ?, ?>> choices) {
-    super(templateId, templateClassName, newContractId, choices);
+    // Interfaces don't work by typeConRef, so we pass the templateId as the typeConRef.
+    super(templateId, templateId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
     this.fromJson = fromJson;
   }

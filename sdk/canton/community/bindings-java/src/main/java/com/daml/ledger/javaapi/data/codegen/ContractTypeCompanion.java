@@ -26,6 +26,8 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
+  public final Identifier TYPE_CON_REF;
+
   final String TEMPLATE_CLASS_NAME;
 
   final Function<String, Id> newContractId;
@@ -52,10 +54,12 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
    */
   protected ContractTypeCompanion(
       Identifier templateId,
+      Identifier typeConRef,
       String templateClassName,
       Function<String, Id> newContractId,
       List<Choice<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
+    TYPE_CON_REF = typeConRef;
     TEMPLATE_CLASS_NAME = templateClassName;
     this.newContractId = newContractId;
     this.choices =

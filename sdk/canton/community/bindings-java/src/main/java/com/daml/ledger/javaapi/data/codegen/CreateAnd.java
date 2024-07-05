@@ -19,7 +19,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
       Choice<?, ? super A, R> choice, A choiceArgument) {
     var command =
         new CreateAndExerciseCommand(
-            getCompanion().TEMPLATE_ID,
+            getCompanion().TYPE_CON_REF,
             createArguments.toValue(),
             choice.name,
             choice.encodeArg.apply(choiceArgument));

@@ -19,7 +19,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
       Choice<?, ? super A, R> choice, A choiceArgument) {
     var command =
         new ExerciseByKeyCommand(
-            getCompanion().TEMPLATE_ID,
+            getCompanion().TYPE_CON_REF,
             contractKey,
             choice.name,
             choice.encodeArg.apply(choiceArgument));
@@ -47,6 +47,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
       // TODO i15638 use getCompanion().TEMPLATE_ID as the interface ID
       var command =
           new ExerciseByKeyCommand(
+              // Interfaces can only be referenced by template-id
               keySource.TEMPLATE_ID,
               contractKey,
               choice.name,
