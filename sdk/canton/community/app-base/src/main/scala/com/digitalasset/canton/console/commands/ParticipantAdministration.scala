@@ -1202,6 +1202,20 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       res
     }
 
+    @Help.Summary("Validate DARs against the current participants' state")
+    @Help.Description(
+      """Performs the same DAR and Daml package validation checks that the upload call performs,
+         but with no effects on the target participants: the DAR is not persisted or vetted."""
+    )
+    def validate(path: String): String =
+      consoleEnvironment.runE {
+        for {
+          hash <- ParticipantCommands.dars
+            .validate(runner, path, logger)
+            .toEither
+        } yield hash
+      }
+
     @Help.Summary("Downloads the DAR file with the given hash to the given directory")
     def download(darHash: String, directory: String): Unit = {
       val _ = consoleEnvironment.run {

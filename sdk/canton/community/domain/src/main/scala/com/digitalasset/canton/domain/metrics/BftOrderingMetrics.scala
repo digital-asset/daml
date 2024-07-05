@@ -24,10 +24,13 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
   private[metrics] val prefix = parent :+ BftOrderingMetrics.Prefix
   private[metrics] val dbStorage = new DbStorageHistograms(parent)
 
-  private[metrics] val outputStorageTime: Item = Item(
-    prefix :+ "output-storage-time",
-    summary = "Block store time and rate",
-    description = "Records the rate and time it takes to perform block store operations.",
+  private[metrics] val requestsOrderingTime: Item = Item(
+    prefix :+ "requests-ordering-time",
+    summary = "Requests ordering time",
+    description =
+      """Records the rate and time it takes to order requests. This metric is always meaningful
+        |when queried on and restricted to the receiving sequencer; in other cases, it is meaningful only
+        |when the receiving and reporting sequencers' clocks are kept synchronized.""",
     qualification = MetricQualification.Debug,
   )
 }
@@ -45,19 +48,7 @@ class BftOrderingMetrics(
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory) {
-
-    sealed trait Op extends Product
-    object Op {
-      val Key: String = classOf[Op].getSimpleName
-
-      case object Store extends Op
-    }
-
-    object output {
-      val storageTime: Timer = openTelemetryMetricsFactory.timer(histograms.outputStorageTime.info)
-    }
-  }
+  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   object global {
 
@@ -71,6 +62,23 @@ class BftOrderingMetrics(
         qualification = MetricQualification.Traffic,
       )
     )
+
+    val requestsOrdered: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"ordered-requests",
+        summary = "Requests ordered",
+        description = "Measures the total requests ordered.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    object requestsOrderingTime {
+      val timer: Timer =
+        openTelemetryMetricsFactory.timer(histograms.requestsOrderingTime.info)
+      object labelKeys {
+        val ReceivingSequencer: String = "receivingSequencer"
+      }
+    }
   }
 }
 

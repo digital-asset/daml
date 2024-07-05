@@ -21,6 +21,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfResponse,
   PartyInfo,
 }
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.*
@@ -688,14 +689,20 @@ class StoreBasedTopologySnapshot(
 
   override def memberFirstKnownAt(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+  )(implicit traceContext: TraceContext): Future[Option[(SequencedTime, EffectiveTime)]] = {
     member match {
       case participantId: ParticipantId =>
-        store.findFirstTrustCertificateForParticipant(participantId).map(_.map(_.validFrom.value))
+        store
+          .findFirstTrustCertificateForParticipant(participantId)
+          .map(_.map(tx => (tx.sequenced, tx.validFrom)))
       case mediatorId: MediatorId =>
-        store.findFirstMediatorStateForMediator(mediatorId).map(_.map(_.validFrom.value))
+        store
+          .findFirstMediatorStateForMediator(mediatorId)
+          .map(_.map(tx => (tx.sequenced, tx.validFrom)))
       case sequencerId: SequencerId =>
-        store.findFirstSequencerStateForSequencer(sequencerId).map(_.map(_.validFrom.value))
+        store
+          .findFirstSequencerStateForSequencer(sequencerId)
+          .map(_.map(tx => (tx.sequenced, tx.validFrom)))
       case _ =>
         Future.failed(
           new IllegalArgumentException(

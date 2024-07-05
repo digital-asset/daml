@@ -1162,8 +1162,8 @@ trait SequencerApiTestUtils
           for {
             firstKnownAtO <- EitherT.right(headSnapshot.memberFirstKnownAt(member))
             res <- firstKnownAtO match {
-              case Some(firstKnownAt) =>
-                sequencer.registerMemberInternal(member, firstKnownAt)
+              case Some((_, firstKnownAtEffectiveTime)) =>
+                sequencer.registerMemberInternal(member, firstKnownAtEffectiveTime.value)
               case None =>
                 ErrorUtil.invalidState(
                   s"Member $member has no first known at time, despite being in the topology"

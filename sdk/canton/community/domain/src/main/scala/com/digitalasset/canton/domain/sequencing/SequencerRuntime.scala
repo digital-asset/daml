@@ -178,8 +178,10 @@ class SequencerRuntime(
             firstKnownAtO <- EitherT.right(topologyClient.headSnapshot.memberFirstKnownAt(member))
             _ <- {
               firstKnownAtO match {
-                case Some(firstKnownAt) =>
-                  sequencer.registerMemberInternal(member, firstKnownAt).leftMap(_.toString)
+                case Some((_, firstKnownAtEffectiveTime)) =>
+                  sequencer
+                    .registerMemberInternal(member, firstKnownAtEffectiveTime.value)
+                    .leftMap(_.toString)
                 case None => EitherT.leftT[Future, Unit](s"Member $member not known in topology")
               }
             }

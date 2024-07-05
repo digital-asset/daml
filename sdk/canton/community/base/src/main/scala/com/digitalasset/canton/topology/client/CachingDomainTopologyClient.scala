@@ -294,7 +294,7 @@ private class ForwardingTopologySnapshotClient(
 
   override def memberFirstKnownAt(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
+  ): Future[Option[(SequencedTime, EffectiveTime)]] =
     parent.memberFirstKnownAt(member)
 
   override def findDynamicDomainParameters()(implicit
@@ -511,7 +511,7 @@ class CachingTopologySnapshot(
 
   override def memberFirstKnownAt(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+  )(implicit traceContext: TraceContext): Future[Option[(SequencedTime, EffectiveTime)]] = {
     isMemberKnown(member).flatMap {
       // TODO(#18394): Consider caching this call as well,
       //  should only happen during topology transactions with potential new members: DTC/SDS/MDS

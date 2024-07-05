@@ -30,6 +30,7 @@ import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter, config}
@@ -46,9 +47,9 @@ import scala.concurrent.duration.*
 class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecutionContext {
 
   private val domainId = DefaultTestIdentities.domainId
-  private val alice: Member = ParticipantId("alice")
-  private val bob: Member = ParticipantId("bob")
-  private val carole: Member = ParticipantId("carole")
+  private val alice = ParticipantId("alice")
+  private val bob = ParticipantId("bob")
+  private val carole = ParticipantId("carole")
   private val topologyClientMember = SequencerId(domainId.uid)
 
   // Config to turn on Pekko logging
@@ -80,12 +81,17 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto: DomainSyncCryptoClient = valueOrFail(
-      TestingTopology(sequencerGroup =
-        SequencerGroup(
+      TestingTopology(
+        sequencerGroup = SequencerGroup(
           active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
           passive = Seq.empty,
           threshold = PositiveInt.one,
-        )
+        ),
+        participants = Seq(
+          alice,
+          bob,
+          carole,
+        ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
       )
         .build(loggerFactory)
         .forOwner(SequencerId(domainId.uid))
