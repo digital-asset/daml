@@ -492,6 +492,7 @@ alias(
             ":Account.dar",
             ":CIou.dar",
             ":FooV1.dar",
+            ":FooV1OldTarget.dar",
             ":FooV2.dar",
             ":RIou.dar",
             ":User.dar",
