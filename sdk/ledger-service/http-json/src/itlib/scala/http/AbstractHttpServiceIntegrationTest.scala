@@ -674,7 +674,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         // create v1 and v2 versions of contract, using the package name and package id.
         // v1 versions of contract, using the package id
-        cidV1PkgId <- postCreate(
+        _cidV1PkgId <- postCreate(
           fixture,
           jsObject(
             s"""{"templateId": "$pkgIdFooV1OldTarget:Foo:Bar", "payload": {"owner": "$alice"}}"""
