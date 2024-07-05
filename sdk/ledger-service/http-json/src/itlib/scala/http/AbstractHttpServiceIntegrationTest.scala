@@ -698,7 +698,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           hdrs,
         ) map { results =>
           results.map(_.contractId) should contain theSameElementsAs List(
-            cidV2PkgId,
+            cidV2PkgId
           )
         }
       } yield succeed
