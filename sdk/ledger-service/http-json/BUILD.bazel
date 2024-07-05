@@ -227,12 +227,22 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
-# Upgraded by FooV2
+# Upgraded by FooV2 with same target
 daml_compile(
     name = "FooV1",
     srcs = ["src/it/daml/upgrades/v1/Foo.daml"],
     project_name = "foo",
     target = "1.dev",
+    version = "0.0.1",
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
+#Upgraded by FooV2 but different target
+daml_compile(
+    name = "FooV1OldTarget",
+    srcs = ["src/it/daml/upgrades/v1/Foo.daml"],
+    project_name = "foo",
+    target = "1.15",
     version = "0.0.1",
     visibility = ["//ledger-service:__subpackages__"],
 )
