@@ -238,7 +238,7 @@ class CantonSyncService(
                   _.findUnvettedPackagesOrDependencies(participantId, packages)
                     .bimap(
                       _missingPackage => false,
-                      unvettedPackages => unvettedPackages.nonEmpty,
+                      unvettedPackages => unvettedPackages.isEmpty,
                     )
                     .merge
                     .onShutdown(false),

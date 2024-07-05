@@ -33,6 +33,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   Member,
@@ -62,17 +63,21 @@ import scala.concurrent.{Future, Promise}
 
 class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
 
-  private val alice: Member = ParticipantId("alice")
-  private val bob: Member = ParticipantId("bob")
+  private val alice = ParticipantId("alice")
+  private val bob = ParticipantId("bob")
   private val ts0 = CantonTimestamp.Epoch
   private val domainId = DefaultTestIdentities.domainId
   private val topologyClientMember = SequencerId(domainId.uid)
-  private val crypto = TestingTopology(sequencerGroup =
-    SequencerGroup(
+  private val crypto = TestingTopology(
+    sequencerGroup = SequencerGroup(
       active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
       passive = Seq.empty,
       threshold = PositiveInt.one,
-    )
+    ),
+    participants = Seq(
+      alice,
+      bob,
+    ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
   ).build(loggerFactory).forOwner(SequencerId(domainId.uid))
   private val cryptoD =
     valueOrFail(crypto.forDomain(domainId, defaultStaticDomainParameters).toRight("no crypto api"))(

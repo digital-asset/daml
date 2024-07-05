@@ -114,8 +114,28 @@ class SequencerReader(
           isMemberEnabled,
           CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
         )
+        // We use the sequencing time of the topology transaction that registered the member on the domain
+        // as the latestTopologyClientRecipientTimestamp
+        memberOnboardingTxSequencingTime <- EitherT.right(
+          syncCryptoApi.headSnapshot.ipsSnapshot
+            .memberFirstKnownAt(member)
+            .map {
+              case Some((sequencedTime, _)) => sequencedTime.value
+              case None =>
+                ErrorUtil.invalidState(
+                  s"Member $member unexpectedly not known to the topology client"
+                )
+            }
+        )
         initialReadState <- EitherT.right(
-          startFromClosestCounterCheckpoint(ReadState.initial(member)(registeredMember), offset)
+          startFromClosestCounterCheckpoint(
+            ReadState.initial(
+              member,
+              registeredMember,
+              latestTopologyClientRecipientTimestamp = memberOnboardingTxSequencingTime,
+            ),
+            offset,
+          )
         )
         // validate we are in the bounds of the data that this sequencer can serve
         lowerBoundO <- EitherT.right(store.fetchLowerBound())
@@ -753,12 +773,16 @@ object SequencerReader {
   }
 
   private[SequencerReader] object ReadState {
-    def initial(member: Member)(registeredMember: RegisteredMember): ReadState =
+    def initial(
+        member: Member,
+        registeredMember: RegisteredMember,
+        latestTopologyClientRecipientTimestamp: CantonTimestamp,
+    ): ReadState =
       ReadState(
-        member,
-        registeredMember.memberId,
-        registeredMember.registeredFrom,
-        None,
+        member = member,
+        memberId = registeredMember.memberId,
+        nextReadTimestamp = registeredMember.registeredFrom,
+        latestTopologyClientRecipientTimestamp = Some(latestTopologyClientRecipientTimestamp),
       )
   }
 

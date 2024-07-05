@@ -50,6 +50,21 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
       }
       res
     }
+
+    @Help.Summary("Validate DARs against the current participants' state")
+    @Help.Description(
+      """Performs the same DAR and Daml package validation checks that the upload call performs,
+         but with no effects on the target participants: the DAR is not persisted or vetted."""
+    )
+    def validate(darPath: String): Map[ParticipantReference, String] =
+      ConsoleCommandResult.runAll(participants)(
+        ParticipantCommands.dars
+          .validate(
+            _,
+            darPath,
+            logger,
+          )
+      )
   }
 
   @Help.Summary("Manage domain connections on several participants at once")

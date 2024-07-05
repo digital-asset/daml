@@ -54,7 +54,7 @@ class SequencerMetrics(
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
 
-  def bftOrdering: BftOrderingMetrics =
+  lazy val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
       histograms.bftOrdering,
       openTelemetryMetricsFactory,

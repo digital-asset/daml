@@ -1259,6 +1259,17 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ledgerApiCommand(LedgerApiCommands.PackageService.ListKnownPackages(limit))
         })
 
+      @Help.Summary("Validate a DAR against the current participants' state", FeatureFlag.Testing)
+      @Help.Description(
+        """Performs the same DAR and Daml package validation checks that the upload call performs,
+         but with no effects on the target participants: the DAR is not persisted or vetted."""
+      )
+      def validate_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
+        consoleEnvironment.run {
+          ledgerApiCommand(LedgerApiCommands.PackageService.ValidateDarFile(darPath))
+        }
+      }
+
     }
 
     @Help.Summary("Monitor progress of commands", FeatureFlag.Testing)

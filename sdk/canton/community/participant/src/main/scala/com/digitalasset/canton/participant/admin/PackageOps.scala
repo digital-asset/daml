@@ -29,6 +29,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 trait PackageOps extends NamedLogging {
@@ -113,16 +114,17 @@ class PackageOpsImpl(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
+    val packagesToBeAdded = new AtomicReference[Seq[PackageId]](List.empty)
     for {
       newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
         // Keep deterministic order for testing and keep optimal O(n)
         val existingPackagesSet = existingPackages.toSet
-        val packagesToBeAdded = packages.filterNot(existingPackagesSet)
-        existingPackages ++ packagesToBeAdded
+        packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
+        existingPackages ++ packagesToBeAdded.get
       }
       // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
       _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
-        synchronizeVetting.sync(packages.toSet)
+        synchronizeVetting.sync(packagesToBeAdded.get.toSet)
       }
     } yield ()
 

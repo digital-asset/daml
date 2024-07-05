@@ -29,7 +29,11 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   AuthorityOfResponse,
   PartyInfo,
 }
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessingSubscriber
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  SequencedTime,
+  TopologyTransactionProcessingSubscriber,
+}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
@@ -536,7 +540,7 @@ trait MembersTopologySnapshotClient {
 
   def memberFirstKnownAt(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]]
+  ): Future[Option[(SequencedTime, EffectiveTime)]]
 }
 
 trait TopologySnapshot
