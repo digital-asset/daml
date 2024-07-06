@@ -123,6 +123,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
     implicit val materializer: Materializer = Materializer(actorSystem)
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
+      sequencerMember = topologyClientMember,
       unifiedSequencer = testedUseUnifiedSequencer,
       loggerFactory = loggerFactory,
     )

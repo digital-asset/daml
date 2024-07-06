@@ -131,8 +131,6 @@ final class GeneratorsProtocol(
     Arbitrary.arbitrary[Hash].map(ViewHash(_))
   )
 
-  implicit val confirmationPolicyArb: Arbitrary[ConfirmationPolicy] = genArbitrary
-
   implicit val serializableRawContractInstanceArb: Arbitrary[SerializableRawContractInstance] = {
     val contractInstance = ExampleTransactionFactory.contractInstance()
     Arbitrary(SerializableRawContractInstance.create(contractInstance).value)

@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
@@ -18,11 +18,8 @@ import com.google.protobuf.ByteString
 import java.util.UUID
 
 /** Information concerning every '''member''' involved in the underlying transaction.
-  *
-  * @param confirmationPolicy determines who must confirm the request
   */
 final case class CommonMetadata private (
-    confirmationPolicy: ConfirmationPolicy,
     domainId: DomainId,
     mediator: MediatorGroupRecipient,
     salt: Salt,
@@ -41,7 +38,6 @@ final case class CommonMetadata private (
   override val hashPurpose: HashPurpose = HashPurpose.CommonMetadata
 
   override def pretty: Pretty[CommonMetadata] = prettyOfClass(
-    param("confirmation policy", _.confirmationPolicy),
     param("domain id", _.domainId),
     param("mediator", _.mediator),
     param("uuid", _.uuid),
@@ -52,7 +48,6 @@ final case class CommonMetadata private (
 
   private def toProtoV30: v30.CommonMetadata = {
     v30.CommonMetadata(
-      confirmationPolicy = confirmationPolicy.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
       salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -79,7 +74,6 @@ object CommonMetadata
       hashOps: HashOps,
       protocolVersion: ProtocolVersion,
   )(
-      confirmationPolicy: ConfirmationPolicy,
       domain: DomainId,
       mediator: MediatorGroupRecipient,
       salt: Salt,
@@ -87,19 +81,18 @@ object CommonMetadata
   ): CommonMetadata = create(
     hashOps,
     protocolVersionRepresentativeFor(protocolVersion),
-  )(confirmationPolicy, domain, mediator, salt, uuid)
+  )(domain, mediator, salt, uuid)
 
   def create(
       hashOps: HashOps,
       protocolVersion: RepresentativeProtocolVersion[CommonMetadata.type],
   )(
-      confirmationPolicy: ConfirmationPolicy,
       domain: DomainId,
       mediator: MediatorGroupRecipient,
       salt: Salt,
       uuid: UUID,
   ): CommonMetadata =
-    CommonMetadata(confirmationPolicy, domain, mediator, salt, uuid)(
+    CommonMetadata(domain, mediator, salt, uuid)(
       hashOps,
       protocolVersion,
       None,
@@ -107,14 +100,9 @@ object CommonMetadata
 
   private def fromProtoV30(hashOps: HashOps, metaDataP: v30.CommonMetadata)(
       bytes: ByteString
-  ): ParsingResult[CommonMetadata] =
+  ): ParsingResult[CommonMetadata] = {
+    val v30.CommonMetadata(saltP, domainIdP, uuidP, mediatorP) = metaDataP
     for {
-      confirmationPolicy <- ConfirmationPolicy
-        .fromProtoPrimitive(metaDataP.confirmationPolicy)
-        .leftMap(e =>
-          ProtoDeserializationError.ValueDeserializationError("confirmationPolicy", e.show)
-        )
-      v30.CommonMetadata(saltP, _confirmationPolicyP, domainIdP, uuidP, mediatorP) = metaDataP
       domainUid <- UniqueIdentifier
         .fromProtoPrimitive_(domainIdP)
         .leftMap(e => ProtoDeserializationError.ValueDeserializationError("domainId", e.message))
@@ -125,9 +113,10 @@ object CommonMetadata
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
       pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommonMetadata(confirmationPolicy, DomainId(domainUid), mediator, salt, uuid)(
+    } yield CommonMetadata(DomainId(domainUid), mediator, salt, uuid)(
       hashOps,
       pv,
       Some(bytes),
     )
+  }
 }

@@ -34,7 +34,6 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
 import com.digitalasset.canton.util.LfTransactionUtil.{
   metadataFromCreate,
   metadataFromExercise,
@@ -407,38 +406,35 @@ class ExampleTransactionFactory(
     val transactionSalt: Salt = TestSalt.generateSalt(0),
     val transactionSeed: SaltSeed = TestSalt.generateSeed(0),
     val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
-    val confirmationPolicy: ConfirmationPolicy = ConfirmationPolicy.Signatory,
     val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("example::default")),
     val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
     val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
     val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
 
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV10
   private val random = new Random(0)
 
-  private def createWithConfirmationPolicy(
-      confirmationPolicy: ConfirmationPolicy,
-      topologySnapshot: TopologySnapshot,
+  private def createNewView(
       rootNode: LfActionNode,
       rootSeed: Option[LfHash],
       rootNodeId: LfNodeId,
       tailNodes: Seq[TransactionViewDecomposition],
       isRoot: Boolean,
-      protocolVersion: ProtocolVersion,
-  )(implicit ec: ExecutionContext): Future[NewView] = {
+  ): Future[NewView] = {
 
     val rootRbContext = RollbackContext.empty
 
     val submittingAdminPartyO =
       Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
-    confirmationPolicy
-      .informeesAndThreshold(rootNode, topologySnapshot)
-      .map { case (viewInformees, viewThreshold) =>
+    TransactionViewDecompositionFactory
+      .informeesParticipantsAndThreshold(rootNode, topologySnapshot)
+      .map { case (viewInformeesWithParticipantData, viewThreshold) =>
+        val viewInformees = viewInformeesWithParticipantData.fmap(_._2)
         val result = NewView(
           rootNode,
           ViewConfirmationParameters.create(viewInformees, viewThreshold),
@@ -448,29 +444,24 @@ class ExampleTransactionFactory(
           rootRbContext,
         )
 
-        result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
+        result.withSubmittingAdminParty(submittingAdminPartyO)
       }
   }
 
-  private def awaitCreateWithConfirmationPolicy(
-      confirmationPolicy: ConfirmationPolicy,
-      topologySnapshot: TopologySnapshot,
+  private def awaitCreateNewView(
       rootNode: LfActionNode,
       rootSeed: Option[LfHash],
       rootNodeId: LfNodeId,
       tailNodes: Seq[TransactionViewDecomposition],
       isRoot: Boolean,
-  )(implicit ec: ExecutionContext): NewView =
+  ): NewView =
     Await.result(
-      createWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      createNewView(
         rootNode,
         rootSeed,
         rootNodeId,
         tailNodes,
         isRoot,
-        protocolVersion,
       ),
       10.seconds,
     )
@@ -491,6 +482,7 @@ class ExampleTransactionFactory(
       SingleExercise(seed = deriveNodeSeed(0)),
       SingleExerciseWithNonstakeholderActor(seed = deriveNodeSeed(0)),
       MultipleRoots,
+      MultipleRootsAndSimpleViewNesting,
       MultipleRootsAndViewNestings,
       ViewInterleavings,
       TransientContracts,
@@ -585,32 +577,18 @@ class ExampleTransactionFactory(
   def subViewIndex(index: Int, total: Int): MerklePathElement =
     TransactionSubviews.indices(total)(index)
 
-  @SuppressWarnings(Array("org.wartremover.warts.TryPartial", "org.wartremover.warts.AsInstanceOf"))
-  def view(
+  private def viewInternal(
       node: LfActionNode,
+      viewConfirmationParameters: ViewConfirmationParameters,
       viewIndex: Int,
       consumed: Set[LfContractId],
       coreInputs: Seq[SerializableContract],
       created: Seq[SerializableContract],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
-      isRoot: Boolean,
       packagePreference: Set[LfPackageId],
-      subviews: TransactionView*
+      subviews: Seq[TransactionView],
   ): TransactionView = {
-
-    val submittingAdminPartyO =
-      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
-    val (rawInformees, rawThreshold) =
-      Await.result(
-        confirmationPolicy.informeesAndThreshold(node, topologySnapshot),
-        10.seconds,
-      )
-    val viewConfirmationParameters =
-      confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
-        ViewConfirmationParameters.create(rawInformees, rawThreshold)
-      )
-
     val viewCommonData =
       ViewCommonData.tryCreate(cryptoOps)(
         viewConfirmationParameters,
@@ -664,6 +642,103 @@ class ExampleTransactionFactory(
     )
   }
 
+  def view(
+      node: LfActionNode,
+      viewIndex: Int,
+      consumed: Set[LfContractId],
+      coreInputs: Seq[SerializableContract],
+      created: Seq[SerializableContract],
+      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
+      seed: Option[LfHash],
+      isRoot: Boolean,
+      packagePreference: Set[LfPackageId],
+      subviews: TransactionView*
+  ): TransactionView = {
+
+    val submittingAdminPartyO =
+      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
+    val (rawInformeesWithParticipantData, rawThreshold) =
+      Await.result(
+        TransactionViewDecompositionFactory
+          .informeesParticipantsAndThreshold(node, topologySnapshot),
+        10.seconds,
+      )
+    val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }
+    val viewConfirmationParameters =
+      TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
+        ViewConfirmationParameters.create(rawInformees, rawThreshold)
+      )
+
+    viewInternal(
+      node,
+      viewConfirmationParameters,
+      viewIndex,
+      consumed,
+      coreInputs,
+      created,
+      resolvedKeys,
+      seed,
+      packagePreference,
+      subviews,
+    )
+  }
+
+  def viewWithInformeesMerge(
+      node: LfActionNode,
+      nodesToMerge: Seq[LfActionNode],
+      viewIndex: Int,
+      consumed: Set[LfContractId],
+      coreInputs: Seq[SerializableContract],
+      created: Seq[SerializableContract],
+      resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
+      seed: Option[LfHash],
+      isRoot: Boolean,
+      packagePreference: Set[LfPackageId],
+      subviews: TransactionView*
+  ): TransactionView = {
+
+    val viewConfirmationParametersToMerge = (node +: nodesToMerge).map { nodeToMerge =>
+      val (rawInformeesWithParticipantData, rawThreshold) =
+        Await.result(
+          TransactionViewDecompositionFactory
+            .informeesParticipantsAndThreshold(nodeToMerge, topologySnapshot),
+          10.seconds,
+        )
+      val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }
+      ViewConfirmationParameters.create(rawInformees, rawThreshold)
+    }
+
+    val submittingAdminPartyO =
+      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
+
+    val viewConfirmationParameters =
+      TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
+        ViewConfirmationParameters.tryCreate(
+          viewConfirmationParametersToMerge
+            .flatMap(_.informees)
+            .toSet,
+          viewConfirmationParametersToMerge
+            .flatMap(
+              _.quorums
+            )
+            .distinct,
+        )
+      )
+
+    viewInternal(
+      node,
+      viewConfirmationParameters,
+      viewIndex,
+      consumed,
+      coreInputs,
+      created,
+      resolvedKeys,
+      seed,
+      packagePreference,
+      subviews,
+    )
+  }
+
   def mkMetadata(seeds: Map[LfNodeId, LfHash] = Map.empty): TransactionMetadata =
     TransactionMetadata(ledgerTime, submissionTime, seeds)
 
@@ -693,7 +768,6 @@ class ExampleTransactionFactory(
   val commonMetadata: CommonMetadata =
     CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        confirmationPolicy,
         domainId,
         mediatorGroup,
         Salt.tryDeriveSalt(transactionSeed, 1, cryptoOps),
@@ -895,9 +969,7 @@ class ExampleTransactionFactory(
 
     override lazy val rootViewDecompositions: Seq[NewView] =
       Seq(
-        awaitCreateWithConfirmationPolicy(
-          confirmationPolicy,
-          topologySnapshot,
+        awaitCreateNewView(
           lfNode,
           nodeSeed,
           nodeId,
@@ -1306,15 +1378,14 @@ class ExampleTransactionFactory(
     * 1.2. create
     * 1.3. exercise 1.2.
     *
-    * TODO(#19611): update documentation
-    * New View structure. In this specific
+    * In this specific
     * scenario we make sure informees and quorums for action nodes 1.0, 1.1. and 1.3 are correctly merged
     * to the parent view (v1):
     * 0. View0
     * 1. View1
     * 1.2 View10
     */
-  case object MultipleRootsAndSimpleViewNestingNewViewStructure extends ExampleTransaction {
+  case object MultipleRootsAndSimpleViewNesting extends ExampleTransaction {
     override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "transaction with multiple roots and a simple view nesting"
@@ -1397,7 +1468,9 @@ class ExampleTransactionFactory(
         signatories = Set(signatory),
         observers = Set(submitter),
       )
-    val lfExercise13: LfNodeExercises = genExercise13(lfCreate12.coid)
+
+    val lfExercise13Id: LfContractId = suffixedId(-1, 0)
+    val lfExercise13: LfNodeExercises = genExercise13(lfExercise13Id)
 
     override lazy val versionedUnsuffixedTransaction: LfVersionedTransaction =
       transaction(
@@ -1426,9 +1499,7 @@ class ExampleTransactionFactory(
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
     override lazy val rootViewDecompositions: Seq[NewView] = {
-      val v0 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v0 = awaitCreateNewView(
         lfCreate0,
         Some(create0seed),
         LfNodeId(0),
@@ -1436,9 +1507,7 @@ class ExampleTransactionFactory(
         isRoot = true,
       )
 
-      val v10 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v10 = awaitCreateNewView(
         lfCreate12,
         Some(create12seed),
         LfNodeId(4),
@@ -1458,9 +1527,7 @@ class ExampleTransactionFactory(
       )
 
       val v1Pre =
-        awaitCreateWithConfirmationPolicy(
-          confirmationPolicy,
-          topologySnapshot,
+        awaitCreateNewView(
           LfTransactionUtil.lightWeight(lfExercise1),
           Some(exercise1seed),
           LfNodeId(1),
@@ -1502,10 +1569,6 @@ class ExampleTransactionFactory(
               )
             case _ => None
           } ++ quorumSubmittingParticipant).distinct
-
-          /* with a VIP confirmation policy, since only the submitting participant is a VIP, we expect a single quorum
-           * Quorum(confirmers = <<submitterParticipant>>, threshold = 1)
-           */
         }
 
         (informeesAux, quorumsAux)
@@ -1548,7 +1611,7 @@ class ExampleTransactionFactory(
         0,
         create10Inst,
         create10disc,
-        signatories = Set(submitter, signatory),
+        signatories = Set(submitter, signatory, signatoryReplica),
       )
     val create10: LfNodeCreate = genCreate10(create10Id, create10Inst, create10Agreement)
 
@@ -1556,14 +1619,17 @@ class ExampleTransactionFactory(
 
     val (salt12Id, create12Id): (Salt, LfContractId) =
       fromDiscriminator(
-        rootViewPosition(1, 2),
-        1,
-        1,
+        subViewIndex(0, 1) +: rootViewPosition(1, 2),
+        2,
+        0,
         create12Inst,
         create12disc,
-        signatories = Set(submitter, signatory),
+        signatories = Set(submitter, signatory, extra),
       )
     val create12: LfNodeCreate = genCreate12(create12Id, create12Inst, create12Agreement)
+
+    val exercise13Id: LfContractId = suffixedId(-1, 0)
+    val exercise13: LfNodeExercises = genExercise13(exercise13Id)
 
     // Views
     val view0: TransactionView =
@@ -1592,12 +1658,12 @@ class ExampleTransactionFactory(
         Set.empty,
       )
 
-    // TODO(#19611): Merge the informees and quorums of the child action nodes to this view and enable test in standardHappyCases
     val view1: TransactionView =
-      view(
+      viewWithInformeesMerge(
         exercise1,
+        Seq[LfActionNode](create10, fetch11, exercise13),
         1,
-        Set(exercise1Id, create12Id),
+        Set(exercise1Id, exercise13Id),
         Seq(
           asSerializable(
             exercise1Id,
@@ -1644,7 +1710,6 @@ class ExampleTransactionFactory(
       nonRootTransactionViewTree(blinded(view0), leafsBlinded(view1, view10))
 
     val fetch11Abs: LfNodeFetch = genFetch11(create10.coid)
-    val exercise13Abs: LfNodeExercises = genExercise13(create12.coid)
 
     override lazy val reinterpretedSubtransactions: Seq[
       (
@@ -1704,7 +1769,7 @@ class ExampleTransactionFactory(
         create10,
         fetch11Abs,
         create12,
-        exercise13Abs,
+        exercise13,
       )
 
   }
@@ -1862,9 +1927,7 @@ class ExampleTransactionFactory(
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
     override lazy val rootViewDecompositions: Seq[NewView] = {
-      val v0 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v0 = awaitCreateNewView(
         lfCreate0,
         Some(create0seed),
         LfNodeId(0),
@@ -1872,9 +1935,7 @@ class ExampleTransactionFactory(
         isRoot = true,
       )
 
-      val v10 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v10 = awaitCreateNewView(
         lfCreate130,
         Some(create130seed),
         LfNodeId(6),
@@ -1882,9 +1943,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v110 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v110 = awaitCreateNewView(
         lfCreate1310,
         Some(create1310seed),
         LfNodeId(8),
@@ -1892,9 +1951,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v11 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v11 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise131),
         Some(exercise131seed),
         LfNodeId(7),
@@ -1911,9 +1968,7 @@ class ExampleTransactionFactory(
         v11,
       )
       val v1 =
-        awaitCreateWithConfirmationPolicy(
-          confirmationPolicy,
-          topologySnapshot,
+        awaitCreateNewView(
           LfTransactionUtil.lightWeight(lfExercise1),
           Some(exercise1seed),
           LfNodeId(1),
@@ -2392,9 +2447,7 @@ class ExampleTransactionFactory(
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
     override lazy val rootViewDecompositions: Seq[NewView] = {
-      val v0 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v0 = awaitCreateNewView(
         lfCreate0,
         Some(create0seed),
         LfNodeId(0),
@@ -2402,9 +2455,7 @@ class ExampleTransactionFactory(
         isRoot = true,
       )
 
-      val v100 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v100 = awaitCreateNewView(
         lfCreate100,
         Some(create100seed),
         LfNodeId(3),
@@ -2412,9 +2463,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v10 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v10 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise10),
         Some(exercise10seed),
         LfNodeId(2),
@@ -2422,9 +2471,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v110 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v110 = awaitCreateNewView(
         lfCreate120,
         Some(create120seed),
         LfNodeId(6),
@@ -2432,9 +2479,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v11 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v11 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise12),
         Some(exercise12seed),
         LfNodeId(5),
@@ -2442,9 +2487,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v1 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v1 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise1),
         Some(exercise1seed),
         LfNodeId(1),
@@ -2457,9 +2500,7 @@ class ExampleTransactionFactory(
         isRoot = true,
       )
 
-      val v2 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v2 = awaitCreateNewView(
         lfCreate2,
         Some(create2seed),
         LfNodeId(8),
@@ -2976,9 +3017,7 @@ class ExampleTransactionFactory(
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
     override def rootViewDecompositions: Seq[TransactionViewDecomposition.NewView] = {
-      val v0 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v0 = awaitCreateNewView(
         lfCreate0,
         Some(create0seed),
         LfNodeId(0),
@@ -2986,9 +3025,7 @@ class ExampleTransactionFactory(
         isRoot = true,
       )
 
-      val v10 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v10 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise11),
         Some(exercise11seed),
         LfNodeId(3),
@@ -2996,9 +3033,7 @@ class ExampleTransactionFactory(
         isRoot = false,
       )
 
-      val v1 = awaitCreateWithConfirmationPolicy(
-        confirmationPolicy,
-        topologySnapshot,
+      val v1 = awaitCreateNewView(
         LfTransactionUtil.lightWeight(lfExercise1),
         Some(exercise1seed),
         LfNodeId(1),

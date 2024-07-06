@@ -296,7 +296,7 @@ final case class TransactionView private (
 object TransactionView
     extends HasProtocolVersionedWithContextCompanion[
       TransactionView,
-      (HashOps, ConfirmationPolicy, ProtocolVersion),
+      (HashOps, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
@@ -384,14 +384,14 @@ object TransactionView
     GenLens[TransactionView](_.viewParticipantData)
 
   private def fromProtoV30(
-      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
+      context: (HashOps, ProtocolVersion),
       protoView: v30.ViewNode,
   ): ParsingResult[TransactionView] = {
-    val (hashOps, confirmationPolicy, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     for {
       commonData <- MerkleTree.fromProtoOptionV30(
         protoView.viewCommonData,
-        ViewCommonData.fromByteString(expectedProtocolVersion)((hashOps, confirmationPolicy)),
+        ViewCommonData.fromByteString(expectedProtocolVersion)(hashOps),
       )
       participantData <- MerkleTree.fromProtoOptionV30(
         protoView.viewParticipantData,

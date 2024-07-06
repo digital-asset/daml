@@ -172,7 +172,6 @@ case object TransactionViewDecompositionFactory {
   }
 
   def fromTransaction(
-      confirmationPolicy: ConfirmationPolicy,
       topologySnapshot: TopologySnapshot,
       transaction: WellFormedTransaction[WithoutSuffixes],
       viewRbContext: RollbackContext,
@@ -188,7 +187,6 @@ case object TransactionViewDecompositionFactory {
           case _ => Seq.empty
         }
         createActionNodeInfo(
-          confirmationPolicy,
           topologySnapshot,
           node,
           nodeId,
@@ -202,14 +200,13 @@ case object TransactionViewDecompositionFactory {
         .builds(tx.roots.toSeq, BuildState[NewView](rollbackContext = viewRbContext))
         .views
         .map(
-          _.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
+          _.withSubmittingAdminParty(submittingAdminPartyO)
         )
         .toList
     }
   }
 
   private def createActionNodeInfo(
-      confirmationPolicy: ConfirmationPolicy,
       topologySnapshot: TopologySnapshot,
       node: LfActionNode,
       nodeId: LfNodeId,
@@ -230,7 +227,7 @@ case object TransactionViewDecompositionFactory {
       )
     }
 
-    val itF = confirmationPolicy.informeesParticipantsAndThreshold(node, topologySnapshot)
+    val itF = informeesParticipantsAndThreshold(node, topologySnapshot)
     itF.map({ case (i, t) =>
       nodeId -> ActionNodeInfo(
         i.fmap { case (participants, _) => participants },
@@ -241,4 +238,68 @@ case object TransactionViewDecompositionFactory {
     })
   }
 
+  /** Returns informees, participants hosting those informees,
+    * and corresponding threshold for a given action node.
+    */
+  def informeesParticipantsAndThreshold(
+      node: LfActionNode,
+      topologySnapshot: TopologySnapshot,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[
+    (Map[LfPartyId, (Set[ParticipantId], NonNegativeInt)], NonNegativeInt)
+  ] = {
+    val confirmingParties =
+      LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
+    require(
+      confirmingParties.nonEmpty,
+      "There must be at least one confirming party, as every node must have at least one signatory.",
+    )
+    val plainInformees = node.informeesOfNode -- confirmingParties
+
+    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
+    val informees = plainInformees ++ confirmingParties
+
+    topologySnapshot
+      .activeParticipantsOfPartiesWithAttributes(informees.toSeq)
+      .map(informeesMap =>
+        informeesMap.map { case (partyId, attributes) =>
+          // confirming party
+          if (confirmingParties.contains(partyId))
+            partyId -> (attributes.keySet, NonNegativeInt.one)
+          // plain informee
+          else partyId -> (attributes.keySet, NonNegativeInt.zero)
+        }
+      )
+      .map(informeesMap => (informeesMap, threshold))
+  }
+
+  /** This method adds an additional quorum with the submitting admin party with threshold 1, thus making sure
+    * that the submitting admin party has to confirm the view for it to be accepted.
+    */
+  def withSubmittingAdminParty(
+      submittingAdminPartyO: Option[LfPartyId]
+  )(viewConfirmationParameters: ViewConfirmationParameters): ViewConfirmationParameters =
+    submittingAdminPartyO match {
+      case Some(submittingAdminParty) =>
+        val newQuorum = Quorum(
+          Map(submittingAdminParty -> PositiveInt.one),
+          NonNegativeInt.one,
+        )
+
+        if (viewConfirmationParameters.quorums.contains(newQuorum))
+          viewConfirmationParameters
+        else {
+          val newQuorumList = viewConfirmationParameters.quorums :+ newQuorum
+          /* We are using tryCreate() because we are sure that the new confirmer is in the list of informees, since
+           * it is added at the same time.
+           */
+          ViewConfirmationParameters.tryCreate(
+            viewConfirmationParameters.informees + submittingAdminParty,
+            newQuorumList,
+          )
+        }
+      case None => viewConfirmationParameters
+    }
 }

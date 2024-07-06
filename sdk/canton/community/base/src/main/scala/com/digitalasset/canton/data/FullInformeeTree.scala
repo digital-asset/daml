@@ -54,10 +54,6 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
 
   lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid
 
-  lazy val confirmationPolicy: ConfirmationPolicy = checked(
-    tree.commonMetadata.tryUnwrap
-  ).confirmationPolicy
-
   lazy val submittingParticipant: ParticipantId =
     tree.submitterMetadata.tryUnwrap.submittingParticipant
 

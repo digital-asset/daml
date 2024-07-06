@@ -43,6 +43,7 @@ class UniqueKeyViolationException(message: String) extends RuntimeException(mess
 
 class InMemorySequencerStore(
     protocolVersion: ProtocolVersion,
+    sequencerMember: Member,
     unifiedSequencer: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -471,40 +472,7 @@ class InMemorySequencerStore(
       traceContext: TraceContext
   ): Future[SequencerSnapshot] = {
 
-    val watermarkO = watermark.get()
-    val disabledClients = disabledClientsRef.get()
-
-    val memberCheckpoints = watermarkO.fold[Map[Member, CounterCheckpoint]](Map()) { watermark =>
-      val registeredMembers = members.filter { case (member, RegisteredMember(_, registeredFrom)) =>
-        !disabledClients.members.contains(member) && registeredFrom <= timestamp
-      }.toSeq
-      val validEvents = events
-        .headMap(if (watermark.timestamp < timestamp) watermark.timestamp else timestamp, true)
-        .asScala
-        .toSeq
-
-      registeredMembers.map { case (member, RegisteredMember(id, _)) =>
-        val checkpointO = for {
-          memberCheckpoints <- checkpoints.get(id)
-          checkpoint <- memberCheckpoints.asScala.toSeq.findLast(e => e._2.timestamp <= timestamp)
-        } yield checkpoint
-        val memberEvents = validEvents.filter(e =>
-          isMemberRecipient(id)(e._2) && checkpointO.fold(true)(_._2.timestamp < e._1)
-        )
-        def counter(c: Int): SequencerCounter = Counter[SequencerCounterDiscriminator](c.toLong)
-
-        val checkpoint = CounterCheckpoint(
-          checkpointO.map(_._1).getOrElse(counter(-1)) + memberEvents.size,
-          memberEvents
-            .map(_._1)
-            .maxOption
-            .orElse(checkpointO.map(_._2.timestamp))
-            .getOrElse(CantonTimestamp.MinValue),
-          checkpointO.flatMap(_._2.latestTopologyClientTimestamp),
-        )
-        (member, checkpoint)
-      }.toMap
-    }
+    val memberCheckpoints = computeMemberCheckpoints(timestamp)
 
     val lastTs = memberCheckpoints.map(_._2.timestamp).maxOption.getOrElse(CantonTimestamp.MinValue)
 
@@ -521,6 +489,60 @@ class InMemorySequencerStore(
         Seq.empty,
       )
     )
+  }
+
+  def checkpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, CounterCheckpoint]] = Future.successful(computeMemberCheckpoints(timestamp))
+
+  private def computeMemberCheckpoints(
+      timestamp: CantonTimestamp
+  ): Map[Member, CounterCheckpoint] = {
+    val watermarkO = watermark.get()
+    val disabledClients = disabledClientsRef.get()
+    val sequencerMemberO = members.get(sequencerMember)
+
+    watermarkO.fold[Map[Member, CounterCheckpoint]](Map()) { watermark =>
+      val registeredMembers = members.filter { case (member, RegisteredMember(_, registeredFrom)) =>
+        !disabledClients.members.contains(member) && registeredFrom <= timestamp
+      }.toSeq
+      val validEvents = events
+        .headMap(if (watermark.timestamp < timestamp) watermark.timestamp else timestamp, true)
+        .asScala
+        .toSeq
+
+      registeredMembers.map { case (member, RegisteredMember(id, _)) =>
+        val checkpointO = for {
+          memberCheckpoints <- checkpoints.get(id)
+          checkpoint <- memberCheckpoints.asScala.toSeq.findLast(e => e._2.timestamp <= timestamp)
+        } yield checkpoint
+        val memberEvents = validEvents.filter(e =>
+          isMemberRecipient(id)(e._2) && checkpointO.fold(true)(_._2.timestamp < e._1)
+        )
+
+        val latestSequencerTimestamp = sequencerMemberO
+          .flatMap(member =>
+            validEvents
+              .filter(e => isMemberRecipient(id)(e._2) && isMemberRecipient(member.memberId)(e._2))
+              .map(_._1)
+              .maxOption
+          )
+          .orElse(checkpointO.flatMap(_._2.latestTopologyClientTimestamp))
+
+        def counter(c: Int): SequencerCounter = Counter[SequencerCounterDiscriminator](c.toLong)
+
+        val checkpoint = CounterCheckpoint(
+          checkpointO.map(_._1).getOrElse(counter(-1)) + memberEvents.size,
+          memberEvents
+            .map(_._1)
+            .maxOption
+            .orElse(checkpointO.map(_._2.timestamp))
+            .getOrElse(CantonTimestamp.MinValue),
+          latestSequencerTimestamp,
+        )
+        (member, checkpoint)
+      }.toMap
+    }
   }
 }
 

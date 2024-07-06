@@ -318,7 +318,7 @@ object GenTransactionTree {
           (
             hashOps,
             TransactionView.fromByteString(expectedProtocolVersion)(
-              (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
+              (hashOps, expectedProtocolVersion)
             ),
           ),
           expectedProtocolVersion,

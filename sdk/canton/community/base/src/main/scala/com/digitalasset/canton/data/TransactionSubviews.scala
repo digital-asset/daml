@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.MerkleTree.BlindingCommand
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndexFromRoot}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, ViewHash, v30}
+import com.digitalasset.canton.protocol.{RootHash, ViewHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
@@ -97,10 +97,10 @@ final case class TransactionSubviews private[data] (
 
 object TransactionSubviews {
   private[data] def fromProtoV30(
-      context: (HashOps, ConfirmationPolicy, ProtocolVersion),
+      context: (HashOps, ProtocolVersion),
       subviewsPO: Option[v30.MerkleSeq],
   ): ParsingResult[TransactionSubviews] = {
-    val (hashOps, _, expectedProtocolVersion) = context
+    val (hashOps, expectedProtocolVersion) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
       tvParser = TransactionView.fromByteString(expectedProtocolVersion)(context)

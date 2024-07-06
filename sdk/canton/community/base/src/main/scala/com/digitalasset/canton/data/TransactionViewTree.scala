@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, TransactionId, ViewHash}
+import com.digitalasset.canton.protocol.{RootHash, TransactionId, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.EitherUtil
@@ -71,8 +71,6 @@ trait TransactionViewTree extends ViewTree {
   override def domainId: DomainId = commonMetadata.domainId
 
   override def mediator: MediatorGroupRecipient = commonMetadata.mediator
-
-  def confirmationPolicy: ConfirmationPolicy = commonMetadata.confirmationPolicy
 
   private[data] def participantMetadata: ParticipantMetadata = tree.participantMetadata.tryUnwrap
 
