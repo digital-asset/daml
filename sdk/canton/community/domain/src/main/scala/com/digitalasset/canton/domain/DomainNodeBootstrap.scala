@@ -199,7 +199,7 @@ class DomainNodeBootstrap(
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var topologyManager: Option[DomainTopologyManager] = None
-  private val protocolVersion = config.init.domainParameters.protocolVersion.unwrap
+  private val protocolVersion = config.init.domainParameters.tryDomainProtocolVersion.unwrap
 
   override protected def autoInitializeIdentity(
       initConfigBase: InitConfigBase

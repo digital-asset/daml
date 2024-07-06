@@ -237,7 +237,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(contractKey, that.contractKey)
         && Objects.equals(signatories, that.signatories)
         && Objects.equals(observers, that.observers)
-        && Objects.equals(createdAt, that.createdAt);
+        && Objects.equals(createdAt, that.createdAt)
+        && Objects.equals(packageName, that.packageName);
   }
 
   @Override
@@ -255,7 +256,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         contractKey,
         signatories,
         observers,
-        createdAt);
+        createdAt,
+        packageName);
   }
 
   @Override
@@ -289,6 +291,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         + observers
         + ", createdAt="
         + createdAt
+        + ", packageName="
+        + packageName
         + '}';
   }
 
@@ -318,6 +322,7 @@ public final class CreatedEvent implements Event, TreeEvent {
                     .build());
     agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
     contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
+    packageName.ifPresent(a -> builder.setPackageName(StringValue.of(a)));
     return builder.build();
   }
 
