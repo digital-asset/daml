@@ -13,7 +13,6 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
-import com.daml.ledger.api.testtool.suites.v1_16.UpgradingIT.EnrichedCommands
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{
@@ -60,9 +59,6 @@ class UpgradingIT extends LedgerTestSuite {
   private val UB_Identifier = ScalaPbIdentifier
     .fromJavaProto(UB_V2.TEMPLATE_ID.toProto)
     .withPackageId(PkgNameRef.toString)
-
-  private val PkgRefId_UA_V1 =
-    PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.TEMPLATE_ID.getPackageId))
 
   test(
     "USubscriptionsUnknownPackageNames",
@@ -165,11 +161,11 @@ class UpgradingIT extends LedgerTestSuite {
 
       // Create UA#1: UA 1.0.0 contract arguments and use package-name scoped type in command
       payloadUA_1 = new UA_V1(party, party, 0L)
-      _ <- createContract(ledger, party, payloadUA_1, Some(PkgNameRef))
+      _ <- createContract(ledger, party, payloadUA_1)
 
       // Create UA#2: UA 2.0.0 contract arguments and use explicit downgrade type (Upgrading V1) in command
       payloadUA_2 = new UA_V2(party, party, 0L, Optional.empty())
-      _ <- createContract(ledger, party, payloadUA_2, Some(PkgRefId_UA_V1))
+      _ <- createContract(ledger, party, payloadUA_2, Some(UA_V1.TEMPLATE_ID.getPackageId))
 
       // Upload 2.0.0 package
       // 2.0.0 becomes the default package preference on the ledger
@@ -196,16 +192,16 @@ class UpgradingIT extends LedgerTestSuite {
       // Create UA#3: UA 1.0.0 contract arguments and use package-name scoped type in command
       //            expecting an upgrade to V2
       payloadUA_3 = new UA_V1(party, party, 0L)
-      _ <- createContract(ledger, party, payloadUA_3, Some(PkgNameRef))
+      _ <- createContract(ledger, party, payloadUA_3)
 
       // Create UA#4: UA 2.0.0 contract arguments and use package-name scoped type in command
       //            expecting a record on ledger of V2
       payloadUA_4 = new UA_V2(party, party, 0L, Optional.of(Seq("more").asJava))
-      _ <- createContract(ledger, party, payloadUA_4, Some(PkgNameRef))
+      _ <- createContract(ledger, party, payloadUA_4)
 
-      // Create UA#5: UA 1.0.0 contract arguments with its default type in command
+      // Create UA#5: UA 1.0.0 contract arguments with a package-id override for its original shape
       payloadUA_5 = new UA_V1(party, party, 0L)
-      _ <- createContract(ledger, party, payloadUA_5)
+      _ <- createContract(ledger, party, payloadUA_5, Some(UA_V1.TEMPLATE_ID.getPackageId))
 
       // Create UB#1: UB 2.0.0 contract arguments with its default type in command
       payloadUB_1 = new UB_V2(party, 0L)
@@ -375,17 +371,14 @@ class UpgradingIT extends LedgerTestSuite {
       ledger: ParticipantTestContext,
       party: Party,
       template: Template,
-      overrideTypeO: Option[Ref.PackageRef] = None,
+      overridePackageId: Option[String] = None,
   ): Future[Unit] = {
-    val commands = template.create().commands()
-
+    val request = ledger.submitAndWaitRequest(party, template.create().commands())
     ledger.submitAndWait(
-      ledger.submitAndWaitRequest(
-        party,
-        overrideTypeO
-          .map(overrideType => commands.overridePackageId(overrideType.toString))
-          .getOrElse(commands),
-      )
+      request
+        .copy(commands =
+          request.commands.map(_.copy(packageIdSelectionPreference = overridePackageId.toList))
+        )
     )
   }
 
@@ -433,29 +426,5 @@ class UpgradingIT extends LedgerTestSuite {
           )
         )
       )
-    )
-}
-
-object UpgradingIT {
-  implicit class EnrichedCommands(commands: java.util.List[Command]) {
-    def overridePackageId(packageIdOverride: String): java.util.List[Command] =
-      commands.asScala
-        .map {
-          case cmd: CreateCommand =>
-            new CreateCommand(
-              identifierWithPackageIdOverride(packageIdOverride, cmd.getTemplateId),
-              cmd.getCreateArguments,
-            ): Command
-          case other => fail(s"Unexpected command $other")
-        }
-        .toList
-        .asJava
-  }
-
-  private def identifierWithPackageIdOverride(packageIdOverride: String, templateId: Identifier) =
-    new Identifier(
-      packageIdOverride,
-      templateId.getModuleName,
-      templateId.getEntityName,
     )
 }
