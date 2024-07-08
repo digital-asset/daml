@@ -123,6 +123,20 @@ trait LongTests { this: UpgradesSpec =>
         assertPackageUpgradeCheck(None),
       )
     }
+    s"report no upgrade errors for valid upgrades of parameterized data types ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-ValidParameterizedTypesUpgrade-v1.dar",
+        "test-common/upgrades-ValidParameterizedTypesUpgrade-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+    s"report no upgrade errors for alpha-equivalent complex key types ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-ValidKeyTypeEquality-v1.dar",
+        "test-common/upgrades-ValidKeyTypeEquality-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
     s"report error when module is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingModule-v1.dar",

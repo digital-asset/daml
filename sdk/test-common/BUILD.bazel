@@ -201,6 +201,8 @@ da_scala_dar_resources_library(
         ("RecordFieldsNewNonOptional", [], []),
         ("TemplateChangedKeyType", [], []),
         ("ValidUpgrade", [], []),
+        ("ValidParameterizedTypesUpgrade", [], []),
+        ("ValidKeyTypeEquality", [], []),
         (
             "UploadSucceedsWhenDepsAreValidUpgrades",
             ["//test-common:upgrades-ValidUpgrade-v1.dar"],
