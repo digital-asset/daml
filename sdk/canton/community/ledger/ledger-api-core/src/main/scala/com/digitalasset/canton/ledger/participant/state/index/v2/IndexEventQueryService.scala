@@ -25,7 +25,7 @@ trait IndexEventQueryService extends LedgerEndService {
 
   def getEventsByContractKey(
       contractKey: Value,
-      templateId: Ref.Identifier,
+      typeConRef: Ref.TypeConRef,
       requestingParties: Set[Ref.Party],
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]

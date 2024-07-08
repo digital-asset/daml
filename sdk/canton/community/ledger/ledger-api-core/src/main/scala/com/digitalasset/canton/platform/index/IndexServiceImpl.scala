@@ -47,7 +47,6 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -72,8 +71,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.ToTagOps
 
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 private[index] class IndexServiceImpl(
@@ -104,6 +103,9 @@ private[index] class IndexServiceImpl(
     contractStore,
     loggerFactory,
   )
+
+  private val DummyUnusedPackageIdForUnusedArg =
+    Ref.PackageId.assertFromString("UnusedPkgIdInSharedKey")
 
   override def getParticipantId(): Future[Ref.ParticipantId] =
     Future.successful(participantId)
@@ -348,6 +350,7 @@ private[index] class IndexServiceImpl(
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
     implicit val ec = directEc
+
     OptionT(
       transactionsReader.lookupFlatTransactionById(transactionId.unwrap, requestingParties)
     )
@@ -358,7 +361,7 @@ private[index] class IndexServiceImpl(
         ).map { tree =>
           logger.debug(
             s"Transaction not found in flat transaction lookup for transactionId $transactionId and requestingParties $requestingParties, falling back to transaction tree lookup."
-          )
+          )(loggingContext.traceContext)
           // When a command submission completes successfully,
           // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding flat transaction that either:
           // * has only non-consuming events
@@ -399,35 +402,91 @@ private[index] class IndexServiceImpl(
 
   override def getEventsByContractKey(
       contractKey: com.daml.lf.value.Value,
-      templateId: Ref.Identifier,
+      typeConRef: Ref.TypeConRef,
       requestingParties: Set[Ref.Party],
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
+    implicit val ec: ExecutionContext = directEc
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContext)
 
-    // The PackageMetadataView only stores package name >= LanguageVersion.Features.packageUpgrades
-    val keyPackageNameE: Either[String, KeyPackageName] =
-      packageMetadataView.current().packageIdVersionMap.get(templateId.packageId) match {
-        case Some((name, _)) =>
-          KeyPackageName.build(Some(name), LanguageVersion.Features.packageUpgrades)
-        case None => KeyPackageName.build(None, LanguageVersion.StableVersions.min)
-      }
-
-    val keyO = for {
-      keyPackageName <- keyPackageNameE.toOption
-      key <- GlobalKey.build(templateId, contractKey, keyPackageName).toOption
-    } yield key
-
-    keyO match {
-      case Some(key) =>
-        eventsReader.getEventsByContractKey(
-          contractKey = key,
-          requestingParties = requestingParties,
-          keyContinuationToken = keyContinuationToken,
-          maxIterations = 1000,
+    val packageMetadataSnapshot = packageMetadataView.current()
+    def checkPackageNameIfSelected: Future[Unit] = typeConRef.pkgRef match {
+      case PackageRef.Name(packageName)
+          if !packageMetadataSnapshot.packageNameMap.contains(packageName) =>
+        Future.failed(
+          RequestValidationErrors.NotFound.PackageNamesNotFound
+            .Reject(Set(packageName))
+            .asGrpcError
         )
-      case None =>
-        Future.successful(GetEventsByContractKeyResponse())
+      case _other => Future.unit
     }
+
+    def toFutureOrInternalErrorOnLeft[R](either: Either[String, R]): Future[R] =
+      either
+        .map(Future.successful)
+        .left
+        .map(errMessage =>
+          Future.failed(
+            CommonErrors.ServiceInternalError
+              .Generic(
+                s"Encountered unexpected exception in getEventsByContractKey: $errMessage"
+              )
+              .asGrpcError
+          )
+        )
+        .merge
+
+    def buildKey: Future[GlobalKey] =
+      toFutureOrInternalErrorOnLeft(
+        for {
+          templateIdPackageName <- typeConRef.pkgRef match {
+            case PackageRef.Name(name) =>
+              val templateIdWithDummyPackageId =
+                Ref.Identifier(
+                  // The package-id is ignored for keys with a package-name provided
+                  packageId = DummyUnusedPackageIdForUnusedArg,
+                  qualifiedName = typeConRef.qName,
+                )
+              KeyPackageName
+                .build(
+                  packageName = Some(name),
+                  // It's fine to not use the precise LanguageVersion of the key's package
+                  // since this argument is only used for deciding if the key pertains to upgradable packages or not
+                  version = LanguageVersion.Features.packageUpgrades,
+                )
+                .map(templateIdWithDummyPackageId -> _)
+            case PackageRef.Id(pkgId) =>
+              val templateId = Ref.Identifier(pkgId, typeConRef.qName)
+              packageMetadataSnapshot.packageIdVersionMap
+                .get(pkgId)
+                .map { case (name, _) =>
+                  KeyPackageName.build(Some(name), LanguageVersion.Features.packageUpgrades)
+                }
+                // If package-id is not found in the upgradable packageIdVersionMap, we assume
+                // that it is not ugpradable or does not exist
+                .getOrElse(KeyPackageName.build(None, LanguageVersion.v1_15))
+                .map(templateId -> _)
+          }
+          (templateId, keyPackageName) = templateIdPackageName
+          key <- GlobalKey
+            .build(templateId, contractKey, keyPackageName)
+            .left
+            .map(hashingError => s"Unexpected error when building the GlobalKey: $hashingError")
+        } yield key
+      )
+
+    for {
+      _ <- checkPackageNameIfSelected
+      key <- buildKey
+
+      response <- eventsReader.getEventsByContractKey(
+        contractKey = key,
+        requestingParties = requestingParties,
+        keyContinuationToken = keyContinuationToken,
+        maxIterations = 1000,
+      )
+    } yield response
   }
 
   override def getParties(parties: Seq[Ref.Party])(implicit
