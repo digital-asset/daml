@@ -6,7 +6,7 @@
         "cacert",
         "curl",
         "gcloud",
-        "jdk",
+        "ojdkbuild11",
         "maven-3.6.1",
         "msys2",
         "nodejs-14",

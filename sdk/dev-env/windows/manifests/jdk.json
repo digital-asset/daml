@@ -1,8 +1,0 @@
-{"homepage": "https://jdk.java.net/archive/",
- "version": "17.0.2",
- "license": "GPL-2.0-only WITH Classpath-exception-2.0",
- "architecture": {"64bit": {"url": "https://download.java.net/java/GA/jdk17.0.2/dfd4a8d0985749f896bed50d7138ee7f/8/GPL/openjdk-17.0.2_windows-x64_bin.zip",
-                            "hash": "b2208206bda47f2e0c971a39e057a5ec32c40b503d71e486790cb728d926b615",
-                            "extract_dir": "jdk-17.0.2"}},
- "env_add_path": "bin",
- "env_set": {"JAVA_HOME": "$dir"}}

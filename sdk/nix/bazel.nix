@@ -17,7 +17,8 @@ let shared = rec {
     grpcurl
     gzip
     imagemagick
-    jdk17
+    jdk11
+    jdk8
     jekyll
     jq
     netcat-gnu
