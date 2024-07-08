@@ -16,7 +16,6 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
 import org.junit.Test;
 
 public class JsonLfDecodersTest {
