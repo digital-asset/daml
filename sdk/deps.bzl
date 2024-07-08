@@ -48,24 +48,6 @@ rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7
 rules_nixpkgs_patches = [
 ]
 
-rules_nixpkgs_toolchain_patches = {
-    "java": [
-        # rules_nixpkgs passes a --patch-module=java.compiler=... option to
-        # jvm_opts which is no longer necessary nor compatible with jkd 17 (see
-        # https://github.com/bazelbuild/bazel/issues/14474#issuecomment-1001071398).
-        # This is fixed in rules_nixpkgs v0.10.0 (see
-        # https://github.com/tweag/rules_nixpkgs/commit/c2c5ffaf559a7ec08a7b4ac5ba0f0369650df970),
-        # but migrating to this version of rules_nixpkgs is a non-trivial piece
-        # of work. In the meantime we backport the relevant 2 lines of the fix.
-        "@com_github_digital_asset_daml//bazel_tools:jvm-opts.patch",
-    ],
-    "cc": [],
-    "python": [],
-    "go": [],
-    "rust": [],
-    "posix": [],
-}
-
 buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
 buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
 zlib_version = "1.2.11"
@@ -157,8 +139,6 @@ def daml_deps():
                 strip_prefix = strip_prefix + "/toolchains/" + toolchain,
                 urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
                 sha256 = rules_nixpkgs_sha256,
-                patches = rules_nixpkgs_toolchain_patches[toolchain],
-                patch_args = ["-p3"],
             )
 
     if "com_github_madler_zlib" not in native.existing_rules():
@@ -305,9 +285,9 @@ def daml_deps():
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
         http_archive(
             name = "com_github_johnynek_bazel_jar_jar",
-            sha256 = "a9d2ca9a2e9014f8d63dcbe9091bcb9f2d2929b3b7d16836c6225e98f9ca54df",
-            strip_prefix = "bazel_jar_jar-0.1.5",
-            url = "https://github.com/bazeltools/bazel_jar_jar/releases/download/v0.1.5/bazel_jar_jar-v0.1.5.tar.gz",
+            sha256 = "64748da73bc82ecbbb2a872722690a3be52c06bb92a1c939136e2852470f308d",
+            strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
+            urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.tar.gz"],  # Latest commit SHA as at 2019/02/13
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
