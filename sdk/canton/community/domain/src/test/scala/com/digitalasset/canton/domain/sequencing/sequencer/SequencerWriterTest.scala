@@ -22,7 +22,12 @@ import com.digitalasset.canton.sequencing.protocol.{
   SubmissionRequest,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  Member,
+  SequencerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import org.scalatest.FutureOutcome
@@ -59,8 +64,13 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     val clock = new SimClock(loggerFactory = loggerFactory)
     val runningFlows = mutable.Buffer[MockRunningWriterFlow]()
     val storage = new MemoryStorage(loggerFactory, timeouts)
+    val sequencerMember: Member = SequencerId(
+      UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
+    )
+
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
+      sequencerMember = sequencerMember,
       unifiedSequencer = testedUseUnifiedSequencer,
       loggerFactory = loggerFactory,
     )
@@ -79,6 +89,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         // Unused because the store is overridden below
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
+        sequencerMember,
         unifiedSequencer = testedUseUnifiedSequencer,
       ) {
         override val generalStore: SequencerStore = store

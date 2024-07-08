@@ -188,11 +188,13 @@ object SequencerClientFactory {
           )
           // pluggable send approach to support transitioning to the new async sends
           validatorFactory = new SequencedEventValidatorFactory {
-            override def create()(implicit
-                loggingContext: NamedLoggingContext
+            override def create(loggerFactory: NamedLoggerFactory)(implicit
+                traceContext: TraceContext
             ): SequencedEventValidator =
               if (config.skipSequencedEventValidation) {
-                SequencedEventValidator.noValidation(domainId)
+                SequencedEventValidator.noValidation(domainId)(
+                  NamedLoggingContext(loggerFactory, traceContext)
+                )
               } else {
                 new SequencedEventValidatorImpl(
                   domainId,
@@ -240,6 +242,12 @@ object SequencerClientFactory {
           materializer: Materializer,
           traceContext: TraceContext,
       ): SequencerClientTransport & SequencerClientTransportPekko = {
+        val loggerFactoryWithSequencerAlias =
+          SequencerClient.loggerFactoryWithSequencerConnection(
+            loggerFactory,
+            connection.sequencerAlias,
+          )
+
         // TODO(#13789) Use only `SequencerClientTransportPekko` as the return type
         def mkRealTransport(): SequencerClientTransport & SequencerClientTransportPekko =
           connection match {
@@ -253,7 +261,7 @@ object SequencerClientFactory {
               domainParameters.protocolVersion,
               recording.fullFilePath,
               processingTimeout,
-              loggerFactory,
+              loggerFactoryWithSequencerAlias,
             )
           case Some(ReplayConfig(recording, replaySendsConfig: SequencerSends)) =>
             if (replaySendsConfig.usePekko) {
@@ -267,7 +275,7 @@ object SequencerClientFactory {
                 requestSigner,
                 metrics,
                 processingTimeout,
-                loggerFactory,
+                loggerFactoryWithSequencerAlias,
               )
             } else {
               val underlyingTransport = mkRealTransport()
@@ -280,7 +288,7 @@ object SequencerClientFactory {
                 requestSigner,
                 metrics,
                 processingTimeout,
-                loggerFactory,
+                loggerFactoryWithSequencerAlias,
               )
             }
         }
@@ -289,7 +297,9 @@ object SequencerClientFactory {
       private def createChannel(conn: GrpcSequencerConnection)(implicit
           executionContext: ExecutionContextExecutor
       ): ManagedChannel = {
-        val channelBuilder = ClientChannelBuilder(loggerFactory)
+        val channelBuilder = ClientChannelBuilder(
+          SequencerClient.loggerFactoryWithSequencerConnection(loggerFactory, conn.sequencerAlias)
+        )
         GrpcSequencerChannelBuilder(
           channelBuilder,
           conn,
@@ -328,7 +338,10 @@ object SequencerClientFactory {
           config.authToken,
           clock,
           processingTimeout,
-          loggerFactory,
+          SequencerClient.loggerFactoryWithSequencerConnection(
+            loggerFactory,
+            connection.sequencerAlias,
+          ),
         )
       }
 
@@ -347,7 +360,8 @@ object SequencerClientFactory {
           auth,
           metrics,
           processingTimeout,
-          loggerFactory.append("sequencerConnection", connection.sequencerAlias.unwrap),
+          SequencerClient
+            .loggerFactoryWithSequencerConnection(loggerFactory, connection.sequencerAlias),
           domainParameters.protocolVersion,
         )
       }

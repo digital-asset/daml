@@ -25,7 +25,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
+final class TransactionTreeFactoryImplTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext {
 
   val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
@@ -65,7 +68,6 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
       .createTransactionTree(
         transaction,
         submitterInfo,
-        factory.confirmationPolicy,
         Some(WorkflowId.assertFromString("testWorkflowId")),
         factory.mediatorGroup,
         factory.transactionSeed,

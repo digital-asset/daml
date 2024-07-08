@@ -49,6 +49,7 @@ class TransactionConfirmationRequestFactoryTest
     extends AsyncWordSpec
     with ProtocolVersionChecksAsyncWordSpec
     with BaseTest
+    with HasExecutionContext
     with HasExecutorService {
 
   // Parties
@@ -84,7 +85,7 @@ class TransactionConfirmationRequestFactoryTest
   }
 
   val defaultTopology: Map[ParticipantId, Seq[LfPartyId]] = Map(
-    submittingParticipant -> Seq(submitter, signatory),
+    submittingParticipant -> Seq(submitter, signatory, signatoryReplica),
     observerParticipant1 -> Seq(observer),
     observerParticipant2 -> Seq(observer),
     extraParticipant -> Seq(extra),
@@ -122,7 +123,6 @@ class TransactionConfirmationRequestFactoryTest
       override def createTransactionTree(
           transaction: WellFormedTransaction[WithoutSuffixes],
           submitterInfo: SubmitterInfo,
-          _confirmationPolicy: ConfirmationPolicy,
           _workflowId: Option[WorkflowId],
           _mediator: MediatorGroupRecipient,
           transactionSeed: SaltSeed,
@@ -157,7 +157,6 @@ class TransactionConfirmationRequestFactoryTest
       override def tryReconstruct(
           subaction: WellFormedTransaction[WithoutSuffixes],
           rootPosition: ViewPosition,
-          confirmationPolicy: ConfirmationPolicy,
           mediator: MediatorGroupRecipient,
           submittingParticipantO: Option[ParticipantId],
           salts: Iterable[Salt],
@@ -195,10 +194,7 @@ class TransactionConfirmationRequestFactoryTest
 
   // Input factory
   private val transactionFactory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(
-      confirmationPolicy = ConfirmationPolicy.Signatory,
-      ledgerTime = ledgerTime,
-    )
+    new ExampleTransactionFactory()(ledgerTime = ledgerTime)
 
   // Since the ConfirmationRequestFactory signs the envelopes in parallel,
   // we cannot predict the counter that SymbolicCrypto uses to randomize the signatures.
@@ -394,7 +390,6 @@ class TransactionConfirmationRequestFactoryTest
           factory
             .createConfirmationRequest(
               example.wellFormedUnsuffixedTransaction,
-              ConfirmationPolicy.Signatory,
               submitterInfo,
               workflowId,
               example.keyResolver,
@@ -429,7 +424,6 @@ class TransactionConfirmationRequestFactoryTest
           factory
             .createConfirmationRequest(
               singleFetch.wellFormedUnsuffixedTransaction,
-              ConfirmationPolicy.Signatory,
               submitterInfo,
               workflowId,
               singleFetch.keyResolver,
@@ -470,7 +464,6 @@ class TransactionConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -507,7 +500,6 @@ class TransactionConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -541,7 +533,6 @@ class TransactionConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -572,7 +563,6 @@ class TransactionConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -610,7 +600,6 @@ class TransactionConfirmationRequestFactoryTest
               factory
                 .createConfirmationRequest(
                   singleFetch.wellFormedUnsuffixedTransaction,
-                  ConfirmationPolicy.Signatory,
                   submitterInfo,
                   workflowId,
                   singleFetch.keyResolver,

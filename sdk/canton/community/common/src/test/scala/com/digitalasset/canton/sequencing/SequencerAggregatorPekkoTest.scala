@@ -70,7 +70,7 @@ class SequencerAggregatorPekkoTest
   )(implicit fixture: FixtureParam): SequencerAggregatorPekko =
     new SequencerAggregatorPekko(
       domainId,
-      validator,
+      _ => validator,
       PositiveInt.one,
       fixture.subscriberCryptoApi.pureCrypto,
       loggerFactory,

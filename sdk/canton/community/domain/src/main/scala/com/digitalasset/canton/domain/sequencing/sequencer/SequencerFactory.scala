@@ -85,6 +85,7 @@ abstract class DatabaseSequencerFactory(
         DefaultMaxSqlInListSize,
         timeouts,
         loggerFactory,
+        sequencerId,
         unifiedSequencer =
           true, // // TODO(#18401): does not affect the usage below, but should be correctly set
         // At the moment this store instance is only used for the sequencer initialization,

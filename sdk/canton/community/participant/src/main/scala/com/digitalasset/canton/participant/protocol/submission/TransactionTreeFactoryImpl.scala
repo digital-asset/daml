@@ -76,7 +76,6 @@ class TransactionTreeFactoryImpl(
   override def createTransactionTree(
       transaction: WellFormedTransaction[WithoutSuffixes],
       submitterInfo: SubmitterInfo,
-      confirmationPolicy: ConfirmationPolicy,
       workflowId: Option[WorkflowId],
       mediator: MediatorGroupRecipient,
       transactionSeed: SaltSeed,
@@ -114,7 +113,6 @@ class TransactionTreeFactoryImpl(
 
     val rootViewDecompositionsF =
       transactionViewDecompositionFactory.fromTransaction(
-        confirmationPolicy,
         topologySnapshot,
         transaction,
         RollbackContext.empty,
@@ -123,7 +121,6 @@ class TransactionTreeFactoryImpl(
 
     val commonMetadata = CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        confirmationPolicy,
         domainId,
         mediator,
         commonMetadataSalt,
@@ -788,7 +785,6 @@ class TransactionTreeFactoryImpl(
   override def tryReconstruct(
       subaction: WellFormedTransaction[WithoutSuffixes],
       rootPosition: ViewPosition,
-      confirmationPolicy: ConfirmationPolicy,
       mediator: MediatorGroupRecipient,
       submittingParticipantO: Option[ParticipantId],
       viewSalts: Iterable[Salt],
@@ -827,7 +823,6 @@ class TransactionTreeFactoryImpl(
 
     val decompositionsF =
       transactionViewDecompositionFactory.fromTransaction(
-        confirmationPolicy,
         topologySnapshot,
         subaction,
         rbContext,

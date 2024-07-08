@@ -194,3 +194,13 @@ object PrettyUtil extends PrettyUtil {
   /** How to pretty-print `null` values. This is consistent with [[pprint.Walker.treeify]] */
   private[pretty] val nullTree = Tree.Literal("null")
 }
+
+import scala.language.implicitConversions
+
+trait PrettyBareCase extends Product with PrettyPrinting {
+  @SuppressWarnings(Array("org.wartremover.warts.Product"))
+  override protected[pretty] def pretty: Pretty[this.type] = prettyOfObject
+}
+object PrettyBareCase {
+  implicit def toString(pt: PrettyBareCase): String = pt.toString
+}

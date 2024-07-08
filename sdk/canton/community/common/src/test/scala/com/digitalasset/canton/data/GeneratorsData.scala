@@ -68,7 +68,6 @@ final class GeneratorsData(
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
-      confirmationPolicy <- Arbitrary.arbitrary[ConfirmationPolicy]
       domainId <- Arbitrary.arbitrary[DomainId]
 
       mediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
@@ -79,7 +78,6 @@ final class GeneratorsData(
       hashOps = TestHash // Not used for serialization
     } yield CommonMetadata
       .create(hashOps, protocolVersion)(
-        confirmationPolicy,
         domainId,
         mediator,
         salt,

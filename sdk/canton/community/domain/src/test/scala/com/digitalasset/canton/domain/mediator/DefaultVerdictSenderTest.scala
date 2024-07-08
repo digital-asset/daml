@@ -37,7 +37,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -46,6 +46,7 @@ import scala.jdk.CollectionConverters.*
 class DefaultVerdictSenderTest
     extends AsyncWordSpec
     with ProtocolVersionChecksAsyncWordSpec
+    with HasExecutionContext
     with BaseTest {
 
   private val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))

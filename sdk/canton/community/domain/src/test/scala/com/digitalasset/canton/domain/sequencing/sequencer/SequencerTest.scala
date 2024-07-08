@@ -76,6 +76,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     private val materializer = implicitly[Materializer]
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
+      sequencerMember = topologyClientMember,
       unifiedSequencer = testedUseUnifiedSequencer,
       loggerFactory = loggerFactory,
     )

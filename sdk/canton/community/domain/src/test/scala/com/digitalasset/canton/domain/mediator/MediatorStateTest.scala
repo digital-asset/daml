@@ -79,7 +79,6 @@ class MediatorStateTest
       )
       val commonMetadata = CommonMetadata
         .create(hashOps, testedProtocolVersion)(
-          ConfirmationPolicy.Signatory,
           domainId,
           MediatorGroupRecipient(MediatorGroupIndex.zero),
           s(5417),
