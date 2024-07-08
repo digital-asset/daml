@@ -70,6 +70,7 @@ da_scala_test_suite(
         "//ledger-service/http-json:Account.dar",
         "//ledger-service/http-json:CIou.dar",
         "//ledger-service/http-json:FooV1.dar",
+        "//ledger-service/http-json:FooV1OldTarget.dar",
         "//ledger-service/http-json:FooV2.dar",
         "//ledger-service/http-json:RIou.dar",
         "//ledger-service/http-json:User.dar",

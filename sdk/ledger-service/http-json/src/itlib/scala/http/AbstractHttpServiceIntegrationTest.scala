@@ -658,6 +658,52 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
+  "should not identify templates from old packages (<=LF 1.15) using a package name" in withHttpService {
+    fixture =>
+      import AbstractHttpServiceIntegrationTestFuns.{
+        fooV1DarOldTarget,
+        fooV2Dar,
+        pkgIdFooV1OldTarget,
+        pkgIdFooV2,
+      }
+
+      for {
+        _ <- uploadPackage(fixture)(fooV1DarOldTarget)
+        _ <- uploadPackage(fixture)(fooV2Dar)
+
+        (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        // create v1 and v2 versions of contract, using the package id.
+        // v1 versions of contract, using the package id
+        _ <- postCreate(
+          fixture,
+          jsObject(
+            s"""{"templateId": "$pkgIdFooV1OldTarget:Foo:Bar", "payload": {"owner": "$alice"}}"""
+          ),
+          hdrs,
+        )
+        // v2 versions of contract, using the package id, payload from V2
+        cidV2PkgId <- postCreate(
+          fixture,
+          jsObject(
+            s"""{"templateId": "$pkgIdFooV2:Foo:Bar", "payload": {"owner": "$alice", "extra":42}}"""
+          ),
+          hdrs,
+        )
+        // Query via package name
+        // When ask for the package name contracts with old target version should not appear
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) should contain theSameElementsAs List(
+            cidV2PkgId
+          )
+        }
+      } yield succeed
+  }
+
   "should support create and exerciseByKey with package names" in withHttpService { fixture =>
     val tmplId = "#foo:Foo:Quux"
     for {

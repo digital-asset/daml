@@ -63,6 +63,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
 
   private[http] val fooV1Dar = requiredResource("ledger-service/http-json/FooV1.dar")
+  private[http] val fooV1DarOldTarget = requiredResource(
+    "ledger-service/http-json/FooV1OldTarget.dar"
+  )
   private[http] val fooV2Dar = requiredResource("ledger-service/http-json/FooV2.dar")
 
   private[this] def packageIdOfDar(darFile: java.io.File): Ref.PackageId = {
@@ -77,6 +80,7 @@ object AbstractHttpServiceIntegrationTestFuns {
   lazy val pkgIdRiou = packageIdOfDar(riouDar)
   lazy val pkgIdUser = packageIdOfDar(userDar)
   lazy val pkgIdFooV1 = packageIdOfDar(fooV1Dar)
+  lazy val pkgIdFooV1OldTarget = packageIdOfDar(fooV1DarOldTarget)
   lazy val pkgIdFooV2 = packageIdOfDar(fooV2Dar)
   lazy val pkgIdAccount = packageIdOfDar(dar2)
 
