@@ -2,11 +2,16 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
+
+data T = T with
+  i : Int
+  j : Optional Int
+
 template A with
     p : Party
     q : Party
   where
     signatory p
-    key (p, 1) : (Party, Int)
+    key (p, T 0 None) : (Party, T)
     maintainer (fst key)
 

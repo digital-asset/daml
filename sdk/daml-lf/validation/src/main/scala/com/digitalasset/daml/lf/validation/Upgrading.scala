@@ -4,27 +4,13 @@
 package com.daml.lf
 package validation
 
-import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
-
-import scala.util.{Failure, Success, Try}
-import com.daml.lf.data.ImmArray
-import com.daml.lf.language.Ast.{
-  TApp,
-  TBuiltin,
-  TForall,
-  TNat,
-  TStruct,
-  TSynApp,
-  TTyCon,
-  TVar,
-  Type,
-  TypeVarName,
-}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Ast, LanguageVersion, PackageInterface}
 
 import scala.annotation.tailrec
-import scala.collection.immutable.Map
+import scala.util.{Failure, Success, Try}
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -281,15 +267,22 @@ final case class ModuleWithMetadata(module: Ast.Module) {
 
 private case class Env(
     currentDepth: Int = 0,
-    binderDepthLhs: Map[TypeVarName, Int] = Map.empty,
-    binderDepthRhs: Map[TypeVarName, Int] = Map.empty,
+    binderDepth: Map[TypeVarName, Int] = Map.empty,
 ) {
-  def extend(varName1: TypeVarName, varName2: TypeVarName) = Env(
+  def extend(varNames: ImmArray[TypeVarName]): Env = {
+    varNames.foldLeft(this) { case (env, varName) =>
+      env.extend(varName)
+    }
+  }
+
+  def extend(varName: TypeVarName): Env = Env(
     currentDepth + 1,
-    binderDepthLhs.updated(varName1, currentDepth),
-    binderDepthRhs.updated(varName2, currentDepth),
+    binderDepth.updated(varName, currentDepth),
   )
 }
+
+/** A datatype closing over the free type variables of [[value]] with [[env]]. */
+private case class Closure[A](env: Env, value: A)
 
 object TypecheckUpgrades {
 
@@ -382,7 +375,168 @@ case class TypecheckUpgrades(
 ) {
   import TypecheckUpgrades._
 
+  private lazy val packageId: Upgrading[Ref.PackageId] = packages.map(_._1)
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
+
+  private val packageInterface: Upgrading[PackageInterface] =
+    packages.map { case (pkgId, pkgAst) => PackageInterface(Map(pkgId -> pkgAst)) }
+
+  /** The set of type constructors whose definitions are structurally equal between the
+    * past and present packages. It is built by building the largest fixed point of
+    * [[genStructurallyEqualTyConsStep]], which removes type constructors whose definitions
+    * are not structurally equal from a set. The set is seeded with the qualified names of
+    *  all type constructors present in both packages and whose definitions are serializable.
+    */
+  private lazy val structurallyEqualTyCons: Set[Ref.QualifiedName] = {
+    def tyCons(pkg: Ast.Package): Set[Ref.QualifiedName] = {
+      pkg.modules.flatMap { case (moduleName, module) =>
+        module.definitions.collect {
+          case (name, dt: DDataType) if dt.serializable =>
+            Ref.QualifiedName(moduleName, name)
+        }
+      }.toSet
+    }
+    val commonTyCons = tyCons(_package.past).intersect(tyCons(_package.present))
+    genStructurallyEqualTyCons(commonTyCons)
+  }
+
+  /** Computes the fixed point of genStructurallyEqualTyConsStep.
+    */
+  @tailrec
+  private def genStructurallyEqualTyCons(tyCons: Set[Ref.QualifiedName]): Set[Ref.QualifiedName] = {
+    val newTyCOns = genStructurallyEqualTyConsStep(tyCons)
+    if (newTyCOns == tyCons) tyCons
+    else genStructurallyEqualTyCons(newTyCOns)
+  }
+
+  /** For each type constructor name in [[tyCons]], checks that the definition of [[tyCons]] in
+    * the past and present packages are structurally equal, assuming that the type constructors
+    * in [[tyCons]] are structurally equal. Removes those that aren't.
+    */
+  def genStructurallyEqualTyConsStep(tyCons: Set[Ref.QualifiedName]): Set[Ref.QualifiedName] = {
+    tyCons.filter { name =>
+      val pastTypeConName = TypeConName(packageId.past, name)
+      val presentTypeConName = TypeConName(packageId.present, name)
+      structurallyEqualDataTypes(
+        tyCons,
+        Util.handleLookup(
+          Context.DefDataType(pastTypeConName),
+          packageInterface.past
+            .lookupDataType(pastTypeConName),
+        ),
+        Util.handleLookup(
+          Context.DefDataType(presentTypeConName),
+          packageInterface.present
+            .lookupDataType(presentTypeConName),
+        ),
+      )
+    }
+  }
+
+  /** Checks that [[pastDataType]] and [[presentDataType]] are structurally equal, assuming that
+    * the type constructors in [[tyCons]] are structurally equal.
+    */
+  def structurallyEqualDataTypes(
+      tyCons: Set[Ref.QualifiedName],
+      pastDataType: DDataType,
+      presentDataType: DDataType,
+  ): Boolean =
+    structurallyEqualDataCons(
+      tyCons,
+      Closure(Env().extend(pastDataType.params.map(_._1)), pastDataType.cons),
+      Closure(Env().extend(presentDataType.params.map(_._1)), presentDataType.cons),
+    )
+
+  /** Checks that [[pastCons]] and [[presentCons]] are structurally equal, assuming that
+    * the type constructors in [[tyCons]] are structurally equal.
+    */
+  private def structurallyEqualDataCons(
+      tyCons: Set[Ref.QualifiedName],
+      pastCons: Closure[DataCons],
+      presentCons: Closure[DataCons],
+  ): Boolean =
+    (pastCons.value, presentCons.value) match {
+      case (DataRecord(pastFields), DataRecord(presentFields)) =>
+        pastFields.length == presentFields.length &&
+        pastFields.iterator.zip(presentFields.iterator).forall {
+          case ((pastFieldName, pastType), (presentFieldName, presentType)) =>
+            pastFieldName == presentFieldName &&
+            structurallyEqualTypes(
+              tyCons,
+              Closure(pastCons.env, pastType),
+              Closure(presentCons.env, presentType),
+            )
+        }
+      case (DataVariant(pastVariants), DataVariant(presentVariants)) =>
+        pastVariants.length == presentVariants.length &&
+        pastVariants.iterator.zip(presentVariants.iterator).forall {
+          case ((pastVariantName, pastType), (presentVariantName, presentType)) =>
+            pastVariantName == presentVariantName &&
+            structurallyEqualTypes(
+              tyCons,
+              Closure(pastCons.env, pastType),
+              Closure(presentCons.env, presentType),
+            )
+        }
+      case (DataEnum(pastConstructors), DataEnum(presentConstructors)) =>
+        pastConstructors.length == presentConstructors.length &&
+        pastConstructors.iterator.zip(presentConstructors.iterator).forall {
+          case (pastCtor, presentCtor) => pastCtor == presentCtor
+        }
+      case _ =>
+        false
+    }
+
+  /** Checks that [[pastType]] and [[presentType]] are structurally equal, assuming that
+    * the type constructors in [[tyCons]] are structurally equal.
+    */
+  private def structurallyEqualTypes(
+      tyCons: Set[Ref.QualifiedName],
+      pastType: Closure[Ast.Type],
+      presentType: Closure[Ast.Type],
+  ): Boolean =
+    structurallyEqualTypes(
+      tyCons,
+      pastType.env,
+      presentType.env,
+      List((pastType.value, presentType.value)),
+    )
+
+  /** A stack-safe version of [[structurallyEqualTypes]] that uses a work list.
+    */
+  @tailrec
+  private def structurallyEqualTypes(
+      tyCons: Set[Ref.QualifiedName],
+      envPast: Env,
+      envPresent: Env,
+      trips: List[(Type, Type)],
+  ): Boolean = {
+    trips match {
+      case Nil => true
+      case (t1, t2) :: trips =>
+        (t1, t2) match {
+          case (TVar(x1), TVar(x2)) =>
+            envPast.binderDepth(x1) == envPresent.binderDepth(x2) &&
+            structurallyEqualTypes(tyCons, envPast, envPresent, trips)
+          case (TNat(n1), TNat(n2)) =>
+            n1 == n2 && structurallyEqualTypes(tyCons, envPast, envPresent, trips)
+          case (TTyCon(c1), TTyCon(c2)) =>
+            // Either c1 and c2 are the same type constructor from the exact same package (e.g. Tuple2),
+            // or they must have the same qualified name and be structurally equal by co-induction
+            // hypothesis.
+            (c1 == c2 ||
+              (c1.qualifiedName == c2.qualifiedName &&
+                tyCons.contains(c1.qualifiedName))) &&
+            structurallyEqualTypes(tyCons, envPast, envPresent, trips)
+          case (TApp(f1, a1), TApp(f2, a2)) =>
+            structurallyEqualTypes(tyCons, envPast, envPresent, (f1, f2) :: (a1, a2) :: trips)
+          case (TBuiltin(b1), TBuiltin(b2)) =>
+            b1 == b2 && structurallyEqualTypes(tyCons, envPast, envPresent, trips)
+          case _ =>
+            false
+        }
+    }
+  }
 
   private def check(): Try[Unit] = {
     for {
@@ -515,55 +669,31 @@ case class TypecheckUpgrades(
   }
 
   @tailrec
-  private def alphaEquivList(trips: List[(Env, Type, Type)]): Boolean = trips match {
-    case Nil => true
-    case (env, t1, t2) :: trips =>
-      (t1, t2) match {
-        case (TVar(x1), TVar(x2)) =>
-          env.binderDepthLhs.get(x1).toLeft(t1) == env.binderDepthRhs.get(x2).toLeft(t2) &&
-          alphaEquivList(trips)
-        case (TNat(n1), TNat(n2)) =>
-          n1 == n2 && alphaEquivList(trips)
-        case (TTyCon(c1), TTyCon(c2)) =>
-          checkIdentifiers(c1, c2) && alphaEquivList(trips)
-        case (TApp(f1, a1), TApp(f2, a2)) =>
-          alphaEquivList((env, f1, f2) :: (env, a1, a2) :: trips)
-        case (TBuiltin(b1), TBuiltin(b2)) =>
-          b1 == b2 && alphaEquivList(trips)
-        case (TForall((varName1, kind1), b1), TForall((varName2, kind2), b2)) =>
-          kind1 == kind2 && {
-            val envExtended = env.extend(varName1, varName2)
-            alphaEquivList((envExtended, b1, b2) :: trips)
-          }
-        case (TStruct(fs1), TStruct(fs2)) =>
-          (fs1.names sameElements fs2.names) && {
-            val more = (fs1.values zip fs2.values).map { case (x1, x2) => (env, x1, x2) }
-            alphaEquivList(more ++: trips)
-          }
-        case (TSynApp(f, xs), TSynApp(g, ys)) =>
-          // We treat type synonyms nominally here. If alpha equivalence
-          // fails, we expand all of them and try again.
-          checkIdentifiers(f, g) && xs.length == ys.length && {
-            val more = (xs.iterator zip ys.iterator).map { case (x1, x2) => (env, x1, x2) }
-            alphaEquivList(more ++: trips)
-          }
-        case _ =>
-          false
-      }
+  private def checkTypeList(envPast: Env, envPresent: Env, trips: List[(Type, Type)]): Boolean =
+    trips match {
+      case Nil => true
+      case (t1, t2) :: trips =>
+        (t1, t2) match {
+          case (TVar(x1), TVar(x2)) =>
+            envPast.binderDepth(x1) == envPresent.binderDepth(x2) &&
+            checkTypeList(envPast, envPresent, trips)
+          case (TNat(n1), TNat(n2)) =>
+            n1 == n2 && checkTypeList(envPast, envPresent, trips)
+          case (TTyCon(c1), TTyCon(c2)) =>
+            checkIdentifiers(c1, c2) && checkTypeList(envPast, envPresent, trips)
+          case (TApp(f1, a1), TApp(f2, a2)) =>
+            checkTypeList(envPast, envPresent, (f1, f2) :: (a1, a2) :: trips)
+          case (TBuiltin(b1), TBuiltin(b2)) =>
+            b1 == b2 && checkTypeList(envPast, envPresent, trips)
+          case _ =>
+            false
+        }
+    }
+
+  private def checkType(typ: Upgrading[Closure[Ast.Type]]): Boolean = {
+    checkTypeList(typ.past.env, typ.present.env, List((typ.past.value, typ.present.value)))
   }
 
-  def alphaEquiv(t1: Type, t2: Type): Boolean = alphaEquivList(List((Env(), t1, t2)))
-
-  private def checkType(typ: Upgrading[Ast.Type]): Boolean = {
-    alphaEquiv(typ.past, typ.present)
-  }
-
-  // TODO: https://github.com/digital-asset/daml/pull/18377
-  // For simplicity's sake, we check all names against one another as if they
-  // are in the same package, because package ids do not tell us the package
-  // name - in the future we should resolve package ids to their package names
-  // so that we can rule out upgrades between packages that don't have the same
-  // name.
   private def unifyIdentifier(id: Ref.Identifier): Ref.Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("0"), id.qualifiedName)
 
@@ -585,9 +715,15 @@ case class TypecheckUpgrades(
     key match {
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
-        val key = Upgrading(pastKey.typ, presentKey.typ)
-        if (!checkType(key))
-          fail(UpgradeError.TemplateChangedKeyType(templateName, key))
+        val keyPastPresent = Upgrading(pastKey.typ, presentKey.typ)
+        if (
+          !structurallyEqualTypes(
+            structurallyEqualTyCons,
+            Closure(Env(), pastKey.typ),
+            Closure(Env(), presentKey.typ),
+          )
+        )
+          fail(UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent))
         else
           Success(())
       }
@@ -600,7 +736,7 @@ case class TypecheckUpgrades(
 
   private def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
     val returnType = choice.map(_.returnType)
-    if (checkType(returnType)) {
+    if (checkType(returnType.map(Closure(Env(), _)))) {
       Success(())
     } else {
       fail(UpgradeError.ChoiceChangedReturnType(choice.present.name, returnType))
@@ -616,9 +752,13 @@ case class TypecheckUpgrades(
     if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
       fail(UpgradeError.RecordChangedOrigin(name, origin))
     } else {
+      val env = datatype.map(dt => Env().extend(dt.params.map(_._1)))
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(origin.present, Upgrading(past, present))
+          checkFields(
+            origin.present,
+            Upgrading(Closure(env.past, past), Closure(env.present, present)),
+          )
         case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
           val upgrade = Upgrading(past, present)
           val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
@@ -630,7 +770,9 @@ case class TypecheckUpgrades(
                 UpgradeError.VariantRemovedVariant(origin.present),
             )
 
-            changedTypes = existing.filter { case (field @ _, typ) => !checkType(typ) }
+            changedTypes = existing.filter { case (field @ _, typ) =>
+              !checkType(env.zip(typ, Closure.apply _))
+            }
             _ <-
               if (changedTypes.nonEmpty)
                 fail(UpgradeError.VariantChangedVariantType(origin.present))
@@ -676,10 +818,11 @@ case class TypecheckUpgrades(
 
   private def checkFields(
       origin: UpgradedRecordOrigin,
-      records: Upgrading[Ast.DataRecord],
+      recordClosures: Upgrading[Closure[Ast.DataRecord]],
   ): Try[Unit] = {
+    val env = recordClosures.map(_.env)
     val fields: Upgrading[Map[Ast.FieldName, Ast.Type]] =
-      records.map(rec => Map.from(rec.fields.iterator))
+      recordClosures.map(rec => Map.from(rec.value.fields.iterator))
     def fieldTypeOptional(typ: Ast.Type): Boolean =
       typ match {
         case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => true
@@ -692,7 +835,9 @@ case class TypecheckUpgrades(
       _ <- failIf(_deleted.nonEmpty, UpgradeError.RecordFieldsMissing(origin, _deleted))
 
       // Then we check for changed types
-      changedTypes = _existing.filter { case (field @ _, typ) => !checkType(typ) }
+      changedTypes = _existing.filter { case (field @ _, typ) =>
+        !checkType(env.zip(typ, Closure.apply _))
+      }
       _ <- failIf(
         changedTypes.nonEmpty,
         UpgradeError.RecordFieldsExistingChanged(origin, changedTypes),
@@ -714,7 +859,8 @@ case class TypecheckUpgrades(
 
       // Finally, reordered field names
       changedFieldNames: ImmArray[(Ast.FieldName, Ast.FieldName)] = {
-        val fieldNames: Upgrading[ImmArray[Ast.FieldName]] = records.map(_.fields.map(_._1))
+        val fieldNames: Upgrading[ImmArray[Ast.FieldName]] =
+          recordClosures.map(_.value.fields.map(_._1))
         fieldNames.past.zip(fieldNames.present).filter { case (past, present) => past != present }
       }
       _ <- failIf(changedFieldNames.nonEmpty, UpgradeError.RecordFieldsOrderChanged(origin))
