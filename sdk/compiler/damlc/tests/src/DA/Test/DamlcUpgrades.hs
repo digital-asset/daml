@@ -408,7 +408,7 @@ tests damlc =
                 [ testGeneral
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
                       "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
-                      (expectation "type checking module Main:\n  This package defines both interfaces and templates.\n  \n  This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled.\n  \n  It is recommended that interfaces are defined in their own package separate from their implementations.")
+                      (expectation "type checking module Main:\n  This package defines both interfaces and templates.")
                       LF.versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
@@ -417,7 +417,7 @@ tests damlc =
                 , testGeneral
                       (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
                       "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
-                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that interfaces are defined in their own package separate from their implementations.")
+                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:")
                       LF.versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
@@ -473,6 +473,7 @@ tests damlc =
     testGeneral name location expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField doTypecheck =
         let upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
             doTypecheckTrailer = if not doTypecheck then " (disable typechecking)" else ""
+        in
         testCase (name <> upgradeFieldTrailer <> doTypecheckTrailer) $
         withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"

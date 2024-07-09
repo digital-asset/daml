@@ -214,20 +214,24 @@ instance Pretty WarnableError where
   pPrint = \case
     WEUpgradeShouldDefineIfacesAndTemplatesSeparately ->
       vsep
-        [ "This package defines both interfaces and templates."
-        , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
+        [ "This package defines both interfaces and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
       vsep $ concat
         [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
         , map (quotes . pPrint) implementingTemplates
-        , [ "However, it is recommended that interfaces are defined in their own package separate from their implementations." ]
+        , [ "This may make this package and its dependents not upgradeable." ]
+        , [ "It is recommended that interfaces are defined in their own package separate from their implementations." ]
+        , [ "Ignore this error message with the --warn-bad-interface-instances=yes flag." ]
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
-        , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
+        , "This may make this package and its dependents not upgradeable."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
 
 data UpgradedRecordOrigin
