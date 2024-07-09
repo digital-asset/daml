@@ -55,6 +55,7 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val templateIdWithPackageIdFieldName = "TEMPLATE_ID_WITH_PACKAGE_ID"
   val packageIdFieldName = "PACKAGE_ID"
   val packageNameFieldName = "PACKAGE_NAME"
   val packageVersionFieldName = "PACKAGE_VERSION"
@@ -67,27 +68,32 @@ private[inner] object ClassGenUtils {
       lfVer: LanguageVersion,
       moduleName: String,
       name: String,
-  ) = {
+  ): Seq[FieldSpec] = {
     val packageRef = pkgName match {
       case Some(name) if lfVer >= LanguageVersion.Features.packageUpgrades => PackageRef.Name(name)
       case _ => PackageRef.Id(pkgId)
     }
-    FieldSpec
-      .builder(
-        ClassName.get(classOf[javaapi.data.Identifier]),
-        templateIdFieldName,
-        Modifier.STATIC,
-        Modifier.FINAL,
-        Modifier.PUBLIC,
-      )
-      .initializer(
-        "new $T($S, $S, $S)",
-        classOf[javaapi.data.Identifier],
-        packageRef,
-        moduleName,
-        name,
-      )
-      .build()
+    def idField(fieldName: String, pkg: String) =
+      FieldSpec
+        .builder(
+          ClassName.get(classOf[javaapi.data.Identifier]),
+          fieldName,
+          Modifier.STATIC,
+          Modifier.FINAL,
+          Modifier.PUBLIC,
+        )
+        .initializer(
+          "new $T($S, $S, $S)",
+          classOf[javaapi.data.Identifier],
+          pkg,
+          moduleName,
+          name,
+        )
+        .build()
+    Seq(
+      idField(templateIdFieldName, packageRef.toString),
+      idField(templateIdWithPackageIdFieldName, pkgId.toString),
+    )
   }
 
   def generatePackageIdField(packageId: PackageId) =
