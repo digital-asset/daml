@@ -321,7 +321,7 @@ convertPrim _ "ULookupByKey" (key :-> TUpdate (TOptional (TContractId (TCon temp
         ULookupByKey $ RetrieveByKey template (EVar $ mkVar "key")
 
 convertPrim _ "UFetchByKey"
-    (key :-> TUpdate ty@(TApp (TApp (TCon tuple) ty1@(TContractId (TCon template))) ty2))
+    (key :-> TUpdate ty@(TTuple2 ty1@(TContractId (TCon template)) ty2))
     | ty2 == TCon template =
     pure $
     ETmLam (mkVar "key", key) $
@@ -330,7 +330,7 @@ convertPrim _ "UFetchByKey"
             [ (FieldName "contractId", ty1)
             , (FieldName "contract", ty2)])
             (EUpdate $ UFetchByKey (RetrieveByKey template (EVar $ mkVar "key"))))
-        (EUpdate $ UPure ty $ ERecCon (TypeConApp tuple [ty1, ty2])
+        (EUpdate $ UPure ty $ ERecCon (TypeConApp Tuple2TCon [ty1, ty2])
             [ (mkIndexedField 1, EStructProj (FieldName "contractId") (EVar (mkVar "res")))
             , (mkIndexedField 2, EStructProj (FieldName "contract") (EVar (mkVar "res")))
             ])
