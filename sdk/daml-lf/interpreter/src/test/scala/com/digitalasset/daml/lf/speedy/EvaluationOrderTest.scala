@@ -50,7 +50,7 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev){
+class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev) {
   protected def tuple2TyCon: String = {
     import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"

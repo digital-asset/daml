@@ -289,7 +289,12 @@ object EncodeSpec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit = {
     Validation
-      .checkPackage(StablePackagesV2, language.PackageInterface(StablePackagesV2.packagesMap + (pkgId -> pkg)), pkgId, pkg)
+      .checkPackage(
+        StablePackagesV2,
+        language.PackageInterface(StablePackagesV2.packagesMap + (pkgId -> pkg)),
+        pkgId,
+        pkg,
+      )
       .left
       .foreach(e => sys.error(e.toString))
   }

@@ -8,11 +8,11 @@ import com.digitalasset.daml.lf.data.Ref
 private[lf] final case class StablePackage(
     moduleName: Ref.ModuleName,
     packageId: Ref.PackageId,
-    pkg: Ast.Package
+    pkg: Ast.Package,
 ) {
   require(Set(moduleName) == pkg.modules.keySet)
 
-  def name: Ref.PackageName  = pkg.pkgName
+  def name: Ref.PackageName = pkg.pkgName
 
   def languageVersion: LanguageVersion = pkg.languageVersion
 
@@ -38,6 +38,6 @@ private[daml] abstract class StablePackages {
   val Either: Ref.TypeConName
 
   final def packagesMap: Map[Ref.PackageId, Ast.Package] =
-    allPackages.view.map(sp =>sp.packageId -> sp.pkg).toMap
+    allPackages.view.map(sp => sp.packageId -> sp.pkg).toMap
 
 }
