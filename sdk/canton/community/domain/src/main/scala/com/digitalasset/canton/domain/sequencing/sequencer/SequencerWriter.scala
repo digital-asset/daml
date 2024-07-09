@@ -23,6 +23,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -136,6 +137,7 @@ class SequencerWriter(
     protected val loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
     maxSqlInListSize: PositiveNumeric[Int],
+    sequencerMember: Member,
     unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
@@ -149,6 +151,7 @@ class SequencerWriter(
       maxSqlInListSize,
       timeouts,
       loggerFactory,
+      sequencerMember,
       unifiedSequencer = unifiedSequencer,
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
@@ -498,6 +501,7 @@ object SequencerWriter {
       eventSignaller: EventSignaller,
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
+      sequencerMember: Member,
       unifiedSequencer: Boolean,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     val logger = TracedLogger(SequencerWriter.getClass, loggerFactory)
@@ -531,6 +535,7 @@ object SequencerWriter {
       loggerFactory,
       protocolVersion,
       writerConfig.maxSqlInListSize,
+      sequencerMember,
       unifiedSequencer = unifiedSequencer,
     )
   }

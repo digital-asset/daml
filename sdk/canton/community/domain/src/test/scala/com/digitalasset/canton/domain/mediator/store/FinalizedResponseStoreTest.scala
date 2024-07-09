@@ -14,7 +14,7 @@ import com.digitalasset.canton.domain.mediator.{FinalizedResponse, MediatorVerdi
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.protocol.messages.InformeeMessage
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -79,7 +79,6 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     )
     val commonMetadata = CommonMetadata
       .create(hashOps, testedProtocolVersion)(
-        ConfirmationPolicy.Signatory,
         domainId,
         MediatorGroupRecipient(MediatorGroupIndex.zero),
         s(5417),

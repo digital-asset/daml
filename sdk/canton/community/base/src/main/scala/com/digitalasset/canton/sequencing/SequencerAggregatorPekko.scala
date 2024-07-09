@@ -18,6 +18,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidator,
+  SequencerClient,
   SequencerSubscriptionFactoryPekko,
 }
 import com.digitalasset.canton.sequencing.protocol.SignedContent
@@ -51,14 +52,14 @@ import scala.concurrent.{ExecutionContext, Future}
   * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
   * until a configurable threshold is reached.
   *
-  * @param eventValidator The validator used to validate the sequenced events of the
+  * @param createEventValidator The validator used to validate the sequenced events of the
   *                       [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
   * @param bufferSize How many elements to buffer for each
   *                   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
   */
 class SequencerAggregatorPekko(
     domainId: DomainId,
-    eventValidator: SequencedEventValidator,
+    createEventValidator: NamedLoggerFactory => SequencedEventValidator,
     bufferSize: PositiveInt,
     hashOps: HashOps,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -232,6 +233,9 @@ class SequencerAggregatorPekko(
         priorElement: Option[PriorElement],
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
       val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_) => event }
+      val eventValidator = createEventValidator(
+        SequencerClient.loggerFactoryWithSequencerConnection(loggerFactory, sequencerId)
+      )
       val subscription = eventValidator
         .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source

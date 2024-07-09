@@ -512,24 +512,10 @@ class BlockSequencer(
 
   override def pruningStatus(implicit
       traceContext: TraceContext
-  ): Future[SequencerPruningStatus] = {
-    if (unifiedSequencer) {
-      for {
-        blockPruningStatus <- store
-          .pruningStatus()
-          .map(_.toSequencerPruningStatus(clock.now))
-        dbsStatus <- super[DatabaseSequencer].pruningStatus
-      } yield {
-        dbsStatus.copy(
-          lowerBound = dbsStatus.lowerBound.min(blockPruningStatus.lowerBound),
-          // TODO(#19526): Combine pruning statuses?
-          members = dbsStatus.members ++ blockPruningStatus.members,
-        )
-      }
-    } else {
-      store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
-    }
-  }
+  ): Future[SequencerPruningStatus] = if (unifiedSequencer)
+    super[DatabaseSequencer].pruningStatus
+  else
+    store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are
     * purely local operations that do not affect other block sequencers that share the same source of
@@ -539,32 +525,35 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, PruningError, String] = {
 
-    val (isNew, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
+    val (isNewRequest, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
     val supervisedPruningF = futureSupervisor.supervised(
       s"Waiting for local pruning operation at $requestedTimestamp to complete"
     )(pruningF)
 
-    if (isNew)
+    if (isNewRequest)
       for {
         status <- EitherT.right[PruningError](this.pruningStatus)
         _ <- condUnitET[Future](
           requestedTimestamp <= status.safePruningTimestamp,
           UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
         )
-        msg <- EitherT.right(
+        msgs <- EitherT.right(
           pruningQueue
             .execute(
               for {
                 eventsMsg <- store.prune(requestedTimestamp)
                 trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
-              } yield s"$eventsMsg\n$trafficMsg",
+              } yield ((eventsMsg, trafficMsg)),
               s"pruning sequencer at $requestedTimestamp",
             )
             .unwrap
             .map(
-              _.onShutdown(s"pruning at $requestedTimestamp canceled because we're shutting down")
+              _.onShutdown(
+                (s"pruning at $requestedTimestamp canceled because we're shutting down", "")
+              )
             )
         )
+        (eventsMsg, trafficMsg) = msgs
         _ <- EitherT.right(
           placeLocalEvent(BlockSequencer.UpdateInitialMemberCounters(requestedTimestamp))
         )
@@ -578,9 +567,9 @@ class BlockSequencer(
           }
       } yield {
         if (unifiedSequencer) {
-          s"${msg}\n${dbsMsg}"
+          s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
         } else {
-          msg
+          s"$eventsMsg\n$trafficMsg"
         }
       }
     else

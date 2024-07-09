@@ -92,7 +92,7 @@ class ModelConformanceChecker(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction, Result] = {
-    val CommonData(transactionId, ledgerTime, submissionTime, confirmationPolicy) = commonData
+    val CommonData(transactionId, ledgerTime, submissionTime) = commonData
 
     // Previous checks in Phase 3 ensure that all the root views are sent to the same
     // mediator, and that they all have the same correct root hash, and therefore the
@@ -119,7 +119,6 @@ class ModelConformanceChecker(
             requestCounter,
             ledgerTime,
             submissionTime,
-            confirmationPolicy,
             submittingParticipantO,
             topologySnapshot,
             getEngineAbortStatus,
@@ -256,7 +255,6 @@ class ModelConformanceChecker(
       requestCounter: RequestCounter,
       ledgerTime: CantonTimestamp,
       submissionTime: CantonTimestamp,
-      confirmationPolicy: ConfirmationPolicy,
       submittingParticipantO: Option[ParticipantId],
       topologySnapshot: TopologySnapshot,
       getEngineAbortStatus: GetEngineAbortStatus,
@@ -325,7 +323,6 @@ class ModelConformanceChecker(
           subaction = wfTx,
           rootPosition = viewPosition,
           rbContext = rbContext,
-          confirmationPolicy = confirmationPolicy,
           mediator = mediator,
           submittingParticipantO = submittingParticipantO,
           salts = salts,

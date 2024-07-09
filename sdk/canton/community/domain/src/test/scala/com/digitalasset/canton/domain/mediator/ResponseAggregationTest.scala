@@ -113,9 +113,8 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
       testedProtocolVersion,
     )
 
-    val commonMetadataSignatory = CommonMetadata
+    val commonMetadata = CommonMetadata
       .create(hashOps, testedProtocolVersion)(
-        ConfirmationPolicy.Signatory,
         domainId,
         mediator,
         salt(5417),
@@ -140,7 +139,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         testedProtocolVersion,
       )
 
-    describe("under the Signatory policy") {
+    describe("correct aggregation") {
       def testReject() =
         LocalRejectError.ConsistencyRejections.LockedContracts
           .Reject(Seq())
@@ -150,7 +149,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
             submitterMetadata,
-            commonMetadataSignatory,
+            commonMetadata,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: Nil),
           ),
@@ -494,7 +493,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
             submitterMetadata,
-            commonMetadataSignatory,
+            commonMetadata,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: view2 :: Nil),
           ),
@@ -700,7 +699,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         FullInformeeTree.tryCreate(
           GenTransactionTree.tryCreate(hashOps)(
             submitterMetadata,
-            commonMetadataSignatory,
+            commonMetadata,
             b(2),
             MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(view1 :: Nil),
           ),

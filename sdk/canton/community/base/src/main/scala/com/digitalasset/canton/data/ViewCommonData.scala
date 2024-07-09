@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.util.NoCopy
@@ -94,7 +94,7 @@ final case class ViewCommonData private (
 object ViewCommonData
     extends HasMemoizedProtocolVersionedWithContextCompanion[
       ViewCommonData,
-      (HashOps, ConfirmationPolicy),
+      HashOps,
     ] {
   override val name: String = "ViewCommonData"
 
@@ -137,11 +137,9 @@ object ViewCommonData
       .valueOr(err => throw err)
 
   private def fromProtoV30(
-      context: (HashOps, ConfirmationPolicy),
+      hashOps: HashOps,
       viewCommonDataP: v30.ViewCommonData,
-  )(bytes: ByteString): ParsingResult[ViewCommonData] = {
-    // TODO(#19152): remove confirmation policy
-    val (hashOps, _) = context
+  )(bytes: ByteString): ParsingResult[ViewCommonData] =
     for {
       informees <- viewCommonDataP.informees.traverse(informee =>
         ProtoConverter.parseLfPartyId(informee)
@@ -157,7 +155,6 @@ object ViewCommonData
       rpv,
       Some(bytes),
     )
-  }
 }
 
 /** Stores the necessary information necessary to confirm a view.

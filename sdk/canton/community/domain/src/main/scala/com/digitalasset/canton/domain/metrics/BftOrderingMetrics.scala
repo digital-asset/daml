@@ -15,6 +15,7 @@ import com.daml.metrics.api.{
 }
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
+import com.digitalasset.canton.logging.pretty.PrettyBareCase
 import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
 
 class BftOrderingHistograms(val parent: MetricName)(implicit
@@ -31,6 +32,13 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       """Records the rate and time it takes to order requests. This metric is always meaningful
         |when queried on and restricted to the receiving sequencer; in other cases, it is meaningful only
         |when the receiving and reporting sequencers' clocks are kept synchronized.""",
+    qualification = MetricQualification.Latency,
+  )
+
+  private[metrics] val requestsSize: Item = Item(
+    prefix :+ "requests-size",
+    summary = "Requests ordering time",
+    description = """Records the size of requests to the BFT ordering service""",
     qualification = MetricQualification.Debug,
   )
 }
@@ -72,11 +80,72 @@ class BftOrderingMetrics(
       )
     )
 
+    val batchesOrdered: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"ordered-batches",
+        summary = "Batches ordered",
+        description = "Measures the total batches ordered.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    val blocksOrdered: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"ordered-blocks",
+        summary = "Blocks ordered",
+        description = "Measures the total blocks ordered.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
     object requestsOrderingTime {
       val timer: Timer =
         openTelemetryMetricsFactory.timer(histograms.requestsOrderingTime.info)
-      object labelKeys {
+
+      object labels {
         val ReceivingSequencer: String = "receivingSequencer"
+      }
+    }
+  }
+
+  object ingress {
+    private val prefix = BftOrderingMetrics.this.prefix :+ "ingress"
+
+    val requestsReceived: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"received-requests",
+        summary = "Requests received",
+        description = "Measures the total requests received.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    val bytesReceived: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ s"received-bytes",
+        summary = "Bytes received",
+        description = "Measures the total bytes received.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    val requestsSize: Histogram =
+      openTelemetryMetricsFactory.histogram(histograms.requestsSize.info)
+
+    object labels {
+      val Tag: String = "tag"
+      val Sender: String = "sender"
+      val ForSequencer: String = "forSequencer"
+
+      object outcome {
+        val Key: String = "outcome"
+
+        object values {
+          sealed trait OutcomeValue extends Product with PrettyBareCase
+          case object Success extends OutcomeValue
+          case object QueueFull extends OutcomeValue
+          case object RequestTooBig extends OutcomeValue
+        }
       }
     }
   }

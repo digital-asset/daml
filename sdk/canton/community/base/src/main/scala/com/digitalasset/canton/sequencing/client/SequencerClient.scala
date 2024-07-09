@@ -192,7 +192,6 @@ abstract class SequencerClientImpl(
     val protocolVersion: ProtocolVersion,
     domainParametersLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
     override val timeouts: ProcessingTimeout,
-    eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
     val requestSigner: RequestSigner,
     protected val sequencedEventStore: SequencedEventStore,
@@ -762,7 +761,6 @@ class RichSequencerClientImpl(
       protocolVersion,
       domainParametersLookup,
       timeouts,
-      eventValidatorFactory,
       clock,
       requestSigner,
       sequencedEventStore,
@@ -961,9 +959,11 @@ class RichSequencerClientImpl(
   )(implicit
       traceContext: TraceContext
   ): ResilientSequencerSubscription[SequencerClientSubscriptionError] = {
+    val loggerFactoryWithSequencerAlias =
+      SequencerClient.loggerFactoryWithSequencerConnection(loggerFactory, sequencerAlias)
     // previously seen counter takes precedence over the lower bound
     val nextCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter)
-    val eventValidator = eventValidatorFactory.create()
+    val eventValidator = eventValidatorFactory.create(loggerFactoryWithSequencerAlias)
     logger.info(
       s"Starting subscription for alias=$sequencerAlias, id=$sequencerId at timestamp ${preSubscriptionEvent
           .map(_.timestamp)}; next counter $nextCounter"
@@ -993,6 +993,7 @@ class RichSequencerClientImpl(
       preSubscriptionEvent,
       sequencerAlias,
       sequencerId,
+      loggerFactoryWithSequencerAlias,
     )
 
     val subscription = ResilientSequencerSubscription[SequencerClientSubscriptionError](
@@ -1006,7 +1007,7 @@ class RichSequencerClientImpl(
       config.warnDisconnectDelay.underlying,
       config.maxConnectionRetryDelay.underlying,
       timeouts,
-      loggerFactory,
+      loggerFactoryWithSequencerAlias,
     )
 
     deferredSubscriptionHealth.set(sequencerId, subscription)
@@ -1031,7 +1032,8 @@ class RichSequencerClientImpl(
       initialPriorEvent: Option[PossiblyIgnoredSerializedEvent],
       sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
-  ) {
+      override protected val loggerFactory: NamedLoggerFactory,
+  ) extends NamedLogging {
 
     // keep track of the last event that we processed. In the event the SequencerClient is recreated or that our [[ResilientSequencerSubscription]] reconnects
     // we'll restart from the last successfully processed event counter and we'll validate it is still the last event we processed and that we're not seeing
@@ -1433,7 +1435,6 @@ class SequencerClientImplPekko[E: Pretty](
       protocolVersion,
       domainParametersLookup,
       timeouts,
-      eventValidatorFactory,
       clock,
       requestSigner,
       sequencedEventStore,
@@ -1530,10 +1531,9 @@ class SequencerClientImplPekko[E: Pretty](
         }
         logger.debug(subscriptionStartLogMessage)
 
-        val eventValidator = eventValidatorFactory.create()
         val aggregator = new SequencerAggregatorPekko(
           domainId,
-          eventValidator,
+          eventValidatorFactory.create(_),
           bufferSize = PositiveInt.one,
           syncCryptoClient.pureCrypto,
           loggerFactory,
@@ -1944,4 +1944,16 @@ object SequencerClient {
         loggingContext.traceContext,
       )
   }
+
+  def loggerFactoryWithSequencerConnection(
+      loggerFactory: NamedLoggerFactory,
+      sequencerAlias: SequencerAlias,
+  ): NamedLoggerFactory =
+    loggerFactory.append("sequencerConnection", sequencerAlias.unwrap)
+
+  def loggerFactoryWithSequencerConnection(
+      loggerFactory: NamedLoggerFactory,
+      sequencerId: SequencerId,
+  ): NamedLoggerFactory =
+    loggerFactory.append("sequencerConnection", sequencerId.uid.toString)
 }

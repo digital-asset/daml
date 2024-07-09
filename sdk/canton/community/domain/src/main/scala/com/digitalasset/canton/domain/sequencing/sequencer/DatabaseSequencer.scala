@@ -157,6 +157,7 @@ class DatabaseSequencer(
     eventSignaller,
     protocolVersion,
     loggerFactory,
+    topologyClientMember,
     unifiedSequencer = unifiedSequencer,
   )
 

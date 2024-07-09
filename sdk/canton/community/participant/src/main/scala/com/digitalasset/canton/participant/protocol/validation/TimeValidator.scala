@@ -19,7 +19,7 @@ object TimeValidator {
       logger: TracedLogger,
   )(implicit tc: TraceContext): Either[TimeCheckFailure, Unit] = {
 
-    val CommonData(_transactionId, ledgerTime, submissionTime, _confirmationPolicy) = commonData
+    val CommonData(_transactionId, ledgerTime, submissionTime) = commonData
 
     def log(msg: String): Unit = {
       lazy val logMsg = s"Time validation has failed: ${msg}"
