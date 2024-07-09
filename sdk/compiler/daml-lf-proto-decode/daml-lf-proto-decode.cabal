@@ -31,7 +31,7 @@ library
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
-      -- //daml-lf/archive:daml_lf_dev_archive_haskell_proto
+      -- //daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
       daml-lf-proto-util,

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
+import com.digitalasset.daml.lf.archive.{DamlLf1, DamlLf2}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

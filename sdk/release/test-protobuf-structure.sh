@@ -35,9 +35,6 @@ export LANG=C
 $DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <((cat <<EOF
 com/daml/daml_lf_2_1/daml_lf.proto
 com/daml/daml_lf_2_1/daml_lf2.proto
-com/daml/daml_lf_dev/daml_lf.proto
-com/daml/daml_lf_dev/daml_lf1.proto
-com/daml/daml_lf_dev/daml_lf2.proto
 com/daml/ledger/api/v2/trace_context.proto
 com/daml/ledger/api/v2/testing/time_service.proto
 com/daml/ledger/api/v2/command_completion_service.proto
@@ -67,5 +64,8 @@ com/daml/ledger/api/v2/admin/package_management_service.proto
 com/daml/ledger/api/v2/admin/object_meta.proto
 com/daml/ledger/api/v2/admin/party_management_service.proto
 com/daml/ledger/api/v2/event.proto
+com/digitalasset/daml/lf/archive/daml_lf.proto
+com/digitalasset/daml/lf/archive/daml_lf1.proto
+com/digitalasset/daml/lf/archive/daml_lf2.proto
 EOF
 ) | $SORT )

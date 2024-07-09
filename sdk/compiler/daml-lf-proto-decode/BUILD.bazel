@@ -29,7 +29,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-list",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )

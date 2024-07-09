@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.daml_lf_dev.DamlLf
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering

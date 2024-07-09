@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 

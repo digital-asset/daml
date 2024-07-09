@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.kernel.Semigroup
 import cats.syntax.semigroup.*
-import com.daml.daml_lf_dev.DamlLf
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,

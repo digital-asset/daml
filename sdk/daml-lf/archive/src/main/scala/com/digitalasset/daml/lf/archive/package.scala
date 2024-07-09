@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf

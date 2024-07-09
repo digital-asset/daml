@@ -91,7 +91,7 @@ genrule(
     srcs = [
         "test_results.proto",
         "scenario_service.proto",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_srcs",
+        "//daml-lf/archive:daml_lf_archive_proto_srcs",
     ],
     outs = ["TestResults.hs"],
     cmd = """
@@ -126,6 +126,6 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":scenario_service_haskell_proto",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
     ],
 )

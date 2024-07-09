@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package archive
 
 import com.daml.crypto.MessageDigestPrototype
-import com.daml.daml_lf_dev.{DamlLf, DamlLf1, DamlLf2}
+import com.digitalasset.daml.lf.archive.{DamlLf, DamlLf1, DamlLf2}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageMinorVersion
 import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion}

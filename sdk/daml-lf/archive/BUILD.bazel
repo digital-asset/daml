@@ -36,47 +36,52 @@ load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 #
 # We generate:
 #  - one file group for each stable version, e.g daml_lf_1.14_archive_proto_srcs
-#  - one single file group for both dev versions: daml_lf_dev_archive_proto_srcs
-[
-    [
-        filegroup(
-            name = "daml_lf_%s_archive_proto_srcs" % version,
-            srcs = glob([
-                "src/{directory}/protobuf/com/daml/daml_lf_{version}/*.proto".format(
-                    directory = directory,
-                    version = mangled_version,
-                ),
-            ]),
-            visibility = ["//visibility:public"],
-        ),
-        proto_jars(
-            name = "daml_lf_%s_archive_proto" % version,
-            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            javadoc_root_packages = ["com.daml.daml_lf_%s" % mangled_version],
-            maven_artifact_prefix = "daml-lf-%s-archive" % version,
-            maven_group = "com.daml",
-            strip_import_prefix = "src/%s/protobuf" % directory,
-            visibility = ["//visibility:public"],
-        ),
-    ]
-    for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS + ["dev"]
-    for mangled_version in [mangle_for_java(version)]
-    for directory in ["main" if version == "dev" else "stable"]
-]
+#  - one single file group for both dev versions: daml_lf_archive_proto_srcs
+filegroup(
+    name = "daml_lf_2.1_archive_proto_srcs",
+    srcs = glob(["src/stable/protobuf/com/daml/daml_lf_2_1/*.proto"]),
+    visibility = [],
+)
+
+proto_jars(
+    name = "daml_lf_2.1_archive_proto",
+    srcs = [":daml_lf_2.1_archive_proto_srcs"],
+    javadoc_root_packages = ["com.daml.daml_lf_2_1"],
+    maven_artifact_prefix = "daml-lf-2.1-archive",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/stable/protobuf",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "daml_lf_archive_proto_srcs",
+    srcs = glob(["src/main/protobuf/com/digitalasset/daml/lf/archive/**/*.proto"]),
+    visibility = ["//visibility:public"],
+)
+
+proto_jars(
+    name = "daml_lf_archive_proto",
+    srcs = [":daml_lf_archive_proto_srcs"],
+    javadoc_root_packages = ["com.digitalasset.daml.lf.archive"],
+    maven_artifact_prefix = "daml-lf-archive",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+)
 
 # FIXME(JM): Clean this up
 genrule(
-    name = "daml_lf_dev_archive_haskell_proto_src",
-    srcs = ["daml_lf_dev_archive_proto_srcs"],
-    outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
-           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in ["2"]],
+    name = "daml_lf_archive_haskell_proto_src",
+    srcs = ["daml_lf_archive_proto_srcs"],
+    outs = ["Com/Digitalasset/Daml/Lf/Archive/DamlLf.hs"] +
+           ["Com/Digitalasset/Daml/Lf/Archive/DamlLf%s.hs" % v.title() for v in ["2"]],
     cmd =
         "\n".join(
             [
                 """
                    $(location @proto3-suite//:compile-proto-file)  \
                      --includeDir daml-lf/archive/src/main/protobuf/        \
-                     --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
+                     --proto com/digitalasset/daml/lf/archive/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
                 for vx in [""] + ["%s" % v for v in ["2"]]
@@ -88,8 +93,8 @@ genrule(
 )
 
 da_haskell_library(
-    name = "daml_lf_dev_archive_haskell_proto",
-    srcs = [":daml_lf_dev_archive_haskell_proto_src"],
+    name = "daml_lf_archive_haskell_proto",
+    srcs = [":daml_lf_archive_haskell_proto_src"],
     compiler_flags = [
         "-O0",
     ],  # disable optimization as this is otherwise way too slow to compile.
@@ -116,7 +121,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":daml_lf_dev_archive_proto_java",
+        ":daml_lf_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/crypto",
@@ -150,8 +155,8 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
+        ":daml_lf_archive_proto_java",
         ":daml_lf_archive_reader",
-        ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -199,7 +204,7 @@ da_scala_binary(
             "buf.yaml",
             "proto_breaking_changes.sh",
             ":daml_lf_%s_archive_proto_srcs" % version,
-            ":daml_lf_dev_archive_proto_srcs",
+            ":daml_lf_archive_proto_srcs",
             "@buf//:bin/buf",
         ],
     )

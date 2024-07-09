@@ -38,8 +38,8 @@ It produces several libraries containing code to encode / decode such
 definition, a Haskell one, and several Java ones:
 
 ```
-$ bazel build //daml-lf/archive:daml_lf_dev_archive_haskell_proto
-$ bazel build //daml-lf/archive:daml_lf_dev_archive_proto_java
+$ bazel build //daml-lf/archive:daml_lf_archive_haskell_proto
+$ bazel build //daml-lf/archive:daml_lf_archive_proto_java
 $ bazel build //daml-lf/archive:daml_lf_1_14_archive_proto_java
 ```
 

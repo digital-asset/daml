@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.daml_lf_dev.DamlLf1
+import com.digitalasset.daml.lf.archive.DamlLf1
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers

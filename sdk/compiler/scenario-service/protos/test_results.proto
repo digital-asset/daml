@@ -4,7 +4,7 @@
 syntax = "proto3";
 package daml_lf_dev;
 
-import "com/daml/daml_lf_dev/daml_lf2.proto";
+import "com/digitalasset/daml/lf/archive/daml_lf2.proto";
 import "scenario_service.proto";
 
 message TestResults {

@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
 import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
-import com.daml.daml_lf_dev.DamlLf
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.archive.ArchivePayload
 import scalaz.std.either._
 import scalaz.std.tuple._
