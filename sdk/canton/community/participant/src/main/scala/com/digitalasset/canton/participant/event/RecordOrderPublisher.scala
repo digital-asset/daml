@@ -365,7 +365,7 @@ class RecordOrderPublisher(
       val (_requestCounter, commitSet) =
         requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
       // Computes the acs change and publishes it
-      logger.debug(
+      logger.trace(
         show"The received commit set contains creations ${commitSet.creations}" +
           show"transfer-ins ${commitSet.transferIns}" +
           show"archivals ${commitSet.archivals} transfer-outs ${commitSet.transferOuts}"
@@ -374,6 +374,10 @@ class RecordOrderPublisher(
       // Computes the ACS change by decorating the archive events in the commit set
       val acsChange = AcsChange.fromCommitSet(commitSet)
       logger.debug(
+        s"Computed ACS change activations ${acsChange.activations.size} deactivations ${acsChange.deactivations.size}"
+      )
+      // we only log the full list of changes on trace level
+      logger.trace(
         s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
       )
       def recordTime: RecordTime =
