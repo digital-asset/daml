@@ -80,8 +80,8 @@ checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
             let world = initWorldSelf [] presentPkg
             in
             runGamma world version $ do
-                 checkNewInterfacesHaveNoTemplates presentPkg
                  checkNewInterfacesAreUnused presentPkg
+                 checkNewInterfacesHaveNoTemplates presentPkg
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
         extractDiagnostics result =
@@ -275,7 +275,9 @@ checkContinuedIfaces module_ ifaces =
         withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
             throwWithContextF present $ EUpgradeError $ TriedToUpgradeIface (NM.name iface)
 
--- This warning should run even when no upgrade target is set
+-- Check that the package does not define both interfaces and templates.
+-- This warning should trigger even when no previous version DAR is specified in
+-- the `upgrades:` field.
 checkNewInterfacesHaveNoTemplates :: LF.Package -> TcM ()
 checkNewInterfacesHaveNoTemplates presentPkg =
     let modules = NM.toHashMap $ packageModules presentPkg
@@ -288,7 +290,10 @@ checkNewInterfacesHaveNoTemplates presentPkg =
         withContext (ContextDefModule module_) $
             warnWithContext WShouldDefineIfacesAndTemplatesSeparately
 
--- This warning should run even when no upgrade target is set
+-- Check that any interfaces defined in this package do not also have an
+-- instance. Interfaces defined in other packages are allowed to have instances.
+-- This warning should trigger even when no previous version DAR is specified in
+-- the `upgrades:` field.
 checkNewInterfacesAreUnused :: LF.Package -> TcM ()
 checkNewInterfacesAreUnused presentPkg =
     forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
@@ -309,6 +314,8 @@ checkNewInterfacesAreUnused presentPkg =
             ((Module, DefInterface), [(Module, Template, TemplateImplements)])
     definedAndInstantiated = HMS.intersectionWith (,) definedIfaces (instantiatedIfaces presentPkg)
 
+-- When upgrading a package, check that the interfaces defined in the previous
+-- version are not instantiated by any templates in the current version.
 checkUpgradedInterfacesAreUnused
     :: Package
     -> Module
