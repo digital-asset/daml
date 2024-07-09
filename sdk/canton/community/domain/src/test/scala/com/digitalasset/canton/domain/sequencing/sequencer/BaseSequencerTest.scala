@@ -9,7 +9,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
+  CreateSubscriptionError,
+  SequencerError,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
@@ -139,7 +142,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override def pruningScheduler: Option[PruningScheduler] = ???
     override def snapshot(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, SequencerSnapshot] =
+    ): EitherT[Future, SequencerError, SequencerSnapshot] =
       ???
     override protected val localSequencerMember: Member = sequencerId
     override protected def disableMemberInternal(member: Member)(implicit

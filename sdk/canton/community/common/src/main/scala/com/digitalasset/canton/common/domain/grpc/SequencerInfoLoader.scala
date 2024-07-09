@@ -576,9 +576,9 @@ object SequencerInfoLoader {
           .flatMap { case (_, v) => v.headOption }
           .toSeq
         if (validSequencerConnections.sizeIs >= sequencerTrustThreshold.unwrap) {
-          val nonEmptyResult = NonEmptyUtil.fromUnsafe(validSequencerConnections)
+          val validSequencerConnectionsNE = NonEmptyUtil.fromUnsafe(validSequencerConnections)
           val expectedSequencers = NonEmptyUtil.fromUnsafe(
-            nonEmptyResult
+            validSequencerConnectionsNE
               .groupBy(_.connection.sequencerAlias)
               .view
               .mapValues(_.map(_.domainClientBootstrapInfo.sequencerId).head1)
@@ -586,15 +586,15 @@ object SequencerInfoLoader {
           )
           SequencerConnections
             .many(
-              nonEmptyResult.map(_.connection),
+              validSequencerConnectionsNE.map(_.connection),
               sequencerTrustThreshold,
               submissionRequestAmplification,
             )
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers)
             .map(connections =>
               SequencerAggregatedInfo(
-                domainId = nonEmptyResult.head1.domainClientBootstrapInfo.domainId,
-                staticDomainParameters = nonEmptyResult.head1.staticDomainParameters,
+                domainId = validSequencerConnectionsNE.head1.domainClientBootstrapInfo.domainId,
+                staticDomainParameters = validSequencerConnectionsNE.head1.staticDomainParameters,
                 expectedSequencers = expectedSequencers,
                 sequencerConnections = connections,
               )

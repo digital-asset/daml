@@ -16,8 +16,8 @@ import "scalapb/scalapb.proto";
 message AcsCommitment {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   string domain_id = 1;
-  string sending_participant = 2;
-  string counter_participant = 3;
+  string sending_participant_uid = 2;
+  string counter_participant_uid = 3;
   int64 from_exclusive = 4; // in microseconds of UTC time since Unix epoch
   int64 to_inclusive = 5; // in microseconds of UTC time since Unix epoch
   bytes commitment = 6;

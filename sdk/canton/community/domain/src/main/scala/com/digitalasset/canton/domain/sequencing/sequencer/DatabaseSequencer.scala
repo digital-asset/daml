@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.SnapshotNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
@@ -408,7 +409,7 @@ class DatabaseSequencer(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, SequencerSnapshot] = {
+  ): EitherT[Future, SequencerError, SequencerSnapshot] = {
     for {
       safeWatermarkO <- EitherT.right(store.safeWatermark)
       // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
@@ -418,13 +419,13 @@ class DatabaseSequencer(
           case Some(safeWatermark) =>
             EitherTUtil.condUnitET[Future](
               timestamp <= safeWatermark,
-              s"Requested snapshot at $timestamp is after the safe watermark $safeWatermark",
+              SnapshotNotFound.Error(timestamp, safeWatermark),
             )
           case None =>
-            EitherT.leftT[Future, Unit](s"No safe watermark found for the sequencer")
+            EitherT.leftT[Future, Unit](SnapshotNotFound.MissingSafeWatermark(topologyClientMember))
         }
       }
-      snapshot <- EitherT.right[String](store.readStateAtTimestamp(timestamp))
+      snapshot <- EitherT.right[SequencerError](store.readStateAtTimestamp(timestamp))
     } yield snapshot
   }
 

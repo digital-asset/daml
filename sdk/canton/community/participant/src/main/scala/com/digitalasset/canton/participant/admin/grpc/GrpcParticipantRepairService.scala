@@ -8,7 +8,6 @@ import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -23,7 +22,7 @@ import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, GrpcUtils, ResourceUtil}
+import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -36,10 +35,6 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object GrpcParticipantRepairService {
-
-  // 2MB - This is half of the default max message size of gRPC
-  val DefaultChunkSize: PositiveInt =
-    PositiveInt.tryCreate(1024 * 1024 * 2)
 
   private val DefaultBatchSize = 1000
 
@@ -196,15 +191,13 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  private final val ExportAcsTemporaryFileNamePrefix = "temporary-canton-acs-snapshot-versioned"
-
   /** originates from download above
     */
   override def exportAcs(
       request: ExportAcsRequest,
       responseObserver: StreamObserver[ExportAcsResponse],
   ): Unit =
-    GrpcUtils.streamResponse(
+    GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => createAcsSnapshotTemporaryFile(request, out),
       responseObserver,
       byteString => ExportAcsResponse(byteString),
@@ -250,6 +243,7 @@ final class GrpcParticipantRepairService(
   override def importAcs(
       responseObserver: StreamObserver[ImportAcsResponse]
   ): StreamObserver[ImportAcsRequest] = {
+
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
     // (workflowIdPrefix, allowContractIdSuffixRecomputation)

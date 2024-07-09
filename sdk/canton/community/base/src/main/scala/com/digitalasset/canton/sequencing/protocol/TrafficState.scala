@@ -123,12 +123,24 @@ object TrafficState {
   def fromProtoV30(
       trafficStateP: v30.TrafficState
   ): Either[ProtoDeserializationError, TrafficState] = for {
-    extraTrafficLimit <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficPurchased)
-    extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(trafficStateP.extraTrafficConsumed)
-    baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(trafficStateP.baseTrafficRemainder)
-    lastConsumedCost <- ProtoConverter.parseNonNegativeLong(trafficStateP.lastConsumedCost)
+    extraTrafficLimit <- ProtoConverter.parseNonNegativeLong(
+      "extra_traffic_purchased",
+      trafficStateP.extraTrafficPurchased,
+    )
+    extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(
+      "extra_traffic_consumed",
+      trafficStateP.extraTrafficConsumed,
+    )
+    baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(
+      "base_traffic_remainder",
+      trafficStateP.baseTrafficRemainder,
+    )
+    lastConsumedCost <- ProtoConverter.parseNonNegativeLong(
+      "last_consumed_cost",
+      trafficStateP.lastConsumedCost,
+    )
     timestamp <- CantonTimestamp.fromProtoPrimitive(trafficStateP.timestamp)
-    serial <- trafficStateP.serial.traverse(ProtoConverter.parsePositiveInt)
+    serial <- trafficStateP.serial.traverse(ProtoConverter.parsePositiveInt("serial", _))
   } yield TrafficState(
     extraTrafficLimit,
     extraTrafficConsumed,

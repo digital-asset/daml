@@ -183,7 +183,7 @@ object DomainConnectionConfig
     for {
       alias <- DomainAlias
         .create(domainAlias)
-        .leftMap(err => InvariantViolation(s"DomainConnectionConfig.DomainAlias: $err"))
+        .leftMap(err => InvariantViolation(s"DomainConnectionConfig.domain_alias", err))
       sequencerConnections <- ProtoConverter
         .required("sequencerConnections", sequencerConnectionsPO)
         .flatMap(SequencerConnections.fromProtoV30)

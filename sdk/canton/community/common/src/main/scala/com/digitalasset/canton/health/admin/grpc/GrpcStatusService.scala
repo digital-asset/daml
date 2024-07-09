@@ -5,17 +5,15 @@ package com.digitalasset.canton.health.admin.grpc
 
 import better.files.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.health.admin.grpc.GrpcStatusService.DefaultHealthDumpChunkSize
 import com.digitalasset.canton.health.admin.v30.{HealthDumpRequest, HealthDumpResponse}
 import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.google.protobuf.ByteString
+import com.digitalasset.canton.util.GrpcStreamingUtils
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
 
 object GrpcStatusService {
   val DefaultHealthDumpChunkSize: Int =
@@ -24,7 +22,7 @@ object GrpcStatusService {
 
 class GrpcStatusService(
     status: => Future[data.NodeStatus[_]],
-    healthDump: () => Future[File],
+    healthDump: File => Future[Unit],
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -58,39 +56,12 @@ class GrpcStatusService(
       request: HealthDumpRequest,
       responseObserver: StreamObserver[HealthDumpResponse],
   ): Unit = {
-    // Create a context that will be automatically cancelled after the processing timeout deadline
-    val context = io.grpc.Context
-      .current()
-      .withCancellation()
-
-    context.run { () =>
-      val processingResult = healthDump().map { dumpFile =>
-        val chunkSize = request.chunkSize.getOrElse(DefaultHealthDumpChunkSize)
-        dumpFile.newInputStream
-          .buffered(chunkSize)
-          .autoClosed { s =>
-            Iterator
-              .continually(s.readNBytes(chunkSize))
-              // Before pushing new chunks to the stream, keep checking that the context has not been cancelled
-              // This avoids the server reading the entire dump file for nothing if the client has already cancelled
-              .takeWhile(_.nonEmpty && !context.isCancelled)
-              .foreach { chunk =>
-                responseObserver.onNext(HealthDumpResponse(ByteString.copyFrom(chunk)))
-              }
-          }
-      }
-
-      Try(Await.result(processingResult, processingTimeout.unbounded.duration)) match {
-        case Failure(exception) =>
-          responseObserver.onError(exception)
-          context.cancel(new io.grpc.StatusRuntimeException(io.grpc.Status.CANCELLED))
-          ()
-        case Success(_) =>
-          if (!context.isCancelled) responseObserver.onCompleted()
-          context.cancel(new io.grpc.StatusRuntimeException(io.grpc.Status.CANCELLED))
-          ()
-      }
-    }
+    GrpcStreamingUtils.streamToClientFromFile(
+      (file: File) => healthDump(file),
+      responseObserver,
+      byteString => HealthDumpResponse(byteString),
+      processingTimeout.unbounded.duration,
+    )
   }
 
   override def setLogLevel(request: v30.SetLogLevelRequest): Future[v30.SetLogLevelResponse] = {

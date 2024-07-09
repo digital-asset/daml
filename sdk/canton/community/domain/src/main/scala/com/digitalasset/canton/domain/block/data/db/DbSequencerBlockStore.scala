@@ -11,7 +11,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
-import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
@@ -24,6 +23,8 @@ import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager
   MemberSignedEvents,
   MemberTimestamps,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
@@ -127,13 +128,13 @@ class DbSequencerBlockStore(
 
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, InvalidTimestamp, BlockEphemeralState] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, BlockEphemeralState] =
     EitherT(
       storage.query(
         for {
           heightAndTimestamp <- findBlockContainingTimestamp(timestamp)
           state <- heightAndTimestamp match {
-            case None => DBIO.successful(Left(InvalidTimestamp(timestamp)))
+            case None => DBIO.successful(Left(BlockNotFound.InvalidTimestamp(timestamp)))
             case Some(block) => readAtBlock(block).map(Right.apply)
           }
         } yield state,

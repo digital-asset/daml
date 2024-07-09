@@ -211,7 +211,7 @@ object TopologyTransaction
     val v30.TopologyTransaction(opP, serialP, mappingP) = transactionP
     for {
       mapping <- ProtoConverter.parseRequired(TopologyMapping.fromProtoV30, "mapping", mappingP)
-      serial <- ProtoConverter.parsePositiveInt(serialP)
+      serial <- ProtoConverter.parsePositiveInt("serial", serialP)
       op <- ProtoConverter.parseEnum(TopologyChangeOp.fromProtoV30, "operation", opP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TopologyTransaction(op, serial, mapping)(

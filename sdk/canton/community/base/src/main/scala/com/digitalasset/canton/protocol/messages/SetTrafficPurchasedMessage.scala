@@ -94,8 +94,11 @@ object SetTrafficPurchasedMessage
   )(bytes: ByteString): ParsingResult[SetTrafficPurchasedMessage] = {
     for {
       member <- Member.fromProtoPrimitive(proto.member, "member")
-      serial <- ProtoConverter.parsePositiveInt(proto.serial)
-      totalTrafficPurchased <- ProtoConverter.parseNonNegativeLong(proto.totalTrafficPurchased)
+      serial <- ProtoConverter.parsePositiveInt("serial", proto.serial)
+      totalTrafficPurchased <- ProtoConverter.parseNonNegativeLong(
+        "total_traffic_purchased",
+        proto.totalTrafficPurchased,
+      )
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield SetTrafficPurchasedMessage(

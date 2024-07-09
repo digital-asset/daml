@@ -777,10 +777,10 @@ abstract class SequencerReference(
   )
   override def maybeId: Option[SequencerId] = topology.maybeIdHelper(SequencerId(_))
 
-  private lazy val setup_ = new SequencerSetupGroup(this)
+  private lazy val setup_ = new SequencerAdministration(this)
 
   @Help.Summary("Methods used for node initialization")
-  def setup: SequencerSetupGroup = setup_
+  def setup: SequencerAdministration = setup_
 
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")

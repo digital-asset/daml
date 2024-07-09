@@ -108,7 +108,7 @@ message OwnerToKeyMapping {
 // UNIQUE(participant,domain)
 message DomainTrustCertificate {
   // the uid of the participant
-  string participant = 1;
+  string participant_uid = 1;
 
   // the uid of the domain that the participant trusts
   string domain = 2;
@@ -127,7 +127,7 @@ message DomainTrustCertificate {
 // UNIQUE(domain,participant)
 message ParticipantDomainPermission {
   string domain = 1;
-  string participant = 2;
+  string participant_uid = 2;
 
   // the permission level of the participant on this domain (usually submission)
   Enums.ParticipantPermission permission = 3;
@@ -160,7 +160,7 @@ message PartyHostingLimits {
 // UNIQUE(participant, domain)
 message VettedPackages {
   // the participant vetting the packages
-  string participant = 1;
+  string participant_uid = 1;
 
   // the hash of the vetted packages
   repeated string package_ids = 2;
@@ -181,7 +181,7 @@ message VettedPackages {
 message PartyToParticipant {
   message HostingParticipant {
     // the target participant that the party should be mapped to
-    string participant = 1;
+    string participant_uid = 1;
 
     // permission of the participant for this particular party (the actual
     // will be min of ParticipantDomainPermission.ParticipantPermission and this setting)

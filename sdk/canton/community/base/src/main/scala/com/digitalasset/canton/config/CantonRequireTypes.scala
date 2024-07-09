@@ -179,13 +179,6 @@ object CantonRequireTypes {
         errorMsg(str, maxLength, name),
       )
     }
-    def fromProtoPrimitive(
-        str: String,
-        name: Option[String] = None,
-    ): ParsingResult[LengthLimitedString] =
-      LengthLimitedString
-        .create(str, defaultMaxLength, name)
-        .leftMap(e => ProtoInvariantViolation(e))
 
     // Should be used rarely - most of the time SetParameter[String255] etc.
     // (defined through LengthLimitedStringCompanion) should be used
@@ -425,7 +418,7 @@ object CantonRequireTypes {
       factoryMethod(str)(name)
 
     def fromProtoPrimitive(str: String, name: String): ParsingResult[A] =
-      create(str, Some(name)).leftMap(e => ProtoInvariantViolation(e))
+      create(str, Some(name)).leftMap(e => ProtoInvariantViolation(field = Some(name), error = e))
 
     implicit val lengthLimitedStringOrder: Order[A] =
       Order.by[A, String](_.str)

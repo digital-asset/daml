@@ -166,7 +166,10 @@ object SimpleStatus {
         .flatMap(DurationConverter.fromProtoPrimitive)
       ports <- proto.ports.toList
         .traverse { case (s, i) =>
-          Port.create(i).leftMap(InvariantViolation.toProtoDeserializationError).map(p => (s, p))
+          Port
+            .create(i)
+            .leftMap(InvariantViolation.toProtoDeserializationError("ports", _))
+            .map(p => (s, p))
         }
         .map(_.toMap)
       topology <- ProtoConverter.parseRequired(
@@ -364,7 +367,7 @@ final case class SequencerNodeStatus(
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
   def toProtoV30: v30.StatusResponse.Status = {
-    val participants = connectedParticipants.map(_.toProtoPrimitive)
+    val participants = connectedParticipants.map(_.uid.toProtoPrimitive)
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30.copy(
       extra = v30
         .SequencerNodeStatus(
@@ -403,8 +406,10 @@ object SequencerNodeStatus {
         v30.SequencerNodeStatus.parseFrom,
         sequencerNodeStatusP =>
           for {
-            participants <- sequencerNodeStatusP.connectedParticipants.traverse(pId =>
-              ParticipantId.fromProtoPrimitive(pId, s"SequencerNodeStatus.connectedParticipants")
+            participants <- sequencerNodeStatusP.connectedParticipantUids.traverse(pUid =>
+              UniqueIdentifier
+                .fromProtoPrimitive(pUid, s"SequencerNodeStatus.connected_participants")
+                .map(ParticipantId(_))
             )
             sequencer <- ProtoConverter.parseRequired(
               SequencerHealthStatus.fromProto,
@@ -413,7 +418,7 @@ object SequencerNodeStatus {
             )
             domainId <- DomainId.fromProtoPrimitive(
               sequencerNodeStatusP.domainId,
-              s"SequencerNodeStatus.domainId",
+              s"SequencerNodeStatus.domain_id",
             )
             admin <- ProtoConverter.parseRequired(
               SequencerAdminStatus.fromProto,

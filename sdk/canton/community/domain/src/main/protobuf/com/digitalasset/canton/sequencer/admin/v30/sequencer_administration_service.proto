@@ -32,7 +32,7 @@ service SequencerAdministrationService {
 
   // Fetch the onboarding state for a given sequencer.
   // the returned bytestring can be used directly to initialize the given sequencer later on
-  rpc OnboardingState(OnboardingStateRequest) returns (OnboardingStateResponse);
+  rpc OnboardingState(OnboardingStateRequest) returns (stream OnboardingStateResponse);
 
   // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
   rpc DisableMember(DisableMemberRequest) returns (DisableMemberResponse);
@@ -110,24 +110,15 @@ message SnapshotResponse {
 message OnboardingStateRequest {
   oneof request {
     // The sequencer for which to fetch the onboarding state
-    string sequencer_id = 1;
+    string sequencer_uid = 1;
     // The effective time the should be "contained" in the sequencer snapshot
     google.protobuf.Timestamp timestamp = 2;
   }
 }
 
 message OnboardingStateResponse {
-  message Success {
-    // versioned OnboardingStateForSequencer
-    bytes onboarding_state_for_sequencer = 1;
-  }
-  message Failure {
-    string reason = 1;
-  }
-  oneof value {
-    Success success = 1;
-    Failure failure = 2;
-  }
+  // versioned OnboardingStateForSequencer
+  bytes onboarding_state_for_sequencer = 1;
 }
 
 message OnboardingStateForSequencer {

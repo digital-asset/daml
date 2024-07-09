@@ -131,7 +131,7 @@ class GrpcTopologyAggregationService(
             party = partyId.toProtoPrimitive,
             participants = participants.map { case (participantId, domains) =>
               v30.ListPartiesResponse.Result.ParticipantDomains(
-                participant = participantId.toProtoPrimitive,
+                participantUid = participantId.uid.toProtoPrimitive,
                 domains = domains.map { case (domainId, permission) =>
                   v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
                     domain = domainId.toProtoPrimitive,

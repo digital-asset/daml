@@ -12,7 +12,6 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
-import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
@@ -24,6 +23,8 @@ import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager
   MemberSignedEvents,
   MemberTimestamps,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   InternalSequencerPruningStatus,
@@ -157,12 +158,12 @@ class InMemorySequencerBlockStore(
 
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, InvalidTimestamp, BlockEphemeralState] =
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, BlockEphemeralState] =
     blockToTimestampMap.toList
       .sortBy(_._2._1)
       .find(_._2._1 >= timestamp)
-      .fold[EitherT[Future, InvalidTimestamp, BlockEphemeralState]](
-        EitherT.leftT(InvalidTimestamp(timestamp))
+      .fold[EitherT[Future, SequencerError, BlockEphemeralState]](
+        EitherT.leftT(BlockNotFound.InvalidTimestamp(timestamp))
       ) { case (blockHeight, (blockTimestamp, latestSequencerEventTs)) =>
         val block = BlockInfo(blockHeight, blockTimestamp, latestSequencerEventTs)
         EitherT.right(

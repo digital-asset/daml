@@ -232,7 +232,10 @@ object ViewConfirmationParameters {
     Either.cond(
       notAnInformee.isEmpty,
       ViewConfirmationParameters(informees, quorums),
-      InvariantViolation(s"confirming parties $notAnInformee are not in the list of informees"),
+      InvariantViolation(
+        field = None,
+        error = s"confirming parties $notAnInformee are not in the list of informees",
+      ),
     )
   }
 

@@ -45,7 +45,7 @@ object SubmissionRequestAmplification {
   ): ParsingResult[SubmissionRequestAmplification] = {
     val v30.SubmissionRequestAmplification(factorP, patienceP) = proto
     for {
-      factor <- ProtoConverter.parsePositiveInt(factorP)
+      factor <- ProtoConverter.parsePositiveInt("factor", factorP)
       patience <- ProtoConverter.parseRequired(
         config.NonNegativeFiniteDuration.fromProtoPrimitive("patience"),
         "patience",

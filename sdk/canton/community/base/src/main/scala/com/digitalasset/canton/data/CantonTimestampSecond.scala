@@ -78,22 +78,25 @@ object CantonTimestampSecond {
 
   def MinValue = CantonTimestampSecond(LfTimestamp.MinValue)
 
-  def fromProtoTimestamp(ts: ProtoTimestamp): ParsingResult[CantonTimestampSecond] = {
+  def fromProtoTimestamp(
+      ts: ProtoTimestamp,
+      field: String,
+  ): ParsingResult[CantonTimestampSecond] = {
     for {
       instant <- ProtoConverter.InstantConverter.fromProtoPrimitive(ts)
       ts <- CantonTimestampSecond
         .fromInstant(instant)
         .left
-        .map(ProtoDeserializationError.InvariantViolation(_))
+        .map(ProtoDeserializationError.InvariantViolation(field, _))
     } yield ts
   }
 
-  def fromProtoPrimitive(ts: Long): ParsingResult[CantonTimestampSecond] = {
+  def fromProtoPrimitive(field: String, ts: Long): ParsingResult[CantonTimestampSecond] = {
     for {
       timestamp <- CantonTimestamp.fromProtoPrimitive(ts)
       seconds <- CantonTimestampSecond
         .fromCantonTimestamp(timestamp)
-        .leftMap(ProtoDeserializationError.InvariantViolation(_))
+        .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
     } yield seconds
   }
 

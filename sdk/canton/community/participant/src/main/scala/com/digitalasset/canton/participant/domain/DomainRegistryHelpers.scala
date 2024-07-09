@@ -13,7 +13,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
@@ -66,7 +66,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(
       cryptoApiProvider: SyncCryptoApiProvider,
-      cryptoConfig: CryptoConfig,
       clock: Clock,
       testingConfig: TestingConfigInternal,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],

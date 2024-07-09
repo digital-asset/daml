@@ -55,7 +55,7 @@ final case class TransferInMediatorMessage(
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 
-  override def mediator: MediatorGroupRecipient = commonData.targetMediator
+  override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def requestUuid: UUID = commonData.uuid
 

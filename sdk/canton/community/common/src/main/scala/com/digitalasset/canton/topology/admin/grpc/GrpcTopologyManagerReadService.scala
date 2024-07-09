@@ -71,7 +71,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, GrpcUtils, OptionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, topology}
 import com.google.protobuf.ByteString
@@ -815,12 +815,11 @@ class GrpcTopologyManagerReadService(
       request: GenesisStateRequest,
       responseObserver: StreamObserver[GenesisStateResponse],
   ): Unit = {
-    GrpcUtils.streamResponse(
+    GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => getGenesisState(request.filterDomainStore, request.timestamp, out),
       responseObserver,
       byteString => GenesisStateResponse(byteString),
       processingTimeout.unbounded.duration,
-      None,
     )
   }
 

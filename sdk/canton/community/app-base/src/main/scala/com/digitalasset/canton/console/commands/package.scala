@@ -5,15 +5,20 @@ package com.digitalasset.canton.console
 
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
+import com.digitalasset.canton.config.NonNegativeDuration
+import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.networking.grpc.GrpcError
+import com.digitalasset.canton.util.{BinaryFileUtil, ResourceUtil}
 import com.google.protobuf.ByteString
+import io.grpc.{Context, StatusRuntimeException}
 
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission.{OWNER_READ, OWNER_WRITE}
+import scala.concurrent.{Await, Future, TimeoutException}
 import scala.jdk.CollectionConverters.*
 
 package object commands {
@@ -60,5 +65,31 @@ package object commands {
       case _: UnsupportedOperationException =>
     }
     BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
+  }
+
+  private[commands] def processResult[T](
+      call: ConsoleCommandResult[Context.CancellableContext],
+      result: Future[T],
+      timeout: NonNegativeDuration,
+      request: String,
+      serverName: String = "",
+      cleanupOnError: () => Unit = () => (),
+  ): ConsoleCommandResult[T] = {
+    call.flatMap { call =>
+      try {
+        ResourceUtil.withResource(call) { _ =>
+          CommandSuccessful(
+            Await.result(result, timeout.duration)
+          )
+        }
+      } catch {
+        case sre: StatusRuntimeException =>
+          cleanupOnError()
+          GenericCommandError(GrpcError(request, serverName, sre).toString)
+        case _: TimeoutException =>
+          cleanupOnError()
+          CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
+      }
+    }
   }
 }

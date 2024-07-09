@@ -395,7 +395,7 @@ class RecordOrderPublisher(
         requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
       // Augments the commit set with the updated transfer counters for archive events,
       // computes the acs change and publishes it
-      logger.debug(
+      logger.trace(
         show"The received commit set contains creations ${commitSet.creations}" +
           show"transfer-ins ${commitSet.transferIns}" +
           show"archivals ${commitSet.archivals} transfer-outs ${commitSet.transferOuts}"
@@ -420,6 +420,10 @@ class RecordOrderPublisher(
             transientArchivals,
           )
           logger.debug(
+            s"Computed ACS change activations ${acsChange.activations.size} deactivations ${acsChange.deactivations.size}"
+          )
+          // we only log the full list of changes on trace level
+          logger.trace(
             s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
           )
           def recordTime: RecordTime =

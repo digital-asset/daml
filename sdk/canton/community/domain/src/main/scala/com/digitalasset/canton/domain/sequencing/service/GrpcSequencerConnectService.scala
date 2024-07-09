@@ -53,7 +53,7 @@ class GrpcSequencerConnectService(
     Future.successful(
       GetDomainIdResponse(
         domainId = domainId.toProtoPrimitive,
-        sequencerId = sequencerId.toProtoPrimitive,
+        sequencerUid = sequencerId.uid.toProtoPrimitive,
       )
     )
 

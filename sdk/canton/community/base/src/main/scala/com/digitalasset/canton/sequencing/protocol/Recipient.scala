@@ -5,13 +5,12 @@ package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.{
-  InvariantViolation,
   StringConversionError,
   ValueConversionError,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.{String3, String300}
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -85,9 +84,7 @@ object Recipient {
                       s"Cannot parse group number $rest, error ${e.getMessage}"
                     )
                   )
-              group <- NonNegativeInt
-                .create(groupInt)
-                .leftMap(e => InvariantViolation(e.message))
+              group <- ProtoConverter.parseNonNegativeInt(s"group in $recipient", groupInt)
             } yield MediatorGroupRecipient(group)
           case AllMembersOfDomain.Code =>
             Right(AllMembersOfDomain)

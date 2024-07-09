@@ -298,17 +298,6 @@
             <maxLevel>INFO</maxLevel>
         </rewrite>
 
-        <!-- grpc "Half-closed without a request" grpc shutdown flake - might be when client hangs up before server response? https://github.com/grpc/grpc-java/issues/4890
-             reported by daml-repo ErrorInterceptor/ErrorListener added with daml 2.0.0-snapshot.20211220
-             Can probably be removed once https://github.com/digital-asset/daml/issues/13413 is fixed. -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor</logger>
-            <contains>LEDGER_API_INTERNAL_ERROR</contains>
-            <exceptionMessage>Half-closed without a request</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-
         <!-- shutdown issues in ledger-api server TODO(#11534) -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor</logger>

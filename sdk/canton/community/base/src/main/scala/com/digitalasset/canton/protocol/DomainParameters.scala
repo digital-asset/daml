@@ -746,12 +746,14 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
       confirmationRequestsMaxRate <- NonNegativeInt
         .create(confirmationRequestsMaxRateP)
-        .leftMap(InvariantViolation.toProtoDeserializationError)
+        .leftMap(
+          InvariantViolation.toProtoDeserializationError("confirmation_requests_max_rate", _)
+        )
 
       maxRequestSize <- NonNegativeInt
         .create(maxRequestSizeP)
         .map(MaxRequestSize)
-        .leftMap(InvariantViolation.toProtoDeserializationError)
+        .leftMap(InvariantViolation.toProtoDeserializationError("max_request_size", _))
 
       sequencerAggregateSubmissionTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
         "sequencerAggregateSubmissionTimeout"
@@ -789,7 +791,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   class InvalidDynamicDomainParameters(message: String) extends RuntimeException(message) {
     lazy val toProtoDeserializationError: ProtoDeserializationError.InvariantViolation =
-      ProtoDeserializationError.InvariantViolation(message)
+      ProtoDeserializationError.InvariantViolation(field = None, error = message)
   }
 }
 
@@ -943,9 +945,13 @@ object AcsCommitmentsCatchUpConfig {
   ): ParsingResult[AcsCommitmentsCatchUpConfig] = {
     val v30.AcsCommitmentsCatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
     for {
-      catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(catchUpIntervalSkipP)
+      catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(
+        "catchup_interval_skip",
+        catchUpIntervalSkipP,
+      )
       nrIntervalsToTriggerCatchUp <- ProtoConverter.parsePositiveInt(
-        nrIntervalsToTriggerCatchUpP
+        "nr_intervals_to_trigger_catch_up",
+        nrIntervalsToTriggerCatchUpP,
       )
     } yield AcsCommitmentsCatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
   }

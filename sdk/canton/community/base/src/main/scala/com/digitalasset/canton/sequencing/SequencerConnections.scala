@@ -175,7 +175,10 @@ object SequencerConnections
       submissionRequestAmplificationP,
     ) = sequencerConnectionsProto
     for {
-      sequencerTrustThreshold <- ProtoConverter.parsePositiveInt(sequencerTrustThresholdP)
+      sequencerTrustThreshold <- ProtoConverter.parsePositiveInt(
+        "sequencer_trust_threshold",
+        sequencerTrustThresholdP,
+      )
       submissionRequestAmplification <- ProtoConverter.parseRequired(
         SubmissionRequestAmplification.fromProtoV30,
         "submission_request_amplification",
@@ -198,7 +201,7 @@ object SequencerConnections
         sequencerConnectionsNes,
         sequencerTrustThreshold,
         submissionRequestAmplification,
-      ).leftMap(ProtoDeserializationError.InvariantViolation(_))
+      ).leftMap(ProtoDeserializationError.InvariantViolation(field = None, _))
     } yield sequencerConnections
   }
 

@@ -11,6 +11,6 @@ import "scalapb/scalapb.proto";
 message OrderingRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  string sequencer_id = 1; // Id of the sequencer requesting ordering of the request
+  string sequencer_uid = 1; // UID of the sequencer requesting ordering of the request
   google.protobuf.BytesValue content = 2; // Content of the request to be ordered
 }

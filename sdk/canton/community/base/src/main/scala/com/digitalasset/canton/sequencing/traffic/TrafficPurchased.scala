@@ -66,8 +66,11 @@ object TrafficPurchased {
   def fromProtoV30(trafficPurchasedP: TrafficPurchasedP): ParsingResult[TrafficPurchased] =
     for {
       member <- Member.fromProtoPrimitive(trafficPurchasedP.member, "member")
-      serial <- ProtoConverter.parsePositiveInt(trafficPurchasedP.serial)
-      balance <- ProtoConverter.parseNonNegativeLong(trafficPurchasedP.extraTrafficPurchased)
+      serial <- ProtoConverter.parsePositiveInt("serial", trafficPurchasedP.serial)
+      balance <- ProtoConverter.parseNonNegativeLong(
+        "extra_traffic_purchased",
+        trafficPurchasedP.extraTrafficPurchased,
+      )
       sequencingTimestamp <- CantonTimestamp.fromProtoPrimitive(
         trafficPurchasedP.sequencingTimestamp
       )

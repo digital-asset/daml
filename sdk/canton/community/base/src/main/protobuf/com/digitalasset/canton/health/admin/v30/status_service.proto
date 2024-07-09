@@ -97,7 +97,7 @@ message ParticipantStatusInfo {
 }
 
 message SequencerNodeStatus {
-  repeated string connected_participants = 1;
+  repeated string connected_participant_uids = 1;
   // required - status of the sequencer component it is running
   SequencerHealthStatus sequencer = 2;
   string domain_id = 3;

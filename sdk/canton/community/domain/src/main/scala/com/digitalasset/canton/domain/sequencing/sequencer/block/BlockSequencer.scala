@@ -23,7 +23,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
+  CreateSubscriptionError,
+  SequencerError,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.{
   ExactTimestamp,
   TimestampSelector,
@@ -453,40 +456,34 @@ class BlockSequencer(
 
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, String, SequencerSnapshot] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, SequencerSnapshot] = {
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
 
     for {
       bsSnapshot <- store
         .readStateForBlockContainingTimestamp(timestamp)
-        .biflatMap(
-          _ =>
-            EitherT.leftT[Future, SequencerSnapshot](
-              s"Provided timestamp $timestamp is not linked to a block"
-            ),
-          blockEphemeralState => {
-            for {
-              // Look up traffic info at the latest timestamp from the block,
-              // because that's where the onboarded sequencer will start reading
-              trafficPurchased <- EitherT.liftF[Future, String, Seq[TrafficPurchased]](
-                trafficPurchasedStore
-                  .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-              )
-              trafficConsumed <- EitherT.liftF[Future, String, Seq[TrafficConsumed]](
-                blockRateLimitManager.trafficConsumedStore
-                  .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-              )
-            } yield blockEphemeralState
-              .toSequencerSnapshot(protocolVersion, trafficPurchased, trafficConsumed)
-              .tap(snapshot =>
-                if (logger.underlying.isDebugEnabled()) {
-                  logger.trace(
-                    s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
-                  )
-                }
-              )
-          },
-        )
+        .flatMap(blockEphemeralState => {
+          for {
+            // Look up traffic info at the latest timestamp from the block,
+            // because that's where the onboarded sequencer will start reading
+            trafficPurchased <- EitherT.liftF[Future, SequencerError, Seq[TrafficPurchased]](
+              trafficPurchasedStore
+                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
+            )
+            trafficConsumed <- EitherT.liftF[Future, SequencerError, Seq[TrafficConsumed]](
+              blockRateLimitManager.trafficConsumedStore
+                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
+            )
+          } yield blockEphemeralState
+            .toSequencerSnapshot(protocolVersion, trafficPurchased, trafficConsumed)
+            .tap(snapshot =>
+              if (logger.underlying.isDebugEnabled()) {
+                logger.trace(
+                  s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
+                )
+              }
+            )
+        })
       finalSnapshot <- {
         if (unifiedSequencer) {
           super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
@@ -499,7 +496,7 @@ class BlockSequencer(
             )(dbsSnapshot.representativeProtocolVersion)
           }
         } else {
-          EitherT.pure[Future, String](bsSnapshot)
+          EitherT.pure[Future, SequencerError](bsSnapshot)
         }
       }
     } yield {

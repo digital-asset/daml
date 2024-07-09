@@ -51,7 +51,7 @@ final case class CommonMetadata private (
       domainId = domainId.toProtoPrimitive,
       salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
-      mediator = mediator.toProtoPrimitive,
+      mediatorGroup = mediator.group.value,
     )
   }
 }
@@ -106,14 +106,14 @@ object CommonMetadata
       domainUid <- UniqueIdentifier
         .fromProtoPrimitive_(domainIdP)
         .leftMap(e => ProtoDeserializationError.ValueDeserializationError("domainId", e.message))
-      mediator <- MediatorGroupRecipient
-        .fromProtoPrimitive(mediatorP, "CommonMetadata.mediator")
+      mediatorGroup <- ProtoConverter.parseNonNegativeInt("mediator", mediatorP)
+      mediatorGroupRecipient = MediatorGroupRecipient.apply(mediatorGroup)
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
       pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommonMetadata(DomainId(domainUid), mediator, salt, uuid)(
+    } yield CommonMetadata(DomainId(domainUid), mediatorGroupRecipient, salt, uuid)(
       hashOps,
       pv,
       Some(bytes),

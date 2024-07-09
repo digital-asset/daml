@@ -61,7 +61,7 @@ final case class SubmitterMetadata private (
     actAs = actAs.toSeq,
     applicationId = applicationId.toProtoPrimitive,
     commandId = commandId.toProtoPrimitive,
-    submittingParticipant = submittingParticipant.toProtoPrimitive,
+    submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
     salt = Some(salt.toProtoV30),
     submissionId = submissionId.getOrElse(""),
     dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV30),
@@ -141,15 +141,19 @@ object SubmitterMetadata
       actAsP,
       applicationIdP,
       commandIdP,
-      submittingParticipantP,
+      submittingParticipantUidP,
       submissionIdP,
       dedupPeriodOP,
       maxSequencingTimeOP,
     ) = metaDataP
 
     for {
-      submittingParticipant <- ParticipantId
-        .fromProtoPrimitive(submittingParticipantP, "SubmitterMetadata.submitter_participant")
+      submittingParticipant <- UniqueIdentifier
+        .fromProtoPrimitive(
+          submittingParticipantUidP,
+          "SubmitterMetadata.submitter_participant_uid",
+        )
+        .map(ParticipantId(_))
       actAs <- actAsP.traverse(
         ProtoConverter
           .parseLfPartyId(_)

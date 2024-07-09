@@ -216,16 +216,19 @@ object TrafficConsumed {
     for {
       member <- Member.fromProtoPrimitive(trafficConsumedP.member, "member")
       extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(
-        trafficConsumedP.extraTrafficConsumed
+        "extra_traffic_consumed",
+        trafficConsumedP.extraTrafficConsumed,
       )
       baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(
-        trafficConsumedP.baseTrafficRemainder
+        "base_traffic_remainder",
+        trafficConsumedP.baseTrafficRemainder,
       )
       sequencingTimestamp <- CantonTimestamp.fromProtoPrimitive(
         trafficConsumedP.sequencingTimestamp
       )
       lastConsumedCost <- ProtoConverter.parseNonNegativeLong(
-        trafficConsumedP.lastConsumedCost
+        "last_consumed_cost",
+        trafficConsumedP.lastConsumedCost,
       )
     } yield TrafficConsumed(
       member = member,

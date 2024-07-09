@@ -16,8 +16,8 @@ service SequencerInitializationService {
   // and will immediately attempt to use it.
   // If the request is received after the sequencer has been successfully initialized it should return successfully
   // if the domain_id matches the domain that the sequencer has been initialized for, otherwise it should fail.
-  rpc InitializeSequencerFromGenesisState(InitializeSequencerFromGenesisStateRequest) returns (InitializeSequencerFromGenesisStateResponse);
-  rpc InitializeSequencerFromOnboardingState(InitializeSequencerFromOnboardingStateRequest) returns (InitializeSequencerFromOnboardingStateResponse);
+  rpc InitializeSequencerFromGenesisState(stream InitializeSequencerFromGenesisStateRequest) returns (InitializeSequencerFromGenesisStateResponse);
+  rpc InitializeSequencerFromOnboardingState(stream InitializeSequencerFromOnboardingStateRequest) returns (InitializeSequencerFromOnboardingStateResponse);
 }
 
 // Includes sufficient detail for:
