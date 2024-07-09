@@ -129,7 +129,7 @@ data Options = Options
   , optAllowLargeTuples :: AllowLargeTuples
   -- ^ Do not warn when tuples of size > 5 are used
   , optWarnBadInterfaceInstances :: WarnBadInterfaceInstances
-  -- ^ Do not warn when tuples of size > 5 are used
+  -- ^ Warn for bad interface instances instead of erroring out
   }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }

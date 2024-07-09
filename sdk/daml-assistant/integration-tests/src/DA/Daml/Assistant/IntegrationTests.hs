@@ -124,7 +124,7 @@ damlStart tmpDir disableUpgradeValidation = do
             , "    output-directory: ui/java"
             , "build-options:"
             , "- --target=2.1"
-            ] ++ ["- --warn-bad-interface-instances=yes" |  disableUpgradeValidation ]
+            ] ++ [ "- --warn-bad-interface-instances=yes" |  disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"

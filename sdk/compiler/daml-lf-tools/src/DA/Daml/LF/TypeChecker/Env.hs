@@ -199,17 +199,7 @@ instance SomeErrorOrWarning Warning where
     shouldSwap <- getDiagnosticSwapIndicatorF getter
     if shouldSwap (Right warning)
        then do
-        throwWithContextFRaw getter (EWarnableError (WEWarningToError warning))
+        throwWithContextFRaw getter (EWarningToError warning)
        else do
         ctx <- view $ getter . locCtx
         modify' (WContext ctx warning :)
-
---diagnosticWithContextF :: forall m gamma d. (SomeErrorOrWarning d, MonadGammaF gamma m) => Getter gamma Gamma -> d -> m ()
---diagnosticWithContextF getter d = do
---  swapIndicator <- getDiagnosticSwapIndicatorF @m @gamma getter
---  let diagnostic = toErrorOrWarning d
---  case (diagnostic, swapIndicator diagnostic) of
---    (Left err, True) -> warnWithContextF @m @gamma getter $ WErrorToWarning err
---    (Right warn, True) -> throwWithContextF @m @gamma getter $ EWarningToError warn
---    (Left err, False) -> throwWithContextF @m @gamma getter err
---    (Right warn, False) -> warnWithContextF @m @gamma getter warn

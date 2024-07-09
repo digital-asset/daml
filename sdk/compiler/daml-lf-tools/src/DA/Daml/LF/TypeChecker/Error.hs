@@ -98,6 +98,7 @@ data UnserializabilityReason
 data Error
   = EUnwarnableError !UnwarnableError
   | EWarnableError !WarnableError
+  | EWarningToError !Warning
   | EContext !Context !Error
   deriving (Show)
 
@@ -207,7 +208,6 @@ data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
-  | WEWarningToError !Warning
   deriving (Show)
 
 instance Pretty WarnableError where
@@ -229,7 +229,6 @@ instance Pretty WarnableError where
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
         ]
-    WEWarningToError warning -> pPrint warning
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
@@ -358,6 +357,7 @@ instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
     EWarnableError err -> pPrint err
+    EWarningToError warning -> pPrint warning
     EContext ctx err ->
       vcat
       [ "error type checking " <> pretty ctx <> ":"
