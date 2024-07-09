@@ -12,7 +12,7 @@ import com.digitalasset.canton.serialization.{
   ProtoConverter,
   ProtocolVersionedMemoizedEvidence,
 }
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -33,7 +33,7 @@ final case class OrderingRequest[+A <: HasCryptographicEvidence] private (
 
   private def toProtoV30: v30.OrderingRequest =
     v30.OrderingRequest(
-      sequencerId.toProtoPrimitive,
+      sequencerId.uid.toProtoPrimitive,
       Some(content.getCryptographicEvidence),
     )
 
@@ -96,7 +96,9 @@ object OrderingRequest
     val v30.OrderingRequest(sequencerIdP, content) = orderingRequestP
     for {
       contentB <- ProtoConverter.required("content", content)
-      sequencerId <- SequencerId.fromProtoPrimitive(sequencerIdP, "sequencer_id")
+      sequencerId <- UniqueIdentifier
+        .fromProtoPrimitive(sequencerIdP, "sequencer_uid")
+        .map(SequencerId(_))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield OrderingRequest(sequencerId, BytestringWithCryptographicEvidence(contentB))(
       rpv,

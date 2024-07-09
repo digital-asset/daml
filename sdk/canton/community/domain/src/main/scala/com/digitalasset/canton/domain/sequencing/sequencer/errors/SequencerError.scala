@@ -21,6 +21,7 @@ import com.digitalasset.canton.util.LoggerUtil
 
 import scala.concurrent.duration.Duration
 
+sealed trait SequencerError extends BaseCantonError
 object SequencerError extends SequencerErrorGroup {
 
   @Explanation("""
@@ -218,5 +219,44 @@ object SequencerError extends SequencerErrorGroup {
             s"The payload to event time bound [$bound] has been been exceeded by payload time [$payloadTs] and sequenced event time [$sequencedTs]: $messageId"
         )
   }
+  @Explanation(
+    """This error indicates that no sequencer snapshot can be found for the given timestamp."""
+  )
+  @Resolution(
+    """Verify that the timestamp is correct and that the sequencer is healthy."""
+  )
+  object SnapshotNotFound
+      extends ErrorCode(
+        "SNAPSHOT_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(requestTimestamp: CantonTimestamp, safeWatermark: CantonTimestamp)
+        extends BaseCantonError.Impl(
+          cause =
+            s"Requested snapshot at $requestTimestamp is after the safe watermark $safeWatermark"
+        )
+        with SequencerError
 
+    final case class MissingSafeWatermark(id: Member)
+        extends BaseCantonError.Impl(
+          cause = s"No safe watermark found for the sequencer $id"
+        )
+        with SequencerError
+  }
+
+  @Explanation("""This error indicates that no block can be found for the given timestamp.""")
+  @Resolution(
+    """Verify that the timestamp is correct and that the sequencer is healthy."""
+  )
+  object BlockNotFound
+      extends ErrorCode(
+        "BLOCK_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class InvalidTimestamp(timestamp: CantonTimestamp)
+        extends BaseCantonError.Impl(
+          cause = s"Invalid timestamp $timestamp"
+        )
+        with SequencerError
+  }
 }

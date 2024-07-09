@@ -41,7 +41,6 @@ trait TransactionTreeFactory {
   def createTransactionTree(
       transaction: WellFormedTransaction[WithoutSuffixes],
       submitterInfo: SubmitterInfo,
-      confirmationPolicy: ConfirmationPolicy,
       workflowId: Option[WorkflowId],
       mediator: MediatorGroupRecipient,
       transactionSeed: SaltSeed,
@@ -64,7 +63,6 @@ trait TransactionTreeFactory {
   def tryReconstruct(
       subaction: WellFormedTransaction[WithoutSuffixes],
       rootPosition: ViewPosition,
-      confirmationPolicy: ConfirmationPolicy,
       mediator: MediatorGroupRecipient,
       submittingParticipantO: Option[ParticipantId],
       salts: Iterable[Salt],

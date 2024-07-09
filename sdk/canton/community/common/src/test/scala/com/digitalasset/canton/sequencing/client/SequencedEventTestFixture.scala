@@ -49,7 +49,8 @@ class SequencedEventTestFixture(
   def fixtureTraceContext: TraceContext = traceContext
 
   private lazy val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()(
-    executionContext
+    executionContext,
+    traceContext,
   )
 
   lazy val defaultDomainId: DomainId = DefaultTestIdentities.domainId
@@ -210,7 +211,7 @@ class SequencedEventTestFixture(
     )(traceContext)
   }
 
-  def ts(offset: Int) = CantonTimestamp.Epoch.plusSeconds(offset.toLong)
+  def ts(offset: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(offset.toLong)
 
   def sign(bytes: ByteString, timestamp: CantonTimestamp)(implicit
       executionContext: ExecutionContext

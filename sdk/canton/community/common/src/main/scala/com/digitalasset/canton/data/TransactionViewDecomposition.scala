@@ -63,11 +63,10 @@ object TransactionViewDecomposition {
       * It adds an extra quorum with the submitting party.
       */
     def withSubmittingAdminParty(
-        submittingAdminPartyO: Option[LfPartyId],
-        confirmationPolicy: ConfirmationPolicy,
+        submittingAdminPartyO: Option[LfPartyId]
     ): NewView = {
       val newViewConfirmationParameters =
-        confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
+        TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
           viewConfirmationParameters
         )
       copy(

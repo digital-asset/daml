@@ -8,7 +8,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
 
 /** Information about the submitters of the transaction in the case of a Transfer.
   * This data structure is quite similar to [[com.digitalasset.canton.data.SubmitterMetadata]]
@@ -26,7 +26,7 @@ final case class TransferSubmitterMetadata(
   def toProtoV30: v30.TransferSubmitterMetadata =
     v30.TransferSubmitterMetadata(
       submitter = submitter,
-      submittingParticipant = submittingParticipant.toProtoPrimitive,
+      submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
       commandId = commandId,
       submissionId = submissionId.getOrElse(""),
       applicationId = applicationId,
@@ -59,7 +59,9 @@ object TransferSubmitterMetadata {
     for {
       submitter <- ProtoConverter.parseLfPartyId(submitterP)
       submittingParticipant <-
-        ParticipantId.fromProtoPrimitive(submittingParticipantP, "submittingParticipant")
+        UniqueIdentifier
+          .fromProtoPrimitive(submittingParticipantP, "submitting_participant_uid")
+          .map(ParticipantId(_))
       commandId <- ProtoConverter.parseCommandId(commandIdP)
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)

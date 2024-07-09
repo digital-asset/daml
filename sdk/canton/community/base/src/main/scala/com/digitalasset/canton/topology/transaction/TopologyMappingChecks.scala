@@ -83,6 +83,7 @@ class ValidatingTopologyMappingChecks(
           .select[TopologyChangeOp.Replace, PartyToParticipant]
           .map(
             checkPartyToParticipant(
+              effective,
               _,
               inStore.flatMap(_.select[TopologyChangeOp.Replace, PartyToParticipant]),
             )
@@ -139,6 +140,7 @@ class ValidatingTopologyMappingChecks(
           .select[TopologyChangeOp.Replace, DecentralizedNamespaceDefinition]
           .map(
             checkDecentralizedNamespaceDefinitionReplace(
+              effective,
               _,
               inStore.flatMap(_.select[TopologyChangeOp, DecentralizedNamespaceDefinition]),
             )
@@ -150,9 +152,9 @@ class ValidatingTopologyMappingChecks(
           ) =>
         toValidate
           .select[TopologyChangeOp.Replace, NamespaceDelegation]
-          .map(checkNamespaceDelegationReplace)
+          .map(checkNamespaceDelegationReplace(effective, _))
 
-      case otherwise => None
+      case _otherwise => None
     }
 
     checkFirstIsNotRemove
@@ -234,7 +236,7 @@ class ValidatingTopologyMappingChecks(
         case param :: Nil => Right(param)
         case param :: rest =>
           logger.error(
-            s"Multiple domain parameters at ${effective} ${rest.size + 1}. Using first one: $param."
+            s"Multiple domain parameters at $effective ${rest.size + 1}. Using first one: $param."
           )
           Right(param)
       }
@@ -296,7 +298,7 @@ class ValidatingTopologyMappingChecks(
             case Some(Some(loginAfter)) if loginAfter > effective.value =>
               // this should not happen except under race conditions, as sequencers should not let participants login
               logger.warn(
-                s"Rejecting onboarding of ${toValidate.mapping.participantId} as the participant still has a login ban until ${loginAfter}"
+                s"Rejecting onboarding of ${toValidate.mapping.participantId} as the participant still has a login ban until $loginAfter"
               )
               Left(
                 TopologyTransactionRejection
@@ -339,6 +341,7 @@ class ValidatingTopologyMappingChecks(
     * - new participants have an OTK with at least 1 signing key and 1 encryption key
     */
   private def checkPartyToParticipant(
+      effective: EffectiveTime,
       toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
       inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]],
   )(implicit
@@ -409,9 +412,9 @@ class ValidatingTopologyMappingChecks(
         case Nil => // No hosting limits found. This is expected if no restrictions are in place
           None
         case quota :: Nil => Some(quota)
-        case multiple @ (quota :: _) =>
+        case multiple @ quota :: _ =>
           logger.error(
-            s"Multiple PartyHostingLimits at ${effective} ${multiple.size}. Using first one with quota $quota."
+            s"Multiple PartyHostingLimits at $effective ${multiple.size}. Using first one with quota $quota."
           )
           Some(quota)
       }
@@ -433,7 +436,7 @@ class ValidatingTopologyMappingChecks(
 
     for {
       _ <- checkParticipants()
-      _ <- checkHostingLimits(EffectiveTime.MaxValue)
+      _ <- checkHostingLimits(effective)
     } yield ()
 
   }
@@ -461,7 +464,7 @@ class ValidatingTopologyMappingChecks(
       EitherTUtil.condUnitET[Future][TopologyTransactionRejection](
         // all nodes require signing keys
         // non-participants don't need encryption keys
-        (!isParticipant || encryptionKeys.nonEmpty),
+        !isParticipant || encryptionKeys.nonEmpty,
         TopologyTransactionRejection.InvalidTopologyMapping(
           "OwnerToKeyMapping for participants must contain at least 1 encryption key."
         ),
@@ -576,6 +579,7 @@ class ValidatingTopologyMappingChecks(
   }
 
   private def checkDecentralizedNamespaceDefinitionReplace(
+      effective: EffectiveTime,
       toValidate: SignedTopologyTransaction[
         TopologyChangeOp.Replace,
         DecentralizedNamespaceDefinition,
@@ -601,11 +605,11 @@ class ValidatingTopologyMappingChecks(
         EitherTUtil.unit
       }
 
-    def checkNoClashWithRootCertificates()(implicit
+    def checkNoClashWithRootCertificates(effective: EffectiveTime)(implicit
         traceContext: TraceContext
     ): EitherT[Future, TopologyTransactionRejection, Unit] = {
       loadFromStore(
-        EffectiveTime.MaxValue,
+        effective,
         Code.NamespaceDelegation,
         filterUid = None,
         filterNamespace = Some(Seq(toValidate.mapping.namespace)),
@@ -622,22 +626,23 @@ class ValidatingTopologyMappingChecks(
 
     for {
       _ <- checkDecentralizedNamespaceDerivedFromOwners()
-      _ <- checkNoClashWithRootCertificates()
+      _ <- checkNoClashWithRootCertificates(effective)
     } yield ()
   }
 
   private def checkNamespaceDelegationReplace(
+      effective: EffectiveTime,
       toValidate: SignedTopologyTransaction[
         TopologyChangeOp.Replace,
         NamespaceDelegation,
-      ]
+      ],
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
     def checkNoClashWithDecentralizedNamespaces()(implicit
         traceContext: TraceContext
     ): EitherT[Future, TopologyTransactionRejection, Unit] = {
       EitherTUtil.ifThenET(NamespaceDelegation.isRootCertificate(toValidate)) {
         loadFromStore(
-          EffectiveTime.MaxValue,
+          effective,
           Code.DecentralizedNamespaceDefinition,
           filterUid = None,
           filterNamespace = Some(Seq(toValidate.mapping.namespace)),

@@ -189,7 +189,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
             maxSequencingTime,
             aggregationRule,
           )
-          .leftMap(err => ProtoDeserializationError.InvariantViolation(err))
+          .leftMap(err => ProtoDeserializationError.InvariantViolation(field = None, err))
       } yield aggregationId -> inFlightAggregation
     }
 

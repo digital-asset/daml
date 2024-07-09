@@ -10,27 +10,24 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
-import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
+import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.console.ConsoleMacros.utils
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   CantonHealthAdministration,
-  CommandErrors,
   CommandSuccessful,
   ConsoleCommandResult,
   ConsoleEnvironment,
   Help,
   Helpful,
 }
+import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.{data, v30}
-import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.util.ResourceUtil
-import io.grpc.StatusRuntimeException
+import io.grpc.Context
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, TimeoutException}
 
 class HealthAdministration[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
@@ -73,23 +70,16 @@ class HealthAdministration[S <: data.NodeStatus.Status](
     val responseObserver =
       new FileStreamObserver[v30.HealthDumpResponse](outputFile, _.chunk)
 
-    def call = consoleEnvironment.run {
+    def call: ConsoleCommandResult[Context.CancellableContext] =
       adminCommand(new StatusAdminCommands.GetHealthDump(responseObserver, chunkSize))
-    }
 
-    try {
-      ResourceUtil.withResource(call) { _ =>
-        CommandSuccessful(
-          Await.result(responseObserver.result, timeout.duration)
-        ).map(_ => outputFile.pathAsString)
-      }
-    } catch {
-      case sre: StatusRuntimeException =>
-        GenericCommandError(GrpcError("Generating health dump file", "dump", sre).toString)
-      case _: TimeoutException =>
-        outputFile.delete(swallowIOExceptions = true)
-        CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
-    }
+    processResult(
+      call,
+      responseObserver.result,
+      timeout,
+      "Generating health dump",
+      cleanupOnError = () => outputFile.delete(),
+    ).map(_ => outputFile.pathAsString)
   }
 
   private def runningCommand =

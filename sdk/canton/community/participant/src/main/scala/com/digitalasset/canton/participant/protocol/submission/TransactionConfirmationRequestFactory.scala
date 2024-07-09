@@ -66,7 +66,6 @@ class TransactionConfirmationRequestFactory(
     */
   def createConfirmationRequest(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
-      confirmationPolicy: ConfirmationPolicy,
       submitterInfo: SubmitterInfo,
       workflowId: Option[WorkflowId],
       keyResolver: LfKeyResolver,
@@ -102,7 +101,6 @@ class TransactionConfirmationRequestFactory(
         .createTransactionTree(
           wfTransaction,
           submitterInfo,
-          confirmationPolicy,
           workflowId,
           mediator,
           transactionSeed,

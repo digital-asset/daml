@@ -62,7 +62,7 @@ object SequencingSubmissionCost
   ): ParsingResult[SequencingSubmissionCost] = {
     val v30.SequencingSubmissionCost(costP) = proto
     for {
-      cost <- ProtoConverter.parseNonNegativeLong(costP)
+      cost <- ProtoConverter.parseNonNegativeLong("cost", costP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencingSubmissionCost(cost, rpv.representative)
   }

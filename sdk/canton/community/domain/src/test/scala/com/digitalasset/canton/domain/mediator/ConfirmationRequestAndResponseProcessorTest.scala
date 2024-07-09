@@ -1354,7 +1354,7 @@ class ConfirmationRequestAndResponseProcessorTest
             .failOnShutdown,
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
-            _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory, extra)}. Rejecting request...",
+            _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, extra, signatory)}. Rejecting request...",
           ),
         )
       } yield succeed

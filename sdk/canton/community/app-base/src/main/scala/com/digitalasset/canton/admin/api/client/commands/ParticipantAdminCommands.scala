@@ -34,10 +34,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
-import com.digitalasset.canton.participant.admin.grpc.{
-  GrpcParticipantRepairService,
-  TransferSearchResult,
-}
+import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
@@ -55,7 +52,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerCounter, config}
 import com.google.protobuf.ByteString
@@ -68,9 +65,8 @@ import io.grpc.{Context, ManagedChannel}
 import java.io.IOException
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, MILLISECONDS}
-import scala.concurrent.{Future, Promise, blocking}
 
 object ParticipantAdminCommands {
 
@@ -386,49 +382,6 @@ object ParticipantAdminCommands {
 
   object ParticipantRepairManagement {
 
-    sealed trait StreamingMachinery[Req, Resp] {
-      def stream(
-          load: StreamObserver[Resp] => StreamObserver[Req],
-          requestBuilder: Array[Byte] => Req,
-          snapshot: ByteString,
-      ): Future[Resp] = {
-        val requestComplete = Promise[Resp]()
-        val ref = new AtomicReference[Option[Resp]](None)
-
-        val responseObserver = new StreamObserver[Resp] {
-          override def onNext(value: Resp): Unit = {
-            ref.set(Some(value))
-          }
-
-          override def onError(t: Throwable): Unit = requestComplete.failure(t)
-
-          override def onCompleted(): Unit = {
-            ref.get() match {
-              case Some(response) => requestComplete.success(response)
-              case None =>
-                requestComplete.failure(
-                  io.grpc.Status.CANCELLED
-                    .withDescription("Server completed the request before providing a response")
-                    .asRuntimeException()
-                )
-            }
-
-          }
-        }
-        val requestObserver = load(responseObserver)
-
-        snapshot.toByteArray
-          .grouped(GrpcParticipantRepairService.DefaultChunkSize.value)
-          .foreach { bytes =>
-            blocking {
-              requestObserver.onNext(requestBuilder(bytes))
-            }
-          }
-        requestObserver.onCompleted()
-        requestComplete.future
-      }
-    }
-
     final case class ExportAcs(
         parties: Set[PartyId],
         partiesOffboarding: Boolean,
@@ -489,8 +442,11 @@ object ParticipantAdminCommands {
         acsChunk: ByteString,
         workflowIdPrefix: String,
         allowContractIdSuffixRecomputation: Boolean,
-    ) extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Map[LfContractId, LfContractId]]
-        with StreamingMachinery[ImportAcsRequest, ImportAcsResponse] {
+    ) extends GrpcAdminCommand[
+          ImportAcsRequest,
+          ImportAcsResponse,
+          Map[LfContractId, LfContractId],
+        ] {
 
       override type Svc = ParticipantRepairServiceStub
 
@@ -511,7 +467,7 @@ object ParticipantAdminCommands {
           service: ParticipantRepairServiceStub,
           request: ImportAcsRequest,
       ): Future[ImportAcsResponse] = {
-        stream(
+        GrpcStreamingUtils.streamToServer(
           service.importAcs,
           (bytes: Array[Byte]) =>
             ImportAcsRequest(

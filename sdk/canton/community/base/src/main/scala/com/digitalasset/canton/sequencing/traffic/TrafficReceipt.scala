@@ -41,13 +41,16 @@ object TrafficReceipt {
   def fromProtoV30(trafficReceiptP: TrafficReceiptP): ParsingResult[TrafficReceipt] =
     for {
       consumedCost <- ProtoConverter.parseNonNegativeLong(
-        trafficReceiptP.consumedCost
+        "consumed_cost",
+        trafficReceiptP.consumedCost,
       )
       totalExtraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(
-        trafficReceiptP.extraTrafficConsumed
+        "extra_traffic_consumed",
+        trafficReceiptP.extraTrafficConsumed,
       )
       baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(
-        trafficReceiptP.baseTrafficRemainder
+        "base_traffic_remainder",
+        trafficReceiptP.baseTrafficRemainder,
       )
     } yield TrafficReceipt(
       consumedCost = consumedCost,

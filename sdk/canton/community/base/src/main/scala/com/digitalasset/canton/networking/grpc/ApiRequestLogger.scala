@@ -196,15 +196,7 @@ class ApiRequestLoggerBase(
       if (enhancedStatus.getCode == UNKNOWN || enhancedStatus.getCode == DATA_LOSS) {
         logger.error(message, enhancedStatus.getCause)
       } else if (enhancedStatus.getCode == INTERNAL) {
-        if (enhancedStatus.getDescription == "Half-closed without a request") {
-          // If a call is cancelled, GRPC may half-close the call before the first message has been delivered.
-          // The result is this status.
-          // Logging with INFO to not confuse the user.
-          // The status is still delivered to the client, to facilitate troubleshooting if there is a deeper problem.
-          logger.info(message, enhancedStatus.getCause)
-        } else {
-          logger.error(message, enhancedStatus.getCause)
-        }
+        logger.error(message, enhancedStatus.getCause)
       } else if (enhancedStatus.getCode == UNAUTHENTICATED) {
         logger.debug(message, enhancedStatus.getCause)
       } else {

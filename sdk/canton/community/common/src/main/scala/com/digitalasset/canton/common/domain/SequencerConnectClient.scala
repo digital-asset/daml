@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -103,7 +104,10 @@ object SequencerConnectClient {
               connection,
               timeouts,
               traceContextPropagation,
-              loggerFactory.append("sequencer", connection.sequencerAlias.toProtoPrimitive),
+              SequencerClient.loggerFactoryWithSequencerConnection(
+                loggerFactory,
+                connection.sequencerAlias,
+              ),
             )
           )
       }

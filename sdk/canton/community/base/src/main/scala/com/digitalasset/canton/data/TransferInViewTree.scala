@@ -136,7 +136,7 @@ object TransferInViewTree
   *
   * @param salt Salt for blinding the Merkle hash
   * @param targetDomain The domain on which the contract is transferred in
-  * @param targetMediator The mediator that coordinates the transfer-in request on the target domain
+  * @param targetMediatorGroup The mediator that coordinates the transfer-in request on the target domain
   * @param stakeholders The stakeholders of the transferred contract
   * @param uuid The uuid of the transfer-in request
   * @param submitterMetadata information about the submission
@@ -144,7 +144,7 @@ object TransferInViewTree
 final case class TransferInCommonData private (
     override val salt: Salt,
     targetDomain: TargetDomainId,
-    targetMediator: MediatorGroupRecipient,
+    targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     uuid: UUID,
     submitterMetadata: TransferSubmitterMetadata,
@@ -167,7 +167,7 @@ final case class TransferInCommonData private (
     v30.TransferInCommonData(
       salt = Some(salt.toProtoV30),
       targetDomain = targetDomain.toProtoPrimitive,
-      targetMediator = targetMediator.toProtoPrimitive,
+      targetMediatorGroup = targetMediatorGroup.group.value,
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
@@ -184,7 +184,7 @@ final case class TransferInCommonData private (
   override def pretty: Pretty[TransferInCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("target domain", _.targetDomain),
-    param("target mediator", _.targetMediator),
+    param("target mediator group", _.targetMediatorGroup),
     param("stakeholders", _.stakeholders),
     param("uuid", _.uuid),
     param("salt", _.salt),
@@ -234,16 +234,16 @@ object TransferInCommonData
       targetDomainP,
       stakeholdersP,
       uuidP,
-      targetMediatorP,
+      targetMediatorGroupP,
       submitterMetadataPO,
     ) = transferInCommonDataP
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetDomain <- TargetDomainId.fromProtoPrimitive(targetDomainP, "target_domain")
-      targetMediator <- MediatorGroupRecipient.fromProtoPrimitive(
-        targetMediatorP,
-        "target_mediator",
+      targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
+        "target_mediator_group",
+        targetMediatorGroupP,
       )
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
@@ -254,7 +254,7 @@ object TransferInCommonData
     } yield TransferInCommonData(
       salt,
       targetDomain,
-      targetMediator,
+      MediatorGroupRecipient(targetMediatorGroup),
       stakeholders.toSet,
       uuid,
       submitterMetadata,
@@ -460,7 +460,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 
-  override def mediator: MediatorGroupRecipient = commonData.targetMediator
+  override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def informees: Set[LfPartyId] = commonData.confirmingParties.keySet
 

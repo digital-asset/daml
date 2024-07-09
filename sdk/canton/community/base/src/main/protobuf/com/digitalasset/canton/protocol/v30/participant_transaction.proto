@@ -121,10 +121,11 @@ message CommonMetadata {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
-  bytes confirmation_policy = 2;
+  // this used to contain a confirmation policy (Signatory or VIP) that no longer exists
+  reserved 2;
   string domain_id = 3;
   string uuid = 4;
-  string mediator = 5;
+  int32 mediator_group = 5;
 }
 
 message SubmitterMetadata {
@@ -134,7 +135,7 @@ message SubmitterMetadata {
   repeated string act_as = 2;
   string application_id = 3;
   string command_id = 4;
-  string submitting_participant = 5;
+  string submitting_participant_uid = 5;
   string submission_id = 6; // optional; absent if not specified by submitter
   v30.DeduplicationPeriod dedup_period = 7;
   int64 max_sequencing_time = 8; // in microseconds of UTC time since Unix epoch

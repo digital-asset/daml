@@ -16,8 +16,11 @@ import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerR
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.topology.{Member, SequencerId}
+import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.google.protobuf.ByteString
-import io.grpc.ManagedChannel
+import io.grpc.Context.CancellableContext
+import io.grpc.stub.StreamObserver
+import io.grpc.{Context, ManagedChannel}
 
 import scala.concurrent.Future
 
@@ -60,7 +63,12 @@ object EnterpriseSequencerAdminCommands {
         service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
         request: v30.InitializeSequencerFromOnboardingStateRequest,
     ): Future[v30.InitializeSequencerFromOnboardingStateResponse] =
-      service.initializeSequencerFromOnboardingState(request)
+      GrpcStreamingUtils.streamToServer(
+        service.initializeSequencerFromOnboardingState,
+        (onboardingState: Array[Byte]) =>
+          v30.InitializeSequencerFromOnboardingStateRequest(ByteString.copyFrom(onboardingState)),
+        request.onboardingState,
+      )
 
     override def createRequest()
         : Either[String, v30.InitializeSequencerFromOnboardingStateRequest] =
@@ -92,7 +100,15 @@ object EnterpriseSequencerAdminCommands {
         service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
         request: v30.InitializeSequencerFromGenesisStateRequest,
     ): Future[v30.InitializeSequencerFromGenesisStateResponse] =
-      service.initializeSequencerFromGenesisState(request)
+      GrpcStreamingUtils.streamToServer(
+        service.initializeSequencerFromGenesisState,
+        (topologySnapshot: Array[Byte]) =>
+          v30.InitializeSequencerFromGenesisStateRequest(
+            topologySnapshot = ByteString.copyFrom(topologySnapshot),
+            Some(domainParameters.toProtoV30),
+          ),
+        request.topologySnapshot,
+      )
 
     override def createRequest(): Either[String, v30.InitializeSequencerFromGenesisStateRequest] =
       Right(
@@ -143,17 +159,20 @@ object EnterpriseSequencerAdminCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
-  final case class OnboardingState(memberOrTimestamp: Either[SequencerId, CantonTimestamp])
-      extends BaseSequencerAdministrationCommand[
+  final case class OnboardingState(
+      observer: StreamObserver[v30.OnboardingStateResponse],
+      sequencerOrTimestamp: Either[SequencerId, CantonTimestamp],
+  ) extends BaseSequencerAdministrationCommand[
         v30.OnboardingStateRequest,
-        v30.OnboardingStateResponse,
-        ByteString,
+        CancellableContext,
+        CancellableContext,
       ] {
     override def createRequest(): Either[String, v30.OnboardingStateRequest] = {
       Right(
         v30.OnboardingStateRequest(request =
-          memberOrTimestamp.fold[v30.OnboardingStateRequest.Request](
-            member => v30.OnboardingStateRequest.Request.SequencerId(member.toProtoPrimitive),
+          sequencerOrTimestamp.fold[v30.OnboardingStateRequest.Request](
+            sequencer =>
+              v30.OnboardingStateRequest.Request.SequencerUid(sequencer.uid.toProtoPrimitive),
             timestamp => v30.OnboardingStateRequest.Request.Timestamp(timestamp.toProtoTimestamp),
           )
         )
@@ -163,22 +182,14 @@ object EnterpriseSequencerAdminCommands {
     override def submitRequest(
         service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
         request: v30.OnboardingStateRequest,
-    ): Future[v30.OnboardingStateResponse] = service.onboardingState(request)
+    ): Future[CancellableContext] = {
+      val context = Context.current().withCancellation()
+      context.run(() => service.onboardingState(request, observer))
+      Future.successful(context)
+    }
 
-    override def handleResponse(
-        response: v30.OnboardingStateResponse
-    ): Either[String, ByteString] =
-      response.value match {
-        case v30.OnboardingStateResponse.Value
-              .Failure(v30.OnboardingStateResponse.Failure(reason)) =>
-          Left(reason)
-        case v30.OnboardingStateResponse.Value
-              .Success(
-                v30.OnboardingStateResponse.Success(onboardingState)
-              ) =>
-          Right(onboardingState)
-        case _ => Left("response is empty")
-      }
+    override def handleResponse(response: CancellableContext): Either[String, CancellableContext] =
+      Right(response)
 
     //  command will potentially take a long time
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout

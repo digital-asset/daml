@@ -125,7 +125,7 @@ class SerializationDeserializationTest
 
         testMemoizedProtocolVersionedWithCtx(
           ViewCommonData,
-          (TestHash, ConfirmationPolicy.Signatory),
+          TestHash,
         )
 
         testMemoizedProtocolVersioned(TopologyTransaction, version)
@@ -159,7 +159,7 @@ class SerializationDeserializationTest
         )
         testProtocolVersionedWithCtx(
           TransactionView,
-          (TestHash, ConfirmationPolicy.Signatory, version),
+          (TestHash, version),
         )
         testProtocolVersionedWithCtxAndValidation(
           FullInformeeTree,

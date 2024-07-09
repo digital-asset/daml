@@ -105,7 +105,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         error <- sequencer
           .snapshot(CantonTimestamp.MaxValue)
           .leftOrFail("snapshotting after the watermark is expected to fail")
-        _ <- error should include(" is after the safe watermark")
+        _ <- error.cause should include(" is after the safe watermark")
 
         // Note: below we use the timestamp that is currently the safe watermark in the sequencer
         snapshot <- valueOrFail(sequencer.snapshot(CantonTimestamp.Epoch.immediateSuccessor))(

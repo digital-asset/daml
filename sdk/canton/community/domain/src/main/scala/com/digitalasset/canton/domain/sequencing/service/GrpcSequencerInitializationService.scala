@@ -16,7 +16,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{StaticDomainParameters, v30}
 import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
 import com.digitalasset.canton.sequencer.admin.v30.{
   InitializeSequencerFromGenesisStateRequest,
@@ -36,6 +36,9 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.GrpcStreamingUtils
+import com.google.protobuf.ByteString
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -48,14 +51,27 @@ class GrpcSequencerInitializationService(
     with NamedLogging {
 
   override def initializeSequencerFromGenesisState(
-      request: InitializeSequencerFromGenesisStateRequest
+      responseObserver: StreamObserver[InitializeSequencerFromGenesisStateResponse]
+  ): StreamObserver[InitializeSequencerFromGenesisStateRequest] = {
+    GrpcStreamingUtils.streamFromClient(
+      _.topologySnapshot,
+      _.domainParameters,
+      (topologySnapshot: ByteString, domainParams: Option[v30.StaticDomainParameters]) =>
+        initializeSequencerFromGenesisState(topologySnapshot, domainParams),
+      responseObserver,
+    )
+  }
+
+  private def initializeSequencerFromGenesisState(
+      topologySnapshot: ByteString,
+      domainParameters: Option[v30.StaticDomainParameters],
   ): Future[InitializeSequencerFromGenesisStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res: EitherT[Future, CantonError, InitializeSequencerFromGenesisStateResponse] = for {
       topologyState <- EitherT.fromEither[Future](
         StoredTopologyTransactions
-          .fromTrustedByteString(request.topologySnapshot)
+          .fromTrustedByteString(topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
 
@@ -64,7 +80,7 @@ class GrpcSequencerInitializationService(
           .parseRequired(
             StaticDomainParameters.fromProtoV30,
             "domain_parameters",
-            request.domainParameters,
+            domainParameters,
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
@@ -98,8 +114,18 @@ class GrpcSequencerInitializationService(
   }
 
   override def initializeSequencerFromOnboardingState(
-      request: InitializeSequencerFromOnboardingStateRequest
-  ): Future[InitializeSequencerFromOnboardingStateResponse] = {
+      responseObserver: StreamObserver[InitializeSequencerFromOnboardingStateResponse]
+  ): StreamObserver[InitializeSequencerFromOnboardingStateRequest] = {
+    GrpcStreamingUtils.streamFromClient(
+      _.onboardingState,
+      _ => (),
+      (onboardingState: ByteString, _: Unit) =>
+        initializeSequencerFromOnboardingState(onboardingState),
+      responseObserver,
+    )
+  }
+
+  private def initializeSequencerFromOnboardingState(onboardingState: ByteString) = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res: EitherT[Future, CantonError, InitializeSequencerFromOnboardingStateResponse] = for {
       onboardingState <- EitherT.fromEither[Future](
@@ -108,7 +134,7 @@ class GrpcSequencerInitializationService(
           // the caller of this endpoint could get the onboarding state from various sequencers
           // and compare them for byte-for-byte equality, to increase the confidence that this
           // is safe to deserialize
-          .fromTrustedByteString(request.onboardingState)
+          .fromTrustedByteString(onboardingState)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
       initializeRequest = InitializeSequencerRequest(
@@ -127,7 +153,6 @@ class GrpcSequencerInitializationService(
     } yield InitializeSequencerFromOnboardingStateResponse(result.replicated)
     mapErrNew(res)
   }
-
 }
 
 object GrpcSequencerInitializationService {

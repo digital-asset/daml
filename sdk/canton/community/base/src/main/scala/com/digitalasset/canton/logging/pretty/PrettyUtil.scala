@@ -194,3 +194,15 @@ object PrettyUtil extends PrettyUtil {
   /** How to pretty-print `null` values. This is consistent with [[pprint.Walker.treeify]] */
   private[pretty] val nullTree = Tree.Literal("null")
 }
+
+import scala.language.implicitConversions
+
+/** A trait for case classes that should be pretty-printed with their name only.
+  */
+trait PrettyNameOnlyCase extends Product with PrettyPrinting {
+  @SuppressWarnings(Array("org.wartremover.warts.Product"))
+  override protected[pretty] def pretty: Pretty[this.type] = prettyOfObject
+}
+object PrettyNameOnlyCase {
+  implicit def toString(pt: PrettyNameOnlyCase): String = pt.toString
+}

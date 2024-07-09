@@ -66,7 +66,7 @@ object Quorum {
         .traverse { partyIndexAndWeight =>
           val v30.PartyIndexAndWeight(indexP, weightP) = partyIndexAndWeight
           for {
-            weight <- parsePositiveInt(weightP)
+            weight <- parsePositiveInt("weight", weightP)
             confirmingParty <-
               Either.cond(
                 0 <= indexP && indexP < informees.size, {
@@ -79,7 +79,7 @@ object Quorum {
               )
           } yield confirmingParty
         }
-      threshold <- parseNonNegativeInt(thresholdP)
+      threshold <- parseNonNegativeInt("threshold", thresholdP)
     } yield new Quorum(confirmers.toMap, threshold)
   }
 

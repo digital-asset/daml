@@ -22,7 +22,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.{CommonMockMetrics, TrafficConsumptionMetrics}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -1321,7 +1321,9 @@ class SequencerClientTest
 
   private class ConstantSequencedEventValidatorFactory(eventValidator: SequencedEventValidator)
       extends SequencedEventValidatorFactory {
-    override def create()(implicit loggingContext: NamedLoggingContext): SequencedEventValidator =
+    override def create(loggerFactory: NamedLoggerFactory)(implicit
+        traceContext: TraceContext
+    ): SequencedEventValidator =
       eventValidator
   }
 

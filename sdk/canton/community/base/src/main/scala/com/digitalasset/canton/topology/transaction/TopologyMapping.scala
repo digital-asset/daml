@@ -79,6 +79,24 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
 }
 
 object TopologyMapping {
+  private[transaction] def participantIdFromProtoPrimitive(
+      proto: String,
+      fieldName: String,
+  ): ParsingResult[ParticipantId] = {
+    /*
+    We changed some of the topology protobufs from `string participant_id` (member id, with PAR prefix)
+    to string participant_uid` (uid of the participant, without PAR prefix).
+    This allows backward compatible parsing.
+
+    The fallback can be removed if/when all the topology transactions in the global synchronizer are
+    recreated from scratch.
+     */
+
+    val participantIdOld = ParticipantId.fromProtoPrimitive(proto = proto, fieldName = fieldName)
+    participantIdOld.orElse(
+      UniqueIdentifier.fromProtoPrimitive(uid = proto, fieldName = fieldName).map(ParticipantId(_))
+    )
+  }
 
   private[transaction] def buildUniqueKey(code: TopologyMapping.Code)(
       addUniqueKeyToBuilder: HashBuilder => HashBuilder
@@ -527,13 +545,14 @@ object DecentralizedNamespaceDefinition {
       decentralizedNamespace <- Fingerprint
         .fromProtoPrimitive(decentralizedNamespaceP)
         .map(Namespace(_))
-      threshold <- ProtoConverter.parsePositiveInt(thresholdP)
+      threshold <- ProtoConverter.parsePositiveInt("threshold", thresholdP)
       owners <- ownersP.traverse(Fingerprint.fromProtoPrimitive)
       ownersNE <- NonEmpty
         .from(owners.toSet)
         .toRight(
           ProtoDeserializationError.InvariantViolation(
-            "owners cannot be empty"
+            field = "owners",
+            error = "cannot be empty",
           )
         )
       item <- create(decentralizedNamespace, threshold, ownersNE.map(Namespace(_)))
@@ -698,7 +717,7 @@ final case class DomainTrustCertificate(
 
   def toProto: v30.DomainTrustCertificate =
     v30.DomainTrustCertificate(
-      participant = participantId.toProtoPrimitive,
+      participantUid = participantId.uid.toProtoPrimitive,
       domain = domainId.toProtoPrimitive,
       transferOnlyToGivenTargetDomains = transferOnlyToGivenTargetDomains,
       targetDomains = targetDomains.map(_.toProtoPrimitive),
@@ -739,7 +758,10 @@ object DomainTrustCertificate {
       value: v30.DomainTrustCertificate
   ): ParsingResult[DomainTrustCertificate] =
     for {
-      participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
+      participantId <- TopologyMapping.participantIdFromProtoPrimitive(
+        value.participantUid,
+        "participant_uid",
+      )
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       transferOnlyToGivenTargetDomains = value.transferOnlyToGivenTargetDomains
       targetDomains <- value.targetDomains.traverse(
@@ -839,7 +861,7 @@ final case class ParticipantDomainPermission(
   def toProto: v30.ParticipantDomainPermission =
     v30.ParticipantDomainPermission(
       domain = domainId.toProtoPrimitive,
-      participant = participantId.toProtoPrimitive,
+      participantUid = participantId.uid.toProtoPrimitive,
       permission = permission.toProtoV30,
       limits = limits.map(_.toProto),
       loginAfter = loginAfter.map(_.toProtoPrimitive),
@@ -908,7 +930,10 @@ object ParticipantDomainPermission {
   ): ParsingResult[ParticipantDomainPermission] =
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
+      participantId <- TopologyMapping.participantIdFromProtoPrimitive(
+        value.participantUid,
+        "participant_uid",
+      )
       permission <- ParticipantPermission.fromProtoV30(value.permission)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
@@ -985,7 +1010,7 @@ final case class VettedPackages(
 
   def toProto: v30.VettedPackages =
     v30.VettedPackages(
-      participant = participantId.toProtoPrimitive,
+      participantUid = participantId.uid.toProtoPrimitive,
       packageIds = packageIds,
       domain = domainId.fold("")(_.toProtoPrimitive),
     )
@@ -1025,7 +1050,10 @@ object VettedPackages {
       value: v30.VettedPackages
   ): ParsingResult[VettedPackages] =
     for {
-      participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
+      participantId <- TopologyMapping.participantIdFromProtoPrimitive(
+        value.participantUid,
+        "participant_uid",
+      )
       packageIds <- value.packageIds
         .traverse(LfPackageId.fromString)
         .leftMap(ProtoDeserializationError.ValueConversionError("package_ids", _))
@@ -1043,7 +1071,7 @@ final case class HostingParticipant(
 ) {
   def toProto: v30.PartyToParticipant.HostingParticipant =
     v30.PartyToParticipant.HostingParticipant(
-      participant = participantId.toProtoPrimitive,
+      participantUid = participantId.uid.toProtoPrimitive,
       permission = permission.toProtoV30,
     )
 }
@@ -1052,7 +1080,10 @@ object HostingParticipant {
   def fromProtoV30(
       value: v30.PartyToParticipant.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
-    participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
+    participantId <- TopologyMapping.participantIdFromProtoPrimitive(
+      value.participantUid,
+      "participant_uid",
+    )
     permission <- ParticipantPermission.fromProtoV30(value.permission)
   } yield HostingParticipant(participantId, permission)
 }
@@ -1192,7 +1223,7 @@ object PartyToParticipant {
   ): ParsingResult[PartyToParticipant] =
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
-      threshold <- ProtoConverter.parsePositiveInt(value.threshold)
+      threshold <- ProtoConverter.parsePositiveInt("threshold", value.threshold)
       participants <- value.participants.traverse(HostingParticipant.fromProtoV30)
       groupAddressing = value.groupAddressing
       domainId <-
@@ -1271,7 +1302,7 @@ object AuthorityOf {
   ): ParsingResult[AuthorityOf] =
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
-      threshold <- ProtoConverter.parsePositiveInt(value.threshold)
+      threshold <- ProtoConverter.parsePositiveInt("threshold", value.threshold)
       parties <- value.parties.traverse(PartyId.fromProtoPrimitive(_, "parties"))
       domainId <-
         if (value.domain.nonEmpty)
@@ -1473,8 +1504,8 @@ object MediatorDomainState {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       group <- NonNegativeInt
         .create(groupP)
-        .leftMap(ProtoDeserializationError.InvariantViolation(_))
-      threshold <- ProtoConverter.parsePositiveInt(thresholdP)
+        .leftMap(ProtoDeserializationError.InvariantViolation("group", _))
+      threshold <- ProtoConverter.parsePositiveInt("threshold", thresholdP)
       active <- activeP.traverse(
         UniqueIdentifier.fromProtoPrimitive(_, "active").map(MediatorId(_))
       )
@@ -1564,7 +1595,7 @@ object SequencerDomainState {
     val v30.SequencerDomainState(domainIdP, thresholdP, activeP, observersP) = value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
-      threshold <- ProtoConverter.parsePositiveInt(thresholdP)
+      threshold <- ProtoConverter.parsePositiveInt("threshold", thresholdP)
       active <- activeP.traverse(
         UniqueIdentifier.fromProtoPrimitive(_, "active").map(SequencerId(_))
       )

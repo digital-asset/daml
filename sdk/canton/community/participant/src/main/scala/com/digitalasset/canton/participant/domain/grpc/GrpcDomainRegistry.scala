@@ -155,7 +155,6 @@ class GrpcDomainRegistry(
         info,
       )(
         cryptoApiProvider,
-        cryptoConfig,
         clock,
         testingConfig,
         recordSequencerInteractions,

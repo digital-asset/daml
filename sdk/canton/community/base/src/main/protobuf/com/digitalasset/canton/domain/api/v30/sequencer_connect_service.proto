@@ -29,9 +29,7 @@ message SequencerConnect {
 
   message GetDomainIdResponse {
     string domain_id = 1;
-    // If `sequencer_id` is an empty string, consumers of this API can assume
-    // that `domain_id` serves as the `sequencer_id`.
-    string sequencer_id = 2;
+    string sequencer_uid = 2;
   }
 
   message GetDomainParametersRequest {}

@@ -129,7 +129,7 @@ object TransferOutViewTree
   *
   * @param salt Salt for blinding the Merkle hash
   * @param sourceDomain The domain to which the transfer-out request is sent
-  * @param sourceMediator The mediator that coordinates the transfer-out request on the source domain
+  * @param sourceMediatorGroup The mediator that coordinates the transfer-out request on the source domain
   * @param stakeholders The stakeholders of the contract to be transferred
   * @param adminParties The admin parties of transferring transfer-out participants
   * @param uuid The request UUID of the transfer-out
@@ -138,7 +138,7 @@ object TransferOutViewTree
 final case class TransferOutCommonData private (
     override val salt: Salt,
     sourceDomain: SourceDomainId,
-    sourceMediator: MediatorGroupRecipient,
+    sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
     uuid: UUID,
@@ -162,7 +162,7 @@ final case class TransferOutCommonData private (
     v30.TransferOutCommonData(
       salt = Some(salt.toProtoV30),
       sourceDomain = sourceDomain.toProtoPrimitive,
-      sourceMediator = sourceMediator.toProtoPrimitive,
+      sourceMediatorGroup = sourceMediatorGroup.group.value,
       stakeholders = stakeholders.toSeq,
       adminParties = adminParties.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -180,7 +180,7 @@ final case class TransferOutCommonData private (
   override def pretty: Pretty[TransferOutCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
-    param("source mediator", _.sourceMediator),
+    param("source mediator group", _.sourceMediatorGroup),
     param("stakeholders", _.stakeholders),
     param("admin parties", _.adminParties),
     param("uuid", _.uuid),
@@ -234,16 +234,16 @@ object TransferOutCommonData
       stakeholdersP,
       adminPartiesP,
       uuidP,
-      sourceMediatorP,
+      sourceMediatorGroupP,
       submitterMetadataPO,
     ) = transferOutCommonDataP
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       sourceDomain <- SourceDomainId.fromProtoPrimitive(sourceDomainP, "source_domain")
-      sourceMediator <- MediatorGroupRecipient.fromProtoPrimitive(
-        sourceMediatorP,
-        "source_mediator",
+      sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
+        "source_mediator_group",
+        sourceMediatorGroupP,
       )
       stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
       adminParties <- adminPartiesP.traverse(ProtoConverter.parseLfPartyId)
@@ -255,7 +255,7 @@ object TransferOutCommonData
     } yield TransferOutCommonData(
       salt,
       sourceDomain,
-      sourceMediator,
+      MediatorGroupRecipient(sourceMediatorGroup),
       stakeholders.toSet,
       adminParties.toSet,
       uuid,
@@ -440,7 +440,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   override def domainId: DomainId = sourceDomain.unwrap
 
-  override def mediator: MediatorGroupRecipient = commonData.sourceMediator
+  override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 
   override def informees: Set[LfPartyId] = commonData.confirmingParties.keySet
 

@@ -116,17 +116,23 @@ object ProtoConverter {
       parsed <- contentNE.toNEF.traverse(fromProto)
     } yield parsed
 
-  def parsePositiveInt(i: Int): ParsingResult[PositiveInt] =
-    PositiveInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(_))
+  def parsePositiveInt(field: String, i: Int): ParsingResult[PositiveInt] =
+    PositiveInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
-  def parsePositiveLong(l: Long): ParsingResult[PositiveLong] =
-    PositiveLong.create(l).leftMap(ProtoDeserializationError.InvariantViolation(_))
+  def parsePositiveLong(field: String, l: Long): ParsingResult[PositiveLong] =
+    PositiveLong
+      .create(l)
+      .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
-  def parseNonNegativeInt(i: Int): ParsingResult[NonNegativeInt] =
-    NonNegativeInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(_))
+  def parseNonNegativeInt(field: String, i: Int): ParsingResult[NonNegativeInt] =
+    NonNegativeInt
+      .create(i)
+      .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
-  def parseNonNegativeLong(l: Long): ParsingResult[NonNegativeLong] =
-    NonNegativeLong.create(l).leftMap(ProtoDeserializationError.InvariantViolation(_))
+  def parseNonNegativeLong(field: String, l: Long): ParsingResult[NonNegativeLong] =
+    NonNegativeLong
+      .create(l)
+      .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
   def parseLfPartyId(party: String): ParsingResult[LfPartyId] =
     parseString(party)(LfPartyId.fromString)

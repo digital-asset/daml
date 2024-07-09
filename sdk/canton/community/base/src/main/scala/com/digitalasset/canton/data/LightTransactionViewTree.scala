@@ -133,7 +133,8 @@ object LightTransactionViewTree
       result <- LightTransactionViewTree
         .create(tree, subviewHashes, rpv)
         .leftMap(e =>
-          ProtoDeserializationError.InvariantViolation(s"Unable to create transaction tree: $e")
+          ProtoDeserializationError
+            .InvariantViolation("tree", s"Unable to create transaction tree: $e")
         )
     } yield result
 

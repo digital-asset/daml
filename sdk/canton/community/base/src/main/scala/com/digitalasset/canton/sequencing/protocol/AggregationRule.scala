@@ -86,7 +86,7 @@ object AggregationRule
         "eligible_members",
         eligibleMembersP,
       )
-      threshold <- ProtoConverter.parsePositiveInt(thresholdP)
+      threshold <- ProtoConverter.parsePositiveInt("threshold", thresholdP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield AggregationRule(eligibleMembers, threshold)(rpv)
   }

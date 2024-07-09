@@ -23,7 +23,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
+  CreateSubscriptionError,
+  SequencerError,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.{
   ExactTimestamp,
   TimestampSelector,
@@ -453,40 +456,34 @@ class BlockSequencer(
 
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, String, SequencerSnapshot] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, SequencerSnapshot] = {
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
 
     for {
       bsSnapshot <- store
         .readStateForBlockContainingTimestamp(timestamp)
-        .biflatMap(
-          _ =>
-            EitherT.leftT[Future, SequencerSnapshot](
-              s"Provided timestamp $timestamp is not linked to a block"
-            ),
-          blockEphemeralState => {
-            for {
-              // Look up traffic info at the latest timestamp from the block,
-              // because that's where the onboarded sequencer will start reading
-              trafficPurchased <- EitherT.liftF[Future, String, Seq[TrafficPurchased]](
-                trafficPurchasedStore
-                  .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-              )
-              trafficConsumed <- EitherT.liftF[Future, String, Seq[TrafficConsumed]](
-                blockRateLimitManager.trafficConsumedStore
-                  .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-              )
-            } yield blockEphemeralState
-              .toSequencerSnapshot(protocolVersion, trafficPurchased, trafficConsumed)
-              .tap(snapshot =>
-                if (logger.underlying.isDebugEnabled()) {
-                  logger.trace(
-                    s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
-                  )
-                }
-              )
-          },
-        )
+        .flatMap(blockEphemeralState => {
+          for {
+            // Look up traffic info at the latest timestamp from the block,
+            // because that's where the onboarded sequencer will start reading
+            trafficPurchased <- EitherT.liftF[Future, SequencerError, Seq[TrafficPurchased]](
+              trafficPurchasedStore
+                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
+            )
+            trafficConsumed <- EitherT.liftF[Future, SequencerError, Seq[TrafficConsumed]](
+              blockRateLimitManager.trafficConsumedStore
+                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
+            )
+          } yield blockEphemeralState
+            .toSequencerSnapshot(protocolVersion, trafficPurchased, trafficConsumed)
+            .tap(snapshot =>
+              if (logger.underlying.isDebugEnabled()) {
+                logger.trace(
+                  s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
+                )
+              }
+            )
+        })
       finalSnapshot <- {
         if (unifiedSequencer) {
           super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
@@ -499,7 +496,7 @@ class BlockSequencer(
             )(dbsSnapshot.representativeProtocolVersion)
           }
         } else {
-          EitherT.pure[Future, String](bsSnapshot)
+          EitherT.pure[Future, SequencerError](bsSnapshot)
         }
       }
     } yield {
@@ -512,24 +509,10 @@ class BlockSequencer(
 
   override def pruningStatus(implicit
       traceContext: TraceContext
-  ): Future[SequencerPruningStatus] = {
-    if (unifiedSequencer) {
-      for {
-        blockPruningStatus <- store
-          .pruningStatus()
-          .map(_.toSequencerPruningStatus(clock.now))
-        dbsStatus <- super[DatabaseSequencer].pruningStatus
-      } yield {
-        dbsStatus.copy(
-          lowerBound = dbsStatus.lowerBound.min(blockPruningStatus.lowerBound),
-          // TODO(#19526): Combine pruning statuses?
-          members = dbsStatus.members ++ blockPruningStatus.members,
-        )
-      }
-    } else {
-      store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
-    }
-  }
+  ): Future[SequencerPruningStatus] = if (unifiedSequencer)
+    super[DatabaseSequencer].pruningStatus
+  else
+    store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are
     * purely local operations that do not affect other block sequencers that share the same source of
@@ -539,32 +522,35 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, PruningError, String] = {
 
-    val (isNew, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
+    val (isNewRequest, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
     val supervisedPruningF = futureSupervisor.supervised(
       s"Waiting for local pruning operation at $requestedTimestamp to complete"
     )(pruningF)
 
-    if (isNew)
+    if (isNewRequest)
       for {
         status <- EitherT.right[PruningError](this.pruningStatus)
         _ <- condUnitET[Future](
           requestedTimestamp <= status.safePruningTimestamp,
           UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
         )
-        msg <- EitherT.right(
+        msgs <- EitherT.right(
           pruningQueue
             .execute(
               for {
                 eventsMsg <- store.prune(requestedTimestamp)
                 trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
-              } yield s"$eventsMsg\n$trafficMsg",
+              } yield ((eventsMsg, trafficMsg)),
               s"pruning sequencer at $requestedTimestamp",
             )
             .unwrap
             .map(
-              _.onShutdown(s"pruning at $requestedTimestamp canceled because we're shutting down")
+              _.onShutdown(
+                (s"pruning at $requestedTimestamp canceled because we're shutting down", "")
+              )
             )
         )
+        (eventsMsg, trafficMsg) = msgs
         _ <- EitherT.right(
           placeLocalEvent(BlockSequencer.UpdateInitialMemberCounters(requestedTimestamp))
         )
@@ -578,9 +564,9 @@ class BlockSequencer(
           }
       } yield {
         if (unifiedSequencer) {
-          s"${msg}\n${dbsMsg}"
+          s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
         } else {
-          msg
+          s"$eventsMsg\n$trafficMsg"
         }
       }
     else

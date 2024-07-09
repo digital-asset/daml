@@ -83,8 +83,8 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -308,24 +308,55 @@ class TransactionProcessingSteps(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
 
+      // TODO(#19999): Move this check to the protocol processor's pre-submission validation
+      def check(
+          transaction: LfVersionedTransaction,
+          topologySnapshot: TopologySnapshot,
+      ): Future[Boolean] = {
+
+        val actionNodes = transaction.nodes.values.collect { case an: LfActionNode => an }
+
+        val informeesCheckPartiesPerNode = actionNodes.map { node =>
+          node.informeesOfNode & LfTransactionUtil.stateKnownTo(node)
+        }
+        val signatoriesCheckPartiesPerNode = actionNodes.map { node =>
+          LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
+        }
+        val allParties =
+          (informeesCheckPartiesPerNode.flatten ++ signatoriesCheckPartiesPerNode.flatten).toSet
+        val eligibleParticipantsF =
+          topologySnapshot.activeParticipantsOfPartiesWithAttributes(allParties.toSeq).map {
+            result =>
+              result.map { case (party, attributesMap) =>
+                (party, attributesMap.values.exists(_.permission.canConfirm))
+              }
+          }
+
+        eligibleParticipantsF.map { eligibleParticipants =>
+          signatoriesCheckPartiesPerNode.forall { signatoriesForNode =>
+            signatoriesForNode.nonEmpty && signatoriesForNode.forall(eligibleParticipants(_))
+          }
+        }
+      }
+
       val result = for {
-        confirmationPolicy <- EitherT(
-          ConfirmationPolicy
-            .choose(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
+        _ <- EitherT(
+          check(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
             .map(
-              _.headOption
-                .toRight(
-                  causeWithTemplate(
-                    "Incompatible Domain",
-                    MalformedLfTransaction(
-                      s"No confirmation policy applicable (snapshot at ${recentSnapshot.ipsSnapshot.timestamp})"
-                    ),
-                  )
-                )
+              Either.cond(
+                _,
+                (),
+                causeWithTemplate(
+                  "Incompatible Domain",
+                  MalformedLfTransaction(
+                    s"No confirmation policy applicable (snapshot at ${recentSnapshot.ipsSnapshot.timestamp})"
+                  ),
+                ),
+              )
             )
         ).mapK(FutureUnlessShutdown.outcomeK)
 
-        _submitters <- submitterInfo.actAs
+        _ <- submitterInfo.actAs
           .parTraverse(rawSubmitter =>
             EitherT
               .fromEither[FutureUnlessShutdown](LfPartyId.fromString(rawSubmitter))
@@ -354,7 +385,6 @@ class TransactionProcessingSteps(
           confirmationRequestFactory
             .createConfirmationRequest(
               wfTransaction,
-              confirmationPolicy,
               submitterInfoWithDedupPeriod,
               transactionMeta.workflowId.map(WorkflowId(_)),
               keyResolver,
@@ -761,7 +791,6 @@ class TransactionProcessingSteps(
       isFreshOwnTimelyRequest,
       malformedPayloads,
       mediator,
-      rootViewTrees.head1.confirmationPolicy,
       usedAndCreated,
       rootViewTrees.head1.workflowIdO,
       snapshot,
@@ -810,7 +839,6 @@ class TransactionProcessingSteps(
       freshOwnTimelyTx,
       malformedPayloads,
       mediator,
-      _,
       _,
       _,
       snapshot,
@@ -950,7 +978,6 @@ class TransactionProcessingSteps(
       val usedAndCreated = parsedRequest.usedAndCreated
       validation.TransactionValidationResult(
         transactionId = parsedRequest.transactionId,
-        confirmationPolicy = parsedRequest.policy,
         submitterMetadataO = parsedRequest.submitterMetadataO,
         workflowIdO = parsedRequest.workflowIdO,
         contractConsistencyResultE = parallelChecksResult.consistencyResultE,
@@ -1522,7 +1549,6 @@ object TransactionProcessingSteps {
       override val isFreshOwnTimelyRequest: Boolean,
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
-      policy: ConfirmationPolicy,
       usedAndCreated: UsedAndCreated,
       workflowIdO: Option[WorkflowId],
       override val snapshot: DomainSnapshotSyncCryptoApi,
@@ -1574,7 +1600,7 @@ object TransactionProcessingSteps {
     */
   def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
     val distinctCommonData = receivedViewTrees
-      .map(v => CommonData(v.transactionId, v.ledgerTime, v.submissionTime, v.confirmationPolicy))
+      .map(v => CommonData(v.transactionId, v.ledgerTime, v.submissionTime))
       .distinct
     if (distinctCommonData.lengthCompare(1) == 0) distinctCommonData.head1
     else
@@ -1587,6 +1613,5 @@ object TransactionProcessingSteps {
       transactionId: TransactionId,
       ledgerTime: CantonTimestamp,
       submissionTime: CantonTimestamp,
-      confirmationPolicy: ConfirmationPolicy,
   )
 }

@@ -12,6 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
   RegisterMemberError,
   SequencerAdministrationError,
+  SequencerError,
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
@@ -114,7 +115,7 @@ trait Sequencer
     */
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, SequencerSnapshot]
+  ): EitherT[Future, SequencerError, SequencerSnapshot]
 
   /** Disable the provided member. Should prevent them from reading or writing in the future (although they can still be addressed).
     * Their unread data can also be pruned.

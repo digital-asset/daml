@@ -36,30 +36,22 @@ class TransactionViewDecompositionTest
   lazy val factory: TransactionViewDecompositionFactory.type = TransactionViewDecompositionFactory
   s"With factory ${factory.getClass.getSimpleName}" when {
 
-    ConfirmationPolicy.values foreach { confirmationPolicy =>
-      s"With policy $confirmationPolicy" when {
+    val exampleTransactionFactory = new ExampleTransactionFactory()()
 
-        val exampleTransactionFactory =
-          new ExampleTransactionFactory()(confirmationPolicy = confirmationPolicy)
-
-        // TODO(#19611): Add test to `standardHappyCases`
-        val examples =
-          exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingNewViewStructure
-        examples foreach { example =>
-          s"decomposing $example into views" must {
-            "yield the correct views" in {
-              factory
-                .fromTransaction(
-                  confirmationPolicy,
-                  exampleTransactionFactory.topologySnapshot,
-                  example.wellFormedUnsuffixedTransaction,
-                  RollbackContext.empty,
-                  Some(ExampleTransactionFactory.submitter),
-                )
-                .futureValue
-                .toList shouldEqual example.rootViewDecompositions.toList
-            }
-          }
+    val examples =
+      exampleTransactionFactory.standardHappyCases
+    examples foreach { example =>
+      s"decomposing $example into views" must {
+        "yield the correct views" in {
+          factory
+            .fromTransaction(
+              exampleTransactionFactory.topologySnapshot,
+              example.wellFormedUnsuffixedTransaction,
+              RollbackContext.empty,
+              Some(ExampleTransactionFactory.submitter),
+            )
+            .futureValue
+            .toList shouldEqual example.rootViewDecompositions.toList
         }
       }
     }
@@ -104,7 +96,6 @@ class TransactionViewDecompositionTest
 
         val decomposition = timeouts.default.await("Decomposing test transaction")(
           TransactionViewDecompositionFactory.fromTransaction(
-            ConfirmationPolicy.Signatory,
             defaultTopologySnapshot,
             wftWithCreateNodes(flatTransactionSize, signatory, observer),
             RollbackContext.empty,
@@ -156,7 +147,6 @@ class TransactionViewDecompositionTest
 
         val decomposition = TransactionViewDecompositionFactory
           .fromTransaction(
-            ConfirmationPolicy.Signatory,
             defaultTopologySnapshot,
             toWellFormedUnsuffixedTransaction(embeddedRollbackExample),
             RollbackContext.empty,

@@ -115,7 +115,7 @@ trait CantonNodeBootstrap[+T <: CantonNode] extends FlagCloseable with NamedLogg
 }
 
 object CantonNodeBootstrap {
-  type HealthDumpFunction = () => Future[File]
+  type HealthDumpFunction = File => Future[Unit]
 }
 
 trait BaseMetrics {

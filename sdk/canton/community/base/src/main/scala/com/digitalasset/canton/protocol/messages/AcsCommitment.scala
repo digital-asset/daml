@@ -127,8 +127,8 @@ abstract sealed case class AcsCommitment private (
   protected def toProtoV30: v30.AcsCommitment = {
     v30.AcsCommitment(
       domainId = domainId.toProtoPrimitive,
-      sendingParticipant = sender.toProtoPrimitive,
-      counterParticipant = counterParticipant.toProtoPrimitive,
+      sendingParticipantUid = sender.uid.toProtoPrimitive,
+      counterParticipantUid = counterParticipant.uid.toProtoPrimitive,
       fromExclusive = period.fromExclusive.toProtoPrimitive,
       toInclusive = period.toInclusive.toProtoPrimitive,
       commitment = AcsCommitment.commitmentTypeToProto(commitment),
@@ -192,22 +192,30 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
   ): ParsingResult[AcsCommitment] = {
     for {
       domainId <- DomainId.fromProtoPrimitive(protoMsg.domainId, "AcsCommitment.domainId")
-      sender <- ParticipantId.fromProtoPrimitive(
-        protoMsg.sendingParticipant,
-        "AcsCommitment.sender",
+      sender <- UniqueIdentifier
+        .fromProtoPrimitive(
+          protoMsg.sendingParticipantUid,
+          "AcsCommitment.sending_participant_uid",
+        )
+        .map(ParticipantId(_))
+      counterParticipant <- UniqueIdentifier
+        .fromProtoPrimitive(
+          protoMsg.counterParticipantUid,
+          "AcsCommitment.counter_participant_uid",
+        )
+        .map(ParticipantId(_))
+      fromExclusive <- CantonTimestampSecond.fromProtoPrimitive(
+        "from_exclusive",
+        protoMsg.fromExclusive,
       )
-      counterParticipant <- ParticipantId.fromProtoPrimitive(
-        protoMsg.counterParticipant,
-        "AcsCommitment.counterParticipant",
-      )
-      fromExclusive <- CantonTimestampSecond.fromProtoPrimitive(protoMsg.fromExclusive)
-      toInclusive <- CantonTimestampSecond.fromProtoPrimitive(protoMsg.toInclusive)
+      toInclusive <- CantonTimestampSecond.fromProtoPrimitive("to_inclusive", protoMsg.toInclusive)
 
       periodLength <- PositiveSeconds
         .between(fromExclusive, toInclusive)
         .leftMap { _ =>
           ProtoDeserializationError.InvariantViolation(
-            s"Illegal commitment period length: $fromExclusive, $toInclusive"
+            field = None,
+            error = s"Illegal commitment period length: $fromExclusive, $toInclusive",
           )
         }
 

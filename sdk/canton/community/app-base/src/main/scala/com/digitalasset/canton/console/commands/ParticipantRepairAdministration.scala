@@ -10,11 +10,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
-import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
-  CommandErrors,
-  CommandSuccessful,
   ConsoleCommandResult,
   ConsoleEnvironment,
   FeatureFlag,
@@ -23,8 +20,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.RepairContract
+import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
@@ -35,11 +32,10 @@ import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 import com.google.protobuf.ByteString
-import io.grpc.StatusRuntimeException
+import io.grpc.Context
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.{Await, TimeoutException}
 
 class ParticipantRepairAdministration(
     val consoleEnvironment: ConsoleEnvironment,
@@ -149,7 +145,7 @@ class ParticipantRepairAdministration(
         val file = File(outputFile)
         val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
 
-        def call = consoleEnvironment.run {
+        def call: ConsoleCommandResult[Context.CancellableContext] =
           runner.adminCommand(
             ParticipantAdminCommands.ParticipantRepairManagement
               .ExportAcs(
@@ -162,23 +158,14 @@ class ParticipantRepairAdministration(
                 force = force,
               )
           )
-        }
 
-        try {
-          ResourceUtil.withResource(call) { _ =>
-            CommandSuccessful(
-              Await.result(responseObserver.result, timeout.duration)
-            )
-          }
-        } catch {
-          case sre: StatusRuntimeException =>
-            GenericCommandError(
-              GrpcError("Generating acs snapshot file", "download_acs_snapshot", sre).toString
-            )
-          case _: TimeoutException =>
-            file.delete(swallowIOExceptions = true)
-            CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
-        }
+        processResult(
+          call,
+          responseObserver.result,
+          timeout,
+          request = "exporting Acs",
+          cleanupOnError = () => file.delete(),
+        )
       }
     }
   }

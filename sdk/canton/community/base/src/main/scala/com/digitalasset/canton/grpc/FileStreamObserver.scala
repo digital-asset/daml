@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.console.commands
+package com.digitalasset.canton.grpc
 
 import better.files.File
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -12,7 +12,7 @@ import io.grpc.stub.StreamObserver
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-private[commands] class FileStreamObserver[T](
+class FileStreamObserver[T](
     inputFile: File,
     converter: T => ByteString,
 ) extends StreamObserver[T] {

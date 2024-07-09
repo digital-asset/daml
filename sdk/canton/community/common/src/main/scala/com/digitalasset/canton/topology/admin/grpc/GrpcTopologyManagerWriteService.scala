@@ -81,7 +81,9 @@ class GrpcTopologyManagerWriteService(
       case Type.Proposal(Proposal(op, serial, mapping)) =>
         val validatedMappingE = for {
           // we treat serial=0 as "serial was not set". negative values should be rejected by parsePositiveInt
-          serial <- Option.when(serial != 0)(serial).traverse(ProtoConverter.parsePositiveInt)
+          serial <- Option
+            .when(serial != 0)(serial)
+            .traverse(ProtoConverter.parsePositiveInt("serial", _))
           op <- ProtoConverter.parseEnum(TopologyChangeOp.fromProtoV30, "operation", op)
           mapping <- ProtoConverter.required("AuthorizeRequest.mapping", mapping)
           signingKeys <-

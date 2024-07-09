@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import cats.data.EitherT
+import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -16,7 +17,13 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  Member,
+  ParticipantId,
+  SequencerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -35,6 +42,11 @@ trait SequencerStoreTest
     with HasCloseContext
     with FlagCloseable
     with ProtocolVersionChecksAsyncWordSpec {
+
+  lazy val sequencerMember: Member = SequencerId(
+    UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
+  )
+
   def sequencerStore(mk: () => SequencerStore): Unit = {
 
     val instanceIndex: Int = 0
@@ -1028,6 +1040,8 @@ trait SequencerStoreTest
           import env.*
           for {
             aliceId <- store.registerMember(alice, ts1)
+            sequencerId <- store.registerMember(sequencerMember, ts1)
+
             _ <- store.saveEvents(
               instanceIndex,
               NonEmpty(
@@ -1046,7 +1060,7 @@ trait SequencerStoreTest
                   DeliverStoreEvent(
                     aliceId,
                     messageId1,
-                    NonEmpty(SortedSet, aliceId, bobId),
+                    NonEmpty(SortedSet, aliceId, bobId, sequencerId),
                     payload1.id,
                     None,
                     traceContext,
@@ -1055,21 +1069,23 @@ trait SequencerStoreTest
               ),
             )
             _ <- saveWatermark(ts(4)).valueOrFail("saveWatermark")
-            state <- store.readStateAtTimestamp(ts(4))
+            snapshot <- store.readStateAtTimestamp(ts(4))
+            state <- store.checkpointsAtTimestamp(ts(4))
 
+            value1 = NonEmpty(
+              Seq,
+              deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
+              deliverEventWithDefaults(ts(6))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
+            )
             _ <- store.saveEvents(
               instanceIndex,
-              NonEmpty(
-                Seq,
-                deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
-                deliverEventWithDefaults(ts(6))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
-              ),
+              value1,
             )
             _ <- saveWatermark(ts(6)).valueOrFail("saveWatermark")
 
-            stateAfterNewEvents <- store.readStateAtTimestamp(ts(6))
+            stateAfterNewEvents <- store.checkpointsAtTimestamp(ts(6))
 
-          } yield (state, stateAfterNewEvents)
+          } yield (snapshot, state, stateAfterNewEvents)
         }
 
         def createFromSnapshot(snapshot: SequencerSnapshot) = {
@@ -1091,6 +1107,7 @@ trait SequencerStoreTest
             stateFromNewStore <- store.readStateAtTimestamp(ts(4))
 
             newAliceId <- store.lookupMember(alice).map(_.getOrElse(fail()).memberId)
+            newSequencerId <- store.lookupMember(sequencerMember).map(_.getOrElse(fail()).memberId)
             newBobId <- store.lookupMember(bob).map(_.getOrElse(fail()).memberId)
 
             _ <- store.saveEvents(
@@ -1098,7 +1115,7 @@ trait SequencerStoreTest
               NonEmpty(
                 Seq,
                 deliverEventWithDefaults(ts(5))(recipients =
-                  NonEmpty(SortedSet, newAliceId, newBobId)
+                  NonEmpty(SortedSet, newAliceId, newSequencerId)
                 ),
                 deliverEventWithDefaults(ts(6))(recipients =
                   NonEmpty(SortedSet, newAliceId, newBobId)
@@ -1107,13 +1124,13 @@ trait SequencerStoreTest
             )
             _ <- saveWatermark(ts(6)).valueOrFail("saveWatermark")
 
-            stateFromNewStoreAfterNewEvents <- store.readStateAtTimestamp(ts(6))
+            stateFromNewStoreAfterNewEvents <- store.checkpointsAtTimestamp(ts(6))
           } yield (stateFromNewStore, stateFromNewStoreAfterNewEvents)
         }
 
         for {
           snapshots <- createSnapshots()
-          (state, stateAfterNewEvents) = snapshots
+          (snapshot, state, stateAfterNewEvents) = snapshots
 
           // resetting the db tables
           _ = this match {
@@ -1121,24 +1138,29 @@ trait SequencerStoreTest
             case _ => ()
           }
 
-          newSnapshots <- createFromSnapshot(state)
+          newSnapshots <- createFromSnapshot(snapshot)
+          (snapshotFromNewStore, stateFromNewStoreAfterNewEvents) = newSnapshots
         } yield {
-          val (stateFromNewStore, stateFromNewStoreAfterNewEvents) = newSnapshots
 
           val memberCheckpoints = Map(
-            (alice, Counter(1L)),
-            (bob, Counter(0L)),
+            (alice, CounterCheckpoint(Counter(1L), ts(4), Some(ts(4)))),
+            (bob, CounterCheckpoint(Counter(0L), ts(4), Some(ts(4)))),
+            (sequencerMember, CounterCheckpoint(Counter(0L), ts(4), Some(ts(4)))),
           )
-          state.heads shouldBe memberCheckpoints
-          stateFromNewStore.heads shouldBe memberCheckpoints
+          state shouldBe memberCheckpoints
+          snapshotFromNewStore.heads shouldBe memberCheckpoints.fmap(_.counter)
 
-          val memberHeadsAfterNewEvents = Map(
-            (alice, Counter(3L)),
-            (bob, Counter(2L)),
+          stateAfterNewEvents shouldBe Map(
+            (alice, CounterCheckpoint(Counter(3L), ts(6), Some(ts(4)))),
+            (bob, CounterCheckpoint(Counter(2L), ts(6), Some(ts(4)))),
+            (sequencerMember, CounterCheckpoint(Counter(0L), ts(4), Some(ts(4)))),
           )
 
-          stateAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
-          stateFromNewStoreAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
+          stateFromNewStoreAfterNewEvents shouldBe Map(
+            (alice, CounterCheckpoint(Counter(3L), ts(6), Some(ts(5)))),
+            (bob, CounterCheckpoint(Counter(1L), ts(6), None)),
+            (sequencerMember, CounterCheckpoint(Counter(1L), ts(5), Some(ts(5)))),
+          )
         }
       }
     }

@@ -278,7 +278,7 @@ object ConfirmationResponse
             domainId,
           )(rpv, Some(bytes))
         )
-        .leftMap(err => InvariantViolation(err.toString))
+        .leftMap(err => InvariantViolation(field = None, error = err.toString))
     } yield response
   }
 

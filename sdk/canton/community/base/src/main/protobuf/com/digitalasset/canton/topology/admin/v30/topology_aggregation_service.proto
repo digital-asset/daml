@@ -70,7 +70,7 @@ message ListPartiesResponse {
         com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
       }
 
-      string participant = 1;
+      string participant_uid = 1;
 
       /**
        * permissions of this participant for this party on a per domain basis

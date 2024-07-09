@@ -412,13 +412,10 @@ object SequencedEventValidator extends HasLoggerName {
 trait SequencedEventValidatorFactory {
 
   /** Creates a new [[SequencedEventValidator]] to be used for a subscription with the given parameters.
-    *
-    * @param initialLastEventProcessedO
-    *    The last event that the sequencer client had validated (and persisted) in case of a resubscription.
-    *    The [[com.digitalasset.canton.sequencing.client.SequencerSubscription]] requests this event again.
-    * @param unauthenticated Whether the subscription is unauthenticated
     */
-  def create()(implicit loggingContext: NamedLoggingContext): SequencedEventValidator
+  def create(loggerFactory: NamedLoggerFactory)(implicit
+      traceContext: TraceContext
+  ): SequencedEventValidator
 }
 
 object SequencedEventValidatorFactory {
@@ -433,8 +430,12 @@ object SequencedEventValidatorFactory {
       domainId: DomainId,
       warn: Boolean = true,
   ): SequencedEventValidatorFactory = new SequencedEventValidatorFactory {
-    override def create()(implicit loggingContext: NamedLoggingContext): SequencedEventValidator =
-      SequencedEventValidator.noValidation(domainId, warn)
+    override def create(loggerFactory: NamedLoggerFactory)(implicit
+        traceContext: TraceContext
+    ): SequencedEventValidator =
+      SequencedEventValidator.noValidation(domainId, warn)(
+        NamedLoggingContext(loggerFactory, traceContext)
+      )
   }
 }
 

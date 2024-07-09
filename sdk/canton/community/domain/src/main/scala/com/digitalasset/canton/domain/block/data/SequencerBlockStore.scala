@@ -11,7 +11,6 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.db.DbSequencerBlockStore
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
@@ -19,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager
   MemberSignedEvents,
   MemberTimestamps,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   InFlightAggregations,
@@ -86,7 +86,7 @@ trait SequencerBlockStore extends AutoCloseable {
     */
   def readStateForBlockContainingTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, InvalidTimestamp, BlockEphemeralState]
+  ): EitherT[Future, SequencerError, BlockEphemeralState]
 
   def pruningStatus()(implicit traceContext: TraceContext): Future[InternalSequencerPruningStatus]
 
@@ -324,6 +324,4 @@ object SequencerBlockStore {
           unifiedSequencer = unifiedSequencer,
         )
     }
-
-  final case class InvalidTimestamp(timestamp: CantonTimestamp)
 }
