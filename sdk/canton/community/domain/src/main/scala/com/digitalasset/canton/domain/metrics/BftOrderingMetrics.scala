@@ -141,24 +141,6 @@ class BftOrderingMetrics(
       )
     )
 
-    val batchesOrdered: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "ordered-batches",
-        summary = "Batches ordered",
-        description = "Measures the total batches ordered.",
-        qualification = MetricQualification.Traffic,
-      )
-    )
-
-    val blocksOrdered: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "ordered-blocks",
-        summary = "Blocks ordered",
-        description = "Measures the total blocks ordered.",
-        qualification = MetricQualification.Traffic,
-      )
-    )
-
     object requestsOrderingLatency {
       object labels {
         val ReceivingSequencer: String = "receivingSequencer"
