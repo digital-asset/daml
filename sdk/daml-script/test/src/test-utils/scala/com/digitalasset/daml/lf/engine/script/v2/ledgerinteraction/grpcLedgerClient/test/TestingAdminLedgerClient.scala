@@ -69,7 +69,7 @@ class TestingAdminLedgerClient(
         )
       )
       .map { resp =>
-        Map.from(resp.results.map { res => (res.item.get.participant, res.item.get.packageIds) })
+        Map.from(resp.results.map { res => (res.item.get.participantUid, res.item.get.packageIds) })
       }
   }
 }
