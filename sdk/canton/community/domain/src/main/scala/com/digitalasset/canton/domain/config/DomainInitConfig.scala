@@ -4,14 +4,8 @@
 package com.digitalasset.canton.domain.config
 
 import com.digitalasset.canton.config.InitConfigBase
-import com.digitalasset.canton.version.DomainProtocolVersion
 
 final case class DomainInitConfig(
     identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
-    domainParameters: DomainParametersConfig,
+    domainParameters: DomainParametersConfig = DomainParametersConfig(),
 ) extends InitConfigBase
-
-object DomainInitConfig {
-  def defaults(protocolVersion: DomainProtocolVersion): DomainInitConfig =
-    DomainInitConfig(domainParameters = DomainParametersConfig.defaults(protocolVersion))
-}

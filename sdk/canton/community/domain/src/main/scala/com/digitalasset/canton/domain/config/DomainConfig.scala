@@ -163,7 +163,7 @@ final case class DomainNodeParametersConfig(
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
-    override val init: DomainInitConfig,
+    override val init: DomainInitConfig = DomainInitConfig(),
     override val auditLogging: Boolean = false,
     override val publicApi: CommunityPublicServerConfig = CommunityPublicServerConfig(),
     override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),

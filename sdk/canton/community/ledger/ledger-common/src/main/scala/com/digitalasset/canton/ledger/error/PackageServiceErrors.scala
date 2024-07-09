@@ -301,7 +301,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
     @Explanation(
       """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
     )
-    @Resolution("Using a new package version, recompile and upload the newly compiled DAR.")
+    @Resolution("Inspect the error message and contact support.")
     object UpgradeVersion
         extends ErrorCode(
           id = "KNOWN_DAR_VERSION",
