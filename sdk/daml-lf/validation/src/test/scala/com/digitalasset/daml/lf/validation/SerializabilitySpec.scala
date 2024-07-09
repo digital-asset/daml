@@ -7,6 +7,7 @@ package validation
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -375,7 +376,12 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
     val w = pkgInterface(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
-    Typing.checkModule(w, defaultPackageId, mod)
+    Typing.checkModule(
+      stablePackages = StablePackagesV2,
+      pkgInterface = w,
+      pkgId = defaultPackageId,
+      mod = mod,
+    )
     Serializability.checkModule(w, defaultPackageId, mod)
   }
 

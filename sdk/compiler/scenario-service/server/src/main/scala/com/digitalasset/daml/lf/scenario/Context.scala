@@ -27,6 +27,7 @@ import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
@@ -130,12 +131,17 @@ class Context(
         newModules
       }
 
-    val interface = new language.PackageInterface(this.allSignatures)
-    val compiler = new Compiler(interface, compilerConfig)
+    val pkgInterface = new language.PackageInterface(this.allSignatures)
+    val compiler = new Compiler(pkgInterface, compilerConfig)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
-        assertRight(Validation.checkModule(interface, homePackageId, mod).left.map(_.pretty))
+        assertRight(
+          Validation
+            .checkModule(StablePackagesV2, pkgInterface, homePackageId, mod)
+            .left
+            .map(_.pretty)
+        )
       modDefns +=
         mod.name -> compiler.unsafeCompileModule(homePackageId, mod).toMap
     }

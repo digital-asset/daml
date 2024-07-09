@@ -38,7 +38,7 @@ import com.digitalasset.daml.lf.language.{
   PackageInterface,
 }
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
-import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.stablepackages._
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -597,7 +597,7 @@ class Engine(val config: EngineConfig) {
           // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
-              Validation.checkPackage(pkgInterface, pkgId, pkg)
+              Validation.checkPackage(StablePackagesV2, pkgInterface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())

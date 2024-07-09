@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value
@@ -82,7 +81,7 @@ object Converter {
   }
 }
 
-abstract class ConverterMethods(stablePackages: StablePackages) {
+abstract class ConverterMethods(stablePackages: language.StablePackages) {
   import com.daml.script.converter.Converter._
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {

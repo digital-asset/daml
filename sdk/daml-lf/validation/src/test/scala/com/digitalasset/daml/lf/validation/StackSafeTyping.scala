@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Struct
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.PackageInterface
-
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -81,7 +81,12 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
-      val env = Typing.Env(langVersion, pkgInterface, ctx)
+      val env = Typing.Env(
+        languageVersion = langVersion,
+        stablePackages = StablePackagesV2,
+        pkgInterface = pkgInterface,
+        ctx = ctx,
+      )
       try {
         val _: Kind = env.kindOf(typ)
         None
@@ -278,7 +283,12 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
-      val env = Typing.Env(langVersion, pkgInterface, ctx)
+      val env = Typing.Env(
+        languageVersion = langVersion,
+        stablePackages = StablePackagesV2,
+        pkgInterface = pkgInterface,
+        ctx = ctx,
+      )
       try {
         val _: Type = env.typeOfTopExpr(expr)
         None

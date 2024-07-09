@@ -11,6 +11,8 @@ import com.digitalasset.daml.lf.language.PackageInterface
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.test.ModelTestDar
 import com.digitalasset.daml.lf.archive.DarDecoder
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+
 import java.io.File
 import org.openjdk.jmh.annotations._
 
@@ -57,9 +59,18 @@ class TypecheckingBench {
   def bench(): Unit = {
     val r = module match {
       case Some((pkgId, m)) =>
-        Validation.checkModule(pkgInterface, pkgId, m)
+        Validation.checkModule(
+          stablePackages = StablePackagesV2,
+          pkgInterface = pkgInterface,
+          pkgId = pkgId,
+          module = m,
+        )
       case None =>
-        Validation.checkPackages(pkgInterface, darMap)
+        Validation.checkPackages(
+          stablePackages = StablePackagesV2,
+          pkgInterface = pkgInterface,
+          pkgs = darMap,
+        )
     }
     assert(r.isRight)
   }

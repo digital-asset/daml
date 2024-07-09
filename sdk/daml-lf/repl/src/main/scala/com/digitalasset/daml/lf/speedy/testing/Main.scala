@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.language.{
   LanguageVersion => LV,
 }
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
@@ -133,7 +134,12 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
 
   def cmdValidate(state: State): (Boolean, State) = {
     val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
-      Validation.checkPackage(PackageInterface(state.packages), pkgId, pkg)
+      Validation.checkPackage(
+        stablePackages = StablePackagesV2,
+        pkgInterface = PackageInterface(state.packages),
+        pkgId = pkgId,
+        pkg = pkg,
+      )
     })
     System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst { case Left(e) =>

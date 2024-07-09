@@ -8,34 +8,12 @@ import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.ArchiveDecoder
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-
-private[daml] sealed case class StablePackage(
-    moduleName: Ref.ModuleName,
-    packageId: Ref.PackageId,
-    name: Ref.PackageName,
-    languageVersion: LanguageVersion,
-) {
-  def identifier(idName: Ref.DottedName): Ref.Identifier =
-    Ref.Identifier(packageId, Ref.QualifiedName(moduleName, idName))
-
-  @throws[IllegalArgumentException]
-  def assertIdentifier(idName: String): Ref.Identifier =
-    identifier(Ref.DottedName.assertFromString(idName))
-}
-
-private[daml] sealed abstract class StablePackages {
-  val allPackages: Seq[StablePackage]
-
-  val ArithmeticError: Ref.TypeConName
-  val AnyChoice: Ref.TypeConName
-  val AnyContractKey: Ref.TypeConName
-  val AnyTemplate: Ref.TypeConName
-  val TemplateTypeRep: Ref.TypeConName
-  val NonEmpty: Ref.TypeConName
-  val Tuple2: Ref.TypeConName
-  val Tuple3: Ref.TypeConName
-  val Either: Ref.TypeConName
+import com.digitalasset.daml.lf.language.{
+  Ast,
+  LanguageMajorVersion,
+  LanguageVersion,
+  StablePackage,
+  StablePackages,
 }
 
 final object StablePackagesV2

@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.validation.Validation
@@ -281,7 +282,7 @@ object EncodeSpec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(language.PackageInterface(Map(pkgId -> pkg)), pkgId, pkg)
+      .checkPackage(StablePackagesV2, language.PackageInterface(Map(pkgId -> pkg)), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

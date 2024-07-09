@@ -62,6 +62,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
