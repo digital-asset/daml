@@ -50,9 +50,14 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
+class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev){
+  protected def tuple2TyCon: String = {
+    import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
+}
 
-class EvaluationOrderTest(languageVersion: LanguageVersion)
+abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside {
@@ -64,6 +69,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     ParserParameters(packageId, languageVersion = languageVersion)
 
   private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
+
+  protected def tuple2TyCon: String
 
   val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {
@@ -277,7 +284,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party
           to let key: M:TKey = Test:buildTKey params
-             in Test:run @<contract: M:T, contractId: ContractId M:T> (fetch_by_key @M:T key);
+             in Test:run @($tuple2TyCon (ContractId M:T) M:T) (fetch_by_key @M:T key);
         choice LookupByKey (self) (params: Test:TKeyParams): Unit,
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party

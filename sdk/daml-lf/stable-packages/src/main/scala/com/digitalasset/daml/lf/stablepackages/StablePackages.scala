@@ -33,7 +33,7 @@ private[daml] object StablePackages {
     import scala.Ordering.Implicits.infixOrderingOps
 
     StablePackages(allowedLanguageVersions.majorVersion).allPackages.view
-      .filter(_.languageVersion <= allowedLanguageVersions.max)
+      .filter(_.pkg.languageVersion <= allowedLanguageVersions.max)
       .map(_.packageId)
       .toSet
   }
@@ -95,8 +95,7 @@ private[daml] sealed class StablePackagesImpl(
     StablePackage(
       moduleName = pkgAst.modules.head._1,
       packageId = pkgId,
-      name = pkgAst.pkgName,
-      languageVersion = pkgAst.languageVersion,
+      pkg = pkgAst
     )
   }
 }

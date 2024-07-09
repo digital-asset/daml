@@ -5,12 +5,17 @@ package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.Ref
 
-private[daml] sealed case class StablePackage(
+private[lf] final case class StablePackage(
     moduleName: Ref.ModuleName,
     packageId: Ref.PackageId,
-    name: Ref.PackageName,
-    languageVersion: LanguageVersion,
+    pkg: Ast.Package
 ) {
+  require(Set(moduleName) == pkg.modules.keySet)
+
+  def name: Ref.PackageName  = pkg.pkgName
+
+  def languageVersion: LanguageVersion = pkg.languageVersion
+
   def identifier(idName: Ref.DottedName): Ref.Identifier =
     Ref.Identifier(packageId, Ref.QualifiedName(moduleName, idName))
 
@@ -31,4 +36,8 @@ private[daml] abstract class StablePackages {
   val Tuple2: Ref.TypeConName
   val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
+
+  final def packagesMap: Map[Ref.PackageId, Ast.Package] =
+    allPackages.view.map(sp =>sp.packageId -> sp.pkg).toMap
+
 }

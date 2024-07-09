@@ -20,9 +20,14 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
+class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2) {
+  protected override val tuple2TyCon: String = {
+    import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
+}
 
-class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
+abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers {
@@ -36,6 +41,8 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     PackageVersion.assertFromString("0.0.0"),
     None,
   )
+
+  protected val tuple2TyCon: String
 
   import SpecUtil._
 
@@ -418,7 +425,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
           T"ContractId Mod:I → (( Update Mod:I ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
-          T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
+          T"Party → (( Update ($tuple2TyCon (ContractId Mod:T) Mod:T) ))",
         E"λ (e: Party) →  (( lookup_by_key @Mod:T e ))" ->
           T"Party → (( Update (Option (ContractId Mod:T)) ))",
         E"(( uget_time ))" ->
