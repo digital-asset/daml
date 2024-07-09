@@ -26,13 +26,13 @@ class DamlGrpcServerHistograms(implicit
     qualification = MetricQualification.Latency,
   )
   val damlGrpcServerReceived: Item = Item(
-    prefix :+ "server" :+ "messages" :+ "received",
+    prefix :+ "messages" :+ "received",
     Histogram.Bytes,
     summary = "Distribution of payload sizes in gRPC messages received (both unary and streaming).",
     qualification = MetricQualification.Traffic,
   )
   val damlGrpcServerSent: Item = Item(
-    prefix :+ "server" :+ "messages" :+ "sent",
+    prefix :+ "messages" :+ "sent",
     Histogram.Bytes,
     summary = "Distribution of payload sizes in gRPC messages sent (both unary and streaming).",
     qualification = MetricQualification.Traffic,
