@@ -17,9 +17,12 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           Data.Bifunctor (first)
 import           Data.Data
+import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
+import           Data.List (foldl')
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -58,22 +61,40 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT _present presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-checkUpgrade :: Version -> Upgrading LF.Package -> [Diagnostic]
-checkUpgrade version package =
-    let upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
-        result =
-            runGammaF
-                upgradingWorld
-                (checkUpgradeM package)
+checkUpgrade :: Version -> Bool -> LF.Package -> Maybe (LF.PackageId, LF.Package) -> [Diagnostic]
+checkUpgrade version shouldTypecheckUpgrades presentPkg mbUpgradedPackage =
+    let bothPkgDiagnostics :: Either Error ((), [Warning])
+        bothPkgDiagnostics =
+            case mbUpgradedPackage of
+                Nothing ->
+                    Right ((), [])
+                Just (_, pastPkg) ->
+                    let package = Upgrading { _past = pastPkg, _present = presentPkg }
+                        upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
+                    in
+                    runGammaF upgradingWorld $ do
+                        when shouldTypecheckUpgrades (checkUpgradeM package)
+
+        singlePkgDiagnostics :: Either Error ((), [Warning])
+        singlePkgDiagnostics =
+            let world = initWorldSelf [] presentPkg
+            in
+            runGamma world version $ do
+                 checkNewInterfacesAreUnused presentPkg
+                 checkNewInterfacesHaveNoTemplates presentPkg
+
+        extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
+        extractDiagnostics result =
+            case result of
+              Left err -> [toDiagnostic err]
+              Right ((), warnings) -> map toDiagnostic warnings
     in
-    case result of
-      Left err -> [toDiagnostic err]
-      Right ((), warnings) -> map toDiagnostic warnings
+    extractDiagnostics bothPkgDiagnostics ++ extractDiagnostics singlePkgDiagnostics
 
 checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeError . MissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    forM_ upgradedModules checkModule
+    forM_ upgradedModules $ \module_ -> checkModule package module_
 
 extractDelExistNew
     :: (Eq k, Hashable k)
@@ -90,32 +111,52 @@ checkDeleted
     => (a -> Error)
     -> Upgrading (HMS.HashMap k a)
     -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
-checkDeleted handleError upgrade = do
+checkDeleted handleError upgrade =
+    checkDeletedG ((Nothing,) . handleError) upgrade
+
+checkDeletedWithContext
+    :: (Eq k, Hashable k)
+    => (a -> (Context, Error))
+    -> Upgrading (HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+checkDeletedWithContext handleError upgrade =
+    checkDeletedG (first Just . handleError) upgrade
+
+checkDeletedG
+    :: (Eq k, Hashable k)
+    => (a -> (Maybe Context, Error))
+    -> Upgrading (HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+checkDeletedG handleError upgrade = do
     let (deleted, existing, new) = extractDelExistNew upgrade
     throwIfNonEmpty handleError deleted
     pure (existing, new)
 
 throwIfNonEmpty
     :: (Eq k, Hashable k)
-    => (a -> Error)
+    => (a -> (Maybe Context, Error))
     -> HMS.HashMap k a
     -> TcUpgradeM ()
 throwIfNonEmpty handleError hm =
     case HMS.toList hm of
-      ((_, first):_) -> throwWithContextF present $ handleError first
+      ((_, first):_) ->
+          let (ctx, err) = handleError first
+              ctxHandler =
+                  case ctx of
+                    Nothing -> id
+                    Just ctx -> withContextF present ctx
+          in
+          ctxHandler $ throwWithContextF present err
       _ -> pure ()
 
-checkModule :: Upgrading LF.Module -> TcUpgradeM ()
-checkModule module_ = do
+checkModule :: Upgrading LF.Package -> Upgrading LF.Module -> TcUpgradeM ()
+checkModule package module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeError . MissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
             present
             (ContextTemplate (_present module_) (_present template) TPWhole)
             (checkTemplate module_ template)
-
-    -- checkDeleted should only trigger on datatypes not belonging to templates or choices, which we checked above
-    (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) $ NM.toHashMap . moduleDataTypes <$> module_
 
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
@@ -151,6 +192,65 @@ checkModule module_ = do
                 , ContextDefDataType module_ dt
                 )
 
+    let ifaceDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefInterface))
+        unownedDts :: Upgrading (HMS.HashMap LF.TypeConName DefDataType)
+        (ifaceDts, unownedDts) =
+            let Upgrading
+                    { _past = (pastIfaceDts, pastUnownedDts)
+                    , _present = (presentIfaceDts, presentUnownedDts)
+                    } = fmap splitModuleDts module_
+            in
+            ( Upgrading pastIfaceDts presentIfaceDts
+            , Upgrading pastUnownedDts presentUnownedDts
+            )
+
+        splitModuleDts
+            :: Module
+            -> ( HMS.HashMap LF.TypeConName (DefDataType, DefInterface)
+               , HMS.HashMap LF.TypeConName DefDataType)
+        splitModuleDts module_ =
+            let (ifaceDtsList, unownedDtsList) =
+                    partitionEithers
+                        $ map (\(tcon, def) -> lookupInterface module_ tcon def)
+                        $ HMS.toList $ NM.toHashMap $ moduleDataTypes module_
+            in
+            (HMS.fromList ifaceDtsList, HMS.fromList unownedDtsList)
+
+        lookupInterface
+            :: Module -> LF.TypeConName -> DefDataType
+            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (LF.TypeConName, DefDataType)
+        lookupInterface module_ tcon datatype =
+            case NM.name datatype `NM.lookup` moduleInterfaces module_ of
+              Nothing -> Right (tcon, datatype)
+              Just iface -> Left (tcon, (datatype, iface))
+
+    -- Check that no interfaces have been deleted, nor propagated
+    -- New interface checks are handled by `checkNewInterfacesHaveNoTemplates`,
+    -- invoked in `singlePkgDiagnostics` above
+    -- Interface deletion is the correct behaviour so we ignore that
+    let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
+    checkContinuedIfaces module_ ifaceExisting
+
+    let flattenInstances
+            :: Module
+            -> HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements)
+        flattenInstances module_ = HMS.fromList
+            [ ((NM.name template, NM.name implementation), (template, implementation))
+            | template <- NM.elems (moduleTemplates module_)
+            , implementation <- NM.elems (tplImplements template)
+            ]
+    (_instanceExisting, instanceNew) <-
+        checkDeletedWithContext
+            (\(tpl, impl) ->
+                ( ContextTemplate (_present module_) tpl TPWhole
+                , EUpgradeError (MissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl)))
+                ))
+            (flattenInstances <$> module_)
+    checkUpgradedInterfacesAreUnused (_present package) (_present module_) instanceNew
+
+    -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
+    (dtExisting, _dtNew) <- checkDeleted (EUpgradeError . MissingDataCon . NM.name) unownedDts
+
     forM_ dtExisting $ \dt ->
         -- Get origin/context for each datatype in both _past and _present
         let origin = dataTypeOrigin <$> dt <*> module_
@@ -162,6 +262,86 @@ checkModule module_ = do
         else do
             let (presentOrigin, context) = _present origin
             withContextF present context $ checkDefDataType presentOrigin dt
+
+-- It is always invalid to keep an interface in an upgrade
+checkContinuedIfaces
+    :: Upgrading Module
+    -> HMS.HashMap LF.TypeConName (Upgrading (DefDataType, DefInterface))
+    -> TcUpgradeM ()
+checkContinuedIfaces module_ ifaces =
+    forM_ ifaces $ \upgradedDtIface ->
+        let (_dt, iface) = _present upgradedDtIface
+        in
+        withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
+            throwWithContextF present $ EUpgradeError $ TriedToUpgradeIface (NM.name iface)
+
+-- Check that the package does not define both interfaces and templates.
+-- This warning should trigger even when no previous version DAR is specified in
+-- the `upgrades:` field.
+checkNewInterfacesHaveNoTemplates :: LF.Package -> TcM ()
+checkNewInterfacesHaveNoTemplates presentPkg =
+    let modules = NM.toHashMap $ packageModules presentPkg
+        templateDefined = HMS.filter (not . NM.null . moduleTemplates) modules
+        interfaceDefined = HMS.filter (not . NM.null . moduleInterfaces) modules
+        templateAndInterfaceDefined =
+            HMS.intersectionWith (,) templateDefined interfaceDefined
+    in
+    forM_ (HMS.toList templateAndInterfaceDefined) $ \(_, (module_, _)) ->
+        withContext (ContextDefModule module_) $
+            warnWithContext WShouldDefineIfacesAndTemplatesSeparately
+
+-- Check that any interfaces defined in this package do not also have an
+-- instance. Interfaces defined in other packages are allowed to have instances.
+-- This warning should trigger even when no previous version DAR is specified in
+-- the `upgrades:` field.
+checkNewInterfacesAreUnused :: LF.Package -> TcM ()
+checkNewInterfacesAreUnused presentPkg =
+    forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
+        withContext (ContextDefInterface module_ iface IPWhole) $
+            warnWithContext $ WShouldDefineIfaceWithoutImplementation (NM.name iface) ((\(_,a,_) -> NM.name a) <$> implementations)
+    where
+    definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
+    definedIfaces = HMS.unions
+        [ HMS.mapKeys qualify $ HMS.map (module_,) $ NM.toHashMap (moduleInterfaces module_)
+        | module_ <- NM.elems (packageModules presentPkg)
+        , let qualify :: LF.TypeConName -> LF.Qualified LF.TypeConName
+              qualify tcn = Qualified PRSelf (NM.name module_) tcn
+        ]
+
+    definedAndInstantiated
+        :: HMS.HashMap
+            (LF.Qualified LF.TypeConName)
+            ((Module, DefInterface), [(Module, Template, TemplateImplements)])
+    definedAndInstantiated = HMS.intersectionWith (,) definedIfaces (instantiatedIfaces presentPkg)
+
+-- When upgrading a package, check that the interfaces defined in the previous
+-- version are not instantiated by any templates in the current version.
+checkUpgradedInterfacesAreUnused
+    :: Package
+    -> Module
+    -> HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements)
+    -> TcUpgradeM ()
+checkUpgradedInterfacesAreUnused package module_ newInstances = do
+    forM_ (HMS.toList newInstances) $ \((tplName, ifaceName), (tpl, implementation)) ->
+        when (fromUpgradedPackage ifaceName) $
+            let qualifiedTplName = Qualified PRSelf (moduleName module_) tplName
+                ifaceInstanceHead = InterfaceInstanceHead ifaceName qualifiedTplName
+            in
+            withContextF present (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
+                warnWithContextF present $ WShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
+    where
+    fromUpgradedPackage :: forall a. LF.Qualified a -> Bool
+    fromUpgradedPackage identifier =
+        case (upgradedPackageId =<< packageMetadata package, qualPackage identifier) of
+          (Just upgradedId, PRImport identifierOrigin) -> upgradedId == identifierOrigin
+          _ -> False
+
+instantiatedIfaces :: LF.Package -> HMS.HashMap (LF.Qualified LF.TypeConName) [(Module, Template, TemplateImplements)]
+instantiatedIfaces pkg = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
+    [ HMS.map (module_,template,) $ NM.toHashMap $ tplImplements template
+    | module_ <- NM.elems (packageModules pkg)
+    , template <- NM.elems (moduleTemplates module_)
+    ]
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do

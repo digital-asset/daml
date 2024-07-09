@@ -161,13 +161,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
-                 when pTypecheckUpgrades $
-                     case mbUpgradedPackage of
-                        Just (_, upgradedPackage) ->
-                          MaybeT $ do
-                            let upgradePair = Upgrading { _past = upgradedPackage, _present = pkg }
-                            runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $ TypeChecker.Upgrade.checkUpgrade lfVersion upgradePair
-                        _ -> pure ()
+                 MaybeT $
+                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades pkg mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
