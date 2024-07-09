@@ -754,8 +754,8 @@ data Update
     { updateEmbedType :: !Type
     , updateEmbedBody :: !Expr
     }
-  | ULookupByKey !RetrieveByKey
-  | UFetchByKey !RetrieveByKey
+  | ULookupByKey !(Qualified TypeConName)
+  | UFetchByKey !(Qualified TypeConName)
   | UTryCatch
     { tryCatchType :: !Type
     , tryCatchExpr :: !Expr
@@ -825,12 +825,6 @@ data Scenario
     { scenarioEmbedType :: !Type
     , scenarioEmbedExpr :: !Expr
     }
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
-data RetrieveByKey = RetrieveByKey
-  { retrieveByKeyTemplate :: !(Qualified TypeConName)
-  , retrieveByKeyKey :: !Expr
-  }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype IsSerializable = IsSerializable{getIsSerializable :: Bool}

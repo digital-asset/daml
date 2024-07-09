@@ -408,21 +408,17 @@ alphaUpdate env = \case
         UEmbedExpr t2 e2 -> alphaType' env t1 t2
             && alphaExpr' env e1 e2
         _ -> False
-    ULookupByKey r1 -> \case
-        ULookupByKey r2 -> alphaRetrieveByKey env r1 r2
+    ULookupByKey t1 -> \case
+        ULookupByKey t2 -> alphaTypeCon t1 t2
         _ -> False
-    UFetchByKey r1 -> \case
-        UFetchByKey r2 -> alphaRetrieveByKey env r1 r2
+    UFetchByKey t1 -> \case
+        UFetchByKey t2 -> alphaTypeCon t1 t2
         _ -> False
     UTryCatch t1 e1a x1 e1b -> \case
         UTryCatch t2 e2a x2 e2b -> alphaType' env t1 t2
             && alphaExpr' env e1a e2a
             && alphaExpr' (bindExprVar x1 x2 env) e1b e2b
         _ -> False
-
-alphaRetrieveByKey :: AlphaEnv -> RetrieveByKey -> RetrieveByKey -> Bool
-alphaRetrieveByKey env (RetrieveByKey t1 e1) (RetrieveByKey t2 e2) =
-    alphaTypeCon t1 t2 && alphaExpr' env e1 e2
 
 alphaScenario :: AlphaEnv -> Scenario -> Scenario -> Bool
 alphaScenario env = \case

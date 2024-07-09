@@ -1370,21 +1370,17 @@ private[validation] object Typing {
         checkExpr(exp, TUpdate(typ)) {
           Ret(TUpdate(typ))
         }
-      case UpdateFetchByKey(retrieveByKey) =>
-        checkByKey(retrieveByKey.templateId, retrieveByKey.key) {
-          Ret(
-            TUpdate(
-              TTuple2(
-                TContractId(TTyCon(retrieveByKey.templateId)),
-                TTyCon(retrieveByKey.templateId),
-              )
-            )
-          )
-        }
-      case UpdateLookupByKey(retrieveByKey) =>
-        checkByKey(retrieveByKey.templateId, retrieveByKey.key) {
-          Ret(TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId)))))
-        }
+      case UpdateFetchByKey(templateId) =>
+        val keyType = handleLookup(ctx, pkgInterface.lookupTemplateKey(templateId)).typ
+        Ret(
+          keyType ->:
+            TUpdate(TTuple2(TContractId(TTyCon(templateId)), TTyCon(templateId)))
+        )
+      case UpdateLookupByKey(templateId) =>
+        val keyType = handleLookup(ctx, pkgInterface.lookupTemplateKey(templateId)).typ
+        Ret(
+          keyType ->: TUpdate(TOptional(TContractId(TTyCon(templateId))))
+        )
       case UpdateTryCatch(typ, body, binder, handler) =>
         checkType(typ, KStar)
         val updTyp = TUpdate(typ)

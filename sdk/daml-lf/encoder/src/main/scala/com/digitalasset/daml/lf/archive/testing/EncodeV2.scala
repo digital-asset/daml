@@ -340,8 +340,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         .setBound(binding.bound)
         .build()
 
-    private implicit def encodeRetrieveByKey(rbk: RetrieveByKey): PLF.Update.RetrieveByKey =
-      PLF.Update.RetrieveByKey.newBuilder().setTemplate(rbk.templateId).setKey(rbk.key).build()
+    private implicit def encodeRetrieveByKey(tmplId: TypeConName): PLF.Update.RetrieveByKey =
+      PLF.Update.RetrieveByKey.newBuilder().setTemplate(tmplId).build()
 
     private implicit def encodeUpdate(upd0: Update): PLF.Update = {
       val builder = PLF.Update.newBuilder()

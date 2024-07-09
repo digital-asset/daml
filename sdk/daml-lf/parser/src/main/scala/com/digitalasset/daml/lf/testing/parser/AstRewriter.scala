@@ -226,11 +226,6 @@ private[daml] class AstRewriter(
         UpdateTryCatch(apply(typ), apply(body), binder, apply(handler))
     }
 
-  def apply(x: RetrieveByKey): RetrieveByKey = x match {
-    case RetrieveByKey(templateId, key) =>
-      RetrieveByKey(apply(templateId), apply(key))
-  }
-
   def apply(binding: Binding): Binding = binding match {
     case Binding(binder, typ, bound) =>
       Binding(binder, apply(typ), apply(bound))

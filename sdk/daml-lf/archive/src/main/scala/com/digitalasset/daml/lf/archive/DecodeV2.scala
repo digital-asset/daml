@@ -1239,14 +1239,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeRetrieveByKey(
-        value: PLF.Update.RetrieveByKey,
-        definition: String,
-    ): Work[RetrieveByKey] = {
+    private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): Work[TypeConName] = {
       assertSince(LV.Features.contractKeys, "RetrieveByKey")
-      decodeExpr(value.getKey, definition) { keyE =>
-        Ret(RetrieveByKey(decodeTypeConName(value.getTemplate), keyE))
-      }
+      Ret(decodeTypeConName(value.getTemplate))
     }
 
     private[this] def decodeUpdate(lfUpdate: PLF.Update, definition: String): Work[Update] = {
@@ -1375,14 +1370,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
           assertSince(LV.Features.contractKeys, "fetch_by_key")
-          Work.bind(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition)) { rbk =>
-            Ret(UpdateFetchByKey(rbk))
+          Work.bind(decodeRetrieveByKey(lfUpdate.getFetchByKey)) { tmplId =>
+            Ret(UpdateFetchByKey(tmplId))
           }
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
           assertSince(LV.Features.contractKeys, "lookup_by_key")
-          Work.bind(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition)) { rbk =>
-            Ret(UpdateLookupByKey(rbk))
+          Work.bind(decodeRetrieveByKey(lfUpdate.getLookupByKey)) { tmplId =>
+            Ret(UpdateLookupByKey(tmplId))
           }
 
         case PLF.Update.SumCase.EMBED_EXPR =>

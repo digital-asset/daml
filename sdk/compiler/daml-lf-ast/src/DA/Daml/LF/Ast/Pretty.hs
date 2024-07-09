@@ -413,10 +413,10 @@ instance Pretty Update where
       keyword_ "get_time"
     UEmbedExpr typ e ->
       pPrintAppKeyword lvl prec "uembed_expr" [TyArg typ, TmArg e]
-    UFetchByKey RetrieveByKey{..} ->
-      pPrintAppKeyword lvl prec "ufetch_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
-    ULookupByKey RetrieveByKey{..} ->
-      pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
+    UFetchByKey tmplId ->
+      pPrintAppKeyword lvl prec "ufetch_by_key" [tplArg tmplId]
+    ULookupByKey tmplId ->
+      pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg tmplId]
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
       <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
 

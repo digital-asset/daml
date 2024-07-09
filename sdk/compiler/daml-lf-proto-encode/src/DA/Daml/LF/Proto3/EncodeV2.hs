@@ -713,10 +713,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_EmbedExprType <- encodeType typ
         update_EmbedExprBody <- encodeExpr e
         pure $ P.UpdateSumEmbedExpr P.Update_EmbedExpr{..}
-    UFetchByKey rbk ->
-        P.UpdateSumFetchByKey <$> encodeRetrieveByKey rbk
-    ULookupByKey rbk ->
-        P.UpdateSumLookupByKey <$> encodeRetrieveByKey rbk
+    UFetchByKey tmplId ->
+        P.UpdateSumFetchByKey <$> encodeRetrieveByKey tmplId
+    ULookupByKey tmplId ->
+        P.UpdateSumLookupByKey <$> encodeRetrieveByKey tmplId
     UTryCatch{..} -> do
         update_TryCatchReturnType <- encodeType tryCatchType
         update_TryCatchTryExpr <- encodeExpr tryCatchExpr
@@ -724,10 +724,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
         pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
 
-encodeRetrieveByKey :: RetrieveByKey -> Encode P.Update_RetrieveByKey
-encodeRetrieveByKey RetrieveByKey{..} = do
-    update_RetrieveByKeyTemplate <- encodeQualTypeConName retrieveByKeyTemplate
-    update_RetrieveByKeyKey <- encodeExpr retrieveByKeyKey
+encodeRetrieveByKey :: Qualified TypeConName -> Encode P.Update_RetrieveByKey
+encodeRetrieveByKey tmplId = do
+    update_RetrieveByKeyTemplate <- encodeQualTypeConName tmplId
     pure P.Update_RetrieveByKey{..}
 
 encodeScenario :: Scenario -> Encode P.Scenario

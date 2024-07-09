@@ -739,14 +739,10 @@ private[lf] final class PhaseOne(
         }
       case UpdateGetTime =>
         Return(SUGetTime)
-      case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
-        compileExp(env, key) { key =>
-          Return(t.LookupByKeyDefRef(templateId)(key))
-        }
-      case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
-        compileExp(env, key) { key =>
-          Return(t.FetchByKeyDefRef(templateId)(key))
-        }
+      case UpdateLookupByKey(templateId) =>
+        Return(t.LookupByKeyDefRef(templateId)())
+      case UpdateFetchByKey(templateId) =>
+        Return(t.FetchByKeyDefRef(templateId)())
       case UpdateTryCatch(_, body, binder, handler) =>
         unaryFunction(env) { (tokenPos, env) =>
           compileExp(env, body) { body =>
