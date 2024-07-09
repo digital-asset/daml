@@ -7,6 +7,7 @@ import cats.Order.*
 import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
