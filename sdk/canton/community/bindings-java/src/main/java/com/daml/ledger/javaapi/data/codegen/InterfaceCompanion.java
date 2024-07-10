@@ -44,11 +44,12 @@ public abstract class InterfaceCompanion<I, Id, View>
   protected InterfaceCompanion(
       String templateClassName,
       Identifier templateId,
+      Identifier templateIdWithPackageId,
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
       FromJson<View> fromJson,
       List<Choice<I, ?, ?>> choices) {
-    super(templateId, templateClassName, newContractId, choices);
+    super(templateId, templateIdWithPackageId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
     this.fromJson = fromJson;
   }

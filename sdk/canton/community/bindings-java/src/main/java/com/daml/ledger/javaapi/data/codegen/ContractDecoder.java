@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class ContractDecoder {
@@ -21,18 +22,40 @@ public class ContractDecoder {
       Iterable<? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
           companions) {
     this.companions =
-        StreamSupport.stream(companions.spliterator(), false)
-            .collect(Collectors.toMap(c -> c.TEMPLATE_ID, Function.identity()));
+        Stream.concat(
+                // Each companion should be keyed by TEMPLATE_ID and by TEMPLATE_ID_WITH_PACKAGE_ID
+                StreamSupport.stream(companions.spliterator(), false)
+                    .map(c -> Map.entry(c.TEMPLATE_ID, c)),
+                StreamSupport.stream(companions.spliterator(), false)
+                    .map(c -> Map.entry(c.TEMPLATE_ID_WITH_PACKAGE_ID, c)))
+            .collect(
+                Collectors.toMap(
+                    e -> e.getKey(),
+                    e -> e.getValue(),
+                    (c1, c2) -> {
+                      if (c1.equals(c2)) return c1;
+                      throw new IllegalStateException(
+                          "Duplicate key for different values: " + c1 + " and " + c2);
+                    }));
   }
 
   public Contract<?, ?> fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException {
     Identifier templateId = event.getTemplateId();
-    ContractCompanion<? extends Contract<?, ?>, ?, ?> companion =
-        getContractCompanion(templateId)
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException("No template found for identifier " + templateId));
-    return companion.fromCreatedEvent(event);
+    var companion = getContractCompanion(templateId);
+    // If we do not recognise the template, and the event contains a package name, try looking up
+    // the template id with a package name, as the ledger may know about newer versions of this
+    // template, from packages that came after when this codegen was run, which we may still be
+    // able to decode with the current decoder.
+    if (!companion.isPresent()) {
+      companion =
+          event
+              .getPackageName()
+              .flatMap(pkgName -> getContractCompanion(withPackageName(templateId, pkgName)));
+    }
+    if (!companion.isPresent()) {
+      throw new IllegalArgumentException("No template found for identifier " + templateId);
+    }
+    return companion.get().fromCreatedEvent(event);
   }
 
   public Optional<? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
@@ -48,5 +71,9 @@ public class ContractDecoder {
   public Optional<ContractCompanion.FromJson<? extends DamlRecord<?>>> getJsonDecoder(
       Identifier templateId) {
     return getContractCompanion(templateId).map(companion -> companion::fromJson);
+  }
+
+  private Identifier withPackageName(Identifier templateId, String packageName) {
+    return new Identifier(packageName, templateId.getModuleName(), templateId.getEntityName());
   }
 }

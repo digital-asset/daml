@@ -130,10 +130,12 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
+            "super($>$Z$S, $T.$N, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
+            interfaceName,
+            ClassGenUtils.templateIdWithPackageIdFieldName,
             contractIdClassName,
             interfaceViewTypeName,
             "valueDecoder",

@@ -80,11 +80,12 @@ public abstract class ContractCompanion<Ct, Id, Data>
   protected ContractCompanion(
       String templateClassName,
       Identifier templateId,
+      Identifier templateIdWithPackageId,
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue,
       FromJson<Data> fromJson,
       List<Choice<Data, ?, ?>> choices) {
-    super(templateId, templateClassName, newContractId, choices);
+    super(templateId, templateIdWithPackageId, templateClassName, newContractId, choices);
     this.fromValue = fromValue;
     this.fromJson = fromJson;
   }
@@ -108,12 +109,20 @@ public abstract class ContractCompanion<Ct, Id, Data>
     public WithoutKey(
         String templateClassName,
         Identifier templateId,
+        Identifier templateIdWithPackageId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         FromJson<Data> fromJson,
         NewContract<Ct, Id, Data> newContract,
         List<Choice<Data, ?, ?>> choices) {
-      super(templateClassName, templateId, newContractId, fromValue, fromJson, choices);
+      super(
+          templateClassName,
+          templateId,
+          templateIdWithPackageId,
+          newContractId,
+          fromValue,
+          fromJson,
+          choices);
       this.newContract = newContract;
     }
 
@@ -166,13 +175,21 @@ public abstract class ContractCompanion<Ct, Id, Data>
     public WithKey(
         String templateClassName,
         Identifier templateId,
+        Identifier templateIdWithPackageId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         FromJson<Data> fromJson,
         NewContract<Ct, Id, Data, Key> newContract,
         List<Choice<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
-      super(templateClassName, templateId, newContractId, fromValue, fromJson, choices);
+      super(
+          templateClassName,
+          templateId,
+          templateIdWithPackageId,
+          newContractId,
+          fromValue,
+          fromJson,
+          choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
     }
