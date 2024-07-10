@@ -20,12 +20,20 @@ import scala.language.implicitConversions
 
 class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
-class EncodeSpec(languageVersion: LanguageVersion)
+abstract class EncodeSpec(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
   import EncodeSpec._
+
+  private val stablePackages =
+    com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major)
+
+  private val tuple2TyCon: String = {
+    import stablePackages.Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   private val pkgId: PackageId = "self"
 
@@ -158,7 +166,7 @@ class EncodeSpec(languageVersion: LanguageVersion)
            val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
-           val aFecthByKey: Party -> Update <contract: Mod:Person, contractId: ContractId Mod:Person> = \(party: Party) ->
+           val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
              lookup_by_key @Mod:Person party;
@@ -260,6 +268,18 @@ class EncodeSpec(languageVersion: LanguageVersion)
     }
   }
 
+  private def validate(pkgId: PackageId, pkg: Package): Unit = {
+    Validation
+      .checkPackage(
+        stablePackages,
+        language.PackageInterface(stablePackages.packagesMap + (pkgId -> pkg)),
+        pkgId,
+        pkg,
+      )
+      .left
+      .foreach(e => sys.error(e.toString))
+  }
+
 }
 
 object EncodeSpec {
@@ -278,11 +298,5 @@ object EncodeSpec {
 
     normalizer.apply(pkg)
   }
-
-  private def validate(pkgId: PackageId, pkg: Package): Unit =
-    Validation
-      .checkPackage(language.PackageInterface(Map(pkgId -> pkg)), pkgId, pkg)
-      .left
-      .foreach(e => sys.error(e.toString))
 
 }

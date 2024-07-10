@@ -33,7 +33,6 @@ da_scala_library(
         ":transaction_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/stable-packages",
         "//libs-scala/crypto",
         "//libs-scala/safe-proto",
         "//libs-scala/scala-utils",

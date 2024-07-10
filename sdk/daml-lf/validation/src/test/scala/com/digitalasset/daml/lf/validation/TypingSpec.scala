@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.language.{
   Reference,
   LanguageVersion => LV,
 }
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -21,7 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
 
-class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
+abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers {
@@ -35,6 +36,13 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     PackageVersion.assertFromString("0.0.0"),
     None,
   )
+
+  private[this] val stablePackages = StablePackages(majorLanguageVersion)
+
+  private[this] val tuple2TyCon: String = {
+    import stablePackages.Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   import SpecUtil._
 
@@ -417,7 +425,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
           T"ContractId Mod:I → (( Update Mod:I ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
-          T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
+          T"Party → (( Update ($tuple2TyCon (ContractId Mod:T) Mod:T) ))",
         E"λ (e: Party) →  (( lookup_by_key @Mod:T e ))" ->
           T"Party → (( Update (Option (ContractId Mod:T)) ))",
         E"(( uget_time ))" ->
@@ -1410,9 +1418,10 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       val pkgIface = PackageInterface(Map(defaultPackageId -> pkg))
 
       def checkModule(modName: String): Unit = Typing.checkModule(
-        pkgIface,
-        defaultPackageId,
-        pkg.modules(DottedName.assertFromString(modName)),
+        stablePackages = stablePackages,
+        pkgInterface = pkgIface,
+        pkgId = defaultPackageId,
+        mod = pkg.modules(DottedName.assertFromString(modName)),
       )
 
       checkModule("NegativeTestCase") shouldBe ()
@@ -1660,9 +1669,10 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(pkg: Package, modName: String) =
         Typing.checkModule(
-          pkgInterface,
-          defaultPackageId,
-          pkg.modules(DottedName.assertFromString(modName)),
+          stablePackages = stablePackages,
+          pkgInterface = pkgInterface,
+          pkgId = defaultPackageId,
+          mod = pkg.modules(DottedName.assertFromString(modName)),
         )
 
       checkModule(pkg, "NegativeTestCase")
@@ -1760,9 +1770,10 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       """
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        PackageInterface(Map(defaultPackageId -> pkg)),
-        defaultPackageId,
-        pkg.modules(DottedName.assertFromString(modName)),
+        stablePackages = stablePackages,
+        pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
+        pkgId = defaultPackageId,
+        mod = pkg.modules(DottedName.assertFromString(modName)),
       )
 
       checkModule(pkg, "NegativeTestCase")
@@ -1791,7 +1802,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       """
 
       val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
-      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      Typing.checkModule(
+        stablePackages = stablePackages,
+        pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
+        pkgId = defaultPackageId,
+        mod = mod,
+      )
     }
 
     "expand type synonyms correctly" in {
@@ -1857,7 +1873,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
-        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+        Typing.checkModule(
+          stablePackages = stablePackages,
+          pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
+          pkgId = defaultPackageId,
+          mod = mod,
+        )
       }
 
       val negativeTestCases = Table(
@@ -1880,7 +1901,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
-        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+        Typing.checkModule(
+          stablePackages = stablePackages,
+          pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
+          pkgId = defaultPackageId,
+          mod = mod,
+        )
       }
 
       val negativeTestCases = Table(
@@ -1903,7 +1929,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
-        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+        Typing.checkModule(
+          stablePackages = stablePackages,
+          pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
+          pkgId = defaultPackageId,
+          mod = mod,
+        )
       }
 
       val negativeTestCases = Table(
@@ -2002,7 +2033,12 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
        }
      """
-    Typing.Env(LV.default, PackageInterface(Map(defaultPackageId -> pkg)), Context.None)
+    Typing.Env(
+      LV.default,
+      stablePackages,
+      PackageInterface(Map(defaultPackageId -> pkg)),
+      Context.None,
+    )
   }
 
 }

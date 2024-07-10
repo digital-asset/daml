@@ -8,7 +8,12 @@ import com.digitalasset.daml.lf.data.TemplateOrInterface
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
+import com.digitalasset.daml.lf.language.{
+  LanguageVersion,
+  PackageInterface,
+  Reference,
+  StablePackages,
+}
 import com.digitalasset.daml.lf.language.iterable.TypeIterable
 import com.digitalasset.daml.lf.validation.Util._
 import com.daml.scalautil.Statement.discard
@@ -301,16 +306,22 @@ private[validation] object Typing {
     case BCUnit => TUnit
   }
 
-  def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, mod: Module): Unit = { // entry point
+  def checkModule(
+      stablePackages: StablePackages,
+      pkgInterface: PackageInterface,
+      pkgId: PackageId,
+      mod: Module,
+  ): Unit = { // entry point
     val langVersion = handleLookup(Context.None, pkgInterface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
           Env(
-            langVersion,
-            pkgInterface,
-            Context.DefDataType(pkgId, mod.name, dfnName),
-            params.toMap,
+            languageVersion = langVersion,
+            stablePackages = stablePackages,
+            pkgInterface = pkgInterface,
+            ctx = Context.DefDataType(pkgId, mod.name, dfnName),
+            tVars = params.toMap,
           )
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
@@ -327,17 +338,35 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        Env(langVersion, pkgInterface, Context.DefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+        Env(
+          languageVersion = langVersion,
+          stablePackages = stablePackages,
+          pkgInterface = pkgInterface,
+          ctx = Context.DefValue(pkgId, mod.name, dfnName),
+        ).checkDValue(dfn)
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
-          Env(langVersion, pkgInterface, Context.Template(pkgId, mod.name, dfnName), params.toMap)
+          Env(
+            languageVersion = langVersion,
+            stablePackages = stablePackages,
+            pkgInterface = pkgInterface,
+            ctx = Context.Template(pkgId, mod.name, dfnName),
+            tVars = params.toMap,
+          )
         params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-      val env = Env(langVersion, pkgInterface, Context.Template(tyConName), Map.empty)
+      val env =
+        Env(
+          languageVersion = langVersion,
+          stablePackages = stablePackages,
+          pkgInterface = pkgInterface,
+          ctx = Context.Template(tyConName),
+          tVars = Map.empty,
+        )
       handleLookup(env.ctx, pkgInterface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkTemplate(tyConName, template)
@@ -347,7 +376,14 @@ private[validation] object Typing {
     }
     mod.exceptions.foreach { case (exnName, message) =>
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-      val env = Env(langVersion, pkgInterface, Context.DefException(tyConName), Map.empty)
+      val env =
+        Env(
+          languageVersion = langVersion,
+          stablePackages = stablePackages,
+          pkgInterface = pkgInterface,
+          ctx = Context.DefException(tyConName),
+          tVars = Map.empty,
+        )
       handleLookup(env.ctx, pkgInterface.lookupDataType(tyConName)) match {
         case DDataType(_, ImmArray(), DataRecord(_)) =>
           env.checkDefException(tyConName, message)
@@ -358,18 +394,29 @@ private[validation] object Typing {
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
-      val env = Env(langVersion, pkgInterface, Context.DefInterface(tyConName), Map.empty)
+      val env =
+        Env(
+          languageVersion = langVersion,
+          stablePackages = stablePackages,
+          pkgInterface = pkgInterface,
+          ctx = Context.DefInterface(tyConName),
+          tVars = Map.empty,
+        )
       env.checkDefIface(tyConName, iface)
     }
   }
 
   case class Env(
       languageVersion: LanguageVersion,
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
       eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
+
+    private[lf] def TTuple2(t1: Type, t2: Type) =
+      TApp(TApp(TTyCon(stablePackages.Tuple2), t1), t2)
 
     private[lf] def kindOf(typ: Type): Kind = { // testing entry point
       // must *NOT* be used for sub-types
@@ -602,7 +649,12 @@ private[validation] object Typing {
         handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
 
       // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
-      val env = Env(languageVersion, pkgInterface, ctx)
+      val env = Env(
+        languageVersion = languageVersion,
+        stablePackages = stablePackages,
+        pkgInterface = pkgInterface,
+        ctx = ctx,
+      )
         .introExprVar(tmplParam, TTyCon(templateId))
 
       requires
@@ -1320,18 +1372,14 @@ private[validation] object Typing {
         }
       case UpdateFetchByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key) {
-          // fetches return the contract id and the contract itself
-          val ty = TUpdate(
-            TStruct(
-              Struct.assertFromSeq(
-                List(
-                  contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
-                  contractFieldName -> TTyCon(retrieveByKey.templateId),
-                )
+          Ret(
+            TUpdate(
+              TTuple2(
+                TContractId(TTyCon(retrieveByKey.templateId)),
+                TTyCon(retrieveByKey.templateId),
               )
             )
           )
-          Ret(ty)
         }
       case UpdateLookupByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key) {

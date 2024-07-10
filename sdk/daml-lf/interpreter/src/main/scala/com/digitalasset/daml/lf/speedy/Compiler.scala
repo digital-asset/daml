@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SExpr => t}
 import com.digitalasset.daml.lf.speedy.{SExpr0 => s}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
@@ -453,7 +453,7 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(pkgInterface, pkgId, pkg).left.foreach(throw _)
+        Validation.checkPackage(StablePackagesV2, pkgInterface, pkgId, pkg).left.foreach(throw _)
     }
 
     val t1 = Time.Timestamp.now()
@@ -994,8 +994,10 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] val FetchByKeyResult =
-    SBStructCon(Struct.assertFromSeq(List(contractIdFieldName, contractFieldName).zipWithIndex))
+  private[this] val Tuple2 = {
+    val fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2"))
+    SBRecCon(StablePackagesV2.Tuple2, fields)
+  }
 
   @inline
   private[this] def compileFetchByKey(
@@ -1020,7 +1022,7 @@ private[lf] final class Compiler(
               tokenPos,
             ),
           ) { (contractPos, env) =>
-            FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
+            Tuple2(env.toSEVar(cidPos), env.toSEVar(contractPos))
           }
         }
       }

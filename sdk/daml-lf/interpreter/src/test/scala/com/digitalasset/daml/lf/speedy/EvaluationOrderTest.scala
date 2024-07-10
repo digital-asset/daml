@@ -52,7 +52,7 @@ class TestTraceLog extends TraceLog {
 
 class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
 
-class EvaluationOrderTest(languageVersion: LanguageVersion)
+abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside {
@@ -64,6 +64,12 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
     ParserParameters(packageId, languageVersion = languageVersion)
 
   private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
+
+  private[this] final def tuple2TyCon: String = {
+    val Tuple2 =
+      com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major).Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {
@@ -277,7 +283,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party
           to let key: M:TKey = Test:buildTKey params
-             in Test:run @<contract: M:T, contractId: ContractId M:T> (fetch_by_key @M:T key);
+             in Test:run @($tuple2TyCon (ContractId M:T) M:T) (fetch_by_key @M:T key);
         choice LookupByKey (self) (params: Test:TKeyParams): Unit,
           controllers Cons @Party [Test:Helper {sig} this] (Nil @Party),
           observers Nil @Party

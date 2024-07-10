@@ -24,6 +24,7 @@ da_scala_binary(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/scenario-interpreter",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",

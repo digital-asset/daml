@@ -648,7 +648,7 @@ typeOfUpdate = \case
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
     (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TStruct [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
+    return (TUpdate (TTuple2 cidType contractType))
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))

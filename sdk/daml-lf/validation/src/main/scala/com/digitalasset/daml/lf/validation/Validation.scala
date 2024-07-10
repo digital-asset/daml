@@ -6,7 +6,7 @@ package validation
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.PackageInterface
+import com.digitalasset.daml.lf.language.{PackageInterface, StablePackages}
 
 object Validation {
 
@@ -17,31 +17,40 @@ object Validation {
       case e: ValidationError => Left(e)
     }
 
-  def checkPackages(pkgs: Map[PackageId, Package]): Either[ValidationError, Unit] =
-    runSafely {
-      unsafeCheckPackages(PackageInterface(pkgs), pkgs)
-    }
+  def checkPackages(
+      stablePackages: StablePackages,
+      pkgs: Map[PackageId, Package],
+  ): Either[ValidationError, Unit] =
+    runSafely(
+      unsafeCheckPackages(stablePackages, PackageInterface(pkgs), pkgs)
+    )
 
   private[lf] def checkPackages(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgs: Map[PackageId, Package],
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckPackages(pkgInterface, pkgs))
+    runSafely(unsafeCheckPackages(stablePackages, pkgInterface, pkgs))
 
   private[lf] def unsafeCheckPackages(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgs: Map[PackageId, Package],
   ): Unit =
-    pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(pkgInterface, pkgId, pkg) }
+    pkgs.foreach { case (pkgId, pkg) =>
+      unsafeCheckPackage(stablePackages, pkgInterface, pkgId, pkg)
+    }
 
   def checkPackage(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckPackage(pkgInterface, pkgId, pkg))
+    runSafely(unsafeCheckPackage(stablePackages, pkgInterface, pkgId, pkg))
 
   private def unsafeCheckPackage(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
@@ -49,22 +58,24 @@ object Validation {
     Collision.checkPackage(pkgId, pkg)
     Recursion.checkPackage(pkgId, pkg)
     DependencyVersion.checkPackage(pkgInterface, pkgId, pkg)
-    pkg.modules.values.foreach(unsafeCheckModule(pkgInterface, pkgId, _))
+    pkg.modules.values.foreach(unsafeCheckModule(stablePackages, pkgInterface, pkgId, _))
   }
 
   private[lf] def checkModule(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgId: PackageId,
       module: Module,
   ): Either[ValidationError, Unit] =
-    runSafely(unsafeCheckModule(pkgInterface, pkgId, module))
+    runSafely(unsafeCheckModule(stablePackages, pkgInterface, pkgId, module))
 
   private def unsafeCheckModule(
+      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgId: PackageId,
       mod: Module,
   ): Unit = {
-    Typing.checkModule(pkgInterface, pkgId, mod)
+    Typing.checkModule(stablePackages, pkgInterface, pkgId, mod)
     Serializability.checkModule(pkgInterface, pkgId, mod)
   }
 }
