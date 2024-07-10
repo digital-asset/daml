@@ -17,7 +17,6 @@ import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Implicits.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -149,18 +148,16 @@ class DbCryptoPrivateStore(
       purpose: KeyPurpose,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
-    EitherTUtil
-      .fromFuture[CryptoPrivateStoreError, Option[StoredPrivateKey]](
-        storage
-          .querySingle(
-            queryKey(keyId, purpose),
-            functionFullName,
-          )
-          .value,
-        err => CryptoPrivateStoreError.FailedToReadKey(keyId, err.toString),
-      )
-      .mapK(FutureUnlessShutdown.outcomeK)
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]] = {
+    EitherT.right(
+      storage
+        .querySingleUnlessShutdown(
+          queryKey(keyId, purpose),
+          functionFullName,
+        )
+        .value
+    )
+  }
 
   private[crypto] def writePrivateKey(
       key: StoredPrivateKey
@@ -172,15 +169,13 @@ class DbCryptoPrivateStore(
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
-    EitherTUtil
-      .fromFuture[CryptoPrivateStoreError, Set[StoredPrivateKey]](
-        storage
-          .query(queryKeys(purpose), functionFullName)
-          .map(keys => keys.filter(_.isEncrypted == encrypted)),
-        err => CryptoPrivateStoreError.FailedToListKeys(err.toString),
-      )
-      .mapK(FutureUnlessShutdown.outcomeK)
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] = {
+    EitherT.right(
+      storage
+        .queryUnlessShutdown(queryKeys(purpose), functionFullName)
+        .map(keys => keys.filter(_.isEncrypted == encrypted))
+    )
+  }
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
     sqlu"delete from common_crypto_private_keys where key_id = $keyId"
@@ -191,28 +186,24 @@ class DbCryptoPrivateStore(
   private[crypto] def replaceStoredPrivateKeys(newKeys: Seq[StoredPrivateKey])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    EitherTUtil
-      .fromFuture[CryptoPrivateStoreError, Unit](
-        storage
-          .update_(
-            DBIOAction
-              .sequence(
-                newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
-              )
-              .transactionally,
-            functionFullName,
-          ),
-        err => CryptoPrivateStoreError.FailedToReplaceKeys(newKeys.map(_.id), err.toString),
-      )
-      .mapK(FutureUnlessShutdown.outcomeK)
+    EitherT.right(
+      storage
+        .updateUnlessShutdown_(
+          DBIOAction
+            .sequence(
+              newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
+            )
+            .transactionally,
+          functionFullName,
+        )
+    )
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    EitherTUtil.fromFuture(
+    EitherT.right(
       storage
-        .updateUnlessShutdown_(deleteKey(keyId), functionFullName),
-      err => CryptoPrivateStoreError.FailedToDeleteKey(keyId, err.toString),
+        .updateUnlessShutdown_(deleteKey(keyId), functionFullName)
     )
 
   private[crypto] def encrypted(
@@ -235,27 +226,23 @@ class DbCryptoPrivateStore(
   private[crypto] def getWrapperKeyId()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
-    EitherTUtil
-      .fromFuture(
-        storage.queryUnlessShutdown(
-          {
+    EitherT
+      .right(
+        storage
+          .queryUnlessShutdown(
             sql"select distinct wrapper_key_id from common_crypto_private_keys"
               .as[Option[String300]]
-              .map(_.toSeq)
-          },
-          functionFullName,
-        ),
-        err => CryptoPrivateStoreError.FailedToGetWrapperKeyId(err.toString),
+              .map(_.toSeq),
+            functionFullName,
+          )
       )
-      .transform {
-        case Left(err) => Left(err)
-        case Right(wrapper_keys) =>
-          if (wrapper_keys.size > 1)
-            Left(
-              CryptoPrivateStoreError
-                .FailedToGetWrapperKeyId("Found more than one distinct wrapper_key_id")
-            )
-          else
-            Right(wrapper_keys.flatten.headOption)
+      .subflatMap { wrapperKeys =>
+        if (wrapperKeys.size > 1)
+          Left(
+            CryptoPrivateStoreError
+              .FailedToGetWrapperKeyId("Found more than one distinct wrapper_key_id")
+          )
+        else
+          Right(wrapperKeys.flatten.headOption)
       }
 }

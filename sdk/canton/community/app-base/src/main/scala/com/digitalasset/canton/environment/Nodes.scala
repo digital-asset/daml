@@ -206,7 +206,7 @@ class ManagedNodes[
       for {
         cAndP <- configAndParams(name)
         (config, params) = cAndP
-        _ <- runMigration(name, config.storage, params.devVersionSupport)
+        _ <- runMigration(name, config.storage, params.alphaVersionSupport)
       } yield ()
     }
   )
@@ -216,7 +216,7 @@ class ManagedNodes[
       for {
         cAndP <- configAndParams(name)
         (config, params) = cAndP
-        _ <- runRepairMigration(name, config.storage, params.devVersionSupport)
+        _ <- runRepairMigration(name, config.storage, params.alphaVersionSupport)
       } yield ()
     }
   )
@@ -299,7 +299,7 @@ class ManagedNodes[
       params: CantonNodeParameters,
   ): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
-      val migrations = migrationsFactory.create(dbConfig, name, params.devVersionSupport)
+      val migrations = migrationsFactory.create(dbConfig, name, params.alphaVersionSupport)
       import TraceContext.Implicits.Empty.*
       logger.info(s"Setting up database schemas for $name")
 
@@ -332,11 +332,11 @@ class ManagedNodes[
   private def runMigration(
       name: InstanceName,
       storageConfig: StorageConfig,
-      devVersionSupport: Boolean,
+      alphaVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
       migrationsFactory
-        .create(dbConfig, name, devVersionSupport)
+        .create(dbConfig, name, alphaVersionSupport)
         .migrateDatabase()
         .leftMap(FailedDatabaseMigration(name, _))
         .value
@@ -346,11 +346,11 @@ class ManagedNodes[
   private def runRepairMigration(
       name: InstanceName,
       storageConfig: StorageConfig,
-      devVersionSupport: Boolean,
+      alphaVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
       migrationsFactory
-        .create(dbConfig, name, devVersionSupport)
+        .create(dbConfig, name, alphaVersionSupport)
         .repairFlywayMigration()
         .leftMap(FailedDatabaseRepairMigration(name, _))
         .value

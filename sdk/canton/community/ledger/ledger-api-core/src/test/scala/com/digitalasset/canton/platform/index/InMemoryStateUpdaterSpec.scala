@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.index
 
 import cats.syntax.bifunctor.toBifunctorOps
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion

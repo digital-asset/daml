@@ -78,7 +78,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()
       override def useUnifiedSequencer: Boolean = false
-      override def devVersionSupport: Boolean = false
+      override def alphaVersionSupport: Boolean = false
       override def watchdog: Option[WatchdogConfig] = None
     }
   }
@@ -97,7 +97,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
       disableUpgradeValidation: Boolean = false,
-      devVersionSupport: Boolean = false,
+      alphaVersionSupport: Boolean = false,
       betaVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store.memory
 
 import cats.implicits.catsSyntaxSemigroup
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.LfPackageId

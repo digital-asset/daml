@@ -11,7 +11,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.admin.v30
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.crypto.{v30 as cryptoproto, *}
 import com.digitalasset.canton.error.BaseCantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -59,11 +59,7 @@ class GrpcVaultService(
   override def listMyKeys(request: v30.ListMyKeysRequest): Future[v30.ListMyKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
-      keys <- crypto.cryptoPublicStore.publicKeysWithName
-        .leftMap[BaseCantonError] { err =>
-          CryptoPublicStoreError.ErrorCode
-            .WrapStr(s"Failed to retrieve public keys: $err")
-        }
+      keys <- EitherT.right(crypto.cryptoPublicStore.publicKeysWithName)
       publicKeys <-
         keys.toList.parFilterA(pk =>
           crypto.cryptoPrivateStore
@@ -100,7 +96,7 @@ class GrpcVaultService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       publicKey <-
-        FutureUnlessShutdown.pure(
+        FutureUnlessShutdown.wrap(
           ProtoConverter
             .parse(
               cryptoproto.PublicKey.parseFrom,
@@ -109,14 +105,12 @@ class GrpcVaultService(
             )
             .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
         )
-      name <- FutureUnlessShutdown.pure(
+      name <- FutureUnlessShutdown.wrap(
         KeyName
           .fromProtoPrimitive(request.name)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
-      _ <- crypto.cryptoPublicStore
-        .storePublicKey(publicKey, name.emptyStringAsNone)
-        .valueOr(err => throw CryptoPublicStoreError.ErrorCode.Wrap(err).asGrpcError)
+      _ <- crypto.cryptoPublicStore.storePublicKey(publicKey, name.emptyStringAsNone)
     } yield v30.ImportPublicKeyResponse(fingerprint = publicKey.fingerprint.unwrap)
   }.failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 
@@ -125,15 +119,11 @@ class GrpcVaultService(
   ): Future[v30.ListPublicKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     crypto.cryptoPublicStore.publicKeysWithName
-      .map(keys =>
+      .map { keys =>
         v30.ListPublicKeysResponse(listPublicKeys(request.filters, keys).map(_.toProtoV30))
-      )
-      .valueOr(err =>
-        throw CryptoPublicStoreError.ErrorCode
-          .WrapStr(s"Failed to retrieve public keys: $err")
-          .asGrpcError
-      )
-  }.failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+      }
+      .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+  }
 
   override def generateSigningKey(
       request: v30.GenerateSigningKeyRequest
@@ -232,7 +222,7 @@ class GrpcVaultService(
               .asRuntimeException()
           )
       cryptoPrivateStore <-
-        FutureUnlessShutdown.pure(
+        FutureUnlessShutdown.wrap(
           crypto.cryptoPrivateStore.toExtended.getOrElse(
             throw Status.FAILED_PRECONDITION
               .withDescription(
@@ -242,7 +232,7 @@ class GrpcVaultService(
           )
         )
       fingerprint <-
-        FutureUnlessShutdown.pure(
+        FutureUnlessShutdown.wrap(
           Fingerprint
             .fromProtoPrimitive(request.fingerprint)
             .valueOr(err =>
@@ -252,7 +242,7 @@ class GrpcVaultService(
             )
         )
       protocolVersion <-
-        FutureUnlessShutdown.pure(
+        FutureUnlessShutdown.wrap(
           ProtocolVersion
             .fromProtoPrimitive(request.protocolVersion)
             .valueOr(err =>
@@ -276,8 +266,7 @@ class GrpcVaultService(
       publicKey <- EitherTUtil.toFutureUnlessShutdown(
         crypto.cryptoPublicStore
           .publicKey(fingerprint)
-          .leftMap(_.toString)
-          .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
+          .toRight(s"no public key found for [$fingerprint]")
           .leftMap(err =>
             Status.FAILED_PRECONDITION
               .withDescription(s"Error retrieving public key [$fingerprint] $err")
@@ -351,7 +340,7 @@ class GrpcVaultService(
         keyPair: CryptoKeyPair[PublicKey, PrivateKey],
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       for {
-        cryptoPrivateStore <- FutureUnlessShutdown.pure(
+        cryptoPrivateStore <- FutureUnlessShutdown.wrap(
           crypto.cryptoPrivateStore.toExtended.getOrElse(
             throw Status.FAILED_PRECONDITION
               .withDescription(
@@ -360,20 +349,7 @@ class GrpcVaultService(
               .asRuntimeException()
           )
         )
-        _ <- crypto.cryptoPublicStore
-          .storePublicKey(keyPair.publicKey, validatedName)
-          .recoverWith {
-            // if the existing key is the same, then ignore error
-            case error: CryptoPublicStoreError.KeyAlreadyExists =>
-              for {
-                existing <- crypto.cryptoPublicStore.publicKey(keyPair.publicKey.fingerprint)
-                _ <-
-                  if (existing.contains(keyPair.publicKey))
-                    EitherT.rightT[FutureUnlessShutdown, CryptoPublicStoreError](())
-                  else EitherT.leftT[FutureUnlessShutdown, Unit](error: CryptoPublicStoreError)
-              } yield ()
-          }
-          .valueOr(err => throw CryptoPublicStoreError.ErrorCode.Wrap(err).asGrpcError)
+        _ <- crypto.cryptoPublicStore.storePublicKey(keyPair.publicKey, validatedName)
         _ = logger.info(s"Uploading key ${validatedName}")
         _ <- cryptoPrivateStore
           .storePrivateKey(keyPair.privateKey, validatedName)
@@ -381,7 +357,7 @@ class GrpcVaultService(
       } yield ()
 
     for {
-      validatedName <- FutureUnlessShutdown.pure(
+      validatedName <- FutureUnlessShutdown.wrap(
         OptionUtil
           .emptyStringAsNone(request.name)
           .traverse(KeyName.create)
@@ -423,24 +399,25 @@ class GrpcVaultService(
   ): Future[v30.DeleteKeyPairResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
-      fingerprint <- Future(
+      fingerprint <- FutureUnlessShutdown.wrap(
         Fingerprint
           .fromProtoPrimitive(request.fingerprint)
-          .valueOr(err =>
+          .valueOr { err =>
             throw ProtoDeserializationFailure
               .WrapNoLoggingStr(s"Failed to parse key fingerprint: $err")
               .asGrpcError
-          )
+          }
       )
-      _ <- CantonGrpcUtil.mapErrNewEUS {
-        crypto.cryptoPrivateStore
-          .removePrivateKey(fingerprint)
-          .leftMap(err =>
-            ProtoDeserializationFailure.WrapNoLoggingStr(s"Failed to remove private key: $err")
-          )
-      }
+      _ <- crypto.cryptoPrivateStore
+        .removePrivateKey(fingerprint)
+        .valueOr { err =>
+          throw Status.FAILED_PRECONDITION
+            .withDescription(s"Failed to remove private key: $err")
+            .asRuntimeException()
+        }
+      _ <- crypto.cryptoPublicStore.deleteKey(fingerprint)
     } yield v30.DeleteKeyPairResponse()
-  }
+  }.failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 }
 
 object GrpcVaultService {

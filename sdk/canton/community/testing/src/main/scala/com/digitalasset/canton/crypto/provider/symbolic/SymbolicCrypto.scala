@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.crypto.provider.symbolic
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -37,27 +37,34 @@ class SymbolicCrypto(
       loggerFactory,
     ) {
 
-  private def process[E, A](
+  private def processE[E, A](
       description: String
-  )(fn: TraceContext => EitherT[FutureUnlessShutdown, E, A]): A = {
+  )(fn: TraceContext => EitherT[FutureUnlessShutdown, E, A]): A =
+    process(description)(fn(_).valueOr(err => sys.error(s"Failed operation $description: $err")))
+
+  private def processO[A](
+      description: String
+  )(fn: TraceContext => OptionT[FutureUnlessShutdown, A]): Option[A] =
+    process(description)(fn(_).value)
+
+  private def process[A](description: String)(fn: TraceContext => FutureUnlessShutdown[A]): A = {
     TraceContext.withNewTraceContext { implicit traceContext =>
       timeouts.default.await(description) {
         fn(traceContext)
-          .valueOr(err => sys.error(s"Failed operation $description: $err"))
           .onShutdown(sys.error("aborted due to shutdown"))
       }
     }
   }
 
   def getOrGenerateSymbolicSigningKey(name: String): SigningPublicKey = {
-    process("get or generate symbolic signing key") { implicit traceContext =>
+    processO("get or generate symbolic signing key") { implicit traceContext =>
       cryptoPublicStore
         .findSigningKeyIdByName(KeyName.tryCreate(name))
     }.getOrElse(generateSymbolicSigningKey(Some(name)))
   }
 
   def getOrGenerateSymbolicEncryptionKey(name: String): EncryptionPublicKey = {
-    process("get or generate symbolic encryption key") { implicit traceContext =>
+    processO("get or generate symbolic encryption key") { implicit traceContext =>
       cryptoPublicStore
         .findEncryptionKeyIdByName(KeyName.tryCreate(name))
     }.getOrElse(generateSymbolicEncryptionKey(Some(name)))
@@ -67,7 +74,7 @@ class SymbolicCrypto(
   def generateSymbolicSigningKey(
       name: Option[String] = None
   ): SigningPublicKey = {
-    process("generate symbolic signing key") { implicit traceContext =>
+    processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       generateSigningKey(SigningKeyScheme.Ed25519, name.map(KeyName.tryCreate))
     }
@@ -75,7 +82,7 @@ class SymbolicCrypto(
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */
   def newSymbolicSigningKeyPair(): SigningKeyPair = {
-    process("generate symbolic signing keypair") { implicit traceContext =>
+    processE("generate symbolic signing keypair") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       privateCrypto
         .generateSigningKeypair(SigningKeyScheme.Ed25519)
@@ -85,7 +92,7 @@ class SymbolicCrypto(
   def generateSymbolicEncryptionKey(
       name: Option[String] = None
   ): EncryptionPublicKey =
-    process("generate symbolic encryption key") { implicit traceContext =>
+    processE("generate symbolic encryption key") { implicit traceContext =>
       // We don't care about the encryption key scheme in symbolic crypto
       generateEncryptionKey(
         EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm,
@@ -94,7 +101,7 @@ class SymbolicCrypto(
     }
 
   def newSymbolicEncryptionKeyPair(): EncryptionKeyPair = {
-    process("generate symbolic encryption keypair") { implicit traceContext =>
+    processE("generate symbolic encryption keypair") { implicit traceContext =>
       // We don't care about the encryption key scheme in symbolic crypto
       privateCrypto
         .generateEncryptionKeypair(EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
@@ -102,7 +109,7 @@ class SymbolicCrypto(
   }
 
   def sign(hash: Hash, signingKeyId: Fingerprint): Signature =
-    process("symbolic signing") { implicit traceContext =>
+    processE("symbolic signing") { implicit traceContext =>
       privateCrypto.sign(hash, signingKeyId)
     }
 
@@ -128,7 +135,7 @@ object SymbolicCrypto {
       DirectExecutionContext(loggerFactory.getLogger(this.getClass))
 
     val pureCrypto = new SymbolicPureCrypto()
-    val cryptoPublicStore = new InMemoryCryptoPublicStore
+    val cryptoPublicStore = new InMemoryCryptoPublicStore(loggerFactory)
     val cryptoPrivateStore = new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
     val privateCrypto = new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore)
 

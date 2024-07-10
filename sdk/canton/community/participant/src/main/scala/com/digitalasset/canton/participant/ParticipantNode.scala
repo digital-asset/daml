@@ -882,7 +882,7 @@ object ParticipantNodeBootstrap {
 
     override protected def createEngine(arguments: Arguments): Engine =
       DAMLe.newEngine(
-        enableLfDev = arguments.parameterConfig.devVersionSupport,
+        enableLfDev = arguments.parameterConfig.alphaVersionSupport,
         enableLfBeta = arguments.parameterConfig.betaVersionSupport,
         enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
         iterationsBetweenInterruptions =

@@ -7,12 +7,14 @@ import cats.implicits.*
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencer.admin.v30.{
+  GetOrderingTopologyResponse,
   GetPeerNetworkStatusResponse,
   PeerEndpoint,
   PeerEndpointHealth as ProtoPeerEndpointHealth,
   PeerEndpointHealthStatus as ProtoPeerEndpointHealthStatus,
   PeerEndpointStatus as ProtoPeerEndpointStatus,
 }
+import com.digitalasset.canton.topology.SequencerId
 
 object EnterpriseSequencerBftAdminData {
 
@@ -88,5 +90,25 @@ object EnterpriseSequencerBftAdminData {
         }
         .sequence
         .map(PeerNetworkStatus(_))
+  }
+
+  final case class OrderingTopology(currentEpoch: Long, sequencerIds: Seq[SequencerId]) {
+
+    def toProto: GetOrderingTopologyResponse =
+      GetOrderingTopologyResponse.of(currentEpoch, sequencerIds.map(_.toProtoPrimitive))
+  }
+
+  object OrderingTopology {
+    def fromProto(response: GetOrderingTopologyResponse): Either[String, OrderingTopology] =
+      response.sequencerIds
+        .map { sequencerIdString =>
+          for {
+            sequencerId <- SequencerId
+              .fromProtoPrimitive(sequencerIdString, "sequencerId")
+              .leftMap(_.toString)
+          } yield sequencerId
+        }
+        .sequence
+        .map(OrderingTopology(response.currentEpoch, _))
   }
 }

@@ -10,12 +10,12 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion.{
+  alpha,
   beta,
   deleted,
   deprecated,
   stable,
   supported,
-  unstable,
 }
 import pureconfig.error.FailureReason
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -38,11 +38,11 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   *
   * How to add a new protocol version `N`:
   *  - Define a new constant `v<N>` in the [[ProtocolVersion$]] object via
-  *    {{{lazy val v<N>: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(<N>)}}}
+  *    {{{lazy val v<N>: ProtocolVersionWithStatus[Alpha] = ProtocolVersion.alpha(<N>)}}}
   *
-  *  - The new protocol version should be declared as unstable until it is released:
-  *    Define it with type argument [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Unstable]]
-  *    and add it to the list in [[com.digitalasset.canton.version.ProtocolVersion.unstable]].
+  *  - The new protocol version should be declared as alpha until it is released:
+  *    Define it with type argument [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Alpha]]
+  *    and add it to the list in [[com.digitalasset.canton.version.ProtocolVersion.alpha]].
   *
   *  - Add a new test job for the protocol version `N` to the canton_build workflow.
   *    Make a sensible decision how often it should run.
@@ -51,16 +51,16 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   *
   * How to release a protocol version `N`:
   *  - Switch the type parameter of the protocol version constant `v<N>` from
-  *    [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Unstable]] to [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Stable]]
+  *    [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Alpha]] to [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Stable]]
   *    As a result, you may have to modify a couple of protobuf definitions and mark them as stable as well.
   *
-  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
+  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.alpha]]
   *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.stableProtocolVersions]].
   *
   * How to release a protocol version `N` as Beta:
   *  - Switch the type parameter of the protocol version constant `v<N>` from
-  *    [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Unstable]] to [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Beta]]
-  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.unstable]]
+  *    [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Alpha]] to [[com.digitalasset.canton.version.ProtocolVersionAnnotation.Beta]]
+  *  - Remove `v<N>` from [[com.digitalasset.canton.version.ProtocolVersion.alpha]]
   *    and add it to [[com.digitalasset.canton.buildinfo.BuildInfo.betaProtocolVersions]].
   *
   *  - Check the test jobs for protocol versions:
@@ -79,7 +79,7 @@ sealed case class ProtocolVersion private[version] (v: Int)
 
   def isDeprecated: Boolean = deprecated.contains(this)
 
-  def isUnstable: Boolean = unstable.contains(this)
+  def isUnstable: Boolean = alpha.contains(this)
 
   def isBeta: Boolean = beta.contains(this)
 
@@ -110,10 +110,11 @@ object ProtocolVersion {
       v: Int
   ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
     createWithStatus[ProtocolVersionAnnotation.Stable](v)
-  private[version] def createUnstable(
+
+  private[version] def createAlpha(
       v: Int
-  ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    createWithStatus[ProtocolVersionAnnotation.Unstable](v)
+  ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    createWithStatus[ProtocolVersionAnnotation.Alpha](v)
   private[version] def createBeta(
       v: Int
   ): ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta] =
@@ -236,31 +237,31 @@ object ProtocolVersion {
       ProtocolVersion(30),
     )
 
-  val unstable: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable]]] =
+  val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =
     NonEmpty.mk(List, ProtocolVersion.v31, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
     parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
       .map(pv => ProtocolVersion.createBeta(pv.v))
 
-  val supported: NonEmpty[List[ProtocolVersion]] = (unstable ++ beta ++ stable).sorted
+  val supported: NonEmpty[List[ProtocolVersion]] = (alpha ++ beta ++ stable).sorted
 
-  private val allProtocolVersions = deprecated ++ deleted ++ unstable ++ beta ++ stable
+  private val allProtocolVersions = deprecated ++ deleted ++ alpha ++ beta ++ stable
 
   require(
     allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
     s"All the protocol versions should be distinct." +
-      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "unstable" -> unstable, "stable" -> stable)}",
+      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "alpha" -> alpha, "stable" -> stable)}",
   )
 
   // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
-  val latest: ProtocolVersion = stable.lastOption.getOrElse(unstable.head1)
+  val latest: ProtocolVersion = stable.lastOption.getOrElse(alpha.head1)
 
-  lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    ProtocolVersion.createUnstable(Int.MaxValue)
+  lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    ProtocolVersion.createAlpha(Int.MaxValue)
 
-  lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Unstable] =
-    ProtocolVersion.createUnstable(31)
+  lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    ProtocolVersion.createAlpha(31)
 
   // Minimum stable protocol version introduced
   lazy val minimum: ProtocolVersion = v31

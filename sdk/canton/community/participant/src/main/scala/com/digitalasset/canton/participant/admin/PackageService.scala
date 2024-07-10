@@ -9,7 +9,7 @@ import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor

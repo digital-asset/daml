@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.admin
 
 import better.files.*
 import cats.data.EitherT
-import com.digitalasset.daml.lf.archive.DamlLf
-import com.digitalasset.daml.lf.archive.DamlLf.Archive
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor

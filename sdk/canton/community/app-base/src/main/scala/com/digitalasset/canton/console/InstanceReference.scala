@@ -23,7 +23,10 @@ import com.digitalasset.canton.domain.sequencing.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+  OrderingTopology,
+  PeerNetworkStatus,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerClients,
   SequencerPruningStatus,
@@ -1161,6 +1164,12 @@ abstract class SequencerReference(
     def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
       consoleEnvironment.run {
         runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+      }
+
+    @Help.Summary("Get the currently active ordering topology")
+    def get_ordering_topology(): OrderingTopology =
+      consoleEnvironment.run {
+        runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetOrderingTopology())
       }
   }
 }

@@ -95,7 +95,7 @@ object PartyNotificationConfig {
 
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
-    override val devVersionSupport: Boolean,
+    override val alphaVersionSupport: Boolean,
     override val betaVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
 ) extends ProtocolConfig
@@ -331,7 +331,7 @@ object TestingTimeServiceConfig {
   *                                             Setting to zero will disable reusing recent time proofs and will instead always fetch a new proof.
   * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a domain
   * @param initialProtocolVersion The initial protocol version used by the participant (default latest), e.g., used to create the initial topology transactions.
-  * @param devVersionSupport If set to true, will allow the participant to connect to a domain with dev protocol version and will turn on unsafe Daml LF versions.
+  * @param alphaVersionSupport If set to true, will allow the participant to connect to a domain with dev protocol version and will turn on unsafe Daml LF versions.
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
@@ -357,7 +357,7 @@ final case class ParticipantNodeParameterConfig(
       ProtocolVersion.latest
     ),
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    devVersionSupport: Boolean = true,
+    alphaVersionSupport: Boolean = true,
     BetaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(

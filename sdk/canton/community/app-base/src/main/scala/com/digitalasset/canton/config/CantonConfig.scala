@@ -238,7 +238,7 @@ final case class RetentionPeriodDefaults(
   * @param manualStart  If set to true, the nodes have to be manually started via console (default false)
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
-  * @param devVersionSupport If true, allow domain nodes to use unstable protocol versions and participant nodes to connect to such domains
+  * @param alphaVersionSupport If true, allow domain nodes to use alpha protocol versions and participant nodes to connect to such domains
   * @param betaVersionSupport If true, allow domain nodes to use beta protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
@@ -252,7 +252,7 @@ final case class CantonParameters(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     nonStandardConfig: Boolean = true,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    devVersionSupport: Boolean = true,
+    alphaVersionSupport: Boolean = true,
     betaVersionSupport: Boolean = false,
     portsFile: Option[String] = None,
     timeouts: TimeoutSettings = TimeoutSettings(),
@@ -380,7 +380,7 @@ trait CantonConfig {
           participantParameters.transferTimeProofFreshnessProportion,
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
-          devVersionSupport = participantParameters.devVersionSupport,
+          alphaVersionSupport = participantParameters.alphaVersionSupport,
           betaVersionSupport = participantParameters.BetaVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
         ),
@@ -523,7 +523,7 @@ private[canton] object CantonNodeParameterConverter {
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
     CantonNodeParameters.Protocol.Impl(
-      devVersionSupport = parent.parameters.devVersionSupport || config.devVersionSupport,
+      alphaVersionSupport = parent.parameters.alphaVersionSupport || config.alphaVersionSupport,
       betaVersionSupport = parent.parameters.betaVersionSupport || config.betaVersionSupport,
       dontWarnOnDeprecatedPV = config.dontWarnOnDeprecatedPV,
     )

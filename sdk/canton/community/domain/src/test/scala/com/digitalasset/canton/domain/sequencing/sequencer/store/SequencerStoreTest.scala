@@ -17,13 +17,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  Member,
-  ParticipantId,
-  SequencerId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -43,9 +37,7 @@ trait SequencerStoreTest
     with FlagCloseable
     with ProtocolVersionChecksAsyncWordSpec {
 
-  lazy val sequencerMember: Member = SequencerId(
-    UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
-  )
+  lazy val sequencerMember: Member = DefaultTestIdentities.sequencerId
 
   def sequencerStore(mk: () => SequencerStore): Unit = {
 

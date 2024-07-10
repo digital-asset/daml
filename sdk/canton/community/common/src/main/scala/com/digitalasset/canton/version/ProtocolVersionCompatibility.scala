@@ -27,8 +27,8 @@ object ProtocolVersionCompatibility {
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
     val unstableAndBeta =
-      if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
-        ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
+      if (cantonNodeParameters.alphaVersionSupport && cantonNodeParameters.nonStandardConfig)
+        ProtocolVersion.alpha.forgetNE ++ ReleaseVersionToProtocolVersions
           .getBetaProtocolVersions(release)
       else if (cantonNodeParameters.betaVersionSupport)
         ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
@@ -58,7 +58,7 @@ object ProtocolVersionCompatibility {
 
     val unstable =
       if (includeUnstableVersions)
-        ProtocolVersion.unstable.forgetNE
+        ProtocolVersion.alpha.forgetNE
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(
@@ -77,8 +77,8 @@ object ProtocolVersionCompatibility {
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
     val unstableAndBeta =
-      if (cantonNodeParameters.devVersionSupport && cantonNodeParameters.nonStandardConfig)
-        ProtocolVersion.unstable.forgetNE ++ ReleaseVersionToProtocolVersions
+      if (cantonNodeParameters.alphaVersionSupport && cantonNodeParameters.nonStandardConfig)
+        ProtocolVersion.alpha.forgetNE ++ ReleaseVersionToProtocolVersions
           .getBetaProtocolVersions(release)
       else if (cantonNodeParameters.betaVersionSupport)
         ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
@@ -108,7 +108,7 @@ object ProtocolVersionCompatibility {
 
     val unstable =
       if (includeUnstableVersions)
-        ProtocolVersion.unstable.forgetNE
+        ProtocolVersion.alpha.forgetNE
       else List.empty
 
     ReleaseVersionToProtocolVersions.getOrElse(

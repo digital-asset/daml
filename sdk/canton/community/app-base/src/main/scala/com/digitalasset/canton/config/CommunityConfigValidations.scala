@@ -184,14 +184,14 @@ object CommunityConfigValidations
         name: String,
         nodeTypeName: String,
         nonStandardConfig: Boolean,
-        devVersionSupport: Boolean,
+        alphaVersionSupport: Boolean,
     ): Validated[NonEmpty[Seq[String]], Unit] = {
       Validated.cond(
-        nonStandardConfig || !devVersionSupport,
+        nonStandardConfig || !alphaVersionSupport,
         (),
         NonEmpty(
           Seq,
-          s"Enabling dev-version-support for $nodeTypeName $name requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Enabling alpha-version-support for $nodeTypeName $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
     }
@@ -201,7 +201,7 @@ object CommunityConfigValidations
         name = name.unwrap,
         nodeTypeName = nodeConfig.nodeTypeName,
         nonStandardConfig = config.parameters.nonStandardConfig,
-        devVersionSupport = nodeConfig.parameters.devVersionSupport,
+        alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport,
       )
     }
 

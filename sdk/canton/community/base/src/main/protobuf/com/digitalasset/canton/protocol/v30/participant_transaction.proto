@@ -63,7 +63,7 @@ message ViewCommonData {
 }
 
 message Informee {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   string party = 1;
   int32 weight = 2; // optional: only set if party is confirming
@@ -87,14 +87,14 @@ message ViewParticipantMessage {
 // InformeeMessage
 
 message InformeeMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   FullInformeeTree full_informee_tree = 1;
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
 }
 
 message LightTransactionViewTree {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   GenTransactionTree tree = 1;
   repeated bytes subview_hashes = 2;
@@ -118,7 +118,7 @@ message InputContract {
 }
 
 message CommonMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   // this used to contain a confirmation policy (Signatory or VIP) that no longer exists
@@ -129,7 +129,7 @@ message CommonMetadata {
 }
 
 message SubmitterMetadata {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   repeated string act_as = 2;
@@ -153,7 +153,7 @@ message SessionKeyLookup {
 }
 
 message EncryptedViewMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   bytes view_tree = 1;
 

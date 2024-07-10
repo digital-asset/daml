@@ -4,12 +4,23 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
+  OrderingTopology,
   PeerNetworkStatus,
   endpointToProto,
 }
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencer.admin.v30.*
+import com.digitalasset.canton.sequencer.admin.v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub
+import com.digitalasset.canton.sequencer.admin.v30.{
+  AddPeerEndpointRequest,
+  AddPeerEndpointResponse,
+  GetOrderingTopologyRequest,
+  GetOrderingTopologyResponse,
+  GetPeerNetworkStatusRequest,
+  GetPeerNetworkStatusResponse,
+  RemovePeerEndpointRequest,
+  RemovePeerEndpointResponse,
+  SequencerBftAdministrationServiceGrpc,
+}
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -19,11 +30,11 @@ object EnterpriseSequencerBftAdminCommands {
   abstract class BaseSequencerBftAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub
+      SequencerBftAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub =
-      v30.SequencerBftAdministrationServiceGrpc.stub(channel)
+    ): SequencerBftAdministrationServiceStub =
+      SequencerBftAdministrationServiceGrpc.stub(channel)
   }
 
   final case class AddPeerEndpoint(endpoint: Endpoint)
@@ -38,7 +49,7 @@ object EnterpriseSequencerBftAdminCommands {
     )
 
     override def submitRequest(
-        service: v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub,
+        service: SequencerBftAdministrationServiceStub,
         request: AddPeerEndpointRequest,
     ): Future[AddPeerEndpointResponse] =
       service.addPeerEndpoint(request)
@@ -61,7 +72,7 @@ object EnterpriseSequencerBftAdminCommands {
     )
 
     override def submitRequest(
-        service: v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub,
+        service: SequencerBftAdministrationServiceStub,
         request: RemovePeerEndpointRequest,
     ): Future[RemovePeerEndpointResponse] =
       service.removePeerEndpoint(request)
@@ -84,7 +95,7 @@ object EnterpriseSequencerBftAdminCommands {
     )
 
     override def submitRequest(
-        service: v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub,
+        service: SequencerBftAdministrationServiceStub,
         request: GetPeerNetworkStatusRequest,
     ): Future[GetPeerNetworkStatusResponse] =
       service.getPeerNetworkStatus(request)
@@ -93,5 +104,28 @@ object EnterpriseSequencerBftAdminCommands {
         response: GetPeerNetworkStatusResponse
     ): Either[String, PeerNetworkStatus] =
       PeerNetworkStatus.fromProto(response)
+  }
+
+  final case class GetOrderingTopology()
+      extends BaseSequencerBftAdministrationCommand[
+        GetOrderingTopologyRequest,
+        GetOrderingTopologyResponse,
+        OrderingTopology,
+      ] {
+
+    override def createRequest(): Either[String, GetOrderingTopologyRequest] = Right(
+      GetOrderingTopologyRequest.of()
+    )
+
+    override def submitRequest(
+        service: SequencerBftAdministrationServiceStub,
+        request: GetOrderingTopologyRequest,
+    ): Future[GetOrderingTopologyResponse] =
+      service.getOrderingTopology(request)
+
+    override def handleResponse(
+        response: GetOrderingTopologyResponse
+    ): Either[String, OrderingTopology] =
+      OrderingTopology.fromProto(response)
   }
 }

@@ -11,6 +11,7 @@ service SequencerBftAdministrationService {
   rpc AddPeerEndpoint(AddPeerEndpointRequest) returns (AddPeerEndpointResponse);
   rpc RemovePeerEndpoint(RemovePeerEndpointRequest) returns (RemovePeerEndpointResponse);
   rpc GetPeerNetworkStatus(GetPeerNetworkStatusRequest) returns (GetPeerNetworkStatusResponse);
+  rpc GetOrderingTopology(GetOrderingTopologyRequest) returns (GetOrderingTopologyResponse);
 }
 
 message AddPeerEndpointRequest {
@@ -59,4 +60,13 @@ message GetPeerNetworkStatusRequest {
 
 message GetPeerNetworkStatusResponse {
   repeated PeerEndpointStatus statuses = 1;
+}
+
+message GetOrderingTopologyRequest {}
+
+message GetOrderingTopologyResponse {
+  // The current epoch, through which the topology is valid.
+  int64 current_epoch = 1;
+  // The sequencer IDs of the active BFT ordering nodes in the network.
+  repeated string sequencer_ids = 2;
 }

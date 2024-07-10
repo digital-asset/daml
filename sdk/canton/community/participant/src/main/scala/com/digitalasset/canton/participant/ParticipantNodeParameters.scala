@@ -45,7 +45,7 @@ final case class ParticipantNodeParameters(
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
-  override def devVersionSupport: Boolean = protocolConfig.devVersionSupport
+  override def alphaVersionSupport: Boolean = protocolConfig.alphaVersionSupport
   override def betaVersionSupport: Boolean = protocolConfig.betaVersionSupport
 }
 
@@ -82,7 +82,7 @@ object ParticipantNodeParameters {
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-      devVersionSupport = true,
+      alphaVersionSupport = true,
       betaVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
     ),
