@@ -2765,7 +2765,7 @@ tests TestArgs{..} =
 
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
-        { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion]
+        { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion, "--warn-bad-interface-instances=yes"]
         , extraDeps = [scriptDevDar]
         }
 

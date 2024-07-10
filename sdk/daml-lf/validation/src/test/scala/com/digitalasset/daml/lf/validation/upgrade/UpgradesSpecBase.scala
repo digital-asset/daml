@@ -440,8 +440,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds a variant" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
@@ -482,16 +482,16 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds an optional field to a variant's type" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
 
     "Succeeds when a top-level enum changes" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
