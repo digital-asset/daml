@@ -99,7 +99,7 @@ data DamlStartResource = DamlStartResource
     }
 
 damlStart :: SdkVersioned => FilePath -> Bool -> IO DamlStartResource
-damlStart tmpDir _disableUpgradeValidation = do
+damlStart tmpDir disableUpgradeValidation = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
@@ -123,7 +123,7 @@ damlStart tmpDir _disableUpgradeValidation = do
             , "    npm-scope: daml.js"
             , "  java:"
             , "    output-directory: ui/java"
-            ] ++ [ "build-options:\n- --warn-bad-interface-instances=yes" |  disableUpgradeValidation ]
+            ] ++ [ "build-options:\n- --warn-bad-interface-instances=yes" | disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"
