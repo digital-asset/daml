@@ -371,7 +371,6 @@ da_scala_dar_resources_library(
         #    ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
         #    ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
         #),
-
         ("FailsOnlyInModuleNotInReexports", [], []),
         ("FailsWithSynonymReturnTypeChange", [], []),
         ("SucceedWhenATopLevelEnumAddsAField", [], []),
