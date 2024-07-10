@@ -196,7 +196,6 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     "The transaction service should correctly filter by template identifier",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val filterBy = Dummy.TEMPLATE_ID
     val create = ledger.submitAndWaitRequest(
       party,
       (new Dummy(party).create.commands.asScala ++ new DummyFactory(
@@ -205,10 +204,14 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     )
     for {
       _ <- ledger.submitAndWait(create)
-      transactions <- ledger.flatTransactionsByTemplateId(filterBy, party)
+      transactions <- ledger.flatTransactionsByTemplateId(Dummy.TEMPLATE_ID, party)
     } yield {
       val contract = assertSingleton("FilterByTemplate", transactions.flatMap(createdEvents))
-      assertEquals("FilterByTemplate", contract.getTemplateId, filterBy.toV1)
+      assertEquals(
+        "FilterByTemplate",
+        contract.getTemplateId,
+        Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
+      )
     }
   })
 }

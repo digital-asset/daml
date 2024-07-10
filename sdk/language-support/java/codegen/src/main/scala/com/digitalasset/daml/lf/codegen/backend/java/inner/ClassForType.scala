@@ -66,6 +66,7 @@ object ClassForType extends StrictLogging {
             typeWithContext.auxiliarySignatures,
             typeWithContext.interface.packageId,
             interfaceName,
+            typeWithContext.interface.languageVersion,
             typeWithContext.interface.metadata,
           )
     } yield javaFile(packageName, interfaceClass)

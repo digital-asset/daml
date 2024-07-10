@@ -4,7 +4,8 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
+import Ref.{ChoiceName, PackageId, PackageName, PackageRef, PackageVersion}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.daml.lf.typesig.PackageSignature.TypeDecl
 
@@ -15,6 +16,8 @@ import com.daml.ledger.javaapi
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 
 import javax.lang.model.element.Modifier
+
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 private[inner] object ClassGenUtils {
 
@@ -52,27 +55,57 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val templateIdWithPackageIdFieldName = "TEMPLATE_ID_WITH_PACKAGE_ID"
+  val packageIdFieldName = "PACKAGE_ID"
   val packageNameFieldName = "PACKAGE_NAME"
   val packageVersionFieldName = "PACKAGE_VERSION"
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
-  def generateTemplateIdField(packageId: PackageId, moduleName: String, name: String) =
+  def generateTemplateIdFields(
+      pkgId: PackageId,
+      pkgName: Option[PackageName],
+      lfVer: LanguageVersion,
+      moduleName: String,
+      name: String,
+  ): Seq[FieldSpec] = {
+    val packageRef = pkgName match {
+      case Some(name) if lfVer >= LanguageVersion.Features.packageUpgrades => PackageRef.Name(name)
+      case _ => PackageRef.Id(pkgId)
+    }
+    def idField(fieldName: String, pkg: String) =
+      FieldSpec
+        .builder(
+          ClassName.get(classOf[javaapi.data.Identifier]),
+          fieldName,
+          Modifier.STATIC,
+          Modifier.FINAL,
+          Modifier.PUBLIC,
+        )
+        .initializer(
+          "new $T($S, $S, $S)",
+          classOf[javaapi.data.Identifier],
+          pkg,
+          moduleName,
+          name,
+        )
+        .build()
+    Seq(
+      idField(templateIdFieldName, packageRef.toString),
+      idField(templateIdWithPackageIdFieldName, pkgId.toString),
+    )
+  }
+
+  def generatePackageIdField(packageId: PackageId) =
     FieldSpec
       .builder(
-        ClassName.get(classOf[javaapi.data.Identifier]),
-        templateIdFieldName,
+        ClassName.get(classOf[String]),
+        packageIdFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
         Modifier.PUBLIC,
       )
-      .initializer(
-        "new $T($S, $S, $S)",
-        classOf[javaapi.data.Identifier],
-        packageId,
-        moduleName,
-        name,
-      )
+      .initializer("$S", packageId)
       .build()
 
   def generatePackageNameField(packageName: PackageName) =
