@@ -62,7 +62,7 @@ private[inner] object ClassGenUtils {
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
-  def generateTemplateIdField(
+  def generateTemplateIdFields(
       pkgId: PackageId,
       pkgName: Option[PackageName],
       lfVer: LanguageVersion,

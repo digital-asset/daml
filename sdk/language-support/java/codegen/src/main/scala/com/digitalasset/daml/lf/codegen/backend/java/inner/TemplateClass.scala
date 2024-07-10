@@ -45,7 +45,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
-        .addFields(generateTemplateIdField(typeWithContext).asJava)
+        .addFields(generateTemplateIdFields(typeWithContext).asJava)
         .addField(ClassGenUtils.generatePackageIdField(typeWithContext.packageId))
         .addMethod(generateCreateMethod(className))
         .addMethods(
@@ -502,8 +502,8 @@ private[inner] object TemplateClass extends StrictLogging {
       )
     )
 
-  private def generateTemplateIdField(typeWithContext: TypeWithContext): Seq[FieldSpec] =
-    ClassGenUtils.generateTemplateIdField(
+  private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
+    ClassGenUtils.generateTemplateIdFields(
       typeWithContext.packageId,
       typeWithContext.interface.metadata.map(_.name),
       typeWithContext.interface.languageVersion,
