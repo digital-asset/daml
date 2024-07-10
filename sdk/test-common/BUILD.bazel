@@ -387,6 +387,7 @@ da_scala_dar_resources_library(
         ("WarnsWhenTemplateChangesKeyMaintainers", [], []),
         ("WarnsWhenTemplateChangesObservers", [], []),
         ("WarnsWhenTemplateChangesSignatories", [], []),
+        ("WarnsWhenTemplateChangesAgreement", [], []),
     ]
 ]
 

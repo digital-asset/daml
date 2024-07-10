@@ -48,6 +48,13 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
+                      "WarnsWhenTemplateChangesAgreement"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
                       "WarnsWhenTemplateChangesObservers"
                       (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers.")
                       versionDefault
