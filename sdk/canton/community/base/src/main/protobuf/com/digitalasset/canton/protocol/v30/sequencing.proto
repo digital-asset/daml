@@ -73,7 +73,7 @@ message Handshake {
 
 // Submission cost computed by the sender for a SubmissionRequest
 message SequencingSubmissionCost {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   // Computed cost
   int64 cost = 1;
 }
@@ -90,7 +90,7 @@ message StaticDomainParameters {
 }
 
 message Envelope {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // Contains a v30.EnvelopeContent if signatures are empty and a v30.TypedSignedProtocolMessageContent otherwise
   bytes content = 1;
@@ -102,13 +102,13 @@ message Envelope {
 }
 
 message Batch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   repeated Envelope envelopes = 1;
 }
 
 message CompressedBatch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   enum CompressionAlgorithm {
     COMPRESSION_ALGORITHM_UNSPECIFIED = 0;
@@ -121,7 +121,7 @@ message CompressedBatch {
 }
 
 message SequencedEvent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // A sequence number for all events emitted to a subscriber. Starting at 0.
   // The same event may have different counter values for different recipients.
@@ -158,7 +158,7 @@ message SequencedEvent {
 
 // Messages used for synchronization between sequencer nodes
 message SubmissionRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // Sender of the request.
   // This request must be wrapped in a SignedContent and

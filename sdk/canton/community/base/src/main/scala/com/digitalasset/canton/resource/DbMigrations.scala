@@ -49,14 +49,14 @@ trait DbMigrations { this: NamedLogging =>
     * A user that does that, won't be able to upgrade to new Canton versions, as we reserve our right to just
     * modify the dev version files in any way we like.
     */
-  protected def devVersionSupport: Boolean
+  protected def alphaVersionSupport: Boolean
 
   /** Database is migrated using Flyway, which looks at the migration files at
     * src/main/resources/db/migration/canton as explained at https://flywaydb.org/documentation/getstarted/firststeps/api
     */
   protected def createFlyway(dataSource: DataSource): Flyway = {
     Flyway.configure
-      .locations(dbConfig.buildMigrationsPaths(devVersionSupport)*)
+      .locations(dbConfig.buildMigrationsPaths(alphaVersionSupport)*)
       .dataSource(dataSource)
       .cleanDisabled(!dbConfig.parameters.unsafeCleanOnValidationError)
       .cleanOnValidationError(dbConfig.parameters.unsafeCleanOnValidationError)
@@ -298,7 +298,7 @@ class CommunityDbMigrationsFactory(loggerFactory: NamedLoggerFactory) extends Db
 
 class CommunityDbMigrations(
     protected val dbConfig: DbConfig,
-    protected val devVersionSupport: Boolean,
+    protected val alphaVersionSupport: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val closeContext: CloseContext)
     extends DbMigrations

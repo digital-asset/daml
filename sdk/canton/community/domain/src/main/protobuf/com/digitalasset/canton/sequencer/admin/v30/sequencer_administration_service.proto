@@ -122,7 +122,7 @@ message OnboardingStateResponse {
 }
 
 message OnboardingStateForSequencer {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
   com.digitalasset.canton.protocol.v30.StaticDomainParameters static_domain_parameters = 2;

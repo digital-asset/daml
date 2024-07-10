@@ -562,9 +562,7 @@ class LocalSecretKeyAdministration(
           .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
         publicKey <- crypto.cryptoPublicStore
           .publicKey(fingerprint)
-          .leftMap(_.toString)
-          .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
-          .leftMap(err => s"Error retrieving public key [$fingerprint] $err")
+          .toRight(s"Error retrieving public key [$fingerprint]: no public key found")
         keyPair: CryptoKeyPair[PublicKey, PrivateKey] = (publicKey, privateKey) match {
           case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
             new SigningKeyPair(pub, pkey)

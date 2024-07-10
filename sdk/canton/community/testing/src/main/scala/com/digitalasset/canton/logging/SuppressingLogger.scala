@@ -7,6 +7,7 @@ import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, ExecutionContextMonitor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -190,6 +191,20 @@ class SuppressingLogger private[logging] (
         case Success(_) =>
           fail(s"An exception of type $c was expected, but no exception was thrown.")
         case Failure(c(t)) => Success(assertion(t))
+        case Failure(t) => fail(s"Exception has wrong type. Expected type: $c.", t)
+      }(directExecutionContext),
+      checkLogsInternalError(assertion),
+    )
+
+  def assertInternalErrorAsyncUS[T <: Throwable](
+      within: => FutureUnlessShutdown[_],
+      assertion: T => Assertion,
+  )(implicit c: ClassTag[T], pos: source.Position): FutureUnlessShutdown[Assertion] =
+    assertLogs(
+      within.transform {
+        case Success(_) =>
+          fail(s"An exception of type $c was expected, but no exception was thrown.")
+        case Failure(c(t)) => Success(UnlessShutdown.Outcome(assertion(t)))
         case Failure(t) => fail(s"Exception has wrong type. Expected type: $c.", t)
       }(directExecutionContext),
       checkLogsInternalError(assertion),

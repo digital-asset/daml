@@ -90,7 +90,7 @@ abstract class MediatorNodeConfigCommon(
   */
 final case class MediatorNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val devVersionSupport: Boolean = true,
+    override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val batching: BatchingConfig = BatchingConfig(),
@@ -488,7 +488,7 @@ class MediatorNodeBootstrap(
       timeouts = timeouts,
       traceContextPropagation = parameters.tracing.propagation,
       clientProtocolVersions =
-        if (parameterConfig.devVersionSupport) ProtocolVersion.supported
+        if (parameterConfig.alphaVersionSupport) ProtocolVersion.supported
         else
           // TODO(#15561) Remove NonEmpty construct once stableAndSupported is NonEmpty again
           NonEmpty

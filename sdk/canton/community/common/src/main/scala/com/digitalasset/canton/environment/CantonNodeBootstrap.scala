@@ -4,7 +4,7 @@
 package com.digitalasset.canton.environment
 
 import better.files.File
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.functorFilter.*
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
@@ -29,7 +29,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
@@ -697,14 +697,11 @@ abstract class CantonNodeBootstrapImpl[
     override protected def autoCompleteStage()
         : EitherT[FutureUnlessShutdown, String, Option[Unit]] = {
       for {
-        namespaceKeyO <- crypto.cryptoPublicStore
+        namespaceKey <- crypto.cryptoPublicStore
           .signingKey(nodeId.fingerprint)
-          .leftMap(_.toString)
-        namespaceKey <- EitherT.fromEither[FutureUnlessShutdown](
-          namespaceKeyO.toRight(
+          .toRight(
             s"Performing auto-init but can't find key ${nodeId.fingerprint} from previous step"
           )
-        )
         // init topology manager
         nsd <- EitherT.fromEither[FutureUnlessShutdown](
           NamespaceDelegation.create(
@@ -820,46 +817,34 @@ object CantonNodeBootstrapImpl {
 
   private def getKeyByFingerprint[P <: PublicKey](
       typ: String,
-      findPubKeyIdByFingerprint: Fingerprint => EitherT[
-        FutureUnlessShutdown,
-        CryptoPublicStoreError,
-        Option[P],
-      ],
+      findPubKeyIdByFingerprint: Fingerprint => OptionT[FutureUnlessShutdown, P],
       existPrivateKeyByFp: Fingerprint => EitherT[
         FutureUnlessShutdown,
         CryptoPrivateStoreError,
         Boolean,
       ],
       fingerprint: Fingerprint,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
-    keyIdO <- findPubKeyIdByFingerprint(fingerprint)
-      .leftMap(err =>
-        s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
-      )
-    pubKey <- keyIdO.fold(
-      EitherT.leftT[FutureUnlessShutdown, P](
-        s"$typ key with fingerprint $fingerprint does not exist"
-      )
-    ) { keyWithFingerprint =>
-      val fingerprint = keyWithFingerprint.fingerprint
-      existPrivateKeyByFp(fingerprint)
-        .leftMap(err =>
-          s"Failure while looking for $typ key $fingerprint in private key store: $err"
-        )
-        .transform {
-          case Right(true) => Right(keyWithFingerprint)
-          case Right(false) =>
-            Left(s"Broken private key store: Could not find $typ key $fingerprint")
-          case Left(err) => Left(err)
-        }
-    }
-  } yield pubKey
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = {
+    findPubKeyIdByFingerprint(fingerprint)
+      .toRight(s"$typ key with fingerprint $fingerprint does not exist")
+      .flatMap { keyWithFingerprint =>
+        val fingerprint = keyWithFingerprint.fingerprint
+        existPrivateKeyByFp(fingerprint)
+          .leftMap(err =>
+            s"Failure while looking for $typ key $fingerprint in private key store: $err"
+          )
+          .transform {
+            case Right(true) => Right(keyWithFingerprint)
+            case Right(false) =>
+              Left(s"Broken private key store: Could not find $typ key $fingerprint")
+            case Left(err) => Left(err)
+          }
+      }
+  }
 
   private def getOrCreateKey[P <: PublicKey](
       typ: String,
-      findPubKeyIdByName: KeyName => EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Option[
-        P
-      ]],
+      findPubKeyIdByName: KeyName => OptionT[FutureUnlessShutdown, P],
       generateKey: Option[KeyName] => EitherT[FutureUnlessShutdown, String, P],
       existPrivateKeyByFp: Fingerprint => EitherT[
         FutureUnlessShutdown,
@@ -869,8 +854,7 @@ object CantonNodeBootstrapImpl {
       name: String,
   )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = for {
     keyName <- EitherT.fromEither[FutureUnlessShutdown](KeyName.create(name))
-    keyIdO <- findPubKeyIdByName(keyName)
-      .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
+    keyIdO <- EitherT.right(findPubKeyIdByName(keyName).value)
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

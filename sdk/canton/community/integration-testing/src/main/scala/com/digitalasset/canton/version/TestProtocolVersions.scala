@@ -13,5 +13,5 @@ object TestProtocolVersions {
 
   /** A valid, supported protocol version that is not part of the released protocol versions.
     */
-  val UnreleasedValidPV: ProtocolVersion = ProtocolVersion.unstable.head
+  val UnreleasedValidPV: ProtocolVersion = ProtocolVersion.alpha.head
 }

@@ -10,7 +10,7 @@ import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message TrafficControlParameters {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // In bytes, the maximum amount of base traffic that can be accumulated
   uint64 max_base_traffic_amount = 1;
@@ -34,7 +34,7 @@ message TrafficControlParameters {
 // Message representing a traffic receipt included in SequencedEvent receipts to update sender about
 // the traffic consumed state after sequencing of the event
 message TrafficReceipt {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   // Cost effectively consumed by this specific event
   uint64 consumed_cost = 1;
   // Total amount of extra traffic consumed
@@ -45,7 +45,7 @@ message TrafficReceipt {
 
 // Message representing traffic consumed by a member at a given point in time
 message TrafficConsumed {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   // Member consuming the traffic
   string member = 1;
   // Total extra traffic consumed
@@ -60,7 +60,7 @@ message TrafficConsumed {
 
 // Message representing a traffic purchase made on behalf of a member
 message TrafficPurchased {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   // Member receiving the traffic
   string member = 1;
   // Serial of the update
@@ -88,7 +88,7 @@ message TrafficState {
 }
 
 message SetTrafficPurchasedMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // Member to update the balance for
   string member = 1;

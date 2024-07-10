@@ -47,6 +47,10 @@ object FutureUnlessShutdown {
     Future.successful(x)
   )
 
+  /** Analog to Future.apply that handles an exception of `x` as a failed future. */
+  def wrap[A](x: => A)(implicit ec: ExecutionContext): FutureUnlessShutdown[A] =
+    FutureUnlessShutdown.outcomeF(Future(x))
+
   /** Wraps the result of a [[scala.concurrent.Future]] into an [[UnlessShutdown.Outcome]] */
   def outcomeF[A](f: Future[A])(implicit ec: ExecutionContext): FutureUnlessShutdown[A] =
     FutureUnlessShutdown(f.map(UnlessShutdown.Outcome(_)))

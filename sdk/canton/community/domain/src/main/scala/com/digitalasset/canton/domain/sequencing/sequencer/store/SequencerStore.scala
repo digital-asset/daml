@@ -7,7 +7,6 @@ import cats.Order.*
 import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
-import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
@@ -29,7 +28,7 @@ import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.retry
+import com.digitalasset.canton.util.{ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
@@ -668,14 +667,15 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     def saveRecentCheckpoints(): Future[Unit] = for {
       checkpoints <- checkpointsAtTimestamp(requestedTimestamp.immediatePredecessor)
       _ <- checkpoints.toList.parTraverse { case (member, checkpoint) =>
-        lookupMember(member).map {
-          case Some(RegisteredMember(memberId, _)) =>
-            saveCounterCheckpoint(
-              memberId,
-              checkpoint,
-            ).value
-          case _ => Right(())
-        }
+        for {
+          memberId <- lookupMember(member).map(
+            _.fold(ErrorUtil.invalidState(s"Member $member should be registered"))(_.memberId)
+          )
+          _ <- saveCounterCheckpoint(
+            memberId,
+            checkpoint,
+          ).value
+        } yield ()
       }
     } yield ()
 

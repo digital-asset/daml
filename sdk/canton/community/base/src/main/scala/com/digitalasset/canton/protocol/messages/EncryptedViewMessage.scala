@@ -154,9 +154,11 @@ object EncryptedView {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, InvalidEncryptionKey, Unit] =
     for {
-      encryptionKey <- cryptoPublicStore
-        .findEncryptionKeyIdByFingerprint(keyId)
-        .leftMap(err => DecryptionError.InvalidEncryptionKey(err.show))
+      encryptionKey <- EitherT.right(
+        cryptoPublicStore
+          .findEncryptionKeyIdByFingerprint(keyId)
+          .value
+      )
       _ <- encryptionKey match {
         case Some(encPubKey) =>
           EitherT.cond[FutureUnlessShutdown](

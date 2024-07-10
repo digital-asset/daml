@@ -242,10 +242,10 @@ object CommunityStorageConfig {
 trait DbConfig extends StorageConfig with PrettyPrinting {
 
   /** Function to combine the defined migration path together with dev version changes */
-  final def buildMigrationsPaths(devVersionSupport: Boolean): Seq[String] = {
+  final def buildMigrationsPaths(alphaVersionSupport: Boolean): Seq[String] = {
     if (parameters.migrationsPaths.nonEmpty)
       parameters.migrationsPaths
-    else if (devVersionSupport)
+    else if (alphaVersionSupport)
       Seq(stableMigrationPath, devMigrationPath)
     else Seq(stableMigrationPath)
   }

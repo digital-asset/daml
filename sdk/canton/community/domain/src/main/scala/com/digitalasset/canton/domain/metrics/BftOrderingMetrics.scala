@@ -125,7 +125,7 @@ class BftOrderingMetrics(
 
     val batchesOrdered: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(
-        prefix :+ s"ordered-batches",
+        prefix :+ "ordered-batches",
         summary = "Batches ordered",
         description = "Measures the total batches ordered.",
         qualification = MetricQualification.Traffic,
@@ -134,7 +134,7 @@ class BftOrderingMetrics(
 
     val blocksOrdered: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(
-        prefix :+ s"ordered-blocks",
+        prefix :+ "ordered-blocks",
         summary = "Blocks ordered",
         description = "Measures the total blocks ordered.",
         qualification = MetricQualification.Traffic,

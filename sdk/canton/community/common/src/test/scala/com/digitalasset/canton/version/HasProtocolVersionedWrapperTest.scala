@@ -123,7 +123,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
         // Used by the compiled string below
         val stablePV = ProtocolVersion.createStable(10)
-        val unstablePV = ProtocolVersion.createUnstable(11)
+        val alphaPV = ProtocolVersion.createAlpha(11)
 
         def name: String = "message"
 
@@ -139,27 +139,27 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
           ): Assertion
         }
 
-        clue("can use a stable proto message in an unstable protocol version") {
+        clue("can use a stable proto message in an alpha protocol version") {
           assertCompiles(
             """
-             val _ = VersionedProtoConverter(unstablePV)(VersionedMessageV1)(
+             val _ = VersionedProtoConverter(alphaPV)(VersionedMessageV1)(
                supportedProtoVersionMemoized(_)(fromProtoV1),
                _.toProtoV1.toByteString
              )"""
           ): Assertion
         }
 
-        clue("can use an unstable proto message in an unstable protocol version") {
+        clue("can use an alpha proto message in an alpha protocol version") {
           assertCompiles(
             """
-             val _ = VersionedProtoConverter(unstablePV)(VersionedMessageV2)(
+             val _ = VersionedProtoConverter(alphaPV)(VersionedMessageV2)(
                supportedProtoVersionMemoized(_)(fromProtoV2),
                _.toProtoV2.toByteString
              )"""
           ): Assertion
         }
 
-        clue("can not use an unstable proto message in a stable protocol version") {
+        clue("can not use an alpha proto message in a stable protocol version") {
           assertTypeError(
             """
              val _ = VersionedProtoConverter(stablePV)(VersionedMessageV2)(
@@ -213,7 +213,7 @@ object HasProtocolVersionedWrapperTest {
         protocolVersion     30    31    32    33    34  ...
      */
     override val supportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.createUnstable((basePV + 2).v))(
+      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.createAlpha((basePV + 2).v))(
         VersionedMessageV1
       )(
         supportedProtoVersionMemoized(_)(fromProtoV1),
@@ -226,9 +226,9 @@ object HasProtocolVersionedWrapperTest {
         supportedProtoVersionMemoized(_)(fromProtoV0),
         _.toProtoV0.toByteString,
       ),
-      // Can use an unstable Protobuf message in an unstable protocol version
+      // Can use an alpha Protobuf message in an alpha protocol version
       ProtoVersion(2) -> VersionedProtoConverter(
-        ProtocolVersion.createUnstable((basePV + 3).v)
+        ProtocolVersion.createAlpha((basePV + 3).v)
       )(VersionedMessageV2)(
         supportedProtoVersionMemoized(_)(fromProtoV2),
         _.toProtoV2.toByteString,
