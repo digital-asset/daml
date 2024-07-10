@@ -203,11 +203,6 @@ da_scala_dar_resources_library(
 
 [
     [
-        filegroup(
-            name = "upgrades-{}-files".format(identifier),
-            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
-        ),
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
@@ -361,16 +356,16 @@ da_scala_dar_resources_library(
                 "//test-common:upgrades-WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt-v1.dar",
             ],
         ),
-        #(
-        #    "FailsWhenAnInstanceIsDropped",
-        #    ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
-        #    ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
-        #),
-        #(
-        #    "SucceedsWhenAnInstanceIsAddedSeparateDep",
-        #    ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
-        #    ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
-        #),
+        (
+            "FailsWhenAnInstanceIsDropped",
+            ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
+            ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"],
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedSeparateDep",
+            ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
+            ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"],
+        ),
         ("FailsOnlyInModuleNotInReexports", [], []),
         ("FailsWithSynonymReturnTypeChange", [], []),
         ("SucceedWhenATopLevelEnumAddsAField", [], []),
