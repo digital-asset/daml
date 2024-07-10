@@ -38,6 +38,7 @@ module Data.NameMap
   , insertMany
   , insertManyEither
   , union
+  , unions
 
   -- * Transformations
   , map
@@ -173,6 +174,9 @@ union :: Named a => NameMap a -> NameMap a -> NameMap a
 union (NameMap _ nm1) (NameMap _ nm2) =
     let m = nm1 `HMS.union` nm2
      in NameMap (HMS.toList m) m
+
+unions :: Named a => [NameMap a] -> NameMap a
+unions = foldl' union empty
 
 (!) :: (HasCallStack, Named a) => NameMap a -> Name a -> a
 (!) nm n = case lookup n nm of
