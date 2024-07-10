@@ -90,6 +90,18 @@ public abstract class ContractCompanion<Ct, Id, Data>
     this.fromJson = fromJson;
   }
 
+  // TODO(etx-534): remove this temporary overload, once the codegen in the daml repo has been
+  // updated to not use it.
+  protected ContractCompanion(
+      String templateClassName,
+      Identifier templateId,
+      Function<String, Id> newContractId,
+      Function<DamlRecord, Data> fromValue,
+      FromJson<Data> fromJson,
+      List<Choice<Data, ?, ?>> choices) {
+    this(templateClassName, templateId, templateId, newContractId, fromValue, fromJson, choices);
+  }
+
   public Data fromJson(String json) throws JsonLfDecoder.Error {
     return this.fromJson.decode(json);
   }
@@ -124,6 +136,27 @@ public abstract class ContractCompanion<Ct, Id, Data>
           fromJson,
           choices);
       this.newContract = newContract;
+    }
+
+    // TODO(etx-534): remove this temporary overload, once the codegen in the daml repo has been
+    // updated to not use it.
+    public WithoutKey(
+        String templateClassName,
+        Identifier templateId,
+        Function<String, Id> newContractId,
+        Function<DamlRecord, Data> fromValue,
+        FromJson<Data> fromJson,
+        NewContract<Ct, Id, Data> newContract,
+        List<Choice<Data, ?, ?>> choices) {
+      this(
+          templateClassName,
+          templateId,
+          templateId,
+          newContractId,
+          fromValue,
+          fromJson,
+          newContract,
+          choices);
     }
 
     public Ct fromIdAndRecord(
@@ -192,6 +225,29 @@ public abstract class ContractCompanion<Ct, Id, Data>
           choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
+    }
+
+    // TODO(etx-534): remove this temporary overload, once the codegen in the daml repo has been
+    // updated to not use it.
+    public WithKey(
+        String templateClassName,
+        Identifier templateId,
+        Function<String, Id> newContractId,
+        Function<DamlRecord, Data> fromValue,
+        FromJson<Data> fromJson,
+        NewContract<Ct, Id, Data, Key> newContract,
+        List<Choice<Data, ?, ?>> choices,
+        Function<Value, Key> keyFromValue) {
+      this(
+          templateClassName,
+          templateId,
+          templateId,
+          newContractId,
+          fromValue,
+          fromJson,
+          newContract,
+          choices,
+          keyFromValue);
     }
 
     public Ct fromIdAndRecord(

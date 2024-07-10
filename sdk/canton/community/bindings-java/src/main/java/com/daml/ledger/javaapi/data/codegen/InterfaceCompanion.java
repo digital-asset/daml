@@ -54,6 +54,18 @@ public abstract class InterfaceCompanion<I, Id, View>
     this.fromJson = fromJson;
   }
 
+  // TODO(etx-534): remove this temporary overload, once the codegen in the daml repo has been
+  // updated to not use it.
+  protected InterfaceCompanion(
+      String templateClassName,
+      Identifier templateId,
+      Function<String, Id> newContractId,
+      ValueDecoder<View> valueDecoder,
+      FromJson<View> fromJson,
+      List<Choice<I, ?, ?>> choices) {
+    this(templateClassName, templateId, templateId, newContractId, valueDecoder, fromJson, choices);
+  }
+
   public View fromJson(String json) throws JsonLfDecoder.Error {
     return this.fromJson.decode(json);
   }
