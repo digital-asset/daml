@@ -111,6 +111,8 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "version: 0.0.1"
         , "source: ."
         , "dependencies: [daml-prim, daml-stdlib]"
+        , "build-options:"
+        , "- --warn-bad-interface-instances=yes"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
         [ "module Good where"
@@ -137,6 +139,8 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "version: 0.0.1"
         , "source: ."
         , "dependencies: [daml-prim, daml-stdlib]"
+        , "build-options:"
+        , "- --warn-bad-interface-instances=yes"
         ]
       writeFileUTF8 (projDir </> "Interface.daml") $ unlines
         [ "module Interface where"

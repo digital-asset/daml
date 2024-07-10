@@ -39,6 +39,10 @@ canDependOn :: Version -> Version -> Bool
 canDependOn (Version major1 minor1) (Version major2 minor2) =
   major1 == major2 && minor1 >= minor2
 
+maxMinorVersion :: Version -> MinorVersion -> Version
+maxMinorVersion fullVersion newMinor =
+  fullVersion { versionMinor = newMinor `max` versionMinor fullVersion }
+
 -- | Daml-LF version 1.6
 version1_6 :: Version
 version1_6 = Version V1 (PointStable 6)

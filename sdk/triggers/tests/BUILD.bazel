@@ -100,7 +100,7 @@ dependencies:
   - daml-prim
   - daml-trigger.dar
   - daml-script.dar
-build-options: [--target={lf_version}]
+build-options: [--target={lf_version}, --warn-bad-interface-instances=yes]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs-{major}.dar)
       rm -rf $$TMP_DIR

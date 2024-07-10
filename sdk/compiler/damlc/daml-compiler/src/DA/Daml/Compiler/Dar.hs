@@ -28,7 +28,7 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
+import DA.Daml.LF.TypeChecker.Error (UnwarnableError(EUnsupportedFeature))
 import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
@@ -116,8 +116,9 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
+    -> WarnBadInterfaceInstances
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput = do
+buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstances = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -161,9 +162,10 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
-                 MaybeT $
-                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades pkg mbUpgradedPackage
+                 when (lfVersion `LF.supports` LF.featurePackageUpgrades) $
+                     MaybeT $
+                         runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                             TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg

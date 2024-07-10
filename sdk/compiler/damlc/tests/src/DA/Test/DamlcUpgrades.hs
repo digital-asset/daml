@@ -7,6 +7,7 @@ module DA.Test.DamlcUpgrades (main) where
 
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast.Version as LF
 import Data.Foldable
 import System.Directory.Extra
 import System.FilePath
@@ -18,7 +19,7 @@ import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
-import Data.Maybe (fromMaybe)
+import Safe (fromJustNote)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -29,1246 +30,525 @@ tests :: SdkVersioned => FilePath -> TestTree
 tests damlc =
     testGroup
         "Upgrade"
-        [ test
-              "Warns when template changes signatories"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A signatories:\n  The upgraded template A has changed the definition of its signatories.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where signatory [p]"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where signatory [p, q]"
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes observers"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A observers:\n  The upgraded template A has changed the definition of its observers.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    observer p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    observer p, q"
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes ensure"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A precondition:\n  The upgraded template A has changed the definition of its precondition.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    ensure True"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    ensure True == True"
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes agreement"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "{-# OPTIONS -Wno-template-agreement #-}"
-                      , "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement1\""
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "{-# OPTIONS -Wno-template-agreement #-}"
-                      , "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement2\""
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes key expression"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the expression for computing its key.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, \"example\") : (Party, Text)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (q, \"example\") : (Party, Text)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes key maintainers"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has changed the maintainers for its key.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, q) : (Party, Party)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, q) : (Party, Party)"
-                      , "    maintainer (snd key)"
-                      ]
-                )
-              ]
-        , test
-              "Fails when template changes key type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot change its key type.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, \"text\") : (Party, Text)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, 1) : (Party, Int)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-        , test
-              "Fails when template removes key type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot remove its key.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, \"text\") : (Party, Text)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Fails when template adds key type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    key (p, \"text\") : (Party, Text)"
-                      , "    maintainer (fst key)"
-                      ]
-                )
-              ]
-        , test
-              "Fails when new field is added to template without Optional type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "    new : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Fails when old field is deleted from template"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A is missing some of its original fields.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Fails when existing field in template is changed"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Text"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when new field with optional type is added to template"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    existing1 : Int"
-                      , "    existing2 : Int"
-                      , "    new : Optional Int"
-                      , "  where signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Fails when new field is added to template choice without Optional type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "        new : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Fails when old field is deleted from template choice"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Fails when existing field in template choice is changed"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Text"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Warns when controllers of template choice are changed"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      controller p, q"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Warns when observers of template choice are changed"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A choice C:\n  The upgraded choice C has changed the definition of observers.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      observer p"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      observer p, q"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Fails when template choice changes its return type"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A choice C:\n  The upgraded choice C cannot change its return type.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : Int"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure 1"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when template choice returns a template which has changed"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : A"
-                      , "      controller p"
-                      , "      do pure (A p)"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Optional Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : A"
-                      , "      controller p"
-                      , "      do pure (A p (Some p))"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when template choice input argument has changed"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        tpl : A"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Optional Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        tpl : A"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when new field with optional type is added to template choice"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    choice C : ()"
-                      , "      with"
-                      , "        existing1 : Int"
-                      , "        existing2 : Int"
-                      , "        new : Optional Int"
-                      , "      controller p"
-                      , "      do pure ()"
-                      ]
-                )
-              ]
-        , test
-              "Fails when a top-level record adds a non-optional field"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { x : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { x : Int, y : Text }"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when a top-level record adds an optional field at the end"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { x : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { x : Int, y : Optional Text }"
-                      ]
-                )
-              ]
-        , test
-              "Fails when a top-level record adds an optional field before the end"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { x : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = A { y : Optional Text, x : Int }"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when a top-level variant adds a variant"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
-                      ]
-                )
-              ]
-        , test
-              "Fails when a top-level variant removes a variant"
-              (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int }"
-                      ]
-                )
-              ]
-        , test
-              "Fail when a top-level variant changes changes the order of its variants"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Z { z : Int } | Y { y : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int } | Z { z : Int }"
-                      ]
-                )
-              ]
-        , test
-              "Fails when a top-level variant adds a field to a variant's type"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int, y2 : Int }"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when a top-level variant adds an optional field to a variant's type"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int }"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X { x : Int } | Y { y : Int, y2 : Optional Int }"
-                      ]
-                )
-              ]
-        , test
-              "Succeed when a top-level enum adds a field"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X | Y"
-                      ]
-                )
-              ]
-        , test
-              "Fail when a top-level enum changes changes the order of its variants"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X | Y | Z"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data A = X | Z | Y"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when a top-level type synonym changes"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data X = X"
-                      , "data Y = Y"
-                      , "type A = X"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data X = X"
-                      , "data Y = Y"
-                      , "type A = Y"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when two deeply nested type synonyms resolve to the same datatypes"
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "type Synonym1 a = (a, Synonym3)"
-                      , "type Synonym2 = Int"
-                      , "type Synonym3 = Text"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Synonym1 Synonym2"
-                      , "  where signatory [p]"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "type Synonym1 a = (Synonym2, a)"
-                      , "type Synonym2 = Int"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Synonym1 Text"
-                      , "  where signatory [p]"
-                      ]
-                )
-              ]
-        , test
-              "Fails when two deeply nested type synonyms resolve to different datatypes"
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A :\n  The upgraded template A has changed the types of some of its original fields.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "type Synonym1 a = (a, Synonym3)"
-                      , "type Synonym2 = Int"
-                      , "type Synonym3 = Text"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Synonym1 Synonym2"
-                      , "  where signatory [p]"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "type Synonym1 a = (a, Synonym3)"
-                      , "type Synonym2 = Text"
-                      , "type Synonym3 = Int"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Synonym1 Synonym2"
-                      , "  where signatory [p]"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when an interface is only defined in the initial package."
-              Succeed
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }" -- TODO: Do we also want to ignore dropped viewtypes?
-                      ]
-                )
-              ]
-        , test
-              "Fails when an interface is defined in an upgrading package when it was already in the prior package."
-              (FailWithError "\ESC\\[0;91merror type checking interface MyLib.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-        , test
-              "Warns when an interface and a template are defined in the same package."
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking module MyLib:\n  This package defines both interfaces and templates.\n  \n  This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled.\n  \n  It is recommended that interfaces are defined in their own package separate from their implementations.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Warns when an interface is used in the package that it's defined in."
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking interface MyLib.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that interfaces are defined in their own package separate from their implementations.")
-              NoDependencies
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance I for T where"
-                      , "      view = IView \"hi\""
-                      , "      method1 = 2"
-                      ]
-                )
-              ]
-        , test
-              "Warns when an interface is defined and then used in a package that upgrades it."
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.T interface instance [0-9a-f]+:MyLib:I for MyLib:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
-              DependOnV1
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import qualified \"mylib-v1\" MyLib as V1"
-                      , "data IView = IView { i : Text }"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance V1.I for T where"
-                      , "      view = V1.IView \"hi\""
-                      , "      method1 = 2"
-                      ]
-                )
-              ]
-        , test
-              "Fails when an instance is dropped."
-              (FailWithError "\ESC\\[0;91merror type checking template MyLib.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
-              (SeparateDep [
-                ( "daml/Dep.daml"
-                , unlines
-                      [ "module Dep where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ])
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import Dep"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance I for T where"
-                      , "      view = IView \"hi\""
-                      , "      method1 = 2"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import Dep"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when an instance is added (separate dep)."
-              Succeed
-              (SeparateDep [
-                ( "daml/Dep.daml"
-                , unlines
-                      [ "module Dep where"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ])
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import Dep"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import Dep"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance I for T where"
-                      , "      view = IView \"hi\""
-                      , "      method1 = 2"
-                      ]
-                )
-              ]
-        , test
-              "Succeeds when an instance is added (upgraded package)."
-              Succeed
-              DependOnV1
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import qualified \"mylib-v1\" MyLib as V1"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance V1.I for T where"
-                      , "      view = V1.IView \"hi\""
-                      , "      method1 = 2"
-                      , "data IView = IView { i : Text }"
-                      ]
-                )
-              ]
-        , test
-              "Cannot upgrade view"
-              (FailWithError ".*Tried to implement a view of type (‘|\915\199\255)IView(’|\915\199\214) on interface (‘|\915\199\255)V1.I(’|\915\199\214), but the definition of interface (‘|\915\199\255)V1.I(’|\915\199\214) requires a view of type (‘|\915\199\255)V1.IView(’|\915\199\214)")
-              DependOnV1
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "data IView = IView { i : Text }"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      , "  method1 : Int"
-                      ]
-                )
-              ]
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "import qualified \"mylib-v1\" MyLib as V1"
-                      , "template T with"
-                      , "    p: Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance V1.I for T where"
-                      , "      view = IView \"hi\" None"
-                      , "      method1 = 2"
-                      , "data IView = IView { i : Text, other : Optional Text }"
-                      ]
-                )
-              ]
-        ]
+        (
+            [ test
+                "CannotUpgradeView"
+                (FailWithError ".*Tried to implement a view of type (‘|\915\199\255)IView(’|\915\199\214) on interface (‘|\915\199\255)V1.I(’|\915\199\214), but the definition of interface (‘|\915\199\255)V1.I(’|\915\199\214) requires a view of type (‘|\915\199\255)V1.IView(’|\915\199\214)")
+                versionDefault
+                DependOnV1
+                True
+                True
+            ] ++
+            concat [
+                [ test
+                      "WarnsWhenTemplateChangesSignatories"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenTemplateChangesAgreement"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenTemplateChangesObservers"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenATopLevelEnumChanges"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenTemplateChangesEnsure"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenTemplateChangesKeyExpression"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenTemplateChangesKeyMaintainers"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the maintainers for its key.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenTemplateChangesKeyTypeSuperficially"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot change its key type.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenTemplateRemovesKeyType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot remove its key.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenTemplateAddsKeyType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenOldFieldIsDeletedFromTemplate"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A is missing some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenExistingFieldInTemplateIsChanged"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenOldFieldIsDeletedFromTemplateChoice"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenExistingFieldInTemplateChoiceIsChanged"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenControllersOfTemplateChoiceAreChanged"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenObserversOfTemplateChoiceAreChanged"
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of observers.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenTemplateChoiceChangesItsReturnType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded choice C cannot change its return type.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenATopLevelRecordAddsANonOptionalField"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenATopLevelVariantAddsAVariant"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenATopLevelVariantRemovesAVariant"
+                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenATopLevelVariantAddsAFieldToAVariantsType"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedWhenATopLevelEnumAddsAField"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenATopLevelTypeSynonymChanges"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
+                      (FailWithError "\ESC\\[0;91merror type checking interface Main.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenAnInstanceIsDropped"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedSeparateDep"
+                      Succeed
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
+                      Succeed
+                      versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
+                      "ValidUpgrade"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "MissingModule"
+                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "MissingTemplate"
+                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "MissingDataCon"
+                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "MissingChoice"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "TemplateChangedKeyType"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "RecordFieldsNewNonOptional"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWithSynonymReturnTypeChange"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWithSynonymReturnTypeChangeInSeparatePackage"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+                      versionDefault
+                      SeparateDeps
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenUpgradingADependency"
+                      Succeed
+                      versionDefault
+                      SeparateDeps
+                      False
+                      setUpgradeField
+                , test
+                      "FailsOnlyInModuleNotInReexports"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Other.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                ]
+            | setUpgradeField <- [True, False]
+            ] ++
+            concat [
+                [ testGeneral
+                      (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
+                      "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
+                      (expectation "type checking module Main:\n  This package defines both interfaces and templates.\n  \n  This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled.\n  \n  It is recommended that interfaces are defined in their own package separate from their implementations.")
+                      versionDefault
+                      NoDependencies
+                      warnBadInterfaceInstances
+                      True
+                      doTypecheck
+                , testGeneral
+                      (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
+                      "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
+                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:\n  \n  'T'\n  \n  However, it is recommended that interfaces are defined in their own package separate from their implementations.")
+                      versionDefault
+                      NoDependencies
+                      warnBadInterfaceInstances
+                      True
+                      doTypecheck
+                , testGeneral
+                      (prefix <> "WhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt")
+                      "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt"
+                      (expectation "type checking template Main.T interface instance [0-9a-f]+:Main:I for Main:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
+                      versionDefault
+                      DependOnV1
+                      warnBadInterfaceInstances
+                      True
+                      doTypecheck
+                ]
+            | warnBadInterfaceInstances <- [True, False]
+            , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
+            , let expectation msg =
+                      if warnBadInterfaceInstances
+                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
+                         else FailWithError ("\ESC\\[0;91merror " <> msg)
+            , doTypecheck <- [True, False]
+            ]
+       )
   where
-    test ::
-           String
+    --contractKeysMinVersion :: LF.Version
+    --contractKeysMinVersion = LF.versionDefault
+
+    versionDefault :: LF.Version
+    versionDefault =
+      maxMinorVersion LF.versionDefault $ LF.versionMinor $
+        fromJustNote
+            "Expected at least one LF 1.x version to support package upgrades." 
+            (LF.featureMinVersion LF.featurePackageUpgrades LF.V1)
+
+    test
+        :: String
         -> Expectation
+        -> LF.Version
         -> Dependency
-        -> [(FilePath, String)]
-        -> [(FilePath, String)]
+        -> Bool
+        -> Bool
         -> TestTree
-    test name expectation sharedDep oldVersion newVersion =
-        testCase name $
+    test name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField =
+            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True
+
+    testGeneral
+        :: String
+        -> String
+        -> Expectation
+        -> LF.Version
+        -> Dependency
+        -> Bool
+        -> Bool
+        -> Bool
+        -> TestTree
+    testGeneral name location expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField doTypecheck =
+        let upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
+            doTypecheckTrailer = if not doTypecheck then " (disable typechecking)" else ""
+        in
+        testCase (name <> upgradeFieldTrailer <> doTypecheckTrailer) $
         withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"
             let oldDir = dir </> "oldVersion"
             let newDar = newDir </> "out.dar"
             let oldDar = oldDir </> "old.dar"
 
+            let testRunfile path = locateRunfiles (mainWorkspace </> "test-common/src/main/daml/upgrades" </> path)
+
+            v1FilePaths <- listDirectory =<< testRunfile (location </> "v1")
+            let oldVersion = flip map v1FilePaths $ \path ->
+                  ( "daml" </> path
+                  , readFile =<< testRunfile (location </> "v1" </> path)
+                  )
+            v2FilePaths <- listDirectory =<< testRunfile (location </> "v2")
+            let newVersion = flip map v2FilePaths $ \path ->
+                  ( "daml" </> path
+                  , readFile =<< testRunfile (location </> "v2" </> path)
+                  )
+
             (depV1Dar, depV2Dar) <- case sharedDep of
-              SeparateDep sharedDep -> do
+              SeparateDep -> do
+                depFilePaths <- listDirectory =<< testRunfile (location </> "dep")
+                let sharedDepFiles = flip map depFilePaths $ \path ->
+                      ( "daml" </> path
+                      , readFile =<< testRunfile (location </> "dep" </> path)
+                      )
                 let sharedDir = dir </> "shared"
                 let sharedDar = sharedDir </> "out.dar"
-                writeFiles sharedDir (projectFile "mylib-shared" Nothing Nothing : sharedDep)
+                writeFiles sharedDir (projectFile ("upgrades-example-" <> location <> "-dep") Nothing Nothing : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", sharedDir, "-o", sharedDar]
                 pure (Just sharedDar, Just sharedDar)
+              SeparateDeps -> do
+                depV1FilePaths <- listDirectory =<< testRunfile (location </> "dep-v1")
+                let depV1Files = flip map depV1FilePaths $ \path ->
+                      ( "daml" </> path
+                      , readFile =<< testRunfile (location </> "dep-v1" </> path)
+                      )
+                let depV1Dir = dir </> "shared-v1"
+                let depV1Dar = depV1Dir </> "out.dar"
+                writeFiles depV1Dir (projectFile ("upgrades-example-" <> location <> "-dep-v1") Nothing Nothing : depV1Files)
+                callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
+
+                depV2FilePaths <- listDirectory =<< testRunfile (location </> "dep-v2")
+                let depV2Files = flip map depV2FilePaths $ \path ->
+                      ( "daml" </> path
+                      , readFile =<< testRunfile (location </> "dep-v2" </> path)
+                      )
+                let depV2Dir = dir </> "shared-v2"
+                let depV2Dar = depV2Dir </> "out.dar"
+                writeFiles depV2Dir (projectFile ("upgrades-example-" <> location <> "-dep-v2") Nothing Nothing : depV2Files)
+                callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
+
+                pure (Just depV1Dar, Just depV2Dar)
               DependOnV1 ->
                 pure (Nothing, Just oldDar)
               _ ->
                 pure (Nothing, Nothing)
 
-            writeFiles oldDir (projectFile "mylib-v1" Nothing depV1Dar : oldVersion)
+            writeFiles oldDir (projectFile ("upgrades-example-" <> location) Nothing depV1Dar : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
-            writeFiles newDir (projectFile "mylib-v2" (Just oldDar) depV2Dar : newVersion)
+            writeFiles newDir (projectFile ("upgrades-example-" <> location <> "-v2") (if setUpgradeField then Just oldDar else Nothing) depV2Dar : newVersion)
 
             case expectation of
               Succeed ->
+                  callProcessSilent damlc ["build", "--project-root", newDir, "-o", newDar]
+              FailWithError _ | not (doTypecheck && setUpgradeField) ->
                   callProcessSilent damlc ["build", "--project-root", newDir, "-o", newDar]
               FailWithError regex -> do
                   stderr <- callProcessForStderr damlc ["build", "--project-root", newDir, "-o", newDar]
@@ -1282,34 +562,36 @@ tests damlc =
                   let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
-                  unless (matchTest compiledRegex stderr) $
-                      assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                  if setUpgradeField && doTypecheck
+                      then unless (matchTest compiledRegex stderr) $
+                            assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                      else when (matchTest compiledRegex stderr) $
+                            assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+          where
+          projectFile name upgradedFile mbDep =
+              ( "daml.yaml"
+              , pure $ unlines $
+                [ "sdk-version: " <> sdkVersion
+                , "name: " <> name
+                , "source: daml"
+                , "version: 0.0.1"
+                , "dependencies:"
+                , "  - daml-prim"
+                , "  - daml-stdlib"
+                , "build-options:"
+                , "  - --target=" <> LF.renderVersion lfVersion
+                ]
+                  ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
+                  ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
+                  ++ ["data-dependencies:\n -  '" <> path <> "'" | Just path <- pure mbDep]
+                  ++ ["typecheck-upgrades: False" | not doTypecheck]
+              )
 
     writeFiles dir fs =
-        for_ fs $ \(file, content) -> do
+        for_ fs $ \(file, ioContent) -> do
+            content <- ioContent
             createDirectoryIfMissing True (takeDirectory $ dir </> file)
             writeFileUTF8 (dir </> file) content
-
-    projectFile name upgradedFile mbDep =
-        ( "daml.yaml"
-        , unlines $
-          [ "sdk-version: " <> sdkVersion
-          , "name: " <> name
-          , "source: daml"
-          , "version: 0.0.1"
-          , "dependencies:"
-          , "  - daml-prim"
-          , "  - daml-stdlib"
-          , "typecheck-upgrades: true"
-          , "build-options:"
-          , "- --target=" <>
-                renderVersion
-                  (fromMaybe
-                    (error "DamlcUpgrades: featureMinVersion should be defined over featurePackageUpgrades")
-                    (featureMinVersion featurePackageUpgrades V1))
-          ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
-            ++ ["data-dependencies:\n -  '" <> path <> "'" | Just path <- pure mbDep]
-        )
 
 data Expectation
   = Succeed
@@ -1320,5 +602,5 @@ data Expectation
 data Dependency
   = NoDependencies
   | DependOnV1
-  | SeparateDep [(FilePath, String)]
-  deriving (Show, Eq, Ord)
+  | SeparateDep
+  | SeparateDeps
