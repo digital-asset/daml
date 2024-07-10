@@ -50,12 +50,7 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev) {
-  protected def tuple2TyCon: String = {
-    import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
-    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
-  }
-}
+class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
 
 abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
@@ -70,7 +65,10 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
 
-  protected def tuple2TyCon: String
+  private[this] final def tuple2TyCon: String = {
+    val Tuple2 = com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major)
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {

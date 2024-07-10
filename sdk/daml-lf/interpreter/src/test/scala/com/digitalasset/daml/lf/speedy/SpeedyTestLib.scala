@@ -18,7 +18,7 @@ import com.daml.logging.LoggingContext
 import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 
 import scala.annotation.tailrec
 
@@ -206,7 +206,11 @@ private[speedy] object SpeedyTestLib {
         s"these packages don't have the expected major language version $majorLanguageVersion: $wrongPackages"
       },
     )
-    Validation.unsafeCheckPackages(StablePackagesV2, PackageInterface(pkgs), pkgs)
+    Validation.unsafeCheckPackages(
+      StablePackages(majorLanguageVersion),
+      PackageInterface(pkgs),
+      pkgs,
+    )
     PureCompiledPackages.assertBuild(
       pkgs,
       Compiler.Config
@@ -221,7 +225,9 @@ private[speedy] object SpeedyTestLib {
   ): PureCompiledPackages =
     typeAndCompile(
       pkg.languageVersion.major,
-      StablePackagesV2.packagesMap + (parserParameter.defaultPackageId -> pkg),
+      StablePackages(
+        parserParameter.languageVersion.major
+      ).packagesMap + (parserParameter.defaultPackageId -> pkg),
     )
 
   private[speedy] object Implicits {

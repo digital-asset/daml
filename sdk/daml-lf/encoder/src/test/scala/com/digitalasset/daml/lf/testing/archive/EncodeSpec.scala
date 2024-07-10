@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.validation.Validation
@@ -19,12 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev) {
-  protected override val tuple2TyCon: String = {
-    import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
-    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
-  }
-}
+class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
 abstract class EncodeSpec(languageVersion: LanguageVersion)
     extends AnyWordSpec
@@ -33,7 +27,11 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
 
   import EncodeSpec._
 
-  protected val tuple2TyCon: String
+  private final val tuple2TyCon: String = {
+    val Tuple2 =
+      com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major).Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   private val pkgId: PackageId = "self"
 
@@ -290,7 +288,7 @@ object EncodeSpec {
   private def validate(pkgId: PackageId, pkg: Package): Unit = {
     Validation
       .checkPackage(
-        StablePackagesV2,
+        zStablePackagesV2,
         language.PackageInterface(StablePackagesV2.packagesMap + (pkgId -> pkg)),
         pkgId,
         pkg,

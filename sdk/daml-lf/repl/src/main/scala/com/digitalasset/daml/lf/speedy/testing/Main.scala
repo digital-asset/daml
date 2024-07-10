@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.language.{
   LanguageVersion => LV,
 }
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
@@ -135,7 +135,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
   def cmdValidate(state: State): (Boolean, State) = {
     val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
       Validation.checkPackage(
-        stablePackages = StablePackagesV2,
+        stablePackages = StablePackages(majorLanguageVersion),
         pkgInterface = PackageInterface(state.packages),
         pkgId = pkgId,
         pkg = pkg,

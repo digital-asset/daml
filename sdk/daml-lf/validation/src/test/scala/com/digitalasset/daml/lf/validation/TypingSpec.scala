@@ -13,19 +13,14 @@ import com.digitalasset.daml.lf.language.{
   Reference,
   LanguageVersion => LV,
 }
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2) {
-  protected override val tuple2TyCon: String = {
-    import com.digitalasset.daml.lf.stablepackages.StablePackagesV2.Tuple2
-    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
-  }
-}
+class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
 
 abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
@@ -42,7 +37,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     None,
   )
 
-  protected val tuple2TyCon: String
+  private[this] val tuple2TyCon: String = {
+    val Tuple2 = com.digitalasset.daml.lf.stablepackages.StablePackages(majorLanguageVersion).Tuple2
+    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+  }
 
   import SpecUtil._
 
@@ -1418,7 +1416,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       val pkgIface = PackageInterface(Map(defaultPackageId -> pkg))
 
       def checkModule(modName: String): Unit = Typing.checkModule(
-        stablePackages = StablePackagesV2,
+        stablePackages = stablePackages,
         pkgInterface = pkgIface,
         pkgId = defaultPackageId,
         mod = pkg.modules(DottedName.assertFromString(modName)),
@@ -1669,7 +1667,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(pkg: Package, modName: String) =
         Typing.checkModule(
-          stablePackages = StablePackagesV2,
+          stablePackages = stablePackages,
           pkgInterface = pkgInterface,
           pkgId = defaultPackageId,
           mod = pkg.modules(DottedName.assertFromString(modName)),
@@ -1770,7 +1768,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       """
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        stablePackages = StablePackagesV2,
+        stablePackages = stablePackages,
         pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
         pkgId = defaultPackageId,
         mod = pkg.modules(DottedName.assertFromString(modName)),
@@ -1803,7 +1801,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
       Typing.checkModule(
-        stablePackages = StablePackagesV2,
+        stablePackages = stablePackages,
         pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
         pkgId = defaultPackageId,
         mod = mod,
@@ -1874,7 +1872,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(
-          stablePackages = StablePackagesV2,
+          stablePackages = stablePackages,
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
           mod = mod,
@@ -1902,7 +1900,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(
-          stablePackages = StablePackagesV2,
+          stablePackages = stablePackages,
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
           mod = mod,
@@ -1930,7 +1928,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
         Typing.checkModule(
-          stablePackages = StablePackagesV2,
+          stablePackages = stablePackages,
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
           mod = mod,
@@ -2035,10 +2033,12 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
      """
     Typing.Env(
       LV.default,
-      StablePackagesV2,
+      stablePackages,
       PackageInterface(Map(defaultPackageId -> pkg)),
       Context.None,
     )
   }
+
+  val stablePackages = StablePackages(majorLanguageVersion)
 
 }
