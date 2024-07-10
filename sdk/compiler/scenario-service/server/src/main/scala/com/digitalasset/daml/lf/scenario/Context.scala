@@ -27,7 +27,7 @@ import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
@@ -138,7 +138,7 @@ class Context(
       if (!omitValidation)
         assertRight(
           Validation
-            .checkModule(StablePackagesV2, pkgInterface, homePackageId, mod)
+            .checkModule(StablePackages(languageVersion.major), pkgInterface, homePackageId, mod)
             .left
             .map(_.pretty)
         )
