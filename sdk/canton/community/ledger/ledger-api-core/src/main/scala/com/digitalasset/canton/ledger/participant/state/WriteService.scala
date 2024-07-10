@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth

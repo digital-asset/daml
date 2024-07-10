@@ -105,7 +105,7 @@ final class LfValueTranslation(
     loadPackage: (
         LfPackageId,
         LoggingContextWithTrace,
-    ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
+    ) => Future[Option[com.digitalasset.daml.lf.archive.DamlLf.Archive]],
     val loggerFactory: NamedLoggerFactory,
 ) extends LfValueSerialization
     with NamedLogging {

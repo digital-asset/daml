@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.metrics
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
