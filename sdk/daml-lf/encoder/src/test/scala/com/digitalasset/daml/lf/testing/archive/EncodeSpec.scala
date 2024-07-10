@@ -27,9 +27,11 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
 
   import EncodeSpec._
 
-  private final val tuple2TyCon: String = {
-    val Tuple2 =
-      com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major).Tuple2
+  private val stablePackages =
+    com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major)
+
+  private val tuple2TyCon: String = {
+    import stablePackages.Tuple2
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
@@ -266,6 +268,18 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
     }
   }
 
+  private def validate(pkgId: PackageId, pkg: Package): Unit = {
+    Validation
+      .checkPackage(
+        stablePackages,
+        language.PackageInterface(stablePackages.packagesMap + (pkgId -> pkg)),
+        pkgId,
+        pkg,
+      )
+      .left
+      .foreach(e => sys.error(e.toString))
+  }
+
 }
 
 object EncodeSpec {
@@ -283,18 +297,6 @@ object EncodeSpec {
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, packageIdRule = replacePkId)
 
     normalizer.apply(pkg)
-  }
-
-  private def validate(pkgId: PackageId, pkg: Package): Unit = {
-    Validation
-      .checkPackage(
-        zStablePackagesV2,
-        language.PackageInterface(StablePackagesV2.packagesMap + (pkgId -> pkg)),
-        pkgId,
-        pkg,
-      )
-      .left
-      .foreach(e => sys.error(e.toString))
   }
 
 }
