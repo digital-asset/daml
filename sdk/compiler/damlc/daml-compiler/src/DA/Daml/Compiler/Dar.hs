@@ -112,8 +112,9 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
+    -> WarnBadInterfaceInstances
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput = do
+buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstances = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -152,7 +153,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
 
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades pkg mbUpgradedPackage
+                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg

@@ -137,6 +137,7 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optScenarioService,
                               optSkipScenarioValidation,
                               optThreads,
+                              optWarnBadInterfaceInstances,
                               pkgNameVersion,
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
@@ -981,6 +982,7 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
               pkgConfig
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
+              (optWarnBadInterfaceInstances opts)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       createDarFile loggerH fp dar
@@ -1338,6 +1340,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
+                            (optWarnBadInterfaceInstances opts)
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."

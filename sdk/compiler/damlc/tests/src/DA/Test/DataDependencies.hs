@@ -2707,6 +2707,7 @@ tests TestArgs{..} =
         { buildOptions =
             [ "--target=" <> LF.renderVersion targetDevVersion
             , "--enable-interfaces=yes"
+            , "--warn-bad-interface-instances=yes"
             ]
         , extraDeps = []
         }
