@@ -37,8 +37,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     None,
   )
 
+  private[this] val stablePackages = StablePackages(majorLanguageVersion)
+
   private[this] val tuple2TyCon: String = {
-    val Tuple2 = com.digitalasset.daml.lf.stablepackages.StablePackages(majorLanguageVersion).Tuple2
+    import stablePackages.Tuple2
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
@@ -2038,7 +2040,5 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       Context.None,
     )
   }
-
-  val stablePackages = StablePackages(majorLanguageVersion)
 
 }

@@ -66,7 +66,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
 
   private[this] final def tuple2TyCon: String = {
-    val Tuple2 = com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major)
+    val Tuple2 =
+      com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major).Tuple2
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
