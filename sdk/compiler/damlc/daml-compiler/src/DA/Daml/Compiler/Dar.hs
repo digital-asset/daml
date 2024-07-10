@@ -162,9 +162,10 @@ buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstan
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
-                 MaybeT $
-                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
+                 when (lfVersion `LF.supports` LF.featurePackageUpgrades) $
+                     MaybeT $
+                         runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                             TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
