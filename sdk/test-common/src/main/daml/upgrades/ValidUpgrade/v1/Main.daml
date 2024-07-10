@@ -3,11 +3,6 @@
 
 module Main where
 
-import Daml.Script
-
-main : Script ()
-main = pure ()
-
 data TKey1 = TKey1 { p : Party }
 
 template T with
