@@ -148,7 +148,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
           requestingParties = Seq(party),
         )
       )
@@ -178,7 +178,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
           requestingParties = Seq(party),
         )
       )
@@ -200,7 +200,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
           requestingParties = Seq(party),
         )
       )
@@ -228,7 +228,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       events <- ledger.getEventsByContractKey(
         GetEventsByContractKeyRequest(
           contractKey = Some(key),
-          templateId = Some(TextKey.TEMPLATE_ID.toV1),
+          templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
           requestingParties = Seq(notTheSubmittingParty),
         )
       )
@@ -250,7 +250,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
         .getEventsByContractKey(
           GetEventsByContractKeyRequest(
             contractKey = Some(key),
-            templateId = Some(TextKey.TEMPLATE_ID.toV1),
+            templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
             requestingParties = Seq(party),
             continuationToken = continuationToken.getOrElse(
               GetEventsByContractKeyRequest.defaultInstance.continuationToken
@@ -299,7 +299,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
         .getEventsByContractKey(
           GetEventsByContractKeyRequest(
             contractKey = Some(key),
-            templateId = Some(TextKey.TEMPLATE_ID.toV1),
+            templateId = Some(TextKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
             requestingParties = Seq(party),
             continuationToken = continuationToken.getOrElse(
               GetEventsByContractKeyRequest.defaultInstance.continuationToken
