@@ -30,6 +30,7 @@ import DA.Daml.UtilLF (sourceLocToRange)
 -- | Type checking context for error reporting purposes.
 data Context
   = ContextNone
+  | ContextDefModule !Module
   | ContextDefTypeSyn !Module !DefTypeSyn
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
@@ -190,18 +191,22 @@ data UpgradeError
   | ChoiceChangedReturnType !ChoiceName
   | TemplateRemovedKey !TypeConName !TemplateKey
   | TemplateAddedKey !TypeConName !TemplateKey
+  | TriedToUpgradeIface !TypeConName
+  | MissingImplementation !TypeConName !TypeConName
   deriving (Eq, Ord, Show)
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
   | TemplateChoiceInput TypeConName ChoiceName
   | VariantConstructor TypeConName VariantConName
+  | InterfaceBody TypeConName
   | TopLevel TypeConName
   deriving (Eq, Ord, Show)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
   ContextNone                -> Nothing
+  ContextDefModule _         -> Nothing
   ContextDefTypeSyn _ s      -> synLocation s
   ContextDefDataType _ d     -> dataLocation d
   ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t -- Fallback to template header location if other locations are missing
@@ -244,6 +249,8 @@ errorLocation = \case
 instance Show Context where
   show = \case
     ContextNone -> "<none>"
+    ContextDefModule m ->
+      "module " <> show (moduleName m)
     ContextDefTypeSyn m ts ->
       "type synonym " <> show (moduleName m) <> "." <> show (synName ts)
     ContextDefDataType m dt ->
@@ -592,18 +599,23 @@ instance Pretty UpgradeError where
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
     TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
+    TriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
+    MissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
     VariantConstructor variantName variantConName -> "variant constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
+    InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 
 instance Pretty Context where
   pPrint = \case
     ContextNone ->
       string "<none>"
+    ContextDefModule m ->
+      hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->
       hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
@@ -646,6 +658,9 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
+  | WShouldDefineIfacesAndTemplatesSeparately
+  | WShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | WShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   deriving (Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -670,6 +685,23 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WShouldDefineIfacesAndTemplatesSeparately ->
+      vsep
+        [ "This package defines both interfaces and templates."
+        , "This is not recommended - templates are upgradeable, but interfaces are not, which means that this version of the package and its templates can never be uninstalled."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        ]
+    WShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
+      vsep $ concat
+        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
+        , map (quotes . pPrint) implementingTemplates
+        , [ "However, it is recommended that interfaces are defined in their own package separate from their implementations." ]
+        ]
+    WShouldDefineTplInSeparatePackage tpl iface ->
+      vsep
+        [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
+        , "However, it is recommended that interfaces are defined in their own package separate from their implementations."
+        ]
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
