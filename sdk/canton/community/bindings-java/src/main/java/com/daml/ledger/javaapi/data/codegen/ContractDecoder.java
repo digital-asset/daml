@@ -22,21 +22,13 @@ public class ContractDecoder {
       Iterable<? extends ContractCompanion<? extends Contract<?, ?>, ?, ? extends DamlRecord<?>>>
           companions) {
     this.companions =
-        Stream.concat(
-                // Each companion should be keyed by TEMPLATE_ID and by TEMPLATE_ID_WITH_PACKAGE_ID
-                StreamSupport.stream(companions.spliterator(), false)
-                    .map(c -> Map.entry(c.TEMPLATE_ID, c)),
-                StreamSupport.stream(companions.spliterator(), false)
-                    .map(c -> Map.entry(c.TEMPLATE_ID_WITH_PACKAGE_ID, c)))
-            .collect(
-                Collectors.toMap(
-                    e -> e.getKey(),
-                    e -> e.getValue(),
-                    (c1, c2) -> {
-                      if (c1.equals(c2)) return c1;
-                      throw new IllegalStateException(
-                          "Duplicate key for different values: " + c1 + " and " + c2);
-                    }));
+        // Each companion should be keyed by TEMPLATE_ID and by TEMPLATE_ID_WITH_PACKAGE_ID,
+        StreamSupport.stream(companions.spliterator(), false)
+            .flatMap(
+                c ->
+                    Stream.of(
+                        Map.entry(c.TEMPLATE_ID, c), Map.entry(c.TEMPLATE_ID_WITH_PACKAGE_ID, c)))
+            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue(), (v, _v) -> v));
   }
 
   public Contract<?, ?> fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException {
