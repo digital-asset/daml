@@ -25,7 +25,7 @@ import qualified V2.EnumRemoved as V2
 import qualified V2.EnumAdditional as V2
 import DA.Text
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Fails if the template name changes", templateNameChanges)
   , ("Fails if fields are removed", templateFieldsRemoved)
@@ -39,8 +39,8 @@ main = tests
   , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
   ]
 
-templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
-templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Test
+templateInvalidChange shouldSucceed makeV1Contract v2Choice = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
@@ -76,7 +76,7 @@ contents: |
         do pure "V2"                -- @V  2
 -}
 
-templateNameChanges : Script ()
+templateNameChanges : Test
 templateNameChanges = templateInvalidChange @V2.NameChangesOops False V1.NameChanges V2.NameChangesCall
 
 {- MODULE
@@ -95,7 +95,7 @@ contents: |
         do pure "V2"                  -- @V  2
 -}
 
-templateFieldsRemoved : Script ()
+templateFieldsRemoved : Test
 templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.FieldsRemoved` 1) V2.FieldsRemovedCall
 
 {- MODULE
@@ -119,7 +119,7 @@ contents: |
         do pure "V2"                        -- @V  2
 -}
 
-templateFieldsRemovedNested : Script ()
+templateFieldsRemovedNested : Test
 templateFieldsRemovedNested =
   templateInvalidChange
     @V2.FieldsRemovedNested
@@ -144,7 +144,7 @@ contents: |
         do pure "V2"                           -- @V  2
 -}
 
-templateNonOptionalFieldsAdded : Script ()
+templateNonOptionalFieldsAdded : Test
 templateNonOptionalFieldsAdded = templateInvalidChange @V2.NonOptionalFieldsAdded False V1.NonOptionalFieldsAdded V2.NonOptionalFieldsAddedCall
 
 {- MODULE
@@ -169,7 +169,7 @@ contents: |
         do pure "V2"                                 -- @V  2
 -}
 
-templateNonOptionalFieldsAddedNested : Script ()
+templateNonOptionalFieldsAddedNested : Test
 templateNonOptionalFieldsAddedNested =
   templateInvalidChange
     @V2.NonOptionalFieldsAddedNested
@@ -198,7 +198,7 @@ contents: |
         do pure "V2"                     -- @V  2
 -}
 
-templateEnumUnchanged : Script ()
+templateEnumUnchanged : Test
 templateEnumUnchanged =
   templateInvalidChange
     @V2.EnumUnchanged
@@ -228,7 +228,7 @@ contents: |
         do pure "V2"                   -- @V  2
 -}
 
-templateEnumUpgradeToRemoved : Script ()
+templateEnumUpgradeToRemoved : Test
 templateEnumUpgradeToRemoved =
   templateInvalidChange
     @V2.EnumRemoved
@@ -258,8 +258,8 @@ contents: |
         do pure "V2"                      -- @V  2
 -}
 
-templateEnumDowngradeFromNew : Script ()
-templateEnumDowngradeFromNew = do
+templateEnumDowngradeFromNew : Test
+templateEnumDowngradeFromNew = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.EnumAdditional with party = a, nestedData = V2.EnumAdditionalData3
 
@@ -274,7 +274,7 @@ templateEnumDowngradeFromNew = do
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
-templateEnumUpgradeFromOld : Script ()
+templateEnumUpgradeFromOld : Test
 templateEnumUpgradeFromOld =
   templateInvalidChange
     @V2.EnumAdditional
@@ -282,7 +282,7 @@ templateEnumUpgradeFromOld =
     (`V1.EnumAdditional` V1.EnumAdditionalData1)
     V2.EnumAdditionalCall
 
-templateEnumDowngradeFromOld : Script ()
+templateEnumDowngradeFromOld : Test
 templateEnumDowngradeFromOld =
   templateInvalidChange
     @V1.EnumAdditional

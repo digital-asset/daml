@@ -14,6 +14,8 @@ import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -26,26 +28,6 @@ import scala.util.matching.Regex
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
-
-/*
-Consider a scala executable that generates the dars
-  as a bazel rule, it'd return 2 file groups, one for deps and one for test files
-  i.e., first is uploaded, second is run
-  we'd do this by having a scala binary, then some kind of sh rule that lets us run the binary
-
-We refactor the daml "TestTree" to be parameterised by whether we're in IDE or Canton
-Refactor canton code to "upload" all the deps at the start by making it part of the "darFiles", so its uploaded by bootstrap, and we don't need to check vetted status
-then just run all the test files
-
-for ide ledger, no upload, so just run all the test files
-
-this will take some time, and require some research into bazel, but
-it avoids compiling the dars twice (saves ~5 mins on mac)
-  but still allows us to split the ide and canton tests, so you don't need to run canton to run the ide tests
-it allows us to upload in startup, which may fix the vetting issue
-
-we'll see what tudor says, if the upload fix is easy, maybe we'll tie the tests together.
- */
 
 class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
@@ -73,10 +55,33 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
-      testCase.name in {
+      (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
-          (testDarPath, deps) <- buildTestCaseDar(testCase)
+          (testDarPath, deps) <- buildTestCaseDarMemoized(testCase)
+
+          // Create ide ledger client
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
+          participants <- Runner.ideLedgerClient(
+            testDar.compiledPackages,
+            newTraceLog,
+            newWarningLog,
+          )
+
+          // Run tests
+          _ <- run(
+            participants,
+            QualifiedName.assertFromString(s"${testCase.name}:main"),
+            inputValue = Some(Value.ValueText("ide-ledger")),
+            dar = testDar,
+            enableContractUpgrading = true,
+          )
+        } yield succeed
+      }
+      (testCase.name + " on Canton") in {
+        for {
+          // Build dars
+          (testDarPath, deps) <- buildTestCaseDarMemoized(testCase)
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
@@ -93,7 +98,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           }
 
           _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
-            Future.traverse(deps) { dep =>
+            Future.traverse(deps.reverse) { dep =>
               Thread.sleep(500)
               println(
                 s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to participant on port ${ledgerPort}"
@@ -105,7 +110,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           }
 
           // Wait for upload
-          _ <- RetryStrategy.constant(attempts = 20, waitTime = 2.seconds) { (_, _) =>
+          _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
             assertDepsVetted(adminClients.head._2, deps)
           }
           _ = println("All packages vetted on all participants")
@@ -115,6 +120,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
+            inputValue = Some(Value.ValueText("canton")),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -138,6 +144,17 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
         }
       })
   }
+
+  private val builtTestCaseDars: mutable.HashMap[TestCase, (Path, Seq[Dar])] =
+    new mutable.HashMap[TestCase, (Path, Seq[Dar])]
+
+  def buildTestCaseDarMemoized(testCase: TestCase): Future[(Path, Seq[Dar])] =
+    builtTestCaseDars
+      .get(testCase)
+      .fold(buildTestCaseDar(testCase).map { res =>
+        builtTestCaseDars.update(testCase, res)
+        res
+      })(Future.successful(_))
 
   def buildTestCaseDar(testCase: TestCase): Future[(Path, Seq[Dar])] = Future {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))

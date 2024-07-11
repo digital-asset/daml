@@ -34,39 +34,39 @@ contents: |
 v1PackageId : PackageId
 v1PackageId = getPackageId "package-preference-1.0.0"
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("No package preference uses the default 'highest version' logic for exercise", noPackagePreference)
-  , ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
-  , ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
-  , ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
+  , brokenOnIDELedger ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
+  , brokenOnIDELedger ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
+  , brokenOnIDELedger ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
   -- TODO: interfaces??
   ]
 
-noPackagePreference : Script ()
-noPackagePreference = do
+noPackagePreference : Test
+noPackagePreference = test $ do
   a <- allocateParty "alice"
   res <- a `submit` createAndExerciseCmd (V1.PackagePreferenceTemplate a) V1.PackagePreferenceChoice
   res === "V2"
 
-explicitPackagePreference : Script ()
-explicitPackagePreference = do
+explicitPackagePreference : Test
+explicitPackagePreference = test $ do
   a <- allocateParty "alice"
-  res <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseCmd (V1.PackagePreferenceTemplate a) V1.PackagePreferenceChoice
+  res <- (actAs a <> packagePreference [v1PackageId]) `submitWithOptions` createAndExerciseCmd (V1.PackagePreferenceTemplate a) V1.PackagePreferenceChoice
   res === "V1"
-  res2 <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+  res2 <- (actAs a <> packagePreference [v1PackageId]) `submitWithOptions` createAndExerciseCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
   res2 === "V1"
 
-explicitPackagePreferenceWithExact : Script ()
-explicitPackagePreferenceWithExact = do
+explicitPackagePreferenceWithExact : Test
+explicitPackagePreferenceWithExact = test $ do
   a <- allocateParty "alice"
-  res <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseExactCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+  res <- (actAs a <> packagePreference [v1PackageId]) `submitWithOptions` createAndExerciseExactCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
   res === "V2"
 
-explicitPackagePreferenceWithExactAndNon : Script ()
-explicitPackagePreferenceWithExactAndNon = do
+explicitPackagePreferenceWithExactAndNon : Test
+explicitPackagePreferenceWithExactAndNon = test $ do
   a <- allocateParty "alice"
-  res <- submit (actAs a <> packagePreference [v1PackageId]) $ do
+  res <- submitWithOptions (actAs a <> packagePreference [v1PackageId]) $ do
     res1 <- createAndExerciseCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
     res2 <- createAndExerciseExactCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
     pure (res1, res2)

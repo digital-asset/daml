@@ -53,7 +53,7 @@ contents: |
         do exerciseByKey @UnchangedKey k UnchangedKeyCall
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Query an unchanged old key for a new contract", queryKeyUnchanged)
   , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
@@ -61,8 +61,8 @@ main = tests
   , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
   ]
 
-queryKeyUnchanged : Script ()
-queryKeyUnchanged = do
+queryKeyUnchanged : Test
+queryKeyUnchanged = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
   keyRes <- queryContractKey a $ V2.UnchangedKeyKey a 1
@@ -70,23 +70,23 @@ queryKeyUnchanged = do
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UnchangedKey a 1 None -> pure ()
     _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UnchangedKey a 1 None) <> ", got " <> show keyRes
 
-exerciseCmdKeyUnchanged : Script ()
-exerciseCmdKeyUnchanged = do
+exerciseCmdKeyUnchanged : Test
+exerciseCmdKeyUnchanged = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
   res <- a `submit` exerciseByKeyExactCmd @V2.UnchangedKey (V2.UnchangedKeyKey a 1) V2.UnchangedKeyCall
   res === "V2"
 
-fetchKeyUnchanged : Script ()
-fetchKeyUnchanged = do
+fetchKeyUnchanged : Test
+fetchKeyUnchanged = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createCmd (V1.UnchangedKey a 1)
   (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyFetch $ V2.UnchangedKeyKey a 1)
   foundContract === V2.UnchangedKey a 1 None
   show foundCid === show cid
 
-exerciseUpdateKeyUnchanged : Script ()
-exerciseUpdateKeyUnchanged = do
+exerciseUpdateKeyUnchanged : Test
+exerciseUpdateKeyUnchanged = test $ do
   a <- allocateParty "alice"
   _ <- a `submit` createCmd (V1.UnchangedKey a 1)
   res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
