@@ -283,6 +283,7 @@ class ProtocolProcessorTest
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,
+        clock,
       )
     )
 

@@ -407,6 +407,7 @@ trait ParticipantNodeBootstrapCommon {
         parameterConfig.processingTimeouts,
         loggerFactory,
         futureSupervisor,
+        clock,
       )
 
       partyNotifier <- EitherT

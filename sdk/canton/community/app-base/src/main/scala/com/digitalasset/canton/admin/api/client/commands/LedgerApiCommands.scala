@@ -481,6 +481,25 @@ object LedgerApiCommands {
 
     }
 
+    final case class ValidateDarFile(darPath: String)
+        extends BaseCommand[ValidateDarFileRequest, ValidateDarFileResponse, Unit] {
+
+      override def createRequest(): Either[String, ValidateDarFileRequest] =
+        for {
+          bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
+        } yield ValidateDarFileRequest(bytes)
+
+      override def submitRequest(
+          service: PackageManagementServiceStub,
+          request: ValidateDarFileRequest,
+      ): Future[ValidateDarFileResponse] =
+        service.validateDarFile(request)
+      override def handleResponse(response: ValidateDarFileResponse): Either[String, Unit] =
+        Right(())
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
     final case class ListKnownPackages(limit: PositiveInt)
         extends BaseCommand[ListKnownPackagesRequest, ListKnownPackagesResponse, Seq[
           PackageDetails
