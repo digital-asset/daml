@@ -190,13 +190,13 @@ final class SemanticTests extends LedgerTestSuite {
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
-          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID.toV1),
+          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
         )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
           Record(
-            recordId = Some(PaintAgree.TEMPLATE_ID.toV1),
+            recordId = Some(PaintAgree.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
             fields = Seq(
               RecordField("painter", Some(Value(Value.Sum.Party(painter)))),
               RecordField("houseOwner", Some(Value(Value.Sum.Party(houseOwner)))),
@@ -227,13 +227,13 @@ final class SemanticTests extends LedgerTestSuite {
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
-          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID.toV1),
+          createdEvents(tree).filter(_.getTemplateId == PaintAgree.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
         )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
           Record(
-            recordId = Some(PaintAgree.TEMPLATE_ID.toV1),
+            recordId = Some(PaintAgree.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
             fields = Seq(
               RecordField("painter", Some(Value(Value.Sum.Party(painter)))),
               RecordField("houseOwner", Some(Value(Value.Sum.Party(houseOwner)))),
@@ -320,7 +320,7 @@ final class SemanticTests extends LedgerTestSuite {
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
         (newIouEvents, agreementEvents) = createdEvents(tree).partition(
-          _.getTemplateId == Iou.TEMPLATE_ID.toV1
+          _.getTemplateId == Iou.TEMPLATE_ID_WITH_PACKAGE_ID.toV1
         )
         newIouEvent <- Future(newIouEvents.head)
         agreementEvent <- Future(agreementEvents.head)

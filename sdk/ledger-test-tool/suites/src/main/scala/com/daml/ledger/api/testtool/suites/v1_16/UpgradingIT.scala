@@ -62,7 +62,7 @@ class UpgradingIT extends LedgerTestSuite {
     .withPackageId(PkgNameRef.toString)
 
   private val PkgRefId_UA_V1 =
-    PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.TEMPLATE_ID.getPackageId))
+    PackageRef.Id(Ref.PackageId.assertFromString(UA_V1.PACKAGE_ID))
 
   test(
     "USubscriptionsUnknownPackageNames",
@@ -234,7 +234,7 @@ class UpgradingIT extends LedgerTestSuite {
             create1,
             payloadUA_1,
             UA_V1.valueDecoder(),
-            UA_V1.TEMPLATE_ID,
+            UA_V1.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
           assertPayloadEquals(
@@ -242,7 +242,7 @@ class UpgradingIT extends LedgerTestSuite {
             create2,
             new UA_V1(party, party, 0L),
             UA_V1.valueDecoder(),
-            UA_V1.TEMPLATE_ID,
+            UA_V1.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
           assertPayloadEquals(
@@ -250,7 +250,7 @@ class UpgradingIT extends LedgerTestSuite {
             create3,
             new UA_V2(party, party, 0L, Optional.empty()),
             UA_V2.valueDecoder(),
-            UA_V2.TEMPLATE_ID,
+            UA_V2.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
           assertPayloadEquals(
@@ -258,15 +258,17 @@ class UpgradingIT extends LedgerTestSuite {
             create4,
             payloadUA_4,
             UA_V2.valueDecoder(),
-            UA_V2.TEMPLATE_ID,
+            UA_V2.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
           assertPayloadEquals(
             "UA create 5",
             create5,
             payloadUA_5,
-            UA_V1.valueDecoder(),
-            UA_V1.TEMPLATE_ID,
+            // The default is now to create the contract with a package name in the template id
+            // So the contract ends up being interpreted as the V2 version.
+            UA_V2.valueDecoder(),
+            UA_V2.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
         case other => fail(s"Expected five create events, got ${other.size}")
@@ -279,7 +281,7 @@ class UpgradingIT extends LedgerTestSuite {
             create1,
             payloadUB_1,
             UB_V2.valueDecoder(),
-            UB_V2.TEMPLATE_ID,
+            UB_V2.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
           assertPayloadEquals(
@@ -287,7 +289,7 @@ class UpgradingIT extends LedgerTestSuite {
             create2,
             payloadUB_2,
             UB_V3.valueDecoder(),
-            UB_V3.TEMPLATE_ID,
+            UB_V3.TEMPLATE_ID_WITH_PACKAGE_ID,
             expectedCreatedEventBlob,
           )
         case other => fail(s"Expected two create events, got ${other.size}")
@@ -340,22 +342,34 @@ class UpgradingIT extends LedgerTestSuite {
     }
   }
 
-  private def assertPayloadEquals[T](
+  private def haveSamePopulatedFields[A <: Template, B <: Template](a: A, b: B) = {
+    val aFields = a.toValue.getFields.asScala
+    val bFields = b.toValue.getFields.asScala
+    val count = aFields.size min bFields.size
+    def fieldIsNone(f: DamlRecord.Field) = f.getValue.equals(DamlOptional.EMPTY)
+    aFields.slice(0, count).equals(bFields.slice(0, count)) &&
+    aFields.slice(count, aFields.size).forall(fieldIsNone) &&
+    bFields.slice(count, bFields.size).forall(fieldIsNone)
+  }
+
+  private def assertPayloadEquals[I <: Template, O <: Template](
       context: String,
       createdEvent: CreatedEvent,
-      payload: T,
-      valueDecoder: ValueDecoder[T],
+      payload: I,
+      valueDecoder: ValueDecoder[O],
       templateId: Identifier,
       expectedCreatedEventBlob: Boolean,
   ): Unit = {
     assertEquals(context, toJavaProto(createdEvent.templateId.get), templateId.toProto)
 
-    assertEquals(
-      context,
-      valueDecoder.decode(
-        DamlRecord.fromProto(value.Record.toJavaProto(createdEvent.getCreateArguments))
+    assert(
+      haveSamePopulatedFields(
+        valueDecoder.decode(
+          DamlRecord.fromProto(value.Record.toJavaProto(createdEvent.getCreateArguments))
+        ),
+        payload,
       ),
-      payload,
+      context,
     )
 
     if (expectedCreatedEventBlob)

@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompanion}
+import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
@@ -45,7 +45,8 @@ private[inner] object TemplateClass extends StrictLogging {
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
-        .addField(generateTemplateIdField(typeWithContext))
+        .addFields(generateTemplateIdFields(typeWithContext).asJava)
+        .addField(ClassGenUtils.generatePackageIdField(typeWithContext.packageId))
         .addMethod(generateCreateMethod(className))
         .addMethods(
           generateDeprecatedStaticExerciseByKeyMethods(
@@ -105,6 +106,11 @@ private[inner] object TemplateClass extends StrictLogging {
           .addType(
             generateByKeyClass(className, \/-(template.implementedInterfaces))
           )
+      }
+      typeWithContext.interface.metadata foreach { meta =>
+        templateType
+          .addField(ClassGenUtils.generatePackageNameField(meta.name))
+          .addField(ClassGenUtils.generatePackageVersionField(meta.version))
       }
       logger.debug("End")
       (templateType.build(), staticImports)
@@ -496,9 +502,11 @@ private[inner] object TemplateClass extends StrictLogging {
       )
     )
 
-  private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
-    ClassGenUtils.generateTemplateIdField(
+  private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
+    ClassGenUtils.generateTemplateIdFields(
       typeWithContext.packageId,
+      typeWithContext.interface.metadata.map(_.name),
+      typeWithContext.interface.languageVersion,
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )

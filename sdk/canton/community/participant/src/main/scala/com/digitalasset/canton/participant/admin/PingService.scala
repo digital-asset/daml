@@ -144,7 +144,7 @@ class PingService(
       .unlessShutdown(
         performUnlessClosingF("wait-for-admin-workflows-to-appear-on-ledger-api")(
           connection
-            .getPackageStatus(M.Ping.TEMPLATE_ID.getPackageId)
+            .getPackageStatus(M.Ping.PACKAGE_ID)
             .map(_.packageStatus.isRegistered)
         ),
         AllExnRetryable,

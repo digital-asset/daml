@@ -221,7 +221,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     assertEquals(
       "Create event 1 template ID",
       createdEvent1.templateId.get,
-      T5.TEMPLATE_ID.toV1,
+      T5.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
     assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews)
@@ -241,7 +241,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     assertEquals(
       "Create event 2 template ID",
       createdEvent2.templateId.get,
-      T6.TEMPLATE_ID.toV1,
+      T6.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
     assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews)
@@ -262,7 +262,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     assertEquals(
       "Create event 3 template ID",
       createdEvent3.templateId.get.toString,
-      T3.TEMPLATE_ID.toV1.toString,
+      T3.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
     assertLength("Create event 3 has no view", 0, createdEvent3.interfaceViews)

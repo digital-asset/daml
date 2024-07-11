@@ -130,7 +130,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        activeContracts.head.getTemplateId == Identifier.fromJavaProto(Dummy.TEMPLATE_ID.toProto),
+        activeContracts.head.getTemplateId == Identifier.fromJavaProto(
+          Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toProto
+        ),
         s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.",
       )
       assert(
@@ -258,6 +260,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     "The ActiveContractsService should return contracts for the requesting parties",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    val dummyTemplateId = Dummy.TEMPLATE_ID_WITH_PACKAGE_ID
+    val dummyWithParamTemplateId = DummyWithParam.TEMPLATE_ID_WITH_PACKAGE_ID
+    val dummyFactoryTemplateId = DummyFactory.TEMPLATE_ID_WITH_PACKAGE_ID
     for {
       _ <- createDummyContracts(alice, ledger)
       _ <- createDummyContracts(bob, ledger)
@@ -275,37 +280,37 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         allContractsForAlice.size == 3,
         s"$alice expected 3 events, but received ${allContractsForAlice.size}.",
       )
-      assertTemplates(Seq(alice), allContractsForAlice, Dummy.TEMPLATE_ID, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyWithParam.TEMPLATE_ID, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.TEMPLATE_ID, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, dummyTemplateId, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, dummyWithParamTemplateId, 1)
+      assertTemplates(Seq(alice), allContractsForAlice, dummyFactoryTemplateId, 1)
 
       assert(
         allContractsForBob.size == 3,
         s"$bob expected 3 events, but received ${allContractsForBob.size}.",
       )
-      assertTemplates(Seq(bob), allContractsForBob, Dummy.TEMPLATE_ID, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyWithParam.TEMPLATE_ID, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyFactory.TEMPLATE_ID, 1)
+      assertTemplates(Seq(bob), allContractsForBob, dummyTemplateId, 1)
+      assertTemplates(Seq(bob), allContractsForBob, dummyWithParamTemplateId, 1)
+      assertTemplates(Seq(bob), allContractsForBob, dummyFactoryTemplateId, 1)
 
       assert(
         allContractsForAliceAndBob.size == 6,
         s"$alice and $bob expected 6 events, but received ${allContractsForAliceAndBob.size}.",
       )
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, Dummy.TEMPLATE_ID, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyWithParam.TEMPLATE_ID, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyFactory.TEMPLATE_ID, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, dummyTemplateId, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, dummyWithParamTemplateId, 2)
+      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, dummyFactoryTemplateId, 2)
 
       assert(
         dummyContractsForAlice.size == 1,
         s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.",
       )
-      assertTemplates(Seq(alice), dummyContractsForAlice, Dummy.TEMPLATE_ID, 1)
+      assertTemplates(Seq(alice), dummyContractsForAlice, dummyTemplateId, 1)
 
       assert(
         dummyContractsForAliceAndBob.size == 2,
         s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.",
       )
-      assertTemplates(Seq(alice, bob), dummyContractsForAliceAndBob, Dummy.TEMPLATE_ID, 2)
+      assertTemplates(Seq(alice, bob), dummyContractsForAliceAndBob, dummyTemplateId, 2)
     }
   })
 

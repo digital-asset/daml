@@ -33,7 +33,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     } yield {
       assert(active.size == 1)
       val dummyTemplateId = active.flatMap(_.templateId.toList).head
-      assert(dummyTemplateId == Dummy.TEMPLATE_ID.toV1)
+      assert(dummyTemplateId == Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1)
     }
   })
 
@@ -132,8 +132,8 @@ final class CommandServiceIT extends LedgerTestSuite {
       s"The returned transaction should contain a created-event, but was ${event.event}",
     )
     assert(
-      event.getCreated.getTemplateId == Dummy.TEMPLATE_ID.toV1,
-      s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
+      event.getCreated.getTemplateId == Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
+      s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
     )
   }
 
@@ -161,8 +161,8 @@ final class CommandServiceIT extends LedgerTestSuite {
         s"The returned transaction tree should contain a created-event, but was ${event.kind}",
       )
       assert(
-        event.getCreated.getTemplateId == Dummy.TEMPLATE_ID.toV1,
-        s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
+        event.getCreated.getTemplateId == Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
+        s"The template ID of the created-event should by ${Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1}, but was ${event.getCreated.getTemplateId}",
       )
     }
   })
@@ -569,7 +569,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         assertEquals(
           "Unexpected template identifier in create event",
           trees.flatMap(createdEvents).map(_.getTemplateId),
-          Vector(Dummy.TEMPLATE_ID.toV1),
+          Vector(Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
         )
         val contractId = trees.flatMap(createdEvents).head.contractId
         assertEquals(

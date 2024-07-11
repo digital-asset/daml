@@ -55,9 +55,9 @@ final class EventTranslationStrategy(
   private val excludedPackageIds: Set[LfPackageId] =
     if (excludeInfrastructureTransactions) {
       Set(
-        LfPackageId.assertFromString(pingpong.Ping.TEMPLATE_ID.getPackageId),
-        LfPackageId.assertFromString(dardistribution.AcceptedDar.TEMPLATE_ID.getPackageId),
-        LfPackageId.assertFromString(pingpongvacuum.PingCleanup.TEMPLATE_ID.getPackageId),
+        LfPackageId.assertFromString(pingpong.Ping.PACKAGE_ID),
+        LfPackageId.assertFromString(dardistribution.AcceptedDar.PACKAGE_ID),
+        LfPackageId.assertFromString(pingpongvacuum.PingCleanup.PACKAGE_ID),
       )
     } else {
       Set.empty[LfPackageId]

@@ -118,7 +118,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 1 template ID",
       createdEvent1.templateId.get.toString,
-      T1.TEMPLATE_ID.toV1.toString,
+      T1.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
     assertViewEquals(createdEvent1.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
@@ -151,7 +151,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 2 template ID",
       createdEvent2.templateId.get.toString,
-      T2.TEMPLATE_ID.toV1.toString,
+      T2.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
     assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID.toV1) { value =>
@@ -176,7 +176,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     assertEquals(
       "Create event 3 template ID",
       createdEvent3.templateId.get.toString,
-      T3.TEMPLATE_ID.toV1.toString,
+      T3.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
     assertViewFailed(createdEvent3.interfaceViews, I.TEMPLATE_ID.toV1)
@@ -438,7 +438,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
       assertEquals(
         "Create event 1 template ID",
         createdEvent1.templateId.get.toString,
-        T1.TEMPLATE_ID.toV1.toString,
+        T1.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
       assertEquals(
@@ -532,7 +532,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
     allocate(SingleParty),
     enabled = _.templateFilters || useTemplateIdBasedLegacyFormat,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val packageId = I.TEMPLATE_ID.getPackageId
+    val packageId = I.PACKAGE_ID
     val moduleName = I.TEMPLATE_ID.getModuleName
     val unknownTemplate = new javaapi.data.Identifier(packageId, moduleName, "TemplateDoesNotExist")
     val unknownInterface =
@@ -702,7 +702,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
 
     } yield assertSingleContractWithSimpleView(
       transactions = transactions,
-      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID.toV1,
+      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
       viewIdentifier = carbonv1.carbonv1.I.TEMPLATE_ID.toV1,
       contractId = contract.contractId,
       viewValue = 21,
@@ -744,7 +744,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String, useTemplateIdBasedLe
       )
     } yield assertSingleContractWithSimpleView(
       transactions = transactions,
-      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID.toV1,
+      contractIdentifier = carbonv2.carbonv2.T.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
       viewIdentifier = carbonv3.carbonv3.RetroI.TEMPLATE_ID.toV1,
       contractId = contract.contractId,
       viewValue = 77,
