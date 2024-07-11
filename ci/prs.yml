@@ -131,6 +131,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       COMMIT=$(git rev-parse HEAD^2)
