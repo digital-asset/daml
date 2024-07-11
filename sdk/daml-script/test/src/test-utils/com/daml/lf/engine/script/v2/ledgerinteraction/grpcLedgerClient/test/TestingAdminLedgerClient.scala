@@ -35,7 +35,7 @@ class TestingAdminLedgerClient(
       .uploadDar(
         admin_package_service.UploadDarRequest(
           data = ByteString.readFrom(new FileInputStream(file)),
-          filename = file.getName,
+          filename = file.getName + ".dar",
           vetAllPackages = true,
           synchronizeVetting = true,
         )

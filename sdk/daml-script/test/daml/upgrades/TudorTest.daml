@@ -1,0 +1,37 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TudorTest (main) where
+
+import UpgradeTestLib
+import qualified V1.TudorTest as V1
+import qualified V2.TudorTest as V2
+
+{- PACKAGE
+name: tudor-test
+versions: 2
+-}
+
+{- MODULE
+package: tudor-test
+contents: |
+  module TudorTest where
+
+  template TudorTestTemplate
+    with
+      party: Party
+      newField : Optional Text -- @V 2
+    where
+      signatory party
+-}
+
+main : TestTree
+main = tests
+  [ ("simple test creates both templates", test $ do
+      a <- allocateParty "alice"
+      cid1 <- a `submit` createExactCmd V1.TudorTestTemplate with party = a
+      cid2 <- a `submit` createExactCmd V2.TudorTestTemplate with party = a, newField = None
+      debug (cid1, cid2)
+      pure ()
+    )
+  ]
