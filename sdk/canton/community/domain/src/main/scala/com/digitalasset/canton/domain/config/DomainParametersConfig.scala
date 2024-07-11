@@ -37,7 +37,8 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * @param requiredSymmetricKeySchemes The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredHashAlgorithms The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
   * @param requiredCryptoKeyFormats The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param protocolVersion                        The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
+  * @param protocolVersion          The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
+  *                                 Must be defined, otherwise config validation will fail.
   * @param dontWarnOnDeprecatedPV If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   * @param resetStoredStaticConfig DANGEROUS: If true, then the stored static configuration parameters will be reset to the ones in the configuration file
   */
@@ -52,7 +53,7 @@ final case class DomainParametersConfig(
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
-    protocolVersion: DomainProtocolVersion,
+    protocolVersion: Option[DomainProtocolVersion] = None,
     override val devVersionSupport: Boolean = false,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
@@ -70,13 +71,22 @@ final case class DomainParametersConfig(
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
-    param("protocolVersion", _.protocolVersion.version),
+    param("protocolVersion", _.protocolVersion.map(_.version)),
     param("devVersionSupport", _.devVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
     param("resetStoredStaticConfig", _.resetStoredStaticConfig),
   )
 
-  override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
+  override def initialProtocolVersion: ProtocolVersion =
+    protocolVersion.fold(ProtocolVersion.latestStable)(_.unwrap)
+
+  /*
+    This method throws if the protocol version of the domain is not defined.
+    Use only after config validations.
+   */
+  def tryDomainProtocolVersion: DomainProtocolVersion = protocolVersion.getOrElse {
+    throw new RuntimeException("Protocol version should be set in the domain parameters")
+  }
 
   /** Converts the domain parameters config into a domain parameters protocol message.
     *
@@ -122,7 +132,7 @@ final case class DomainParametersConfig(
         selectAllowedHashAlgorithms,
       )
       newCryptoKeyFormats = requiredCryptoKeyFormats.getOrElse(
-        cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion.unwrap)
+        cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(tryDomainProtocolVersion.version)
       )
     } yield {
       StaticDomainParameters.create(
@@ -135,7 +145,7 @@ final case class DomainParametersConfig(
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
-        protocolVersion = protocolVersion.unwrap,
+        protocolVersion = tryDomainProtocolVersion.unwrap,
       )
     }
   }
@@ -194,9 +204,4 @@ final case class DomainParametersConfig(
       ()
     )
   }
-}
-
-object DomainParametersConfig {
-  def defaults(protocolVersion: DomainProtocolVersion): DomainParametersConfig =
-    DomainParametersConfig(protocolVersion = protocolVersion)
 }

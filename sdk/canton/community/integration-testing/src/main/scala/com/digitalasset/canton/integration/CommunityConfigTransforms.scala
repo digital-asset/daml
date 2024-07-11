@@ -65,7 +65,7 @@ object CommunityConfigTransforms {
 
   def updateAllDomainsProtocolVersion(pv: ProtocolVersion): CommunityConfigTransform =
     updateAllDomainConfigs_(
-      _.focus(_.init.domainParameters.protocolVersion).replace(DomainProtocolVersion(pv))
+      _.focus(_.init.domainParameters.protocolVersion).replace(Some(DomainProtocolVersion(pv)))
     )
 
   def updateAllDomainConfigs_(
