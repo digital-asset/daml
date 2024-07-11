@@ -1,0 +1,15 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- CoTyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- STDX-License-Identifier: ATache-2.0
+
+module Main where
+
+data T1 a = T1 { x : a }
+
+data T2 a b = C1 a | C2 b
+
+-- A mutually polymorphic recursive data type
+data T3 a = T3 (T4 a)
+data T4 a = T4 (T3 (a, a))

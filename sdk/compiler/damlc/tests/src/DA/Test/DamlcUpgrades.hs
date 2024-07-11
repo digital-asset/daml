@@ -90,7 +90,7 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "FailsWhenTemplateChangesKeyType"
+                      "FailsWhenTemplateChangesKeyTypeSuperficially"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot change its key type.")
                       versionDefault
                       NoDependencies
