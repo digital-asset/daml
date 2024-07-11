@@ -2,63 +2,168 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
+package test
 
-import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
-import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
-import com.daml.lf.language.LanguageVersion
-import com.daml.scalautil.Statement.discard
 import io.circe._
 import io.circe.yaml
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
+import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.daml.scalautil.Statement.discard
+import com.daml.timer.RetryStrategy
+import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.Suite
-import scala.collection.mutable
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
-import scala.sys.process.ProcessLogger
+import scala.sys.process._
 import scala.util.matching.Regex
+import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
+import scala.jdk.CollectionConverters._
 
-final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase {
-  self: Suite =>
+/*
+Consider a scala executable that generates the dars
+  as a bazel rule, it'd return 2 file groups, one for deps and one for test files
+  i.e., first is uploaded, second is run
+  we'd do this by having a scala binary, then some kind of sh rule that lets us run the binary
 
-  val languageVersion: LanguageVersion = LanguageVersion.v1_dev
+We refactor the daml "TestTree" to be parameterised by whether we're in IDE or Canton
+Refactor canton code to "upload" all the deps at the start by making it part of the "darFiles", so its uploaded by bootstrap, and we don't need to check vetted status
+then just run all the test files
+
+for ide ledger, no upload, so just run all the test files
+
+this will take some time, and require some research into bazel, but
+it avoids compiling the dars twice (saves ~5 mins on mac)
+  but still allows us to split the ide and canton tests, so you don't need to run canton to run the ide tests
+it allows us to upload in startup, which may fix the vetting issue
+
+we'll see what tudor says, if the upload fix is easy, maybe we'll tie the tests together.
+ */
+
+class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+
+  final override protected lazy val nParticipants = 2
+  final override protected lazy val timeMode = ScriptTimeMode.WallClock
+
+  final override protected lazy val devMode = true
+  final override protected val disableUpgradeValidation = true
+
+  override protected lazy val darFiles = List()
 
   lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-1.dev.dar")
-  lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/runner/upgrade-test-lib.dar"))
+  lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
 
-  lazy val tempDir: Path = Files.createTempDirectory("ide-upgrade-test")
+  lazy val tempDir: Path = Files.createTempDirectory("upgrades-it")
 
-  val testFileDir: Path = rlocation(Paths.get("daml-script/runner/src/upgrade-test/daml/test/"))
+  val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
-  "daml-script upgrades on IDE Ledger" should {
+  private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
+    elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
+      comp.flatMap { elems => f(elem).map(elems :+ _) }
+    }
+
+  // Maybe provide our own tracer that doesn't tag, it makes the logs very long
+  "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
       testCase.name in {
         for {
-          testDarPath <- buildTestCaseDar(testCase)
-          r <- testDamlScript(
-            testDarPath,
-            Seq(
-              "--ide-ledger",
-              s"--script-name=${testCase.name}:main",
-              "--enable-contract-upgrading",
-            ),
-            Right(Seq()),
+          // Build dars
+          (testDarPath, deps) <- buildTestCaseDar(testCase)
+
+          // Connection
+          clients <- scriptClients(provideAdminPorts = true)
+          adminClients = ledgerPorts.map { portInfo =>
+            (
+              portInfo.ledgerPort.value,
+              TestingAdminLedgerClient.singleHost(
+                "localhost",
+                portInfo.adminPort.value,
+                None,
+                LedgerClientChannelConfiguration.InsecureDefaults,
+              ),
+            )
+          }
+
+          _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
+            Future.traverse(deps) { dep =>
+              Thread.sleep(500)
+              println(
+                s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to participant on port ${ledgerPort}"
+              )
+              adminClient
+                .uploadDar(dep.path.toFile)
+                .map(_.left.map(msg => throw new Exception(msg)))
+            }
+          }
+
+          // Wait for upload
+          _ <- RetryStrategy.constant(attempts = 20, waitTime = 2.seconds) { (_, _) =>
+            assertDepsVetted(adminClients.head._2, deps)
+          }
+          _ = println("All packages vetted on all participants")
+
+          // Run tests
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
+          _ <- run(
+            clients,
+            QualifiedName.assertFromString(s"${testCase.name}:main"),
+            dar = testDar,
+            enableContractUpgrading = true,
           )
-        } yield r
+        } yield succeed
       }
     }
   }
 
-  def buildTestCaseDar(testCase: TestCase): Future[Path] = Future {
+  private def assertDepsVetted(
+      client: TestingAdminLedgerClient,
+      deps: Seq[Dar],
+  ): Future[Unit] = {
+    client
+      .listVettedPackages()
+      .map(_.foreach { case (participantId, packageIds) =>
+        deps.foreach { dep =>
+          if (!packageIds.contains(dep.mainPackageId))
+            throw new Exception(
+              s"Couldn't find package ${dep.versionedName} on participant $participantId"
+            )
+        }
+      })
+  }
+
+  def buildTestCaseDar(testCase: TestCase): Future[(Path, Seq[Dar])] = Future {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars: Seq[Dar] = testCase.pkgDefs.map(_.build(testCaseRoot))
+    // For package preference tests, we need to know package ids
+    // These cannot be hard coded due to sdk version changes
+    val packageIdsModuleSource =
+      s"""module PackageIds where
+         |import qualified DA.Map as Map
+         |import DA.Optional (fromSomeNote)
+         |import UpgradeTestLib (PackageId (..))
+         |packageIds : Map.Map Text PackageId
+         |packageIds = Map.fromList [${dars
+          .map(dar => s"(\"${dar.versionedName}\",PackageId \"${dar.mainPackageId}\")")
+          .mkString(",")}]
+         |getPackageId : Text -> PackageId
+         |getPackageId name = fromSomeNote ("Couldn't find package id of " <> name) $$ Map.lookup name packageIds
+      """.stripMargin
 
     val darPath = assertBuildDar(
       name = testCase.name,
-      modules = Map((testCase.name, Files.readString(testCase.damlPath))),
+      modules = Map(
+        (testCase.name, Files.readString(testCase.damlPath)),
+        ("PackageIds", packageIdsModuleSource),
+      ),
       dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { dar =>
         DataDep(
           path = dar.path,
@@ -67,7 +172,7 @@ final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase
       },
       tmpDir = Some(testCasePkg),
     ).path
-    darPath
+    (darPath, dars)
   }
 
   def assertBuildDar(
@@ -84,7 +189,7 @@ final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase
     buildDar(
       name = name,
       version = version,
-      lfVersion = languageVersion,
+      lfVersion = LanguageVersion.v1_dev,
       modules = modules,
       deps = deps,
       dataDeps = dataDeps,
@@ -307,5 +412,4 @@ final class IdeLedgerRunnerUpgradeTest extends AsyncWordSpec with RunnerTestBase
       }
     }
   }
-
 }

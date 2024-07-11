@@ -1,0 +1,73 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module PackagePreference (main) where
+
+import UpgradeTestLib
+import qualified V1.PackagePreference as V1
+import qualified V2.PackagePreference as V2
+import PackageIds
+
+{- PACKAGE
+name: package-preference
+versions: 2
+-}
+
+{- MODULE
+package: package-preference
+contents: |
+  module PackagePreference where
+
+  template PackagePreferenceTemplate
+    with
+      party: Party
+    where
+      signatory party
+      choice PackagePreferenceChoice : Text
+        controller party
+        do pure "V1"                  -- @V 1
+        do pure "V2"                  -- @V  2
+-}
+
+v1PackageId : PackageId
+v1PackageId = getPackageId "package-preference-1.0.0"
+
+main : Script ()
+main = tests
+  [ ("No package preference uses the default 'highest version' logic for exercise", noPackagePreference)
+  , ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
+  , ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
+  , ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
+  -- TODO: interfaces??
+  ]
+
+noPackagePreference : Script ()
+noPackagePreference = do
+  a <- allocateParty "alice"
+  res <- a `submit` createAndExerciseCmd (V1.PackagePreferenceTemplate a) V1.PackagePreferenceChoice
+  res === "V2"
+
+explicitPackagePreference : Script ()
+explicitPackagePreference = do
+  a <- allocateParty "alice"
+  res <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseCmd (V1.PackagePreferenceTemplate a) V1.PackagePreferenceChoice
+  res === "V1"
+  res2 <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+  res2 === "V1"
+
+explicitPackagePreferenceWithExact : Script ()
+explicitPackagePreferenceWithExact = do
+  a <- allocateParty "alice"
+  res <- (actAs a <> packagePreference [v1PackageId]) `submit` createAndExerciseExactCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+  res === "V2"
+
+explicitPackagePreferenceWithExactAndNon : Script ()
+explicitPackagePreferenceWithExactAndNon = do
+  a <- allocateParty "alice"
+  res <- submit (actAs a <> packagePreference [v1PackageId]) $ do
+    res1 <- createAndExerciseCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+    res2 <- createAndExerciseExactCmd (V2.PackagePreferenceTemplate a) V2.PackagePreferenceChoice
+    pure (res1, res2)
+  res === ("V1", "V2")
