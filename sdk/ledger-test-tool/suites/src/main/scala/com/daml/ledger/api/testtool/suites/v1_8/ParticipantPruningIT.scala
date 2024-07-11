@@ -951,12 +951,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRTServePruningOffsets",
     "Pruning offsets should be served when requested",
-    allocate(SingleParty),
+    allocate(TwoParties),
     enabled = _.prunedOffsets,
     disabledReason = "Ledger does not support pruned offset streaming",
     runConcurrently = false,
   )(implicit ec => {
-    case Participants(Participant(ledger, party)) => {
+    case Participants(Participant(ledger, party, party2)) => {
       val expectedMsgs = 11
 
       def validate[Response](
@@ -986,7 +986,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         _ <- Future.sequence(
           Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
         )
-        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- pruneCantonSafe(ledger, offsetToPruneUpTo, party2)
         _ <- Future.sequence(
           Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
         )
@@ -1003,12 +1003,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRTDontServePruningOffsets",
     "Pruning offsets should not be served when not requested",
-    allocate(SingleParty),
+    allocate(TwoParties),
     enabled = _.prunedOffsets,
     disabledReason = "Ledger does not support pruned offset streaming",
     runConcurrently = false,
   )(implicit ec => {
-    case Participants(Participant(ledger, party)) => {
+    case Participants(Participant(ledger, party, party2)) => {
       val expectedMsgs = 10
 
       def validate[Response](
@@ -1036,7 +1036,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         _ <- Future.sequence(
           Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
         )
-        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- pruneCantonSafe(ledger, offsetToPruneUpTo, party2)
         _ <- Future.sequence(
           Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
         )
