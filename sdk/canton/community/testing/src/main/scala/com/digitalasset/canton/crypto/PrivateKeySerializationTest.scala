@@ -11,20 +11,20 @@ trait PrivateKeySerializationTest extends AsyncWordSpec with BaseTest with HasEx
 
   def privateKeySerializerProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
-      supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
+      supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
 
     s"Serialize and deserialize a private key via protobuf" should {
 
-      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-        s"for a $encryptionKeyScheme encryption private key" in {
+      forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
+        s"for a $encryptionKeySpec encryption private key" in {
           for {
             crypto <- newCrypto
             cryptoPrivateStore = crypto.cryptoPrivateStore.toExtended
               .valueOrFail("crypto private store does not implement all necessary methods")
             publicKey <- crypto.privateCrypto
-              .generateEncryptionKey(encryptionKeyScheme)
+              .generateEncryptionKey(encryptionKeySpec)
               .valueOrFail("generate enc key")
             privateKey <- cryptoPrivateStore
               .decryptionKey(publicKey.id)

@@ -22,7 +22,7 @@ import com.digitalasset.canton.store.CursorPrehead.{
 }
 import com.digitalasset.canton.store.SequencedEventStore.{ByTimestamp, LatestUpto}
 import com.digitalasset.canton.store.*
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -50,6 +50,7 @@ class SyncDomainEphemeralStateFactoryImpl(
     timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    clock: Clock,
 )(implicit ec: ExecutionContext)
     extends SyncDomainEphemeralStateFactory
     with NamedLogging {
@@ -89,6 +90,7 @@ class SyncDomainEphemeralStateFactoryImpl(
         timeouts,
         persistentState.loggerFactory,
         futureSupervisor,
+        clock,
       )
     }
   }

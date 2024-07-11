@@ -607,7 +607,7 @@ class TransactionProcessingSteps(
           val message = transactionViewEnvelope.protocolMessage
           val randomnessF = EncryptedViewMessage
             .decryptRandomness(
-              staticDomainParameters.requiredEncryptionKeySchemes,
+              staticDomainParameters.requiredEncryptionSpecs,
               snapshot,
               sessionKeyStore,
               message,
@@ -1154,6 +1154,7 @@ class TransactionProcessingSteps(
       meta.commandId.unwrap,
       Some(meta.dedupPeriod),
       meta.submissionId,
+      messageUuid = None,
     )
 
     Option.when(freshOwnTimelyTx)(completionInfo)

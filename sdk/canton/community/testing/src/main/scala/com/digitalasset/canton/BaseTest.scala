@@ -456,7 +456,7 @@ object BaseTest {
       acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters(
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
-    requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
+    requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,

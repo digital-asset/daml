@@ -64,7 +64,8 @@ object JdbcIndexer {
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
-      val parameterStorageBackend = factory.createParameterStorageBackend
+      val parameterStorageBackend =
+        factory.createParameterStorageBackend(inMemoryState.stringInterningView)
       val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend

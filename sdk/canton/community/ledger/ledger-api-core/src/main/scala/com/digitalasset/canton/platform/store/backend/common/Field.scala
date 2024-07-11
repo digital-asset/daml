@@ -106,6 +106,10 @@ private[backend] final case class BooleanOptional[FROM](
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
 }
 
+private[backend] final case class BooleanMandatory[FROM](
+    extract: StringInterning => FROM => Boolean
+) extends TrivialField[FROM, Boolean]
+
 private[backend] final case class StringArray[FROM](
     extract: StringInterning => FROM => Iterable[String]
 ) extends Field[FROM, Iterable[String], Array[String]] {

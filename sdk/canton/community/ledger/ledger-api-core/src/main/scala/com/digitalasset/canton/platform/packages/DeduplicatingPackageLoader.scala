@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.packages
 
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.daml.lf.archive.Decode

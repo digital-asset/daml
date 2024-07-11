@@ -44,6 +44,17 @@ enum SignatureFormat {
   SIGNATURE_FORMAT_RAW = 1;
 }
 
+enum EncryptionKeySpec {
+  ENCRYPTION_KEY_SPEC_UNSPECIFIED = 0;
+
+  // Elliptic Curve Key based on NIST P-256 (aka Secp256r1)
+  // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  ENCRYPTION_KEY_SPEC_EC_P256 = 1;
+
+  // RSA with 2048 bits
+  ENCRYPTION_KEY_SPEC_RSA_2048 = 3;
+}
+
 message PublicKey {
   oneof key {
     SigningPublicKey signing_public_key = 1;
@@ -122,8 +133,11 @@ message EncryptionPublicKey {
   // Serialized public key in the format specified above
   bytes public_key = 3;
 
-  // Explicit state the key scheme of the serialized public key
-  EncryptionKeyScheme scheme = 4;
+  // No longer used (only kept for backwards compatibility) stores both the crypto key scheme and algorithm.
+  EncryptionKeyScheme scheme = 4 [deprecated = true];
+
+  // The key specification that was used to generate the key pair
+  EncryptionKeySpec key_spec = 5;
 }
 
 message EncryptionPrivateKey {
@@ -134,13 +148,32 @@ message EncryptionPrivateKey {
   // Serialized private key in the format specified above
   bytes private_key = 3;
 
-  // Explicit state the key scheme of the serialized private key
-  EncryptionKeyScheme scheme = 4;
+  // No longer used (only kept for backwards compatibility) stores both the crypto key scheme and algorithm.
+  EncryptionKeyScheme scheme = 4 [deprecated = true];
+
+  // The key specification that was used to generate the key pair
+  EncryptionKeySpec key_spec = 5;
 }
 
 message EncryptionKeyPair {
   EncryptionPublicKey public_key = 1;
   EncryptionPrivateKey private_key = 2;
+}
+
+enum EncryptionAlgorithmSpec {
+  ENCRYPTION_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  /* ECIES with ECDH, AES128 GCM, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
+     because we use SHA256 and we need to align the lengths of the curve and the hash function. */
+  ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128GCM = 1;
+
+  /* ECIES with ECDH, AES128 CBC, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
+     because we use SHA256 and we need to align the lengths of the curve the and hash function. */
+  ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 2;
+
+  /* RSA with OAEP Padding,
+     using SHA-256 for both the hash and in the MGF1 mask generation function along with an empty label. */
+  ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 3;
 }
 
 enum EncryptionKeyScheme {
@@ -155,6 +188,11 @@ enum EncryptionKeyScheme {
   /* RSA with a 2048 bit key with OAEP Padding,
      using SHA-256 for both the hash and in the MGF1 mask generation function along with an empty label. */
   ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 = 3;
+}
+
+message RequiredEncryptionSpecs {
+  repeated EncryptionAlgorithmSpec algorithms = 1;
+  repeated EncryptionKeySpec keys = 2;
 }
 
 message CryptoKeyPair {

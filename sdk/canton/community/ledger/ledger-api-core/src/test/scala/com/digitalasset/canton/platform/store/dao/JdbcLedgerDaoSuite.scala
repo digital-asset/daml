@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
@@ -642,6 +642,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       commandId,
       None,
       Some(submissionId),
+      None,
     )
 
   protected final def store(

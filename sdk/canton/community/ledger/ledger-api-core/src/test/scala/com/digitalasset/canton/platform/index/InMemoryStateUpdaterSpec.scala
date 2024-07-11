@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.index
 
 import cats.syntax.bifunctor.toBifunctorOps
-import com.digitalasset.daml.lf.archive.DamlLf
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
@@ -12,8 +12,10 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
+  DomainIndex,
   Reassignment,
   ReassignmentInfo,
+  RequestIndex,
   TransactionMeta,
   Update,
 }
@@ -35,7 +37,13 @@ import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.{BaseTest, HasExecutorServiceGeneric, TestEssentials}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutorServiceGeneric,
+  RequestCounter,
+  SequencerCounter,
+  TestEssentials,
+}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -229,6 +237,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(155555L),
+          isTransferringParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
@@ -276,6 +285,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(1555551L),
+          isTransferringParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
           Reassignment.Unassign(
@@ -484,6 +494,11 @@ object InMemoryStateUpdaterSpec {
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = domainId1,
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
     )
   )
   private val rawMetadataChangedUpdate = offset(2L) -> Update.Init(
@@ -501,6 +516,11 @@ object InMemoryStateUpdaterSpec {
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = DomainId.tryFromString("da::default"),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
     )
   )
   private val update4 = offset(4L) -> Traced[Update](
@@ -512,9 +532,15 @@ object InMemoryStateUpdaterSpec {
         commandId = Ref.CommandId.assertFromString("cmdId"),
         optDeduplicationPeriod = None,
         submissionId = None,
+        None,
       ),
       reasonTemplate = FinalReason(new Status()),
       domainId = DomainId.tryFromString("da::default"),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
     )
   )
   private val archive = DamlLf.Archive.newBuilder
@@ -542,11 +568,17 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party2 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(155555L),
+        isTransferringParticipant = true,
       ),
       reassignment = Reassignment.Assign(
         ledgerEffectiveTime = Timestamp.assertFromLong(12222),
         createNode = someCreateNode,
         contractMetadata = someContractMetadataBytes,
+      ),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
       ),
     )
   )
@@ -564,6 +596,7 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party1 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(1555551L),
+        isTransferringParticipant = true,
       ),
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,
@@ -571,6 +604,11 @@ object InMemoryStateUpdaterSpec {
         packageName = packageName,
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
+      ),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
       ),
     )
   )

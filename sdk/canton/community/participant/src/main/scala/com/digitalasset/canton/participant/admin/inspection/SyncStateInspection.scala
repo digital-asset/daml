@@ -123,7 +123,7 @@ final class SyncStateInspection(
           .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
       )
 
-      snapshotO <- EitherT.liftF(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
+      snapshotO <- EitherT.right(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
     } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounter)])(
       _.toMap
     )

@@ -32,8 +32,10 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(OracleQueryStrategy, OracleSchema.schema)
 
-  override val createParameterStorageBackend: ParameterStorageBackend =
-    new ParameterStorageBackendImpl(OracleQueryStrategy)
+  override def createParameterStorageBackend(
+      stringInterning: StringInterning
+  ): ParameterStorageBackend =
+    new ParameterStorageBackendImpl(OracleQueryStrategy, stringInterning)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
@@ -58,7 +60,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
     new OracleEventStorageBackend(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      parameterStorageBackend = createParameterStorageBackend,
+      parameterStorageBackend = createParameterStorageBackend(stringInterning),
       loggerFactory = loggerFactory,
     )
 

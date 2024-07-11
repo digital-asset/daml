@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -11,6 +12,7 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
   SortedReconciliationIntervalsProvider,
 }
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -30,7 +32,7 @@ import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable.SortedSet
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
   lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::domain"))
@@ -141,8 +143,12 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment)
-        _ <- store.storeComputed(period(1, 2), remoteId, dummyCommitment)
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(1, 2), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
         found1 <- store.getComputed(period(0, 1), remoteId)
         found2 <- store.getComputed(period(0, 2), remoteId)
         found3 <- store.getComputed(period(0, 1), remoteId2)
@@ -337,10 +343,18 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment)
-        _ <- store.storeComputed(period(1, 2), remoteId2, dummyCommitment)
-        _ <- store.storeComputed(period(1, 2), remoteId, dummyCommitment)
-        _ <- store.storeComputed(period(2, 3), remoteId, dummyCommitment)
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId2, period(1, 2), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(1, 2), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(2, 3), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
         found1 <- store.searchComputedBetween(ts(0), ts(1), Some(remoteId))
         found2 <- store.searchComputedBetween(ts(0), ts(2))
         found3 <- store.searchComputedBetween(ts(1), ts(1))
@@ -432,8 +446,12 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment)
-        _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment)
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
+        _ <- NonEmpty
+          .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+          .fold(Future.unit)(store.storeComputed(_))
         found1 <- store.searchComputedBetween(ts(0), ts(1))
       } yield {
         found1.toList shouldBe List((period(0, 1), remoteId, dummyCommitment))
@@ -446,8 +464,12 @@ trait AcsCommitmentStoreTest
       loggerFactory.suppressWarningsAndErrors {
         recoverToSucceededIf[Throwable] {
           for {
-            _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment)
-            _ <- store.storeComputed(period(0, 1), remoteId, dummyCommitment2)
+            _ <- NonEmpty
+              .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment)))
+              .fold(Future.unit)(store.storeComputed(_))
+            _ <- NonEmpty
+              .from(List(CommitmentData(remoteId, period(0, 1), dummyCommitment2)))
+              .fold(Future.unit)(store.storeComputed(_))
           } yield ()
         }
       }

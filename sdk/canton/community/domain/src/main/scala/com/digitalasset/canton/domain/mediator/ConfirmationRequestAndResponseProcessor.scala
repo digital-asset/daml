@@ -618,7 +618,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             wrongHashes.isEmpty,
             RejectionReason(show"Wrong root hashes: $wrongHashes", dueToTopologyChange = false),
           )
-        wrongMembers <- EitherT.liftF(wrongMembersF)
+        wrongMembers <- EitherT.right(wrongMembersF)
         _ <- EitherTUtil.condUnitET[Future](
           wrongViewTypes.isEmpty,
           RejectionReason(

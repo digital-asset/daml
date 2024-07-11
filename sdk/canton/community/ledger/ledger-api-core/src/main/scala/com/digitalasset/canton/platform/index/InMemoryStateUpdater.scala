@@ -57,7 +57,7 @@ private[platform] object InMemoryStateUpdaterFlow {
       .filter(_._1.nonEmpty)
       .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
         Future {
-          prepare(batch, lastEventSequentialId)
+          batch -> prepare(batch, lastEventSequentialId)
         }(prepareUpdatesExecutionContext)
           .checkIfComplete(preparePackageMetadataTimeOutWarning)(
             logger.warn(
@@ -66,10 +66,11 @@ private[platform] object InMemoryStateUpdaterFlow {
           )
       }
       .async
-      .mapAsync(1) { result =>
+      .mapAsync(1) { case (batch, result) =>
         Future {
           update(result)
           metrics.index.ledgerEndSequentialId.updateValue(result.lastEventSequentialId)
+          batch
         }(updateCachesExecutionContext)
       }
 }
@@ -81,7 +82,8 @@ private[platform] object InMemoryStateUpdater {
       lastEventSequentialId: Long,
       lastTraceContext: TraceContext,
   )
-  type UpdaterFlow = Flow[(Vector[(Offset, Traced[Update])], Long), Unit, NotUsed]
+  type UpdaterFlow =
+    Flow[(Vector[(Offset, Traced[Update])], Long), Vector[(Offset, Traced[Update])], NotUsed]
   def owner(
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,

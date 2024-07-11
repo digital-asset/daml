@@ -574,7 +574,7 @@ class SequencerNodeBootstrap(
             "sequencer-runtime-ready",
             futureSupervisor,
           )
-          sequencer <- EitherT.liftF[Future, String, Sequencer](
+          sequencer <- EitherT.right[String](
             sequencerFactory.create(
               domainId,
               sequencerId,
@@ -593,7 +593,7 @@ class SequencerNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           )
-          indexedDomain <- EitherT.liftF[Future, String, IndexedDomain](
+          indexedDomain <- EitherT.right[String](
             IndexedDomain.indexed(indexedStringStore)(domainId)
           )
           sequencedEventStore = SequencedEventStore(
@@ -626,7 +626,7 @@ class SequencerNodeBootstrap(
             // Since the sequencer runtime trusts itself, there is no point in validating the events.
             SequencedEventValidatorFactory.noValidation(domainId, warn = false),
             clock,
-            RequestSigner(syncCrypto, staticDomainParameters.protocolVersion),
+            RequestSigner(syncCrypto, staticDomainParameters.protocolVersion, loggerFactory),
             sequencedEventStore,
             new SendTracker(
               Map(),

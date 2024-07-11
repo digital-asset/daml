@@ -238,6 +238,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           RequestSigner(
             domainCryptoApi,
             sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
+            loggerFactory,
           ),
           sequencerAggregatedInfo.sequencerConnections,
           sequencerAggregatedInfo.expectedSequencers,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -27,11 +28,9 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   // Counts the number of write method invocations
   val writeCounter = new AtomicInteger(0)
 
-  override def storeComputed(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-      commitment: CommitmentType,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  override def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
     incrementCounterAndErrF()
 
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(

@@ -323,6 +323,7 @@ private[store] final case class SerializableTransactionAccepted(
       hostedWitnesses,
       contractMetadata,
       domainId,
+      _,
     ) = transactionAccepted
     val contractMetadataP = contractMetadata.view.map { case (contractId, bytes) =>
       contractId.toProtoPrimitive -> bytes.toByteString
@@ -527,7 +528,14 @@ private[store] final case class SerializableCommandRejected(
     commandRejected: LedgerSyncEvent.CommandRejected
 ) {
   def toProtoV30: v30.CommandRejected = {
-    val LedgerSyncEvent.CommandRejected(recordTime, completionInfo, reason, commandKind, domainId) =
+    val LedgerSyncEvent.CommandRejected(
+      recordTime,
+      completionInfo,
+      reason,
+      commandKind,
+      domainId,
+      _,
+    ) =
       commandRejected
 
     val commandKindP = commandKind match {
@@ -610,6 +618,7 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
       commandId,
       deduplicateUntil,
       submissionId,
+      _,
     ) =
       completionInfo
     v30.CompletionInfo(
@@ -640,6 +649,7 @@ object SerializableCompletionInfo {
       commandId,
       deduplicateUntil,
       submissionId,
+      None,
     )
   }
 }

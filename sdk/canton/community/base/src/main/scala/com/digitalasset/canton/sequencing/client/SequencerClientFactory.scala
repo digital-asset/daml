@@ -131,7 +131,7 @@ object SequencerClientFactory {
 
           // Find the timestamp of the last known sequenced event, we'll use that timestamp to initialize
           // the traffic state
-          latestSequencedTimestampO <- EitherT.liftF(
+          latestSequencedTimestampO <- EitherT.right(
             sequencedEventStore
               .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
               .toOption

@@ -13,7 +13,6 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors.InvalidDomainId
-import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.NoTracing
 
@@ -45,7 +44,7 @@ class GrpcTrafficControlService(
             .toRight(InvalidDomainId.Error(request.domainId))
         )
         .leftWiden[BaseCantonError]
-      trafficState <- EitherT.liftF[Future, BaseCantonError, TrafficState](
+      trafficState <- EitherT.right[BaseCantonError](
         syncDomain.getTrafficControlState
       )
     } yield {

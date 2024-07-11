@@ -96,6 +96,8 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventUnassign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
       case dbDto: DbDto.EventAssign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
       case dbDto: DbDto.CommandCompletion => Iterator(dbDto.domain_id)
+      case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.domainId)
+      case dbDto: DbDto.TransactionMeta => Iterator(dbDto.domain_id)
       case _ => Iterator.empty
     }
 }

@@ -8,14 +8,14 @@ import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
 
   def encryptionProvider(
-      supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
+      supportedEncryptionAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
@@ -108,39 +108,54 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
       }
     }
 
-    forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-      s"Random hybrid encrypt with $encryptionKeyScheme" should {
+    forAll(supportedEncryptionAlgorithmSpecs) { encryptionAlgorithmSpec =>
+      forAll(encryptionAlgorithmSpec.supportedEncryptionKeySpecs.forgetNE) { encryptionKeySpec =>
+        s"Random hybrid encrypt with $encryptionAlgorithmSpec and a $encryptionKeySpec key" should {
 
-        behave like hybridEncrypt(
-          encryptionKeyScheme,
-          (message, publicKey, version) =>
-            newCrypto.map(crypto => crypto.pureCrypto.encryptWith(message, publicKey, version)),
-          newCrypto,
-        )
+          behave like hybridEncrypt(
+            encryptionKeySpec,
+            (message, publicKey, version) =>
+              newCrypto.map(crypto =>
+                crypto.pureCrypto
+                  .encryptWithVersion(message, publicKey, version)
+              ),
+            newCrypto,
+          )
 
-        "yield a different ciphertext for the same encryption" in {
-          val message = TestMessage(ByteString.copyFromUtf8("foobar"))
-          for {
-            crypto <- newCrypto
-            publicKey <- getEncryptionPublicKey(crypto, encryptionKeyScheme)
-            encrypted1 = crypto.pureCrypto
-              .encryptWith(message, publicKey, testedProtocolVersion)
-              .valueOrFail("encrypt")
-            _ = assert(message.bytes != encrypted1.ciphertext)
-            encrypted2 = crypto.pureCrypto
-              .encryptWith(message, publicKey, testedProtocolVersion)
-              .valueOrFail("encrypt")
-            _ = assert(message.bytes != encrypted2.ciphertext)
-          } yield encrypted1.ciphertext should not equal encrypted2.ciphertext
-        }.failOnShutdown
+          "yield a different ciphertext for the same encryption" in {
 
+            case class TestMessageV2(bytes: ByteString) extends HasToByteString {
+              override def toByteString: ByteString = bytes
+            }
+
+            val message = TestMessage(ByteString.copyFromUtf8("foobar"))
+            val message2 = TestMessageV2(ByteString.copyFromUtf8("foobar"))
+            for {
+              crypto <- newCrypto
+              publicKey <- getEncryptionPublicKey(crypto, encryptionKeySpec)
+              encrypted1 = crypto.pureCrypto
+                .encryptWithVersion(message, publicKey, testedProtocolVersion)
+                .valueOrFail("encrypt")
+              _ = assert(message.bytes != encrypted1.ciphertext)
+              encrypted2 = crypto.pureCrypto
+                .encryptWithVersion(message, publicKey, testedProtocolVersion)
+                .valueOrFail("encrypt")
+              // test the other encryption method
+              encrypted3 = crypto.pureCrypto
+                .encryptWith(message2, publicKey)
+                .valueOrFail("encrypt")
+              _ = assert(message.bytes != encrypted2.ciphertext)
+              _ = assert(message.bytes != encrypted3.ciphertext)
+            } yield encrypted1.ciphertext should (not equal encrypted2.ciphertext and not equal encrypted3.ciphertext)
+          }.failOnShutdown
+
+        }
       }
     }
-
   }
 
   def hybridEncrypt(
-      encryptionKeyScheme: EncryptionKeyScheme,
+      encryptionKeySpec: EncryptionKeySpec,
       encryptWith: (
           TestMessage,
           EncryptionPublicKey,
@@ -152,7 +167,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
     "serialize and deserialize encryption public key via protobuf" in {
       for {
         crypto <- newCrypto
-        key <- getEncryptionPublicKey(crypto, encryptionKeyScheme)
+        key <- getEncryptionPublicKey(crypto, encryptionKeySpec)
         keyP = key.toProtoVersioned(testedProtocolVersion)
         key2 = EncryptionPublicKey.fromProtoVersioned(keyP).valueOrFail("serialize key")
       } yield key shouldEqual key2
@@ -162,7 +177,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
       for {
         crypto <- newCrypto
-        publicKey <- getEncryptionPublicKey(crypto, encryptionKeyScheme)
+        publicKey <- getEncryptionPublicKey(crypto, encryptionKeySpec)
 
         encryptedE <- encryptWith(message, publicKey, testedProtocolVersion)
         encrypted = encryptedE.valueOrFail("encrypt")
@@ -176,7 +191,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
       val res = for {
         crypto <- newCrypto
-        publicKeys <- getTwoEncryptionPublicKeys(crypto, encryptionKeyScheme)
+        publicKeys <- getTwoEncryptionPublicKeys(crypto, encryptionKeySpec)
         (publicKey, publicKey2) = publicKeys
         _ = assert(publicKey != publicKey2)
         encryptedE <- encryptWith(message, publicKey, testedProtocolVersion)
@@ -184,6 +199,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         _ = assert(message.bytes != encrypted.ciphertext)
         encrypted2 = AsymmetricEncrypted(
           encrypted.ciphertext,
+          encrypted.encryptionAlgorithmSpec,
           publicKey2.id,
         )
         message2 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(

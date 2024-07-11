@@ -4,26 +4,35 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{int, long}
-import anorm.{RowParser, ~}
+import anorm.{BatchSql, NamedParameter, RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
+import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import scalaz.syntax.tag.*
 
 import java.sql.Connection
 
-private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
-    extends ParameterStorageBackend {
+import SimpleSqlExtensions.*
+
+private[backend] class ParameterStorageBackendImpl(
+    queryStrategy: QueryStrategy,
+    stringInterning: StringInterning,
+) extends ParameterStorageBackend {
+  import Conversions.OffsetToStatement
 
   override def updateLedgerEnd(
-      ledgerEnd: ParameterStorageBackend.LedgerEnd
-  )(connection: Connection): Unit = {
-    import Conversions.OffsetToStatement
+      ledgerEnd: ParameterStorageBackend.LedgerEnd,
+      lastDomainIndex: Map[DomainId, DomainIndex] = Map.empty,
+  )(connection: Connection): Unit = discard {
     queryStrategy.forceSynchronousCommitForCurrentTransactionForPostgreSQL(connection)
     discard(
       SQL"""
@@ -36,6 +45,38 @@ private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
         """
         .execute()(connection)
     )
+
+    batchUpsert(
+      """INSERT INTO
+        |  lapi_ledger_end_domain_index
+        |  (domain_id, sequencer_counter, sequencer_timestamp, request_counter, request_timestamp, request_sequencer_counter)
+        |VALUES
+        |  ({internalizedDomainId}, {sequencerCounter}, {sequencerTimestampMicros}, {requestCounter}, {requestTimestampMicros}, {requestSequencerCounter})
+        |""".stripMargin,
+      """UPDATE
+        |  lapi_ledger_end_domain_index
+        |SET
+        |  sequencer_counter = case when {sequencerCounter} is null then sequencer_counter else {sequencerCounter} end,
+        |  sequencer_timestamp = case when {sequencerCounter} is null then sequencer_timestamp else {sequencerTimestampMicros} end,
+        |  request_counter = case when {requestCounter} is null then request_counter else {requestCounter} end,
+        |  request_timestamp = case when {requestCounter} is null then request_timestamp else {requestTimestampMicros} end,
+        |  request_sequencer_counter = case when {requestCounter} is null then request_sequencer_counter else {requestSequencerCounter} end
+        |WHERE
+        |  domain_id = {internalizedDomainId}
+        |""".stripMargin,
+      lastDomainIndex.toList.map { case (domainId, domainIndex) =>
+        Seq[NamedParameter](
+          "internalizedDomainId" -> stringInterning.domainId.internalize(domainId),
+          "sequencerCounter" -> domainIndex.sequencerIndex.map(_.counter.unwrap),
+          "sequencerTimestampMicros" -> domainIndex.sequencerIndex.map(_.timestamp.toMicros),
+          "requestCounter" -> domainIndex.requestIndex.map(_.counter.unwrap),
+          "requestTimestampMicros" -> domainIndex.requestIndex.map(_.timestamp.toMicros),
+          "requestSequencerCounter" -> domainIndex.requestIndex
+            .flatMap(_.sequencerCounter)
+            .map(_.unwrap),
+        )
+      },
+    )(connection)
   }
 
   private val SqlGetLedgerEnd =
@@ -140,8 +181,7 @@ private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
     SQL"select #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
-    import Conversions.OffsetToStatement
+  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit =
     discard(
       SQL"""
         update lapi_parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
@@ -149,12 +189,10 @@ private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
         """
         .execute()(connection)
     )
-  }
 
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
-  )(connection: Connection): Unit = {
-    import Conversions.OffsetToStatement
+  )(connection: Connection): Unit =
     discard(
       SQL"""
         update lapi_parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
@@ -162,7 +200,6 @@ private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
         """
         .execute()(connection)
     )
-  }
 
   private val SqlSelectMostRecentPruning =
     SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
@@ -207,4 +244,120 @@ private[backend] class ParameterStorageBackendImpl(queryStrategy: QueryStrategy)
           ledgerEnd = Offset.beforeBegin,
         )
       )
+
+  override def domainLedgerEnd(domainId: DomainId)(
+      connection: Connection
+  ): DomainIndex = {
+    // not using stringInterning here to allow broader usage with tricky state inspection integration tests
+    SQL"""
+      SELECT internal_id
+      FROM lapi_string_interning
+      WHERE external_string = ${"d|" + domainId.toProtoPrimitive}
+      """
+      .asSingleOpt(int("internal_id"))(connection)
+      .flatMap(internedDomainId =>
+        SQL"""
+            SELECT
+              sequencer_counter,
+              sequencer_timestamp,
+              request_counter,
+              request_timestamp,
+              request_sequencer_counter
+            FROM
+              lapi_ledger_end_domain_index
+            WHERE
+              domain_id = $internedDomainId
+            """
+          .asSingleOpt(
+            for {
+              requestCounterO <- long("request_counter").?
+              requestTimestampO <- long("request_timestamp").?
+              requestSequencerCounterO <- long("request_sequencer_counter").?
+              sequencerCounterO <- long("sequencer_counter").?
+              sequencerTimestampO <- long("sequencer_timestamp").?
+            } yield {
+              val requestIndex = (requestCounterO, requestTimestampO) match {
+                case (Some(requestCounter), Some(requestTimestamp)) =>
+                  List(
+                    DomainIndex.of(
+                      RequestIndex(
+                        counter = RequestCounter(requestCounter),
+                        sequencerCounter = requestSequencerCounterO.map(SequencerCounter.apply),
+                        timestamp = CantonTimestamp.ofEpochMicro(requestTimestamp),
+                      )
+                    )
+                  )
+
+                case (None, None) =>
+                  Nil
+
+                case _ =>
+                  throw new IllegalStateException(
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both request_counter and request_timestamp should be defined or none of them, but an invalid combination found for domain:${domainId.toProtoPrimitive} request_counter: $requestCounterO, request_timestamp: $requestTimestampO"
+                  )
+              }
+              val sequencerIndex = (sequencerCounterO, sequencerTimestampO) match {
+                case (Some(sequencerCounter), Some(sequencerTimestamp)) =>
+                  List(
+                    DomainIndex.of(
+                      SequencerIndex(
+                        counter = SequencerCounter(sequencerCounter),
+                        timestamp = CantonTimestamp.ofEpochMicro(sequencerTimestamp),
+                      )
+                    )
+                  )
+
+                case (None, None) =>
+                  Nil
+
+                case _ =>
+                  throw new IllegalStateException(
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: either both sequencer_counter and sequencer_timestamp should be defined or none of them, but an invalid combination found for domain:${domainId.toProtoPrimitive} sequencer_counter: $sequencerCounterO, sequencer_timestamp: $sequencerTimestampO"
+                  )
+              }
+              requestIndex
+                .++(sequencerIndex)
+                .reduceOption(_ max _)
+                .getOrElse(
+                  throw new IllegalStateException(
+                    s"Invalid persisted data in lapi_ledger_end_domain_index table: none of the optional fields are defined for domain ${domainId.toProtoPrimitive}"
+                  )
+                )
+            }
+          )(connection)
+      )
+      .getOrElse(DomainIndex.empty)
+  }
+
+  private def batchSql(
+      sqlWithNamedParams: String,
+      namedParamsBatch: List[Seq[NamedParameter]],
+  )(connection: Connection): Array[Int] =
+    namedParamsBatch match {
+      case Nil => Array.empty
+      case head :: tail =>
+        BatchSql(sqlWithNamedParams, head, tail*).execute()(connection)
+    }
+
+  private def batchUpsert(
+      insertSql: String,
+      updateSql: String,
+      namedParamsBatch: List[Seq[NamedParameter]],
+  )(connection: Connection): Unit = {
+    val updateCounts = batchSql(updateSql, namedParamsBatch)(connection)
+    val insertCounts = batchSql(
+      insertSql,
+      updateCounts.toList
+        .zip(namedParamsBatch)
+        .filter(
+          _._1 == 0
+        ) // collecting all failed updates, these are the missing entries in the table, which we need to insert
+        .map(_._2),
+    )(connection)
+    assert(
+      insertCounts.forall(_ == 1),
+      "batch upserting should succeed for all inserts (maybe batch upserts are running in parallel?)",
+    )
+  }
+
 }

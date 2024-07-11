@@ -20,7 +20,7 @@ import scala.concurrent.ExecutionContext
 class JcePrivateCrypto(
     pureCrypto: JcePureCrypto,
     override val defaultSigningKeyScheme: SigningKeyScheme,
-    override val defaultEncryptionKeyScheme: EncryptionKeyScheme,
+    override val defaultEncryptionKeySpec: EncryptionKeySpec,
     override protected val store: CryptoPrivateStoreExtended,
 )(override implicit val ec: ExecutionContext)
     extends CryptoPrivateStoreApi {
@@ -66,7 +66,7 @@ class JcePrivateCrypto(
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError)
     } yield fromJavaSigningKeyPair(javaKeyPair, scheme)
 
-  override protected[crypto] def generateEncryptionKeypair(scheme: EncryptionKeyScheme)(implicit
+  override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] = {
 
@@ -78,19 +78,13 @@ class JcePrivateCrypto(
         format = CryptoKeyFormat.Der,
         publicKeyBytes = rawKeyPair.publicKey,
         privateKeyBytes = rawKeyPair.privateKey,
-        scheme = scheme,
+        keySpec = keySpec,
       )
     }
 
     EitherT.fromEither {
-      (scheme match {
-        case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-          Either
-            .catchOnly[GeneralSecurityException](
-              EllipticCurves.generateKeyPair(CurveType.NIST_P256)
-            )
-            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError)
-        case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
+      (keySpec match {
+        case EncryptionKeySpec.EcP256 =>
           Either
             .catchOnly[GeneralSecurityException](
               {
@@ -100,7 +94,7 @@ class JcePrivateCrypto(
               }
             )
             .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError)
-        case EncryptionKeyScheme.Rsa2048OaepSha256 =>
+        case EncryptionKeySpec.Rsa2048 =>
           Either
             .catchOnly[GeneralSecurityException](
               {

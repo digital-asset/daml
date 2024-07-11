@@ -65,7 +65,7 @@ class PreHookRequestJournalStore(
       commitTime: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit] =
     for {
-      _ <- EitherT.liftF(
+      _ <- EitherT.right(
         preReplaceHook
           .getAndSet(emptyReplaceHook)(rc, requestTimestamp, newState, commitTime)
       )

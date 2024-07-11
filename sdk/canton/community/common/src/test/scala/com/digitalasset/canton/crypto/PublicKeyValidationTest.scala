@@ -57,7 +57,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
     */
   def publicKeyValidationProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
-      supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
+      supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
   ): Unit = {
@@ -72,12 +72,12 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         )
       }
 
-      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
+      forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
         keyValidationTest[EncryptionPublicKey](
           supportedCryptoKeyFormats,
-          encryptionKeyScheme.toString,
+          encryptionKeySpec.toString,
           newCrypto,
-          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme).failOnShutdown,
+          crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
         )
       }
     }

@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.memory.{InMemoryTransferStore, TransferCache}
 import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStoreTest}
+import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -17,6 +18,8 @@ class NaiveRequestTrackerTest
     with HasExecutorService
     with ConflictDetectionHelpers
     with RequestTrackerTest {
+
+  private val clock: SimClock = new SimClock(loggerFactory = loggerFactory)
 
   def mk(
       rc: RequestCounter,
@@ -50,6 +53,7 @@ class NaiveRequestTrackerTest
       timeouts,
       loggerFactory,
       FutureSupervisor.Noop,
+      clock,
     )
   }
 

@@ -58,6 +58,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
+      messageUuid = None,
     )
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -106,6 +107,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       hostedWitnesses = Nil,
       Map.empty,
       domainId = DomainId.tryFromString("da::default"),
+      domainIndex = None,
     )
 
     "extract transaction metering" in {

@@ -148,8 +148,11 @@ message SessionKeyLookup {
   // randomness field in `EncryptedViewMessage`
   bytes session_key_randomness = 1;
 
+  // The asymmetric encryption specification used to encrypt the session key randomness
+  com.digitalasset.canton.crypto.v30.EncryptionAlgorithmSpec encryption_algorithm_spec = 2;
+
   // The fingerprint of the public key that was used to encrypt the session key randomness
-  string fingerprint = 2;
+  string fingerprint = 3;
 }
 
 message EncryptedViewMessage {

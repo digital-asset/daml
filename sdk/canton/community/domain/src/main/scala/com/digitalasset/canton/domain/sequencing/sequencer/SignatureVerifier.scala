@@ -45,8 +45,7 @@ object SignatureVerifier {
           s"Sequencer could not verify client's signature ${signedContent.timestampOfSigningKey
               .fold("")(ts => s"at $ts ")}on request with sequencer's head snapshot at $timestamp. Error: $error"
         )
-        // set timestamp to the one used by the receiving sequencer's head snapshot timestamp
-        .map(_ => signedContent.copy(timestampOfSigningKey = Some(timestamp)))
+        .map(_ => signedContent)
     }
   }
 }

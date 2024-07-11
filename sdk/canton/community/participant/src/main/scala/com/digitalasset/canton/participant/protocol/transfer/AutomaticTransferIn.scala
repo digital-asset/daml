@@ -94,7 +94,7 @@ private[participant] object AutomaticTransferIn {
             TraceContext.empty
           )
         TransferInProcessingSteps.SubmissionResult(completionF) = submissionResult
-        status <- EitherT.liftF(completionF)
+        status <- EitherT.right(completionF)
       } yield status
     }
 

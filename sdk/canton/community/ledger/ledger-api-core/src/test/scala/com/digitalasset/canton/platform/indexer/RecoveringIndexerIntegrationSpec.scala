@@ -38,7 +38,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
-import com.digitalasset.canton.platform.store.interning.StringInterningView
+import com.digitalasset.canton.platform.store.interning.{MockStringInterning, StringInterningView}
 import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWithNewTraceContext}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
@@ -308,7 +308,8 @@ class RecoveringIndexerIntegrationSpec
     val ledgerEndCache = MutableLedgerEndCache()
     val storageBackendFactory = dbSupport.storageBackendFactory
     val partyStorageBacked = storageBackendFactory.createPartyStorageBackend(ledgerEndCache)
-    val parameterStorageBackend = storageBackendFactory.createParameterStorageBackend
+    val parameterStorageBackend =
+      storageBackendFactory.createParameterStorageBackend(new MockStringInterning)
     val dbDispatcher = dbSupport.dbDispatcher
 
     eventually {

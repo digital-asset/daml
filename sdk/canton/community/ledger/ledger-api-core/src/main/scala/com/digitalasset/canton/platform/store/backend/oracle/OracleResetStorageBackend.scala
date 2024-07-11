@@ -14,6 +14,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
   override def resetAll(connection: Connection): Unit =
     List(
       "lapi_parameters",
+      "lapi_ledger_end_domain_index",
       "lapi_command_completions",
       "lapi_events_create",
       "lapi_events_consuming_exercise",

@@ -706,10 +706,12 @@ object CantonConfig {
       deriveReader[GrpcHealthServerConfig]
     lazy implicit val communityCryptoProviderReader: ConfigReader[CommunityCryptoProvider] =
       deriveEnumerationReader[CommunityCryptoProvider]
+    lazy implicit val encryptionKeySpecReader: ConfigReader[EncryptionKeySpec] =
+      deriveEnumerationReader[EncryptionKeySpec]
     lazy implicit val cryptoSigningKeySchemeReader: ConfigReader[SigningKeyScheme] =
       deriveEnumerationReader[SigningKeyScheme]
-    lazy implicit val cryptoEncryptionKeySchemeReader: ConfigReader[EncryptionKeyScheme] =
-      deriveEnumerationReader[EncryptionKeyScheme]
+    lazy implicit val cryptoEncryptionAlgorithmSpecReader: ConfigReader[EncryptionAlgorithmSpec] =
+      deriveEnumerationReader[EncryptionAlgorithmSpec]
     lazy implicit val cryptoSymmetricKeySchemeReader: ConfigReader[SymmetricKeyScheme] =
       deriveEnumerationReader[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmReader: ConfigReader[HashAlgorithm] =
@@ -1123,10 +1125,12 @@ object CantonConfig {
       InitConfigBase.writerForSubtype(deriveWriter[ParticipantInitConfig])
     lazy implicit val communityCryptoProviderWriter: ConfigWriter[CommunityCryptoProvider] =
       deriveEnumerationWriter[CommunityCryptoProvider]
+    lazy implicit val encryptionKeySpecWriter: ConfigWriter[EncryptionKeySpec] =
+      deriveEnumerationWriter[EncryptionKeySpec]
     lazy implicit val cryptoSigningKeySchemeWriter: ConfigWriter[SigningKeyScheme] =
       deriveEnumerationWriter[SigningKeyScheme]
-    lazy implicit val cryptoEncryptionKeySchemeWriter: ConfigWriter[EncryptionKeyScheme] =
-      deriveEnumerationWriter[EncryptionKeyScheme]
+    lazy implicit val cryptoEncryptionAlgorithmSpecWriter: ConfigWriter[EncryptionAlgorithmSpec] =
+      deriveEnumerationWriter[EncryptionAlgorithmSpec]
     lazy implicit val cryptoSymmetricKeySchemeWriter: ConfigWriter[SymmetricKeyScheme] =
       deriveEnumerationWriter[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmWriter: ConfigWriter[HashAlgorithm] =

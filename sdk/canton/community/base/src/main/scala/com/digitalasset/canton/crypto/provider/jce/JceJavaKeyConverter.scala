@@ -63,11 +63,10 @@ object JceJavaKeyConverter {
             convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPublicKey =>
-        encKey.scheme match {
-          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm |
-              EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
+        encKey.keySpec match {
+          case EncryptionKeySpec.EcP256 =>
             convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.Rsa2048OaepSha256 =>
+          case EncryptionKeySpec.Rsa2048 =>
             convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "RSA")
         }
     }
@@ -128,14 +127,11 @@ object JceJavaKeyConverter {
             )
         }
       case encKey: EncryptionPrivateKey =>
-        encKey.scheme match {
-          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm
-              if encKey.format == CryptoKeyFormat.Der =>
+        encKey.keySpec match {
+          // EcP384 is not a supported encryption key because the current accepted encryption algorithms do not support it
+          case EncryptionKeySpec.EcP256 if encKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc
-              if encKey.format == CryptoKeyFormat.Der =>
-            convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.Rsa2048OaepSha256 if encKey.format == CryptoKeyFormat.Der =>
+          case EncryptionKeySpec.Rsa2048 if encKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "RSA")
           case _ =>
             Either.left[JceJavaKeyConversionError, JPrivateKey](

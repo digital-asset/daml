@@ -1078,7 +1078,7 @@ class RichSequencerClientImpl(
             s"Validating sequenced event coming from $sequencerId (alias = $sequencerAlias) with counter ${serializedEvent.counter} and timestamp ${serializedEvent.timestamp}"
           )
           (for {
-            _ <- EitherT.liftF(
+            _ <- EitherT.right(
               performUnlessClosingF("processing-delay")(processingDelay.delay(serializedEvent))
             )
             _ = logger.debug(s"Processing delay $processingDelay completed successfully")

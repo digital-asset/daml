@@ -600,7 +600,11 @@ class MediatorNodeBootstrap(
           Lens[MediatorDomainConfiguration, SequencerConnections](_.sequencerConnections)(
             connection => conf => conf.copy(sequencerConnections = connection)
           ),
-          RequestSigner(syncCryptoApi, domainConfig.domainParameters.protocolVersion),
+          RequestSigner(
+            syncCryptoApi,
+            domainConfig.domainParameters.protocolVersion,
+            loggerFactory,
+          ),
           sequencerClientFactory,
           sequencerInfoLoader,
           domainAlias,
@@ -622,7 +626,11 @@ class MediatorNodeBootstrap(
           mediatorId,
           sequencedEventStore,
           sendTrackerStore,
-          RequestSigner(syncCryptoApi, domainConfig.domainParameters.protocolVersion),
+          RequestSigner(
+            syncCryptoApi,
+            domainConfig.domainParameters.protocolVersion,
+            loggerFactory,
+          ),
           info.sequencerConnections,
           info.expectedSequencers,
         )

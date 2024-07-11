@@ -48,9 +48,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
-  TrafficConsumed,
   TrafficControlErrors,
-  TrafficPurchased,
   TrafficPurchasedSubmissionHandler,
 }
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
@@ -466,11 +464,11 @@ class BlockSequencer(
           for {
             // Look up traffic info at the latest timestamp from the block,
             // because that's where the onboarded sequencer will start reading
-            trafficPurchased <- EitherT.liftF[Future, SequencerError, Seq[TrafficPurchased]](
+            trafficPurchased <- EitherT.right[SequencerError](
               trafficPurchasedStore
                 .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
             )
-            trafficConsumed <- EitherT.liftF[Future, SequencerError, Seq[TrafficConsumed]](
+            trafficConsumed <- EitherT.right[SequencerError](
               blockRateLimitManager.trafficConsumedStore
                 .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
             )

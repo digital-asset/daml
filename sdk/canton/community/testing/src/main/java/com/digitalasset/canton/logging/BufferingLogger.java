@@ -28,23 +28,33 @@ class BufferingLogger extends MarkerIgnoringBase {
 
   @Override
   public boolean isTraceEnabled() {
-    return false;
+    return true;
   }
 
   @Override
-  public void trace(String msg) {}
+  public void trace(String msg) {
+    skipOrAdd(toLogEntry(TRACE, msg));
+  }
 
   @Override
-  public void trace(String format, Object arg) {}
+  public void trace(String format, Object arg) {
+    skipOrAdd(toLogEntry(TRACE, format, arg));
+  }
 
   @Override
-  public void trace(String format, Object arg1, Object arg2) {}
+  public void trace(String format, Object arg1, Object arg2) {
+    skipOrAdd(toLogEntry(TRACE, format, arg1, arg2));
+  }
 
   @Override
-  public void trace(String format, Object... arguments) {}
+  public void trace(String format, Object... arguments) {
+    skipOrAdd(toLogEntry(TRACE, format, arguments));
+  }
 
   @Override
-  public void trace(String msg, Throwable t) {}
+  public void trace(String msg, Throwable t) {
+    skipOrAdd(toLogEntry(TRACE, msg, t));
+  }
 
   @Override
   public boolean isDebugEnabled() {
