@@ -8,8 +8,8 @@ import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.typesig
-import typesig.DefInterface
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.typesig.{DefInterface, PackageMetadata}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.-\/
@@ -26,13 +26,16 @@ object InterfaceClass extends StrictLogging {
       typeDeclarations: AuxiliarySignatures,
       packageId: PackageId,
       interfaceId: QualifiedName,
+      languageVersion: LanguageVersion,
+      packageMetadata: Option[PackageMetadata],
   )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
       logger.info("Start")
       val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
-        .addField(generateTemplateIdField(packageId, interfaceId))
+        .addFields(generateTemplateIdFields(packageId, interfaceId, languageVersion).asJava)
+        .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addFields(
           TemplateClass
             .generateChoicesMetadata(
@@ -80,9 +83,13 @@ object InterfaceClass extends StrictLogging {
           // interface classes are not inhabited
           MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build()
         }
-        .build()
+      packageMetadata foreach { meta =>
+        interfaceType
+          .addField(ClassGenUtils.generatePackageNameField(meta.name))
+          .addField(ClassGenUtils.generatePackageVersionField(meta.version))
+      }
       logger.debug("End")
-      interfaceType
+      interfaceType.build()
     }
 
   private[inner] val companionName = "INTERFACE"
@@ -123,10 +130,12 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
+            "super($>$Z$S, $T.$N, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
+            interfaceName,
+            ClassGenUtils.templateIdWithPackageIdFieldName,
             contractIdClassName,
             interfaceViewTypeName,
             "valueDecoder",
@@ -145,11 +154,17 @@ object InterfaceClass extends StrictLogging {
       .build()
   }
 
-  private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
-    ClassGenUtils.generateTemplateIdField(
-      packageId,
-      name.module.toString,
-      name.name.toString,
+  private def generateTemplateIdFields(
+      packageId: PackageId,
+      name: QualifiedName,
+      lfVer: LanguageVersion,
+  ): Seq[FieldSpec] =
+    ClassGenUtils.generateTemplateIdFields(
+      pkgId = packageId,
+      pkgName = None, // For now, interfaces must always be identified by package id.
+      lfVer = lfVer,
+      moduleName = name.module.toString,
+      name = name.name.toString,
     )
 
   private def generateContractFilterMethod(

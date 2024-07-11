@@ -49,13 +49,13 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       assertEquals(
         "Create should be of DummyWithParam",
         create.getTemplateId,
-        DummyWithParam.TEMPLATE_ID.toV1,
+        DummyWithParam.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
       )
       val archive = assertSingleton("GetArchive", dummyFactory.flatMap(archivedEvents))
       assertEquals(
         "Archive should be of DummyFactory",
         archive.getTemplateId,
-        DummyFactory.TEMPLATE_ID.toV1,
+        DummyFactory.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
       )
       assertEquals(
         "Mismatching archived contract identifier",
