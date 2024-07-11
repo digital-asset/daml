@@ -3,13 +3,11 @@
 
 module Main where
 
-data T = T with
-  i : Int
-
 template A with
     p : Party
     q : Party
   where
     signatory p
-    key (p, T 0) : (Party, T)
+    key (p, "text") : (Party, Text)
     maintainer (fst key)
+

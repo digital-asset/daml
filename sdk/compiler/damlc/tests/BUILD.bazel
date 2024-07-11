@@ -470,7 +470,7 @@ da_haskell_test(
         "//test-common:upgrades-FailsWhenOldFieldIsDeletedFromTemplate-files",
         "//test-common:upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-files",
         "//test-common:upgrades-FailsWhenTemplateAddsKeyType-files",
-        "//test-common:upgrades-FailsWhenTemplateChangesKeyType-files",
+        "//test-common:upgrades-FailsWhenTemplateChangesKeyTypeSuperficially-files",
         "//test-common:upgrades-FailsWhenTemplateChoiceChangesItsReturnType-files",
         "//test-common:upgrades-FailsWhenTemplateRemovesKeyType-files",
         "//test-common:upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-files",
