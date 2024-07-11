@@ -4,7 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldName}
+import ClassGenUtils.{
+  companionFieldName,
+  generateGetCompanion,
+  templateIdFieldName,
+  templateIdWithPackageIdFieldName,
+}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.ChoiceName
@@ -603,11 +608,12 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
+          "$Znew $T<>($>$Z$S,$W$N,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
           Seq(
             fieldClass,
             templateClassName,
             templateIdFieldName,
+            templateIdWithPackageIdFieldName,
             contractIdName,
             valueDecoderLambdaArgName,
             templateClassName,
