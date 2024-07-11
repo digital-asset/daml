@@ -44,7 +44,7 @@ object KeyContinuationToken {
 
 final case class GetEventsByContractKeyRequest(
     contractKey: Value,
-    templateId: Ref.Identifier,
+    typeConRef: Ref.TypeConRef,
     requestingParties: Set[Party],
     keyContinuationToken: KeyContinuationToken,
 )

@@ -85,7 +85,8 @@ private[apiserver] final class EventQueryServiceImpl private (
 
     withEnrichedLoggingContext(
       logging.contractKey(request.contractKey),
-      logging.templateId(request.templateId),
+      // Repopulate
+//      logging.templateId(request.templateId),
       logging.parties(request.requestingParties),
       logging.keyContinuationToken(request.keyContinuationToken),
     ) { implicit loggingContext =>
@@ -97,7 +98,7 @@ private[apiserver] final class EventQueryServiceImpl private (
     eventQueryService
       .getEventsByContractKey(
         request.contractKey,
-        request.templateId,
+        request.typeConRef,
         request.requestingParties,
         request.keyContinuationToken,
       )

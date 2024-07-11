@@ -67,6 +67,7 @@ object CommunityConfigValidations
       parameters: CantonParameters
   ): List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
+      protocolVersionDefinedForDomains,
       backwardsCompatibleLoggingConfig,
       developmentProtocolSafetyCheckDomains,
       betaProtocolSafetyCheck(_)(parameters),
@@ -196,6 +197,18 @@ object CommunityConfigValidations
     }
   }
 
+  // Check that the protocol version is defined for the domains
+  private def protocolVersionDefinedForDomains(config: CantonConfig) = {
+    val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
+      val pv = config.init.domainParameters.protocolVersion
+
+      if (pv.isEmpty)
+        s"Protocol version is not defined for domain `$name`. Define protocol version at key `init.domain-parameters.protocol-version`" +: errors
+      else errors
+    }
+    NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
+  }
+
   private[config] val backwardsCompatibleLoggingConfigErr =
     "Inconsistent configuration of canton.monitoring.log-message-payloads and canton.monitoring.logging.api.message-payloads. Please use the latter in your configuration"
 
@@ -257,7 +270,9 @@ object CommunityConfigValidations
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
-      val pv = config.init.domainParameters.protocolVersion.unwrap
+      // If the protocol version is empty, another validation will fail, so we can use latest
+      val pv =
+        config.init.domainParameters.protocolVersion.fold(ProtocolVersion.latestStable)(_.unwrap)
 
       if (pv.isDeprecated && !config.init.domainParameters.dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnDomain(name, pv).cause +: errors
@@ -270,7 +285,9 @@ object CommunityConfigValidations
       config: CantonConfig
   )(parameters: CantonParameters): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.domains.toSeq.foldLeft[Seq[String]](Nil) { case (errors, (name, config)) =>
-      val pv = config.init.domainParameters.protocolVersion.unwrap
+      // If the protocol version is empty, another validation will fail, so we can use latest
+      val pv =
+        config.init.domainParameters.protocolVersion.fold(ProtocolVersion.latestStable)(_.unwrap)
       val betaVersionOrDevVersionEnabled =
         config.init.domainParameters.betaVersionSupport || parameters.betaVersionSupport || config.init.domainParameters.devVersionSupport || parameters.devVersionSupport
 
@@ -303,7 +320,8 @@ object CommunityConfigValidations
     namesAndConfig.toList.traverse_ { case (name, parameters) =>
       toNe(
         name.unwrap,
-        parameters.protocolVersion.version,
+        // If the protocol version is empty, another validation will fail, so we can use latest
+        parameters.protocolVersion.fold(ProtocolVersion.latestStable)(_.unwrap),
         allowUnstableProtocolVersion,
       )
     }

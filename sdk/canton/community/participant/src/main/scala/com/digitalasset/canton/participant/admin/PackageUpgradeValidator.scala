@@ -90,8 +90,8 @@ class PackageUpgradeValidator(
     val optUpgradingDar = Some(upgradingPackage)
     logger.info(s"Uploading DAR file for $upgradingPackageId.")
     existingVersionedPackageId(upgradingPackageMetadata, packageMap) match {
-      case Some(uploadedPackageId) =>
-        if (uploadedPackageId == upgradingPackageId)
+      case Some(existingPackageId) =>
+        if (existingPackageId == upgradingPackageId)
           EitherT.rightT[Future, DamlError](
             logger.info(
               s"Ignoring upload of package $upgradingPackageId as it has been previously uploaded"
@@ -101,9 +101,9 @@ class PackageUpgradeValidator(
           EitherT.leftT[Future, Unit](
             Validation.UpgradeVersion
               .Error(
-                uploadedPackageId,
-                upgradingPackageId,
-                upgradingPackageMetadata.version,
+                uploadedPackage = upgradingPackageId,
+                existingPackage = existingPackageId,
+                packageVersion = upgradingPackageMetadata.version,
               ): DamlError
           )
 

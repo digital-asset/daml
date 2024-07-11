@@ -49,7 +49,7 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
       apiContractKey <- requirePresence(req.contractKey, "contract_key")
       contractKey <- ValueValidator.validateValue(apiContractKey)
       apiTemplateId <- requirePresence(req.templateId, "template_id")
-      templateId <- FieldValidator.validateIdentifier(apiTemplateId)
+      typeConRef <- FieldValidator.validateTypeConRef(apiTemplateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
       token <- KeyContinuationToken.fromTokenString(req.continuationToken).left.map { err =>
@@ -59,7 +59,7 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
 
       event.GetEventsByContractKeyRequest(
         contractKey = contractKey,
-        templateId = templateId,
+        typeConRef = typeConRef,
         requestingParties = requestingParties,
         keyContinuationToken = token,
       )
