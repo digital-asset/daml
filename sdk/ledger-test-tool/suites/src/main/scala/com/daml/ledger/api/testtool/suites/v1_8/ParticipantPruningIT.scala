@@ -986,7 +986,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         _ <- Future.sequence(
           Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
         )
-        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- ledger.prune(offsetToPruneUpTo, 13)
         _ <- Future.sequence(
           Vector.fill((expectedMsgs - 1) / 2)(ledger.create(party, new Dummy(party)))
         )
@@ -1036,7 +1036,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         _ <- Future.sequence(
           Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
         )
-        _ <- ledger.prune(offsetToPruneUpTo)
+        _ <- ledger.prune(offsetToPruneUpTo, 13)
         _ <- Future.sequence(
           Vector.fill(expectedMsgs / 2)(ledger.create(party, new Dummy(party)))
         )
