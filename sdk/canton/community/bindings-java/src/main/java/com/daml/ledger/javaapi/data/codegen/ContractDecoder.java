@@ -65,7 +65,7 @@ public class ContractDecoder {
     return getContractCompanion(templateId).map(companion -> companion::fromJson);
   }
 
-  private Identifier withPackageName(Identifier templateId, String packageName) {
-    return new Identifier(packageName, templateId.getModuleName(), templateId.getEntityName());
+  private Identifier withPackageName(Identifier templateId, String pkgName) {
+    return new Identifier("#" + pkgName, templateId.getModuleName(), templateId.getEntityName());
   }
 }
