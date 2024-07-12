@@ -371,7 +371,7 @@ class TransactionConfirmationRequestFactoryTest
         .futureValue
         .getOrElse(fail("The defaultIdentitySnapshot really should have at least one key."))
     } yield participant -> cryptoPureApi
-      .encryptWith(randomness, publicKey, testedProtocolVersion)
+      .encryptWithVersion(randomness, publicKey, testedProtocolVersion)
       .valueOr(err => fail(err.toString))
 
     randomnessPairs.toMap

@@ -1145,7 +1145,7 @@ abstract class ProtocolProcessor[
                   }
               s"approved=${approved}, rejected=${rejected}" }"
           )
-          EitherT.liftF[FutureUnlessShutdown, steps.RequestError, Unit](
+          EitherT.right[steps.RequestError](
             sendResponses(requestId, signedResponsesTo, Some(messageId))
           )
         } else {
@@ -1199,7 +1199,7 @@ abstract class ProtocolProcessor[
             signResponse(snapshot, response).map(_ -> recipients)
           })
 
-        _ <- EitherT.liftF(sendResponses(requestId, messages))
+        _ <- EitherT.right(sendResponses(requestId, messages))
 
         _ = requestDataHandle.complete(None)
 
@@ -1740,7 +1740,7 @@ abstract class ProtocolProcessor[
       def publishEvent(): EitherT[Future, steps.ResultError, Unit] = {
         for {
           maybeEvent <- EitherT.fromEither[Future](timeoutEvent)
-          _ <- EitherT.liftF(
+          _ <- EitherT.right(
             ephemeral.recordOrderPublisher
               .schedulePublication(
                 sequencerCounter,
@@ -1757,7 +1757,7 @@ abstract class ProtocolProcessor[
       }
 
       for {
-        pendingRequestDataOrReplayData <- EitherT.liftF(
+        pendingRequestDataOrReplayData <- EitherT.right(
           ephemeral.phase37Synchronizer
             .awaitConfirmed(steps.requestType)(requestId)
             .map {

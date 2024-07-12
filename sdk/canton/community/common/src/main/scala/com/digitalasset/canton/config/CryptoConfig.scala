@@ -5,7 +5,8 @@ package com.digitalasset.canton.config
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
-  EncryptionKeyScheme,
+  EncryptionAlgorithmSpec,
+  EncryptionKeySpec,
   HashAlgorithm,
   PbkdfScheme,
   SigningKeyScheme,
@@ -35,8 +36,11 @@ trait CryptoConfig {
   /** the signing key scheme configuration */
   def signing: CryptoSchemeConfig[SigningKeyScheme]
 
-  /** the encryption key scheme configuration */
-  def encryption: CryptoSchemeConfig[EncryptionKeyScheme]
+  /** the encryption algorithm configuration */
+  def encryptionAlgorithms: CryptoSchemeConfig[EncryptionAlgorithmSpec]
+
+  /** the encryption key configuration */
+  def encryptionKeys: CryptoSchemeConfig[EncryptionKeySpec]
 
   /** the symmetric key scheme configuration */
   def symmetric: CryptoSchemeConfig[SymmetricKeyScheme]
@@ -51,7 +55,8 @@ trait CryptoConfig {
 final case class CommunityCryptoConfig(
     provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
     signing: CryptoSchemeConfig[SigningKeyScheme] = CryptoSchemeConfig(),
-    encryption: CryptoSchemeConfig[EncryptionKeyScheme] = CryptoSchemeConfig(),
+    encryptionAlgorithms: CryptoSchemeConfig[EncryptionAlgorithmSpec] = CryptoSchemeConfig(),
+    encryptionKeys: CryptoSchemeConfig[EncryptionKeySpec] = CryptoSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
     pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),

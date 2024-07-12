@@ -185,7 +185,7 @@ message GenerateSigningKeyResponse {
 }
 
 message GenerateEncryptionKeyRequest {
-  com.digitalasset.canton.crypto.v30.EncryptionKeyScheme key_scheme = 1;
+  com.digitalasset.canton.crypto.v30.EncryptionKeySpec key_spec = 1;
 
   // optional descriptive name for the key
   string name = 2;

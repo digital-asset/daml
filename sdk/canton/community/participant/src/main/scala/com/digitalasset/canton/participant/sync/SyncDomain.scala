@@ -375,7 +375,7 @@ class SyncDomain(
   private def initialize(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncDomainInitializationError, Unit] = {
-    def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.liftF(f)
+    def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.right(f)
 
     def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[StoredContract]] =
       persistent.contractStore

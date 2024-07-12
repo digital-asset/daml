@@ -166,7 +166,7 @@ private[routing] class DomainSelector(
     )
 
     for {
-      domains <- EitherT.liftF(domainsFilter.split)
+      domains <- EitherT.right(domainsFilter.split)
 
       (unusableDomains, usableDomains) = domains
       allUnusableDomains =

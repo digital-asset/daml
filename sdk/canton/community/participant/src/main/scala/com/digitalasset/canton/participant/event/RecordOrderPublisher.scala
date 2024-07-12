@@ -45,6 +45,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.participant.{LocalOffset, RequestOffset, TopologyOffset}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -85,6 +86,7 @@ class RecordOrderPublisher(
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     activeContractSnapshot: ActiveContractSnapshot,
+    clock: Clock,
 )(implicit val executionContextForPublishing: ExecutionContext, elc: ErrorLoggingContext)
     extends NamedLogging
     with FlagCloseableAsync {
@@ -95,7 +97,7 @@ class RecordOrderPublisher(
     new PromiseUnlessShutdown[Unit]("recovered", futureSupervisor)
 
   private[this] val taskScheduler: TaskScheduler[PublicationTask] =
-    new TaskScheduler(
+    TaskScheduler(
       initSc,
       initTimestamp,
       PublicationTask.orderingSameTimestamp,
@@ -103,6 +105,7 @@ class RecordOrderPublisher(
       timeouts,
       loggerFactory.appendUnnamedKey("task scheduler owner", "RecordOrderPublisher"),
       futureSupervisor,
+      clock,
     )
 
   private val acsChangeListener = new AtomicReference[Option[AcsChangeListener]](None)
@@ -284,7 +287,7 @@ class RecordOrderPublisher(
   private case class TimeObservationTask(
       override val sequencerCounter: SequencerCounter,
       override val timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext)
+  )(implicit override val traceContext: TraceContext)
       extends PublicationTask {
     override def perform(): FutureUnlessShutdown[Unit] = {
       performUnlessClosingUSF("observe-timestamp-task") {

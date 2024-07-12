@@ -68,6 +68,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "domain6",
       "domain7",
       "domain8",
+      "domain9",
     ).sorted
     iterators.packageNames.toList.sorted shouldBe List(
       "25.1",
@@ -175,6 +176,9 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       deduplication_duration_nanos = Some(1),
       deduplication_start = Some(1),
       domain_id = "domain4",
+      message_uuid = None,
+      request_sequencer_counter = None,
+      is_transaction = true,
       trace_context = serializableTraceContext,
     ),
     DbDto.EventAssign(
@@ -225,6 +229,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       trace_context = serializableTraceContext,
       record_time = 0,
     ),
+    DbDto.SequencerIndexMoved("domain9"),
   )
 
 }

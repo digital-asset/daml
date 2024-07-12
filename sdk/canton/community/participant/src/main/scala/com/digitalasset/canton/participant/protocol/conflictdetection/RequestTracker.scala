@@ -282,7 +282,9 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
   /** Returns a future that completes after the request has progressed to the given timestamp.
     * If the request tracker has already progressed to the timestamp, [[scala.None]] is returned.
     */
-  def awaitTimestamp(timestamp: CantonTimestamp): Option[Future[Unit]]
+  def awaitTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Option[Future[Unit]]
 }
 
 trait RequestTrackerLookup extends AutoCloseable with NamedLogging {

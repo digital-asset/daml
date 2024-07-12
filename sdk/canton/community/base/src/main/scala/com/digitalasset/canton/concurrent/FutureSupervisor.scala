@@ -143,9 +143,10 @@ object FutureSupervisor {
       fut.thereafter {
         case Failure(exception) =>
           log(
-            s"${description} failed with exception after ${elapsed(itm)}: $exception",
+            s"$description failed with exception after ${elapsed(itm)}",
             logLevel,
             errorLoggingContext,
+            Some(exception),
           )
         case Success(_) =>
           val time = elapsed(itm)

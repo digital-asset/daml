@@ -437,7 +437,7 @@ class TransferOutProcessingSteps(
 
       activenessResult <- EitherT.right(activenessF)
 
-      hostedStks <- EitherT.liftF(
+      hostedStks <- EitherT.right(
         FutureUnlessShutdown.outcomeF(
           hostedStakeholders(fullTree.stakeholders.toList, sourceSnapshot.ipsSnapshot)
         )
@@ -676,6 +676,7 @@ class TransferOutProcessingSteps(
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
+            messageUuid = None,
           )
         )
     } yield LedgerSyncEvent.TransferredOut(

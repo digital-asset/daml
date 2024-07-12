@@ -185,7 +185,7 @@ class DomainRouter(
   ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
     for {
       snapshot <- EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(domainId))
-      allInformeesOnDomain <- EitherT.liftF(
+      allInformeesOnDomain <- EitherT.right(
         snapshot.allHaveActiveParticipants(informees).bimap(_ => false, _ => true).merge
       )
     } yield allInformeesOnDomain

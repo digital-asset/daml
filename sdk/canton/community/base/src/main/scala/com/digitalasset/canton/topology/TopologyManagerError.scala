@@ -15,7 +15,9 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   GenericTopologyTransaction,
   TxHash,
@@ -579,6 +581,27 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           cause = s"The topology transaction was rejected due to an invalid mapping: $description"
         )
         with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the submitted topology snapshot was internally inconsistent."
+  )
+  @Resolution(
+    """Inspect the transactions mentioned in the ``transactions`` field in the error details metadata for inconsistencies."""
+  )
+  object InconsistentTopologySnapshot
+      extends ErrorCode(
+        id = "INCONSISTENT_TOPOLOGY_SNAPSHOT",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class MultipleEffectiveMappingsPerUniqueKey(
+        transactions: Map[MappingHash, Seq[GenericStoredTopologyTransaction]]
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The topology snapshot was rejected because it contained multiple effective transactions with the same unique key"
+        )
   }
 
   object MissingTopologyMapping

@@ -6,7 +6,6 @@ package com.digitalasset.canton.networking.grpc
 import com.digitalasset.canton.config.ApiLoggingConfig
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
-import com.digitalasset.canton.logging.NamedEventCapturingLogger.eventToString
 import com.digitalasset.canton.logging.{NamedEventCapturingLogger, TracedLogger}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -237,7 +236,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
       case e: Throwable =>
         progressLogger.info("Test failed with exception", e)
         capturingLogger.eventQueue.iterator().forEachRemaining { event =>
-          progressLogger.info(s"Remaining log event: ${eventToString(event)}")
+          progressLogger.info(s"Remaining log event: $event")
         }
         throw e
     } finally {

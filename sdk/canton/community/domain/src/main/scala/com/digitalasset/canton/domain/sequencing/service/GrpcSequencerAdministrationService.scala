@@ -113,7 +113,7 @@ class GrpcSequencerAdministrationService(
           }
           .map(v30.TrafficControlStateResponse(_))
 
-        CantonGrpcUtil.mapErrNewEUS(EitherT.liftF(response))
+        CantonGrpcUtil.mapErrNewEUS(EitherT.right(response))
     }
   }
 

@@ -9,7 +9,6 @@ import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -42,7 +41,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.daml.lf.archive
-import com.digitalasset.daml.lf.archive.{DarParser, Error as LfArchiveError}
+import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Error as LfArchiveError}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -123,7 +122,7 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     if (force) {
       logger.info(s"Forced removal of package $packageId")
-      EitherT.liftF(packagesDarsStore.removePackage(packageId))
+      EitherT.right(packagesDarsStore.removePackage(packageId))
     } else {
       val checkUnused =
         packageOps.checkPackageUnused(packageId).mapK(FutureUnlessShutdown.outcomeK)
@@ -141,7 +140,7 @@ class PackageService(
         _ <- checkUnused
         _ <- checkNotVetted
         _ = logger.debug(s"Removing package $packageId")
-        _ <- EitherT.liftF(packagesDarsStore.removePackage(packageId))
+        _ <- EitherT.right(packagesDarsStore.removePackage(packageId))
       } yield ()
     }
 
@@ -262,7 +261,7 @@ class PackageService(
       )
 
       _unit <-
-        EitherT.liftF(packagesDarsStore.removePackage(mainPkg))
+        EitherT.right(packagesDarsStore.removePackage(mainPkg))
 
       _removed <- {
         logger.info(s"Removing dar ${darDescriptor.hash}")

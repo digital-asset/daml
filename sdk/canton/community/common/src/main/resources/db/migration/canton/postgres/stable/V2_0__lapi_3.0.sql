@@ -62,6 +62,14 @@ CREATE TABLE lapi_parameters (
     ledger_end_string_interning_id integer not null
 );
 
+CREATE TABLE lapi_ledger_end_domain_index (
+  domain_id INTEGER PRIMARY KEY NOT NULL,
+  sequencer_counter BIGINT,
+  sequencer_timestamp BIGINT,
+  request_counter BIGINT,
+  request_timestamp BIGINT,
+  request_sequencer_counter BIGINT
+);
 
 ---------------------------------------------------------------------------------------------------
 -- Completions
@@ -96,6 +104,9 @@ CREATE TABLE lapi_command_completions (
     rejection_status_details bytea,
 
     domain_id integer not null,
+    message_uuid varchar(4000) collate "C",
+    request_sequencer_counter bigint,
+    is_transaction boolean not null,
     trace_context bytea
 );
 
@@ -432,6 +443,8 @@ CREATE TABLE lapi_party_record_annotations (
 CREATE TABLE lapi_transaction_meta (
     transaction_id text not null,
     event_offset text not null,
+    record_time bigint NOT NULL,
+    domain_id integer NOT NULL,
     event_sequential_id_first bigint not null,
     event_sequential_id_last bigint not null
 );

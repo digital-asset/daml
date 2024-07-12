@@ -19,15 +19,16 @@ object GeneratorsCrypto {
 
   implicit val signingKeySchemeArb: Arbitrary[SigningKeyScheme] = genArbitrary
   implicit val symmetricKeySchemeArb: Arbitrary[SymmetricKeyScheme] = genArbitrary
-  implicit val encryptionKeySchemeArb: Arbitrary[EncryptionKeyScheme] = genArbitrary
+  implicit val encryptionKeySpecArb: Arbitrary[EncryptionKeySpec] = genArbitrary
+  implicit val encryptionAlgorithmSpecArb: Arbitrary[EncryptionAlgorithmSpec] = genArbitrary
   implicit val hashAlgorithmArb: Arbitrary[HashAlgorithm] = genArbitrary
   implicit val saltAlgorithmArb: Arbitrary[SaltAlgorithm] = genArbitrary
   implicit val cryptoKeyFormatArb: Arbitrary[CryptoKeyFormat] = genArbitrary
 
   implicit val signingKeySchemeNESArb: Arbitrary[NonEmpty[Set[SigningKeyScheme]]] =
     Generators.nonEmptySet[SigningKeyScheme]
-  implicit val encryptionKeySchemeNESArb: Arbitrary[NonEmpty[Set[EncryptionKeyScheme]]] =
-    Generators.nonEmptySet[EncryptionKeyScheme]
+  implicit val encryptionKeySpecsNESArb: Arbitrary[NonEmpty[Set[EncryptionKeySpec]]] =
+    Generators.nonEmptySet[EncryptionKeySpec]
   implicit val symmetricKeySchemeNESArb: Arbitrary[NonEmpty[Set[SymmetricKeyScheme]]] =
     Generators.nonEmptySet[SymmetricKeyScheme]
   implicit val hashAlgorithmNESArb: Arbitrary[NonEmpty[Set[HashAlgorithm]]] =
@@ -79,9 +80,9 @@ object GeneratorsCrypto {
   // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
     key <- Arbitrary.arbitrary[ByteString]
-    scheme <- Arbitrary.arbitrary[EncryptionKeyScheme]
+    keySpec <- Arbitrary.arbitrary[EncryptionKeySpec]
     format = CryptoKeyFormat.Symbolic
-  } yield new EncryptionPublicKey(format, key, scheme))
+  } yield new EncryptionPublicKey(format, key, keySpec))
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(

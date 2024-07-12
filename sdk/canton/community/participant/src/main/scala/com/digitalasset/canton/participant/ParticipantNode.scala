@@ -639,6 +639,7 @@ class ParticipantNodeBootstrap(
         parameterConfig.processingTimeouts,
         loggerFactory,
         futureSupervisor,
+        clock,
       )
 
       // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke

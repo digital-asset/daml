@@ -6,7 +6,8 @@ package com.digitalasset.canton.domain.config
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CommunityCryptoConfig, CryptoConfig, ProtocolConfig}
 import com.digitalasset.canton.crypto.CryptoFactory.{
-  selectAllowedEncryptionKeyScheme,
+  selectAllowedEncryptionAlgorithmSpecs,
+  selectAllowedEncryptionKeySpecs,
   selectAllowedHashAlgorithms,
   selectAllowedSigningKeyScheme,
   selectAllowedSymmetricKeySchemes,
@@ -23,7 +24,8 @@ import com.digitalasset.canton.version.ProtocolVersion
   * for further information.
   *
   * @param requiredSigningKeySchemes    The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
-  * @param requiredEncryptionKeySchemes The optional required encryption key schemes that a member has to support. If none is specified, all the allowed schemes are required.
+  * @param requiredEncryptionAlgorithmSpecs      The optional required encryption algorithm specifications that a member has to support. If none is specified, all the allowed specifications are required.
+  * @param requiredEncryptionKeySpecs   The optional required encryption key specifications that a member has to support. If none is specified, all the allowed specifications are required.
   * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredHashAlgorithms       The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
   * @param requiredCryptoKeyFormats     The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
@@ -31,7 +33,8 @@ import com.digitalasset.canton.version.ProtocolVersion
   */
 final case class DomainParametersConfig(
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
-    requiredEncryptionKeySchemes: Option[NonEmpty[Set[EncryptionKeyScheme]]] = None,
+    requiredEncryptionAlgorithmSpecs: Option[NonEmpty[Set[EncryptionAlgorithmSpec]]] = None,
+    requiredEncryptionKeySpecs: Option[NonEmpty[Set[EncryptionKeySpec]]] = None,
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
@@ -44,7 +47,8 @@ final case class DomainParametersConfig(
 
   override def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
     param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
-    param("requiredEncryptionKeySchemes", _.requiredEncryptionKeySchemes),
+    param("requiredEncryptionAlgorithmSpecs", _.requiredEncryptionAlgorithmSpecs),
+    param("requiredEncryptionKeySpecs", _.requiredEncryptionKeySpecs),
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
@@ -83,9 +87,13 @@ final case class DomainParametersConfig(
         requiredSigningKeySchemes,
         selectAllowedSigningKeyScheme,
       )
-      newRequiredEncryptionKeySchemes <- selectSchemes(
-        requiredEncryptionKeySchemes,
-        selectAllowedEncryptionKeyScheme,
+      newRequiredEncryptionAlgorithmSpecs <- selectSchemes(
+        requiredEncryptionAlgorithmSpecs,
+        selectAllowedEncryptionAlgorithmSpecs,
+      )
+      newRequiredEncryptionKeySpecs <- selectSchemes(
+        requiredEncryptionKeySpecs,
+        selectAllowedEncryptionKeySpecs,
       )
       newRequiredSymmetricKeySchemes <- selectSchemes(
         requiredSymmetricKeySchemes,
@@ -101,7 +109,10 @@ final case class DomainParametersConfig(
     } yield {
       StaticDomainParameters(
         requiredSigningKeySchemes = newRequiredSigningKeySchemes,
-        requiredEncryptionKeySchemes = newRequiredEncryptionKeySchemes,
+        requiredEncryptionSpecs = RequiredEncryptionSpecs(
+          newRequiredEncryptionAlgorithmSpecs,
+          newRequiredEncryptionKeySpecs,
+        ),
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,

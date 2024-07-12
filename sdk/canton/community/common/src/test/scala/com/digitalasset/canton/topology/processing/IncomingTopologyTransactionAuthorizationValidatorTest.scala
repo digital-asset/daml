@@ -17,12 +17,8 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   NoDelegationFoundForKeys,
   NotAuthorized,
 }
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{
-  TopologyStoreId,
-  TopologyTransactionRejection,
-  ValidatedTopologyTransaction,
-}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.*
@@ -196,6 +192,72 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
               }),
             ),
           )
+        }
+      }
+
+      // testing an inconsistent topology store with multiple DNDs effective at the same time
+      "be able to handle multiple decentralized namespace transactions for the same namespace being erroneously effective" in {
+        import Factory.*
+        import SigningKeys.{ec as _, *}
+        val store =
+          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val validator = mk(store)
+
+        val namespace = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1))
+
+        val dnd1 = mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              namespace,
+              PositiveInt.one,
+              owners = NonEmpty(Set, ns1),
+            )
+            .value,
+          serial = PositiveInt.one,
+          signingKeys = NonEmpty(Set, key1),
+        )
+
+        val dnd2 = mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              namespace,
+              PositiveInt.one,
+              owners = NonEmpty(Set, ns1, ns2),
+            )
+            .value,
+          serial = PositiveInt.one,
+          signingKeys = NonEmpty(Set, key1, key2),
+        )
+
+        // we intentionally bootstrap with 2 transactions for the same mapping unique key being effective at the same time,
+        // so that we can test that authorization validator can handle such faulty situations and not just break
+        val bootstrapTransactions = Seq(ns1k1_k1, ns2k2_k2, dnd1, dnd2).map(
+          StoredTopologyTransaction(SequencedTime.MinValue, EffectiveTime.MinValue, None, _)
+        )
+
+        val dnd3 = mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              namespace,
+              PositiveInt.two,
+              owners = NonEmpty(Set, ns1, ns2),
+            )
+            .value,
+          serial = PositiveInt.one,
+          signingKeys = NonEmpty(Set, key1, key2),
+        )
+
+        for {
+          _ <- store.bootstrap(StoredTopologyTransactions(bootstrapTransactions))
+          result <- validate(
+            validator,
+            ts(1),
+            Seq(dnd3),
+            Map(dnd2.mapping.uniqueKey -> dnd2),
+            expectFullAuthorization = false,
+          )
+        } yield {
+          result._2.loneElement.rejectionReason shouldBe None
         }
       }
     }

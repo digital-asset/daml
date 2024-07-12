@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
   Encrypted,
+  EncryptionAlgorithmSpec,
   Fingerprint,
   SecureRandomness,
   SymmetricKeyScheme,
@@ -92,7 +93,12 @@ trait MessageDispatcherTest {
     Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
   private val sessionKeyMapTest = NonEmpty(
     Seq,
-    new AsymmetricEncrypted[SecureRandomness](ByteString.EMPTY, Fingerprint.tryCreate("dummy")),
+    new AsymmetricEncrypted[SecureRandomness](
+      ByteString.EMPTY,
+      // this is only a placeholder, the data is not encrypted
+      EncryptionAlgorithmSpec.RsaOaepSha256,
+      Fingerprint.tryCreate("dummy"),
+    ),
   )
 
   case class Fixture(

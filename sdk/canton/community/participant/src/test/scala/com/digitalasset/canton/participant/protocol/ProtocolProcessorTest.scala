@@ -208,7 +208,12 @@ class ProtocolProcessorTest
     Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
   private val sessionKeyMapTest = NonEmpty(
     Seq,
-    new AsymmetricEncrypted[SecureRandomness](ByteString.EMPTY, Fingerprint.tryCreate("dummy")),
+    new AsymmetricEncrypted[SecureRandomness](
+      ByteString.EMPTY,
+      // this is only a placeholder, the data is not encrypted
+      crypto.pureCrypto.defaultEncryptionAlgorithmSpec,
+      Fingerprint.tryCreate("dummy"),
+    ),
   )
 
   private type TestInstance =
@@ -329,6 +334,7 @@ class ProtocolProcessorTest
         timeouts,
         loggerFactory,
         FutureSupervisor.Noop,
+        clock,
       )
     )
 
@@ -420,6 +426,7 @@ class ProtocolProcessorTest
           changeId.commandId,
           None,
           Some(subId),
+          None,
         ),
         TransactionSubmissionTrackingData.TimeoutCause,
         domain,

@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoApi}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.tracing.TraceContext
@@ -28,7 +29,9 @@ object RequestSigner {
   def apply(
       topologyClient: DomainSyncCryptoClient,
       protocolVersion: ProtocolVersion,
-  ): RequestSigner = new RequestSigner {
+      loggerFactoryP: NamedLoggerFactory,
+  ): RequestSigner = new RequestSigner with NamedLogging {
+    override val loggerFactory: NamedLoggerFactory = loggerFactoryP
     override def signRequest[A <: HasCryptographicEvidence](
         request: A,
         hashPurpose: HashPurpose,
@@ -38,6 +41,7 @@ object RequestSigner {
         traceContext: TraceContext,
     ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] = {
       val snapshot = snapshotO.getOrElse(topologyClient.headSnapshot)
+      logger.trace(s"Signing request with snapshot at ${snapshot.ipsSnapshot.timestamp}")
       SignedContent
         .create(
           topologyClient.pureCrypto,

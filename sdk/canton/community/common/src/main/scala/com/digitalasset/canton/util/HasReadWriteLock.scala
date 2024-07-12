@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.util
 
-import cats.data.EitherT
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.util.concurrent.locks.StampedLock
@@ -13,16 +12,16 @@ trait HasReadWriteLock {
 
   protected val lock = new StampedLock()
 
-  def withReadLock[A, E, F[_]: Thereafter](
-      fn: => EitherT[F, E, A]
-  ): EitherT[F, E, A] = {
+  def withReadLock[A, F[_]: Thereafter](
+      fn: => F[A]
+  ): F[A] = {
     val stamp = blocking(lock.readLock())
     fn.thereafter(_ => lock.unlockRead(stamp))
   }
 
-  def withWriteLock[A, E, F[_]: Thereafter](
-      fn: => EitherT[F, E, A]
-  ): EitherT[F, E, A] = {
+  def withWriteLock[A, F[_]: Thereafter](
+      fn: => F[A]
+  ): F[A] = {
     val stamp = blocking(lock.writeLock())
     fn.thereafter(_ => lock.unlockWrite(stamp))
   }

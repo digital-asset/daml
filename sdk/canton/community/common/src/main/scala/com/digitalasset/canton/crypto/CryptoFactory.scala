@@ -9,7 +9,11 @@ import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.crypto.CryptoFactory.{CryptoStoresAndSchemes, selectSchemes}
+import com.digitalasset.canton.crypto.CryptoFactory.{
+  CryptoStoresAndSchemes,
+  selectAllowedEncryptionAlgorithmSpecs,
+  selectSchemes,
+}
 import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
@@ -45,6 +49,11 @@ trait CryptoFactory {
     for {
       symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
         .map(_.default)
+      encryptionAlgorithmSpec <- selectSchemes(
+        config.encryptionAlgorithms,
+        config.provider.encryptionAlgorithms,
+      )
+      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
       hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default)
       crypto <- config.provider match {
         case _: CryptoProvider.JceCryptoProvider =>
@@ -55,6 +64,8 @@ trait CryptoFactory {
             pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default)
           } yield new JcePureCrypto(
             symmetricKeyScheme,
+            encryptionAlgorithmSpec.default,
+            supportedEncryptionAlgorithmSpecs,
             hashAlgorithm,
             pbkdfScheme,
             loggerFactory,
@@ -92,15 +103,27 @@ trait CryptoFactory {
       signingKeyScheme <- selectSchemes(config.signing, config.provider.signing)
         .map(_.default)
         .toEitherT[FutureUnlessShutdown]
-      encryptionKeyScheme <- selectSchemes(config.encryption, config.provider.encryption)
+      encryptionCryptoAlgorithmSpec <- selectSchemes(
+        config.encryptionAlgorithms,
+        config.provider.encryptionAlgorithms,
+      )
         .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      encryptionKeySpec <- selectSchemes(config.encryptionKeys, config.provider.encryptionKeys)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      // TODO(#18934): Ensure required/allowed schemes are enforced by private/pure crypto classes
+      // requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[FutureUnlessShutdown]
+      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
         .toEitherT[FutureUnlessShutdown]
     } yield CryptoStoresAndSchemes(
       cryptoPublicStore,
       cryptoPrivateStore,
       symmetricKeyScheme,
       signingKeyScheme,
-      encryptionKeyScheme,
+      supportedEncryptionAlgorithmSpecs,
+      encryptionCryptoAlgorithmSpec,
+      encryptionKeySpec,
       hashAlgorithm,
     )
 
@@ -115,7 +138,9 @@ object CryptoFactory {
       cryptoPrivateStore: CryptoPrivateStore,
       symmetricKeyScheme: SymmetricKeyScheme,
       signingKeyScheme: SigningKeyScheme,
-      encryptionKeyScheme: EncryptionKeyScheme,
+      supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]],
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
+      encryptionKeySpec: EncryptionKeySpec,
       hashAlgorithm: HashAlgorithm,
   )
 
@@ -155,10 +180,15 @@ object CryptoFactory {
   ): Either[String, NonEmpty[Set[SigningKeyScheme]]] =
     selectSchemes(config.signing, config.provider.signing).map(_.allowed)
 
-  def selectAllowedEncryptionKeyScheme(
+  def selectAllowedEncryptionAlgorithmSpecs(
       config: CryptoConfig
-  ): Either[String, NonEmpty[Set[EncryptionKeyScheme]]] =
-    selectSchemes(config.encryption, config.provider.encryption).map(_.allowed)
+  ): Either[String, NonEmpty[Set[EncryptionAlgorithmSpec]]] =
+    selectSchemes(config.encryptionAlgorithms, config.provider.encryptionAlgorithms).map(_.allowed)
+
+  def selectAllowedEncryptionKeySpecs(
+      config: CryptoConfig
+  ): Either[String, NonEmpty[Set[EncryptionKeySpec]]] =
+    selectSchemes(config.encryptionKeys, config.provider.encryptionKeys).map(_.allowed)
 
 }
 
@@ -214,9 +244,6 @@ object JceCrypto {
         )
         .toEitherT[Future]
       _ = Security.addProvider(new BouncyCastleProvider)
-      // TODO(#18934): Ensure required/allowed schemes are enforced by private/pure crypto classes
-      // requiredSigningKeySchemes <- selectAllowedSigningKeyScheme(config).toEitherT[Future]
-      // requiredEncryptionKeySchemes <- selectAllowedEncryptionKeyScheme(config).toEitherT[Future]
       pbkdfSchemes <- config.provider.pbkdf
         .toRight("PBKDF schemes must be set for JCE provider")
         .toEitherT[Future]
@@ -224,6 +251,8 @@ object JceCrypto {
       pureCrypto =
         new JcePureCrypto(
           storesAndSchemes.symmetricKeyScheme,
+          storesAndSchemes.encryptionAlgorithmSpec,
+          storesAndSchemes.supportedEncryptionAlgorithmSpecs,
           storesAndSchemes.hashAlgorithm,
           pbkdfScheme,
           loggerFactory,
@@ -232,7 +261,7 @@ object JceCrypto {
         new JcePrivateCrypto(
           pureCrypto,
           storesAndSchemes.signingKeyScheme,
-          storesAndSchemes.encryptionKeyScheme,
+          storesAndSchemes.encryptionKeySpec,
           cryptoPrivateStoreExtended,
         )
       crypto = new Crypto(

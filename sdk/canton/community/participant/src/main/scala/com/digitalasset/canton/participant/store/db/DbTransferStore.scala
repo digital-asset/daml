@@ -323,7 +323,7 @@ class DbTransferStore(
     """
 
     lazy val task = for {
-      res <- EitherT.liftF(
+      res <- EitherT.right(
         storage.query(
           select.as[(TransferId, Option[GlobalOffset], Option[GlobalOffset])],
           functionFullName,
@@ -359,7 +359,7 @@ class DbTransferStore(
           pp >> transferId.transferOutTimestamp
       }
 
-      _ <- EitherT.liftF[Future, TransferStoreError, Unit](
+      _ <- EitherT.right[TransferStoreError](
         storage.queryAndUpdate(batchUpdate, functionFullName)
       )
     } yield ()

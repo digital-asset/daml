@@ -399,11 +399,6 @@ private[update] final class BlockChunkProcessor(
           sequencedSubmission
         val event = signedOrderingRequest.signedSubmissionRequest
 
-        def recipientIsKnown(member: Member): Future[Option[Member]] =
-          topologyOrSequencingSnapshot.ipsSnapshot
-            .isMemberKnown(member)
-            .map(Option.when(_)(member))
-
         import event.content.sender
         for {
           groupToMembers <- FutureUnlessShutdown.outcomeF(
@@ -421,8 +416,10 @@ private[update] final class BlockChunkProcessor(
             _.eligibleSenders
           )
           knownMemberRecipientsOrSender <- FutureUnlessShutdown.outcomeF(
-            (eligibleSenders ++ memberRecipients.toSeq :+ sender)
-              .parTraverseFilter(recipientIsKnown)
+            topologyOrSequencingSnapshot.ipsSnapshot
+              .areMembersKnown(
+                Set(sender) ++ eligibleSenders ++ memberRecipients.toSeq
+              )
           )
         } yield {
           val knownGroupMembers = groupToMembers.values.flatten

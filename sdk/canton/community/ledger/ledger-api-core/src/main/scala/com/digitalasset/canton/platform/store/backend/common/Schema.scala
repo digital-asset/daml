@@ -78,6 +78,11 @@ private[backend] object AppendOnlySchema {
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)
 
+    def boolean[FROM](
+        extractor: StringInterning => FROM => Boolean
+    ): Field[FROM, Boolean, _] =
+      BooleanMandatory(extractor)
+
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
     def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int, ordering: Ordering[FROM])(
         fields: (String, Field[FROM, _, _])*
@@ -326,6 +331,11 @@ private[backend] object AppendOnlySchema {
         "domain_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),
+        "message_uuid" -> fieldStrategy.stringOptional(_ => _.message_uuid),
+        "request_sequencer_counter" -> fieldStrategy.bigintOptional(_ =>
+          _.request_sequencer_counter
+        ),
+        "is_transaction" -> fieldStrategy.boolean(_ => _.is_transaction),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
       )
 
@@ -409,6 +419,10 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_transaction_meta")(
         "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
+        "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "domain_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
+        ),
         "event_sequential_id_first" -> fieldStrategy.bigint(_ => _.event_sequential_id_first),
         "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
       )

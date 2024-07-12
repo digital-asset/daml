@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -456,29 +457,34 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
               EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
             else {
               // validate incrementally and apply to in-memory state
-              processor
-                .validateAndApplyAuthorization(
-                  SequencedTime(ts),
-                  EffectiveTime(ts),
-                  newTransactionsOrAdditionalSignatures,
-                  expectFullAuthorization,
+              EitherT
+                .right[TopologyManagerError](
+                  processor
+                    .validateAndApplyAuthorization(
+                      SequencedTime(ts),
+                      EffectiveTime(ts),
+                      newTransactionsOrAdditionalSignatures,
+                      expectFullAuthorization,
+                    )
                 )
-                .leftFlatMap(rejectedTransactions =>
+                .flatMap { validatedTransactions =>
                   // a "duplicate rejection" is not a reason to report an error as it's just a no-op
-                  EitherT.fromEither[Future](
-                    rejectedTransactions
-                      .flatMap(_.nonDuplicateRejectionReason)
-                      .headOption
-                      .map(_.toTopologyManagerError)
-                      // if the only rejections where duplicates (i.e. headOption returns None),
-                      // we filter them out and proceed with all other validated transactions, because the
-                      // TopologyStateProcessor will have treated them as such as well.
-                      // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
-                      .toLeft(rejectedTransactions.filter(tx => tx.rejectionReason.isEmpty))
+                  val nonDuplicateRejectionReasons =
+                    validatedTransactions.flatMap(_.nonDuplicateRejectionReason)
+                  val firstError =
+                    nonDuplicateRejectionReasons.headOption.map(_.toTopologyManagerError)
+                  EitherT(
+                    // if the only rejections where duplicates (i.e. headOption returns None),
+                    // we filter them out and proceed with all other validated transactions, because the
+                    // TopologyStateProcessor will have treated them as such as well.
+                    // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
+                    firstError
+                      .toLeft(validatedTransactions.filter(tx => tx.rejectionReason.isEmpty))
+                      .traverse { transactionsWithoutErrors =>
+                        // notify observers about the transactions
+                        notifyObservers(ts, transactionsWithoutErrors.map(_.transaction))
+                      }
                   )
-                )
-                .map { acceptedTransactions =>
-                  notifyObservers(ts, acceptedTransactions.map(_.transaction))
                 }
                 .mapK(FutureUnlessShutdown.outcomeK)
             }

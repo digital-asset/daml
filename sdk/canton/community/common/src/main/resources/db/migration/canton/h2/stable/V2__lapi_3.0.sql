@@ -20,6 +20,15 @@ CREATE TABLE lapi_parameters (
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR(4000)
 );
 
+CREATE TABLE lapi_ledger_end_domain_index (
+  domain_id INTEGER PRIMARY KEY NOT NULL,
+  sequencer_counter BIGINT,
+  sequencer_timestamp BIGINT,
+  request_counter BIGINT,
+  request_timestamp BIGINT,
+  request_sequencer_counter BIGINT
+);
+
 ---------------------------------------------------------------------------------------------------
 -- Party entries
 --
@@ -78,6 +87,9 @@ CREATE TABLE lapi_command_completions (
     rejection_status_message VARCHAR(4000),
     rejection_status_details BINARY LARGE OBJECT,
     domain_id INTEGER NOT NULL,
+    message_uuid VARCHAR(4000),
+    request_sequencer_counter BIGINT,
+    is_transaction BOOLEAN NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
@@ -448,6 +460,8 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consu
 CREATE TABLE lapi_transaction_meta(
     transaction_id VARCHAR(4000) NOT NULL,
     event_offset VARCHAR(4000) NOT NULL,
+    record_time BIGINT NOT NULL,
+    domain_id INTEGER NOT NULL,
     event_sequential_id_first BIGINT NOT NULL,
     event_sequential_id_last BIGINT NOT NULL
 );

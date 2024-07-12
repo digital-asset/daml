@@ -241,6 +241,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
+            messageUuid = None,
           )
         ),
         recordTime = Timestamp.now(),
@@ -265,6 +266,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             commandId = commandId,
             optDeduplicationPeriod = None,
             submissionId = Some(submissionId),
+            messageUuid = None,
           )
         ),
         recordTime = Timestamp.now(),

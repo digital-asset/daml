@@ -6,7 +6,8 @@ package com.digitalasset.canton.config
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
-  EncryptionKeyScheme,
+  EncryptionAlgorithmSpec,
+  EncryptionKeySpec,
   HashAlgorithm,
   PbkdfScheme,
   SigningKeyScheme,
@@ -20,7 +21,8 @@ trait CryptoProvider extends PrettyPrinting {
   def name: String
 
   def signing: CryptoProviderScheme[SigningKeyScheme]
-  def encryption: CryptoProviderScheme[EncryptionKeyScheme]
+  def encryptionAlgorithms: CryptoProviderScheme[EncryptionAlgorithmSpec]
+  def encryptionKeys: CryptoProviderScheme[EncryptionKeySpec]
   def symmetric: CryptoProviderScheme[SymmetricKeyScheme]
   def hash: CryptoProviderScheme[HashAlgorithm]
   def pbkdf: Option[CryptoProviderScheme[PbkdfScheme]]
@@ -49,14 +51,24 @@ object CryptoProvider {
         ),
       )
 
-    override def encryption: CryptoProviderScheme[EncryptionKeyScheme] =
+    override def encryptionAlgorithms: CryptoProviderScheme[EncryptionAlgorithmSpec] =
       CryptoProviderScheme(
-        EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm,
+        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
         NonEmpty.mk(
           Set,
-          EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm,
-          EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc,
-          EncryptionKeyScheme.Rsa2048OaepSha256,
+          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
+          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
+          EncryptionAlgorithmSpec.RsaOaepSha256,
+        ),
+      )
+
+    override def encryptionKeys: CryptoProviderScheme[EncryptionKeySpec] =
+      CryptoProviderScheme(
+        EncryptionKeySpec.EcP256,
+        NonEmpty.mk(
+          Set,
+          EncryptionKeySpec.EcP256,
+          EncryptionKeySpec.Rsa2048,
         ),
       )
 

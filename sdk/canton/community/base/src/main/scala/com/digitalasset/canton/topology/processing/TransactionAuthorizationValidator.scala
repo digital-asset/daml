@@ -286,9 +286,11 @@ trait TransactionAuthorizationValidator {
         filterUid = None,
         filterNamespace = Some(uncachedNamespaces.toSeq),
       )
-      decentralizedNamespaces = storedDecentralizedNamespace.result.flatMap(
-        _.transaction.selectMapping[DecentralizedNamespaceDefinition]
-      )
+      decentralizedNamespaces = storedDecentralizedNamespace
+        .collectOfMapping[DecentralizedNamespaceDefinition]
+        .collectLatestByUniqueKey
+        .result
+        .map(_.transaction)
       decentralizedNamespaceOwnersToLoad = decentralizedNamespaces
         .flatMap(_.mapping.owners)
         .toSet -- namespaceCache.keySet
@@ -302,9 +304,11 @@ trait TransactionAuthorizationValidator {
         filterUid = None,
         filterNamespace = Some(namespacesToLoad.toSeq),
       )
-      namespaceDelegations = storedNamespaceDelegations.result.flatMap(
-        _.transaction.selectMapping[NamespaceDelegation]
-      )
+      namespaceDelegations = storedNamespaceDelegations
+        .collectOfMapping[NamespaceDelegation]
+        .collectLatestByUniqueKey
+        .result
+        .map(_.transaction)
     } yield {
       val missingNSDs =
         namespacesToLoad -- namespaceDelegations.map(_.mapping.namespace).toSet
@@ -317,7 +321,7 @@ trait TransactionAuthorizationValidator {
         .foreach { case (namespace, transactions) =>
           ErrorUtil.requireArgument(
             !namespaceCache.isDefinedAt(namespace),
-            s"graph shouldn't exist before loading ${namespaces} vs ${namespaceCache.keySet}",
+            s"graph shouldn't exist before loading ${namespace} vs ${namespaceCache.get(namespace)}",
           )
           val graph = new AuthorizationGraph(
             namespace,
@@ -338,7 +342,8 @@ trait TransactionAuthorizationValidator {
         val namespace = dns.mapping.namespace
         ErrorUtil.requireArgument(
           !decentralizedNamespaceCache.isDefinedAt(namespace),
-          s"decentralized namespace shouldn't already be cached before loading $namespace vs ${decentralizedNamespaceCache.keySet}",
+          s"decentralized namespace shouldn't already be cached before loading $namespace vs ${decentralizedNamespaceCache
+              .get(namespace)}",
         )
         val graphs = dns.mapping.owners.forgetNE.toSeq.map(ns =>
           namespaceCache.getOrElseUpdate(

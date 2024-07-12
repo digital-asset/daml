@@ -165,7 +165,7 @@ object VaultAdminCommands {
 
   }
 
-  final case class GenerateEncryptionKey(name: String, scheme: Option[EncryptionKeyScheme])
+  final case class GenerateEncryptionKey(name: String, keySpec: Option[EncryptionKeySpec])
       extends BaseVaultAdminCommand[
         v30.GenerateEncryptionKeyRequest,
         v30.GenerateEncryptionKeyResponse,
@@ -176,8 +176,8 @@ object VaultAdminCommands {
       Right(
         v30.GenerateEncryptionKeyRequest(
           name = name,
-          keyScheme = scheme.fold[cryptoproto.EncryptionKeyScheme](
-            cryptoproto.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED
+          keySpec = keySpec.fold[cryptoproto.EncryptionKeySpec](
+            cryptoproto.EncryptionKeySpec.ENCRYPTION_KEY_SPEC_UNSPECIFIED
           )(_.toProtoEnum),
         )
       )
