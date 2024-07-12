@@ -68,6 +68,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import org.slf4j.event.Level
 
 import java.time.Instant
 import scala.Ordered.orderingToOrdered
@@ -229,7 +230,7 @@ final class RepairService(
   ): EitherT[Future, String, Option[ContractToAdd]] =
     for {
       acsState <- readContractAcsState(domain.persistentState, repairContract.contract.contractId)
-      keyState <- EitherT.liftF(readContractKey(domain, hostedParties, repairContract.contract))
+      keyState <- EitherT.right(readContractKey(domain, hostedParties, repairContract.contract))
       // Able to recompute contract signatories and stakeholders (and sanity check
       // repairContract metadata otherwise ignored matches real metadata)
       contractWithMetadata <- damle
@@ -276,15 +277,14 @@ final class RepairService(
       obtainedPersistentState <- getPersistentState(domainId)
       (persistentState, domainAlias, indexedDomain) = obtainedPersistentState
 
-      startingPoints <- EitherTUtil.fromFuture(
+      startingPoints <- EitherT.right(
         SyncDomainEphemeralStateFactory.startingPoints(
           indexedDomain,
           persistentState.requestJournalStore,
           persistentState.sequencerCounterTrackerStore,
           persistentState.sequencedEventStore,
           multiDomainEventLog.value,
-        ),
-        t => log("Failed to compute starting points", t),
+        )
       )
 
       topologyFactory <- syncDomainPersistentStateManager
@@ -787,14 +787,12 @@ final class RepairService(
         s"Contract $cid cannot be purged: $reason. Set ignoreAlreadyPurged = true to skip non-existing contracts."
       ),
     )
-
     val timeOfChange = repair.tryExactlyOneTimeOfChange
     for {
       acsStatus <- readContractAcsState(repair.domain.persistentState, cid)
 
-      contractO <- EitherTUtil.fromFuture(
-        repair.domain.persistentState.contractStore.lookupContract(cid).value,
-        t => log(s"Failed to look up contract ${cid} in domain ${repair.domain.alias}", t),
+      contractO <- EitherT.right(
+        repair.domain.persistentState.contractStore.lookupContract(cid).value
       )
       // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
       // on behalf of stakeholders no longer around.
@@ -809,7 +807,7 @@ final class RepairService(
                 log(show"Active contract $cid not found in contract store"),
               )
 
-            keyOfHostedMaintainerO <- EitherT.liftF(
+            keyOfHostedMaintainerO <- EitherT.right(
               if (repair.domain.parameters.uniqueContractKeys)
                 getKeyIfOneMaintainerIsLocal(
                   repair.domain.topologySnapshot,
@@ -882,11 +880,10 @@ final class RepairService(
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
 
-    def fromFuture[T](f: Future[T], errorMessage: => String): EitherT[Future, String, T] =
-      EitherTUtil.fromFuture(
-        f,
-        t => log(s"$errorMessage: ${ErrorUtil.messageWithStacktrace(t)}"),
-      )
+    def fromFuture[T](f: Future[T], errorMessage: => String)(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, String, T] =
+      EitherT.right(FutureUtil.logOnFailure(f, errorMessage, level = Level.INFO))
 
     for {
       // Write contract if it does not already exist.
@@ -1063,11 +1060,10 @@ final class RepairService(
 
   private def packageVetted(
       lfPackageId: LfPackageId
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
-      packageDescription <- EitherTUtil.fromFuture(
-        packageDependencyResolver.getPackageDescription(lfPackageId),
-        t => log(s"Failed to look up package ${lfPackageId}", t),
+      packageDescription <- EitherT.right(
+        packageDependencyResolver.getPackageDescription(lfPackageId)
       )
       _packageVetted <- EitherTUtil
         .condUnitET[Future](
@@ -1075,7 +1071,6 @@ final class RepairService(
           log(s"Failed to locate package ${lfPackageId}"),
         )
     } yield ()
-  }
 
   /** Allows to wait until clean head has progressed up to a certain timestamp */
   def awaitCleanHeadForTimestamp(
@@ -1197,14 +1192,12 @@ final class RepairService(
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),
       )
-      _ <- EitherTUtil.fromFuture(
+      _ <- EitherT.right(
         SyncDomainEphemeralStateFactory
-          .cleanupPersistentState(domain.persistentState, domain.startingPoints),
-        t => log(s"Failed to clean up the persistent state", t),
+          .cleanupPersistentState(domain.persistentState, domain.startingPoints)
       )
-      incrementalAcsSnapshotWatermark <- EitherTUtil.fromFuture(
-        domain.persistentState.acsCommitmentStore.runningCommitments.watermark,
-        _ => log(s"Failed to obtain watermark from incremental ACS snapshot"),
+      incrementalAcsSnapshotWatermark <- EitherT.right(
+        domain.persistentState.acsCommitmentStore.runningCommitments.watermark
       )
       _ <- EitherT.cond[Future](
         rtRepair > incrementalAcsSnapshotWatermark,
@@ -1255,9 +1248,8 @@ final class RepairService(
       )
 
       // Mark the repair request as pending in the request journal store
-      _ <- EitherTUtil.fromFuture(
-        repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert),
-        t => log("Failed to insert repair request", t),
+      _ <- EitherT.right[String](
+        repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert)
       )
 
     } yield repair
@@ -1283,7 +1275,8 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
       _ <- repairs.parTraverse_(markClean)
-      _ <- EitherTUtil.fromFuture(
+      _ = logger.debug("Advancing clean request preheads")
+      _ <- EitherT.right[String](
         TransactionalStoreUpdate.execute {
           repairs.map { repair =>
             repair.domain.persistentState.requestJournalStore
@@ -1291,17 +1284,15 @@ final class RepairService(
                 CursorPrehead(repair.requestCounters.last1, repair.timestamp)
               )
           }
-        },
-        t => log("Failed to advance clean request preheads", t),
+        }
       )
     } yield ()
 
   private def readContractAcsState(persistentState: SyncDomainPersistentState, cid: LfContractId)(
       implicit traceContext: TraceContext
   ): EitherT[Future, String, Option[ActiveContractStore.Status]] =
-    EitherTUtil.fromFuture(
-      persistentState.activeContractStore.fetchState(cid).map(_.map(_.status)),
-      e => log(s"Failed to look up contract ${cid} status in ActiveContractStore: ${e}"),
+    EitherT.right(
+      persistentState.activeContractStore.fetchState(cid).map(_.map(_.status))
     )
 
   private def readContractKey(

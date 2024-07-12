@@ -1670,18 +1670,18 @@ abstract class ProtocolProcessor[
     for {
       _ <- EitherT
         .fromEither[Future](ephemeral.requestTracker.addResult(rc, sc, resultTimestamp, commitTime))
-        .leftMap(e => {
+        .leftMap { e =>
           SyncServiceAlarm.Warn(s"Failed to add result for $requestId. $e").report()
           e
-        })
+        }
       commitSetF = commitSetOF.getOrElse(Future.successful(CommitSet.empty))
       commitSetT <- EitherT.right(commitSetF.transform(Success(_)))
       commitFuture <- EitherT
         .fromEither[Future](ephemeral.requestTracker.addCommitSet(rc, commitSetT))
-        .leftMap(e => {
+        .leftMap { e =>
           SyncServiceAlarm.Warn(s"Unexpected mediator result message for $requestId. $e").report()
           e: RequestTracker.RequestTrackerError
-        })
+        }
     } yield {
       commitFuture
         .valueOr(e =>
