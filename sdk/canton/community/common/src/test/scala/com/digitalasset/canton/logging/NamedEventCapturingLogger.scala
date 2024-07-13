@@ -3,13 +3,11 @@
 
 package com.digitalasset.canton.logging
 
-import com.digitalasset.canton.util.ErrorUtil
 import com.typesafe.scalalogging.Logger
 import org.scalactic.source
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers.*
-import org.slf4j.event.{Level, SubstituteLoggingEvent}
-import org.slf4j.helpers
+import org.slf4j.event.Level
 
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.ListMap
@@ -22,27 +20,28 @@ class NamedEventCapturingLogger(
     val name: String,
     val properties: ListMap[String, String] = ListMap.empty,
     outputLogger: Option[Logger] = None,
+    skip: LogEntry => Boolean = _ => false,
 ) extends NamedLoggerFactory {
 
-  val eventQueue: java.util.concurrent.BlockingQueue[SubstituteLoggingEvent] =
-    new java.util.concurrent.LinkedBlockingQueue[SubstituteLoggingEvent]()
+  val eventQueue: java.util.concurrent.BlockingQueue[LogEntry] =
+    new java.util.concurrent.LinkedBlockingQueue[LogEntry]()
 
-  private def pollEventQueue(ts: Option[Long]): SubstituteLoggingEvent = {
+  private def pollEventQueue(ts: Option[Long]): LogEntry = {
     val event = ts match {
       case None => eventQueue.poll()
       case Some(millis) => eventQueue.poll(millis, TimeUnit.MILLISECONDS)
     }
     if (event != null) {
       outputLogger.foreach(
-        _.debug(s"Captured ${event.getLoggerName} ${event.getLevel} ${event.getMessage}")
+        _.debug(s"Captured ${event.loggerName} ${event.level} ${event.message}")
       )
     }
     event
   }
 
-  val eventSeq: Seq[SubstituteLoggingEvent] = eventQueue.asScala.toSeq
+  val eventSeq: Seq[LogEntry] = eventQueue.asScala.toSeq
 
-  private val logger = new helpers.SubstituteLogger(name, eventQueue, false)
+  private val logger = new BufferingLogger(eventQueue, name, skip(_))
 
   override def appendUnnamedKey(key: String, value: String): NamedLoggerFactory = this
   override def append(key: String, value: String): NamedLoggerFactory = this
@@ -56,7 +55,9 @@ class NamedEventCapturingLogger(
   ): Boolean = {
     val event = eventQueue.peek()
     if (
-      event != null && event.getMessage == expectedMessage && event.getLevel == expectedLevel && event.getThrowable == expectedThrowable
+      event != null && event.message == expectedMessage && event.level == expectedLevel && event.throwable == Option(
+        expectedThrowable
+      )
     ) {
       pollEventQueue(None)
       true
@@ -82,20 +83,20 @@ class NamedEventCapturingLogger(
     assertNextEvent(
       { event =>
         withClue("Unexpected log message: ") {
-          messageAssertion(event.getMessage)
+          messageAssertion(event.message)
         }
         withClue("Unexpected log level: ") {
-          event.getLevel shouldBe expectedLevel
+          event.level shouldBe expectedLevel
         }
         withClue("Unexpected throwable: ") {
-          event.getThrowable shouldBe expectedThrowable
+          event.throwable shouldBe Option(expectedThrowable)
         }
       },
       timeoutMillis,
     )
 
-  def assertNextEvent(assertion: SubstituteLoggingEvent => Assertion, timeoutMillis: Long = 2000)(
-      implicit pos: source.Position
+  def assertNextEvent(assertion: LogEntry => Assertion, timeoutMillis: Long = 2000)(implicit
+      pos: source.Position
   ): Assertion =
     Option(pollEventQueue(Some(timeoutMillis))) match {
       case None => fail("Missing log event.")
@@ -105,19 +106,6 @@ class NamedEventCapturingLogger(
   def assertNoMoreEvents(timeoutMillis: Long = 0)(implicit pos: source.Position): Assertion =
     Option(eventQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS)) match {
       case None => succeed
-      case Some(event) =>
-        val argumentsString = Option(event.getArgumentArray) match {
-          case Some(args) => args.mkString("{", ", ", "}")
-          case None => ""
-        }
-
-        val throwableString = Option(event.getThrowable) match {
-          case Some(t) => "\n" + ErrorUtil.messageWithStacktrace(t)
-          case None => ""
-        }
-
-        fail(
-          s"Unexpected log event: ${event.getLevel} ${event.getLoggerName} - ${event.getMessage} $argumentsString$throwableString"
-        )
+      case Some(event) => fail(s"Unexpected log event: $event")
     }
 }

@@ -17,7 +17,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.store.ContractKeyJournal
 import com.digitalasset.canton.participant.store.ContractKeyJournal.ContractKeyJournalError
-import com.digitalasset.canton.participant.store.db.DbContractKeyJournal.DbContractKeyJournalError
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -25,7 +24,7 @@ import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
 import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
+import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -113,6 +112,73 @@ class DbContractKeyJournal(
       }
     }
 
+  /** Add updates for the selected keys
+    * @param updates All the updates
+    * @param keys Keys to be updated
+    * @return Number of rows updated
+    */
+  private def addUpdates(
+      updates: Map[LfGlobalKey, (Status, TimeOfChange)],
+      keys: LazyList[LfGlobalKey],
+  )(implicit traceContext: TraceContext) = {
+    import DbStorage.Implicits.BuilderChain.*
+
+    val values: DbStorage.SQLActionBuilderChain =
+      storage.profile match {
+        case _: DbStorage.Profile.Oracle =>
+          keys
+            .map { key =>
+              val (status, toc) = updates(key)
+              sql"select $domainId domain_id, $key contract_key_hash, ${checked(
+                  status
+                )} status, ${toc.timestamp} ts, ${toc.rc} request_counter from dual"
+            }
+            .intercalate(sql" union all ")
+        case _ =>
+          keys
+            .map { key =>
+              val (status, toc) = updates(key)
+              sql"""($domainId, $key, CAST(${checked(
+                  status
+                )} as key_status), ${toc.timestamp}, ${toc.rc})"""
+            }
+            .intercalate(sql", ")
+      }
+
+    val query = storage.profile match {
+      case _: DbStorage.Profile.H2 =>
+        sql"""
+                  merge into contract_key_journal as journal
+                  using (select * from (values """ ++ values ++
+          sql""") as upds(domain_id, contract_key_hash, status, ts, request_counter)) as source
+                  on journal.domain_id = source.domain_id and
+                     journal.contract_key_hash = source.contract_key_hash and
+                     journal.ts = source.ts and
+                     journal.request_counter = source.request_counter
+                  when not matched then
+                    insert (domain_id, contract_key_hash, status, ts, request_counter)
+                     values (source.domain_id, source.contract_key_hash, source.status, source.ts, source.request_counter);
+                  """
+      case _: DbStorage.Profile.Postgres =>
+        sql"""
+                  insert into contract_key_journal(domain_id, contract_key_hash, status, ts, request_counter)
+                  values """ ++ values ++
+          sql"""
+                  on conflict (domain_id, contract_key_hash, ts, request_counter) do nothing;
+                  """
+      case _: DbStorage.Profile.Oracle =>
+        sql"""
+                      merge into contract_key_journal ckj USING (with UPDATES as(""" ++ values ++
+          sql""") select * from UPDATES) S on ( ckj.domain_id=S.domain_id and ckj.contract_key_hash=S.contract_key_hash and ckj.ts=S.ts and ckj.request_counter=S.request_counter)
+                       when not matched then
+                       insert (domain_id, contract_key_hash, status, ts, request_counter)
+                       values (S.domain_id, S.contract_key_hash, S.status, S.ts, S.request_counter)
+                     """
+    }
+
+    storage.update(query.asUpdate, functionFullName)
+  }
+
   override def addKeyStateUpdates(updates: Map[LfGlobalKey, (Status, TimeOfChange)])(implicit
       traceContext: TraceContext
   ): EitherT[Future, ContractKeyJournalError, Unit] = {
@@ -127,76 +193,23 @@ class DbContractKeyJournal(
         // Keep trying to insert the updates until all updates are in the DB or an exception occurs or we've found an inconsistency.
         // This is not necessarily something we expect to happen but has been added here to catch programming
         // or other errors.
-        val fut =
+        val result =
           Monad[Future].tailRecM[LazyList[LfGlobalKey], Either[ContractKeyJournalError, Unit]](
-            updates.keySet.to(LazyList)
+            keyUpdates.to(LazyList)
           ) { remainingKeys =>
             if (remainingKeys.isEmpty) {
               Future.successful(Either.right(Either.right(())))
             } else {
-              val values =
-                storage.profile match {
-                  case _: DbStorage.Profile.Oracle =>
-                    remainingKeys
-                      .map { key =>
-                        val (status, toc) = updates(key)
-                        sql"select $domainId domain_id, $key contract_key_hash, ${checked(
-                            status
-                          )} status, ${toc.timestamp} ts, ${toc.rc} request_counter from dual"
-                      }
-                      .intercalate(sql" union all ")
-                  case _ =>
-                    remainingKeys
-                      .map { key =>
-                        val (status, toc) = updates(key)
-                        sql"""($domainId, $key, CAST(${checked(
-                            status
-                          )} as key_status), ${toc.timestamp}, ${toc.rc})"""
-                      }
-                      .intercalate(sql", ")
-                }
-
               val updatesCount = remainingKeys.length
-              val query = storage.profile match {
-                case _: DbStorage.Profile.H2 =>
-                  sql"""
-                  merge into contract_key_journal as journal
-                  using (select * from (values """ ++ values ++
-                    sql""") as upds(domain_id, contract_key_hash, status, ts, request_counter)) as source
-                  on journal.domain_id = source.domain_id and
-                     journal.contract_key_hash = source.contract_key_hash and
-                     journal.ts = source.ts and
-                     journal.request_counter = source.request_counter
-                  when not matched then
-                    insert (domain_id, contract_key_hash, status, ts, request_counter)
-                     values (source.domain_id, source.contract_key_hash, source.status, source.ts, source.request_counter);
-                  """
-                case _: DbStorage.Profile.Postgres =>
-                  sql"""
-                  insert into contract_key_journal(domain_id, contract_key_hash, status, ts, request_counter)
-                  values """ ++ values ++
-                    sql"""
-                  on conflict (domain_id, contract_key_hash, ts, request_counter) do nothing;
-                  """
-                case _: DbStorage.Profile.Oracle =>
-                  sql"""
-                      merge into contract_key_journal ckj USING (with UPDATES as(""" ++ values ++
-                    sql""") select * from UPDATES) S on ( ckj.domain_id=S.domain_id and ckj.contract_key_hash=S.contract_key_hash and ckj.ts=S.ts and ckj.request_counter=S.request_counter)
-                       when not matched then
-                       insert (domain_id, contract_key_hash, status, ts, request_counter)
-                       values (S.domain_id, S.contract_key_hash, S.status, S.ts, S.request_counter)
-                     """
-              }
 
-              storage.update(query.asUpdate, functionFullName).flatMap { rowCount =>
+              addUpdates(updates, remainingKeys).flatMap { rowCount =>
                 if (rowCount == updatesCount) Future.successful(Either.right(Either.right(())))
                 else {
                   val keysQ = remainingKeys.map(key => sql"$key").intercalate(sql", ")
                   val (tss, rcs) =
                     remainingKeys
                       .collect(updates)
-                      .map(_._2)
-                      .map(toc => (toc.timestamp, toc.rc))
+                      .map { case (_, toc) => (toc.timestamp, toc.rc) }
                       .unzip
                   val tsQ = tss.map(ts => sql"$ts").intercalate(sql", ")
                   val rcQ = rcs.map(rc => sql"$rc").intercalate(sql", ")
@@ -239,7 +252,8 @@ class DbContractKeyJournal(
               }
             }
           }
-        EitherTUtil.fromFuture(fut, DbContractKeyJournalError).subflatMap(Predef.identity)
+
+        EitherT(result)
       }
     }
   }
