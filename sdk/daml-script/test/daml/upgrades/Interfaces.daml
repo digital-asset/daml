@@ -1,0 +1,74 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interfaces (main) where
+
+import UpgradeTestLib
+import V1.FixedInterface
+import qualified V1.Interfaces as V1
+import qualified V2.Interfaces as V2
+import DA.Text
+
+{- PACKAGE
+name: fixed-interface
+versions: 1
+-}
+
+{- MODULE
+package: fixed-interface
+contents: |
+  module FixedInterface where
+
+  data IV = IV {}
+
+  interface I where
+    viewtype IV
+-}
+
+{- PACKAGE
+name: interfaces
+versions: 2
+depends: fixed-interface-1.0.0
+-}
+
+{- MODULE
+package: interfaces
+contents: |
+  module Interfaces where
+
+  import FixedInterface
+-}
+-- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
+main : TestTree
+main = tests
+  [ ("Calling an interface choice uses the highest version implementation", defaultHighestVersionChoiceImplementation)
+  , ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
+  , ("Package map preference is used for interface implementation selection at choice body level", interfaceChoicePackagePreferenceUpdate)
+  , ("Multiple interface exercises use their respective package map entries", multipleInterfaceChoicePackagePreference)
+  , ("queryInterfaceContractId upgrades contract payload to match request", queryInterfaceUpgrades)
+  , ("fetchFromInterface upgrades contract payload to match request", fetchInterfaceUpgrades)
+  ]
+
+defaultHighestVersionChoiceImplementation : Test
+defaultHighestVersionChoiceImplementation = test $ do
+  pure ()
+
+interfaceChoicePackagePreferenceCommand : Test
+interfaceChoicePackagePreferenceCommand = test $ do
+  pure ()
+
+interfaceChoicePackagePreferenceUpdate : Test
+interfaceChoicePackagePreferenceUpdate = test $ do
+  pure ()
+
+multipleInterfaceChoicePackagePreference : Test
+multipleInterfaceChoicePackagePreference = test $ do
+  pure ()
+
+queryInterfaceUpgrades : Test
+queryInterfaceUpgrades = test $ do
+  pure ()
+
+fetchInterfaceUpgrades : Test
+fetchInterfaceUpgrades = test $ do
+  pure ()
