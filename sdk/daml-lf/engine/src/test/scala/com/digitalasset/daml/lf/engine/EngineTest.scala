@@ -705,21 +705,21 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         // FixMe match the proper error
         err match {
           case Interpretation.DamlException(
-          interpretation.Error.UnhandledException(_, _)
-          //            interpretation.Error.ContractKeyNotFound(
-          //              GlobalKey.assertBuild(
-          //                templateId = BasicTests_WithKey,
-          //                key = ValueRecord(
-          //                  Some(BasicTests_WithKey),
-          //                  ImmArray(
-          //                    (Some[Ref.Name]("p"), ValueParty(alice)),
-          //                    (Some[Ref.Name]("k"), ValueInt64(43)),
-          //                  ),
-          //                ),
-          //                packageName = basicTestsPkg.pkgName,
-          //              )
-          //            )
-          ) =>
+                interpretation.Error.UnhandledException(_, _)
+                //            interpretation.Error.ContractKeyNotFound(
+                //              GlobalKey.assertBuild(
+                //                templateId = BasicTests_WithKey,
+                //                key = ValueRecord(
+                //                  Some(BasicTests_WithKey),
+                //                  ImmArray(
+                //                    (Some[Ref.Name]("p"), ValueParty(alice)),
+                //                    (Some[Ref.Name]("k"), ValueInt64(43)),
+                //                  ),
+                //                ),
+                //                packageName = basicTestsPkg.pkgName,
+                //              )
+                //            )
+              ) =>
             succeed
           case _ =>
             fail("not the expected error")

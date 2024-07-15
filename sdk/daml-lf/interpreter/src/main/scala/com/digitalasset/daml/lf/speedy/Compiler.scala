@@ -710,13 +710,14 @@ private[lf] final class Compiler(
     topLevelFunction3(t.ChoiceByKeyDefRef(tmplId, choice.name)) {
       (keyPos, choiceArgPos, tokenPos, env) =>
         let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-          let(env, SBUFetchKey(tmplId)(s.SEValue(SInt64(1)), env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-            translateChoiceBody(env, tmplId, tmpl, choice)(
-              choiceArgPos,
-              cidPos,
-              Some(keyWithMPos),
-              tokenPos,
-            )
+          let(env, SBUFetchKey(tmplId)(s.SEValue(SInt64(1)), env.toSEVar(keyWithMPos))) {
+            (cidPos, env) =>
+              translateChoiceBody(env, tmplId, tmpl, choice)(
+                choiceArgPos,
+                cidPos,
+                Some(keyWithMPos),
+                tokenPos,
+              )
           }
         }
     }
@@ -983,13 +984,14 @@ private[lf] final class Compiler(
     //    in <mbCid>
     topLevelFunction3(t.LookupByKeyDefRef(tmplId)) { (nPos, keyPos, _, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
-          let(
-            env,
-            SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
-          ) { (_, env) =>
-            env.toSEVar(maybeCidPos)
-          }
+        let(env, SBULookupKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) {
+          (maybeCidPos, env) =>
+            let(
+              env,
+              SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
+            ) { (_, env) =>
+              env.toSEVar(maybeCidPos)
+            }
         }
       }
     }
@@ -1013,17 +1015,18 @@ private[lf] final class Compiler(
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction3(t.FetchByKeyDefRef(tmplId)) { (nPos, keyPos, tokenPos, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-          let(
-            env,
-            translateFetchTemplateBody(env, tmplId)(
-              cidPos,
-              Some(keyWithMPos),
-              tokenPos,
-            ),
-          ) { (contractPos, env) =>
-            Tuple2(env.toSEVar(cidPos), env.toSEVar(contractPos))
-          }
+        let(env, SBUFetchKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) {
+          (cidPos, env) =>
+            let(
+              env,
+              translateFetchTemplateBody(env, tmplId)(
+                cidPos,
+                Some(keyWithMPos),
+                tokenPos,
+              ),
+            ) { (contractPos, env) =>
+              Tuple2(env.toSEVar(cidPos), env.toSEVar(contractPos))
+            }
         }
       }
     }

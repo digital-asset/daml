@@ -2457,7 +2457,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       }
     }
 
-
     // FixMe nuck
     "fetch_by_key" ignore {
 
