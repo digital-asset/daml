@@ -710,7 +710,7 @@ private[lf] final class Compiler(
     topLevelFunction3(t.ChoiceByKeyDefRef(tmplId, choice.name)) {
       (keyPos, choiceArgPos, tokenPos, env) =>
         let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-          let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+          let(env, SBUFetchKey(tmplId)(s.SEValue(SInt64(1)), env.toSEVar(keyWithMPos))) { (cidPos, env) =>
             translateChoiceBody(env, tmplId, tmpl, choice)(
               choiceArgPos,
               cidPos,
@@ -976,14 +976,14 @@ private[lf] final class Compiler(
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
-    // LookupByKeyDefRef(tmplId) = \ <key> <token> ->
+    // LookupByKeyDefRef(tmplId) = \ <n> <key> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
-    //        <mbCid> = $lookupKey(tmplId) <keyWithM>
+    //        <mbCid> = $lookupKey(tmplId) <n> <keyWithM>
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
-    topLevelFunction2(t.LookupByKeyDefRef(tmplId)) { (keyPos, _, env) =>
+    topLevelFunction3(t.LookupByKeyDefRef(tmplId)) { (nPos, keyPos, _, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId)(env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
+        let(env, SBULookupKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
           let(
             env,
             SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
@@ -1005,15 +1005,15 @@ private[lf] final class Compiler(
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into
-    // FetchByKeyDefRef(tmplId) = \ <key> <token> ->
+    // FetchByKeyDefRef(tmplId) = \ <n> <key> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }
-    //        <coid> = $fetchKey(tmplId) <keyWithM>
+    //        <coid> = $fetchKey(tmplId) <n> <keyWithM>
     //        <contract> = $fetch(tmplId) <coid>
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
-    topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
+    topLevelFunction3(t.FetchByKeyDefRef(tmplId)) { (nPos, keyPos, tokenPos, env) =>
       let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+        let(env, SBUFetchKey(tmplId)(env.toSEVar(nPos), env.toSEVar(keyWithMPos))) { (cidPos, env) =>
           let(
             env,
             translateFetchTemplateBody(env, tmplId)(
@@ -1046,7 +1046,7 @@ private[lf] final class Compiler(
     case Command.FetchInterface(interfaceId, coid) =>
       t.FetchInterfaceDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
-      t.FetchByKeyDefRef(templateId)(s.SEValue(key))
+      t.FetchByKeyDefRef(templateId)(s.SEValue(SInt64(1)), s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       translateCreateAndExercise(
         env,
@@ -1056,7 +1056,7 @@ private[lf] final class Compiler(
         choiceArg,
       )
     case Command.LookupByKey(templateId, contractKey) =>
-      t.LookupByKeyDefRef(templateId)(s.SEValue(contractKey))
+      t.LookupByKeyDefRef(templateId)(s.SEValue(SInt64(1)), s.SEValue(contractKey))
   }
 
   private val SEUpdatePureUnit = unaryFunction(Env.Empty)((_, _) => s.SEValue.Unit)

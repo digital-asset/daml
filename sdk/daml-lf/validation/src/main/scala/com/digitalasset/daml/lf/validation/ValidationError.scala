@@ -248,7 +248,8 @@ final case class ETypeMismatch(
   protected def prettyInternal: String =
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
-       | * found type: ${foundType.pretty}""".stripMargin
+       | * found type: ${foundType.pretty}
+       | * expr ${expr}""".stripMargin
 }
 final case class EFieldTypeMismatch(
     context: Context,

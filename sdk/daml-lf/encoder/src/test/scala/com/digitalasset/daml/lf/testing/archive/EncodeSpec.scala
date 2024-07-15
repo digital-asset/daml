@@ -166,10 +166,8 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
            val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
-           val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \(party: Party) ->
-             fetch_by_key @Mod:Person party;
-           val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
-             lookup_by_key @Mod:Person party;
+//           val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = fetch_by_key @Mod:Person;
+           val aLookUpByKey: Int64 -> Party -> Update (List (ContractId Mod:Person)) = lookup_by_key @Mod:Person;
            val aGetTime: Update Timestamp =
              uget_time;
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->

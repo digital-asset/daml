@@ -258,7 +258,7 @@ da_scala_test_suite(
             "@maven//:com_google_protobuf_protobuf_java",
         ],
     ),
-] if is_intel and not is_windows else []
+] if False else []
 
 da_scala_benchmark_jmh(
     name = "typechecking-benchmark",

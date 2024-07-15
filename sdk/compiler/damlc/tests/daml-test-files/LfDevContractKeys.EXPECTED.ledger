@@ -2,7 +2,7 @@ Transactions:
   TX 0 1970-01-01T00:00:00Z (LfDevContractKeys:99:11)
   #0:0
   │   consumed by: #8:0
-  │   referenced by #4:2, #5:2, #8:0
+  │   referenced by #4:2, #5:2, #5:3, #8:0
   │   disclosed to (since): 'Alice' (0), 'Bob' (0)
   └─> 'Alice' creates LfDevContractKeys:TextKey
               with
@@ -60,8 +60,14 @@ Transactions:
       children:
       #5:2
       │   disclosed to (since): 'Alice' (5)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "some-key"
+          found: #0:0
+      
+      #5:3
+      │   disclosed to (since): 'Alice' (5)
       └─> 'Alice' fetches #0:0 (LfDevContractKeys:TextKey)
-                  by key _1 = 'Alice'; _2 = "some-key"
   
   TX 6 1970-01-01T00:00:00Z (LfDevContractKeys:126:13)
   #6:0
@@ -222,7 +228,7 @@ Transactions:
   └─> 'Alice' exercises Good on #13:0 (LfDevContractKeys:CreateAndLookup)
       children:
       #14:1
-      │   referenced by #14:2, #14:3
+      │   referenced by #14:2, #14:3, #14:4
       │   disclosed to (since): 'Alice' (14)
       └─> 'Alice' creates LfDevContractKeys:TextKey
                   with
@@ -237,8 +243,14 @@ Transactions:
       
       #14:3
       │   disclosed to (since): 'Alice' (14)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "same-choice-key"
+          found: #14:1
+      
+      #14:4
+      │   disclosed to (since): 'Alice' (14)
       └─> 'Alice' fetches #14:1 (LfDevContractKeys:TextKey)
-                  by key _1 = 'Alice'; _2 = "same-choice-key"
   
   TX 15 1970-01-01T00:00:00Z
      mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:171:3)

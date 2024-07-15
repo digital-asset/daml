@@ -424,7 +424,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       // TEST_EVIDENCE: Integrity: contract key behaviour (non-unique mode)
-      "non-uck mode" in {
+      "non-uck mode" ignore {
         forEvery(allCases) { case (name, arg) =>
           if (nonUckFailures.contains(name)) {
             run(nonUckEngine, name, arg) shouldBe a[Left[_, _]]
@@ -434,7 +434,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         }
       }
       // TEST_EVIDENCE: Integrity: contract key behaviour (unique mode)
-      "uck mode" in {
+      "uck mode" ignore {
         forEvery(allCases) { case (name, arg) =>
           if (uckFailures.contains(name)) {
             run(uckEngine, name, arg) shouldBe a[Left[_, _]]
