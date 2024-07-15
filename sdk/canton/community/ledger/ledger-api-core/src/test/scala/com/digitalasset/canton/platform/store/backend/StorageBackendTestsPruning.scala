@@ -269,12 +269,12 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
+      txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
     pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000011"))
+      txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
     pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
@@ -338,12 +338,12 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
+      txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
     pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000011"))
+      txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
     pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
@@ -464,38 +464,38 @@ private[backend] trait StorageBackendTestsPruning
     )
     assertAllDataPresent(
       txMeta = Vector(
-        TxMeta("00000002"),
-        TxMeta("00000003"),
-        TxMeta("00000004"),
-        TxMeta("00000005"),
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
       )
     )
     // Prune earlier
     pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
-        TxMeta("00000002"),
-        TxMeta("00000003"),
-        TxMeta("00000004"),
-        TxMeta("00000005"),
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
       )
     )
     // Prune at create
     pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
-        TxMeta("00000003"),
-        TxMeta("00000004"),
-        TxMeta("00000005"),
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
       )
     )
     // Prune after unrelated archive and reassign events but before related ones
@@ -514,8 +514,8 @@ private[backend] trait StorageBackendTestsPruning
       unassign = Vector(EventUnassign(7)),
       unassignFilter = Vector(FilterUnassign(7, 4)),
       txMeta = Vector(
-        TxMeta("00000007"),
-        TxMeta("00000008"),
+        TxMeta(7),
+        TxMeta(8),
       ),
     )
     // Prune at the end, but following unassign is incomplete
@@ -590,12 +590,12 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
+      txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
     pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000011"))
+      txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
     pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
@@ -653,12 +653,12 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
+      txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
     pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
-      txMeta = Vector(TxMeta("00000011"))
+      txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
     pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
@@ -814,32 +814,32 @@ private[backend] trait StorageBackendTestsPruning
     )
     assertAllDataPresent(
       txMeta = Vector(
-        TxMeta("00000002"),
-        TxMeta("00000003"),
-        TxMeta("00000004"),
-        TxMeta("00000005"),
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
-        TxMeta("00000009"),
-        TxMeta("00000010"),
-        TxMeta("00000011"),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+        TxMeta(10),
+        TxMeta(11),
       )
     )
     // Prune earlier
     pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
     assertAllDataPresent(
       txMeta = Vector(
-        TxMeta("00000002"),
-        TxMeta("00000003"),
-        TxMeta("00000004"),
-        TxMeta("00000005"),
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
-        TxMeta("00000009"),
-        TxMeta("00000010"),
-        TxMeta("00000011"),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+        TxMeta(10),
+        TxMeta(11),
       )
     )
     // Prune at assign
@@ -864,12 +864,12 @@ private[backend] trait StorageBackendTestsPruning
         FilterUnassign(10, 4),
       ),
       txMeta = Vector(
-        TxMeta("00000006"),
-        TxMeta("00000007"),
-        TxMeta("00000008"),
-        TxMeta("00000009"),
-        TxMeta("00000010"),
-        TxMeta("00000011"),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+        TxMeta(10),
+        TxMeta(11),
       ),
     )
     // Prune after unrelated archive and reassign events but before related ones
@@ -888,8 +888,8 @@ private[backend] trait StorageBackendTestsPruning
         FilterUnassign(10, 4)
       ),
       txMeta = Vector(
-        TxMeta("00000010"),
-        TxMeta("00000011"),
+        TxMeta(10),
+        TxMeta(11),
       ),
     )
     // Prune at the end, but with setting the assign incomplete
@@ -985,7 +985,7 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest a completion
     executeSql(ingest(Vector(completion), _))
-    assertIndexDbDataSql(completion = Seq(PruningDto.Completion("00000001")))
+    assertIndexDbDataSql(completion = Seq(PruningDto.Completion(1)))
     // Prune
     executeSql(backend.completion.pruneCompletions(offset(1))(_, TraceContext.empty))
     assertIndexDbDataSql(completion = Seq.empty)

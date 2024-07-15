@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.platform.packages
 
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
-import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.archive.{DamlLf, Decode}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.Package

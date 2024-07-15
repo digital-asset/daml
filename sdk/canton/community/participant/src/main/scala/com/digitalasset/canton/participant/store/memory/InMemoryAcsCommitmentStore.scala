@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -12,6 +13,7 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervals,
   SortedReconciliationIntervalsProvider,
 }
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   CommitmentQueue,
@@ -59,22 +61,23 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override val queue = new InMemoryCommitmentQueue
 
   override def storeComputed(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-      commitment: AcsCommitment.CommitmentType,
+      items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     blocking {
       computed.synchronized {
-        val oldMap = computed.getOrElse(counterParticipant, Map.empty)
-        val oldCommitment = oldMap.getOrElse(period, commitment)
-        if (oldCommitment != commitment) {
-          ErrorUtil.internalError(
-            new IllegalArgumentException(
-              s"Trying to store $commitment for $period and counter-participant $counterParticipant, but $oldCommitment is already stored"
+        items.toList.foreach { case item =>
+          val CommitmentData(counterParticipant, period, commitment) = item
+          val oldMap = computed.getOrElse(counterParticipant, Map.empty)
+          val oldCommitment = oldMap.getOrElse(period, commitment)
+          if (oldCommitment != commitment) {
+            ErrorUtil.internalError(
+              new IllegalArgumentException(
+                s"Trying to store $commitment for $period and counter-participant $counterParticipant, but $oldCommitment is already stored"
+              )
             )
-          )
-        } else {
-          computed.update(counterParticipant, oldMap + (period -> commitment))
+          } else {
+            computed.update(counterParticipant, oldMap + (period -> commitment))
+          }
         }
       }
     }

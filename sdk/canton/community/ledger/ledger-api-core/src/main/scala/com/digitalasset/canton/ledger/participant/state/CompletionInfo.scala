@@ -8,6 +8,8 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.daml.lf.data.Ref
 
+import java.util.UUID
+
 /** Information about a completion for a submission.
   *
   * @param actAs                  the non-empty set of parties that submitted the change.
@@ -43,6 +45,7 @@ final case class CompletionInfo(
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
+    messageUuid: Option[UUID], // populated on participant local rejections
 ) extends PrettyPrinting {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
@@ -58,7 +61,7 @@ final case class CompletionInfo(
 
 object CompletionInfo {
   implicit val `CompletionInfo to LoggingValue`: ToLoggingValue[CompletionInfo] = {
-    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId) =>
+    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
         "applicationId " -> applicationId,

@@ -448,7 +448,7 @@ class TopologyTransactionProcessor(
           s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $tx"
         )
       }
-      validated <- performUnlessClosingEitherU("process-topology-transaction")(
+      validated <- performUnlessClosingF("process-topology-transaction")(
         stateProcessor
           .validateAndApplyAuthorization(
             sequencingTimestamp,
@@ -456,7 +456,7 @@ class TopologyTransactionProcessor(
             tx,
             expectFullAuthorization = false,
           )
-      ).merge
+      )
 
       _ = inspectAndAdvanceTopologyTransactionDelay(
         sequencingTimestamp,
@@ -465,7 +465,7 @@ class TopologyTransactionProcessor(
       )
 
       validTransactions = validated.collect {
-        case tx if tx.rejectionReason.isEmpty => tx.transaction
+        case tx if tx.rejectionReason.isEmpty && !tx.transaction.isProposal => tx.transaction
       }
       _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
         MonadUtil.sequentialTraverse_(listeners.get())(listenerGroup => {

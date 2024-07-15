@@ -93,18 +93,18 @@ class SymbolicCrypto(
       name: Option[String] = None
   ): EncryptionPublicKey =
     processE("generate symbolic encryption key") { implicit traceContext =>
-      // We don't care about the encryption key scheme in symbolic crypto
+      // We don't care about the encryption key specification in symbolic crypto
       generateEncryptionKey(
-        EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm,
+        privateCrypto.defaultEncryptionKeySpec,
         name.map(KeyName.tryCreate),
       )
     }
 
   def newSymbolicEncryptionKeyPair(): EncryptionKeyPair = {
     processE("generate symbolic encryption keypair") { implicit traceContext =>
-      // We don't care about the encryption key scheme in symbolic crypto
+      // We don't care about the encryption key specification in symbolic crypto
       privateCrypto
-        .generateEncryptionKeypair(EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
+        .generateEncryptionKeypair(privateCrypto.defaultEncryptionKeySpec)
     }
   }
 

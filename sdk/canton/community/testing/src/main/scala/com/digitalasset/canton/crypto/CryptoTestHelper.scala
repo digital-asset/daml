@@ -22,21 +22,21 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     */
   protected def getEncryptionPublicKey(
       crypto: Crypto,
-      scheme: EncryptionKeyScheme,
+      encryptionKeySpec: EncryptionKeySpec,
   ): FutureUnlessShutdown[EncryptionPublicKey] =
     crypto
-      .generateEncryptionKey(scheme)
+      .generateEncryptionKey(encryptionKeySpec)
       .valueOrFail("generate encryption key")
 
   /** Helper method to get two different encryption public keys.
     */
   protected def getTwoEncryptionPublicKeys(
       crypto: Crypto,
-      scheme: EncryptionKeyScheme,
+      encryptionKeySpec: EncryptionKeySpec,
   ): FutureUnlessShutdown[(EncryptionPublicKey, EncryptionPublicKey)] =
     for {
-      pubKey1 <- getEncryptionPublicKey(crypto, scheme)
-      pubKey2 <- getEncryptionPublicKey(crypto, scheme)
+      pubKey1 <- getEncryptionPublicKey(crypto, encryptionKeySpec)
+      pubKey2 <- getEncryptionPublicKey(crypto, encryptionKeySpec)
     } yield (pubKey1, pubKey2)
 
   /** Gets a new signing key by generating a new key.

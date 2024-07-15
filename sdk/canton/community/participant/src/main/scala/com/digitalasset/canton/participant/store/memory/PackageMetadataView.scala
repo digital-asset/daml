@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.memory
 
 import cats.implicits.catsSyntaxSemigroup
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.LfPackageId
@@ -19,7 +18,7 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.archive.{DamlLf, Decode}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 

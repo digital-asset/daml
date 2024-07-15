@@ -715,7 +715,7 @@ class EnterpriseSequencerRateLimitManager(
     }
 
     for {
-      cryptoApi <- EitherT.liftF(
+      cryptoApi <- EitherT.right(
         SyncCryptoClient.getSnapshotForTimestampUS(
           domainSyncCryptoApi,
           sequencingTime,
@@ -747,7 +747,7 @@ class EnterpriseSequencerRateLimitManager(
     minTimestampO match {
       case Some(minTimestamp) if minTimestamp > trafficConsumed.sequencingTimestamp =>
         for {
-          topology <- EitherT.liftF(
+          topology <- EitherT.right(
             SyncCryptoClient.getSnapshotForTimestampUS(
               domainSyncCryptoApi,
               minTimestamp,
@@ -756,7 +756,7 @@ class EnterpriseSequencerRateLimitManager(
               warnIfApproximate,
             )
           )
-          paramsO <- EitherT.liftF(topology.ipsSnapshot.trafficControlParameters(protocolVersion))
+          paramsO <- EitherT.right(topology.ipsSnapshot.trafficControlParameters(protocolVersion))
           updatedBaseTraffic = paramsO
             .map(trafficConsumed.updateTimestamp(minTimestamp, _, logger))
             .getOrElse(trafficConsumed)

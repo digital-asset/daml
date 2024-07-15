@@ -105,7 +105,7 @@ class TransferCoordination(
       timeout <- EitherT.fromEither[Future](
         awaitTimestamp(domain, staticDomainParameters, timestamp, waitForEffectiveTime)
       )
-      _ <- EitherT.liftF[Future, TransferProcessorError, Unit](timeout.getOrElse(onImmediate))
+      _ <- EitherT.right[TransferProcessorError](timeout.getOrElse(onImmediate))
     } yield ()
 
   private[transfer] def awaitTimestampUS(

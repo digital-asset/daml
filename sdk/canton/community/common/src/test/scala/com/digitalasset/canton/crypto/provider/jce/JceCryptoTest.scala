@@ -41,47 +41,66 @@ class JceCryptoTest
 
     behave like signingProvider(Jce.signing.supported, jceCrypto())
     behave like encryptionProvider(
-      Jce.encryption.supported,
+      Jce.encryptionAlgorithms.supported,
       Jce.symmetric.supported,
       jceCrypto(),
     )
     behave like privateKeySerializerProvider(
       Jce.signing.supported,
-      Jce.encryption.supported,
+      Jce.encryptionKeys.supported,
       jceCrypto(),
     )
 
-    forAll(Jce.encryption.supported.filter(_.supportDeterministicEncryption)) { keyScheme =>
-      s"Deterministic hybrid encrypt " +
-        s"with $keyScheme" should {
+    forAll(
+      Jce.encryptionAlgorithms.supported.filter(_.supportDeterministicEncryption)
+    ) { encryptionAlgorithmSpec =>
+      forAll(encryptionAlgorithmSpec.supportedEncryptionKeySpecs.forgetNE) { keySpec =>
+        s"Deterministic hybrid encrypt " +
+          s"with $encryptionAlgorithmSpec and a $keySpec key" should {
 
-          val newCrypto = jceCrypto()
+            val newCrypto = jceCrypto()
 
-          behave like hybridEncrypt(
-            keyScheme,
-            (message, publicKey, version) =>
-              newCrypto.map(crypto =>
-                crypto.pureCrypto.encryptDeterministicWith(message, publicKey, version)
-              ),
-            newCrypto,
-          )
+            behave like hybridEncrypt(
+              keySpec,
+              (message, publicKey, version) =>
+                newCrypto.map(crypto =>
+                  crypto.pureCrypto.encryptDeterministicWith(
+                    message,
+                    publicKey,
+                    version,
+                    encryptionAlgorithmSpec,
+                  )
+                ),
+              newCrypto,
+            )
 
-          "yield the same ciphertext for the same encryption" in {
-            val message = TestMessage(ByteString.copyFromUtf8("foobar"))
-            for {
-              crypto <- jceCrypto()
-              publicKey <- getEncryptionPublicKey(crypto, keyScheme)
-              encrypted1 = crypto.pureCrypto
-                .encryptDeterministicWith(message, publicKey, testedProtocolVersion)
-                .valueOrFail("encrypt")
-              _ = assert(message.bytes != encrypted1.ciphertext)
-              encrypted2 = crypto.pureCrypto
-                .encryptDeterministicWith(message, publicKey, testedProtocolVersion)
-                .valueOrFail("encrypt")
-              _ = assert(message.bytes != encrypted2.ciphertext)
-            } yield encrypted1.ciphertext shouldEqual encrypted2.ciphertext
-          }.failOnShutdown
-        }
+            "yield the same ciphertext for the same encryption" in {
+              val message = TestMessage(ByteString.copyFromUtf8("foobar"))
+              for {
+                crypto <- jceCrypto()
+                publicKey <- getEncryptionPublicKey(crypto, keySpec)
+                encrypted1 = crypto.pureCrypto
+                  .encryptDeterministicWith(
+                    message,
+                    publicKey,
+                    testedProtocolVersion,
+                    encryptionAlgorithmSpec,
+                  )
+                  .valueOrFail("encrypt")
+                _ = assert(message.bytes != encrypted1.ciphertext)
+                encrypted2 = crypto.pureCrypto
+                  .encryptDeterministicWith(
+                    message,
+                    publicKey,
+                    testedProtocolVersion,
+                    encryptionAlgorithmSpec,
+                  )
+                  .valueOrFail("encrypt")
+                _ = assert(message.bytes != encrypted2.ciphertext)
+              } yield encrypted1.ciphertext shouldEqual encrypted2.ciphertext
+            }.failOnShutdown
+          }
+      }
     }
 
     behave like hkdfProvider(jceCrypto().map(_.pureCrypto))
@@ -95,7 +114,7 @@ class JceCryptoTest
 
     behave like publicKeyValidationProvider(
       Jce.signing.supported,
-      Jce.encryption.supported,
+      Jce.encryptionKeys.supported,
       Jce.supportedCryptoKeyFormats,
       jceCrypto().failOnShutdown,
     )

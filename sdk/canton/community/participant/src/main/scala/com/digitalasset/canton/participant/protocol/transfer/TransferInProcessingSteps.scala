@@ -658,6 +658,7 @@ private[transfer] class TransferInProcessingSteps(
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
+            messageUuid = None,
           )
         )
     } yield LedgerSyncEvent.TransferredIn(

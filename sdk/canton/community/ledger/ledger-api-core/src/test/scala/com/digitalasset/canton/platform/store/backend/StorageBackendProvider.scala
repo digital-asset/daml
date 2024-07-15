@@ -44,7 +44,9 @@ trait StorageBackendProvider {
       ledgerEndOffset: Offset,
       ledgerEndSequentialId: Long,
   )(connection: Connection): Unit = {
-    backend.parameter.updateLedgerEnd(LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0))(
+    backend.parameter.updateLedgerEnd(
+      LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0)
+    )(
       connection
     ) // we do not care about the stringInterningId here
     updateLedgerEndCache(connection)
@@ -133,7 +135,7 @@ object TestBackend {
 
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
-      parameter = storageBackendFactory.createParameterStorageBackend,
+      parameter = storageBackendFactory.createParameterStorageBackend(stringInterning),
       meteringParameter = storageBackendFactory.createMeteringParameterStorageBackend,
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       completion =

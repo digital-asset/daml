@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
@@ -28,7 +29,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -206,6 +207,63 @@ abstract class TopologyTransactionProcessorTest
         case (replayed, original) => replayed shouldBe original
       }
       DNDafterProcessing shouldBe dnd_proposal_k1.mapping
+      DNDafterProcessing shouldBe dnd_proposal_k1.mapping
+    }
+
+    "trigger topology subscribers with/without transactions" in {
+      val (proc, store) = mk()
+      var testTopoSubscriberCalledEmpty: Boolean = false
+      var testTopoSubscriberCalledWithTxs: Boolean = false
+      val testTopoSubscriber = new TopologyTransactionProcessingSubscriber {
+        override def observed(
+            sequencedTimestamp: SequencedTime,
+            effectiveTimestamp: EffectiveTime,
+            sequencerCounter: SequencerCounter,
+            transactions: Seq[GenericSignedTopologyTransaction],
+        )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+          if (transactions.nonEmpty) {
+            testTopoSubscriberCalledWithTxs = true
+          } else {
+            testTopoSubscriberCalledEmpty = true
+          }
+          FutureUnlessShutdown.unit
+        }
+      }
+      val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
+      val block2 = List(ns1k2_k1, dtcp1_k1)
+      val block3 = List(okm1bk5k1E_k1)
+      val block4 = List(dnd_proposal_k1)
+      val block5 = List(dnd_proposal_k2)
+      val block6 = List(dnd_proposal_k3)
+      val block7 = List(ns1k1_k1)
+      process(proc, ts(0), 0, block1)
+      process(proc, ts(1), 1, block2)
+      process(proc, ts(2), 2, block3)
+      proc.subscribe(testTopoSubscriber)
+      process(proc, ts(3), 3, block4)
+      clue("incomplete proposals should trigger subscriber with empty transactions") {
+        testTopoSubscriberCalledWithTxs shouldBe false
+        testTopoSubscriberCalledEmpty shouldBe true
+      }
+      testTopoSubscriberCalledEmpty = false
+      process(proc, ts(4), 4, block5)
+      clue("incomplete proposals should trigger subscriber with empty transactions") {
+        testTopoSubscriberCalledWithTxs shouldBe false
+        testTopoSubscriberCalledEmpty shouldBe true
+      }
+      process(proc, ts(5), 5, block6)
+      clue("complete proposals should trigger subscriber with non-empty transactions") {
+        testTopoSubscriberCalledWithTxs shouldBe true
+      }
+      testTopoSubscriberCalledEmpty = false
+      process(proc, ts(6), 6, block7)
+      clue("rejections should trigger subscriber with empty transactions") {
+        testTopoSubscriberCalledEmpty shouldBe true
+      }
+
+      val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
+        .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
+        .valueOrFail("Couldn't find DND")
       DNDafterProcessing shouldBe dnd_proposal_k1.mapping
     }
 

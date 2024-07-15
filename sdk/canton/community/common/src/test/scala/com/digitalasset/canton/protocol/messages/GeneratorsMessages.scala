@@ -185,8 +185,9 @@ final class GeneratorsMessages(
   implicit val asymmetricEncrypted: Arbitrary[AsymmetricEncrypted[SecureRandomness]] = Arbitrary(
     for {
       encrypted <- byteStringArb.arbitrary
+      encryptionAlgorithmSpec <- encryptionAlgorithmSpecArb.arbitrary
       fingerprint <- GeneratorsTopology.fingerprintArb.arbitrary
-    } yield AsymmetricEncrypted(encrypted, fingerprint)
+    } yield AsymmetricEncrypted(encrypted, encryptionAlgorithmSpec, fingerprint)
   )
 
   val encryptedViewMessage: Arbitrary[EncryptedViewMessage[ViewType]] = Arbitrary(

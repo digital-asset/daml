@@ -65,6 +65,7 @@ import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.google.common.annotations.VisibleForTesting
+import org.slf4j.event.Level
 
 import java.time.Instant
 import scala.Ordered.orderingToOrdered
@@ -273,15 +274,14 @@ final class RepairService(
       obtainedPersistentState <- getPersistentState(domainId)
       (persistentState, domainAlias, indexedDomain) = obtainedPersistentState
 
-      startingPoints <- EitherTUtil.fromFuture(
+      startingPoints <- EitherT.right(
         SyncDomainEphemeralStateFactory.startingPoints(
           indexedDomain,
           persistentState.requestJournalStore,
           persistentState.sequencerCounterTrackerStore,
           persistentState.sequencedEventStore,
           multiDomainEventLog.value,
-        ),
-        t => log("Failed to compute starting points", t),
+        )
       )
 
       topologyFactory <- syncDomainPersistentStateManager
@@ -339,9 +339,11 @@ final class RepairService(
           for {
             domain <- readDomainData(domainId)
 
-            contractStates <- readContractAcsStates(
-              domain.persistentState,
-              contracts.map(_.contract.contractId),
+            contractStates <- EitherT.right[String](
+              readContractAcsStates(
+                domain.persistentState,
+                contracts.map(_.contract.contractId),
+              )
             )
 
             storedContracts <- fromFuture(
@@ -411,7 +413,7 @@ final class RepairService(
                     )
 
                     // Publish added contracts upstream as created via the ledger api.
-                    _ <- EitherT.right(
+                    _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
                         hostedWitnesses,
@@ -421,7 +423,6 @@ final class RepairService(
                     )
 
                     // If all has gone well, bump the clean head, effectively committing the changes to the domain.
-                    // TODO(#19140) This should be done once all the requests succeed
                     _ <- commitRepairs(repair)
 
                   } yield ()
@@ -467,9 +468,11 @@ final class RepairService(
         for {
           repair <- initRepairRequestAndVerifyPreconditions(domainId)
 
-          contractStates <- readContractAcsStates(
-            repair.domain.persistentState,
-            contractIds,
+          contractStates <- EitherT.right(
+            readContractAcsStates(
+              repair.domain.persistentState,
+              contractIds,
+            )
           )
 
           storedContracts <- fromFuture(
@@ -795,10 +798,7 @@ final class RepairService(
   private def fromFuture[T](f: Future[T], errorMessage: => String)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, T] =
-    EitherTUtil.fromFuture(
-      f,
-      t => log(s"$errorMessage: ${ErrorUtil.messageWithStacktrace(t)}"),
-    )
+    EitherT.right(FutureUtil.logOnFailure(f, errorMessage, level = Level.INFO))
 
   /** Actual persistence work
     * @param repair           Repair request
@@ -1061,11 +1061,10 @@ final class RepairService(
 
   private def packageKnown(
       lfPackageId: LfPackageId
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
-      packageDescription <- EitherTUtil.fromFuture(
-        packageDependencyResolver.getPackageDescription(lfPackageId),
-        t => log(s"Failed to look up package $lfPackageId", t),
+      packageDescription <- EitherT.right(
+        packageDependencyResolver.getPackageDescription(lfPackageId)
       )
       _packageVetted <- EitherTUtil
         .condUnitET[Future](
@@ -1073,7 +1072,6 @@ final class RepairService(
           log(s"Failed to locate package $lfPackageId"),
         )
     } yield ()
-  }
 
   /** Allows to wait until clean head has progressed up to a certain timestamp */
   def awaitCleanHeadForTimestamp(
@@ -1195,14 +1193,12 @@ final class RepairService(
              |Reconnect to the domain to reprocess the inflight validation requests and retry repair afterwards.""".stripMargin
         ),
       )
-      _ <- EitherTUtil.fromFuture(
+      _ <- EitherT.right(
         SyncDomainEphemeralStateFactory
-          .cleanupPersistentState(domain.persistentState, domain.startingPoints),
-        t => log(s"Failed to clean up the persistent state", t),
+          .cleanupPersistentState(domain.persistentState, domain.startingPoints)
       )
-      incrementalAcsSnapshotWatermark <- EitherTUtil.fromFuture(
-        domain.persistentState.acsCommitmentStore.runningCommitments.watermark,
-        _ => log(s"Failed to obtain watermark from incremental ACS snapshot"),
+      incrementalAcsSnapshotWatermark <- EitherT.right(
+        domain.persistentState.acsCommitmentStore.runningCommitments.watermark
       )
       _ <- EitherT.cond[Future](
         rtRepair > incrementalAcsSnapshotWatermark,
@@ -1253,9 +1249,8 @@ final class RepairService(
       )
 
       // Mark the repair request as pending in the request journal store
-      _ <- EitherTUtil.fromFuture(
-        repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert),
-        t => log("Failed to insert repair request", t),
+      _ <- EitherT.right[String](
+        repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert)
       )
 
     } yield repair
@@ -1281,7 +1276,8 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
       _ <- repairs.parTraverse_(markClean)
-      _ <- EitherTUtil.fromFuture(
+      _ = logger.debug("Advancing clean request preheads")
+      _ <- EitherT.right[String](
         TransactionalStoreUpdate.execute {
           repairs.map { repair =>
             repair.domain.persistentState.requestJournalStore
@@ -1289,8 +1285,7 @@ final class RepairService(
                 CursorPrehead(repair.requestCounters.last1, repair.timestamp)
               )
           }
-        },
-        t => log("Failed to advance clean request preheads", t),
+        }
       )
     } yield ()
 
@@ -1303,12 +1298,9 @@ final class RepairService(
       cids: Seq[LfContractId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Seq[Option[ActiveContractStore.Status]]] =
-    EitherTUtil
-      .fromFuture(
-        persistentState.activeContractStore.fetchStates(cids),
-        e => log(s"Failed to look up contracts status in ActiveContractStore", e),
-      )
+  ): Future[Seq[Option[ActiveContractStore.Status]]] =
+    persistentState.activeContractStore
+      .fetchStates(cids)
       .map { states =>
         cids.map(cid => states.get(cid).map(_.status))
       }

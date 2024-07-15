@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.HkdfInternalError
@@ -64,6 +65,8 @@ object JceSecureRandom {
 
 class JcePureCrypto(
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
+    override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec,
+    override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]],
     override val defaultHashAlgorithm: HashAlgorithm,
     override val defaultPbkdfScheme: PbkdfScheme,
     override val loggerFactory: NamedLoggerFactory,
@@ -83,13 +86,13 @@ class JcePureCrypto(
   /* security parameters for EciesP256HmacSha256Aes128Cbc encryption scheme,
     in particular for the HMAC and symmetric crypto algorithms.
    */
-  private object EciesP256HmacSha256Aes128CbcParams {
+  private object EciesHmacSha256Aes128CbcParams {
     // the internal jce designation for this scheme
     val jceInternalName: String = "ECIESwithSHA256andAES-CBC"
     // the key size in bits for HMACSHA256 is 64bytes (recommended)
-    val macKeySizeInBits: Int = 512
+    private val macKeySizeInBits: Int = 512
     // the key size in bits for AES-128-CBC is 16 bytes
-    val cipherKeySizeInBits: Int = 128
+    private val cipherKeySizeInBits: Int = 128
     // the IV for AES-128-CBC is 16 bytes
     val ivSizeForAesCbcInBytes: Int = 16
     // the parameter specification for this scheme.
@@ -103,11 +106,9 @@ class JcePureCrypto(
     )
   }
 
-  private object RSA2048OaepSha256Params {
+  private object RsaOaepSha256Params {
     // the internal jce designation for this scheme
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
-    // the key size in bit for RSA2048
-    val keySizeInBits = 2048
   }
 
   /** Parses and converts a public key to a java public key.
@@ -383,14 +384,61 @@ class JcePureCrypto(
     )
   }
 
-  private def checkRsaKeySize[K <: RSAKey](key: K, keyId: Fingerprint): Either[String, K] = {
+  private def checkRsaKeySize[K <: RSAKey](
+      key: K,
+      keyId: Fingerprint,
+      size: Int,
+  ): Either[String, K] = {
     val keySizeInBits = key.getModulus.bitLength()
     Either.cond(
-      keySizeInBits == RSA2048OaepSha256Params.keySizeInBits,
+      keySizeInBits == size,
       key,
       s"RSA key $keyId does not have the correct size. " +
-        s"Expected: ${RSA2048OaepSha256Params.keySizeInBits} but got: $keySizeInBits.",
+        s"Expected: $size but got: $keySizeInBits.",
     )
+  }
+
+  private def encryptWithEciesP256HmacSha256Aes128Gcm[M <: HasVersionedToByteString](
+      message: ByteString,
+      publicKey: EncryptionPublicKey,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] = {
+    for {
+      javaPublicKey <- parseAndGetPublicKey(
+        publicKey,
+        EncryptionError.InvalidEncryptionKey,
+      )
+      ecPublicKey <- javaPublicKey match {
+        case k: ECPublicKey =>
+          checkEcKeyInCurve(k, publicKey.id)
+            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
+        case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
+      }
+      encrypter <- Either
+        .catchOnly[GeneralSecurityException](
+          new EciesAeadHkdfHybridEncrypt(
+            ecPublicKey,
+            Array[Byte](),
+            "HmacSha256",
+            EllipticCurves.PointFormatType.UNCOMPRESSED,
+            Aes128GcmDemHelper,
+          )
+        )
+        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
+      ciphertext <- Either
+        .catchOnly[GeneralSecurityException](
+          encrypter
+            .encrypt(
+              message.toByteArray,
+              Array[Byte](),
+            )
+        )
+        .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
+      encrypted = new AsymmetricEncrypted[M](
+        ByteString.copyFrom(ciphertext),
+        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
+        publicKey.fingerprint,
+      )
+    } yield encrypted
   }
 
   private def encryptWithEciesP256HmacSha256Aes128Cbc[M <: HasVersionedToByteString](
@@ -410,19 +458,19 @@ class JcePureCrypto(
       /* this encryption scheme makes use of AES-128-CBC as a DEM (Data Encapsulation Method)
        * and therefore we need to generate a IV/nonce of 16bytes as the IV for CBC mode.
        */
-      iv = new Array[Byte](EciesP256HmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes)
+      iv = new Array[Byte](EciesHmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes)
       _ = random.nextBytes(iv)
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
             .getInstance(
-              EciesP256HmacSha256Aes128CbcParams.jceInternalName,
+              EciesHmacSha256Aes128CbcParams.jceInternalName,
               JceSecurityProvider.bouncyCastleProvider,
             )
           cipher.init(
             Cipher.ENCRYPT_MODE,
             ecPublicKey,
-            EciesP256HmacSha256Aes128CbcParams.parameterSpec(iv),
+            EciesHmacSha256Aes128CbcParams.parameterSpec(iv),
             random,
           )
           cipher
@@ -439,10 +487,11 @@ class JcePureCrypto(
        * manually prepend it to the ciphertext.
        */
       ByteString.copyFrom(iv ++ ciphertext),
+      EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
       publicKey.fingerprint,
     )
 
-  private def encryptWithRSA2048OaepSha256[M <: HasVersionedToByteString](
+  private def encryptWithRSAOaepSha256[M <: HasVersionedToByteString](
       message: ByteString,
       publicKey: EncryptionPublicKey,
       random: SecureRandom,
@@ -451,13 +500,26 @@ class JcePureCrypto(
       javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
       rsaPublicKey <- javaPublicKey match {
         case k: RSAPublicKey =>
-          checkRsaKeySize(k, publicKey.id).leftMap(err => EncryptionError.InvalidEncryptionKey(err))
+          for {
+            size <- publicKey.keySpec match {
+              case EncryptionKeySpec.Rsa2048 => Right(EncryptionKeySpec.Rsa2048.keySizeInBits)
+              case wrongKeySpec =>
+                Left(
+                  EncryptionError.InvalidEncryptionKey(
+                    s"Expected a ${EncryptionKeySpec.Rsa2048} public key, but got a $wrongKeySpec public key instead"
+                  )
+                )
+            }
+            key <- checkRsaKeySize(k, publicKey.id, size).leftMap(err =>
+              EncryptionError.InvalidEncryptionKey(err)
+            )
+          } yield key
         case _ => Left(EncryptionError.InvalidEncryptionKey("Not a RSA public key"))
       }
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
-            .getInstance(RSA2048OaepSha256Params.jceInternalName, "BC")
+            .getInstance(RsaOaepSha256Params.jceInternalName, "BC")
           cipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey, random)
           cipher
         }
@@ -469,106 +531,107 @@ class JcePureCrypto(
         .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
     } yield new AsymmetricEncrypted[M](
       ByteString.copyFrom(ciphertext),
+      EncryptionAlgorithmSpec.RsaOaepSha256,
       publicKey.fingerprint,
     )
 
-  private def encryptWith[M](
+  private def encryptWithInternal[M](
       bytes: ByteString,
       publicKey: EncryptionPublicKey,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    publicKey.scheme match {
-      case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-        for {
-          javaPublicKey <- parseAndGetPublicKey(
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] = {
+    CryptoKeyValidation
+      .selectEncryptionAlgorithmSpec(
+        publicKey.keySpec,
+        encryptionAlgorithmSpec,
+        supportedEncryptionAlgorithmSpecs,
+        algorithmSpec =>
+          EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+      )
+      .flatMap {
+        case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
+          encryptWithEciesP256HmacSha256Aes128Gcm(
+            bytes,
             publicKey,
-            EncryptionError.InvalidEncryptionKey,
           )
-          ecPublicKey <- javaPublicKey match {
-            case k: ECPublicKey =>
-              checkEcKeyInCurve(k, publicKey.id).leftMap(err =>
-                EncryptionError.InvalidEncryptionKey(err)
-              )
-            case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
-          }
-          encrypter <- Either
-            .catchOnly[GeneralSecurityException](
-              new EciesAeadHkdfHybridEncrypt(
-                ecPublicKey,
-                Array[Byte](),
-                "HmacSha256",
-                EllipticCurves.PointFormatType.UNCOMPRESSED,
-                Aes128GcmDemHelper,
-              )
-            )
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
-          ciphertext <- Either
-            .catchOnly[GeneralSecurityException](
-              encrypter.encrypt(bytes.toByteArray, Array[Byte]())
-            )
-            .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
-          encrypted = new AsymmetricEncrypted[M](
-            ByteString.copyFrom(ciphertext),
-            publicKey.fingerprint,
+        case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
+          encryptWithEciesP256HmacSha256Aes128Cbc(
+            bytes,
+            publicKey,
+            JceSecureRandom.random.get(),
           )
-        } yield encrypted
-      case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-        encryptWithEciesP256HmacSha256Aes128Cbc(bytes, publicKey, JceSecureRandom.random.get())
-      case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-        encryptWithRSA2048OaepSha256(bytes, publicKey, JceSecureRandom.random.get())
-    }
+        case EncryptionAlgorithmSpec.RsaOaepSha256 =>
+          encryptWithRSAOaepSha256(
+            bytes,
+            publicKey,
+            JceSecureRandom.random.get(),
+          )
+      }
+  }
 
-  override def encryptWith[M <: HasVersionedToByteString](
+  override def encryptWithVersion[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message.toByteString(version), publicKey)
+    encryptWithInternal(message.toByteString(version), publicKey, encryptionAlgorithmSpec)
 
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message.toByteString, publicKey)
+    encryptWithInternal(message.toByteString, publicKey, encryptionAlgorithmSpec)
 
   override def encryptDeterministicWith[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    if (!publicKey.scheme.supportDeterministicEncryption) {
-      Left(
-        EncryptionError.UnsupportedSchemeForDeterministicEncryption(
-          s"${publicKey.scheme.name} does not support deterministic asymmetric/hybrid encryption"
+    CryptoKeyValidation.selectEncryptionAlgorithmSpec(
+      publicKey.keySpec,
+      encryptionAlgorithmSpec,
+      supportedEncryptionAlgorithmSpecs,
+      algorithmSpec =>
+        EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+    ) match {
+      case Right(spec) if !spec.supportDeterministicEncryption =>
+        Left(
+          EncryptionError.UnsupportedSchemeForDeterministicEncryption(
+            s"$spec does not support deterministic asymmetric/hybrid encryption"
+          )
         )
-      )
-    } else {
-      lazy val messageSerialized = message.toByteString(version)
-      lazy val deterministicRandomGenerator = DeterministicRandom.getDeterministicRandomGenerator(
-        messageSerialized,
-        publicKey.fingerprint,
-        loggerFactory,
-      )
+      case Right(scheme) =>
+        lazy val messageSerialized = message.toByteString(version)
+        lazy val deterministicRandomGenerator = DeterministicRandom.getDeterministicRandomGenerator(
+          messageSerialized,
+          publicKey.fingerprint,
+          loggerFactory,
+        )
 
-      publicKey.scheme match {
-        case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-          Left(
-            EncryptionError.UnsupportedSchemeForDeterministicEncryption(
-              s"${EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm.name} does not support deterministic asymmetric/hybrid encryption"
+        scheme match {
+          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
+            Left(
+              EncryptionError.UnsupportedSchemeForDeterministicEncryption(
+                s"${EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm.name} does not support deterministic asymmetric/hybrid encryption"
+              )
             )
-          )
-        case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-          encryptWithEciesP256HmacSha256Aes128Cbc(
-            messageSerialized,
-            publicKey,
-            deterministicRandomGenerator,
-          )
-        case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-          encryptWithRSA2048OaepSha256(
-            message.toByteString(version),
-            publicKey,
-            deterministicRandomGenerator,
-          )
-      }
+          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
+            encryptWithEciesP256HmacSha256Aes128Cbc(
+              messageSerialized,
+              publicKey,
+              deterministicRandomGenerator,
+            )
+          case EncryptionAlgorithmSpec.RsaOaepSha256 =>
+            encryptWithRSAOaepSha256(
+              message.toByteString(version),
+              publicKey,
+              deterministicRandomGenerator,
+            )
+        }
+      case Left(err) => Left(err)
     }
 
   override protected def decryptWithInternal[M](
@@ -577,124 +640,148 @@ class JcePureCrypto(
   )(
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] = {
-
-    privateKey.scheme match {
-      case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-        for {
-          ecPrivateKey <- parseAndGetPrivateKey(
-            privateKey,
-            { case k: ECPrivateKey =>
-              checkEcKeyInCurve(k, privateKey.id).leftMap(err =>
-                DecryptionError.InvalidEncryptionKey(err)
+    CryptoKeyValidation
+      .ensureEncryptionSpec(
+        privateKey.keySpec,
+        encrypted.encryptionAlgorithmSpec,
+        supportedEncryptionAlgorithmSpecs,
+        algorithmSpec =>
+          DecryptionError
+            .UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+        keySpec =>
+          DecryptionError.UnsupportedKeySpec(
+            keySpec,
+            encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
+          ),
+      )
+      .flatMap { _ =>
+        encrypted.encryptionAlgorithmSpec match {
+          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
+            for {
+              ecPrivateKey <- parseAndGetPrivateKey(
+                privateKey,
+                { case k: ECPrivateKey =>
+                  checkEcKeyInCurve(k, privateKey.id)
+                    .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
+                },
+                DecryptionError.InvalidEncryptionKey,
               )
-            },
-            DecryptionError.InvalidEncryptionKey,
-          )
-          decrypter <- Either
-            .catchOnly[GeneralSecurityException](
-              new EciesAeadHkdfHybridDecrypt(
-                ecPrivateKey,
-                Array[Byte](),
-                "HmacSha256",
-                EllipticCurves.PointFormatType.UNCOMPRESSED,
-                Aes128GcmDemHelper,
-              )
-            )
-            .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Either
-            .catchOnly[GeneralSecurityException](
-              decrypter.decrypt(encrypted.ciphertext.toByteArray, Array[Byte]())
-            )
-            .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
-          message <- deserialize(ByteString.copyFrom(plaintext))
-            .leftMap(DecryptionError.FailedToDeserialize)
-        } yield message
-      case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-        for {
-          ecPrivateKey <- parseAndGetPrivateKey(
-            privateKey,
-            { case k: ECPrivateKey =>
-              checkEcKeyInCurve(k, privateKey.id).leftMap(err =>
-                DecryptionError.InvalidEncryptionKey(err)
-              )
-            },
-            DecryptionError.InvalidEncryptionKey,
-          )
-          /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
-           * that gets  pre-appended to the ciphertext.
-           */
-          ciphertextSplit <- DeterministicEncoding
-            .splitAt(
-              EciesP256HmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes,
-              encrypted.ciphertext,
-            )
-            .leftMap(err =>
-              DecryptionError.FailedToDeserialize(DefaultDeserializationError(err.show))
-            )
-          (iv, ciphertext) = ciphertextSplit
-          decrypter <- Either
-            .catchOnly[GeneralSecurityException] {
-              val cipher = Cipher
-                .getInstance(
-                  EciesP256HmacSha256Aes128CbcParams.jceInternalName,
-                  JceSecurityProvider.bouncyCastleProvider,
+              decrypter <- Either
+                .catchOnly[GeneralSecurityException](
+                  new EciesAeadHkdfHybridDecrypt(
+                    ecPrivateKey,
+                    Array[Byte](),
+                    "HmacSha256",
+                    EllipticCurves.PointFormatType.UNCOMPRESSED,
+                    Aes128GcmDemHelper,
+                  )
                 )
-              cipher.init(
-                Cipher.DECRYPT_MODE,
-                ecPrivateKey,
-                EciesP256HmacSha256Aes128CbcParams.parameterSpec(iv.toByteArray),
-              )
-              cipher
-            }
-            .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Either
-            .catchOnly[GeneralSecurityException](
-              decrypter.doFinal(ciphertext.toByteArray)
-            )
-            .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
-          message <- deserialize(ByteString.copyFrom(plaintext))
-            .leftMap(DecryptionError.FailedToDeserialize)
-        } yield message
-      case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-        for {
-          rsaPrivateKey <- parseAndGetPrivateKey(
-            privateKey,
-            { case k: RSAPrivateKey =>
-              checkRsaKeySize(k, privateKey.id).leftMap(err =>
-                DecryptionError.InvalidEncryptionKey(err)
-              )
-            },
-            DecryptionError.InvalidEncryptionKey,
-          )
-          decrypter <- Either
-            .catchOnly[GeneralSecurityException] {
-              val cipher = Cipher
-                .getInstance(
-                  RSA2048OaepSha256Params.jceInternalName,
-                  "BC",
+                .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+              plaintext <- Either
+                .catchOnly[GeneralSecurityException](
+                  decrypter.decrypt(encrypted.ciphertext.toByteArray, Array[Byte]())
                 )
-              cipher.init(
-                Cipher.DECRYPT_MODE,
-                rsaPrivateKey,
+                .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+              message <- deserialize(ByteString.copyFrom(plaintext))
+                .leftMap(DecryptionError.FailedToDeserialize)
+            } yield message
+          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
+            for {
+              ecPrivateKey <- parseAndGetPrivateKey(
+                privateKey,
+                { case k: ECPrivateKey =>
+                  checkEcKeyInCurve(k, privateKey.id)
+                    .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
+                },
+                DecryptionError.InvalidEncryptionKey,
               )
-              cipher
-            }
-            .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-          plaintext <- Try[Array[Byte]](
-            decrypter.doFinal(encrypted.ciphertext.toByteArray)
-          ).toEither.leftMap {
-            case err: DataLengthException =>
-              DecryptionError
-                .FailedToDecrypt(
-                  s"Most probably using a wrong secret key to decrypt the ciphertext: ${err.toString}"
+              /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
+               * that gets  pre-appended to the ciphertext.
+               */
+              ciphertextSplit <- DeterministicEncoding
+                .splitAt(
+                  EciesHmacSha256Aes128CbcParams.ivSizeForAesCbcInBytes,
+                  encrypted.ciphertext,
                 )
-            case err =>
-              DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
-          }
-          message <- deserialize(ByteString.copyFrom(plaintext))
-            .leftMap(DecryptionError.FailedToDeserialize)
-        } yield message
-    }
+                .leftMap(err =>
+                  DecryptionError.FailedToDeserialize(DefaultDeserializationError(err.show))
+                )
+              (iv, ciphertext) = ciphertextSplit
+              decrypter <- Either
+                .catchOnly[GeneralSecurityException] {
+                  val cipher = Cipher
+                    .getInstance(
+                      EciesHmacSha256Aes128CbcParams.jceInternalName,
+                      JceSecurityProvider.bouncyCastleProvider,
+                    )
+                  cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    ecPrivateKey,
+                    EciesHmacSha256Aes128CbcParams.parameterSpec(iv.toByteArray),
+                  )
+                  cipher
+                }
+                .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+              plaintext <- Either
+                .catchOnly[GeneralSecurityException](
+                  decrypter.doFinal(ciphertext.toByteArray)
+                )
+                .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+              message <- deserialize(ByteString.copyFrom(plaintext))
+                .leftMap(DecryptionError.FailedToDeserialize)
+            } yield message
+          case EncryptionAlgorithmSpec.RsaOaepSha256 =>
+            for {
+              rsaPrivateKey <- parseAndGetPrivateKey(
+                privateKey,
+                { case k: RSAPrivateKey =>
+                  for {
+                    size <- privateKey.keySpec match {
+                      case EncryptionKeySpec.Rsa2048 =>
+                        Right(EncryptionKeySpec.Rsa2048.keySizeInBits)
+                      case wrongKeySpec =>
+                        Left(
+                          DecryptionError.InvalidEncryptionKey(
+                            s"Expected a ${EncryptionKeySpec.Rsa2048} private key, but got a $wrongKeySpec private key instead"
+                          )
+                        )
+                    }
+                    key <- checkRsaKeySize(k, privateKey.id, size)
+                      .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
+                  } yield key
+                },
+                DecryptionError.InvalidEncryptionKey,
+              )
+              decrypter <- Either
+                .catchOnly[GeneralSecurityException] {
+                  val cipher = Cipher
+                    .getInstance(
+                      RsaOaepSha256Params.jceInternalName,
+                      "BC",
+                    )
+                  cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    rsaPrivateKey,
+                  )
+                  cipher
+                }
+                .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+              plaintext <- Try[Array[Byte]](
+                decrypter.doFinal(encrypted.ciphertext.toByteArray)
+              ).toEither.leftMap {
+                case err: DataLengthException =>
+                  DecryptionError
+                    .FailedToDecrypt(
+                      s"Most probably using a wrong secret key to decrypt the ciphertext: ${err.toString}"
+                    )
+                case err =>
+                  DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
+              }
+              message <- deserialize(ByteString.copyFrom(plaintext))
+                .leftMap(DecryptionError.FailedToDeserialize)
+            } yield message
+        }
+      }
   }
 
   private def encryptWith[M](

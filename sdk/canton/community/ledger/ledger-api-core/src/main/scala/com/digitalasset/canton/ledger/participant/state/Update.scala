@@ -14,6 +14,8 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
 
+import scala.concurrent.Promise
+
 /** An update to the (abstract) participant state.
   *
   * [[Update]]'s are used in [[ReadService.stateUpdates]] to communicate
@@ -26,14 +28,27 @@ sealed trait Update extends Product with Serializable with PrettyPrinting {
 
   /** The record time at which the state change was committed. */
   def recordTime: Timestamp
+
+  def domainIndexOpt: Option[(DomainId, DomainIndex)]
+
+  // TODO(i20043) this will be moved later to a wrapper object to maintain equality semantics
+  def persisted: Promise[Unit]
+
+  def withRecordTime(recordTime: Timestamp): Update
+}
+
+sealed trait WithoutDomainIndex extends Update {
+  override def domainIndexOpt: Option[(DomainId, DomainIndex)] = None
 }
 
 object Update {
 
   /** Signal used only to increase the offset of the participant in the initialization stage. */
   final case class Init(
-      recordTime: Timestamp
-  ) extends Update {
+      recordTime: Timestamp,
+      persisted: Promise[Unit] = Promise(),
+  ) extends Update
+      with WithoutDomainIndex {
 
     override def pretty: Pretty[Init] =
       prettyOfClass(
@@ -41,10 +56,12 @@ object Update {
         indicateOmittedFields,
       )
 
+    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
+
   }
 
   object Init {
-    implicit val `Init to LoggingValue`: ToLoggingValue[Init] = { case Init(recordTime) =>
+    implicit val `Init to LoggingValue`: ToLoggingValue[Init] = { case Init(recordTime, _) =>
       LoggingValue.Nested.fromEntries(
         Logging.recordTime(recordTime)
       )
@@ -70,7 +87,9 @@ object Update {
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],
-  ) extends Update {
+      persisted: Promise[Unit] = Promise(),
+  ) extends Update
+      with WithoutDomainIndex {
     override def pretty: Pretty[PartyAddedToParticipant] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -79,12 +98,21 @@ object Update {
         param("participantId", _.participantId),
         indicateOmittedFields,
       )
+
+    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
   }
 
   object PartyAddedToParticipant {
     implicit val `PartyAddedToParticipant to LoggingValue`
         : ToLoggingValue[PartyAddedToParticipant] = {
-      case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
+      case PartyAddedToParticipant(
+            party,
+            displayName,
+            participantId,
+            recordTime,
+            submissionId,
+            _,
+          ) =>
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
           Logging.submissionIdOpt(submissionId),
@@ -108,19 +136,23 @@ object Update {
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
-  ) extends Update {
+      persisted: Promise[Unit] = Promise(),
+  ) extends Update
+      with WithoutDomainIndex {
     override def pretty: Pretty[PartyAllocationRejected] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("participantId", _.participantId),
         param("rejectionReason", _.rejectionReason.singleQuoted),
       )
+
+    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
   }
 
   object PartyAllocationRejected {
     implicit val `PartyAllocationRejected to LoggingValue`
         : ToLoggingValue[PartyAllocationRejected] = {
-      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
+      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason, _) =>
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
           Logging.submissionId(submissionId),
@@ -172,7 +204,14 @@ object Update {
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
       domainId: DomainId,
+      domainIndex: Option[
+        DomainIndex
+      ], // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+      persisted: Promise[Unit] = Promise(),
   ) extends Update {
+    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+    assert(completionInfoO.forall(_.messageUuid.isEmpty))
+    // assert(domainIndex.exists(_.requestIndex.isDefined))
 
     override def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
@@ -184,6 +223,14 @@ object Update {
         param("roots", _.transaction.roots.length),
         indicateOmittedFields,
       )
+
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(
+      domainId -> _
+    )
+
+    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
+      "Record time is not supposed to be overridden for sequenced events"
+    )
   }
 
   object TransactionAccepted {
@@ -198,6 +245,8 @@ object Update {
             _,
             _,
             domainId,
+            _,
+            _,
           ) =>
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
@@ -230,7 +279,15 @@ object Update {
       recordTime: Timestamp,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
+      domainIndex: Option[
+        DomainIndex
+      ], // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+      persisted: Promise[Unit] = Promise(),
   ) extends Update {
+    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+    assert(optCompletionInfo.forall(_.messageUuid.isEmpty))
+    // assert(domainIndex.exists(_.requestIndex.isDefined))
+
     override def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -242,6 +299,18 @@ object Update {
         indicateOmittedFields,
       )
 
+    def domainId: DomainId = reassignment match {
+      case _: Reassignment.Assign => reassignmentInfo.targetDomain.unwrap
+      case _: Reassignment.Unassign => reassignmentInfo.sourceDomain.unwrap
+    }
+
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(
+      domainId -> _
+    )
+
+    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
+      "Record time is not supposed to be overridden for sequenced events"
+    )
   }
 
   object ReassignmentAccepted {
@@ -251,6 +320,8 @@ object Update {
             workflowId,
             updateId,
             recordTime,
+            _,
+            _,
             _,
             _,
           ) =>
@@ -275,7 +346,19 @@ object Update {
       completionInfo: CompletionInfo,
       reasonTemplate: CommandRejected.RejectionReasonTemplate,
       domainId: DomainId,
+      domainIndex: Option[DomainIndex],
+      persisted: Promise[Unit] = Promise(),
   ) extends Update {
+    // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
+    /* assert(
+      // rejection from sequencer should have the request sequencer counter
+      (completionInfo.messageUuid.isEmpty && domainIndex.exists(
+        _.requestIndex.exists(_.sequencerCounter.isDefined)
+      ))
+      // rejection from participant (timout, unsequenced) should have the messageUuid, and no domainIndex
+        || (completionInfo.messageUuid.isDefined && domainIndex.isEmpty)
+    ) */
+
     override def pretty: Pretty[CommandRejected] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -290,12 +373,21 @@ object Update {
       * possible so that applications get better guarantees.
       */
     def definiteAnswer: Boolean = reasonTemplate.definiteAnswer
+
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = domainIndex.map(domainId -> _)
+
+    override def withRecordTime(recordTime: Timestamp): Update =
+      if (domainIndex.nonEmpty)
+        throw new IllegalStateException(
+          "Record time is not supposed to be overridden for sequenced events"
+        )
+      else this.copy(recordTime = recordTime)
   }
 
   object CommandRejected {
 
     implicit val `CommandRejected to LoggingValue`: ToLoggingValue[CommandRejected] = {
-      case CommandRejected(recordTime, submitterInfo, reason, domainId) =>
+      case CommandRejected(recordTime, submitterInfo, reason, domainId, _, _) =>
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
           Logging.submitter(submitterInfo.actAs),
@@ -347,6 +439,39 @@ object Update {
     }
   }
 
+  final case class SequencerIndexMoved(
+      domainId: DomainId,
+      sequencerIndex: SequencerIndex,
+      persisted: Promise[Unit] = Promise(),
+  ) extends Update {
+    override def pretty: Pretty[SequencerIndexMoved] =
+      prettyOfClass(
+        param("domainId", _.domainId.uid),
+        param("sequencerCounter", _.sequencerIndex.counter),
+        param("sequencerTimestamp", _.sequencerIndex.timestamp),
+      )
+
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = Some(
+      domainId -> DomainIndex.of(sequencerIndex)
+    )
+
+    override def recordTime: Timestamp = sequencerIndex.timestamp.underlying
+
+    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
+      "Record time is not supposed to be overridden for sequenced events"
+    )
+  }
+
+  object SequencerIndexMoved {
+    implicit val `SequencerIndexMoved to LoggingValue`: ToLoggingValue[SequencerIndexMoved] =
+      seqIndexMoved =>
+        LoggingValue.Nested.fromEntries(
+          Logging.domainId(seqIndexMoved.domainId),
+          "sequencerCounter" -> seqIndexMoved.sequencerIndex.counter.unwrap,
+          "sequencerTimestamp" -> seqIndexMoved.sequencerIndex.timestamp.underlying.toInstant,
+        )
+  }
+
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: Init =>
       Init.`Init to LoggingValue`.toLoggingValue(update)
@@ -360,6 +485,8 @@ object Update {
       CommandRejected.`CommandRejected to LoggingValue`.toLoggingValue(update)
     case update: ReassignmentAccepted =>
       ReassignmentAccepted.`ReassignmentAccepted to LoggingValue`.toLoggingValue(update)
+    case update: SequencerIndexMoved =>
+      SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
   }
 
   private object Logging {

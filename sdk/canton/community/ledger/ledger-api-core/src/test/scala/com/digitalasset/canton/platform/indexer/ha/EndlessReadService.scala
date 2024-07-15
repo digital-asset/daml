@@ -96,6 +96,7 @@ final case class EndlessReadService(
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
               domainId = DomainId.tryFromString("da::default"),
+              domainIndex = None,
             )
           // On even, exercise a contract
           case i =>
@@ -109,6 +110,7 @@ final case class EndlessReadService(
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
               domainId = DomainId.tryFromString("da::default"),
+              domainIndex = None,
             )
         }
         .map(_.bimap(identity, wrapWithNewTraceContext))
@@ -169,6 +171,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
+    messageUuid = None,
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

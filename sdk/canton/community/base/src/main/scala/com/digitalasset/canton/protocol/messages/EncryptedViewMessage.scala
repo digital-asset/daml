@@ -5,10 +5,11 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.DecryptionError.{InvalidEncryptionKey, InvariantViolation}
+import com.digitalasset.canton.crypto.DecryptionError.InvariantViolation
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
@@ -16,7 +17,7 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPubl
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.EncryptedView.checkEncryptionKeyScheme
+import com.digitalasset.canton.protocol.messages.EncryptedView.checkEncryptionSpec
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.{
   SessionKeyCreationError,
   SyncCryptoDecryptError,
@@ -144,15 +145,15 @@ object EncryptedView {
         .map(CompressedView(_))
   }
 
-  // TODO(#12757): after we decouple crypto key scheme from encryption scheme we don't need to check the key but rather the AsymmetricEncrypted(<message>)
-  def checkEncryptionKeyScheme(
+  def checkEncryptionSpec(
       cryptoPublicStore: CryptoPublicStore,
       keyId: Fingerprint,
-      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
+      allowedEncryptionSpecs: RequiredEncryptionSpecs,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, InvalidEncryptionKey, Unit] =
+  ): EitherT[FutureUnlessShutdown, DecryptionError, Unit] =
     for {
       encryptionKey <- EitherT.right(
         cryptoPublicStore
@@ -161,19 +162,38 @@ object EncryptedView {
       )
       _ <- encryptionKey match {
         case Some(encPubKey) =>
-          EitherT.cond[FutureUnlessShutdown](
-            allowedEncryptionKeySchemes.contains(encPubKey.scheme),
-            (),
-            DecryptionError.InvalidEncryptionKey(
-              s"The encryption key scheme ${encPubKey.scheme} of key $keyId is not part of the " +
-                s"required schemes: $allowedEncryptionKeySchemes"
-            ),
-          )
+          (if (!allowedEncryptionSpecs.keys.contains(encPubKey.keySpec))
+             Left(
+               DecryptionError.UnsupportedKeySpec(
+                 encPubKey.keySpec,
+                 allowedEncryptionSpecs.keys,
+               )
+             )
+           else if (
+             !encryptionAlgorithmSpec.supportedEncryptionKeySpecs.contains(encPubKey.keySpec)
+           )
+             Left(
+               DecryptionError.UnsupportedKeySpec(
+                 encPubKey.keySpec,
+                 encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
+               )
+             )
+           else Right(())).toEitherT[FutureUnlessShutdown]
         case None =>
           EitherT.leftT[FutureUnlessShutdown, Unit](
             DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
           )
       }
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          allowedEncryptionSpecs.algorithms.contains(encryptionAlgorithmSpec),
+          (),
+          DecryptionError.UnsupportedAlgorithmSpec(
+            encryptionAlgorithmSpec,
+            allowedEncryptionSpecs.algorithms,
+          ),
+        )
+        .leftWiden[DecryptionError]
     } yield ()
 
 }
@@ -299,6 +319,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   ): v30.SessionKeyLookup = {
     v30.SessionKeyLookup(
       sessionKeyRandomness = encryptedSessionKey.ciphertext,
+      encryptionAlgorithmSpec = encryptedSessionKey.encryptionAlgorithmSpec.toProtoEnum,
       fingerprint = encryptedSessionKey.encryptedFor.toProtoPrimitive,
     )
   }
@@ -308,8 +329,12 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   ): ParsingResult[AsymmetricEncrypted[SecureRandomness]] =
     for {
       fingerprint <- Fingerprint.fromProtoPrimitive(sessionKeyLookup.fingerprint)
+      encryptionAlgorithmSpec <- EncryptionAlgorithmSpec.fromProtoEnum(
+        "encryptionAlgorithmSpec",
+        sessionKeyLookup.encryptionAlgorithmSpec,
+      )
       sessionKeyRandomness = sessionKeyLookup.sessionKeyRandomness
-    } yield AsymmetricEncrypted(sessionKeyRandomness, fingerprint)
+    } yield AsymmetricEncrypted(sessionKeyRandomness, encryptionAlgorithmSpec, fingerprint)
 
   def fromProto(
       encryptedViewMessageP: v30.EncryptedViewMessage
@@ -355,7 +380,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   }
 
   def decryptRandomness[VT <: ViewType](
-      allowedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
+      allowedEncryptionSpecs: RequiredEncryptionSpecs,
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
@@ -419,10 +444,11 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
             ),
           )
         }
-      _ <- checkEncryptionKeyScheme(
+      _ <- checkEncryptionSpec(
         snapshot.crypto.cryptoPublicStore,
         encryptedSessionKeyForParticipant.encryptedFor,
-        allowedEncryptionKeySchemes,
+        encryptedSessionKeyForParticipant.encryptionAlgorithmSpec,
+        allowedEncryptionSpecs,
       )
         .leftMap(err =>
           EncryptedViewMessageError
@@ -546,7 +572,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
     } else {
       val decryptedRandomness =
         decryptRandomness(
-          staticDomainParameters.requiredEncryptionKeySchemes,
+          staticDomainParameters.requiredEncryptionSpecs,
           snapshot,
           sessionKeyStore,
           encrypted,

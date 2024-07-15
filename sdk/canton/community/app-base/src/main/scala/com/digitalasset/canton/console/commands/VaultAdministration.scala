@@ -46,7 +46,7 @@ class SecretKeyAdministration(
     currentKey match {
       case encKey: EncryptionPublicKey =>
         instance.keys.secret.generate_encryption_key(
-          scheme = Some(encKey.scheme),
+          keySpec = Some(encKey.keySpec),
           name = OptionUtil.noneAsEmptyString(name),
         )
       case signKey: SigningPublicKey =>
@@ -93,10 +93,10 @@ class SecretKeyAdministration(
   )
   def generate_encryption_key(
       name: String = "",
-      scheme: Option[EncryptionKeyScheme] = None,
+      keySpec: Option[EncryptionKeySpec] = None,
   ): EncryptionPublicKey = {
     consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.GenerateEncryptionKey(name, scheme))
+      adminCommand(VaultAdminCommands.GenerateEncryptionKey(name, keySpec))
     }
   }
 

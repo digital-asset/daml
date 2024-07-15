@@ -8,7 +8,12 @@ import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalM
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
+import com.digitalasset.canton.ledger.participant.state.{
+  CompletionInfo,
+  Reassignment,
+  RequestIndex,
+  Update,
+}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
@@ -54,7 +59,10 @@ object UpdateToDbDto {
               transactionId = None,
               completionInfo = u.completionInfo,
               domainId = u.domainId.toProtoPrimitive,
+              requestIndex = u.domainIndex.flatMap(_.requestIndex),
               serializedTraceContext = serializedTraceContext,
+              isTransaction =
+                true, // please note from usage point of view (deduplication) rejections are always used both for transactions and transfers at the moment.
             ).copy(
               rejection_status_code = Some(u.reasonTemplate.code),
               rejection_status_message = Some(u.reasonTemplate.message),
@@ -117,13 +125,15 @@ object UpdateToDbDto {
           val preorderTraversal =
             TransactionTraversalUtils.preorderTraversalForIngestion(u.transaction.transaction)
 
+          val domainId = u.domainId.toProtoPrimitive
           val transactionMeta = DbDto.TransactionMeta(
             transaction_id = u.transactionId,
             event_offset = offset.toHexString,
+            record_time = u.recordTime.micros,
+            domain_id = domainId,
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
-          val domainId = u.domainId.toProtoPrimitive
           val events: Iterator[DbDto] = preorderTraversal.iterator
             .flatMap {
               case (nodeId, create: Create) =>
@@ -266,7 +276,9 @@ object UpdateToDbDto {
                 transactionId = Some(u.transactionId),
                 _,
                 domainId = domainId,
+                requestIndex = u.domainIndex.flatMap(_.requestIndex),
                 serializedTraceContext = serializedTraceContext,
+                isTransaction = true,
               )
             )
 
@@ -369,25 +381,30 @@ object UpdateToDbDto {
               )
           }
 
+          val domainId = u.reassignment match {
+            case _: Reassignment.Unassign =>
+              u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
+            case _: Reassignment.Assign =>
+              u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
+          }
           val completions = u.optCompletionInfo.iterator.map(
             commandCompletion(
               offset = offset,
               recordTime = u.recordTime,
               transactionId = Some(u.updateId),
               _,
-              domainId = u.reassignment match {
-                case _: Reassignment.Unassign =>
-                  u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
-                case _: Reassignment.Assign =>
-                  u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
-              },
+              domainId = domainId,
+              requestIndex = u.domainIndex.flatMap(_.requestIndex),
               serializedTraceContext = serializedTraceContext,
+              isTransaction = false,
             )
           )
 
           val transactionMeta = DbDto.TransactionMeta(
             transaction_id = u.updateId,
             event_offset = offset.toHexString,
+            record_time = u.recordTime.micros,
+            domain_id = domainId,
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
@@ -397,6 +414,10 @@ object UpdateToDbDto {
           // will be assigned consecutive event sequential ids
           // and transaction meta is assigned sequential ids of its first and last event
           events ++ completions ++ Seq(transactionMeta)
+
+        case u: SequencerIndexMoved =>
+          // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
+          Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
       }
   }
 
@@ -420,6 +441,8 @@ object UpdateToDbDto {
       transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
       domainId: String,
+      requestIndex: Option[RequestIndex],
+      isTransaction: Boolean,
       serializedTraceContext: Array[Byte],
   ): DbDto.CommandCompletion = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
@@ -448,6 +471,9 @@ object UpdateToDbDto {
       deduplication_duration_nanos = deduplicationDurationNanos,
       deduplication_start = None,
       domain_id = domainId,
+      message_uuid = completionInfo.messageUuid.map(_.toString),
+      request_sequencer_counter = requestIndex.flatMap(_.sequencerCounter).map(_.unwrap),
+      is_transaction = isTransaction,
       trace_context = serializedTraceContext,
     )
   }

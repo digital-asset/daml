@@ -51,13 +51,13 @@ class Crypto(
 
   /** Helper method to generate a new encryption key pair and store the public key in the public store as well. */
   def generateEncryptionKey(
-      scheme: EncryptionKeyScheme = privateCrypto.defaultEncryptionKeyScheme,
+      keySpec: EncryptionKeySpec = privateCrypto.defaultEncryptionKeySpec,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      publicKey <- privateCrypto.generateEncryptionKey(scheme, name)
+      publicKey <- privateCrypto.generateEncryptionKey(keySpec, name)
       _ <- EitherT.right(cryptoPublicStore.storeEncryptionKey(publicKey, name))
     } yield publicKey
 

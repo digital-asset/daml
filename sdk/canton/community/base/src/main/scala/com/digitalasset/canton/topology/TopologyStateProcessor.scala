@@ -17,6 +17,7 @@ import com.digitalasset.canton.topology.processing.{
   IncomingTopologyTransactionAuthorizationValidator,
   SequencedTime,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{
   SignedTopologyTransactions,
@@ -53,8 +54,13 @@ class TopologyStateProcessor(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  override protected val loggerFactory: NamedLoggerFactory =
-    loggerFactoryParent.append("store", store.storeId.toString)
+  override protected val loggerFactory: NamedLoggerFactory = {
+    // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a domain,
+    // it will already have the `domain` key, so having `store` with the same domainId is just a waste
+    if (store.storeId == AuthorizedStore) {
+      loggerFactoryParent.append("store", store.storeId.toString)
+    } else loggerFactoryParent
+  }
 
   // small container to store potentially pending data
   private case class MaybePending(originalTx: GenericSignedTopologyTransaction) {
@@ -99,9 +105,7 @@ class TopologyStateProcessor(
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Seq[GenericValidatedTopologyTransaction], Seq[
-    GenericValidatedTopologyTransaction
-  ]] = {
+  ): Future[Seq[GenericValidatedTopologyTransaction]] = {
     // if transactions aren't persisted in the store but rather enqueued in the domain outbox queue,
     // the processing should abort on errors, because we don't want to enqueue rejected transactions.
     val abortOnError = outboxQueue.nonEmpty
@@ -151,6 +155,7 @@ class TopologyStateProcessor(
         // TODO(#12390) differentiate error reason and only abort actual errors, not in-batch merges
         !abortOnError || validatedTx.forall(_.nonDuplicateRejectionReason.isEmpty),
         (), {
+          logger.info("Topology transactions failed:\n  " + validatedTx.mkString("\n  "))
           // reset caches as they are broken now if we abort
           clearCaches()
           validatedTx
@@ -177,37 +182,37 @@ class TopologyStateProcessor(
           // if we use the domain outbox queue, we must also reset the caches, because the local validation
           // doesn't automatically imply successful validation once the transactions have been sequenced.
           clearCaches()
-          EitherT.rightT[Future, Lft](queue.enqueue(validatedTx.map(_.transaction)))
+          EitherT.rightT[Future, Lft](queue.enqueue(validatedTx.map(_.transaction))).map { result =>
+            logger.info("Enqueued topology transactions:\n" + validatedTx.mkString((",\n")))
+            result
+          }
 
         case None =>
-          EitherT.right[Lft](
-            store.update(
-              sequenced,
-              effective,
-              mappingRemoves,
-              txRemoves,
-              validatedTx,
+          EitherT
+            .right[Lft](
+              store.update(
+                sequenced,
+                effective,
+                mappingRemoves,
+                txRemoves,
+                validatedTx,
+              )
             )
-          )
+            .map { result =>
+              logger.info(
+                s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
+                  .mkString(
+                    ",\n"
+                  )
+              )
+              result
+            }
       }
     } yield validatedTx
-    ret.bimap(
-      failed => {
-        logger.info("Topology transactions failed:\n  " + failed.mkString("\n  "))
-        failed
-      },
-      success => {
-        if (outboxQueue.isEmpty) {
-          logger.info(
-            s"Persisted topology transactions ($sequenced, $effective):\n" + success
-              .mkString(
-                ",\n"
-              )
-          )
-        } else logger.info("Enqueued topology transactions:\n" + success.mkString((",\n")))
-        success
-      },
-    )
+    // EitherT only served to shortcircuit in case abortOnError==true.
+    // Therefore we merge the left (failed validations) with the right (successful or failed validations, in case !abortOnError.
+    // The caller of this method must anyway deal with rejections.
+    ret.merge
   }
 
   private def clearCaches(): Unit = {

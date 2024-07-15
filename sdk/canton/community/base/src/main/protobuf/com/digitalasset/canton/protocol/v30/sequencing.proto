@@ -82,7 +82,7 @@ message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   repeated com.digitalasset.canton.crypto.v30.SigningKeyScheme required_signing_key_schemes = 1;
-  repeated com.digitalasset.canton.crypto.v30.EncryptionKeyScheme required_encryption_key_schemes = 2;
+  com.digitalasset.canton.crypto.v30.RequiredEncryptionSpecs required_encryption_specs = 2;
   repeated com.digitalasset.canton.crypto.v30.SymmetricKeyScheme required_symmetric_key_schemes = 3;
   repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;

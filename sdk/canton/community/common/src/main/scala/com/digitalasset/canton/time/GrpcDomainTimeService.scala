@@ -60,7 +60,7 @@ private[time] class GrpcDomainTimeService(
         _ = logger.debug(
           s"Waiting for domain [${request.domainIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
         )
-        _ <- EitherT.liftF(
+        _ <- EitherT.right(
           timeTracker
             .awaitTick(request.timestamp)
             .fold(Future.unit)(_.void)

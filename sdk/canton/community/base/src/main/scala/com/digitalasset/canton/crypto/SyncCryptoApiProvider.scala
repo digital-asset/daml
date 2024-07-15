@@ -726,7 +726,7 @@ class DomainSnapshotSyncCryptoApi(
       )
       .flatMap(k =>
         crypto.pureCrypto
-          .encryptWith(message, k, version)
+          .encryptWithVersion(message, k, version)
           .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
       )
 

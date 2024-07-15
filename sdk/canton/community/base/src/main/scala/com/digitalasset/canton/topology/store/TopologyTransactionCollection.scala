@@ -73,7 +73,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
     val toRetain = result
       .groupBy1(_.mapping.uniqueKey)
       .view
-      .mapValues(_.last1.hash)
+      .mapValues(_.maxBy1(_.serial).hash)
       .values
       .toSet
 

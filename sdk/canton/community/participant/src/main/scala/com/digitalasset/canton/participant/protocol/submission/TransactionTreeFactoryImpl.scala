@@ -829,7 +829,7 @@ class TransactionTreeFactoryImpl(
         submittingParticipantO.map(_.adminParty.toLf),
       )
     for {
-      decompositions <- EitherT.liftF(decompositionsF)
+      decompositions <- EitherT.right(decompositionsF)
       decomposition = checked(decompositions.head)
       view <- createView(decomposition, rootPosition, state, contractOfId)
     } yield {

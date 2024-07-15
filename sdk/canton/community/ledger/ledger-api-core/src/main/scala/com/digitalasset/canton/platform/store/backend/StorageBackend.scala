@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -30,6 +31,7 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
@@ -91,7 +93,10 @@ trait ParameterStorageBackend {
     *
     * @param connection to be used when updating the parameters table
     */
-  def updateLedgerEnd(ledgerEnd: ParameterStorageBackend.LedgerEnd)(connection: Connection): Unit
+  def updateLedgerEnd(
+      ledgerEnd: ParameterStorageBackend.LedgerEnd,
+      lastDomainIndex: Map[DomainId, DomainIndex] = Map.empty,
+  )(connection: Connection): Unit
 
   /** Query the current ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
@@ -100,6 +105,8 @@ trait ParameterStorageBackend {
     * @return the current LedgerEnd
     */
   def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd
+
+  def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */

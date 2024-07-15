@@ -18,7 +18,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
-  def createParameterStorageBackend: ParameterStorageBackend
+  def createParameterStorageBackend(stringInterning: StringInterning): ParameterStorageBackend
   def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPartyRecordStorageBackend: PartyRecordStorageBackend

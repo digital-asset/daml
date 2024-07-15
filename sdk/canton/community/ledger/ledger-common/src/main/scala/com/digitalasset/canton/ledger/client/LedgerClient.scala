@@ -139,11 +139,10 @@ object LedgerClient {
   private[client] def stubWithTracing[A <: AbstractStub[A]](stub: A, token: Option[String])(implicit
       traceContext: TraceContext
   ): A =
-    token.fold(stub)(
-      authenticatingStub(stub, _)
-        .withInterceptors(TraceContextGrpc.clientInterceptor)
-        .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
-    )
+    token
+      .fold(stub)(authenticatingStub(stub, _))
+      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
 
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.

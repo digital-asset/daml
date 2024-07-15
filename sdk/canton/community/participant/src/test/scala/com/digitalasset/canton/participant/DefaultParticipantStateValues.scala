@@ -50,6 +50,7 @@ object DefaultParticipantStateValues {
       commandId.unwrap,
       optDeduplicationPeriod,
       submissionId,
+      None,
     )
 
   def transactionMeta(

@@ -32,7 +32,7 @@ final class LedgerApiStore(
     val timeouts: ProcessingTimeout,
 ) extends ResourceCloseable {
   private val parameterStorageBackend =
-    ledgerApiDbSupport.storageBackendFactory.createParameterStorageBackend
+    ledgerApiDbSupport.storageBackendFactory.createParameterStorageBackend(stringInterningView)
   private val stringInterningStorageBackend =
     ledgerApiDbSupport.storageBackendFactory.createStringInterningStorageBackend
 

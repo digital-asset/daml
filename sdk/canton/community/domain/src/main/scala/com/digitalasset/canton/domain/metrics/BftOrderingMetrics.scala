@@ -193,6 +193,45 @@ class BftOrderingMetrics(
       openTelemetryMetricsFactory.histogram(histograms.ingress.requestsSize.info)
   }
 
+  object security {
+    private val prefix = BftOrderingMetrics.this.prefix :+ "security"
+
+    object noncompliant {
+      private val prefix = security.prefix :+ "noncompliant"
+
+      object labels {
+        val Endpoint: String = "endpoint"
+        val Sequencer: String = "sequencer"
+        val Epoch: String = "epoch"
+        val View: String = "view"
+        val Block: String = "block"
+
+        object violationType {
+          val Key: String = "violationType"
+
+          object values {
+            sealed trait ViolationTypeValue extends PrettyNameOnlyCase
+
+            case object AuthIdentityEquivocation extends ViolationTypeValue
+            case object DisseminationInvalidMessage extends ViolationTypeValue
+            case object ConsensusInvalidMessage extends ViolationTypeValue
+            case object ConsensusDataEquivocation extends ViolationTypeValue
+            case object ConsensusRoleEquivocation extends ViolationTypeValue
+          }
+        }
+      }
+
+      val behavior: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "behavior",
+          summary = "Non-compliant behaviors",
+          description = "Number of non-compliant (potentially malicious) behaviors detected.",
+          qualification = MetricQualification.Errors,
+        )
+      )
+    }
+  }
+
   object consensus {
     private val prefix = histograms.consensus.prefix
 
@@ -322,20 +361,20 @@ class BftOrderingMetrics(
         }
       }
 
-      val sentBytes: Meter = openTelemetryMetricsFactory.meter(
+      val receivedBytes: Meter = openTelemetryMetricsFactory.meter(
         MetricInfo(
-          prefix :+ "sent-bytes",
-          summary = "Bytes sent",
-          description = "Total P2P bytes sent.",
+          prefix :+ "received-bytes",
+          summary = "Bytes received",
+          description = "Total P2P bytes received.",
           qualification = MetricQualification.Traffic,
         )
       )
 
-      val sentMessages: Meter = openTelemetryMetricsFactory.meter(
+      val receivedMessages: Meter = openTelemetryMetricsFactory.meter(
         MetricInfo(
-          prefix :+ "sent-messages",
-          summary = "Messages sent",
-          description = "Total P2P messages sent.",
+          prefix :+ "received-messages",
+          summary = "Messages received",
+          description = "Total P2P messages received.",
           qualification = MetricQualification.Traffic,
         )
       )

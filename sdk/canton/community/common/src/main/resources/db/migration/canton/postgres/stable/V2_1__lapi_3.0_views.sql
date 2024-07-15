@@ -148,6 +148,9 @@ create or replace view debug.lapi_command_completions as
     rejection_status_message,
     rejection_status_details,
     debug.resolve_lapi_interned_string(domain_id) as domain_id,
+    message_uuid,
+    request_sequencer_counter,
+    is_transaction,
     trace_context
   from lapi_command_completions;
 
@@ -330,6 +333,8 @@ create or replace view debug.lapi_transaction_meta as
   select
     transaction_id,
     event_offset,
+    debug.canton_timestamp(record_time) as record_time,
+    debug.resolve_lapi_interned_string(domain_id) as domain_id,
     event_sequential_id_first,
     event_sequential_id_last
   from lapi_transaction_meta;
@@ -425,3 +430,13 @@ create or replace view debug.lapi_string_interning as
     internal_id,
     external_string
   from lapi_string_interning;
+
+create or replace view debug.lapi_ledger_end_domain_index as
+  select
+    debug.resolve_lapi_interned_string(domain_id) as domain_id,
+    sequencer_counter,
+    debug.canton_timestamp(sequencer_timestamp) as sequencer_timestamp,
+    request_counter,
+    debug.canton_timestamp(request_timestamp) as request_timestamp,
+    request_sequencer_counter
+  from lapi_ledger_end_domain_index;

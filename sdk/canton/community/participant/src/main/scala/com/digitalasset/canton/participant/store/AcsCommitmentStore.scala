@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.participant.event.RecordTime
@@ -33,11 +34,9 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     * The implementation is guaranteed to be idempotent: calling it twice with the same argument
     * doesn't change the system's behavior compared to calling it only once.
     */
-  def storeComputed(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-      commitment: AcsCommitment.CommitmentType,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
 
   /** Mark that remote commitments are outstanding for a period */
   def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(implicit
@@ -275,4 +274,9 @@ object AcsCommitmentStore {
     startingClean
   }
 
+  final case class CommitmentData(
+      counterParticipant: ParticipantId,
+      period: CommitmentPeriod,
+      commitment: AcsCommitment.CommitmentType,
+  )
 }

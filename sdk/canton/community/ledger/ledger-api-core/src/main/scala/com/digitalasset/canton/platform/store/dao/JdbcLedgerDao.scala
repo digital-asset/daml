@@ -4,13 +4,13 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -33,6 +33,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
@@ -201,6 +202,15 @@ private class JdbcLedgerDao(
                 completionInfo = info,
                 reasonTemplate = reason,
                 domainId = DomainId.tryFromString("invalid::deadbeef"),
+                domainIndex = Some(
+                  DomainIndex.of(
+                    RequestIndex(
+                      RequestCounter(1),
+                      Some(SequencerCounter(1)),
+                      CantonTimestamp.ofEpochMicro(recordTime.micros),
+                    )
+                  )
+                ),
               )
             )
           ),
@@ -492,6 +502,7 @@ private class JdbcLedgerDao(
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
                 domainId = DomainId.tryFromString("invalid::deadbeef"),
+                domainIndex = None,
               )
             )
           ),
@@ -551,7 +562,8 @@ private[platform] object JdbcLedgerDao {
       participantId = participantId,
       readStorageBackend = dbSupport.storageBackendFactory
         .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
-      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
+      parameterStorageBackend =
+        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
       ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
@@ -595,7 +607,8 @@ private[platform] object JdbcLedgerDao {
       participantId = participantId,
       readStorageBackend = dbSupport.storageBackendFactory
         .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
-      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
+      parameterStorageBackend =
+        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
       ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,

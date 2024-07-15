@@ -178,6 +178,7 @@ object LedgerSyncEvent {
       hostedWitnesses: List[LfPartyId],
       contractMetadata: Map[LfContractId, Bytes],
       domainId: DomainId,
+      domainIndex: Option[DomainIndex] = None,
   ) extends LedgerSyncEvent {
     override def description: String = s"Accept transaction $transactionId"
 
@@ -236,6 +237,7 @@ object LedgerSyncEvent {
         hostedWitnesses = hostedWitnesses.toList,
         contractMetadata = contractMetadata,
         domainId = domainId,
+        domainIndex = None,
       )
     )
 
@@ -279,6 +281,7 @@ object LedgerSyncEvent {
         hostedWitnesses = hostedWitnesses.toList,
         contractMetadata = Map.empty,
         domainId = domainId,
+        domainIndex = None,
       )
     )
 
@@ -299,6 +302,7 @@ object LedgerSyncEvent {
       reasonTemplate: CommandRejected.FinalReason,
       kind: ProcessingSteps.RequestType.Values,
       domainId: DomainId,
+      domainIndex: Option[DomainIndex] = None,
   ) extends LedgerSyncEvent {
     override def description: String =
       s"Reject command ${completionInfo.commandId}${if (definiteAnswer)
@@ -416,6 +420,7 @@ object LedgerSyncEvent {
           reassignmentCounter = transferCounter.v,
           hostedStakeholders = hostedStakeholders,
           unassignId = transferId.transferOutTimestamp,
+          isTransferringParticipant = isTransferringParticipant,
         ),
         reassignment = Reassignment.Unassign(
           contractId = contractId,
@@ -428,6 +433,7 @@ object LedgerSyncEvent {
           stakeholders = contractStakeholders.toList,
           assignmentExclusivity = transferInExclusivity,
         ),
+        domainIndex = None,
       )
     )
   }
@@ -499,12 +505,14 @@ object LedgerSyncEvent {
           reassignmentCounter = transferCounter.v,
           hostedStakeholders = hostedStakeholders,
           unassignId = transferId.transferOutTimestamp,
+          isTransferringParticipant = isTransferringParticipant,
         ),
         reassignment = Reassignment.Assign(
           ledgerEffectiveTime = ledgerCreateTime,
           createNode = createNode,
           contractMetadata = contractMetadata,
         ),
+        domainIndex = None,
       )
     )
   }

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store.db
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String68
@@ -19,6 +20,7 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervals,
   SortedReconciliationIntervalsProvider,
 }
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   CommitmentQueue,
@@ -109,56 +111,70 @@ class DbAcsCommitmentStore(
   }
 
   override def storeComputed(
-      period: CommitmentPeriod,
-      counterParticipant: ParticipantId,
-      commitment: AcsCommitment.CommitmentType,
+      items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-
-    val from = period.fromExclusive
-    val to = period.toInclusive
 
     // We want to detect if we try to overwrite an existing commitment with a different value, as this signals an error.
     // Still, for performance reasons, we want to do everything in a single, non-interactive statement.
     // We reconcile the two by an upsert that inserts only on a "conflict" where the values are equal, and
     // requiring that at least one value is written.
-    val upsertQuery = storage.profile match {
-      case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into par_computed_acs_commitments
-            using dual
-            on domain_id = $domainId and counter_participant = $counterParticipant and from_exclusive = $from and to_inclusive = $to
-            when matched and commitment = $commitment
-              then update set commitment = $commitment
-            when not matched then
-               insert (domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
-               values ($domainId, $counterParticipant, $from, $to, $commitment)
-            """
-      case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into par_computed_acs_commitments(domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
-               values ($domainId, $counterParticipant, $from, $to, $commitment)
-                  on conflict (domain_id, counter_participant, from_exclusive, to_inclusive) do
-                    update set commitment = $commitment
-                    where par_computed_acs_commitments.commitment = $commitment
-          """
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into par_computed_acs_commitments cas
-                 using dual
-                on (cas.domain_id = $domainId and cas.counter_participant = $counterParticipant and cas.from_exclusive = $from and cas.to_inclusive = $to)
-                when matched then
-                  update set cas.commitment = $commitment
-                  where dbms_lob.compare(commitment, $commitment) = 0
-                when not matched then
-                  insert (domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
-                  values ($domainId, $counterParticipant, $from, $to, $commitment)
-          """
 
+    def setData(pp: PositionedParameters)(item: CommitmentData): Unit = {
+      val CommitmentData(counterParticipant, period, commitment) = item
+      pp >> domainId
+      pp >> counterParticipant
+      pp >> period.fromExclusive
+      pp >> period.toInclusive
+      pp >> commitment
     }
 
-    storage.update(upsertQuery, "commitments: insert computed").map { rowCount =>
-      // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
-      ErrorUtil.requireState(
-        rowCount != 0,
-        s"Commitment for domain $domainId, counterparticipant $counterParticipant and $period already computed with a different value; refusing to insert $commitment",
-      )
+    val query = storage.profile match {
+      case _: DbStorage.Profile.H2 =>
+        """merge into par_computed_acs_commitments cs
+            using (
+              select cast(? as int) domain_id, cast(? as varchar(300)) counter_participant, cast(? as bigint) from_exclusive,
+              cast(? as bigint) to_inclusive, cast(? as binary large object) commitment from dual)
+            excluded on (cs.domain_id = excluded.domain_id and cs.counter_participant = excluded.counter_participant and
+            cs.from_exclusive = excluded.from_exclusive and cs.to_inclusive = excluded.to_inclusive)
+            when matched and cs.commitment = excluded.commitment
+              then update set cs.commitment = excluded.commitment
+            when not matched then
+               insert (domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
+               values (excluded.domain_id, excluded.counter_participant, excluded.from_exclusive, excluded.to_inclusive, excluded.commitment)
+            """
+      case _: DbStorage.Profile.Postgres =>
+        """insert into par_computed_acs_commitments(domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
+               values (?, ?, ?, ?, ?)
+                  on conflict (domain_id, counter_participant, from_exclusive, to_inclusive) do
+                    update set commitment = excluded.commitment
+                    where par_computed_acs_commitments.commitment = excluded.commitment
+          """
+      case _: DbStorage.Profile.Oracle =>
+        """merge into par_computed_acs_commitments cs
+                 using (
+                      select ? domain_id, ? counter_participant, ? from_exclusive, ? to_inclusive, ? commitment from dual)
+                    excluded on (cs.domain_id = excluded.domain_id and cs.counter_participant = excluded.counter_participant and
+                    cs.from_exclusive = excluded.from_exclusive and cs.to_inclusive = excluded.to_inclusive)
+                when matched then
+                  update set cs.commitment = excluded.commitment
+                  where dbms_lob.compare(cs.commitment, excluded.commitment) = 0
+                when not matched then
+                  insert (domain_id, counter_participant, from_exclusive, to_inclusive, commitment)
+                  values (excluded.domain_id, excluded.counter_participant, excluded.from_exclusive, excluded.to_inclusive, excluded.commitment)
+          """
+    }
+
+    val bulkUpsert = DbStorage.bulkOperation(query, items.toList, storage.profile)(setData)
+
+    storage.queryAndUpdate(bulkUpsert, "commitments: insert computed").map { rowCounts =>
+      rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
+        val CommitmentData(counterParticipant, period, commitment) = item
+        // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
+        ErrorUtil.requireState(
+          rowCount != 0,
+          s"Commitment for domain $domainId, counterparticipant $counterParticipant and period $period already computed with a different value; refusing to insert $commitment",
+        )
+      }
     }
   }
 

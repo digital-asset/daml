@@ -13,6 +13,7 @@ import com.digitalasset.canton.platform.store.backend.{
   ParameterStorageBackend,
   StorageBackendFactory,
 }
+import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.tracing.NoTracing
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
@@ -71,7 +72,8 @@ trait IndexerStabilitySpec
             DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
             loggerFactory,
           )
-          val parameterStorageBackend = factory.createParameterStorageBackend
+          val parameterStorageBackend =
+            factory.createParameterStorageBackend(new MockStringInterning)
           val integrityStorageBackend = factory.createIntegrityStorageBackend
           val connection = dataSource.getConnection()
 

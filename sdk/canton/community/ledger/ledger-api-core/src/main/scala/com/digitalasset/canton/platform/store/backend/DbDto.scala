@@ -151,6 +151,9 @@ object DbDto {
       deduplication_duration_nanos: Option[Int],
       deduplication_start: Option[Long],
       domain_id: String,
+      message_uuid: Option[String],
+      request_sequencer_counter: Option[Long],
+      is_transaction: Boolean,
       trace_context: Array[Byte],
   ) extends DbDto
 
@@ -206,6 +209,8 @@ object DbDto {
   final case class TransactionMeta(
       transaction_id: String,
       event_offset: String,
+      record_time: Long,
+      domain_id: String,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
   ) extends DbDto
@@ -216,4 +221,6 @@ object DbDto {
       metering_timestamp: Long,
       ledger_offset: String,
   ) extends DbDto
+
+  final case class SequencerIndexMoved(domainId: String) extends DbDto
 }

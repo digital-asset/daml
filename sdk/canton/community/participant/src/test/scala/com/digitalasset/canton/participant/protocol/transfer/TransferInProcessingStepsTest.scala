@@ -156,6 +156,7 @@ class TransferInProcessingStepsTest
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,
         FutureSupervisor.Noop,
+        clock,
       )
       (persistentState, state)
     }

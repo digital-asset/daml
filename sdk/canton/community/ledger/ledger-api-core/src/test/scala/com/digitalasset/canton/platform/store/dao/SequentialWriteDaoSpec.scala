@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -128,7 +128,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       throw new UnsupportedOperationException
 
     override def updateLedgerEnd(
-        params: ParameterStorageBackend.LedgerEnd
+        params: ParameterStorageBackend.LedgerEnd,
+        domainIndexes: Map[DomainId, DomainIndex],
     )(connection: Connection): Unit =
       blocking(synchronized {
         connection shouldBe someConnection
@@ -178,6 +179,9 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     override def prunedUpToInclusiveAndLedgerEnd(
         connection: Connection
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
+      throw new UnsupportedOperationException
+
+    override def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex =
       throw new UnsupportedOperationException
   }
 }

@@ -95,7 +95,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 00000003"
+        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 000000000000000003"
       ),
     )
   }
@@ -116,7 +116,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END(9,0): ledger-end issue: 00000010"
+        "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END(9,0): ledger-end issue: 00000000000000000a"
       ),
     )
   }
@@ -203,7 +203,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 00000003"
+        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 000000000000000003"
       ),
     )
   }
@@ -223,7 +223,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END(9,0): ledger-end issue: 00000010"
+        "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END(9,0): ledger-end issue: 00000000000000000a"
       ),
     )
   }

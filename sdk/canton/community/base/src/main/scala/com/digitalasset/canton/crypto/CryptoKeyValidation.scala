@@ -62,6 +62,43 @@ object CryptoKeyValidation {
       .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
   }
 
+  private[crypto] def selectEncryptionAlgorithmSpec[E](
+      keySpec: EncryptionKeySpec,
+      defaultAlgorithmSpec: EncryptionAlgorithmSpec,
+      supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
+      errFn: EncryptionAlgorithmSpec => E,
+  ): Either[E, EncryptionAlgorithmSpec] = {
+    if (defaultAlgorithmSpec.supportedEncryptionKeySpecs.contains(keySpec))
+      Right(defaultAlgorithmSpec)
+    else
+      supportedAlgorithmSpecs
+        .find(_.supportedEncryptionKeySpecs.contains(keySpec))
+        .toRight(errFn(defaultAlgorithmSpec))
+  }
+
+  /** Ensures that a given key specification is supported by the selected crypto algorithm. It
+    * also checks if this crypto algorithm is part of the set of supported algorithms.
+    */
+  private[crypto] def ensureEncryptionSpec[E](
+      keySpec: EncryptionKeySpec,
+      defaultAlgorithmSpec: EncryptionAlgorithmSpec,
+      supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
+      errFnAlgorithm: EncryptionAlgorithmSpec => E,
+      errFnKey: EncryptionKeySpec => E,
+  ): Either[E, Unit] =
+    for {
+      _ <- Either.cond(
+        supportedAlgorithmSpecs.contains(defaultAlgorithmSpec),
+        (),
+        errFnAlgorithm(defaultAlgorithmSpec),
+      )
+      _ <- Either.cond(
+        defaultAlgorithmSpec.supportedEncryptionKeySpecs.contains(keySpec),
+        (),
+        errFnKey(keySpec),
+      )
+    } yield ()
+
   private[crypto] def ensureFormat[E](
       actual: CryptoKeyFormat,
       acceptedFormats: Set[CryptoKeyFormat],

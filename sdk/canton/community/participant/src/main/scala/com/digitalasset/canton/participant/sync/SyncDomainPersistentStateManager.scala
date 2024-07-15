@@ -152,14 +152,12 @@ class SyncDomainPersistentStateManager(
       newParameters: StaticDomainParameters,
   )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] = {
     for {
-      oldParametersO <- EitherT.liftF(parameterStore.lastParameters)
+      oldParametersO <- EitherT.right(parameterStore.lastParameters)
       _ <- oldParametersO match {
         case None =>
           // Store the parameters
           logger.debug(s"Storing domain parameters for domain $alias: $newParameters")
-          EitherT.liftF[Future, DomainRegistryError, Unit](
-            parameterStore.setParameters(newParameters)
-          )
+          EitherT.right[DomainRegistryError](parameterStore.setParameters(newParameters))
         case Some(oldParameters) =>
           EitherT.cond[Future](
             oldParameters == newParameters,
@@ -257,7 +255,7 @@ class SyncDomainPersistentStateManager(
         )
 
       case Some(state) =>
-        EitherT.liftF(
+        EitherT.right(
           state.topologyStore
             .findFirstTrustCertificateForParticipant(participantId)
             .map(trustCert =>

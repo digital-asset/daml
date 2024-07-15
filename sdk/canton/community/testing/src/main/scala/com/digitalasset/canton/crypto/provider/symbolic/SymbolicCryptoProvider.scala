@@ -6,9 +6,11 @@ package com.digitalasset.canton.crypto.provider.symbolic
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
-  EncryptionKeyScheme,
+  EncryptionAlgorithmSpec,
+  EncryptionKeySpec,
   HashAlgorithm,
   PbkdfScheme,
+  RequiredEncryptionSpecs,
   SigningKeyScheme,
   SymmetricKeyScheme,
 }
@@ -20,8 +22,12 @@ object SymbolicCryptoProvider {
     NonEmpty.mk(Set, SigningKeyScheme.Ed25519)
   val supportedSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]] =
     NonEmpty.mk(Set, SymmetricKeyScheme.Aes128Gcm)
-  val supportedEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]] =
-    NonEmpty.mk(Set, EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
+  val supportedEncryptionSpecs: RequiredEncryptionSpecs = {
+    RequiredEncryptionSpecs(
+      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm),
+      NonEmpty.mk(Set, EncryptionKeySpec.EcP256),
+    )
+  }
   val supportedHashAlgorithms: NonEmpty[Set[HashAlgorithm]] = NonEmpty.mk(Set, HashAlgorithm.Sha256)
   val supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =
     NonEmpty.mk(Set, CryptoKeyFormat.Symbolic)

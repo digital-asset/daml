@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.Monoid
 import cats.data.OptionT
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.Hash
@@ -19,6 +18,7 @@ import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore.defaultPackageDescription
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.ConcurrentHashMap

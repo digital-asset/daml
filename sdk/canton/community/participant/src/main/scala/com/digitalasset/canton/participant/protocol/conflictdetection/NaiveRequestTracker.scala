@@ -11,22 +11,13 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
-import com.digitalasset.canton.lifecycle.{
-  AsyncOrSyncCloseable,
-  FlagCloseableAsync,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  PromiseUnlessShutdown,
-  PromiseUnlessShutdownFactory,
-  RunOnShutdown,
-  SyncCloseable,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, SingleUseCell}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
@@ -55,6 +46,7 @@ private[participant] class NaiveRequestTracker(
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    clock: Clock,
 )(implicit executionContext: ExecutionContext)
     extends RequestTracker
     with NamedLogging
@@ -64,7 +56,7 @@ private[participant] class NaiveRequestTracker(
   import RequestTracker.*
 
   override private[protocol] val taskScheduler =
-    new TaskScheduler(
+    TaskScheduler(
       initSc,
       initTimestamp,
       TimedTask.TimedTaskOrdering,
@@ -72,6 +64,7 @@ private[participant] class NaiveRequestTracker(
       timeouts,
       loggerFactory.appendUnnamedKey("task scheduler owner", "NaiveRequestTracker"),
       futureSupervisor,
+      clock,
     )
 
   // The task scheduler can decide to close itself if a task fails to execute
@@ -321,7 +314,9 @@ private[participant] class NaiveRequestTracker(
     val _ = requests.remove(rc)
   }
 
-  override def awaitTimestamp(timestamp: CantonTimestamp): Option[Future[Unit]] =
+  override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Option[Future[Unit]] =
     taskScheduler.scheduleBarrier(timestamp)
 
   /** Releases all locks that are held by the given request */

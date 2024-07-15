@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.{DeserializationError, DeterministicEncoding}
@@ -15,11 +16,11 @@ import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
-class SymbolicPureCrypto() extends CryptoPureApi {
+class SymbolicPureCrypto extends CryptoPureApi {
 
   /** This flag is used to control the randomness during asymmetric encryption.
     * This is only intended to be used for testing purposes and it overrides the randomization flag given to
-    * [[encryptWith]].
+    * [[encryptWithInternal]].
     */
   private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)
 
@@ -28,7 +29,7 @@ class SymbolicPureCrypto() extends CryptoPureApi {
   private val signatureCounter = new AtomicInteger
 
   @VisibleForTesting
-  def setRandomnessFlag(newValue: Boolean) = {
+  def setRandomnessFlag(newValue: Boolean): Unit = {
     neverRandomizeAsymmetricEncryption.set(newValue)
   }
 
@@ -37,6 +38,10 @@ class SymbolicPureCrypto() extends CryptoPureApi {
 
   // NOTE: The following schemes are not really used by Symbolic crypto, but we pretend to support them
   override val defaultSymmetricKeyScheme: SymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm
+  override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec =
+    EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm
+  override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
+    NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm)
   override val defaultPbkdfScheme: PbkdfScheme = PbkdfScheme.Argon2idMode1
 
   override protected[crypto] def sign(
@@ -80,7 +85,7 @@ class SymbolicPureCrypto() extends CryptoPureApi {
         SignatureCheckError.InvalidSignature(
           signature,
           bytes,
-          s"Symbolic signature with ${signedContent} does not match payload $bytes",
+          s"Symbolic signature with $signedContent does not match payload $bytes",
         ),
       )
     } yield ()
@@ -100,9 +105,10 @@ class SymbolicPureCrypto() extends CryptoPureApi {
   ): Either[EncryptionKeyCreationError, SymmetricKey] =
     Right(SymmetricKey(CryptoKeyFormat.Symbolic, bytes.unwrap, scheme))
 
-  private def encryptWith[M](
+  private def encryptWithInternal[M](
       bytes: ByteString,
       publicKey: EncryptionPublicKey,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
       randomized: Boolean,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
@@ -120,28 +126,45 @@ class SymbolicPureCrypto() extends CryptoPureApi {
           generateRandomByteString(ivForAsymmetricEncryptInBytes)
         else ByteString.copyFrom(new Array[Byte](ivForAsymmetricEncryptInBytes))
 
-      encrypted = new AsymmetricEncrypted[M](iv.concat(payload), publicKey.id)
+      encrypted = new AsymmetricEncrypted[M](
+        iv.concat(payload),
+        encryptionAlgorithmSpec,
+        publicKey.id,
+      )
     } yield encrypted
 
-  override def encryptWith[M <: HasVersionedToByteString](
+  override def encryptWithVersion[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message.toByteString(version), publicKey, randomized = true)
+    encryptWithInternal(
+      message.toByteString(version),
+      publicKey,
+      encryptionAlgorithmSpec,
+      randomized = true,
+    )
 
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message.toByteString, publicKey, randomized = true)
+    encryptWithInternal(message.toByteString, publicKey, encryptionAlgorithmSpec, randomized = true)
 
   def encryptDeterministicWith[M <: HasVersionedToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
       version: ProtocolVersion,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWith(message.toByteString(version), publicKey, randomized = false)
+    encryptWithInternal(
+      message.toByteString(version),
+      publicKey,
+      encryptionAlgorithmSpec,
+      randomized = false,
+    )
 
   override protected def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],

@@ -162,6 +162,7 @@ final class TransferOutProcessingStepsTest
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
+      clock,
     )
 
   private lazy val damle =

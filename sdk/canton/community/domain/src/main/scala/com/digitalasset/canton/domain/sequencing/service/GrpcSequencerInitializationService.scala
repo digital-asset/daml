@@ -25,6 +25,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   InitializeSequencerFromOnboardingStateResponse,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -36,7 +37,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.GrpcStreamingUtils
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
@@ -99,6 +100,23 @@ class GrpcSequencerInitializationService(
             )
           )
         )
+
+      // check that there is at most 1 effective transaction per unique key
+      multipleEffectivePerUniqueKey = genesisState.result
+        .groupBy(_.transaction.mapping.uniqueKey)
+        .view
+        // only retain effective transactions
+        .mapValues(_.filter(_.validUntil.isEmpty))
+        // only retain unique keys for which there is more than 1 effective transaction
+        .filter(_._2.size > 1)
+        .toMap
+
+      _ <- EitherTUtil.condUnitET[Future](
+        multipleEffectivePerUniqueKey.isEmpty,
+        TopologyManagerError.InconsistentTopologySnapshot.MultipleEffectiveMappingsPerUniqueKey(
+          multipleEffectivePerUniqueKey
+        ),
+      )
 
       initializeRequest = InitializeSequencerRequest(genesisState, domainParameters, None)
       result <- handler

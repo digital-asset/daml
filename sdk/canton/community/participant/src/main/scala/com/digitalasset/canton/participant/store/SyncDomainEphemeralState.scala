@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.store.memory.TransferCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -57,6 +57,7 @@ class SyncDomainEphemeralState(
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    clock: Clock,
 )(implicit executionContext: ExecutionContext, closeContext: CloseContext)
     extends SyncDomainEphemeralStateLookup
     with NamedLogging
@@ -115,6 +116,7 @@ class SyncDomainEphemeralState(
       timeouts,
       loggerFactory,
       futureSupervisor,
+      clock,
     )
   }
 
@@ -132,6 +134,7 @@ class SyncDomainEphemeralState(
       loggerFactory,
       futureSupervisor,
       persistentState.activeContractStore,
+      clock,
     )
   }
 

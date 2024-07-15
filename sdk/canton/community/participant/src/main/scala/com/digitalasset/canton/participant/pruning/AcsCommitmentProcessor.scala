@@ -12,6 +12,7 @@ import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
@@ -1151,80 +1152,83 @@ class AcsCommitmentProcessor(
         )
       )
 
-      _ <- computed.toList.parTraverse_ { case (period, counterParticipant, cmt) =>
-        logger.debug(
-          s"Processing own commitment $cmt for period $period and counter-participant $counterParticipant"
-        )
-        for {
-          counterCommitmentList <- FutureUnlessShutdown.outcomeF(
-            store.queue.peekOverlapsForCounterParticipant(
-              period,
-              counterParticipant,
-            )(traceContext)
+      _ <- MonadUtil.parTraverseWithLimit_(threadCount.value)(computed.toList) {
+        case (period, counterParticipant, cmt) =>
+          logger.debug(
+            s"Processing own commitment $cmt for period $period and counter-participant $counterParticipant"
           )
+          for {
+            counterCommitmentList <- FutureUnlessShutdown.outcomeF(
+              store.queue.peekOverlapsForCounterParticipant(
+                period,
+                counterParticipant,
+              )(traceContext)
+            )
 
-          lastPruningTime <- FutureUnlessShutdown.outcomeF(store.pruningStatus)
+            lastPruningTime <- FutureUnlessShutdown.outcomeF(store.pruningStatus)
 
-          _ = if (counterCommitmentList.size > intervals.size) {
-            AcsCommitmentAlarm
-              .Warn(
-                s"""There should be at most ${intervals.size} commitments from counter-participant
+            _ = if (counterCommitmentList.size > intervals.size) {
+              AcsCommitmentAlarm
+                .Warn(
+                  s"""There should be at most ${intervals.size} commitments from counter-participant
                    |$counterParticipant covering the period ${completedPeriod.fromExclusive} to ${completedPeriod.toInclusive}),
                    |but we have the following ${counterCommitmentList.size}""".stripMargin
-              )
-              .report()
-          }
-
-          // check if we were in a catch-up phase
-          possibleCatchUp <- FutureUnlessShutdown.outcomeF(isCatchUpPeriod(period))
-
-          // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
-          (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
-            matches(
-              counterCommitment,
-              List((period, cmt)),
-              lastPruningTime.map(_.timestamp),
-              possibleCatchUp,
-            )
-          )
-
-          // we mark safe all matching counter-commitments
-          _ <- FutureUnlessShutdown.outcomeF {
-            matching.parTraverse_ { counterCommitment =>
-              logger.debug(s"Marked as safe commitment $cmt against counterComm $counterCommitment")
-              store.markSafe(
-                counterCommitment.sender,
-                counterCommitment.period,
-                sortedReconciliationIntervalsProvider,
-              )
+                )
+                .report()
             }
-          }
 
-          // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
-          // and `lastProcessedCatchUpCommitmentTimestamp`
-          _ <-
-            if (mismatches.nonEmpty) {
-              for {
-                res <-
-                  if (!filterInJustMismatches) {
-                    // send to all counter-participants from whom either I don't have cmts or I have cmts but they don't match
-                    sendCommitmentMessagesInCatchUpInterval(
-                      lastSentCatchUpCommitmentTimestamp,
-                      lastProcessedCatchUpCommitmentTimestamp,
-                      filterOutParticipantId = matching.map(c => c.counterParticipant),
-                    )
-                  } else {
-                    // send to all counter-participants from whom I have cmts but they don't match
-                    sendCommitmentMessagesInCatchUpInterval(
-                      lastSentCatchUpCommitmentTimestamp,
-                      lastProcessedCatchUpCommitmentTimestamp,
-                      filterInParticipantId = mismatches.map(c => c.counterParticipant),
-                      filterOutParticipantId = matching.map(c => c.counterParticipant),
-                    )
-                  }
-              } yield res
-            } else FutureUnlessShutdown.unit
-        } yield ()
+            // check if we were in a catch-up phase
+            possibleCatchUp <- FutureUnlessShutdown.outcomeF(isCatchUpPeriod(period))
+
+            // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
+            (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
+              matches(
+                counterCommitment,
+                List((period, cmt)),
+                lastPruningTime.map(_.timestamp),
+                possibleCatchUp,
+              )
+            )
+
+            // we mark safe all matching counter-commitments
+            _ <- FutureUnlessShutdown.outcomeF {
+              matching.parTraverse_ { counterCommitment =>
+                logger.debug(
+                  s"Marked as safe commitment $cmt against counterComm $counterCommitment"
+                )
+                store.markSafe(
+                  counterCommitment.sender,
+                  counterCommitment.period,
+                  sortedReconciliationIntervalsProvider,
+                )
+              }
+            }
+
+            // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
+            // and `lastProcessedCatchUpCommitmentTimestamp`
+            _ <-
+              if (mismatches.nonEmpty) {
+                for {
+                  res <-
+                    if (!filterInJustMismatches) {
+                      // send to all counter-participants from whom either I don't have cmts or I have cmts but they don't match
+                      sendCommitmentMessagesInCatchUpInterval(
+                        lastSentCatchUpCommitmentTimestamp,
+                        lastProcessedCatchUpCommitmentTimestamp,
+                        filterOutParticipantId = matching.map(c => c.counterParticipant),
+                      )
+                    } else {
+                      // send to all counter-participants from whom I have cmts but they don't match
+                      sendCommitmentMessagesInCatchUpInterval(
+                        lastSentCatchUpCommitmentTimestamp,
+                        lastProcessedCatchUpCommitmentTimestamp,
+                        filterInParticipantId = mismatches.map(c => c.counterParticipant),
+                        filterOutParticipantId = matching.map(c => c.counterParticipant),
+                      )
+                    }
+                } yield res
+              } else FutureUnlessShutdown.unit
+          } yield ()
 
       }
     } yield ()
@@ -1328,10 +1332,12 @@ class AcsCommitmentProcessor(
   /** Store the computed commitments of the commitment messages */
   private def storeCommitments(
       msgs: Map[ParticipantId, AcsCommitment]
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    msgs.toList.parTraverse_ { case (pid, msg) =>
-      store.storeComputed(msg.period, pid, msg.commitment)
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val items = msgs.map { case (pid, msg) =>
+      AcsCommitmentStore.CommitmentData(pid, msg.period, msg.commitment)
     }
+    NonEmpty.from(items.toList).fold(Future.unit)(store.storeComputed(_))
+  }
 
   /** Send the computed commitment messages */
   private def sendCommitmentMessages(

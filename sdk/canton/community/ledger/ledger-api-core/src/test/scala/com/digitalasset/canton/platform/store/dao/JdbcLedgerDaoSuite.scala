@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
@@ -11,7 +10,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.util.JarResourceUtils
-import com.digitalasset.daml.lf.archive.{DarParser, Decode}
+import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Decode}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -642,6 +641,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       commandId,
       None,
       Some(submissionId),
+      None,
     )
 
   protected final def store(

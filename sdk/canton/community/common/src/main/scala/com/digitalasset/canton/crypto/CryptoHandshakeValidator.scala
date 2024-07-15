@@ -45,8 +45,14 @@ object CryptoHandshakeValidator {
         selectSchemes(config.signing, config.provider.signing),
       )
       _ <- validateScheme(
-        parameters.requiredEncryptionKeySchemes,
-        selectSchemes(config.encryption, config.provider.encryption),
+        parameters.requiredEncryptionSpecs.algorithms,
+        selectSchemes(config.encryptionAlgorithms, config.provider.encryptionAlgorithms)
+          .map(cs => CryptoScheme(cs.default, cs.allowed)),
+      )
+      _ <- validateScheme(
+        parameters.requiredEncryptionSpecs.keys,
+        selectSchemes(config.encryptionKeys, config.provider.encryptionKeys)
+          .map(cs => CryptoScheme(cs.default, cs.allowed)),
       )
       _ <- validateScheme(
         parameters.requiredSymmetricKeySchemes,
