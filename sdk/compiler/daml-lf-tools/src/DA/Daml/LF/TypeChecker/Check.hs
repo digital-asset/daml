@@ -620,14 +620,13 @@ checkUniqueInterfaceInstance :: MonadGamma m => InterfaceInstanceHead -> m ()
 checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
 
 -- returns the contract id and contract type
-checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
-checkRetrieveByKey RetrieveByKey{..} = do
-  tpl <- inWorld (lookupTemplate retrieveByKeyTemplate)
+checkRetrieveByKey :: MonadGamma m => Qualified TypeConName -> m (Type, Type, Type)
+checkRetrieveByKey templateId = do
+  tpl <- inWorld (lookupTemplate templateId)
   case tplKey tpl of
-    Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey retrieveByKeyTemplate)
+    Nothing -> throwWithContext (EKeyOperationOnTemplateWithNoKey templateId)
     Just key -> do
-      checkExpr retrieveByKeyKey (tplKeyType key)
-      return (TContractId (TCon retrieveByKeyTemplate), TCon retrieveByKeyTemplate)
+      return (tplKeyType key, TContractId (TCon templateId), TCon templateId)
 
 typeOfUpdate :: MonadGamma m => Update -> m Type
 typeOfUpdate = \case
@@ -647,11 +646,11 @@ typeOfUpdate = \case
     checkExpr e (TUpdate typ)
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
-    (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TTuple2 cidType contractType))
+    (keyType, cidType, contractType) <- checkRetrieveByKey retrieveByKey
+    return (keyType :-> TUpdate (TTuple2 cidType contractType))
   ULookupByKey retrieveByKey -> do
-    (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TOptional cidType))
+    (keyType, cidType, _contractType) <- checkRetrieveByKey retrieveByKey
+    return (keyType :-> TUpdate (TOptional cidType))
   UTryCatch typ expr var handler -> do
     checkType typ KStar
     checkExpr expr (TUpdate typ)

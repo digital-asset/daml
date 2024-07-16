@@ -307,12 +307,8 @@ applySubstInUpdate subst = \case
     UEmbedExpr t e -> UEmbedExpr
         (applySubstInType subst t)
         (applySubstInExpr subst e)
-    ULookupByKey (RetrieveByKey templateName e) -> ULookupByKey $ RetrieveByKey
-        templateName
-        (applySubstInExpr subst e)
-    UFetchByKey (RetrieveByKey templateName e) -> UFetchByKey $ RetrieveByKey
-        templateName
-        (applySubstInExpr subst e)
+    e@(ULookupByKey _) -> e
+    e@(UFetchByKey _) -> e
     UTryCatch t e1 x e2 ->
         substWithBoundExprVar subst x $ \subst' x' -> UTryCatch
             (applySubstInType subst t)

@@ -155,8 +155,8 @@ freeVarsStep = \case
         UFetchInterfaceF _ e -> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e
-        UFetchByKeyF r -> retrieveByKeyFKey r
-        ULookupByKeyF r -> retrieveByKeyFKey r
+        UFetchByKeyF _ -> mempty
+        ULookupByKeyF _ -> mempty
         UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
 
     goScenario :: ScenarioF FreeVars -> FreeVars

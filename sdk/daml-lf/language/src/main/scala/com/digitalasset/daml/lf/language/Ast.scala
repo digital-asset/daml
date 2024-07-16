@@ -554,8 +554,6 @@ object Ast {
   // Update expressions
   //
 
-  final case class RetrieveByKey(templateId: TypeConName, key: Expr)
-
   sealed abstract class Update extends Product with Serializable
 
   final case class UpdatePure(t: Type, expr: Expr) extends Update
@@ -601,8 +599,8 @@ object Ast {
       argE: Expr,
   ) extends Update
   case object UpdateGetTime extends Update
-  final case class UpdateFetchByKey(rbk: RetrieveByKey) extends Update
-  final case class UpdateLookupByKey(rbk: RetrieveByKey) extends Update
+  final case class UpdateFetchByKey(templateId: TypeConName) extends Update
+  final case class UpdateLookupByKey(templateId: TypeConName) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
   final case class UpdateTryCatch(
       typ: Type,

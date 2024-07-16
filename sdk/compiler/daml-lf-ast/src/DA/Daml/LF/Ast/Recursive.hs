@@ -12,7 +12,6 @@ module DA.Daml.LF.Ast.Recursive(
     ScenarioF(..),
     BindingF(..),
     TypeF(..),
-    retrieveByKeyFKey
     ) where
 
 import Data.Functor.Foldable
@@ -84,15 +83,9 @@ data UpdateF expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
-  | UFetchByKeyF !(RetrieveByKeyF expr)
-  | ULookupByKeyF !(RetrieveByKeyF expr)
+  | UFetchByKeyF !(Qualified TypeConName)
+  | ULookupByKeyF !(Qualified TypeConName)
   | UTryCatchF !Type !expr !ExprVarName !expr
-  deriving (Foldable, Functor, Traversable)
-
-data RetrieveByKeyF expr = RetrieveByKeyF
-  { retrieveByKeyFTemplate :: !(Qualified TypeConName)
-  , retrieveByKeyFKey :: !expr
-  }
   deriving (Foldable, Functor, Traversable)
 
 data ScenarioF expr
@@ -134,12 +127,9 @@ projectUpdate = \case
   UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
-  ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
-  UFetchByKey a -> UFetchByKeyF (projectRetrieveByKey a)
+  ULookupByKey a -> ULookupByKeyF a
+  UFetchByKey a -> UFetchByKeyF a
   UTryCatch a b c d -> UTryCatchF a b c d
-
-projectRetrieveByKey :: RetrieveByKey -> RetrieveByKeyF Expr
-projectRetrieveByKey (RetrieveByKey tpl key) = RetrieveByKeyF tpl key
 
 embedUpdate :: UpdateF Expr -> Update
 embedUpdate = \case
@@ -155,15 +145,9 @@ embedUpdate = \case
   UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b
-  UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
-  ULookupByKeyF a -> ULookupByKey (embedRetrieveByKey a)
+  UFetchByKeyF a -> UFetchByKey a
+  ULookupByKeyF a -> ULookupByKey a
   UTryCatchF a b c d -> UTryCatch a b c d
-
-embedRetrieveByKey :: RetrieveByKeyF Expr -> RetrieveByKey
-embedRetrieveByKey RetrieveByKeyF{..} = RetrieveByKey
-  { retrieveByKeyTemplate = retrieveByKeyFTemplate
-  , retrieveByKeyKey = retrieveByKeyFKey
-  }
 
 projectScenario :: Scenario -> ScenarioF Expr
 projectScenario = \case

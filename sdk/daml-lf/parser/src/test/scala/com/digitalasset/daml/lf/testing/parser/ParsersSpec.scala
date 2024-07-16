@@ -527,10 +527,10 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", Some(e"guard")),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
-        "fetch_by_key @Mod:T e" ->
-          UpdateFetchByKey(RetrieveByKey(T.tycon, e"e")),
-        "lookup_by_key @Mod:T e" ->
-          UpdateLookupByKey(RetrieveByKey(T.tycon, e"e")),
+        "fetch_by_key @Mod:T" ->
+          UpdateFetchByKey(T.tycon),
+        "lookup_by_key @Mod:T" ->
+          UpdateLookupByKey(T.tycon),
         "uget_time" ->
           UpdateGetTime,
         "uembed_expr @tau e" ->

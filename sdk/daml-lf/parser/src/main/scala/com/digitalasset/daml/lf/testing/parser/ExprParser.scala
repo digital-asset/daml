@@ -518,14 +518,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateFetchByKey =
-    Id("fetch_by_key") ~! `@` ~> fullIdentifier ~ expr ^^ { case t ~ eKey =>
-      UpdateFetchByKey(RetrieveByKey(t, eKey))
-    }
+    Id("fetch_by_key") ~! `@` ~> fullIdentifier ^^ UpdateFetchByKey
 
   private lazy val updateLookupByKey =
-    Id("lookup_by_key") ~! `@` ~> fullIdentifier ~ expr ^^ { case t ~ eKey =>
-      UpdateLookupByKey(RetrieveByKey(t, eKey))
-    }
+    Id("lookup_by_key") ~! `@` ~> fullIdentifier ^^ UpdateLookupByKey
 
   private lazy val updateGetTime =
     Id("uget_time") ^^^ UpdateGetTime

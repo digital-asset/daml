@@ -182,7 +182,6 @@ instance MonoTraversable ModuleRef Type
 instance MonoTraversable ModuleRef Binding
 instance MonoTraversable ModuleRef CasePattern
 instance MonoTraversable ModuleRef CaseAlternative
-instance MonoTraversable ModuleRef RetrieveByKey
 instance MonoTraversable ModuleRef Update
 instance MonoTraversable ModuleRef Scenario
 instance MonoTraversable ModuleRef Expr
