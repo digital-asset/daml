@@ -27,7 +27,7 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficPurchasedSubmissionHandler,
   TrafficReceipt,
 }
-import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
@@ -38,6 +38,7 @@ import com.digitalasset.canton.{
 }
 import com.google.rpc.status.Status
 import org.mockito.ArgumentCaptor
+import org.mockito.Mockito.clearInvocations
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -54,6 +55,7 @@ class TrafficPurchasedSubmissionHandlerTest
 
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
+  private val domainTimeTracker = mock[DomainTimeTracker]
   private val domainId = DomainId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
@@ -104,6 +106,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
+        domainTimeTracker,
         crypto,
       )
       .value
@@ -187,6 +190,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
+        domainTimeTracker,
         crypto,
       )
       .value
@@ -242,6 +246,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
+        domainTimeTracker,
         crypto,
       )
       .value
@@ -277,6 +282,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
+        domainTimeTracker,
         crypto,
       )
       .value
@@ -320,6 +326,7 @@ class TrafficPurchasedSubmissionHandlerTest
       )(any[TraceContext])
     )
       .thenReturn(EitherT.pure(()))
+    clearInvocations(domainTimeTracker)
 
     val resultF = handler
       .sendTrafficPurchasedRequest(
@@ -329,6 +336,7 @@ class TrafficPurchasedSubmissionHandlerTest
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
+        domainTimeTracker,
         crypto,
       )
       .value
@@ -345,5 +353,8 @@ class TrafficPurchasedSubmissionHandlerTest
         s"Submission timed out after sequencing time ${CantonTimestamp.Epoch} has elapsed"
       )
     )
+
+    // Check that a tick was requested so that the sequencer will actually observe the timeout
+    verify(domainTimeTracker).requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext])
   }
 }

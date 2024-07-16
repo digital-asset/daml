@@ -19,7 +19,12 @@ import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  ProtocolVersionChecksAsyncWordSpec,
+  SequencerCounter,
+  SequentialTestByKey,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -35,6 +40,7 @@ trait SequencerStoreTest
     with BaseTest
     with HasCloseContext
     with FlagCloseable
+    with SequentialTestByKey
     with ProtocolVersionChecksAsyncWordSpec {
 
   lazy val sequencerMember: Member = DefaultTestIdentities.sequencerId

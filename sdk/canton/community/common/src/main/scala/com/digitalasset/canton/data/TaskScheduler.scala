@@ -156,19 +156,22 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       val (sc, lastTick) = lastProgress.get()
       val noProgressDuration = now - lastTick
 
-      val maxWaitingDuration = pending.headOption match {
-        case Some(scheduled) => now - scheduled.scheduledAt.get()
-        case None => JDuration.ZERO
-      }
-      if (noProgressDuration >= alertAfter && maxWaitingDuration >= alertAfter) {
-        logger.info(
-          s"Task scheduler waits for tick of sc=${sc + 1}. Last tick: sc=$sc at $lastTick. " +
-            s"Blocked trace ids: ${pending.map(_.traceContext.traceId.getOrElse("")).toSet.mkString(", ")}"
-        )
-        scheduleNextCheck(alertEvery)
-
-      } else {
-        scheduleNextCheck(alertAfter minus (noProgressDuration min maxWaitingDuration))
+      blocking {
+        lock.synchronized {
+          val maxWaitingDuration = pending.headOption match {
+            case Some(scheduled) => now - scheduled.scheduledAt.get()
+            case None => JDuration.ZERO
+          }
+          if (noProgressDuration >= alertAfter && maxWaitingDuration >= alertAfter) {
+            logger.info(
+              s"Task scheduler waits for tick of sc=${sc + 1}. Last tick: sc=$sc at $lastTick. " +
+                s"Blocked trace ids: ${pending.map(_.traceContext.traceId.getOrElse("")).toSet.mkString(", ")}"
+            )
+            scheduleNextCheck(alertEvery)
+          } else {
+            scheduleNextCheck(alertAfter minus (noProgressDuration min maxWaitingDuration))
+          }
+        }
       }
     }.onShutdown(logger.debug("Stop periodic check for missing ticks."))
   }

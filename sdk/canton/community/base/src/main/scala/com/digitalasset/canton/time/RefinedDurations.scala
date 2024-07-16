@@ -152,12 +152,21 @@ final case class PositiveFiniteDuration private (duration: Duration)
 }
 
 object PositiveFiniteDuration extends RefinedDurationCompanion[PositiveFiniteDuration] {
+  implicit val forgetRefinementJDuration: Transformer[PositiveFiniteDuration, Duration] =
+    _.duration
+  implicit val forgetRefinementFDuration: Transformer[PositiveFiniteDuration, FiniteDuration] =
+    _.toScala
+  implicit val toNonNegativeDurationConfig
+      : Transformer[PositiveFiniteDuration, PositiveFiniteDurationConfig] = _.toConfig
+
   override def create(duration: Duration): Either[String, PositiveFiniteDuration] =
     Either.cond(
       !duration.isNegative && !duration.isZero,
       PositiveFiniteDuration(duration),
       s"Duration should be positive, found: $duration",
     )
+
+  def fromConfig(config: PositiveFiniteDurationConfig) = PositiveFiniteDuration(config.asJava)
 }
 
 final case class NonNegativeFiniteDuration private (duration: Duration)
@@ -257,7 +266,6 @@ object PositiveSeconds extends RefinedDurationCompanion[PositiveSeconds] {
   implicit val toPositiveSecondsConfig
       : Transformer[PositiveSeconds, PositiveDurationSecondsConfig] =
     _.toConfig
-
   implicit val getResultPositiveSeconds: GetResult[PositiveSeconds] =
     GetResult(r => tryOfSeconds(r.nextLong()))
 

@@ -34,7 +34,6 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.{
   TrafficControlError,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
-import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -57,7 +56,7 @@ class TrafficControlProcessor(
   def subscribe(subscriber: TrafficControlSubscriber): Unit =
     listeners.updateAndGet(subscriber :: _).discard
 
-  def subscriptionStartsAt(start: SubscriptionStart, domainTimeTracker: DomainTimeTracker)(implicit
+  def subscriptionStartsAt(start: SubscriptionStart)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     import SubscriptionStart.*

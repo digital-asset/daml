@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
@@ -90,36 +89,34 @@ abstract class AbstractMessageProcessor(
     if (messages.isEmpty) FutureUnlessShutdown.unit
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
-
-      val result = for {
-        domainParameters <- EitherT.right(
-          crypto.ips
-            .awaitSnapshotUS(requestId.unwrap)
-            .flatMap(snapshot =>
-              FutureUnlessShutdown.outcomeF(
-                snapshot.findDynamicDomainParametersOrDefault(protocolVersion)
-              )
+      for {
+        domainParameters <- crypto.ips
+          .awaitSnapshotUS(requestId.unwrap)
+          .flatMap(snapshot =>
+            FutureUnlessShutdown.outcomeF(
+              snapshot.findDynamicDomainParametersOrDefault(protocolVersion)
             )
-        )
+          )
+
         maxSequencingTime = requestId.unwrap.add(
           domainParameters.confirmationResponseTimeout.unwrap
         )
-        _ <- sequencerClient.sendAsync(
-          Batch.of(protocolVersion, messages*),
-          topologyTimestamp = Some(requestId.unwrap),
-          maxSequencingTime = maxSequencingTime,
-          messageId = messageId.getOrElse(MessageId.randomMessageId()),
-          callback = SendCallback.log(s"Response message for request [$requestId]", logger),
-          amplify = true,
-        )
+        _ <- sequencerClient
+          .sendAsync(
+            Batch.of(protocolVersion, messages*),
+            topologyTimestamp = Some(requestId.unwrap),
+            maxSequencingTime = maxSequencingTime,
+            messageId = messageId.getOrElse(MessageId.randomMessageId()),
+            callback = SendCallback.log(s"Response message for request [$requestId]", logger),
+            amplify = true,
+          )
+          .valueOr {
+            // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
+            // if the sequencer rejects them (e.g max sequencing time has elapsed)
+            err =>
+              logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
+          }
       } yield ()
-
-      result.valueOr {
-        // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
-        // if the sequencer rejects them (e.g max sequencing time has elapsed)
-        err =>
-          logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
-      }
     }
   }
 

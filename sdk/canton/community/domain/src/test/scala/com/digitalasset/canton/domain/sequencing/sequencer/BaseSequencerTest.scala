@@ -23,11 +23,11 @@ import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, Sequence
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
-import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   participant1,
   participant2,
@@ -164,7 +164,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         member: Member,
         serial: PositiveInt,
         totalTrafficPurchased: NonNegativeLong,
-        sequencerClient: SequencerClient,
+        sequencerClient: SequencerClientSend,
+        domainTimeTracker: DomainTimeTracker,
     )(implicit
         traceContext: TraceContext
     ): EitherT[

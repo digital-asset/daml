@@ -76,7 +76,6 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
@@ -517,12 +516,8 @@ class TransactionProcessingSteps(
     override def submissionErrorTrackingData(
         error: SubmissionSendError
     )(implicit traceContext: TraceContext): TransactionSubmissionTrackingData = {
-      val errorCode: TransactionError = error.sendError match {
-        case SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded(_)) =>
-          TransactionProcessor.SubmissionErrors.DomainBackpressure.Rejection(error.toString)
-        case otherSendError =>
-          TransactionProcessor.SubmissionErrors.SequencerRequest.Error(otherSendError)
-      }
+      val errorCode: TransactionError =
+        TransactionProcessor.SubmissionErrors.SequencerRequest.Error(error.sendError)
       val rejectionCause = TransactionSubmissionTrackingData.CauseWithTemplate(errorCode)
       TransactionSubmissionTrackingData(
         completionInfo,

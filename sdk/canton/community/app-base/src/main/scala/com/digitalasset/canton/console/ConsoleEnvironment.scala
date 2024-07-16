@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.{
   NonNegativeDuration,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
+  PositiveFiniteDuration,
   ProcessingTimeout,
 }
 import com.digitalasset.canton.console.CommandErrors.{
@@ -597,8 +598,15 @@ object ConsoleEnvironment {
     ): NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.tryFromDuration(duration)
 
+    /** Implicitly convert a duration to a [[com.digitalasset.canton.config.PositiveFiniteDuration]]
+      * @throws java.lang.IllegalArgumentException if `duration` is negative, zero, or infinite
+      */
+    implicit def durationToPositiveFiniteDuration(
+        duration: SDuration
+    ): PositiveFiniteDuration =
+      PositiveFiniteDuration.tryFromDuration(duration)
+
     /** Implicitly convert a duration to a [[com.digitalasset.canton.config.PositiveDurationSeconds]]
-      *
       * @throws java.lang.IllegalArgumentException if `duration` is not positive or not rounded to the second.
       */
     implicit def durationToPositiveDurationRoundedSeconds(
