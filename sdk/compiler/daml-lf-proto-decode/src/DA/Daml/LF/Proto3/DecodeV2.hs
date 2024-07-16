@@ -646,7 +646,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
       <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
 
-decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode  (Qualified TypeConName)
+decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode (Qualified TypeConName)
 decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =
   mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConName
 

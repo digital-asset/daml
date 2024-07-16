@@ -1085,7 +1085,7 @@ message Update {
   // Retrieve by key Update
   message RetrieveByKey {
     TypeConName template = 1;
-    // Note: The following field could be reused as it was drop when RetrieveByKey was still in 2.dev
+    // Note: The following field could be reused as it was dropped when RetrieveByKey was still in 2.dev
     reserved 2; // was key.
   }
 
