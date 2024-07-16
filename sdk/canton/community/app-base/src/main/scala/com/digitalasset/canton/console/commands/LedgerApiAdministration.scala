@@ -1664,7 +1664,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
           consoleEnvironment.runE {
             result
               .get()
-              .toRight(s"Failed to find contract of type ${companion.TEMPLATE_ID} after $timeout")
+              .toRight(
+                s"Failed to find contract of type ${companion.TEMPLATE_ID_WITH_PACKAGE_ID} after $timeout"
+              )
           }
         })
 
@@ -1684,7 +1686,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyId: PartyId,
             predicate: TC => Boolean = (_: TC) => true,
         ): Seq[TC] = check(FeatureFlag.Testing) {
-          val javaTemplateId = templateCompanion.TEMPLATE_ID
+          val javaTemplateId = templateCompanion.TEMPLATE_ID_WITH_PACKAGE_ID
           val templateId = TemplateId(
             javaTemplateId.getPackageId,
             javaTemplateId.getModuleName,

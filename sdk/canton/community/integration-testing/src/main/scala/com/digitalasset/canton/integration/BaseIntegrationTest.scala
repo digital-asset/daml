@@ -116,7 +116,7 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
         p.ledger_api.acs
           .of_party(
             p.id.adminParty,
-            filterTemplates = templateIdsFromJava(W.pingpong.Pong.TEMPLATE_ID),
+            filterTemplates = templateIdsFromJava(W.pingpong.Pong.TEMPLATE_ID_WITH_PACKAGE_ID),
           ) shouldBe empty
       }
     }
