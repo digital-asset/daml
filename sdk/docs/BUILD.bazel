@@ -386,22 +386,22 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
+    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract
     #   keys from the docs, delete the explicit target, and revert the
     #   daml-script.dar to the non-dev version.
     target = "2.dev",
     deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
-    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
 )
 
 daml_test(
     name = "bindings-java-daml-test",
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     enable_interfaces = True,
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract
     #   keys from the docs and delete the explicit target.
     target = "2.dev",
-    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
 )
 
 daml_test(
@@ -427,11 +427,11 @@ daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
     #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
     target = "2.dev",
     deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
-    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
 )
 
 [
@@ -439,9 +439,9 @@ daml_test(
         name = "daml-ref-daml-test-{}".format(version),
         timeout = "long",
         srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
+        additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
         enable_interfaces = True,
         target = version,
-        additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     )
     for version in ENGINE_LF_DEV_VERSIONS
 ]
@@ -504,10 +504,10 @@ daml_test(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
     ),
+    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     enable_interfaces = True,
     target = "2.1",
     deps = ["//daml-script/daml:daml-script-2.1.dar"],
-    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
 )
 
 daml_compile(
@@ -525,11 +525,11 @@ daml_test(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
     ),
+    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
     data_deps = ["daml-intro12-part1.dar"],
     enable_interfaces = True,
     target = "2.1",
     deps = ["//daml-script/daml:daml-script-2.1.dar"],
-    additional_compiler_flags = ["--warn-bad-interface-instances=yes"],
 )
 
 daml_test(
