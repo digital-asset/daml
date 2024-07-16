@@ -61,6 +61,23 @@ object SyncServiceInjectionError extends InjectionErrorGroup {
         extends TransactionErrorImpl(cause = "This participant is not connected to any domain.")
   }
 
+  @Explanation(
+    "This errors results if a command is submitted to a participant that is not connected to a domain needed to process the command."
+  )
+  @Resolution(
+    "Connect your participant to the required domain."
+  )
+  object NotConnectedToDomain
+      extends ErrorCode(
+        id = "NOT_CONNECTED_TO_DOMAIN",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(domain: String)
+        extends TransactionErrorImpl(
+          cause = s"This participant is not connected to domain $domain."
+        )
+  }
+
   @Explanation("This errors occurs if an internal error results in an exception.")
   @Resolution("Contact support.")
   object InjectionFailure

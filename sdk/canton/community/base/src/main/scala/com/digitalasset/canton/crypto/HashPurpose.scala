@@ -92,4 +92,5 @@ object HashPurpose {
   val TopologyMappingUniqueKey = HashPurpose(43, "TopologyMappingUniqueKey")
   val CantonScript = HashPurpose(44, "CantonScriptHash")
   val BftAvailabilityAck = HashPurpose(45, "BftAvailabilityAck")
+  val BftBatchId = HashPurpose(46, "BftBatchId")
 }

@@ -235,6 +235,16 @@ class BftOrderingMetrics(
   object consensus {
     private val prefix = histograms.consensus.prefix
 
+    val epoch: Gauge[Long] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "epoch",
+        summary = "Epoch number",
+        description = "Current epoch number for the node.",
+        qualification = MetricQualification.Traffic,
+      ),
+      0,
+    )
+
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
@@ -244,7 +254,7 @@ class BftOrderingMetrics(
         summary = "Block vote % during prepare",
         description =
           "Percentage of BFT sequencers that voted for a block in the PBFT prepare stage.",
-        qualification = MetricQualification.Debug,
+        qualification = MetricQualification.Traffic,
       ),
       0.0d,
     )
@@ -255,7 +265,7 @@ class BftOrderingMetrics(
         summary = "Block vote % during commit",
         description =
           "Percentage of BFT sequencers that voted for a block in the PBFT commit stage.",
-        qualification = MetricQualification.Debug,
+        qualification = MetricQualification.Traffic,
       ),
       0.0d,
     )
@@ -269,7 +279,7 @@ class BftOrderingMetrics(
         prefix :+ "validators",
         summary = "Active validators",
         description = "Number of BFT sequencers actively involved in consensus.",
-        qualification = MetricQualification.Debug,
+        qualification = MetricQualification.Traffic,
       ),
       0,
     )
@@ -289,7 +299,7 @@ class BftOrderingMetrics(
           prefix :+ "connected",
           summary = "Connected peers",
           description = "Number of connected P2P endpoints.",
-          qualification = MetricQualification.Debug,
+          qualification = MetricQualification.Traffic,
         ),
         0,
       )
@@ -299,7 +309,7 @@ class BftOrderingMetrics(
           prefix :+ "authenticated",
           summary = "Authenticated peers",
           description = "Number of connected P2P endpoints that are also authenticated.",
-          qualification = MetricQualification.Debug,
+          qualification = MetricQualification.Traffic,
         ),
         0,
       )

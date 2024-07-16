@@ -240,22 +240,6 @@ object TransactionProcessor {
         with TransactionSubmissionError
 
     @Explanation(
-      """This error occurs when the sequencer refuses to accept a command due to backpressure."""
-    )
-    @Resolution("Wait a bit and retry, preferably with some backoff factor.")
-    object DomainBackpressure
-        extends ErrorCode(id = "DOMAIN_BACKPRESSURE", ErrorCategory.ContentionOnSharedResources) {
-      override def logLevel: Level = Level.INFO
-
-      final case class Rejection(reason: String)
-          extends TransactionErrorImpl(
-            cause = "The domain is overloaded.",
-            // Only reported asynchronously, so covered by submission rank guarantee
-            definiteAnswer = true,
-          )
-    }
-
-    @Explanation(
       """The participant has rejected all incoming commands during a configurable grace period."""
     )
     @Resolution("""Configure more restrictive resource limits (enterprise only).

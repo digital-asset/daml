@@ -38,6 +38,14 @@ trait SequencerClientSend {
     *  - If replay is enabled, the callback will be called immediately with a fake `SendResult`.
     *  For more robust send result tracking callers should persist metadata about the send they will make and
     *  monitor the sequenced events when read, so actions can be taken even if in-memory state is lost.
+    *
+    *  @param amplify Amplification sends the submission request to multiple sequencers according to the
+    *                 [[com.digitalasset.canton.sequencing.SubmissionRequestAmplification]] configured in the
+    *                 [[com.digitalasset.canton.sequencing.SequencerConnections]]. If the sequencer client plans to send
+    *                 the submission request to multiple sequencers, it adds a suitable
+    *                 [[com.digitalasset.canton.sequencing.protocol.AggregationRule]] to the request for deduplication,
+    *                 unless one is already present.
+    *                 False disables amplificaton for this request independent of the configuration.
     */
   def sendAsync(
       batch: Batch[DefaultOpenEnvelope],

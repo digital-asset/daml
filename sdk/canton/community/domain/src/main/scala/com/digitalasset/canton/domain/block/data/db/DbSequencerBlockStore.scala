@@ -82,8 +82,18 @@ class DbSequencerBlockStore(
             for {
               watermark <- safeWaterMarkDBIO
               blockInfoO <- watermark match {
-                case Some(watermark) => findBlockContainingTimestamp(watermark)
-                case None => readLatestBlockInfo()
+                case Some(watermark) =>
+                  findBlockContainingTimestamp(watermark).flatMap {
+                    case Some(block) => DBIO.successful(Some(block))
+                    case None =>
+                      // WM is ahead of complete blocks, so we pick the latest complete block
+                      readLatestBlockInfo()
+                  }
+                case None =>
+                  // if there's no WM (blank sequencer), we start from the beginning below
+                  DBIO.successful(
+                    None
+                  )
               }
             } yield blockInfoO
           } else {

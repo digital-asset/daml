@@ -416,6 +416,11 @@ object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[Positi
   private[canton] implicit val positiveFiniteDurationWriter: ConfigWriter[PositiveFiniteDuration] =
     // avoid pretty printing by converting the underlying value to string
     ConfigWriter.toString(_.underlying.toString)
+
+  implicit val forgetRefinementJDuration: Transformer[PositiveFiniteDuration, JDuration] =
+    _.asJava
+  implicit val forgetRefinementFDuration: Transformer[PositiveFiniteDuration, FiniteDuration] =
+    _.underlying
 }
 
 /** Duration class used for positive durations that are rounded to the second. */

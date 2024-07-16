@@ -457,7 +457,6 @@ abstract class ProtocolProcessor[
         "sequenced-event-send-result",
         futureSupervisor,
       )
-
       _ <- sequencerClient
         .sendAsync(
           batch,
@@ -470,6 +469,9 @@ abstract class ProtocolProcessor[
           removePendingSubmission()
           embedSubmissionError(SequencerRequestError(err))
         }
+
+      // Ensure that we will observe a timeout if there is no other activity
+      _ = ephemeral.timeTracker.requestTick(maxSequencingTime)
 
       // If we're shutting down, the sendResult below won't complete successfully (because it's wrapped in a `FutureUnlessShutdown`)
       // We still want to clean up pending submissions in that case though so make sure we do that by adding a callback on

@@ -31,7 +31,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   MemberRecipient,
@@ -42,7 +42,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.EnrichedDurations.*
-import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -456,7 +456,8 @@ class DatabaseSequencer(
       member: Member,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
-      sequencerClient: SequencerClient,
+      sequencerClient: SequencerClientSend,
+      domainTimeTracker: DomainTimeTracker,
   )(implicit
       traceContext: TraceContext
   ): EitherT[

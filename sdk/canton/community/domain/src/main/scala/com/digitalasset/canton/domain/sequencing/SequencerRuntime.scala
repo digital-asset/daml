@@ -443,7 +443,7 @@ class SequencerRuntime(
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         Seq(
           topologyProcessor.subscriptionStartsAt(start, domainTimeTracker),
-          trafficProcessor.subscriptionStartsAt(start, domainTimeTracker),
+          trafficProcessor.subscriptionStartsAt(start),
         ).sequence_
 
       override def apply(

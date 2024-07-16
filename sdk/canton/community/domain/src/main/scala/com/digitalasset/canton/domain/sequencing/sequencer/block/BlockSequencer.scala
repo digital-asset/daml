@@ -44,7 +44,7 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
@@ -52,7 +52,7 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficPurchasedSubmissionHandler,
 }
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
@@ -681,7 +681,8 @@ class BlockSequencer(
       member: Member,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
-      sequencerClient: SequencerClient,
+      sequencerClient: SequencerClientSend,
+      domainTimeTracker: DomainTimeTracker,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
@@ -701,6 +702,7 @@ class BlockSequencer(
         serial,
         totalTrafficPurchased,
         sequencerClient,
+        domainTimeTracker,
         cryptoApi,
       )
     } yield timestamp
