@@ -144,7 +144,7 @@ class PingService(
       .unlessShutdown(
         performUnlessClosingF("wait-for-admin-workflows-to-appear-on-ledger-api")(
           connection
-            .getPackageStatus(M.Ping.TEMPLATE_ID.getPackageId)
+            .getPackageStatus(M.Ping.PACKAGE_ID)
             .map(_.packageStatus.isRegistered)
         ),
         AllExnRetryable,
@@ -170,12 +170,12 @@ class PingService(
   // TransactionFilter to ensure the vacuuming does not operate on unwanted contracts
   private val vacuumFilter = {
     val templateIds = Seq(
-      M.PingProposal.TEMPLATE_ID,
-      M.Ping.TEMPLATE_ID,
-      M.Pong.TEMPLATE_ID,
-      M.Explode.TEMPLATE_ID,
-      M.Merge.TEMPLATE_ID,
-      M.Collapse.TEMPLATE_ID,
+      M.PingProposal.TEMPLATE_ID_WITH_PACKAGE_ID,
+      M.Ping.TEMPLATE_ID_WITH_PACKAGE_ID,
+      M.Pong.TEMPLATE_ID_WITH_PACKAGE_ID,
+      M.Explode.TEMPLATE_ID_WITH_PACKAGE_ID,
+      M.Merge.TEMPLATE_ID_WITH_PACKAGE_ID,
+      M.Collapse.TEMPLATE_ID_WITH_PACKAGE_ID,
     ).map(LedgerConnection.mapTemplateIds)
 
     LedgerConnection.transactionFilterByParty(Map(adminPartyId -> templateIds))
