@@ -690,7 +690,7 @@ object Generators {
     import v2.CheckpointOuterClass.Checkpoint
     for {
       recordTime <- instantGen
-      offset <- participantOffsetGen
+      offset <- Arbitrary.arbString.arbitrary
     } yield Checkpoint
       .newBuilder()
       .setRecordTime(Utils.instantToProto(recordTime))

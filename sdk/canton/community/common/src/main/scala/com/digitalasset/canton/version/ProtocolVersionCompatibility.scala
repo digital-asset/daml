@@ -43,11 +43,11 @@ object ProtocolVersionCompatibility {
   }
 
   /** Returns the protocol versions supported by the participant of the specified release.
-    * includeUnstableVersions: include unstable versions
-    * includeBetaVersions: include Beta versions
+    * includeAlphaVersions: include alpha versions
+    * includeBetaVersions: include beta versions
     */
   def supportedProtocolsParticipant(
-      includeUnstableVersions: Boolean,
+      includeAlphaVersions: Boolean,
       includeBetaVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
@@ -56,8 +56,8 @@ object ProtocolVersionCompatibility {
         ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
-    val unstable =
-      if (includeUnstableVersions)
+    val alpha =
+      if (includeAlphaVersions)
         ProtocolVersion.alpha.forgetNE
       else List.empty
 
@@ -66,7 +66,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ beta ++ unstable
+    ) ++ beta ++ alpha
   }
 
   /** Returns the protocol versions supported by the domain of the current release.
@@ -93,11 +93,11 @@ object ProtocolVersionCompatibility {
   }
 
   /** Returns the protocol versions supported by the domain of the specified release.
-    * includeUnstableVersions: include unstable versions
+    * includeAlphaVersions: include alpha versions
     * includeBetaVersions: include beta versions
     */
   def trySupportedProtocolsDomain(
-      includeUnstableVersions: Boolean,
+      includeAlphaVersions: Boolean,
       includeBetaVersions: Boolean,
       release: ReleaseVersion,
   ): NonEmpty[List[ProtocolVersion]] = {
@@ -106,8 +106,8 @@ object ProtocolVersionCompatibility {
         ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
-    val unstable =
-      if (includeUnstableVersions)
+    val alpha =
+      if (includeAlphaVersions)
         ProtocolVersion.alpha.forgetNE
       else List.empty
 
@@ -116,7 +116,7 @@ object ProtocolVersionCompatibility {
       sys.error(
         s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       ),
-    ) ++ beta ++ unstable
+    ) ++ beta ++ alpha
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
@@ -150,7 +150,7 @@ object ProtocolVersionCompatibility {
     val clientSupportsRequiredVersion = clientSupportedVersions.contains(server)
     val clientMinVersionLargerThanReqVersion = clientMinimumProtocolVersion.exists(_ > server)
     // if dev-version support is on for participant and domain, ignore the min protocol version
-    if (clientSupportsRequiredVersion && server.isUnstable)
+    if (clientSupportsRequiredVersion && server.isAlpha)
       Right(())
     else if (clientMinVersionLargerThanReqVersion)
       Left(MinProtocolError(server, clientMinimumProtocolVersion, clientSupportsRequiredVersion))
@@ -242,7 +242,7 @@ object DomainProtocolVersion {
           // the safety flag during config validation
           ProtocolVersionCompatibility
             .trySupportedProtocolsDomain(
-              includeUnstableVersions = true,
+              includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
             )
@@ -251,7 +251,7 @@ object DomainProtocolVersion {
           UnsupportedVersion(
             version,
             ProtocolVersionCompatibility.trySupportedProtocolsDomain(
-              includeUnstableVersions = true,
+              includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
             ),
@@ -283,7 +283,7 @@ object ParticipantProtocolVersion {
           // same as domain: support parsing of dev
           ProtocolVersionCompatibility
             .supportedProtocolsParticipant(
-              includeUnstableVersions = true,
+              includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
             )
@@ -292,7 +292,7 @@ object ParticipantProtocolVersion {
           UnsupportedVersion(
             version,
             ProtocolVersionCompatibility.supportedProtocolsParticipant(
-              includeUnstableVersions = true,
+              includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
             ),
