@@ -13,7 +13,7 @@
 module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
+import Control.Exception (bracket, catch, displayException, throwIO, handle, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad (forM, forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
@@ -889,7 +889,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
         buildMulti mPkgConfig multiPackageConfigPath = do
-          putStrLn $ "Running multi-package build of "
+          hPutStrLn stderr $ "Running multi-package build of "
             <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
@@ -917,7 +917,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
         -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
         (False, Just pkgConfig, Nothing) -> do
-          putStrLn $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
+          hPutStrLn stderr $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
           buildSingle pkgConfig
 
         -- We have no package context, but we have found a multi package at the current directory
@@ -959,9 +959,12 @@ withMaybeConfig withConfig handler = do
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
         pure Nothing
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "packageless daml.yaml" `isInfixOf` exc -> do
-        putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
+        hPutStrLn stderr "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
+      --SomeException e -> do
+      --  writeFile "/home/dylanthinnes/AAAAAAA" (displayException e)
+      --  pure Nothing
     ) (withConfig $ pure . Just)
   handler mConfig
 
