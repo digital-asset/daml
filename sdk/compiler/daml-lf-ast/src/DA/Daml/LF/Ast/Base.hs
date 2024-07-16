@@ -1061,8 +1061,14 @@ data Module = Module
 data PackageMetadata = PackageMetadata
     { packageName :: PackageName
     , packageVersion :: PackageVersion
-    , upgradedPackageId :: Maybe PackageId
+    , upgradedPackageId :: Maybe UpgradedPackageId
     } deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Package id of a package begin upgraded
+newtype UpgradedPackageId = UpgradedPackageId
+    { unUpgradedPackageId :: PackageId }
+  deriving stock (Eq, Data, Generic, Ord, Show)
+  deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
 -- | A package.
 data Package = Package

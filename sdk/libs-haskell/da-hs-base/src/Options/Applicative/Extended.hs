@@ -12,6 +12,7 @@ module Options.Applicative.Extended
     , strOptionOnce
     , optionLast
     , lastOr
+    , yesNoAutoToMaybe
     ) where
 
 import GHC.Exts (IsString (..))
@@ -26,6 +27,12 @@ data YesNoAuto
     | Auto
     | Yes
     deriving (Eq, Ord, Show)
+
+-- | Convert YesNoAuto to Maybe Bool
+yesNoAutoToMaybe :: YesNoAuto -> Maybe Bool
+yesNoAutoToMaybe No = Just False
+yesNoAutoToMaybe Yes = Just True
+yesNoAutoToMaybe Auto = Nothing
 
 -- | Convert YesNoAuto value to Bool by specifying a default value for Auto.
 determineAuto :: Bool -> YesNoAuto -> Bool

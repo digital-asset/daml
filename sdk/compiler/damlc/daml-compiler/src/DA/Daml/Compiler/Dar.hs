@@ -24,9 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
+import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -64,8 +62,6 @@ import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
 import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
-
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
 import SdkVersion.Class (SdkVersioned)
 
@@ -112,9 +108,8 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> WarnBadInterfaceInstances
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstances = do
+buildDar service PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -135,17 +130,11 @@ buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstan
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
-                 mbUpgradedPackage <-
-                   forM pUpgradedPackagePath $ \path -> do
-                     ExtractedDar{edMain} <- liftIO $ extractDar path
-                     let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-                     case Archive.decodeArchive Archive.DecodeAsMain bs of
-                        Left _ -> error $ "Could not decode path " ++ path
-                        Right (pid, package) -> return (pid, package)
+                 mbUpgradedPackage <- useNoFileE ExtractUpgradedPackage
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = fst <$> mbUpgradedPackage
+                        , upgradedPackageId = LF.UpgradedPackageId . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
@@ -153,7 +142,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstan
 
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
+                         Upgrade.checkUpgrade Upgrade.CheckShallow pkg lfVersion (typecheckUpgrades pUpgradeInfo) (warnBadInterfaceInstances pUpgradeInfo) mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg

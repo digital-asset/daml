@@ -7,6 +7,10 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
+    , UpgradeInfo (..)
+    , defaultUpgradeInfo
+    , typecheckUpgrades
+    , warnBadInterfaceInstances
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
@@ -58,9 +62,25 @@ data PackageConfigFields = PackageConfigFields
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
     , pSdkVersion :: UnresolvedReleaseVersion
-    , pUpgradedPackagePath :: Maybe String
-    , pTypecheckUpgrades :: Bool
+    , pUpgradeInfo :: UpgradeInfo
     }
+
+data UpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath :: Maybe FilePath
+    , uiTypecheckUpgrades :: Maybe Bool
+    , uiWarnBadInterfaceInstances :: Maybe Bool
+    }
+
+defaultUpgradeInfo :: UpgradeInfo
+defaultUpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath = Nothing
+    , uiTypecheckUpgrades = Nothing
+    , uiWarnBadInterfaceInstances = Nothing
+    }
+
+typecheckUpgrades, warnBadInterfaceInstances :: UpgradeInfo -> Bool
+typecheckUpgrades = fromMaybe True . uiTypecheckUpgrades
+warnBadInterfaceInstances = fromMaybe False . uiWarnBadInterfaceInstances
 
 -- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
@@ -75,8 +95,9 @@ parseProjectConfig project = do
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    pUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
-    pTypecheckUpgrades <- fromMaybe True <$> queryProjectConfig ["typecheck-upgrades"] project
+    uiUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
+    uiTypecheckUpgrades <- queryProjectConfig ["typecheck-upgrades"] project
+    let pUpgradeInfo = defaultUpgradeInfo { uiUpgradedPackagePath, uiTypecheckUpgrades }
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]

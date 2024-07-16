@@ -116,7 +116,7 @@ import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
                               Haddock(..),
                               IncrementalBuild (..),
-                              Options,
+                              Options(Options),
                               SkipScenarioValidation(..),
                               StudioAutorunAllScenarios,
                               damlArtifactDir,
@@ -137,11 +137,13 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optScenarioService,
                               optSkipScenarioValidation,
                               optThreads,
-                              optWarnBadInterfaceInstances,
+                              optUpgradeInfo,
                               pkgNameVersion,
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
+                               UpgradeInfo(..),
+                               defaultUpgradeInfo,
                                checkPkgConfig,
                                findMultiPackageConfig,
                                withPackageConfig,
@@ -697,6 +699,9 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
+          mPkgConfig <- withMaybeConfig (withPackageConfig defaultProjectPath) pure
+          let upgradeInfo = maybe defaultUpgradeInfo pUpgradeInfo mPkgConfig
+          options <- mergeUpgradesField "ide" options upgradeInfo
           options <- pure options
               { optScenarioService = enableScenarioService
               , optEnableOfInterestRule = True
@@ -705,6 +710,7 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
               -- individual options. As a stopgap we ignore the argument to
               -- --jobs.
               , optThreads = 0
+              , optUpgradeInfo = upgradeInfo
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
@@ -960,7 +966,9 @@ withMaybeConfig withConfig handler = do
   handler mConfig
 
 buildEffect :: SdkVersion.Class.SdkVersioned => (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
-buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incrementalBuild initPkgDb = do
+buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
+  (pkgConfig, opts) <- syncUpgradesField pkgConfig opts
+  let PackageConfigFields{..} = pkgConfig
   installDepsAndInitPackageDb opts initPkgDb
   loggerH <- getLogger opts "build"
   Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
@@ -976,15 +984,14 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
         }
       loggerH
       diagnosticsLogger $ \compilerH -> do
+      fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       mbDar <-
           buildDar
               compilerH
               pkgConfig
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
-              (optWarnBadInterfaceInstances opts)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
-      fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       createDarFile loggerH fp dar
       pure mPkgId
     where
@@ -992,6 +999,64 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
           case mbOutFile of
             Nothing -> pure $ distDir </> name <.> "dar"
             Just out -> rel out
+
+        syncUpgradesField :: PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
+        syncUpgradesField pkgConf opts = do
+          opts <- mergeUpgradesField "build" opts (pUpgradeInfo pkgConf)
+          pure (pkgConf { pUpgradeInfo = optUpgradeInfo opts }, opts)
+
+mergeUpgradesField :: T.Text -> Options -> UpgradeInfo -> IO Options
+mergeUpgradesField context opts@Options{optUpgradeInfo} pkgUI = do
+  uiUpgradedPackagePath <- case (uiUpgradedPackagePath pkgUI, uiUpgradedPackagePath optUpgradeInfo) of
+    (Just damlYamlOption, Just buildFlagsOption) | damlYamlOption /= buildFlagsOption -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Specified two different DARs to run upgrade checks against:"
+        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack damlYamlOption <> "'"
+        , "  Path specified in `--upgrades` build option is '" <> T.pack buildFlagsOption <> "'"
+        ]
+      exitFailure
+    (a, b) ->
+      pure (a <|> b)
+  uiTypecheckUpgrades <- case (uiTypecheckUpgrades pkgUI, uiTypecheckUpgrades optUpgradeInfo) of
+    (Just True, Just False) -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Enabled upgrade typechecking in daml.yaml but disabled it via a build flag."
+        , "  Value specified in daml.yaml `typecheck-upgrades:` field is True"
+        , "  Value specified in `--typecheck-upgrades` build option is False"
+        ]
+      exitFailure
+    (Just False, Just True) -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Enabled upgrade typechecking in daml.yaml but disabled it via a build flag."
+        , "  Value specified in daml.yaml `typecheck-upgrades:` field is False"
+        , "  Value specified in `--typecheck-upgrades` build option is True"
+        ]
+      exitFailure
+    (a, b) ->
+      pure (a <|> b)
+  uiWarnBadInterfaceInstances <- case (uiWarnBadInterfaceInstances pkgUI, uiWarnBadInterfaceInstances optUpgradeInfo) of
+    (Just True, Just False) -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Enabled upgrade typechecking in daml.yaml but disabled it via a build flag."
+        , "  Value specified in daml.yaml `warn-bad-interface-instances:` field is True"
+        , "  Value specified in `--warn-bad-interface-instances` build option is False"
+        ]
+      exitFailure
+    (Just False, Just True) -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Enabled upgrade typechecking in daml.yaml but disabled it via a build flag."
+        , "  Value specified in daml.yaml `warn-bad-interface-instances:` field is False"
+        , "  Value specified in `--warn-bad-interface-instances` build option is True"
+        ]
+      exitFailure
+    (a, b) ->
+      pure (a <|> b)
+  pure $ opts { optUpgradeInfo = UpgradeInfo {..} }
 
 
 {- | Multi Build! (the multi-package.yaml approach)
@@ -1334,13 +1399,11 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDataDependencies = []
                               , pSdkVersion = SdkVersion.Class.unresolvedBuiltinSdkVersion
                               , pModulePrefixes = Map.empty
-                              , pUpgradedPackagePath = Nothing
-                              , pTypecheckUpgrades = False
+                              , pUpgradeInfo = defaultUpgradeInfo
                               -- execPackage is deprecated so it doesn't need to support upgrades
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
-                            (optWarnBadInterfaceInstances opts)
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."

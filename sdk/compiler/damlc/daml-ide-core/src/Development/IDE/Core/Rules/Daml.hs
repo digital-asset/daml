@@ -24,16 +24,19 @@ import MkIface
 import Maybes (MaybeErr(..))
 import TcRnMonad (initIfaceLoad)
 
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
+import DA.Daml.Package.Config
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -99,6 +102,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
+import qualified DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
 import DA.Pretty (PrettyLevel)
@@ -288,20 +292,26 @@ getExternalPackages file = do
         map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
 
 -- Generates and type checks the DALF for a module.
-generateDalfRule :: Rules ()
-generateDalfRule =
+generateDalfRule :: Options -> Rules ()
+generateDalfRule opts =
     define $ \GenerateDalf file -> do
+        logger <- actionLogger
+        liftIO $ logDebug logger (T.pack ("GenerateDalf " <> show file))
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
+        upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
+        logger <- actionLogger
+        liftIO $ logDebug logger (T.pack ("GenerateDalfRule " ++ show (fmap fst upgradedPackage)))
         pure $! case Serializability.inferModule world rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let diags = LF.checkModule world lfVersion dalf
-                in second (dalf <$) (diagsToIdeResult file diags)
+                    diags2 = Upgrade.checkModule world dalf lfVersion (typecheckUpgrades (optUpgradeInfo opts)) (warnBadInterfaceInstances (optUpgradeInfo opts)) upgradedPackage
+                in second (dalf <$) (diagsToIdeResult file (diags ++ diags2))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.
@@ -525,6 +535,18 @@ generatePackageMap version mbProjRoot userPkgDbs = do
       where (LF.PackageName name, mbVersion)
                = LF.safePackageMetadata (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
 
+extractUpgradedPackageRule :: Options -> Rules ()
+extractUpgradedPackageRule opts = do
+  defineNoFile $ \ExtractUpgradedPackage ->
+    case uiUpgradedPackagePath (optUpgradeInfo opts) of
+      Nothing -> pure Nothing
+      Just path -> use ExtractUpgradedPackageFile (toNormalizedFilePath' path)
+  define $ \ExtractUpgradedPackageFile file -> do
+    ExtractedDar{edMain} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
+    case Archive.decodeArchive Archive.DecodeAsMain bs of
+      Left _ -> pure ([ideErrorPretty file ("Could not decode file as a DAR." :: T.Text)], Nothing)
+      Right (pid, package) -> pure ([], Just (pid, package))
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
@@ -680,6 +702,8 @@ generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
         WhnfPackage deps <- use_ GeneratePackageDeps file
+        logger <- actionLogger
+        liftIO $ logDebug logger (T.pack ("GeneratePackageDeps " <> show file))
         dalf <- use_ GenerateDalf file
         return ([], Just $ WhnfPackage $ deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
 
@@ -1184,6 +1208,9 @@ ofInterestRule = do
         let allFiles = files `HashSet.union` HashMap.keysSet vrFiles
         gc allFiles
 
+        logger <- actionLogger
+        liftIO $ logDebug logger (T.pack ("allFiles " <> show allFiles))
+
         -- Check files that can't be compiled
         let checkUncompilableFiles = flip map (HashSet.toList allFiles) $ \file -> do
             mbDalf <- getDalf file
@@ -1513,7 +1540,7 @@ internalModules = map FPP.normalise
 damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule
-    generateDalfRule
+    generateDalfRule opts
     generateSerializedDalfRule opts
     readSerializedDalfRule
     readInterfaceRule
@@ -1537,6 +1564,7 @@ damlRule opts = do
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
     damlGhcSessionRule opts
+    extractUpgradedPackageRule opts
     when (optEnableOfInterestRule opts) ofInterestRule
 
 mainRule :: SdkVersioned => Options -> Rules ()

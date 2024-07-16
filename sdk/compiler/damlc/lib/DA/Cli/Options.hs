@@ -21,6 +21,7 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
+import DA.Daml.Package.Config (UpgradeInfo (..))
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -446,7 +447,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optEnableInterfaces <- enableInterfacesOpt
     optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
-    optWarnBadInterfaceInstances <- warnBadInterfaceInstancesOpt
+    optUpgradeInfo <- optUpgradeInfo
 
     return Options{..}
   where
@@ -573,14 +574,32 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         <> help "Set path to CPP."
         <> internal
 
-warnBadInterfaceInstancesOpt :: Parser WarnBadInterfaceInstances
-warnBadInterfaceInstancesOpt =
-  WarnBadInterfaceInstances <$>
-  flagYesNoAuto
-    "warn-bad-interface-instances"
-    False
-    "Convert errors about bad, non-upgradeable interface instances into warnings."
-    idm
+    optUpgradeDar :: Parser (Maybe FilePath)
+    optUpgradeDar = optional . optionOnce str
+        $ metavar "UPGRADE_DAR"
+        <> long "upgrades"
+        <> help "Set DAR to upgrade"
+
+    optTypecheckUpgrades :: Parser YesNoAuto
+    optTypecheckUpgrades =
+      flagYesNoAuto'
+        "typecheck-upgrades"
+        "Typecheck upgrades."
+        idm
+
+    optWarnBadInterfaceInstances :: Parser YesNoAuto
+    optWarnBadInterfaceInstances =
+      flagYesNoAuto'
+        "warn-bad-interface-instances"
+        "Convert errors about bad, non-upgradeable interface instances into warnings."
+        idm
+
+    optUpgradeInfo :: Parser UpgradeInfo
+    optUpgradeInfo = do
+      uiTypecheckUpgrades <- yesNoAutoToMaybe <$> optTypecheckUpgrades
+      uiUpgradedPackagePath <- optUpgradeDar
+      uiWarnBadInterfaceInstances <- yesNoAutoToMaybe <$> optWarnBadInterfaceInstances
+      pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
