@@ -234,7 +234,7 @@ da_scala_test_suite(
         ["src/com/**/*.scala"],
         exclude = [
             "src/com/**/*Dev*.scala",
-            "src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
         ],
     ),
     data = [
