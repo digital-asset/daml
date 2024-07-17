@@ -457,6 +457,6 @@ Because of this, `daml build` will try to cache package results and avoid rebuil
 To clean out any build artifacts in the project, use `daml clean`.
 
 - `daml clean` will clear any artifacts for the current package and its dependencies.
-- `daml-clean --all` will clear any artifacts for the entire project.
+- `daml clean --all` will clear any artifacts for the entire project.
 
 When using `daml clean` with multi-package enabled and a `multi-package.yaml` provided, you can now also provide a `--all` flag, which will clean the build artifacts of all packages in your project.
