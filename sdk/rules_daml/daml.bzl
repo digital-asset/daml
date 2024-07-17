@@ -31,7 +31,7 @@ def _daml_configure_impl(ctx):
     typecheck_upgrades = ctx.attr.typecheck_upgrades
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
-    opts = (["--target={}".format(target)] if target else []) + +(["--typecheck-upgrades=no"] if not typecheck_upgrades else [])
+    opts = (["--target={}".format(target)] if target else []) + (["--typecheck-upgrades=no"] if not typecheck_upgrades else [])
     ctx.actions.write(
         output = daml_yaml,
         content = """
