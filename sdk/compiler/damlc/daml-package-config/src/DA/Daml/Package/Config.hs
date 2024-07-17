@@ -62,7 +62,7 @@ data PackageConfigFields = PackageConfigFields
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
     , pSdkVersion :: UnresolvedReleaseVersion
-    , pUpgradeInfo :: UpgradeInfo
+    , pUpgradeDar :: Maybe FilePath
     }
 
 data UpgradeInfo = UpgradeInfo
@@ -95,9 +95,7 @@ parseProjectConfig project = do
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    uiUpgradedPackagePath <- queryProjectConfig ["upgrades"] project
-    uiTypecheckUpgrades <- queryProjectConfig ["typecheck-upgrades"] project
-    let pUpgradeInfo = defaultUpgradeInfo { uiUpgradedPackagePath, uiTypecheckUpgrades }
+    pUpgradeDar <- queryProjectConfig ["upgrades"] project
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]

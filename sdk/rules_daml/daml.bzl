@@ -31,7 +31,7 @@ def _daml_configure_impl(ctx):
     typecheck_upgrades = ctx.attr.typecheck_upgrades
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
-    opts = ["--target={}".format(target)] if target else []
+    opts = (["--target={}".format(target)] if target else []) ++ (["--typecheck-upgrades=no"] if not typecheck_upgrades else [])
     ctx.actions.write(
         output = daml_yaml,
         content = """
@@ -45,7 +45,6 @@ module-prefixes:
 {module_prefixes}
 build-options: [{opts}]
 {upgrades}
-{typecheck_upgrades}
 """.format(
             sdk = sdk_version,
             name = project_name,
@@ -55,8 +54,7 @@ build-options: [{opts}]
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
             upgrades = "upgrades: " + upgrades if upgrades else "",
-            typecheck_upgrades = "typecheck-upgrades: false" if not typecheck_upgrades else "",
-        ),
+        )
     )
 
 _daml_configure = rule(

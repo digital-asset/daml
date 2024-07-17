@@ -575,10 +575,10 @@ tests damlc =
                 , "  - --target=" <> LF.renderVersion lfVersion
                 , "  - --enable-interfaces=yes"
                 ]
+                  ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
                   ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
                   ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
                   ++ ["data-dependencies:\n -  '" <> path <> "'" | Just path <- pure mbDep]
-                  ++ ["typecheck-upgrades: False" | not doTypecheck]
               )
 
     writeFiles dir fs =

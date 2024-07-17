@@ -17,6 +17,7 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+import           DA.Daml.Package.Config (UpgradeInfo (..), typecheckUpgrades, warnBadInterfaceInstances)
 import           Data.Bifunctor (first)
 import           Data.Data
 import           Data.Either (partitionEithers)
@@ -63,15 +64,15 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
 
 checkBothAndSingle
   :: World -> (LF.UpgradedPackageId -> LF.Package -> TcUpgradeM ()) -> TcM ()
-  -> Version -> Bool -> Bool
+  -> Version -> UpgradeInfo
   -> Maybe (LF.PackageId, LF.Package)
   -> [Diagnostic]
-checkBothAndSingle world checkBoth checkSingle version shouldTypecheckUpgrades warnBadInterfaceInstances mbUpgradedPackage =
+checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPackage =
     let gamma :: World -> Gamma
         gamma world =
             let addBadIfaceSwapIndicator :: Gamma -> Gamma
                 addBadIfaceSwapIndicator =
-                    if warnBadInterfaceInstances
+                    if warnBadInterfaceInstances upgradeInfo
                     then
                         addDiagnosticSwapIndicator (\case
                             Left WEUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
@@ -92,12 +93,12 @@ checkBothAndSingle world checkBoth checkSingle version shouldTypecheckUpgrades w
                         upgradingGamma = fmap gamma upgradingWorld
                     in
                     runGammaF upgradingGamma $
-                        when shouldTypecheckUpgrades (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
+                        when (typecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
 
         singlePkgDiagnostics :: Either Error ((), [Warning])
         singlePkgDiagnostics =
             runGammaF (gamma world) $
-                when shouldTypecheckUpgrades checkSingle
+                when (typecheckUpgrades upgradeInfo) checkSingle
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
         extractDiagnostics result =
@@ -109,7 +110,8 @@ checkBothAndSingle world checkBoth checkSingle version shouldTypecheckUpgrades w
 
 checkUpgrade
   :: LF.Package
-  -> Version -> Bool -> Bool -> Maybe (LF.PackageId, LF.Package)
+  -> Version -> UpgradeInfo
+  -> Maybe (LF.PackageId, LF.Package)
   -> [Diagnostic]
 checkUpgrade pkg =
     let world = initWorldSelf [] pkg
@@ -122,7 +124,8 @@ checkUpgrade pkg =
 
 checkModule
   :: LF.World -> LF.Module
-  -> Version -> Bool -> Bool -> Maybe (LF.PackageId, LF.Package)
+  -> Version -> UpgradeInfo
+  -> Maybe (LF.PackageId, LF.Package)
   -> [Diagnostic]
 checkModule world0 module_ =
     let world = extendWorldSelf module_ world0
