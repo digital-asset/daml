@@ -405,6 +405,7 @@ object SaveWatermarkError {
 final case class RegisteredMember(
     memberId: SequencerMemberId,
     registeredFrom: CantonTimestamp,
+    enabled: Boolean,
 )
 
 case object MemberDisabledError
@@ -629,14 +630,21 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** Prevents member from sending and reading from the sequencer, and allows unread data for this member to be pruned.
     * It however won't stop any sends addressed to this member.
     */
-  def disableMember(member: SequencerMemberId)(implicit traceContext: TraceContext): Future[Unit]
+  def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] =
+    for {
+      memberIdO <- memberCache(member).map(_.map(_.memberId))
+      _ <- memberIdO match {
+        case Some(memberId) => disableMemberInternal(memberId)
+        case None =>
+          logger.warn(s"disableMember called for member $member that is not registered")
+          Future.unit
+      }
+      _ = memberCache.invalidate(member)
+    } yield ()
 
-  /** Check whether the member is enabled.
-    * Currently used when receiving a request for reading.
-    */
-  def isEnabled(member: SequencerMemberId)(implicit
+  def disableMemberInternal(member: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): Future[Boolean]
+  ): Future[Unit]
 
   /** Prune as much data as safely possible from before the given timestamp.
     * @param requestedTimestamp the timestamp that we would like to prune up to (see docs on using the pruning status and disabling members for picking this value)
@@ -827,7 +835,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         for {
           id <- eitherT(registerMember(memberStatus.member, memberStatus.registeredAt))
           _ <-
-            if (!memberStatus.enabled) eitherT(disableMember(id))
+            if (!memberStatus.enabled) eitherT(disableMember(memberStatus.member))
             else EitherT.rightT[Future, String](())
           _ <- eitherT(memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack)))
           _ <-

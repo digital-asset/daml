@@ -77,13 +77,13 @@ class InMemoryStateUpdaterSpec
   "flow" should "correctly process updates in order" in new Scope {
     runFlow(
       Seq(
-        Vector(update1, metadataChangedUpdate) -> 1L,
-        Vector(update3, update4) -> 3L,
+        (Vector(update1, metadataChangedUpdate), 1L, CantonTimestamp.MinValue),
+        (Vector(update3, update4), 3L, CantonTimestamp.MinValue.plusSeconds(50)),
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(1L),
-      result(3L),
+      result(1L, CantonTimestamp.MinValue),
+      result(3L, CantonTimestamp.MinValue.plusSeconds(50)),
     )
   }
 
@@ -91,21 +91,28 @@ class InMemoryStateUpdaterSpec
     runFlow(
       Seq(
         // Empty input batch should have not effect
-        Vector.empty -> 1L,
-        Vector(update3) -> 3L,
-        Vector(anotherMetadataChangedUpdate) -> 3L,
+        (Vector.empty, 1L, CantonTimestamp.MinValue),
+        (Vector(update3), 3L, CantonTimestamp.MinValue.plusSeconds(80)),
+        (Vector(anotherMetadataChangedUpdate), 3L, CantonTimestamp.MinValue.plusSeconds(180)),
       )
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(3L),
-      result(3L), // Results in empty batch after processing
+      result(3L, CantonTimestamp.MinValue.plusSeconds(80)),
+      result(
+        3L,
+        CantonTimestamp.MinValue.plusSeconds(180),
+      ), // Results in empty batch after processing
     )
   }
 
   "prepare" should "throw exception for an empty vector" in new Scope {
     an[NoSuchElementException] should be thrownBy {
-      InMemoryStateUpdater.prepare(Vector.empty, 0L)
+      InMemoryStateUpdater.prepare(
+        Vector.empty,
+        0L,
+        CantonTimestamp.MinValue,
+      )
     }
   }
 
@@ -113,10 +120,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       0L,
+      CantonTimestamp.MinValue,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       offset(1L),
       0L,
+      CantonTimestamp.MinValue,
       update1._2.traceContext,
     )
   }
@@ -125,10 +134,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       0L,
+      CantonTimestamp.MinValue.plusSeconds(10),
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
       offset(8L),
       0L,
+      CantonTimestamp.MinValue.plusSeconds(10),
       update1._2.traceContext,
     )
   }
@@ -137,10 +148,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       6L,
+      CantonTimestamp.MinValue,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       offset(2L),
       6L,
+      CantonTimestamp.MinValue,
       metadataChangedUpdate._2.traceContext,
     )
   }
@@ -161,7 +174,7 @@ class InMemoryStateUpdaterSpec
       .push(tx_accepted_withoutCompletionDetails_offset, tx_accepted_withoutCompletionDetails)
     inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
 
-    inOrder.verify(ledgerEndCache).set(lastOffset -> lastEventSeqId)
+    inOrder.verify(ledgerEndCache).set((lastOffset, lastEventSeqId, lastPublicationTime))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
     inOrder
       .verify(submissionTracker)
@@ -204,7 +217,8 @@ object InMemoryStateUpdaterSpec {
       LedgerApiServerMetrics.ForTesting,
       logger,
     )(
-      prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
+      prepare = (_, lastEventSequentialId, lastPublicationTime) =>
+        result(lastEventSequentialId, lastPublicationTime),
       update = cachesUpdateCaptor,
     )(emptyTraceContext)
 
@@ -403,6 +417,7 @@ object InMemoryStateUpdaterSpec {
 
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
+    val lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(1000)
     val updates: Vector[Traced[TransactionLogUpdate]] =
       Vector(
         tx_accepted_withCompletionDetails,
@@ -413,19 +428,21 @@ object InMemoryStateUpdaterSpec {
       updates = updates,
       lastOffset = lastOffset,
       lastEventSequentialId = lastEventSeqId,
+      lastPublicationTime = lastPublicationTime,
       emptyTraceContext,
     )
 
-    def result(lastEventSequentialId: Long): PrepareResult =
+    def result(lastEventSequentialId: Long, publicationTime: CantonTimestamp): PrepareResult =
       PrepareResult(
         Vector.empty,
         offset(1L),
         lastEventSequentialId,
+        lastPublicationTime,
         emptyTraceContext,
       )
 
     def runFlow(
-        input: Seq[(Vector[(Offset, Traced[Update])], Long)]
+        input: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
     )(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater)

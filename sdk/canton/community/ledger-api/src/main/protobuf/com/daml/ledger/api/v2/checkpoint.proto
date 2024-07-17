@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v2/participant_offset.proto";
 import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
@@ -23,5 +22,5 @@ message Checkpoint {
 
   // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
   // Required
-  ParticipantOffset offset = 2;
+  string offset = 2;
 }

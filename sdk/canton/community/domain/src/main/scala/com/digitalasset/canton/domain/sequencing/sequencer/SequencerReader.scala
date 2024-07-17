@@ -107,11 +107,8 @@ class SequencerReader(
           .fromOptionF(store.lookupMember(member), CreateSubscriptionError.UnknownMember(member))
           .leftWiden[CreateSubscriptionError]
         // check they haven't been disabled
-        isMemberEnabled <- EitherT.right(
-          store.isEnabled(registeredMember.memberId)
-        )
         _ <- EitherTUtil.condUnitET[Future](
-          isMemberEnabled,
+          registeredMember.enabled,
           CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
         )
         // We use the sequencing time of the topology transaction that registered the member on the domain

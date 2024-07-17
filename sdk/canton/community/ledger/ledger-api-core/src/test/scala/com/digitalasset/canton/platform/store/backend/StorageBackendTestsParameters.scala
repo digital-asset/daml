@@ -38,6 +38,7 @@ private[backend] trait StorageBackendTestsParameters
       lastOffset = Offset.beforeBegin,
       lastEventSeqId = 0,
       lastStringInterningId = 0,
+      lastPublicationTime = CantonTimestamp.MinValue,
     )
     executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
@@ -79,6 +80,7 @@ private[backend] trait StorageBackendTestsParameters
           lastOffset = someOffset,
           lastEventSeqId = 1,
           lastStringInterningId = 1,
+          lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
         ),
         lastDomainIndex = Map(
           StorageBackendTestValues.someDomainId -> someDomainIndex
@@ -89,6 +91,7 @@ private[backend] trait StorageBackendTestsParameters
       lastOffset = someOffset,
       lastEventSeqId = 1,
       lastStringInterningId = 1,
+      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
     )
     val resultDomainIndex = executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
@@ -116,6 +119,7 @@ private[backend] trait StorageBackendTestsParameters
           lastOffset = offset(100),
           lastEventSeqId = 100,
           lastStringInterningId = 100,
+          lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
         ),
         lastDomainIndex = Map(
           StorageBackendTestValues.someDomainId -> someDomainIndexSecond,
@@ -127,6 +131,7 @@ private[backend] trait StorageBackendTestsParameters
       lastOffset = offset(100),
       lastEventSeqId = 100,
       lastStringInterningId = 100,
+      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
     )
     val resultDomainIndexSecond = executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)

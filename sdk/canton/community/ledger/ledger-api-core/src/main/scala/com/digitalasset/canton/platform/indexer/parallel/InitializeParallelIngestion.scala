@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.participant.state.{ReadService, Update}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -63,6 +63,7 @@ private[platform] final case class InitializeParallelIngestion(
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
+      initialLastPublicationTime = ledgerEnd.lastPublicationTime,
       readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
     )
   }
@@ -73,6 +74,7 @@ object InitializeParallelIngestion {
   final case class Initialized(
       initialEventSeqId: Long,
       initialStringInterningId: Int,
+      initialLastPublicationTime: CantonTimestamp,
       readServiceSource: Source[(Offset, Traced[Update]), NotUsed],
   )
 }

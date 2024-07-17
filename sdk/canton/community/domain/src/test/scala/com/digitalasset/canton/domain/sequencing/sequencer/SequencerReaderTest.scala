@@ -371,8 +371,8 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0)
-        aliceId <- store.registerMember(alice, ts0)
-        _ <- store.disableMember(aliceId)
+        _ <- store.registerMember(alice, ts0)
+        _ <- store.disableMember(alice)
         error <- leftOrFail(reader.read(alice, SequencerCounter(0)))("read disabled member")
       } yield error shouldBe CreateSubscriptionError.MemberDisabled(alice)
     }

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.{
@@ -31,6 +32,7 @@ import com.digitalasset.canton.platform.config.{
 import com.digitalasset.canton.platform.indexer.IndexerStartupMode.MigrateAndStart
 import com.digitalasset.canton.platform.indexer.RecoveringIndexerIntegrationSpec.*
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
+import com.digitalasset.canton.platform.indexer.parallel.NoOpReassignmentOffsetPersistence
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -39,6 +41,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 }
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.{MockStringInterning, StringInterningView}
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.TraceContext.{withNewTraceContext, wrapWithNewTraceContext}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.{HasExecutionContext, config}
@@ -246,6 +249,7 @@ class RecoveringIndexerIntegrationSpec
     val metrics = LedgerApiServerMetrics.ForTesting
     val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
     val indexerConfig = IndexerConfig(restartDelay = restartDelay)
+    val clock = new WallClock(ProcessingTimeout(), loggerFactory)
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
@@ -297,6 +301,8 @@ class RecoveringIndexerIntegrationSpec
         highAvailability = HaConfig(),
         indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
         excludedPackageIds = Set.empty,
+        clock = clock,
+        reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
       )(materializer, traceContext)
     } yield (participantState._2, dbSupport)
   }
@@ -316,7 +322,13 @@ class RecoveringIndexerIntegrationSpec
       for {
         ledgerEnd <- dbDispatcher
           .executeSql(metrics.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
-        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        _ = ledgerEndCache.set(
+          (
+            ledgerEnd.lastOffset,
+            ledgerEnd.lastEventSeqId,
+            ledgerEnd.lastPublicationTime,
+          )
+        )
         knownParties <- dbDispatcher
           .executeSql(metrics.index.db.loadAllParties)(
             partyStorageBacked.knownParties(None, 10)

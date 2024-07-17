@@ -16,6 +16,7 @@ CREATE TABLE lapi_parameters (
   ledger_end VARCHAR(4000) NOT NULL,
   ledger_end_sequential_id BIGINT NOT NULL,
   ledger_end_string_interning_id INTEGER NOT NULL,
+  ledger_end_publication_time BIGINT NOT NULL,
   participant_pruned_up_to_inclusive VARCHAR(4000),
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR(4000)
 );
@@ -62,6 +63,7 @@ CREATE INDEX lapi_party_entries_party_id_and_ledger_offset_idx ON lapi_party_ent
 CREATE TABLE lapi_command_completions (
     completion_offset VARCHAR(4000) NOT NULL,
     record_time BIGINT NOT NULL,
+    publication_time BIGINT NOT NULL,
     application_id VARCHAR(1000) NOT NULL,
     submitters INTEGER ARRAY NOT NULL,
     command_id VARCHAR(1000) NOT NULL,
@@ -95,6 +97,9 @@ CREATE TABLE lapi_command_completions (
 
 CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
+CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
+CREATE INDEX lapi_command_completions_domain_record_time_idx ON lapi_command_completions USING btree (domain_id, record_time);
+CREATE INDEX lapi_command_completions_domain_offset_idx ON lapi_command_completions USING btree (domain_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events: create
@@ -460,6 +465,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consu
 CREATE TABLE lapi_transaction_meta(
     transaction_id VARCHAR(4000) NOT NULL,
     event_offset VARCHAR(4000) NOT NULL,
+    publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
     domain_id INTEGER NOT NULL,
     event_sequential_id_first BIGINT NOT NULL,
@@ -467,6 +473,9 @@ CREATE TABLE lapi_transaction_meta(
 );
 CREATE INDEX lapi_transaction_meta_tid_idx ON lapi_transaction_meta(transaction_id);
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta(event_offset);
+CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
+CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (domain_id, record_time);
+CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (domain_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Metering raw entries

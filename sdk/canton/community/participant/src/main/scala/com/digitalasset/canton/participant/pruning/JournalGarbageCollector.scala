@@ -11,6 +11,7 @@ import com.digitalasset.canton.data.CantonTimestampSecond
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
@@ -77,25 +78,33 @@ private[participant] class JournalGarbageCollector(
       traceContext: TraceContext
   ): Future[Unit] = {
     logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
-    val acsDescription = s"Periodic ACS prune at $pruneTs:"
+    val acsDescription = s"Periodic ACS prune at $pruneTs"
     // Clean unused entries from the ACS
     val acsF = performUnlessClosingF(acsDescription)(
-      FutureUtil.logOnFailure(
-        acs.prune(pruneTs.forgetRefinement),
-        acsDescription,
-      )
+      recoverPassiveInstance(acs.prune(pruneTs.forgetRefinement), acsDescription)
     )
     val submissionTrackerStoreDescription =
-      s"Periodic submission tracker store prune at $pruneTs: "
+      s"Periodic submission tracker store prune at $pruneTs"
     // Clean unused entries from the submission tracker store
     val submissionTrackerStoreF = performUnlessClosingF(submissionTrackerStoreDescription)(
-      FutureUtil.logOnFailure(
+      recoverPassiveInstance(
         submissionTrackerStore.prune(pruneTs.forgetRefinement),
         submissionTrackerStoreDescription,
       )
     )
     Seq(acsF, submissionTrackerStoreF).sequence_.onShutdown(())
   }
+
+  private def recoverPassiveInstance(action: Future[Unit], desc: => String)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    action.recover {
+      case e: PassiveInstanceException =>
+        logger.info(s"$desc: ${e.getMessage}")
+      case err =>
+        logger.error(desc, err)
+        throw err
+    }
 }
 
 private[pruning] object JournalGarbageCollector {

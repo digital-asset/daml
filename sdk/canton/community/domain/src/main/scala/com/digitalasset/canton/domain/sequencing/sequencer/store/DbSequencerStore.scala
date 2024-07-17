@@ -395,8 +395,8 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): Future[Option[RegisteredMember]] =
     storage.query(
-      sql"""select id, registered_ts from sequencer_members where member = $member"""
-        .as[(SequencerMemberId, CantonTimestamp)]
+      sql"""select id, registered_ts, enabled from sequencer_members where member = $member"""
+        .as[(SequencerMemberId, CantonTimestamp, Boolean)]
         .headOption
         .map(_.map(RegisteredMember.tupled)),
       functionFullName,
@@ -1409,7 +1409,7 @@ class DbSequencerStore(
       functionFullName,
     )
 
-  override def disableMember(member: SequencerMemberId)(implicit
+  override def disableMemberInternal(member: SequencerMemberId)(implicit
       traceContext: TraceContext
   ): Future[Unit] =
     // we assume here that the member is already registered in order to have looked up the memberId
@@ -1417,18 +1417,6 @@ class DbSequencerStore(
       sqlu"update sequencer_members set enabled = ${false} where id = $member",
       functionFullName,
     )
-
-  override def isEnabled(member: SequencerMemberId)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    storage
-      .query(
-        sql"select enabled from sequencer_members where id = $member".as[Boolean].headOption,
-        s"$functionFullName:isMemberEnabled",
-      )
-      .map(
-        _.getOrElse(false)
-      ) // if the member isn't registered this should be picked up elsewhere
 
   override def validateCommitMode(
       configuredCommitMode: CommitMode

@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWait
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.DefaultOpenTelemetry
@@ -224,7 +223,7 @@ class CommandServiceImplSpec
     val trackerCompletionResponse = tracking.CompletionResponse(
       completion = completion,
       checkpoint = Some(
-        Checkpoint(offset = Some(ParticipantOffset(ParticipantOffset.Value.Absolute("offset"))))
+        Checkpoint(offset = "offset")
       ),
     )
     val commands = someCommands()

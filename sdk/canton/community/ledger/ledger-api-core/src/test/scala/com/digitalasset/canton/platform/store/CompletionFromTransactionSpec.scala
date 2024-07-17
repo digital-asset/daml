@@ -77,7 +77,7 @@ class CompletionFromTransactionSpec
 
           val checkpoint = completionStream.checkpoint.value
           checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-          checkpoint.offset shouldBe a[Some[_]]
+          checkpoint.offset shouldBe ""
 
           val completion = completionStream.completion.toList.head
           completion.commandId shouldBe "commandId"
@@ -118,7 +118,7 @@ class CompletionFromTransactionSpec
       val status = Status.of(io.grpc.Status.Code.INTERNAL.value(), "message", Seq.empty)
       val completionStream = CompletionFromTransaction.rejectedCompletion(
         Time.Timestamp.Epoch,
-        Offset.beforeBegin,
+        Offset.fromLong(2L),
         "commandId",
         status,
         "applicationId",
@@ -129,7 +129,7 @@ class CompletionFromTransactionSpec
 
       val checkpoint = completionStream.checkpoint.value
       checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-      checkpoint.offset shouldBe a[Some[_]]
+      checkpoint.offset shouldBe Offset.fromLong(2L).toHexString
 
       val completion = completionStream.completion.toList.head
       completion.commandId shouldBe "commandId"

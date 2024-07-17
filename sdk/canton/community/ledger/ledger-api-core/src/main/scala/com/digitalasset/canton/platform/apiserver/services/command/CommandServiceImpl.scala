@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.Commands
@@ -81,13 +80,10 @@ private[apiserver] final class CommandServiceImpl private[services] (
       submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
         SubmitAndWaitForUpdateIdResponse.of(
           updateId = response.completion.updateId,
-          completionOffset = offsetFromCheckpoint(response.checkpoint),
+          completionOffset = response.checkpoint.map(_.offset).getOrElse(""),
         )
       }
     }
-
-  private def offsetFromCheckpoint(checkpoint: Option[Checkpoint]) =
-    checkpoint.flatMap(_.offset).flatMap(_.value.absolute).getOrElse("")
 
   def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest

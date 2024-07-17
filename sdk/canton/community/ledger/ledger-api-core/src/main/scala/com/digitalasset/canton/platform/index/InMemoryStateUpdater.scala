@@ -9,7 +9,7 @@ import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -50,20 +50,21 @@ private[platform] object InMemoryStateUpdaterFlow {
       metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
   )(
-      prepare: (Vector[(Offset, Traced[Update])], Long) => PrepareResult,
+      prepare: (Vector[(Offset, Traced[Update])], Long, CantonTimestamp) => PrepareResult,
       update: PrepareResult => Unit,
   )(implicit traceContext: TraceContext): UpdaterFlow =
-    Flow[(Vector[(Offset, Traced[Update])], Long)]
+    Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
       .filter(_._1.nonEmpty)
-      .mapAsync(prepareUpdatesParallelism) { case (batch, lastEventSequentialId) =>
-        Future {
-          batch -> prepare(batch, lastEventSequentialId)
-        }(prepareUpdatesExecutionContext)
-          .checkIfComplete(preparePackageMetadataTimeOutWarning)(
-            logger.warn(
-              s"Package Metadata View live update did not finish in ${preparePackageMetadataTimeOutWarning.toMillis}ms"
+      .mapAsync(prepareUpdatesParallelism) {
+        case (batch, lastEventSequentialId, lastPublicationTime) =>
+          Future {
+            batch -> prepare(batch, lastEventSequentialId, lastPublicationTime)
+          }(prepareUpdatesExecutionContext)
+            .checkIfComplete(preparePackageMetadataTimeOutWarning)(
+              logger.warn(
+                s"Package Metadata View live update did not finish in ${preparePackageMetadataTimeOutWarning.toMillis}ms"
+              )
             )
-          )
       }
       .async
       .mapAsync(1) { case (batch, result) =>
@@ -80,10 +81,13 @@ private[platform] object InMemoryStateUpdater {
       updates: Vector[Traced[TransactionLogUpdate]],
       lastOffset: Offset,
       lastEventSequentialId: Long,
+      lastPublicationTime: CantonTimestamp,
       lastTraceContext: TraceContext,
   )
   type UpdaterFlow =
-    Flow[(Vector[(Offset, Traced[Update])], Long), Vector[(Offset, Traced[Update])], NotUsed]
+    Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp), Vector[
+      (Offset, Traced[Update])
+    ], NotUsed]
   def owner(
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
@@ -119,6 +123,7 @@ private[platform] object InMemoryStateUpdater {
   private[index] def prepare(
       batch: Vector[(Offset, Traced[Update])],
       lastEventSequentialId: Long,
+      lastPublicationTime: CantonTimestamp,
   ): PrepareResult = {
     val (offset, traceContext) = batch.lastOption.fold(
       throw new NoSuchElementException("empty batch")
@@ -134,6 +139,7 @@ private[platform] object InMemoryStateUpdater {
       },
       lastOffset = offset,
       lastEventSequentialId = lastEventSequentialId,
+      lastPublicationTime = lastPublicationTime,
       lastTraceContext = traceContext,
     )
   }
@@ -145,7 +151,13 @@ private[platform] object InMemoryStateUpdater {
     updateCaches(inMemoryState, result.updates)
     // must be the last update: see the comment inside the method for more details
     // must be after cache updates: see the comment inside the method for more details
-    updateLedgerEnd(inMemoryState, result.lastOffset, result.lastEventSequentialId, logger)(
+    updateLedgerEnd(
+      inMemoryState,
+      result.lastOffset,
+      result.lastEventSequentialId,
+      result.lastPublicationTime,
+      logger,
+    )(
       result.lastTraceContext
     )
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
@@ -206,11 +218,12 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       lastOffset: Offset,
       lastEventSequentialId: Long,
+      lastPublicationTime: CantonTimestamp,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
-    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId))
+    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId, lastPublicationTime))
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)

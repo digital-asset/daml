@@ -129,6 +129,7 @@ object UpdateToDbDto {
           val transactionMeta = DbDto.TransactionMeta(
             transaction_id = u.transactionId,
             event_offset = offset.toHexString,
+            publication_time = 0, // this is filled later
             record_time = u.recordTime.micros,
             domain_id = domainId,
             event_sequential_id_first = 0, // this is filled later
@@ -403,6 +404,7 @@ object UpdateToDbDto {
           val transactionMeta = DbDto.TransactionMeta(
             transaction_id = u.updateId,
             event_offset = offset.toHexString,
+            publication_time = 0, // this is filled later
             record_time = u.recordTime.micros,
             domain_id = domainId,
             event_sequential_id_first = 0, // this is filled later
@@ -458,6 +460,7 @@ object UpdateToDbDto {
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
       record_time = recordTime.micros,
+      publication_time = 0L, // will be filled later
       application_id = completionInfo.applicationId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,

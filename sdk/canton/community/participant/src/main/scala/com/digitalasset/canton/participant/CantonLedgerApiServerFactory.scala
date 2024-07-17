@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
+import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.{LedgerParticipantId, LfPackageId}
@@ -50,6 +51,7 @@ class CantonLedgerApiServerFactory(
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
       excludedPackageIds: Set[LfPackageId],
+      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -124,6 +126,7 @@ class CantonLedgerApiServerFactory(
                 throw new IllegalArgumentException(s"Unknown maxDeduplicationDuration")
               )
               .toConfig,
+            clock = clock,
           ),
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
@@ -131,6 +134,7 @@ class CantonLedgerApiServerFactory(
           parameters = parameters,
           excludedPackageIds = excludedPackageIds,
           ledgerApiStore = participantNodePersistentState.map(_.ledgerApiStore),
+          reassignmentOffsetPersistence = reassignmentOffsetPersistence,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message

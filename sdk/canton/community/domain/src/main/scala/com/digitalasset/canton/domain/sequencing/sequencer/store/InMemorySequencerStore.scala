@@ -62,7 +62,6 @@ class InMemorySequencerStore(
   private val acknowledgements =
     new ConcurrentHashMap[SequencerMemberId, CantonTimestamp]()
   private val lowerBound = new AtomicReference[Option[CantonTimestamp]](None)
-  private val disabledClientsRef = new AtomicReference[SequencerClients](SequencerClients())
 
   override def validateCommitMode(
       configuredCommitMode: CommitMode
@@ -81,6 +80,7 @@ class InMemorySequencerStore(
           RegisteredMember(
             SequencerMemberId(nextNewMemberId.getAndIncrement()),
             timestamp,
+            enabled = true,
           ),
         )
         .memberId
@@ -383,7 +383,7 @@ class InMemorySequencerStore(
       }
 
       val timestamps = members.values.filterNot(m => disabledMembers.contains(m.memberId)).map {
-        case RegisteredMember(memberId, registeredFrom) =>
+        case RegisteredMember(memberId, registeredFrom, _enabled) =>
           // if the member doesn't have a counter checkpoint to use we'll have to use their registered timestamp
           // which is effectively a counter checkpoint for where to start
           checkpointTimestamp(memberId).getOrElse(registeredFrom)
@@ -401,23 +401,21 @@ class InMemorySequencerStore(
 
   private def internalStatus(
       now: CantonTimestamp
-  ): SequencerPruningStatus = {
-    val disabledClients = disabledClientsRef.get()
-
+  ): SequencerPruningStatus =
     SequencerPruningStatus(
       lowerBound = lowerBound.get().getOrElse(CantonTimestamp.Epoch),
       now = now,
       members = members.collect {
-        case (member, RegisteredMember(memberId, registeredFrom)) if (registeredFrom <= now) =>
+        case (member, RegisteredMember(memberId, registeredFrom, enabled))
+            if (registeredFrom <= now) =>
           SequencerMemberStatus(
             member,
             registeredFrom,
             lastAcknowledged = acknowledgements.asScala.get(memberId),
-            enabled = !disabledClients.members.contains(member),
+            enabled = enabled,
           )
       }.toSeq,
     )
-  }
 
   /** This store does not support multiple concurrent instances so will do nothing. */
   override def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
@@ -427,28 +425,18 @@ class InMemorySequencerStore(
   /** Members must be registered to receive a memberId, so can typically assume they exist in this structure */
   private def lookupExpectedMember(memberId: SequencerMemberId): Member =
     members
-      .collectFirst { case (member, RegisteredMember(`memberId`, _)) =>
+      .collectFirst { case (member, RegisteredMember(`memberId`, _, _)) =>
         member
       }
       .getOrElse(sys.error(s"Member id [$memberId] is not registered"))
 
-  override def disableMember(
+  override def disableMemberInternal(
       memberId: SequencerMemberId
   )(implicit traceContext: TraceContext): Future[Unit] =
     Future.successful {
-      val _ = disabledClientsRef.updateAndGet { disabledClients =>
-        disabledClients.copy(members = disabledClients.members + lookupExpectedMember(memberId))
-      }
+      val member = lookupExpectedMember(memberId)
+      members.put(member, members(member).copy(enabled = false)).discard
     }
-
-  override def isEnabled(memberId: SequencerMemberId)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] = {
-    val member = lookupExpectedMember(memberId)
-    Future.successful(
-      !disabledClientsRef.get().members.contains(member)
-    )
-  }
 
   /** There can be no other sequencers sharing this storage */
   override def fetchOnlineInstances(implicit traceContext: TraceContext): Future[SortedSet[Int]] =
@@ -499,19 +487,19 @@ class InMemorySequencerStore(
       timestamp: CantonTimestamp
   ): Map[Member, CounterCheckpoint] = {
     val watermarkO = watermark.get()
-    val disabledClients = disabledClientsRef.get()
     val sequencerMemberO = members.get(sequencerMember)
 
     watermarkO.fold[Map[Member, CounterCheckpoint]](Map()) { watermark =>
-      val registeredMembers = members.filter { case (member, RegisteredMember(_, registeredFrom)) =>
-        !disabledClients.members.contains(member) && registeredFrom <= timestamp
+      val registeredMembers = members.filter {
+        case (member, RegisteredMember(_, registeredFrom, enabled)) =>
+          enabled && registeredFrom <= timestamp
       }.toSeq
       val validEvents = events
         .headMap(if (watermark.timestamp < timestamp) watermark.timestamp else timestamp, true)
         .asScala
         .toSeq
 
-      registeredMembers.map { case (member, RegisteredMember(id, _)) =>
+      registeredMembers.map { case (member, RegisteredMember(id, _, _)) =>
         val checkpointO = for {
           memberCheckpoints <- checkpoints.get(id)
           checkpoint <- memberCheckpoints.asScala.toSeq.findLast(e => e._2.timestamp <= timestamp)

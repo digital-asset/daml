@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
@@ -41,7 +41,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
-    val storageBackendCaptor = new StorageBackendCaptor(LedgerEnd(Offset.beforeBegin, 5, 1))
+    val storageBackendCaptor =
+      new StorageBackendCaptor(LedgerEnd(Offset.beforeBegin, 5, 1, CantonTimestamp.MinValue))
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       parameterStorageBackend = storageBackendCaptor,
@@ -61,7 +62,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ledgerEndCache() shouldBe (offset("04") -> 8)
 
     storageBackendCaptor.captured(0) shouldBe someParty
-    storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
+    storageBackendCaptor
+      .captured(1) shouldBe LedgerEnd(offset("01"), 5, 1, CantonTimestamp.MinValue)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(3)
@@ -75,11 +77,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       .captured(5)
       .asInstanceOf[DbDto.EventExercise]
       .event_sequential_id shouldBe 7
-    storageBackendCaptor.captured(6) shouldBe LedgerEnd(offset("02"), 7, 1)
-    storageBackendCaptor.captured(7) shouldBe LedgerEnd(offset("03"), 7, 1)
+    storageBackendCaptor
+      .captured(6) shouldBe LedgerEnd(offset("02"), 7, 1, CantonTimestamp.MinValue)
+    storageBackendCaptor
+      .captured(7) shouldBe LedgerEnd(offset("03"), 7, 1, CantonTimestamp.MinValue)
     storageBackendCaptor.captured(8) shouldBe someParty
     storageBackendCaptor.captured(9).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 8
-    storageBackendCaptor.captured(10) shouldBe LedgerEnd(offset("04"), 8, 1)
+    storageBackendCaptor
+      .captured(10) shouldBe LedgerEnd(offset("04"), 8, 1, CantonTimestamp.MinValue)
     storageBackendCaptor.captured should have size 11
   }
 
@@ -99,10 +104,12 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
     ledgerEndCache() shouldBe (offset("04") -> 1)
 
-    storageBackendCaptor.captured(0) shouldBe LedgerEnd(offset("03"), 0, 0)
+    storageBackendCaptor
+      .captured(0) shouldBe LedgerEnd(offset("03"), 0, 0, CantonTimestamp.MinValue)
     storageBackendCaptor.captured(1) shouldBe someParty
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 1
-    storageBackendCaptor.captured(3) shouldBe LedgerEnd(offset("04"), 1, 0)
+    storageBackendCaptor
+      .captured(3) shouldBe LedgerEnd(offset("04"), 1, 0, CantonTimestamp.MinValue)
     storageBackendCaptor.captured should have size 4
   }
 

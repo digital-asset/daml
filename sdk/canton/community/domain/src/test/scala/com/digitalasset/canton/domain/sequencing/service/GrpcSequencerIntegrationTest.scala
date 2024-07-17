@@ -264,7 +264,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         LoggingConfig(),
         loggerFactory,
         ProtocolVersionCompatibility.supportedProtocolsParticipant(
-          includeUnstableVersions = BaseTest.testedProtocolVersion.isUnstable,
+          includeAlphaVersions = BaseTest.testedProtocolVersion.isAlpha,
           includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
           release = ReleaseVersion.current,
         ),

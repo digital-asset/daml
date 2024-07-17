@@ -6,22 +6,18 @@ package com.digitalasset.canton.participant.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.{
   EventLogId,
   MultiDomainEventLogTest,
   SerializableLedgerSyncEvent,
-  TransferStore,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.{DbStorage, IdempotentInsert}
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.SerializableTraceContext
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import slick.dbio.DBIOAction
 import slick.jdbc.SetParameter
 
@@ -45,22 +41,6 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
       ErrorLoggingContext.fromTracedLogger(logger)
     )
   }
-
-  override protected def transferStores: Map[TargetDomainId, TransferStore] = domainIds.view.map {
-    domainId =>
-      val targetDomainId = TargetDomainId(domainId)
-      val transferStore = new DbTransferStore(
-        storage,
-        targetDomainId,
-        TargetProtocolVersion(testedProtocolVersion),
-        new SymbolicPureCrypto,
-        futureSupervisor,
-        timeouts,
-        loggerFactory,
-      )
-
-      targetDomainId -> transferStore
-  }.toMap
 
   // If this test is run multiple times against a local persisted Postgres DB,
   // then the second run would find the requests from the first run and fail.
@@ -126,8 +106,6 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
       loggerFactory,
       maxBatchSize = PositiveInt.tryCreate(3),
       participantEventLogId = participantEventLogId,
-      transferStoreFor = domainId =>
-        transferStores.get(domainId).toRight(s"Cannot find transfer store for domain $domainId"),
     )
   }
 

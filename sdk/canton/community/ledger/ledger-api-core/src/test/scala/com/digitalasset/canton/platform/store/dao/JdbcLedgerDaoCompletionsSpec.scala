@@ -287,6 +287,6 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetOf(response: CompletionStreamResponse): Offset =
-    ApiOffset.assertFromString(response.checkpoint.get.offset.get.value.absolute.get)
+    ApiOffset.assertFromString(response.checkpoint.get.offset)
 
 }

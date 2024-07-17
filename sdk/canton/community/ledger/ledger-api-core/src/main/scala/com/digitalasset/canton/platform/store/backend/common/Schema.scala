@@ -310,6 +310,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_command_completions")(
         "completion_offset" -> fieldStrategy.string(_ => _.completion_offset),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
         "application_id" -> fieldStrategy.string(_ => _.application_id),
         "submitters" -> fieldStrategy.intArray(stringInterning =>
           _.submitters.map(stringInterning.party.unsafe.internalize)
@@ -419,6 +420,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_transaction_meta")(
         "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
+        "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "domain_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)

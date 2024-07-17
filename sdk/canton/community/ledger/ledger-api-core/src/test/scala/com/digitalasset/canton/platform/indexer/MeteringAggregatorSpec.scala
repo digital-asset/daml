@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.indexer
 import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -94,7 +94,7 @@ final class MeteringAggregatorSpec
           .thenReturn(transactionMetering.lastOption.map(_.ledgerOffset))
 
         when(parameterStore.ledgerEnd(conn))
-          .thenReturn(LedgerEnd(ledgerEndOffset, 0L, 0))
+          .thenReturn(LedgerEnd(ledgerEndOffset, 0L, 0, CantonTimestamp.MinValue))
 
         transactionMetering.lastOption.map { last =>
           when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))

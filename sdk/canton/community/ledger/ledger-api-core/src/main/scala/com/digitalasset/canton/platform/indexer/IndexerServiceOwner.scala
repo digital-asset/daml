@@ -11,12 +11,14 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
+import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.platform.store.DbSupport.{
   DataSourceProperties,
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.FlywayMigrations
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
@@ -40,6 +42,8 @@ final class IndexerServiceOwner(
     highAvailability: HaConfig,
     indexServiceDbDispatcher: Option[DbDispatcher],
     excludedPackageIds: Set[Ref.PackageId],
+    clock: Clock,
+    reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
 )(implicit materializer: Materializer, traceContext: TraceContext)
     extends ResourceOwner[ReportsHealth]
     with NamedLogging {
@@ -65,6 +69,8 @@ final class IndexerServiceOwner(
       dataSourceProperties,
       highAvailability,
       indexServiceDbDispatcher,
+      clock,
+      reassignmentOffsetPersistence,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

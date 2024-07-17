@@ -190,7 +190,13 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
-        _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)
+        _ = ledgerEndCache.set(
+          (
+            initialLedgerEnd.lastOffset,
+            initialLedgerEnd.lastEventSeqId,
+            initialLedgerEnd.lastPublicationTime,
+          )
+        )
       } yield dao
     }(TraceContext.empty)
     ledgerDao = Await.result(resource.asFuture, 180.seconds)

@@ -179,6 +179,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = someApplicationId,
           submitters = Set(someParty),
           command_id = someCommandId,
@@ -217,6 +218,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = someApplicationId,
           submitters = Set(someParty),
           command_id = someCommandId,
@@ -313,6 +315,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(5) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = someRecordTime.micros,
+        publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
         command_id = completionInfo.commandId,
@@ -334,6 +337,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(6) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
+        publication_time = 0,
         record_time = someRecordTime.micros,
         domain_id = someDomainId1.toProtoPrimitive,
         event_sequential_id_first = 0,
@@ -439,6 +443,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -460,6 +465,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -545,6 +551,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -566,6 +573,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -748,6 +756,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -769,6 +778,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -829,6 +839,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -850,6 +861,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -947,6 +959,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -968,6 +981,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -1099,6 +1113,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = someRecordTime.micros,
+        publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
         command_id = completionInfo.commandId,
@@ -1120,6 +1135,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(8) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
+        publication_time = 0,
         record_time = someRecordTime.micros,
         domain_id = someDomainId1.toProtoPrimitive,
         event_sequential_id_first = 0,
@@ -1177,6 +1193,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = someRecordTime.micros,
+          publication_time = 0,
           application_id = completionInfo.applicationId,
           submitters = completionInfo.actAs.toSet,
           command_id = completionInfo.commandId,
@@ -1198,6 +1215,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
+          publication_time = 0,
           record_time = someRecordTime.micros,
           domain_id = someDomainId1.toProtoPrimitive,
           event_sequential_id_first = 0,
@@ -1335,6 +1353,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(3) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
+        publication_time = 0,
         record_time = someRecordTime.micros,
         domain_id = someDomainId1.toProtoPrimitive,
         event_sequential_id_first = 0,
@@ -1392,6 +1411,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             DbDto.CommandCompletion(
               completion_offset = someOffset.toHexString,
               record_time = someRecordTime.micros,
+              publication_time = 0,
               application_id = someApplicationId,
               submitters = Set(someParty),
               command_id = someCommandId,
@@ -1487,6 +1507,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.toHexString,
             record_time = someRecordTime.micros,
+            publication_time = 0,
             application_id = completionInfo.applicationId,
             submitters = completionInfo.actAs.toSet,
             command_id = completionInfo.commandId,
@@ -1508,6 +1529,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos(4) shouldEqual DbDto.TransactionMeta(
             transaction_id = transactionId,
             event_offset = someOffset.toHexString,
+            publication_time = 0,
             record_time = someRecordTime.micros,
             domain_id = someDomainId1.toProtoPrimitive,
             event_sequential_id_first = 0,
@@ -1586,6 +1608,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = someRecordTime.micros,
+        publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
         command_id = completionInfo.commandId,
@@ -1607,6 +1630,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(5) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
+        publication_time = 0,
         record_time = someRecordTime.micros,
         domain_id = "x::domain2",
         event_sequential_id_first = 0,
@@ -1690,6 +1714,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = someRecordTime.micros,
+        publication_time = 0,
         application_id = completionInfo.applicationId,
         submitters = completionInfo.actAs.toSet,
         command_id = completionInfo.commandId,
@@ -1711,6 +1736,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(5) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
+        publication_time = 0,
         record_time = someRecordTime.micros,
         domain_id = "x::domain1",
         event_sequential_id_first = 0,

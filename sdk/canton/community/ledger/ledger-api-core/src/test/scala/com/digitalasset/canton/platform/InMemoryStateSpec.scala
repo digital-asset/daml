@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
@@ -49,9 +49,10 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       val initOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
       val initEventSequentialId = 1337L
       val initStringInterningId = 17
+      val initPublicationTime = CantonTimestamp.now()
 
       val initLedgerEnd = ParameterStorageBackend
-        .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId)
+        .LedgerEnd(initOffset, initEventSequentialId, initStringInterningId, initPublicationTime)
 
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
@@ -70,7 +71,9 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
           inOrder.verify(contractStateCaches).reset(initOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
-          inOrder.verify(mutableLedgerEndCache).set(initOffset -> initEventSequentialId)
+          inOrder
+            .verify(mutableLedgerEndCache)
+            .set((initOffset, initEventSequentialId, initPublicationTime))
           inOrder.verify(submissionTracker).close()
           inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd.lastOffset)
 
@@ -80,8 +83,14 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
         reInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
         reInitEventSequentialId = 9999L
         reInitStringInterningId = 50
+        reInitPublicationTime = CantonTimestamp.now()
         reInitLedgerEnd = ParameterStorageBackend
-          .LedgerEnd(reInitOffset, reInitEventSequentialId, reInitStringInterningId)
+          .LedgerEnd(
+            reInitOffset,
+            reInitEventSequentialId,
+            reInitStringInterningId,
+            reInitPublicationTime,
+          )
 
         // RESET MOCKS
         _ = {
@@ -116,7 +125,9 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           inOrder.verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
           inOrder.verify(contractStateCaches).reset(reInitOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
-          inOrder.verify(mutableLedgerEndCache).set(reInitOffset -> reInitEventSequentialId)
+          inOrder
+            .verify(mutableLedgerEndCache)
+            .set((reInitOffset, reInitEventSequentialId, reInitPublicationTime))
           inOrder.verify(dispatcherState).startDispatcher(reInitOffset)
 
           when(dispatcherState.isRunning).thenReturn(true)

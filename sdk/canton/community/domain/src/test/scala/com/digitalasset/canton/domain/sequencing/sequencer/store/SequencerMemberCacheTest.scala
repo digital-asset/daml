@@ -24,7 +24,7 @@ class SequencerMemberCacheTest extends AsyncWordSpec with BaseTest {
         }
       )
       val registeredTs = CantonTimestamp.now()
-      val registeredMember = RegisteredMember(SequencerMemberId(42), registeredTs)
+      val registeredMember = RegisteredMember(SequencerMemberId(42), registeredTs, enabled = true)
 
       for {
         firstResult <- cache(participant1)
