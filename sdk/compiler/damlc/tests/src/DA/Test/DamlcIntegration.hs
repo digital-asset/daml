@@ -320,7 +320,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
-          let opts0 = (defaultOptions (Just version))
+          let opts0 = defaultOptions (Just version)
               opts = opts0
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
