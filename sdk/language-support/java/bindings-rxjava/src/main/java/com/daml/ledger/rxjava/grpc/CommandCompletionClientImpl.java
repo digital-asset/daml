@@ -7,7 +7,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v2.CommandCompletionServiceGrpc;
 import com.daml.ledger.javaapi.data.CompletionStreamRequest;
 import com.daml.ledger.javaapi.data.CompletionStreamResponse;
-import com.daml.ledger.javaapi.data.ParticipantOffset;
 import com.daml.ledger.rxjava.CommandCompletionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -42,14 +41,14 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, ParticipantOffset offset, List<String> parties) {
+      String applicationId, String offset, List<String> parties) {
     return completionStream(
         new CompletionStreamRequest(applicationId, parties, offset), Optional.empty());
   }
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, ParticipantOffset offset, List<String> parties, String accessToken) {
+      String applicationId, String offset, List<String> parties, String accessToken) {
     return completionStream(
         new CompletionStreamRequest(applicationId, parties, offset), Optional.of(accessToken));
   }
@@ -58,17 +57,13 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
   public Flowable<CompletionStreamResponse> completionStream(
       String applicationId, List<String> parties) {
     return completionStream(
-        new CompletionStreamRequest(
-            applicationId, parties, ParticipantOffset.ParticipantBegin.getInstance()),
-        Optional.empty());
+        new CompletionStreamRequest(applicationId, parties, ""), Optional.empty());
   }
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
       String applicationId, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequest(
-            applicationId, parties, ParticipantOffset.ParticipantBegin.getInstance()),
-        Optional.of(accessToken));
+        new CompletionStreamRequest(applicationId, parties, ""), Optional.of(accessToken));
   }
 }
