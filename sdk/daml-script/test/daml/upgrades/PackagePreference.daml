@@ -40,7 +40,6 @@ main = tests
   , brokenOnIDELedger ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
   , brokenOnIDELedger ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
   , brokenOnIDELedger ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
-  -- TODO: interfaces??
   ]
 
 noPackagePreference : Test
