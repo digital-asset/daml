@@ -962,9 +962,6 @@ withMaybeConfig withConfig handler = do
         hPutStrLn stderr "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
-      --SomeException e -> do
-      --  writeFile "/home/dylanthinnes/AAAAAAA" (displayException e)
-      --  pure Nothing
     ) (withConfig $ pure . Just)
   handler mConfig
 
