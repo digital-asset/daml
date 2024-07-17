@@ -20,7 +20,6 @@ import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.package_service._
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
@@ -238,7 +237,7 @@ class DamlLedgerClientTest
       Future.successful(SubmitResponse.defaultInstance),
       List(
         CompletionStreamResponse(
-          Some(Checkpoint(offset = Some(ParticipantOffset(ParticipantOffset.Value.Absolute("1"))))),
+          Some(Checkpoint(offset = "1")),
           None,
         )
       ),
