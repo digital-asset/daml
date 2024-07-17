@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import com.daml.ledger.javaapi.data.ParticipantOffset.Absolute
 import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}

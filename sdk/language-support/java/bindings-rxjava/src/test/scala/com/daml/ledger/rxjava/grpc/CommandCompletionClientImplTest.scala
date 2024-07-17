@@ -5,7 +5,6 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
-import com.daml.ledger.javaapi.data.ParticipantOffset.ParticipantBegin
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
@@ -43,7 +42,7 @@ class CommandCompletionClientImplTest
       completionResponses
     ) { (client, _) =>
       val completions = client
-        .completionStream(applicationId, ParticipantBegin.getInstance(), List("Alice").asJava)
+        .completionStream(applicationId, "", List("Alice").asJava)
         .take(2)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
@@ -73,13 +72,11 @@ class CommandCompletionClientImplTest
       List(completionResponse)
     ) { (client, serviceImpl) =>
       client
-        .completionStream(applicationId, ParticipantBegin.getInstance(), parties.asJava)
+        .completionStream(applicationId, "", parties.asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       serviceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe applicationId
-      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getAbsolute shouldBe "" // grpc default string is empty string
-      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBoundaryEnd shouldBe false
-      serviceImpl.getLastCompletionStreamRequest.value.getBeginExclusive.getBoundary.isParticipantBoundaryBegin shouldBe true
+      serviceImpl.getLastCompletionStreamRequest.value.beginExclusive shouldBe "" // grpc default string is empty string
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
   }
