@@ -320,7 +320,8 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
-          let opts = (defaultOptions (Just version))
+          let opts0 = (defaultOptions (Just version))
+              opts = opts0
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
                 , optCoreLinting = True
@@ -331,7 +332,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 , optPackageImports = packageFlags
                 , optDetailLevel = PrettyLevel (-1)
                 , optEnableInterfaces = EnableInterfaces True
-                , optUpgradeInfo = defaultUpgradeInfo { uiWarnBadInterfaceInstances = Just True }
+                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = Just True }
                 }
 
               mkIde options = do

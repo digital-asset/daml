@@ -295,8 +295,6 @@ getExternalPackages file = do
 generateDalfRule :: Options -> Rules ()
 generateDalfRule opts =
     define $ \GenerateDalf file -> do
-        logger <- actionLogger
-        liftIO $ logDebug logger (T.pack ("GenerateDalf " <> show file))
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
@@ -304,8 +302,6 @@ generateDalfRule opts =
         rawDalf <- use_ GenerateRawDalf file
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
-        logger <- actionLogger
-        liftIO $ logDebug logger (T.pack ("GenerateDalfRule " ++ show (fmap fst upgradedPackage)))
         pure $! case Serializability.inferModule world rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
@@ -702,8 +698,6 @@ generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
         WhnfPackage deps <- use_ GeneratePackageDeps file
-        logger <- actionLogger
-        liftIO $ logDebug logger (T.pack ("GeneratePackageDeps " <> show file))
         dalf <- use_ GenerateDalf file
         return ([], Just $ WhnfPackage $ deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
 
@@ -1207,9 +1201,6 @@ ofInterestRule = do
         -- determine all files
         let allFiles = files `HashSet.union` HashMap.keysSet vrFiles
         gc allFiles
-
-        logger <- actionLogger
-        liftIO $ logDebug logger (T.pack ("allFiles " <> show allFiles))
 
         -- Check files that can't be compiled
         let checkUncompilableFiles = flip map (HashSet.toList allFiles) $ \file -> do

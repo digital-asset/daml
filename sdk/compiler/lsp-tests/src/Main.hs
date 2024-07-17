@@ -1148,8 +1148,7 @@ multiPackageTests :: SdkVersioned => FilePath -> FilePath -> TestTree
 multiPackageTests damlc scriptDarPath
   | isWindows = testGroup "multi-package (skipped)" [] -- see issue #4904
   | otherwise = testGroup "multi-package"
-    [ testCaseSteps "IDE in root directory" $ \_step -> withTempDir $ \dir -> do
-          let step = putStrLn
+    [ testCaseSteps "IDE in root directory" $ \step -> withTempDir $ \dir -> do
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
@@ -1188,7 +1187,6 @@ multiPackageTests damlc scriptDarPath
               [ "sdk-version: " <> sdkVersion
               ]
           withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide") fullCaps' dir $ do
-              --liftIO $ writeFile "/home/dylanthinnes/AAAAAAA" "I'M IN DOO DOO DOO"
               docA <- openDoc ("a" </> "A.daml") "daml"
               Just fpA <- pure $ uriToFilePath (docA ^. uri)
               r <- getHover docA (Position 2 0)
@@ -1206,9 +1204,7 @@ multiPackageTests damlc scriptDarPath
               docB <- openDoc ("b" </> "B.daml") "daml"
               Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)
               -- code lenses are a good test since they force LF compilation
-              --liftIO $ writeFile "/home/dylanthinnes/AAAAAAA" "before code lenses"
               r <- getCodeLenses docB
-              --liftIO $ writeFile "/home/dylanthinnes/AAAAAAA" "after code lenses"
               liftIO $ r @?=
                   [ CodeLens
                         { _range = Range (Position 4 0) (Position 4 1)
