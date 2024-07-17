@@ -143,7 +143,6 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
                                UpgradeInfo(..),
-                               defaultUpgradeInfo,
                                checkPkgConfig,
                                findMultiPackageConfig,
                                withPackageConfig,
@@ -1366,7 +1365,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
-                            defaultUpgradeInfo
+                            (optUpgradeInfo opts)
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
