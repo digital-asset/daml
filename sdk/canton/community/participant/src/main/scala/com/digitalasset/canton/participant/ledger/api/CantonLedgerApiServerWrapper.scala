@@ -25,6 +25,8 @@ import com.digitalasset.canton.platform.apiserver.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
+import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
 import com.digitalasset.canton.{LedgerParticipantId, LfPackageId}
 import com.digitalasset.daml.lf.engine.Engine
@@ -75,6 +77,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       jsonApiMetrics: HttpApiMetrics,
       meteringReportKey: MeteringReportKey,
       maxDeduplicationDuration: NonNegativeFiniteDuration,
+      clock: Clock,
   ) extends NamedLogging {
     override def logger: TracedLogger = super.logger
 
@@ -94,6 +97,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       futureSupervisor: FutureSupervisor,
       excludedPackageIds: Set[LfPackageId],
       ledgerApiStore: Eval[LedgerApiStore],
+      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
@@ -109,6 +113,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
         commandProgressTracker = config.syncService.commandProgressTracker,
         excludedPackageIds = excludedPackageIds,
         ledgerApiStore = ledgerApiStore,
+        reassignmentOffsetPersistence = reassignmentOffsetPersistence,
       )
     val startFUS = for {
       _ <-

@@ -157,8 +157,8 @@ object EndlessReadService {
   val choiceName: Ref.Name = Ref.Name.assertFromString("SomeChoice")
 
   // Note: all methods in this object MUST be fully deterministic
-  def index(o: Offset): Int = Integer.parseInt(o.toHexString, 16)
-  def offset(i: Int): Offset = Offset.fromHexString(Ref.HexString.assertFromString(f"$i%08x"))
+  def index(o: Offset): Int = o.toLong.toInt
+  def offset(i: Int): Offset = Offset.fromLong(i.toLong)
   def submissionId(i: Int): Ref.SubmissionId = Ref.SubmissionId.assertFromString(f"sub$i%08x")
   def transactionId(i: Int): Ref.TransactionId = Ref.TransactionId.assertFromString(f"tx$i%08x")
   def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(f"cmd$i%08x")

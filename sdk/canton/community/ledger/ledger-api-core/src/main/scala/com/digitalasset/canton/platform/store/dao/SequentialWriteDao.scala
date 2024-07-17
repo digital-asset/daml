@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -161,9 +161,10 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,
           lastStringInterningId = lastStringInterningId,
+          lastPublicationTime = CantonTimestamp.MinValue,
         )
       )(connection)
 
-      ledgerEndCache.set(offset -> lastEventSeqId)
+      ledgerEndCache.set((offset, lastEventSeqId, CantonTimestamp.MinValue))
     })
 }

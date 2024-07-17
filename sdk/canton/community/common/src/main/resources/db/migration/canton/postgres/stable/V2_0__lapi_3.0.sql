@@ -59,11 +59,12 @@ CREATE TABLE lapi_parameters (
     ledger_end_sequential_id bigint not null,
     participant_all_divulged_contracts_pruned_up_to_inclusive varchar(4000) collate "C",
     -- lapi_string_interning ledger-end tracking
-    ledger_end_string_interning_id integer not null
+    ledger_end_string_interning_id integer not null,
+    ledger_end_publication_time bigint not null
 );
 
 CREATE TABLE lapi_ledger_end_domain_index (
-  domain_id INTEGER PRIMARY KEY NOT NULL,
+  domain_id INTEGER PRIMARY KEY not null,
   sequencer_counter BIGINT,
   sequencer_timestamp BIGINT,
   request_counter BIGINT,
@@ -77,6 +78,7 @@ CREATE TABLE lapi_ledger_end_domain_index (
 CREATE TABLE lapi_command_completions (
     completion_offset varchar(4000) collate "C" not null,
     record_time bigint not null,
+    publication_time bigint not null,
     application_id varchar(4000) collate "C" not null,
     submitters integer[] not null,
     command_id varchar(4000) collate "C" not null,
@@ -112,7 +114,9 @@ CREATE TABLE lapi_command_completions (
 
 CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
-
+CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
+CREATE INDEX lapi_command_completions_domain_record_time_idx ON lapi_command_completions USING btree (domain_id, record_time);
+CREATE INDEX lapi_command_completions_domain_offset_idx ON lapi_command_completions USING btree (domain_id, completion_offset);
 ---------------------------------------------------------------------------------------------------
 -- Events: Assign
 ---------------------------------------------------------------------------------------------------
@@ -443,14 +447,18 @@ CREATE TABLE lapi_party_record_annotations (
 CREATE TABLE lapi_transaction_meta (
     transaction_id text not null,
     event_offset text not null,
-    record_time bigint NOT NULL,
-    domain_id integer NOT NULL,
+    publication_time bigint not null,
+    record_time bigint not null,
+    domain_id integer not null,
     event_sequential_id_first bigint not null,
     event_sequential_id_last bigint not null
 );
 
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta USING btree (event_offset);
 CREATE INDEX lapi_transaction_meta_tid_idx ON lapi_transaction_meta USING btree (transaction_id);
+CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
+CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (domain_id, record_time);
+CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (domain_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- User entries

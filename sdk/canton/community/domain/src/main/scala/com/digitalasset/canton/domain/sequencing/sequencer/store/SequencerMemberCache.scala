@@ -35,4 +35,6 @@ class SequencerMemberCache(populate: Traced[Member] => Future[Option[RegisteredM
 
     cache.getIfPresent(member).fold(lookupFromStore)(result => Future.successful(Option(result)))
   }
+
+  def invalidate(member: Member): Unit = cache.invalidate(member)
 }

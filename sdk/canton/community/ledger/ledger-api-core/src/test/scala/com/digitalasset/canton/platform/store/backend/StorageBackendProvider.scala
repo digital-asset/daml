@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
@@ -43,9 +43,10 @@ trait StorageBackendProvider {
   protected final def updateLedgerEnd(
       ledgerEndOffset: Offset,
       ledgerEndSequentialId: Long,
+      ledgerEndPublicationTime: CantonTimestamp = CantonTimestamp.now(),
   )(connection: Connection): Unit = {
     backend.parameter.updateLedgerEnd(
-      LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0)
+      LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0, ledgerEndPublicationTime)
     )(
       connection
     ) // we do not care about the stringInterningId here
@@ -59,7 +60,13 @@ trait StorageBackendProvider {
 
   protected final def updateLedgerEndCache(connection: Connection): Unit = {
     val ledgerEnd = backend.parameter.ledgerEnd(connection)
-    backend.ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+    backend.ledgerEndCache.set(
+      (
+        ledgerEnd.lastOffset,
+        ledgerEnd.lastEventSeqId,
+        ledgerEnd.lastPublicationTime,
+      )
+    )
   }
 }
 

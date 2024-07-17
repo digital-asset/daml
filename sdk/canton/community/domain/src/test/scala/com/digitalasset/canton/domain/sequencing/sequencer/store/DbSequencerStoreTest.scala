@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.domain.sequencing.sequencer.store.DbSequencerStoreTest.MaxInClauseSize
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.db.{DbTest, H2Test}
+import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
@@ -75,4 +75,8 @@ object DbSequencerStoreTest {
 
 class SequencerStoreTestH2 extends DbSequencerStoreTest with H2Test {
   override protected val semaphoreKey: Option[String] = TestSemaphoreUtil.SEQUENCER_DB_H2
+}
+
+class SequencerStoreTestPostgres extends DbSequencerStoreTest with PostgresTest {
+  override protected val semaphoreKey: Option[String] = TestSemaphoreUtil.SEQUENCER_DB_PG
 }

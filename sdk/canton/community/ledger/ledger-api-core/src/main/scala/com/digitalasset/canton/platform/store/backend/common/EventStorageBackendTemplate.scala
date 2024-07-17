@@ -8,11 +8,13 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
+  contractId,
   hashFromHexString,
   offset,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
@@ -22,10 +24,12 @@ import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{Identifier, Party}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.sql.Connection
 import scala.collection.immutable.ArraySeq
@@ -804,6 +808,30 @@ object EventStorageBackendTemplate {
       case None => submitters.nonEmpty
     }
 
+  private def domainOffsetParser(
+      offsetColumnName: String,
+      stringInterning: StringInterning,
+  ): RowParser[DomainOffset] =
+    offset(offsetColumnName) ~
+      int("domain_id") ~
+      timestampFromMicros("record_time") ~
+      timestampFromMicros("publication_time") map {
+        case offset ~ internedDomainId ~ recordTime ~ publicationTime =>
+          DomainOffset(
+            offset = offset,
+            domainId = stringInterning.domainId.externalize(internedDomainId),
+            recordTime = recordTime,
+            publicationTime = publicationTime,
+          )
+      }
+
+  private def completionDomainOffsetParser(
+      stringInterning: StringInterning
+  ): RowParser[DomainOffset] =
+    domainOffsetParser("completion_offset", stringInterning)
+
+  private def metaDomainOffsetParser(stringInterning: StringInterning): RowParser[DomainOffset] =
+    domainOffsetParser("event_offset", stringInterning)
 }
 
 abstract class EventStorageBackendTemplate(
@@ -1443,4 +1471,169 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
+  def firstDomainOffsetAfterOrAt(
+      domainId: DomainId,
+      afterOrAtRecordTimeInclusive: Timestamp,
+  )(connection: Connection): Option[DomainOffset] =
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, domain_id
+          FROM lapi_command_completions
+          WHERE
+            domain_id = ${stringInterning.domainId.internalize(domainId)} AND
+            record_time >= ${afterOrAtRecordTimeInclusive.micros}
+          ORDER BY domain_id ASC, record_time ASC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, domain_id
+          FROM lapi_transaction_meta
+          WHERE
+            domain_id = ${stringInterning.domainId.internalize(domainId)} AND
+            record_time >= ${afterOrAtRecordTimeInclusive.micros}
+          ORDER BY domain_id ASC, record_time ASC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.recordTime)
+      .headOption
+      .filter(_.offset <= ledgerEndCache()._1) // if the first is after LedgerEnd, then we have none
+
+  def lastDomainOffsetBeforeOrAt(
+      domainIdO: Option[DomainId],
+      beforeOrAtOffsetInclusive: Offset,
+  )(connection: Connection): Option[DomainOffset] = {
+    val ledgerEndOffset = ledgerEndCache()._1
+    val safeBeforeOrAtOffset =
+      if (beforeOrAtOffsetInclusive > ledgerEndOffset) ledgerEndOffset
+      else beforeOrAtOffsetInclusive
+    val (domainIdFilter, domainIdOrdering) = domainIdO match {
+      case Some(domainId) =>
+        (
+          cSQL"domain_id = ${stringInterning.domainId.internalize(domainId)} AND",
+          cSQL"domain_id,",
+        )
+
+      case None =>
+        (
+          cSQL"",
+          cSQL"",
+        )
+    }
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, domain_id
+          FROM lapi_command_completions
+          WHERE
+            $domainIdFilter
+            ${queryStrategy.offsetIsSmallerOrEqual("completion_offset", safeBeforeOrAtOffset)}
+          ORDER BY $domainIdOrdering completion_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, domain_id
+          FROM lapi_transaction_meta
+          WHERE
+            $domainIdFilter
+            ${queryStrategy.offsetIsSmallerOrEqual("event_offset", safeBeforeOrAtOffset)}
+          ORDER BY $domainIdOrdering event_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.offset)
+      .reverse
+      .headOption
+  }
+
+  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset] =
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, domain_id
+          FROM lapi_command_completions
+          WHERE
+            completion_offset = $offset
+          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, domain_id
+          FROM lapi_transaction_meta
+          WHERE
+            event_offset = $offset
+          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+    ).flatten.headOption // if both present they should be the same
+      .filter(_.offset <= ledgerEndCache()._1) // only offset allow before or at ledger end
+
+  def firstDomainOffsetAfterOrAtPublicationTime(
+      afterOrAtPublicationTimeInclusive: Timestamp
+  )(connection: Connection): Option[DomainOffset] =
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, domain_id
+          FROM lapi_command_completions
+          WHERE
+            publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
+          ORDER BY publication_time ASC, completion_offset ASC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, domain_id
+          FROM lapi_transaction_meta
+          WHERE
+            publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
+          ORDER BY publication_time ASC, event_offset ASC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.offset)
+      .headOption
+      .filter(
+        _.offset <= ledgerEndCache()._1
+      ) // if first offset is beyond the ledger-end then we have no such
+
+  def lastDomainOffsetBeforerOrAtPublicationTime(
+      beforeOrAtPublicationTimeInclusive: Timestamp
+  )(connection: Connection): Option[DomainOffset] = {
+    val ledgerEndPublicationTime = ledgerEndCache.publicationTime.underlying
+    val safePublicationTime =
+      if (beforeOrAtPublicationTimeInclusive > ledgerEndPublicationTime)
+        ledgerEndPublicationTime
+      else
+        beforeOrAtPublicationTimeInclusive
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, domain_id
+          FROM lapi_command_completions
+          WHERE
+            publication_time <= ${safePublicationTime.micros}
+          ORDER BY publication_time DESC, completion_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, domain_id
+          FROM lapi_transaction_meta
+          WHERE
+            publication_time <= ${safePublicationTime.micros}
+          ORDER BY publication_time DESC, event_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.offset)
+      .reverse
+      .headOption
+  }
+
+  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+      connection: Connection
+  ): Set[ContractId] = {
+    val fromExclusiveSeqId = fromExclusive.map(maxEventSequentialId(_)(connection)).getOrElse(-1L)
+    val toInclusiveSeqId = maxEventSequentialId(toInclusive)(connection)
+    SQL"""
+        SELECT contract_id
+        FROM lapi_events_consuming_exercise
+        WHERE
+          event_sequential_id > $fromExclusiveSeqId AND
+          event_sequential_id <= $toInclusiveSeqId
+        """
+      .asVectorOf(contractId("contract_id"))(connection)
+      .toSet
+  }
 }

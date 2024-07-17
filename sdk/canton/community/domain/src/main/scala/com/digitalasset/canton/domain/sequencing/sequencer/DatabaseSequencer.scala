@@ -250,20 +250,15 @@ class DatabaseSequencer(
   override def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
     store.lookupMember(member).map(_.isDefined)
 
-  override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] = {
-    for {
-      memberIdO <- store.lookupMember(member).map(_.map(_.memberId))
-      isEnabled <- memberIdO match {
-        // TODO(#18394): store.isEnabled is not cached like store.lookupMember, called on every Send/Subscribe
-        case Some(memberId) => store.isEnabled(memberId)
-        case None =>
-          logger.warn(
-            s"Attempted to check if member $member is enabled but they are not registered"
-          )
-          Future.successful(false)
-      }
-    } yield isEnabled
-  }
+  override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+    store.lookupMember(member).map {
+      case Some(registeredMember) => registeredMember.enabled
+      case None =>
+        logger.warn(
+          s"Attempted to check if member $member is enabled but they are not registered"
+        )
+        false
+    }
 
   override private[sequencing] final def registerMemberInternal(
       member: Member,
@@ -343,11 +338,7 @@ class DatabaseSequencer(
 
   protected def disableMemberInternal(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    withExpectedRegisteredMember(member, "Disable member") { memberId =>
-      store.disableMember(memberId)
-    }
-  }
+  )(implicit traceContext: TraceContext): Future[Unit] = store.disableMember(member)
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.

@@ -41,7 +41,8 @@ private[backend] class ParameterStorageBackendImpl(
         SET
           ledger_end = ${ledgerEnd.lastOffset},
           ledger_end_sequential_id = ${ledgerEnd.lastEventSeqId},
-          ledger_end_string_interning_id = ${ledgerEnd.lastStringInterningId}
+          ledger_end_string_interning_id = ${ledgerEnd.lastStringInterningId},
+          ledger_end_publication_time = ${ledgerEnd.lastPublicationTime.toMicros}
         """
         .execute()(connection)
     )
@@ -84,7 +85,8 @@ private[backend] class ParameterStorageBackendImpl(
       SELECT
         ledger_end,
         ledger_end_sequential_id,
-        ledger_end_string_interning_id
+        ledger_end_string_interning_id,
+        ledger_end_publication_time
       FROM
         lapi_parameters
       """
@@ -99,6 +101,7 @@ private[backend] class ParameterStorageBackendImpl(
   private val LedgerEndColumnName: String = "ledger_end"
   private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
   private val LedgerEndStringInterningIdColumnName: String = "ledger_end_string_interning_id"
+  private val LedgerEndPublicationTimeColumnName: String = "ledger_end_publication_time"
 
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
@@ -120,13 +123,17 @@ private[backend] class ParameterStorageBackendImpl(
       ParameterStorageBackend.IdentityParams(participantId)
     }
 
+  private val LedgerEndPublicationTimeParser: RowParser[CantonTimestamp] =
+    long(LedgerEndPublicationTimeColumnName).map(CantonTimestamp.ofEpochMicro)
+
   private val LedgerEndParser: RowParser[ParameterStorageBackend.LedgerEnd] =
-    LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser map {
-      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId =>
+    LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser ~ LedgerEndPublicationTimeParser map {
+      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId ~ lastPublicationTime =>
         ParameterStorageBackend.LedgerEnd(
           lastOffset,
           lastEventSequentialId,
           lastStringInterningId,
+          lastPublicationTime,
         )
     }
 
@@ -151,12 +158,14 @@ private[backend] class ParameterStorageBackendImpl(
               #$ParticipantIdColumnName,
               #$LedgerEndColumnName,
               #$LedgerEndSequentialIdColumnName,
-              #$LedgerEndStringInterningIdColumnName
+              #$LedgerEndStringInterningIdColumnName,
+              #$LedgerEndPublicationTimeColumnName
             ) values(
               ${participantId.unwrap: String},
               ${ledgerEnd.lastOffset},
               ${ledgerEnd.lastEventSeqId},
-              ${ledgerEnd.lastStringInterningId}
+              ${ledgerEnd.lastStringInterningId},
+              ${ledgerEnd.lastPublicationTime.toMicros}
             )"""
             .execute()(connection)
         )

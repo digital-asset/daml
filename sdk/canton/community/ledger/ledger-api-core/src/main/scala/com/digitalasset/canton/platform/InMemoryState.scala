@@ -60,7 +60,9 @@ private[platform] class InMemoryState(
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
         inMemoryFanoutBuffer.flush()
-        ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        ledgerEndCache.set(
+          (ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId, ledgerEnd.lastPublicationTime)
+        )
         submissionTracker.close()
       }
       // Start a new Ledger API offset dispatcher

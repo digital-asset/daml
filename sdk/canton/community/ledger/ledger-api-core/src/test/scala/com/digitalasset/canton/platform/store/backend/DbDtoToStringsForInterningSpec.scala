@@ -163,6 +163,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     DbDto.CommandCompletion(
       completion_offset = "64",
       record_time = 2,
+      publication_time = 0,
       application_id = "65",
       submitters = Set("66", "67", "68"),
       command_id = "69",

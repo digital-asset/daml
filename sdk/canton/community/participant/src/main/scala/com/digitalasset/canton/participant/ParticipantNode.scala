@@ -721,6 +721,7 @@ class ParticipantNodeBootstrap(
           tracerProvider,
           adminToken,
           excludedPackageIds,
+          TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
         )
 
     } yield {

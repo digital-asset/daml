@@ -245,7 +245,7 @@ trait SequencerStoreTest
         for {
           id <- store.registerMember(alice, ts1)
           fetchedId <- store.lookupMember(alice)
-        } yield fetchedId.value shouldBe RegisteredMember(id, ts1)
+        } yield fetchedId.value shouldBe RegisteredMember(id, ts1, enabled = true)
       }
 
       "lookup should return none if member is not registered" in {
@@ -264,7 +264,7 @@ trait SequencerStoreTest
           registeredMember <- store.lookupMember(alice)
         } yield {
           id2 shouldEqual id1
-          registeredMember.value shouldBe RegisteredMember(id1, ts1)
+          registeredMember.value shouldBe RegisteredMember(id1, ts1, enabled = true)
         }
       }
     }
@@ -947,7 +947,7 @@ trait SequencerStoreTest
             // clients have acknowledgements at different points
             _ <- store.acknowledge(aliceId, ts(4))
             _ <- store.acknowledge(bobId, ts(6))
-            _ <- store.disableMember(aliceId)
+            _ <- store.disableMember(alice)
             status <- store.status(ts(6))
             safeTimestamp = status.safePruningTimestamp
             _ = safeTimestamp shouldBe ts(6) // as alice is ignored
@@ -967,10 +967,10 @@ trait SequencerStoreTest
           import env.*
 
           for {
-            aliceId <- store.registerMember(alice, ts(1))
-            bobId <- store.registerMember(bob, ts(2))
-            _ <- store.disableMember(aliceId)
-            _ <- store.disableMember(bobId)
+            _ <- store.registerMember(alice, ts(1))
+            _ <- store.registerMember(bob, ts(2))
+            _ <- store.disableMember(alice)
+            _ <- store.disableMember(bob)
             status <- store.status(ts(3))
             exception <- loggerFactory.assertLogs(
               store
@@ -998,26 +998,29 @@ trait SequencerStoreTest
       import env.*
 
       for {
-        List(aliceId, bobId, caroleId) <- List(alice, bob, carole).parTraverse(
+        _ <- List(alice, bob, carole).parTraverse(
           store.registerMember(_, ts(0))
         )
         disabledClientsBefore <- store.status(ts(0)).map(_.disabledClients)
         _ = {
           disabledClientsBefore.members shouldBe empty
         }
-        _ <- store.disableMember(aliceId)
-        _ <- store.disableMember(bobId)
+        _ <- store.lookupMember(alice) // this line populates the cache
+        _ <- store.disableMember(alice)
+        _ <- store.disableMember(bob)
         disabledClientsAfter <- store.status(ts(0)).map(_.disabledClients)
         _ = disabledClientsAfter.members should contain.only(alice, bob)
         // alice instances should be entirely disabled
-        aliceEnabled <- clue("alice1Enabled") {
-          store.isEnabled(aliceId)
+        aliceRegisteredMember <- clue("lookupMember alice") {
+          store.lookupMember(alice).map(_.getOrElse(fail("lookupMember alice")))
         }
-        _ = aliceEnabled shouldBe false
+        _ = clue("alice was not disabled, maybe due to caching?") {
+          aliceRegisteredMember.enabled shouldBe false
+        }
         // should also be idempotent
-        _ <- store.disableMember(aliceId)
-        _ <- store.disableMember(bobId)
-        _ <- store.disableMember(caroleId)
+        _ <- store.disableMember(alice)
+        _ <- store.disableMember(bob)
+        _ <- store.disableMember(carole)
       } yield succeed
     }
 

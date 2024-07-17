@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.backend.{
   DataSourceStorageBackend,
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.pekko.stream.{KillSwitch, Materializer}
@@ -52,6 +53,7 @@ object ParallelIndexerFactory {
       initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
       loggerFactory: NamedLoggerFactory,
       indexerDbDispatcherOverride: Option[DbDispatcher],
+      clock: Clock,
   )(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
     val logger = TracedLogger(loggerFactory.getLogger(getClass))
     for {
@@ -165,6 +167,7 @@ object ParallelIndexerFactory {
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
               materializer = mat,
+              clock = clock,
             )
           )
         }

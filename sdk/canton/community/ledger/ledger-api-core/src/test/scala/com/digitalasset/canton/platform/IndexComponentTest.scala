@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
@@ -21,6 +22,7 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTrack
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
+import com.digitalasset.canton.platform.indexer.parallel.NoOpReassignmentOffsetPersistence
 import com.digitalasset.canton.platform.indexer.{
   IndexerConfig,
   IndexerServiceOwner,
@@ -36,6 +38,7 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
@@ -53,6 +56,8 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
 trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
   self: Suite =>
+
+  private val clock = new WallClock(ProcessingTimeout(), loggerFactory)
 
   // AsyncFlatSpec is with serial execution context
   private implicit val ec: ExecutionContext = system.dispatcher
@@ -140,6 +145,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           highAvailability = HaConfig(),
           indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
           excludedPackageIds = Set.empty,
+          clock = clock,
+          reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
         )
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(

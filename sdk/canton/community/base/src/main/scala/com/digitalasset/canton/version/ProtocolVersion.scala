@@ -79,7 +79,7 @@ sealed case class ProtocolVersion private[version] (v: Int)
 
   def isDeprecated: Boolean = deprecated.contains(this)
 
-  def isUnstable: Boolean = alpha.contains(this)
+  def isAlpha: Boolean = alpha.contains(this)
 
   def isBeta: Boolean = beta.contains(this)
 

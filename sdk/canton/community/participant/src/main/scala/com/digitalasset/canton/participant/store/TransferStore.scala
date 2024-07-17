@@ -4,20 +4,25 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxParallelTraverse_
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.*
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil, OptionUtil}
+import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{Checked, CheckedT, EitherTUtil, MonadUtil, OptionUtil}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import monocle.macros.syntax.lens.*
 
@@ -116,6 +121,66 @@ object TransferStore {
       .get(domainId.unwrap)
       .toRight(s"Unknown domain `${domainId.unwrap}`")
       .map(_.transferStore)
+
+  def reassignmentOffsetPersistenceFor(
+      syncDomainPersistentStates: SyncDomainPersistentStateLookup
+  )(implicit
+      executionContext: ExecutionContext
+  ): ReassignmentOffsetPersistence = new ReassignmentOffsetPersistence {
+    override def persist(
+        updates: Seq[(Update, Offset)],
+        tracedLogger: TracedLogger,
+    )(implicit traceContext: TraceContext): Future[Unit] =
+      updates
+        .collect {
+          case (transferAccepted: Update.ReassignmentAccepted, offset)
+              if transferAccepted.reassignmentInfo.isTransferringParticipant =>
+            (transferAccepted, offset)
+        }
+        .groupBy { case (event, _) => event.reassignmentInfo.targetDomain }
+        .toList
+        .parTraverse_ { case (targetDomain, eventsForDomain) =>
+          lazy val updates = eventsForDomain
+            .map { case (event, offset) =>
+              s"${event.reassignmentInfo.sourceDomain} ${event.reassignmentInfo.unassignId} (${event.reassignment}): $offset"
+            }
+            .mkString(", ")
+
+          val res: EitherT[FutureUnlessShutdown, String, Unit] = for {
+            transferStore <- EitherT
+              .fromEither[FutureUnlessShutdown](
+                transferStoreFor(syncDomainPersistentStates)(targetDomain)
+              )
+            offsets = eventsForDomain.map { case (reassignmentEvent, offset) =>
+              val globalOffset = GlobalOffset.tryFromLong(offset.toLong)
+              val transferOffset = reassignmentEvent.reassignment match {
+                case _: Reassignment.Assign => TransferInGlobalOffset(globalOffset)
+                case _: Reassignment.Unassign => TransferOutGlobalOffset(globalOffset)
+              }
+              TransferId(
+                reassignmentEvent.reassignmentInfo.sourceDomain,
+                reassignmentEvent.reassignmentInfo.unassignId,
+              ) -> transferOffset
+            }
+            _ = tracedLogger.debug(s"Updated global offsets for transfers: $updates")
+            _ <- transferStore.addTransfersOffsets(offsets).leftMap(_.message)
+          } yield ()
+
+          EitherTUtil
+            .toFutureUnlessShutdown(
+              res.leftMap(err =>
+                new RuntimeException(
+                  s"Unable to update global offsets for transfers ($updates): $err"
+                )
+              )
+            )
+            .onShutdown(
+              throw new RuntimeException(
+                "Notification upon published transfer aborted due to shutdown"
+              )
+            )
+        }
+  }
 
   /** Merge the offsets corresponding to the same transfer id.
     * Returns an error in case of inconsistent offsets.

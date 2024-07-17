@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import cats.data.{EitherT, OptionT}
+import cats.data.OptionT
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LedgerSubmissionId
@@ -13,16 +13,12 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.ChangeId
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
-import com.digitalasset.canton.participant.protocol.transfer.TransferData.{
-  TransferInGlobalOffset,
-  TransferOutGlobalOffset,
-}
 import com.digitalasset.canton.participant.store.EventLogId.{
   DomainEventLogId,
   ParticipantEventLogId,
@@ -43,13 +39,11 @@ import com.digitalasset.canton.participant.{
   RequestOffset,
   TopologyOffset,
 }
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import org.apache.pekko.NotUsed
@@ -301,47 +295,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       }.discard
     }
 
-  protected def transferStoreFor: TargetDomainId => Either[String, TransferStore]
-
-  def notifyOnPublishTransfer(
-      events: Seq[(LedgerSyncEvent.TransferEvent, GlobalOffset)]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-
-    events.groupBy { case (event, _) => event.targetDomain }.toList.parTraverse_ {
-      case (targetDomain, eventsForDomain) =>
-        lazy val updates = eventsForDomain
-          .map { case (event, offset) => s"${event.transferId} (${event.kind}): $offset" }
-          .mkString(", ")
-
-        val res: EitherT[FutureUnlessShutdown, String, Unit] = for {
-          transferStore <- EitherT
-            .fromEither[FutureUnlessShutdown](transferStoreFor(targetDomain))
-          offsets = eventsForDomain.map {
-            case (out: LedgerSyncEvent.TransferredOut, offset) =>
-              (out.transferId, TransferOutGlobalOffset(offset))
-            case (in: LedgerSyncEvent.TransferredIn, offset) =>
-              (in.transferId, TransferInGlobalOffset(offset))
-          }
-          _ = logger.debug(s"Updated global offsets for transfers: $updates")
-          _ <- transferStore.addTransfersOffsets(offsets).leftMap(_.message)
-        } yield ()
-
-        EitherTUtil
-          .toFutureUnlessShutdown(
-            res.leftMap(err =>
-              new RuntimeException(
-                s"Unable to update global offsets for transfers ($updates): $err"
-              )
-            )
-          )
-          .onShutdown(
-            throw new RuntimeException(
-              "Notification upon published transfer aborted due to shutdown"
-            )
-          )
-    }
-  }
-
   /** Returns a lower bound on the latest publication time of a published event.
     * All events published later will receive the same or higher publication time.
     * Increases monotonically, even across restarts.
@@ -388,7 +341,6 @@ object MultiDomainEventLog {
             participantEventLog,
             clock,
             timeouts,
-            TransferStore.transferStoreFor(syncDomainPersistentStates),
             indexedStringStore,
             metrics,
             futureSupervisor,
@@ -404,7 +356,6 @@ object MultiDomainEventLog {
           indexedStringStore,
           loggerFactory,
           participantEventLogId = participantEventLog.id,
-          transferStoreFor = TransferStore.transferStoreFor(syncDomainPersistentStates),
         )
     }
   }

@@ -8,7 +8,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.store.interning.{
   InternizingStringInterningView,
   StringInterning,
 }
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref
@@ -57,6 +58,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     stringInterningView: StringInterning & InternizingStringInterningView,
+    reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
@@ -74,6 +76,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
       materializer: Materializer,
+      clock: Clock,
   )(implicit traceContext: TraceContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
       import MetricsContext.Implicits.empty
@@ -107,11 +110,16 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 logger,
               )
             ),
-            seqMapperZero =
-              seqMapperZero(initialized.initialEventSeqId, initialized.initialStringInterningId),
+            seqMapperZero = seqMapperZero(
+              initialized.initialEventSeqId,
+              initialized.initialStringInterningId,
+              initialized.initialLastPublicationTime,
+            ),
             seqMapper = seqMapper(
               dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
               metrics,
+              clock,
+              logger,
             ),
             batchingParallelism = batchingParallelism,
             batcher = batcherExecutor.execute(
@@ -120,8 +128,10 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             ingestingParallelism = ingestionParallelism,
             ingester = ingester(
               ingestFunction = ingestionStorageBackend.insertBatch,
+              reassignmentOffsetPersistence = reassignmentOffsetPersistence,
               zeroDbBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView),
               dbDispatcher = dbDispatcher,
+              logger = logger,
               metrics = metrics,
             ),
             maxTailerBatchSize = maxTailerBatchSize,
@@ -131,7 +141,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             ),
           )
         )
-        .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
+        .map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
         .buffered(
           counter = metrics.parallelIndexer.outputBatchedBufferLength,
           size = maxOutputBatchedBufferSize,
@@ -166,6 +176,7 @@ object ParallelIndexerSubscription {
       lastSeqEventId: Long,
       lastStringInterningId: Int,
       lastRecordTime: Long,
+      publicationTime: CantonTimestamp,
       lastTraceContext: TraceContext,
       batch: T,
       batchSize: Int,
@@ -204,6 +215,7 @@ object ParallelIndexerSubscription {
       lastSeqEventId = 0, // will be filled later in the sequential step
       lastStringInterningId = 0, // will be filled later in the sequential step
       lastRecordTime = last._2.value.recordTime.toInstant.toEpochMilli,
+      publicationTime = CantonTimestamp.MinValue, // will be filled later in the equential step
       lastTraceContext = last._2.traceContext,
       batch = batch,
       batchSize = input.size,
@@ -215,13 +227,16 @@ object ParallelIndexerSubscription {
   def seqMapperZero(
       initialSeqId: Long,
       initialStringInterningId: Int,
+      initialPublicationTime: CantonTimestamp,
   ): Batch[Vector[DbDto]] =
     Batch(
-      lastOffset = null,
+      lastOffset = Offset.beforeBegin,
       lastSeqEventId = initialSeqId, // this is property of interest in the zero element
       lastStringInterningId =
         initialStringInterningId, // this is property of interest in the zero element
       lastRecordTime = 0,
+      publicationTime =
+        initialPublicationTime, // this is property of interest in the zero element: sets the lower bound for publication time
       lastTraceContext = TraceContext.empty,
       batch = Vector.empty,
       batchSize = 0,
@@ -231,17 +246,42 @@ object ParallelIndexerSubscription {
   def seqMapper(
       internize: Iterable[DbDto] => Iterable[(Int, String)],
       metrics: LedgerApiServerMetrics,
+      clock: Clock,
+      logger: TracedLogger,
   )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] = {
     Timed.value(
       metrics.parallelIndexer.seqMapping.duration, {
+        discard(
+          current.offsetsUpdates.foldLeft(previous.lastOffset) { case (prev, (curr, _)) =>
+            assert(prev < curr, s"Monotonic Offset violation detected from $prev to $curr")
+            curr
+          }
+        )
+        val publicationTime = {
+          val now = clock.monotonicTime()
+          val next = Ordering[CantonTimestamp].max(
+            now,
+            previous.publicationTime,
+          )
+          if (now < next) {
+            implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(
+              current.offsetsUpdates.iterator.map(_._2)
+            )(logger)
+            logger.info(
+              s"Local participant clock at $now is before a previous publication time $next. Has the clock been reset, e.g., during participant failover?"
+            )
+          }
+          next
+        }
+
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var eventSeqId = previous.lastSeqEventId
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var lastTransactionMetaEventSeqId = eventSeqId
-        val batchWithSeqIds = current.batch.map {
+        val batchWithSeqIdsAndPublicationTime = current.batch.map {
           case dbDto: DbDto.EventCreate =>
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
@@ -278,10 +318,13 @@ object ParallelIndexerSubscription {
               .copy(
                 event_sequential_id_first = lastTransactionMetaEventSeqId + 1,
                 event_sequential_id_last = eventSeqId,
+                publication_time = publicationTime.underlying.micros,
               )
               .tap(_ => lastTransactionMetaEventSeqId = eventSeqId)
 
-          case unChanged: DbDto.CommandCompletion => unChanged
+          case dbDto: DbDto.CommandCompletion =>
+            dbDto.copy(publication_time = publicationTime.underlying.micros)
+
           case unChanged: DbDto.PartyEntry => unChanged
           case unChanged: DbDto.StringInterningDto => unChanged
           case unChanged: DbDto.TransactionMetering => unChanged
@@ -289,17 +332,18 @@ object ParallelIndexerSubscription {
         }
 
         val (newLastStringInterningId, dbDtosWithStringInterning) =
-          internize(batchWithSeqIds)
+          internize(batchWithSeqIdsAndPublicationTime)
             .map(DbDto.StringInterningDto.from)
             .pipe(newEntries =>
-              newEntries.lastOption.fold(previous.lastStringInterningId -> batchWithSeqIds)(last =>
-                last.internalId -> (batchWithSeqIds ++ newEntries)
-              )
+              newEntries.lastOption.fold(
+                previous.lastStringInterningId -> batchWithSeqIdsAndPublicationTime
+              )(last => last.internalId -> (batchWithSeqIdsAndPublicationTime ++ newEntries))
             )
 
         current.copy(
           lastSeqEventId = eventSeqId,
           lastStringInterningId = newLastStringInterningId,
+          publicationTime = publicationTime,
           batch = dbDtosWithStringInterning,
         )
       },
@@ -317,26 +361,43 @@ object ParallelIndexerSubscription {
 
   def ingester[DB_BATCH](
       ingestFunction: (Connection, DB_BATCH) => Unit,
+      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       zeroDbBatch: DB_BATCH,
       dbDispatcher: DbDispatcher,
       metrics: LedgerApiServerMetrics,
-  )(implicit traceContext: TraceContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+      logger: TracedLogger,
+  )(implicit traceContext: TraceContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = {
+    val directExecutionContext = DirectExecutionContext(logger)
     batch =>
       LoggingContextWithTrace.withNewLoggingContext(
         "updateOffsets" -> batch.offsetsUpdates.map(_._1)
       ) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.parallelIndexer.ingestion) { connection =>
-          metrics.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
-          ingestFunction(connection, batch.batch)
-          cleanUnusedBatch(zeroDbBatch)(batch)
-        }
+        val batchTraceContext: TraceContext = TraceContext.ofBatch(
+          batch.offsetsUpdates.iterator.map(_._2)
+        )(logger)
+        reassignmentOffsetPersistence
+          .persist(
+            batch.offsetsUpdates.map { case (offset, tracedUpdate) =>
+              tracedUpdate.value -> offset
+            },
+            logger,
+          )(batchTraceContext)
+          .flatMap(_ =>
+            dbDispatcher.executeSql(metrics.parallelIndexer.ingestion) { connection =>
+              metrics.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
+              ingestFunction(connection, batch.batch)
+              cleanUnusedBatch(zeroDbBatch)(batch)
+            }
+          )(directExecutionContext)
       }
+  }
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(
       lastOffset = batch.lastOffset,
       lastEventSeqId = batch.lastSeqEventId,
       lastStringInterningId = batch.lastStringInterningId,
+      lastPublicationTime = batch.publicationTime,
     )
 
   def ledgerEndDomainIndexFrom(
@@ -406,4 +467,18 @@ object ParallelIndexerSubscription {
       batch = zeroDbBatch, // not used anymore
       batchSize = 0, // not used anymore
     )
+}
+
+trait ReassignmentOffsetPersistence {
+  def persist(
+      updates: Seq[(Update, Offset)],
+      tracedLogger: TracedLogger,
+  )(implicit traceContext: TraceContext): Future[Unit]
+}
+
+object NoOpReassignmentOffsetPersistence extends ReassignmentOffsetPersistence {
+  override def persist(
+      updates: Seq[(Update, Offset)],
+      tracedLogger: TracedLogger,
+  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful(())
 }

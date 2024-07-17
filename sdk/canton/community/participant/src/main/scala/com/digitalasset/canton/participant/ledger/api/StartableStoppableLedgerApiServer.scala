@@ -52,6 +52,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner
+import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.platform.indexer.{
   IndexerConfig,
   IndexerServiceOwner,
@@ -86,6 +87,7 @@ class StartableStoppableLedgerApiServer(
     commandProgressTracker: CommandProgressTracker,
     excludedPackageIds: Set[LfPackageId],
     ledgerApiStore: Eval[LedgerApiStore],
+    reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -243,6 +245,8 @@ class StartableStoppableLedgerApiServer(
         highAvailability = config.indexerHaConfig,
         indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
         excludedPackageIds,
+        config.clock,
+        reassignmentOffsetPersistence,
       )
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*

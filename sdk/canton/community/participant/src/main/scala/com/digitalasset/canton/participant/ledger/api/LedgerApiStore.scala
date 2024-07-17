@@ -68,6 +68,7 @@ final class LedgerApiStore(
         (
           currentLedgerEnd.lastOffset,
           currentLedgerEnd.lastEventSeqId,
+          currentLedgerEnd.lastPublicationTime,
         )
       )
     }

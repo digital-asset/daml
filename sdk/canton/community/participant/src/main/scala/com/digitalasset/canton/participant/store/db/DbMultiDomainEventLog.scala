@@ -29,12 +29,11 @@ import com.digitalasset.canton.participant.store.MultiDomainEventLog.{
   PublicationData,
 }
 import com.digitalasset.canton.participant.store.db.DbMultiDomainEventLog.*
-import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLog, TransferStore}
+import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLog}
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.Implicits.{
   getResultLfPartyId as _,
@@ -88,7 +87,6 @@ class DbMultiDomainEventLog private[db] (
     storage: DbStorage,
     clock: Clock,
     metrics: ParticipantMetrics,
-    override val transferStoreFor: TargetDomainId => Either[String, TransferStore],
     override val indexedStringStore: IndexedStringStore,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -289,18 +287,6 @@ class DbMultiDomainEventLog private[db] (
         globalOffsetStrictLowerBound = previousGlobalOffset,
         lastEvents = foundEvents,
       )
-
-      transferEvents = published.mapFilter { publication =>
-        publication.event match {
-          case transfer: LedgerSyncEvent.TransferEvent if transfer.isTransferringParticipant =>
-            Some((transfer, publication.globalOffset))
-          case _ => None
-        }
-      }
-
-      // We wait here because we don't want to update the ledger end (new head of the dispatcher) if notification fails
-      _ <- notifyOnPublishTransfer(transferEvents)
-
     } yield {
       logger.debug(show"Signalling global offset $newGlobalOffset.")
 
@@ -803,7 +789,6 @@ object DbMultiDomainEventLog {
       indexedStringStore: IndexedStringStore,
       loggerFactory: NamedLoggerFactory,
       participantEventLogId: ParticipantEventLogId,
-      transferStoreFor: TargetDomainId => Either[String, TransferStore],
       maxBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
   )(implicit
       ec: ExecutionContext,
@@ -828,7 +813,6 @@ object DbMultiDomainEventLog {
         clock = clock,
         metrics = metrics,
         indexedStringStore = indexedStringStore,
-        transferStoreFor = transferStoreFor,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
       )

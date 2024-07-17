@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.EventSequentialId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  DomainOffset,
   RawActiveContract,
   RawAssignEvent,
   RawUnassignEvent,
@@ -166,13 +167,23 @@ trait MeteringParameterStorageBackend {
 }
 
 object ParameterStorageBackend {
-  final case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int) {
+  final case class LedgerEnd(
+      lastOffset: Offset,
+      lastEventSeqId: Long,
+      lastStringInterningId: Int,
+      lastPublicationTime: CantonTimestamp,
+  ) {
     def lastOffsetOption: Option[Offset] =
       if (lastOffset == Offset.beforeBegin) None else Some(lastOffset)
   }
   object LedgerEnd {
     val beforeBegin: ParameterStorageBackend.LedgerEnd =
-      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
+      ParameterStorageBackend.LedgerEnd(
+        Offset.beforeBegin,
+        EventSequentialId.beforeBegin,
+        0,
+        CantonTimestamp.MinValue,
+      )
   }
   final case class IdentityParams(participantId: ParticipantId)
 
@@ -321,6 +332,30 @@ trait EventStorageBackend {
   def maxEventSequentialId(untilInclusiveOffset: Offset)(
       connection: Connection
   ): Long
+
+  def firstDomainOffsetAfterOrAt(
+      domainId: DomainId,
+      afterOrAtRecordTimeInclusive: Timestamp,
+  )(connection: Connection): Option[DomainOffset]
+
+  def lastDomainOffsetBeforeOrAt(
+      domainIdO: Option[DomainId],
+      beforeOrAtOffsetInclusive: Offset,
+  )(connection: Connection): Option[DomainOffset]
+
+  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset]
+
+  def firstDomainOffsetAfterOrAtPublicationTime(
+      afterOrAtPublicationTimeInclusive: Timestamp
+  )(connection: Connection): Option[DomainOffset]
+
+  def lastDomainOffsetBeforerOrAtPublicationTime(
+      beforeOrAtPublicationTimeInclusive: Timestamp
+  )(connection: Connection): Option[DomainOffset]
+
+  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+      connection: Connection
+  ): Set[ContractId]
 }
 
 object EventStorageBackend {
@@ -396,6 +431,13 @@ object EventStorageBackend {
       rawCreatedEvent: RawCreatedEvent,
       traceContext: Option[Array[Byte]],
       recordTime: Timestamp,
+  )
+
+  final case class DomainOffset(
+      offset: Offset,
+      domainId: DomainId,
+      recordTime: Timestamp,
+      publicationTime: Timestamp,
   )
 }
 

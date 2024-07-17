@@ -6,14 +6,9 @@ package com.digitalasset.canton.participant.store.memory
 import cats.data.OptionT
 import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.participant.store.{
-  EventLogId,
-  MultiDomainEventLogTest,
-  TransferStore,
-}
+import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLogTest}
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
@@ -75,17 +70,6 @@ class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
     OptionT(Future.successful(resultO))
   }
 
-  override protected def transferStores: Map[TargetDomainId, TransferStore] = domainIds.map {
-    domainId =>
-      val targetDomainId = TargetDomainId(domainId)
-      val transferStore = new InMemoryTransferStore(
-        targetDomainId,
-        loggerFactory,
-      )
-
-      targetDomainId -> transferStore
-  }.toMap
-
   "MultiDomainEventLogTestInMemory" should {
     behave like multiDomainEventLog {
       new InMemoryMultiDomainEventLog(
@@ -94,8 +78,6 @@ class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
         _ => domainIdOfEventId,
         _,
         ParticipantTestMetrics,
-        domainId =>
-          transferStores.get(domainId).toRight(s"Cannot find transfer store for domain $domainId"),
         indexedStringStore,
         timeouts,
         futureSupervisor,

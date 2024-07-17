@@ -286,7 +286,6 @@ class ProtocolProcessorTest
       nodePersistentState.participantEventLog,
       clock,
       timeouts,
-      TransferStore.transferStoreFor(syncDomainPersistentStates),
       indexedStringStore,
       ParticipantTestMetrics,
       futureSupervisor,

@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
@@ -86,7 +85,7 @@ object CompletionFromTransaction {
   private def toApiCheckpoint(recordTime: Timestamp, offset: Offset): Checkpoint =
     Checkpoint.of(
       recordTime = Some(fromInstant(recordTime.toInstant)),
-      offset = Some(ParticipantOffset.of(ParticipantOffset.Value.Absolute(offset.toApiString))),
+      offset = offset.toApiString,
     )
 
   def toApiCompletion(

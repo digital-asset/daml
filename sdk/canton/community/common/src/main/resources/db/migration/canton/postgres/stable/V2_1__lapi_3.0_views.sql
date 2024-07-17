@@ -128,13 +128,15 @@ create or replace view debug.lapi_parameters as
     participant_pruned_up_to_inclusive,
     ledger_end_sequential_id,
     participant_all_divulged_contracts_pruned_up_to_inclusive,
-    ledger_end_string_interning_id
+    ledger_end_string_interning_id,
+    debug.canton_timestamp(ledger_end_publication_time) as ledger_end_publication_time
   from lapi_parameters;
 
 create or replace view debug.lapi_command_completions as
   select
     completion_offset,
     debug.canton_timestamp(record_time) as record_time,
+    debug.canton_timestamp(publication_time) as publication_time,
     application_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     command_id,
@@ -333,6 +335,7 @@ create or replace view debug.lapi_transaction_meta as
   select
     transaction_id,
     event_offset,
+    debug.canton_timestamp(publication_time) as publication_time,
     debug.canton_timestamp(record_time) as record_time,
     debug.resolve_lapi_interned_string(domain_id) as domain_id,
     event_sequential_id_first,

@@ -5,10 +5,12 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.transaction.TreeEvent
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -540,5 +542,699 @@ private[backend] trait StorageBackendTestsEvents
 
     checkKeyAndMaintainersInFlats(flatTransactions(0).event, someKey, someMaintainers)
     checkKeyAndMaintainersInFlats(flatTransactions(1).event, None, Array.empty)
+  }
+
+  it should "work properly for DomainOffset queries" in {
+    val startRecordTimeDomain = Timestamp.now()
+    val startRecordTimeDomain2 = Timestamp.now().addMicros(10000)
+    val startPublicationTime = Timestamp.now().addMicros(100000)
+    val dbDtos = Vector(
+      dtoCompletion(
+        offset = offset(1),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = startRecordTimeDomain.addMicros(500),
+        publicationTime = startPublicationTime.addMicros(500),
+      ),
+      dtoTransactionMeta(
+        offset = offset(3),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = startRecordTimeDomain2.addMicros(500),
+        publicationTime = startPublicationTime.addMicros(500),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoTransactionMeta(
+        offset = offset(5),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = startRecordTimeDomain.addMicros(1000),
+        publicationTime = startPublicationTime.addMicros(1000),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoCompletion(
+        offset = offset(7),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = startRecordTimeDomain2.addMicros(1000),
+        publicationTime = startPublicationTime.addMicros(1000),
+      ),
+      dtoCompletion(
+        offset = offset(9),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = startRecordTimeDomain.addMicros(2000),
+        publicationTime = startPublicationTime.addMicros(1000),
+      ),
+      dtoTransactionMeta(
+        offset = offset(11),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = startRecordTimeDomain2.addMicros(2000),
+        publicationTime = startPublicationTime.addMicros(1000),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoCompletion(
+        offset = offset(13),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = startRecordTimeDomain.addMicros(3000),
+        publicationTime = startPublicationTime.addMicros(2000),
+      ),
+      dtoTransactionMeta(
+        offset = offset(15),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = startRecordTimeDomain2.addMicros(3000),
+        publicationTime = startPublicationTime.addMicros(2000),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(12), 2L, CantonTimestamp(startPublicationTime.addMicros(1000)))
+    )
+
+    Vector(
+      someDomainId -> startRecordTimeDomain -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(500) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(501) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(1000) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(1500) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(2000) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId -> startRecordTimeDomain.addMicros(2001) -> None,
+      someDomainId2 -> startRecordTimeDomain2 -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(500) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(700) -> Some(
+        DomainOffset(
+          offset = offset(7),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(1000) -> Some(
+        DomainOffset(
+          offset = offset(7),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(1001) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(2000) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      someDomainId2 -> startRecordTimeDomain2.addMicros(2001) -> None,
+    ).zipWithIndex.foreach {
+      case (((domainId, afterOrAtRecordTimeInclusive), expectation), index) =>
+        withClue(
+          s"test $index firstDomainOffsetAfterOrAt($domainId,$afterOrAtRecordTimeInclusive)"
+        ) {
+          executeSql(
+            backend.event.firstDomainOffsetAfterOrAt(
+              domainId = domainId,
+              afterOrAtRecordTimeInclusive = afterOrAtRecordTimeInclusive,
+            )
+          ) shouldBe expectation
+        }
+    }
+
+    Vector(
+      Some(someDomainId) -> offset(0) -> None,
+      Some(someDomainId) -> offset(1) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      Some(someDomainId) -> offset(2) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      Some(someDomainId) -> offset(4) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      Some(someDomainId) -> offset(5) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId) -> offset(7) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId) -> offset(9) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId) -> offset(10) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId) -> offset(12) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId) -> offset(20) -> Some(
+        DomainOffset(
+          offset = offset(9),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId2) -> offset(0) -> None,
+      Some(someDomainId2) -> offset(3) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      Some(someDomainId2) -> offset(6) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      Some(someDomainId2) -> offset(7) -> Some(
+        DomainOffset(
+          offset = offset(7),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId2) -> offset(9) -> Some(
+        DomainOffset(
+          offset = offset(7),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId2) -> offset(11) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId2) -> offset(12) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      Some(someDomainId2) -> offset(20) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      None -> offset(0) -> None,
+      None -> offset(1) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      None -> offset(2) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      None -> offset(3) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      None -> offset(4) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      None -> offset(5) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      None -> offset(12) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      None -> offset(20) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+    ).zipWithIndex.foreach { case (((domainIdO, beforeOrAtOffsetInclusive), expectation), index) =>
+      withClue(s"test $index lastDomainOffsetBeforeOrAt($domainIdO,$beforeOrAtOffsetInclusive)") {
+        executeSql(
+          backend.event.lastDomainOffsetBeforeOrAt(
+            domainIdO = domainIdO,
+            beforeOrAtOffsetInclusive = beforeOrAtOffsetInclusive,
+          )
+        ) shouldBe expectation
+      }
+    }
+
+    Vector(
+      offset(0) -> None,
+      offset(1) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      offset(2) -> None,
+      offset(3) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      offset(5) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      offset(13) -> None,
+      offset(15) -> None,
+    ).zipWithIndex.foreach { case ((offset, expectation), index) =>
+      withClue(s"test $index domainOffset($offset)") {
+        executeSql(
+          backend.event.domainOffset(
+            offset = offset
+          )
+        ) shouldBe expectation
+      }
+    }
+
+    Vector(
+      startPublicationTime -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startPublicationTime.addMicros(500) -> Some(
+        DomainOffset(
+          offset = offset(1),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startPublicationTime.addMicros(501) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startPublicationTime.addMicros(1000) -> Some(
+        DomainOffset(
+          offset = offset(5),
+          domainId = someDomainId,
+          recordTime = startRecordTimeDomain.addMicros(1000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startPublicationTime.addMicros(1001) -> None,
+    ).zipWithIndex.foreach { case ((afterOrAtPublicationTimeInclusive, expectation), index) =>
+      withClue(
+        s"test $index firstDomainOffsetAfterOrAtPublicationTime($afterOrAtPublicationTimeInclusive)"
+      ) {
+        executeSql(
+          backend.event.firstDomainOffsetAfterOrAtPublicationTime(
+            afterOrAtPublicationTimeInclusive = afterOrAtPublicationTimeInclusive
+          )
+        ) shouldBe expectation
+      }
+    }
+
+    Vector(
+      startPublicationTime -> None,
+      startPublicationTime.addMicros(499) -> None,
+      startPublicationTime.addMicros(500) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startPublicationTime.addMicros(501) -> Some(
+        DomainOffset(
+          offset = offset(3),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startPublicationTime.addMicros(1000) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startPublicationTime.addMicros(1001) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startPublicationTime.addMicros(2000) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startPublicationTime.addMicros(4000) -> Some(
+        DomainOffset(
+          offset = offset(11),
+          domainId = someDomainId2,
+          recordTime = startRecordTimeDomain2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+    ).zipWithIndex.foreach { case ((beforeOrAtPublicationTimeInclusive, expectation), index) =>
+      withClue(
+        s"test $index lastDomainOffsetBeforerOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
+      ) {
+        executeSql(
+          backend.event.lastDomainOffsetBeforerOrAtPublicationTime(
+            beforeOrAtPublicationTimeInclusive = beforeOrAtPublicationTimeInclusive
+          )
+        ) shouldBe expectation
+      }
+    }
+  }
+
+  it should "work properly for archivals query" in {
+    val dbDtos = Vector(
+      dtoExercise(
+        offset = offset(5),
+        eventSequentialId = 14,
+        consuming = true,
+        contractId = hashCid("#1"),
+      ),
+      dtoExercise(
+        offset = offset(5),
+        eventSequentialId = 18,
+        consuming = true,
+        contractId = hashCid("#2"),
+      ),
+      dtoTransactionMeta(
+        offset = offset(5),
+        domainId = someDomainId2.toProtoPrimitive,
+        event_sequential_id_first = 10,
+        event_sequential_id_last = 20,
+      ),
+      dtoExercise(
+        offset = offset(15),
+        eventSequentialId = 118,
+        consuming = true,
+        contractId = hashCid("#3"),
+      ),
+      dtoExercise(
+        offset = offset(15),
+        eventSequentialId = 119,
+        consuming = true,
+        contractId = hashCid("#4"),
+      ),
+      dtoTransactionMeta(
+        offset = offset(15),
+        domainId = someDomainId2.toProtoPrimitive,
+        event_sequential_id_first = 110,
+        event_sequential_id_last = 120,
+      ),
+      dtoExercise(
+        offset = offset(25),
+        eventSequentialId = 211,
+        consuming = true,
+        contractId = hashCid("#5"),
+      ),
+      dtoExercise(
+        offset = offset(25),
+        eventSequentialId = 212,
+        consuming = false,
+        contractId = hashCid("#55"),
+      ),
+      dtoExercise(
+        offset = offset(25),
+        eventSequentialId = 214,
+        consuming = true,
+        contractId = hashCid("#6"),
+      ),
+      dtoTransactionMeta(
+        offset = offset(25),
+        domainId = someDomainId2.toProtoPrimitive,
+        event_sequential_id_first = 210,
+        event_sequential_id_last = 220,
+      ),
+      dtoExercise(
+        offset = offset(35),
+        eventSequentialId = 315,
+        consuming = true,
+        contractId = hashCid("#7"),
+      ),
+      dtoTransactionMeta(
+        offset = offset(35),
+        domainId = someDomainId2.toProtoPrimitive,
+        event_sequential_id_first = 310,
+        event_sequential_id_last = 320,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(25), 220L)
+    )
+
+    Vector(
+      None -> offset(4) -> Set(),
+      None -> offset(5) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+      ),
+      None -> offset(10) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+      ),
+      None -> offset(15) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+        hashCid("#3"),
+        hashCid("#4"),
+      ),
+      None -> offset(25) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      None -> offset(1000) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(4)) -> offset(1000) -> Set(
+        hashCid("#1"),
+        hashCid("#2"),
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(5)) -> offset(1000) -> Set(
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(6)) -> offset(1000) -> Set(
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(15)) -> offset(1000) -> Set(
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(15)) -> offset(15) -> Set(
+      ),
+      Some(offset(6)) -> offset(25) -> Set(
+        hashCid("#3"),
+        hashCid("#4"),
+        hashCid("#5"),
+        hashCid("#6"),
+      ),
+      Some(offset(6)) -> offset(24) -> Set(
+        hashCid("#3"),
+        hashCid("#4"),
+      ),
+    ).zipWithIndex.foreach { case (((fromExclusive, toInclusive), expectation), index) =>
+      withClue(
+        s"test $index archivals($fromExclusive,$toInclusive)"
+      ) {
+        executeSql(
+          backend.event.archivals(
+            fromExclusive = fromExclusive,
+            toInclusive = toInclusive,
+          )
+        ) shouldBe expectation
+      }
+    }
   }
 }

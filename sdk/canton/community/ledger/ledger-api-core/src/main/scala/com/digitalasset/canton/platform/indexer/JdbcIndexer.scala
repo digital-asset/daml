@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.indexer.parallel.{
   InitializeParallelIngestion,
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
+  ReassignmentOffsetPersistence,
 }
 import com.digitalasset.canton.platform.store.DbSupport.{
   DataSourceProperties,
@@ -29,6 +30,7 @@ import com.digitalasset.canton.platform.store.backend.{
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.UpdatingStringInterningView
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
@@ -52,6 +54,8 @@ object JdbcIndexer {
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
       indexSericeDbDispatcher: Option[DbDispatcher],
+      clock: Clock,
+      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
   )(implicit materializer: Materializer) {
 
     def initialized(
@@ -116,6 +120,7 @@ object JdbcIndexer {
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
           stringInterningView = inMemoryState.stringInterningView,
+          reassignmentOffsetPersistence = reassignmentOffsetPersistence,
           tracer = tracer,
           loggerFactory = loggerFactory,
         ),
@@ -142,6 +147,7 @@ object JdbcIndexer {
             ),
         loggerFactory = loggerFactory,
         indexerDbDispatcherOverride = indexerDbDispatcherOverride,
+        clock = clock,
       )
 
       indexer

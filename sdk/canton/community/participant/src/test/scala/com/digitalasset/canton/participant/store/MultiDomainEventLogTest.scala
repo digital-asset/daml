@@ -43,7 +43,6 @@ import com.digitalasset.canton.participant.{
   RequestOffset,
   TopologyOffset,
 }
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.{Clock, SimClock}
@@ -91,8 +90,6 @@ trait MultiDomainEventLogTest
     domainIds.map(EventLogId.forDomain(indexedStringStore)(_).futureValue)
 
   private lazy val eventLogIds: List[EventLogId] = domainEventLogIds :+ participantEventLogId
-
-  protected def transferStores: Map[TargetDomainId, TransferStore]
 
   private def timestampAtOffset(offset: LocalOffset): CantonTimestamp =
     CantonTimestamp.assertFromLong(offset.tieBreaker.abs * 1000)

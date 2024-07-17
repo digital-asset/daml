@@ -5,12 +5,11 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
-import com.daml.ledger.javaapi.data.ParticipantOffset.{Absolute, ParticipantBegin}
+import com.daml.ledger.javaapi.data.ParticipantOffset.ParticipantBegin
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.google.rpc.status.Status
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -26,8 +25,8 @@ class CommandCompletionClientImplTest
     with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("command-completion-service-ledger")
-  private val offset1 = ParticipantOffset(ParticipantOffset.Value.Absolute("1"))
-  private val offset2 = ParticipantOffset(ParticipantOffset.Value.Absolute("2"))
+  private val offset1 = "1"
+  private val offset2 = "2"
 
   behavior of "[4.3] CommandCompletionClientImpl.completionStream"
 
@@ -37,8 +36,8 @@ class CommandCompletionClientImplTest
     val completion2 = Completion("cid2", Option(new Status(1)))
 
     val completionResponses = List(
-      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1)),
-      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset2))), Some(completion2)),
+      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1)),
+      CompletionStreamResponse(Some(Checkpoint(offset = offset2)), Some(completion2)),
     )
     ledgerServices.withCommandCompletionClient(
       completionResponses
@@ -52,11 +51,11 @@ class CommandCompletionClientImplTest
 
       val receivedCompletion1 = completions.next()
       val receivedCompletion2 = completions.next()
-      receivedCompletion1.getCheckpoint.getOffset shouldBe new Absolute(offset1.getAbsolute)
+      receivedCompletion1.getCheckpoint.getOffset shouldBe offset1
       receivedCompletion1.getCompletion.getCommandId shouldBe completion1.commandId
       receivedCompletion1.getCompletion.getStatus.getCode shouldBe completion1.getStatus.code
       receivedCompletion1.getCompletion.getUpdateId shouldBe completion1.updateId
-      receivedCompletion2.getCheckpoint.getOffset shouldBe new Absolute(offset2.getAbsolute)
+      receivedCompletion2.getCheckpoint.getOffset shouldBe offset2
       receivedCompletion2.getCompletion.getCommandId shouldBe completion2.commandId
       receivedCompletion2.getCompletion.getStatus.getCode shouldBe completion2.getStatus.code
     }
@@ -68,7 +67,7 @@ class CommandCompletionClientImplTest
     val applicationId = "applicationId"
     val completion1 = Completion("cid1", Option(new Status(0)))
     val completionResponse =
-      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
+      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1))
     val parties = List("Alice")
     ledgerServices.withCommandCompletionClient(
       List(completionResponse)
@@ -90,7 +89,7 @@ class CommandCompletionClientImplTest
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
     val completion1 = Completion("cid1", Option(new Status(0)))
     val completionResponse =
-      CompletionStreamResponse(Some(Checkpoint(offset = Some(offset1))), Some(completion1))
+      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
       mockedAuthService,

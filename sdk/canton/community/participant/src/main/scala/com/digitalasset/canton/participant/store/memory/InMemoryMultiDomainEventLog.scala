@@ -36,7 +36,6 @@ import com.digitalasset.canton.participant.store.{
   MultiDomainEventLog,
   ParticipantEventLog,
   SingleDimensionEventLog,
-  TransferStore,
 }
 import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
 import com.digitalasset.canton.participant.sync.{
@@ -52,7 +51,6 @@ import com.digitalasset.canton.participant.{
 }
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -77,7 +75,6 @@ class InMemoryMultiDomainEventLog(
     byEventId: NamedLoggingContext => EventId => OptionT[Future, (EventLogId, LocalOffset)],
     clock: Clock,
     metrics: ParticipantMetrics,
-    override val transferStoreFor: TargetDomainId => Either[String, TransferStore],
     override val indexedStringStore: IndexedStringStore,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -129,7 +126,7 @@ class InMemoryMultiDomainEventLog(
   )
 
   // Must run sequentially
-  private def publishInternal(data: PublicationData) = {
+  private def publishInternal(data: PublicationData) = Future {
     implicit val traceContext: TraceContext = data.traceContext
     val PublicationData(id, event, inFlightReference) = data
     val localOffset = event.localOffset
@@ -184,28 +181,18 @@ class InMemoryMultiDomainEventLog(
       )
       entriesRef.set(newEntries)
 
-      val notifyTransferF: Future[Unit] = event.event match {
-        case transfer: LedgerSyncEvent.TransferEvent if transfer.isTransferringParticipant =>
-          notifyOnPublishTransfer(Seq((transfer, nextOffset)))
+      dispatcher.signalNewHead(nextOffset.toNonNegative) // new end index is inclusive
+      val deduplicationInfo = DeduplicationInfo.fromTimestampedEvent(event)
+      val publication = OnPublish.Publication(
+        nextOffset,
+        publicationTime,
+        inFlightReference,
+        deduplicationInfo,
+        event.event,
+      )
+      notifyOnPublish(Seq(publication))
 
-        case _ => Future.unit
-      }
-
-      notifyTransferF.map { _ =>
-        dispatcher.signalNewHead(nextOffset.toNonNegative) // new end index is inclusive
-        val deduplicationInfo = DeduplicationInfo.fromTimestampedEvent(event)
-        val publication = OnPublish.Publication(
-          nextOffset,
-          publicationTime,
-          inFlightReference,
-          deduplicationInfo,
-          event.event,
-        )
-        notifyOnPublish(Seq(publication))
-
-        metrics.updatesPublished.mark(event.eventSize.toLong)(MetricsContext.Empty)
-      }
-
+      metrics.updatesPublished.mark(event.eventSize.toLong)(MetricsContext.Empty)
     } else {
       ErrorUtil.internalError(
         new IllegalArgumentException(
@@ -553,7 +540,6 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
       participantEventLog: ParticipantEventLog,
       clock: Clock,
       timeouts: ProcessingTimeout,
-      transferStoreFor: TargetDomainId => Either[String, TransferStore],
       indexedStringStore: IndexedStringStore,
       metrics: ParticipantMetrics,
       futureSupervisor: FutureSupervisor,
@@ -575,7 +561,6 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
       byEventId(allEventLogs),
       clock,
       metrics,
-      transferStoreFor,
       indexedStringStore,
       timeouts,
       futureSupervisor,

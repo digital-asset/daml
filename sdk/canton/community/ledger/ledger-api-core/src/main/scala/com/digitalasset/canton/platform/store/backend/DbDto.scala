@@ -138,6 +138,7 @@ object DbDto {
   final case class CommandCompletion(
       completion_offset: String,
       record_time: Long,
+      publication_time: Long,
       application_id: String,
       submitters: Set[String],
       command_id: String,
@@ -209,6 +210,7 @@ object DbDto {
   final case class TransactionMeta(
       transaction_id: String,
       event_offset: String,
+      publication_time: Long,
       record_time: Long,
       domain_id: String,
       event_sequential_id_first: Long,
