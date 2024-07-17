@@ -142,7 +142,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
 
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkUpgrade Upgrade.CheckShallow pkg lfVersion (typecheckUpgrades pUpgradeInfo) (warnBadInterfaceInstances pUpgradeInfo) mbUpgradedPackage
+                         Upgrade.checkUpgrade pkg lfVersion (typecheckUpgrades pUpgradeInfo) (warnBadInterfaceInstances pUpgradeInfo) mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg

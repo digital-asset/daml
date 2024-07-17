@@ -107,20 +107,14 @@ checkBothAndSingle world checkBoth checkSingle version shouldTypecheckUpgrades w
     in
     extractDiagnostics bothPkgDiagnostics ++ extractDiagnostics singlePkgDiagnostics
 
-data CheckDepth
-  = CheckShallow
-  | CheckDeep
-  deriving (Show, Eq, Ord)
-
 checkUpgrade
-  :: CheckDepth
-  -> LF.Package
+  :: LF.Package
   -> Version -> Bool -> Bool -> Maybe (LF.PackageId, LF.Package)
   -> [Diagnostic]
-checkUpgrade shallowChecks pkg =
+checkUpgrade pkg =
     let world = initWorldSelf [] pkg
         checkBoth upgradedPkgId upgradedPkg =
-          checkUpgradeM shallowChecks upgradedPkgId (Upgrading upgradedPkg pkg)
+          checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
         checkSingle = do
           checkNewInterfacesAreUnused pkg
     in
@@ -145,11 +139,10 @@ checkModule world0 module_ =
     in
     checkBothAndSingle world checkBoth checkSingle
 
-checkUpgradeM :: CheckDepth -> LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
-checkUpgradeM checkDepth upgradedPackageId package = do
+checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
+checkUpgradeM upgradedPackageId package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    when (checkDepth == CheckDeep) $
-      forM_ upgradedModules $ \module_ -> checkModuleM upgradedPackageId module_
+    forM_ upgradedModules $ checkModuleM upgradedPackageId
 
 extractDelExistNew
     :: (Eq k, Hashable k)
