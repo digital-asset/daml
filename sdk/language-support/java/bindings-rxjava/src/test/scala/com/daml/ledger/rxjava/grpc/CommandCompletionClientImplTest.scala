@@ -103,7 +103,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream") {
         expectUnauthenticated {
           client
-            .completionStream("appId", ParticipantBegin.getInstance(), List(someParty).asJava)
+            .completionStream("appId", "", List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -126,7 +126,7 @@ class CommandCompletionClientImplTest
           client
             .completionStream(
               "appId",
-              ParticipantBegin.getInstance(),
+              "",
               List(someParty).asJava,
               someOtherPartyReadToken,
             )
@@ -151,7 +151,7 @@ class CommandCompletionClientImplTest
         client
           .completionStream(
             "appId",
-            ParticipantBegin.getInstance(),
+            "",
             List(someParty).asJava,
             somePartyReadToken,
           )
