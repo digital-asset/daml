@@ -3,6 +3,10 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 
 da_haskell_test(
     name = "lsp-tests",
@@ -11,6 +15,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        ":my-package.dar",
     ],
     # TODO (MK) https://github.com/digital-asset/daml/issues/11873
     flaky = True,
@@ -43,4 +48,9 @@ da_haskell_test(
         "//sdk-version/hs:sdk-version-lib",
         "@ghcide_ghc_lib//:testing",
     ],
+)
+
+daml_compile(
+    name = "my-package",
+    srcs = ["version1/Main.daml"],
 )
