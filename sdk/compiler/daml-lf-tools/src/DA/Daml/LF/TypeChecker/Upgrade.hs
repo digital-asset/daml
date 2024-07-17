@@ -17,7 +17,7 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.Package.Config (UpgradeInfo (..), typecheckUpgrades, warnBadInterfaceInstances)
+import           DA.Daml.Package.Config (UpgradeInfo (..))
 import           Data.Bifunctor (first)
 import           Data.Data
 import           Data.Either (partitionEithers)
@@ -72,7 +72,7 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
         gamma world =
             let addBadIfaceSwapIndicator :: Gamma -> Gamma
                 addBadIfaceSwapIndicator =
-                    if warnBadInterfaceInstances upgradeInfo
+                    if uiWarnBadInterfaceInstances upgradeInfo
                     then
                         addDiagnosticSwapIndicator (\case
                             Left WEUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
@@ -93,12 +93,12 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
                         upgradingGamma = fmap gamma upgradingWorld
                     in
                     runGammaF upgradingGamma $
-                        when (typecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
+                        when (uiTypecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
 
         singlePkgDiagnostics :: Either Error ((), [Warning])
         singlePkgDiagnostics =
             runGammaF (gamma world) $
-                when (typecheckUpgrades upgradeInfo) checkSingle
+                when (uiTypecheckUpgrades upgradeInfo) checkSingle
 
         extractDiagnostics :: Either Error ((), [Warning]) -> [Diagnostic]
         extractDiagnostics result =

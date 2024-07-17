@@ -8,9 +8,9 @@ module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
     , UpgradeInfo (..)
+    , defaultUiTypecheckUpgrades
+    , defaultUiWarnBadInterfaceInstances
     , defaultUpgradeInfo
-    , typecheckUpgrades
-    , warnBadInterfaceInstances
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
@@ -67,20 +67,20 @@ data PackageConfigFields = PackageConfigFields
 
 data UpgradeInfo = UpgradeInfo
     { uiUpgradedPackagePath :: Maybe FilePath
-    , uiTypecheckUpgrades :: Maybe Bool
-    , uiWarnBadInterfaceInstances :: Maybe Bool
+    , uiTypecheckUpgrades :: Bool
+    , uiWarnBadInterfaceInstances :: Bool
     }
 
 defaultUpgradeInfo :: UpgradeInfo
 defaultUpgradeInfo = UpgradeInfo
     { uiUpgradedPackagePath = Nothing
-    , uiTypecheckUpgrades = Nothing
-    , uiWarnBadInterfaceInstances = Nothing
+    , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
+    , uiWarnBadInterfaceInstances = defaultUiWarnBadInterfaceInstances
     }
 
-typecheckUpgrades, warnBadInterfaceInstances :: UpgradeInfo -> Bool
-typecheckUpgrades = fromMaybe True . uiTypecheckUpgrades
-warnBadInterfaceInstances = fromMaybe False . uiWarnBadInterfaceInstances
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades = True
+defaultUiWarnBadInterfaceInstances = False
 
 -- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields

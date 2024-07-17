@@ -21,7 +21,7 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-import DA.Daml.Package.Config (UpgradeInfo (..))
+import DA.Daml.Package.Config (UpgradeInfo (..), defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances)
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -580,25 +580,27 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         <> long "upgrades"
         <> help "Set DAR to upgrade"
 
-    optTypecheckUpgrades :: Parser YesNoAuto
+    optTypecheckUpgrades :: Parser Bool
     optTypecheckUpgrades =
-      flagYesNoAuto'
+      flagYesNoAuto
         "typecheck-upgrades"
+        defaultUiTypecheckUpgrades
         "Typecheck upgrades."
         idm
 
-    optWarnBadInterfaceInstances :: Parser YesNoAuto
+    optWarnBadInterfaceInstances :: Parser Bool
     optWarnBadInterfaceInstances =
-      flagYesNoAuto'
+      flagYesNoAuto
         "warn-bad-interface-instances"
+        defaultUiWarnBadInterfaceInstances
         "Convert errors about bad, non-upgradeable interface instances into warnings."
         idm
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
-      uiTypecheckUpgrades <- yesNoAutoToMaybe <$> optTypecheckUpgrades
+      uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
-      uiWarnBadInterfaceInstances <- yesNoAutoToMaybe <$> optWarnBadInterfaceInstances
+      uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
       pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]
