@@ -86,6 +86,10 @@ object ParticipantOffset {
       case ParticipantOffset.ParticipantBegin => "%begin%"
       case ParticipantOffset.ParticipantEnd => "%end%"
     })
+
+  def fromString(str: String): ParticipantOffset =
+    if (str.isEmpty) ParticipantBegin
+    else Absolute(Ref.LedgerString.assertFromString(str))
 }
 
 final case class Commands(

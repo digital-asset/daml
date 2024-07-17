@@ -75,6 +75,9 @@ object UpstreamOffsetConvert {
   def tryToLedgerSyncOffset(offset: ParticipantOffset): LedgerSyncOffset =
     toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
 
+  def tryToLedgerSyncOffset(offset: String): LedgerSyncOffset =
+    toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
+
   def toLedgerSyncOffset(offset: String): Either[String, LedgerSyncOffset] =
     Ref.HexString.fromString(offset).map(LedgerSyncOffset.fromHexString)
 

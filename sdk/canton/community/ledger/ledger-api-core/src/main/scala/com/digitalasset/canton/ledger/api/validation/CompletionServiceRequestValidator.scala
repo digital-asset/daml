@@ -26,10 +26,7 @@ class CompletionServiceRequestValidator(
     for {
       appId <- requireApplicationId(request.applicationId, "application_id")
       parties <- requireParties(request.parties.toSet)
-      convertedOffset <- ParticipantOffsetValidator.validateOptional(
-        request.beginExclusive,
-        "offset",
-      )
+      convertedOffset <- ParticipantOffsetValidator.validate(request.beginExclusive)
     } yield CompletionStreamRequest(
       appId,
       parties,
