@@ -26,6 +26,7 @@ import com.daml.ledger.test.java.model.test.{
   WithObservers,
   Witnesses => TestWitnesses,
 }
+import com.daml.ledger.test.java.semantic.divulgencetests.DummyFlexibleController
 import com.daml.ledger.test.java.semantic.semantictests
 
 object CompanionImplicits {
@@ -118,5 +119,9 @@ object CompanionImplicits {
   implicit val agreementCompanion
       : ContractCompanion.WithoutKey[Agreement.Contract, Agreement.ContractId, Agreement] =
     Agreement.COMPANION
-
+  implicit val dummyFlexibleControllerCompanion: ContractCompanion.WithoutKey[
+    DummyFlexibleController.Contract,
+    DummyFlexibleController.ContractId,
+    DummyFlexibleController,
+  ] = DummyFlexibleController.COMPANION
 }
