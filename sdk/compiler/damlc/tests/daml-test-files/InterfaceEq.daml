@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+-- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
 module InterfaceEq where
 
 import Daml.Script
