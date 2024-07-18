@@ -332,7 +332,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 , optPackageImports = packageFlags
                 , optDetailLevel = PrettyLevel (-1)
                 , optEnableInterfaces = EnableInterfaces True
-                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = Just True }
+                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True }
                 }
 
               mkIde options = do
