@@ -160,7 +160,7 @@ enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-packa
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
 multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.daml")
+multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.yaml")
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
 multiPackageNoCacheOpt :: Parser MultiPackageNoCache
@@ -184,7 +184,7 @@ multiPackageLocationOpt =
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
-multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.daml")
+multiPackageCleanAllOpt = MultiPackageCleanAll <$> switch (long "all" <> help "Clean all packages in multi-package.yaml")
 
 data Telemetry
     = TelemetryOptedIn -- ^ User has explicitly opted in

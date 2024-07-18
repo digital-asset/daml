@@ -31,6 +31,7 @@ import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Network.URI as URI
+import System.FilePath (joinPath, splitPath)
 import DA.Cli.Damlc.Command.MultiIde.Types
 
 {-# ANN module ("HLint: ignore Avoid restricted flags" :: String) #-}
@@ -166,13 +167,13 @@ getMessageForwardingBehaviour miState meth params =
     LSP.STextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
     LSP.SWorkspaceSemanticTokensRefresh -> unsupported "WorkspaceSemanticTokensRefresh"
 
-filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> FilePath
+filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> Maybe FilePath
 filePathFromParamsWithTextDocument miState params =
   let uri = params ^. LSP.params . LSP.textDocument . LSP.uri
-   in fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI miState uri
+   in filePathFromURI miState uri
 
 forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> ForwardingBehaviour m
-forwardingBehaviourFromParamsWithTextDocument miState params = Single $ filePathFromParamsWithTextDocument miState params
+forwardingBehaviourFromParamsWithTextDocument miState params = maybe CannotForwardRequest Single $ filePathFromParamsWithTextDocument miState params
 
 -- Attempts to convert the URI directly to a filepath
 -- If the URI is a virtual resource, we instead parse it as such and extract the file from that
@@ -187,4 +188,7 @@ filePathFromURI miState uri =
           pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
         "untitled:" ->
           pure $ unPackageHome $ misDefaultPackagePath miState
+        -- For the GitHub Pull Request extension, which gives paths of the form `review:commit~<hash>/path/to/the/file`
+        "review:" ->
+          pure $ joinPath $ drop 1 $ splitPath $ URI.uriPath parsedUri
         _ -> Nothing
