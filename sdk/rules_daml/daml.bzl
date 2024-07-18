@@ -33,7 +33,7 @@ def _daml_configure_impl(ctx):
     target = ctx.attr.target
     opts = (
         (["--target={}".format(target)] if target else []) +
-        (["--typecheck-upgrades=no"] if not typecheck_upgrades and (target == None or _supports_upgrades(target)) else [])
+        (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else [])
     )
     ctx.actions.write(
         output = daml_yaml,
@@ -56,7 +56,7 @@ build-options: [{opts}]
             dependencies = ", ".join(dependencies),
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
-            upgrades = "upgrades: " + upgrades if upgrades and (target == None or _supports_upgrades(target)) else "",
+            upgrades = "upgrades: " + upgrades if upgrades and using_local_compiler(target) else "",
         ),
     )
 
@@ -298,8 +298,11 @@ _default_project_version = "1.0.0"
 
 default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
+def using_local_compiler(target):
+    return not target or target in COMPILER_LF_VERSIONS
+
 def damlc_for_target(target):
-    if not target or target in COMPILER_LF_VERSIONS:
+    if using_local_compiler(target):
         return "//compiler/damlc:damlc-compile-only"
     else:
         return "@damlc_legacy//:damlc_legacy"
@@ -312,13 +315,6 @@ def _supports_scenarios(lf_version):
         lf_version,
         v1_minor_version_range = ("14", "dev"),
         # TODO(#17366): change to None when we deprecate scenarios in 2.x
-        v2_minor_version_range = ("0", "dev"),
-    )
-
-def _supports_upgrades(lf_version):
-    return version_in(
-        lf_version,
-        v1_minor_version_range = ("16", "dev"),
         v2_minor_version_range = ("0", "dev"),
     )
 
