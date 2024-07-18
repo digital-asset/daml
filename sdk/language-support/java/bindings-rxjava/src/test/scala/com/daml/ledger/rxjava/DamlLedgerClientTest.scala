@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import com.daml.ledger.javaapi.data.ParticipantOffset.Absolute
 import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
@@ -151,7 +150,7 @@ class DamlLedgerClientTest
   ): Assertion = {
     withClue(clueFor("CommandCompletionClient")) {
       commandCompletionClient
-        .completionStream("applicationId", new Absolute(""), List(someParty).asJava)
+        .completionStream("applicationId", "", List(someParty).asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       commandCompletionServiceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe "applicationId"

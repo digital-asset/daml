@@ -64,6 +64,7 @@ com/daml/ledger/api/v2/admin/package_management_service.proto
 com/daml/ledger/api/v2/admin/object_meta.proto
 com/daml/ledger/api/v2/admin/party_management_service.proto
 com/daml/ledger/api/v2/event.proto
+com/daml/ledger/api/v2/offset_checkpoint.proto
 com/digitalasset/daml/lf/archive/daml_lf.proto
 com/digitalasset/daml/lf/archive/daml_lf1.proto
 com/digitalasset/daml/lf/archive/daml_lf2.proto

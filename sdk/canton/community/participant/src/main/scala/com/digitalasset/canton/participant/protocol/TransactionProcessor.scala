@@ -16,13 +16,13 @@ import com.digitalasset.canton.error.*
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.participant.state.{ChangeId, SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.ProcessorError
-import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmitted
+import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmissionResult
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -71,7 +71,7 @@ class TransactionProcessor(
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
       TransactionProcessingSteps.SubmissionParam,
-      TransactionSubmitted,
+      TransactionSubmissionResult,
       TransactionViewType,
       TransactionProcessor.TransactionSubmissionError,
     ](
@@ -130,9 +130,7 @@ class TransactionProcessor(
   ): EitherT[
     FutureUnlessShutdown,
     TransactionProcessor.TransactionSubmissionError,
-    FutureUnlessShutdown[
-      TransactionSubmitted
-    ],
+    FutureUnlessShutdown[TransactionSubmissionResult],
   ] =
     this.submit(
       TransactionProcessingSteps.SubmissionParam(
@@ -370,6 +368,23 @@ object TransactionProcessor {
             cause = "the chosen mediator is not active on the domain"
           )
     }
+
+    @Explanation(
+      "An internal error occurred during transaction submission."
+    )
+    @Resolution("Please contact support and provide the failure reason.")
+    object SubmissionInternalError
+        extends ErrorCode(
+          "SUBMISSION_INTERNAL_ERROR",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        ) {
+      final case class Failure(throwable: Throwable)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends TransactionErrorImpl(
+            cause = "internal error during transaction submission",
+            throwableO = Some(throwable),
+          )
+    }
   }
 
   final case class DomainParametersError(domainId: DomainId, context: String)
@@ -406,6 +421,12 @@ object TransactionProcessor {
     )
   }
 
-  case object TransactionSubmitted
+  sealed trait TransactionSubmissionResult extends Product with Serializable
+  case object TransactionSubmitted extends TransactionSubmissionResult
   type TransactionSubmitted = TransactionSubmitted.type
+  case object TransactionSubmissionFailure extends TransactionSubmissionResult
+  type TransactionSubmissionFailure = TransactionSubmissionFailure.type
+  final case class TransactionSubmissionUnknown(maxSequencingTime: CantonTimestamp)
+      extends TransactionSubmissionResult
+  type TransactonSubmissionUnknown = TransactionSubmissionUnknown.type
 }

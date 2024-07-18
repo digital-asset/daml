@@ -44,6 +44,7 @@ final case class TestingConfigInternal(
     reinterpretationTestHookFor: String => () => Unit = _ => () => (),
     maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
     sequencerTransportSeed: Option[Long] = None,
+    participantsWithoutLapiVerification: Set[String] = Set.empty,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel

@@ -303,6 +303,7 @@ class MainIndexDBMetrics(
   val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
+  val getDomainledgerEnd: DatabaseMetrics = createDbMetrics("get_domain_ledger_end")
   val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
     "initialize_ledger_parameters"
   )
@@ -376,6 +377,20 @@ class MainIndexDBMetrics(
   )
   val getAssignIdsForContractIds: DatabaseMetrics = createDbMetrics(
     "get_assign_ids_for_contract_ids"
+  )
+
+  val firstDomainOffsetAfterOrAt: DatabaseMetrics = createDbMetrics(
+    "first_domain_offset_after_or_at"
+  )
+  val lastDomainOffsetBeforeOrAt: DatabaseMetrics = createDbMetrics(
+    "last_domain_offset_before_or_at"
+  )
+  val domainOffset: DatabaseMetrics = createDbMetrics("domain_offet")
+  val firstDomainOffsetAfterOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
+    "first_domain_offset_after_or_at_publication_time"
+  )
+  val lastDomainOffsetBeforeOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
+    "last_domain_offset_before_or_at_publication_time"
   )
 
   object translation {

@@ -13,13 +13,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
  * Annotation for tagging whole test suites as unstable.
- *
- * <p>Unstable tests will only run as part of stability_test jobs and/or as part of unstable_test.
- * Unstable tests are still periodically executed and failures are reported to DataDog. But pull
- * requests can still be merged, even if unstable tests fail.
- *
- * <p>The UnstableTest annotation and tag have currently no effect on Fabric/Ethereum/Ccf/Nightly
- * tests.
+ * Unstable tests will only run as part of unstable_test jobs.
+ * Unstable tests are still periodically executed and failures are reported to DataDog.
+ * But pull requests can still be merged, even if unstable tests fail.
  */
 @org.scalatest.TagAnnotation
 @Inherited

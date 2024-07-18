@@ -645,7 +645,7 @@ object Generators {
     for {
       applicationId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-      beginExclusive <- participantOffsetGen
+      beginExclusive <- Arbitrary.arbString.arbitrary
     } yield Request
       .newBuilder()
       .setApplicationId(applicationId)

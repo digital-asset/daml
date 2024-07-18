@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.processing
 
+import cats.instances.order.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
@@ -95,6 +96,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
     val ns2k2k2_remove = mkRemove(mkNs(ns2, key2, isRootDelegation = true), key2)
     val ns2k5k2 = mkAdd(mkNs(ns2, key5, isRootDelegation = true), key2)
     val ns2k5k2_remove = mkRemove(mkNs(ns2, key5, isRootDelegation = true), key2)
+    val ns2k5k8 = mkAdd(mkNs(ns2, key5, isRootDelegation = true), key8)
     val ns2k2k5 = mkAdd(mkNs(ns2, key2, isRootDelegation = true), key5)
     val ns2k8k5 = mkAdd(mkNs(ns2, key8, isRootDelegation = true), key5)
     val ns2k8k5_remove = mkRemove(mkNs(ns2, key8, isRootDelegation = true), key5)
@@ -191,7 +193,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         check(graph, requireRoot = false, valid = true)(key1, key8)
         loggerFactory.assertLogs(
           graph.removeAuth(ns2k5k2_remove),
-          _.warningMessage should include("dangling"),
+          _.warningMessage should (include regex s"dangling.*${key8.fingerprint}"),
         )
         check(graph, requireRoot = false, valid = false)(key1, key5)
         check(graph, requireRoot = false, valid = false)(key1, key8)
@@ -200,29 +202,41 @@ class DecentralizedNamespaceAuthorizationGraphTest
         check(graph, requireRoot = false, valid = true)(key1, key8)
       }
 
-      "support several chains" in {
+      "not support several chains" in {
         val graph = mkGraph
         graph.addAuth(ns1k1k1)
         graph.addAuth(ns2k2k2)
 
         graph.addAuth(ns2k5k2)
+        // this is ns2k8 serial=1
         graph.addAuth(ns2k8k5)
         check(graph, requireRoot = false, valid = true)(key1, key8)
+
+        // this is ns2k8 serial=2 and overwrites the previous mapping ns2k8 signed by k5
         graph.addAuth(ns2k8k2_nonRoot)
         check(graph, requireRoot = false, valid = true)(key1, key8)
+
+        // this is ns2k8 serial=3 and removes the ns2k8 mapping entirely
         graph.removeAuth(ns2k8k2_nonRoot_remove)
-        check(graph, requireRoot = false, valid = true)(key1, key8)
+        check(graph, requireRoot = false, valid = false)(key1, key8)
       }
 
       "deal with cycles" in {
         val graph = mkGraph
         graph.addAuth(ns1k1k1)
         graph.addAuth(ns2k2k2)
-
         graph.addAuth(ns2k5k2)
-        graph.addAuth(ns2k2k5)
+        graph.addAuth(ns2k8k5)
+
+        val danglingKeys = List(key5, key8).map(_.fingerprint).sorted.mkString(", ")
+        loggerFactory.assertLogs(
+          // this overwrites ns2k5k2, leading to a break in the authorization chain for the now dangling k5 and k8
+          graph.addAuth(ns2k5k8),
+          _.warningMessage should (include regex s"dangling.*$danglingKeys"),
+        )
         check(graph, requireRoot = false, valid = true)(key1, key2)
-        check(graph, requireRoot = false, valid = true)(key1, key5)
+        check(graph, requireRoot = false, valid = false)(key1, key5)
+        check(graph, requireRoot = false, valid = false)(key1, key8)
       }
 
       "deal with root revocations" in {
@@ -232,7 +246,13 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
         graph.addAuth(ns2k5k2)
         graph.addAuth(ns2k8k5)
-        graph.removeAuth(ns2k2k2_remove)
+
+        val danglingKeys = List(key2, key5, key8).map(_.fingerprint).sorted.mkString(", ")
+        loggerFactory.assertLogs(
+          graph.removeAuth(ns2k2k2_remove),
+          _.warningMessage should (include regex s"dangling.*$danglingKeys"),
+        )
+
         check(graph, requireRoot = false, valid = false)(key1, key2)
         check(graph, requireRoot = false, valid = false)(key1, key5)
         check(graph, requireRoot = false, valid = false)(key1, key8)

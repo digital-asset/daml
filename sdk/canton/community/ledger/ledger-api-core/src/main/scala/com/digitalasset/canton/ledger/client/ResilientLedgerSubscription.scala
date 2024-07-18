@@ -186,6 +186,7 @@ object ResilientLedgerSubscription {
         Some(value.offset)
       case Update.Reassignment(value) =>
         Some(value.offset)
+      case Update.OffsetCheckpoint(_) => None
       case Update.Empty => None
     }).map(off => ParticipantOffset(ParticipantOffset.Value.Absolute(off)))
 

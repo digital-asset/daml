@@ -497,7 +497,11 @@ trait IntegrityStorageBackend {
     * This operation is allowed to take some time to finish.
     * It is not expected that it is used during regular index/indexer operation.
     */
-  def verifyIntegrity()(connection: Connection): Unit
+  def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
+
+  def onlyForTestingNumberOfAcceptedTransactionsFor(domainId: DomainId)(connection: Connection): Int
+
+  def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit
 }
 
 trait StringInterningStorageBackend {

@@ -133,8 +133,7 @@ object TopologyMapping {
     object OffboardParticipant extends Code(14, "ofp")
 
     object PurgeTopologyTransaction extends Code(15, "ptt")
-    object TrafficControlState extends Code(16, "tcs")
-
+    // Don't reuse 16, It was the TrafficControlState code mapping
     object SequencingDynamicParametersState extends Code(17, "sep")
 
     lazy val all: Seq[Code] = Seq(
@@ -153,7 +152,6 @@ object TopologyMapping {
       SequencerDomainState,
       OffboardParticipant,
       PurgeTopologyTransaction,
-      TrafficControlState,
     )
 
     def fromString(code: String): ParsingResult[Code] =

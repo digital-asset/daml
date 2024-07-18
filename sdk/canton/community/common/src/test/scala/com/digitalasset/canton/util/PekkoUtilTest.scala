@@ -6,15 +6,24 @@ package com.digitalasset.canton.util
 import cats.Eq
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{
   ContextualizedFlowOps,
+  FutureQueue,
+  FutureQueueConsumer,
+  FutureQueuePullProxy,
+  IndexingFutureQueue,
+  PekkoSourceQueueToFutureQueue,
+  RecoveringFutureQueueImpl,
+  RecoveringQueueMetrics,
   WithKillSwitch,
   noOpKillSwitch,
 }
@@ -25,12 +34,16 @@ import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
 import org.apache.pekko.{Done, NotUsed}
 import org.scalacheck.Arbitrary
+import org.scalatest.concurrent.PatienceConfiguration
+import org.scalatest.time.Span
 
 import java.util.concurrent.Semaphore
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable.List
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.Random
 import scala.util.control.NonFatal
 
 class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
@@ -50,6 +63,8 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
   private def outcomes(length: Int, abortedFrom: Int): Seq[UnlessShutdown[Int]] =
     (1 until (abortedFrom min (length + 1))).map(UnlessShutdown.Outcome.apply) ++
       Seq.fill((length - abortedFrom + 1) max 0)(UnlessShutdown.AbortedDueToShutdown)
+
+  override val expectedTestDuration: FiniteDuration = 90 seconds
 
   "mapAsyncUS" when {
     "parallelism is 1" should {
@@ -925,6 +940,1174 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       "WithKillSwitch",
       SingletonTraverseTests[WithKillSwitch].singletonTraverse[Int, Int, Int, Int, Option, Option],
     )
+  }
+
+  "RecoveringFutureQueueImpl" should {
+
+    "only complete the firstSuccessfulConsumerInitialization after the first successful initialization" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 1,
+        bufferSize = 20,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      val firstFail = Promise[Unit]()
+      val secondFail = Promise[Unit]()
+      val thirdFail = Promise[Unit]()
+      val finalSucceed = Promise[Unit]()
+      val firstFailed = Promise[Unit]()
+      val secondFailed = Promise[Unit]()
+      val thirdFailed = Promise[Unit]()
+      val finalSucceeded = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        if (finalSucceeded.isCompleted)
+          fail("Should not get so far")
+        else if (thirdFailed.isCompleted)
+          finalSucceed.future.map { _ =>
+            finalSucceeded.trySuccess(())
+            val (sourceQueue, sourceDone) = Source
+              .queue[(Long, Int)](20, OverflowStrategy.backpressure, 1)
+              .map { elem =>
+                commit(elem._1)
+              }
+              .toMat(Sink.ignore)(Keep.both)
+              .run()
+            FutureQueueConsumer(
+              futureQueue = new PekkoSourceQueueToFutureQueue(
+                sourceQueue = sourceQueue,
+                sourceDone = sourceDone,
+                loggerFactory = loggerFactory,
+              ),
+              fromExclusive = 0,
+            )
+          }
+        else if (secondFailed.isCompleted)
+          thirdFail.future.map { _ =>
+            thirdFailed.trySuccess(())
+            throw new Exception("boom")
+          }
+        else if (firstFailed.isCompleted)
+          secondFail.future.map { _ =>
+            secondFailed.trySuccess(())
+            throw new Exception("boom")
+          }
+        else
+          firstFail.future.map { _ =>
+            firstFailed.trySuccess(())
+            throw new Exception("boom")
+          }
+      )
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      firstFail.trySuccess(())
+      firstFailed.future.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      secondFail.trySuccess(())
+      secondFailed.future.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      thirdFail.trySuccess(())
+      thirdFailed.future.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      finalSucceed.trySuccess(())
+      finalSucceeded.future.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.futureValue
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+    }
+
+    "fail firstSuccessfulConsumerInitialization if shutdown comes earlier" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 1,
+        bufferSize = 20,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      Threading.sleep(10)
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
+    }
+
+    "allow offer if the consumerFactory is not set yet" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 1,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      val blockedOffer = recoveringQueue.offer(3)
+      blockedOffer.isCompleted shouldBe false
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val (sourceQueue, sourceDone) = Source
+            .queue[(Long, Int)](20, OverflowStrategy.backpressure, 1)
+            .map { elem =>
+              discard(
+                received.accumulateAndGet(Vector(elem), _ ++ _)
+              )
+              commit(elem._1)
+            }
+            .toMat(Sink.ignore)(Keep.both)
+            .run()
+          FutureQueueConsumer(
+            futureQueue = new PekkoSourceQueueToFutureQueue(
+              sourceQueue = sourceQueue,
+              sourceDone = sourceDone,
+              loggerFactory = loggerFactory,
+            ),
+            fromExclusive = 0,
+          )
+        }
+      )
+      blockedOffer.futureValue
+      eventually() {
+        received.get() shouldBe Vector(
+          1L -> 1,
+          2L -> 2,
+          3L -> 3,
+        )
+      }
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+    }
+
+    "block offer if buffer is full" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.map { _ =>
+                  discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                  Done
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = 0,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      val blockedOffer1 = recoveringQueue.offer(4)
+      val blockedOffer2 = recoveringQueue.offer(5)
+      blockedOffer1.isCompleted shouldBe false
+      blockedOffer2.isCompleted shouldBe false
+      Threading.sleep(10)
+      blockedOffer1.isCompleted shouldBe false
+      blockedOffer2.isCompleted shouldBe false
+      offerGated.trySuccess(())
+      blockedOffer1.futureValue
+      blockedOffer2.futureValue
+      eventually() {
+        received.get() shouldBe Vector(
+          1L -> 1,
+          2L -> 2,
+          3L -> 3,
+          4L -> 4,
+          5L -> 5,
+        )
+      }
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+    }
+
+    "complete all blocked offer calls if shutting down" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 3,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      val blockedOffer1 = recoveringQueue.offer(3)
+      val blockedOffer2 = recoveringQueue.offer(4)
+      val blockedOffer3 = recoveringQueue.offer(5)
+      recoveringQueue.offer(6).failed.futureValue.getMessage should include(
+        "Too many parallel offer calls. Maximum allowed parallel offer calls"
+      )
+      blockedOffer1.isCompleted shouldBe false
+      blockedOffer2.isCompleted shouldBe false
+      blockedOffer3.isCompleted shouldBe false
+      Threading.sleep(10)
+      blockedOffer1.isCompleted shouldBe false
+      blockedOffer2.isCompleted shouldBe false
+      blockedOffer3.isCompleted shouldBe false
+      loggerFactory.assertLogs(
+        {
+          recoveringQueue.shutdown()
+          recoveringQueue.done.futureValue
+        },
+        _.warningMessage should include(
+          "blocked offer calls pending at the time of the shutdown. It is recommended that shutdown gracefully"
+        ),
+      )
+      blockedOffer1.futureValue
+      blockedOffer2.futureValue
+      blockedOffer3.futureValue
+    }
+
+    "tear down consumer properly on shutdown" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val shutdownPromise = Promise[Unit]()
+      val donePromise = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              override def offer(elem: (Long, Int)): Future[Done] =
+                Future.successful(Done)
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = donePromise.future.map(_ => Done)
+            },
+            fromExclusive = 0,
+          )
+        }
+      )
+      recoveringQueue.firstSuccessfulConsumerInitialization.futureValue
+      shutdownPromise.isCompleted shouldBe false
+      Threading.sleep(10)
+      shutdownPromise.isCompleted shouldBe false
+      recoveringQueue.shutdown()
+      shutdownPromise.future.futureValue
+      recoveringQueue.done.isCompleted shouldBe false
+      Threading.sleep(10)
+      recoveringQueue.done.isCompleted shouldBe false
+      donePromise.trySuccess(())
+      recoveringQueue.done.futureValue
+    }
+
+    "tear down consumer properly even if shutdown comes earlier than initialization finished" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val initializedPromise = Promise[Unit]()
+      val shutdownPromise = Promise[Unit]()
+      val donePromise = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        initializedPromise.future.map { _ =>
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              override def offer(elem: (Long, Int)): Future[Done] =
+                Future.successful(Done)
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = donePromise.future.map(_ => Done)
+            },
+            fromExclusive = 0,
+          )
+        }
+      )
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      shutdownPromise.isCompleted shouldBe false
+      Threading.sleep(10)
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      shutdownPromise.isCompleted shouldBe false
+      recoveringQueue.shutdown()
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      recoveringQueue.done.isCompleted shouldBe false
+      shutdownPromise.isCompleted shouldBe false
+      Threading.sleep(10)
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      recoveringQueue.done.isCompleted shouldBe false
+      shutdownPromise.isCompleted shouldBe false
+      initializedPromise.trySuccess(())
+      shutdownPromise.future.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      recoveringQueue.done.isCompleted shouldBe false
+      Threading.sleep(10)
+      recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
+      recoveringQueue.done.isCompleted shouldBe false
+      donePromise.trySuccess(())
+      recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
+      recoveringQueue.done.futureValue
+    }
+
+    "log warn/error if consumer initialization respective warn/error threshold is breached" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 3,
+        retryAttemptErrorThreshold = 6,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val initializationStartedPromise = new AtomicReference(Promise[Unit]())
+      val initializationContinuePromise = new AtomicReference(Promise[Unit]())
+      recoveringQueue.registerConsumerFactory { _ =>
+        val f = initializationContinuePromise.get().future.map { _ =>
+          throw new Exception("initialization fails")
+        }
+        initializationStartedPromise.get().trySuccess(())
+        f
+      }
+      // info 1
+      initializationStartedPromise.get().future.futureValue
+      initializationStartedPromise.set(Promise())
+      initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+      // info 2
+      initializationStartedPromise.get().future.futureValue
+      initializationStartedPromise.set(Promise())
+      initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+      // info 3
+      initializationStartedPromise.get().future.futureValue
+      initializationStartedPromise.set(Promise())
+      initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+      loggerFactory.assertLogs(
+        {
+          // warn 1
+          initializationStartedPromise.get().future.futureValue
+          initializationStartedPromise.set(Promise())
+          initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+        },
+        logEntry =>
+          logEntry.warningMessage should include("Consumer initialization failed (attempt #4)"),
+      )
+      loggerFactory.assertLogs(
+        {
+          // warn 2
+          initializationStartedPromise.get().future.futureValue
+          initializationStartedPromise.set(Promise())
+          initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+        },
+        logEntry =>
+          logEntry.warningMessage should include("Consumer initialization failed (attempt #5)"),
+      )
+      loggerFactory.assertLogs(
+        {
+          // warn 3
+          initializationStartedPromise.get().future.futureValue
+          initializationStartedPromise.set(Promise())
+          initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+        },
+        logEntry =>
+          logEntry.warningMessage should include("Consumer initialization failed (attempt #6)"),
+      )
+      loggerFactory.assertLogs(
+        {
+          // error 1
+          initializationStartedPromise.get().future.futureValue
+          initializationStartedPromise.set(Promise())
+          initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+        },
+        logEntry =>
+          logEntry.errorMessage should include("Consumer initialization failed (attempt #7)"),
+      )
+      loggerFactory.assertLogs(
+        {
+          // error 2
+          initializationStartedPromise.get().future.futureValue
+          initializationStartedPromise.set(Promise())
+          initializationContinuePromise.getAndSet(Promise()).trySuccess(())
+        },
+        logEntry =>
+          logEntry.errorMessage should include("Consumer initialization failed (attempt #8)"),
+      )
+      // error 3, but as shutting down, no more errors reported
+      initializationStartedPromise.get().future.futureValue
+      recoveringQueue.shutdown()
+      initializationContinuePromise.get().trySuccess(())
+      recoveringQueue.done.futureValue
+      recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
+    }
+
+    "consumer offer failure should trigger a warning and proper recovery" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 10,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val firstConsumer = new AtomicBoolean(false)
+      val recoveryIndexRef = new AtomicLong(0)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val recoveryIndex = received.get().lastOption.map(_._1).getOrElse(0L)
+          if (firstConsumer.get()) {
+            firstConsumer.set(false)
+            recoveryIndexRef.set(recoveryIndex)
+          } else {
+            firstConsumer.set(true)
+          }
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.map { _ =>
+                  if (elem._2 == 4 && firstConsumer.get()) throw new Exception("boom")
+                  else {
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    commit(elem._1)
+                    Done
+                  }
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = recoveryIndex,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      recoveringQueue.offer(4).futureValue
+      recoveringQueue.offer(5).futureValue
+      // now all above are in the internal buffer
+      loggerFactory.assertLogs(
+        {
+          offerGated.trySuccess(())
+          eventually() {
+            received.get() shouldBe Vector(
+              1L -> 1,
+              2L -> 2,
+              3L -> 3,
+              4L -> 4,
+              5L -> 5,
+            )
+          }
+        },
+        _.warningMessage should include("Offer failed, shutting down delegate"),
+      )
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      recoveryIndexRef.get() shouldBe 3
+    }
+
+    "recover from the last element correctly" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 10,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val firstConsumer = new AtomicBoolean(false)
+      val recoveryIndexRef = new AtomicLong(0)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val recoveryIndex = received.get().lastOption.map(_._1).getOrElse(0L)
+          if (firstConsumer.get()) {
+            firstConsumer.set(false)
+            recoveryIndexRef.set(recoveryIndex)
+          } else {
+            firstConsumer.set(true)
+          }
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.flatMap { _ =>
+                  if (elem._2 == 4 && firstConsumer.get()) {
+                    shutdownPromise.tryFailure(new Exception("delegate boom"))
+                    Future.never
+                  } else {
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    commit(elem._1)
+                    Future.successful(Done)
+                  }
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = recoveryIndex,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      recoveringQueue.offer(4).futureValue
+      recoveringQueue.offer(5).futureValue
+      // now all above are in the internal buffer
+      offerGated.trySuccess(())
+      eventually() {
+        received.get() shouldBe Vector(
+          1L -> 1,
+          2L -> 2,
+          3L -> 3,
+          4L -> 4,
+          5L -> 5,
+        )
+      }
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      recoveryIndexRef.get() shouldBe 3
+    }
+
+    "recover within the uncommitted range correctly" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 10,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val firstConsumer = new AtomicBoolean(false)
+      val recoveryIndexRef = new AtomicLong(0)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val recoveryIndex = received.get().lastOption.map(_._1).getOrElse(0L)
+          if (firstConsumer.get()) {
+            firstConsumer.set(false)
+            recoveryIndexRef.set(recoveryIndex)
+          } else {
+            firstConsumer.set(true)
+          }
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.flatMap { _ =>
+                  if (elem._2 == 4 && firstConsumer.get()) {
+                    shutdownPromise.tryFailure(new Exception("delegate boom"))
+                    Future.never
+                  } else if (elem._2 >= 3 && firstConsumer.get()) {
+                    // forget, not commit
+                    Future.successful(Done)
+                  } else if (elem._2 >= 2 && firstConsumer.get()) {
+                    // not commit
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    Future.successful(Done)
+                  } else {
+                    commit(elem._1)
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    Future.successful(Done)
+                  }
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = recoveryIndex,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      recoveringQueue.offer(4).futureValue
+      recoveringQueue.offer(5).futureValue
+      // now all above are in the internal buffer
+      offerGated.trySuccess(())
+      eventually() {
+        received.get() shouldBe Vector(
+          1L -> 1,
+          2L -> 2,
+          3L -> 3,
+          4L -> 4,
+          5L -> 5,
+        )
+      }
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      recoveryIndexRef.get() shouldBe 2
+    }
+
+    "recover at the beginning of the uncommitted range correctly" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 10,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val firstConsumer = new AtomicBoolean(false)
+      val recoveryIndexRef = new AtomicLong(0)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val recoveryIndex = received.get().lastOption.map(_._1).getOrElse(0L)
+          if (firstConsumer.get()) {
+            firstConsumer.set(false)
+            recoveryIndexRef.set(recoveryIndex)
+          } else {
+            firstConsumer.set(true)
+          }
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.flatMap { _ =>
+                  if (elem._2 == 4 && firstConsumer.get()) {
+                    shutdownPromise.tryFailure(new Exception("delegate boom"))
+                    Future.never
+                  } else if (elem._2 >= 2 && firstConsumer.get()) {
+                    // forget, not commit
+                    Future.successful(Done)
+                  } else {
+                    commit(elem._1)
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    Future.successful(Done)
+                  }
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = recoveryIndex,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      recoveringQueue.offer(4).futureValue
+      recoveringQueue.offer(5).futureValue
+      // now all above are in the internal buffer
+      offerGated.trySuccess(())
+      eventually() {
+        received.get() shouldBe Vector(
+          1L -> 1,
+          2L -> 2,
+          3L -> 3,
+          4L -> 4,
+          5L -> 5,
+        )
+      }
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      recoveryIndexRef.get() shouldBe 1
+    }
+
+    "trying to recover before the uncommitted range results in halt and error (this is the case for invalid commit wiring in consumer)" in assertAllStagesStopped {
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 10,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      val received = new AtomicReference[Vector[(Long, Int)]](Vector.empty)
+      val firstConsumer = new AtomicBoolean(false)
+      val recoveryIndexRef = new AtomicLong(0)
+      val offerGated = Promise[Unit]()
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val recoveryIndex = received.get().lastOption.map(_._1).getOrElse(0L)
+          if (firstConsumer.get()) {
+            firstConsumer.set(false)
+            recoveryIndexRef.set(recoveryIndex)
+          } else {
+            firstConsumer.set(true)
+          }
+          FutureQueueConsumer(
+            futureQueue = new FutureQueue[(Long, Int)] {
+              private val shutdownPromise = Promise[Unit]()
+
+              override def offer(elem: (Long, Int)): Future[Done] =
+                offerGated.future.flatMap { _ =>
+                  if (elem._2 == 4 && firstConsumer.get()) {
+                    shutdownPromise.tryFailure(new Exception("delegate boom"))
+                    Future.never
+                  } else if (elem._2 >= 2 && firstConsumer.get()) {
+                    // forget, but commit: very wrong
+                    commit(elem._1)
+                    Future.successful(Done)
+                  } else {
+                    commit(elem._1)
+                    discard(received.accumulateAndGet(Vector(elem), _ ++ _))
+                    Future.successful(Done)
+                  }
+                }
+
+              override def shutdown(): Unit = shutdownPromise.trySuccess(())
+
+              override def done: Future[Done] = shutdownPromise.future.map(_ => Done)
+            },
+            fromExclusive = recoveryIndex,
+          )
+        }
+      )
+      recoveringQueue.offer(1).futureValue
+      recoveringQueue.offer(2).futureValue
+      recoveringQueue.offer(3).futureValue
+      recoveringQueue.offer(4).futureValue
+      recoveringQueue.offer(5).futureValue
+      // now all above are in the internal buffer
+      loggerFactory.assertLogs(
+        {
+          offerGated.trySuccess(())
+          recoveringQueue.done.futureValue
+        },
+        _.errorMessage should include(
+          "Program error. The next uncommitted after recovery is not the next element."
+        ),
+      )
+      recoveryIndexRef.get() shouldBe 1
+    }
+
+    def fuzzyTest(sleepy: Boolean): Unit = {
+      val inputSize = 1000
+      def test(): Unit = {
+        val sink = new AtomicReference[List[(Long, Int)]](Nil)
+        val boomCount = new AtomicInteger(0)
+        val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+          maxBlockedOffer = 1,
+          bufferSize = 20,
+          loggerFactory = loggerFactory,
+          retryStategy = PekkoUtil.exponentialRetryWithCap(
+            minWait = 2,
+            multiplier = 2,
+            cap = 10,
+          ),
+          retryAttemptWarnThreshold = 100,
+          retryAttemptErrorThreshold = 200,
+          uncommittedWarnTreshold = 100,
+          recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+        )
+        val testF = Future {
+          val inputFixture = Iterator.iterate(1)(_ + 1).take(inputSize).toList
+          inputFixture.foreach { i =>
+            recoveringQueue.offer(i).futureValue
+          }
+          eventually()(sink.get().size shouldBe inputSize)
+          sink.get().reverse shouldBe inputFixture.zip(inputFixture)
+          boomCount.get() should be > (5)
+        }
+        if (sleepy) Threading.sleep(Random.nextLong(4))
+        recoveringQueue.registerConsumerFactory(commit =>
+          Future {
+            if (sleepy) Threading.sleep(Random.nextLong(2))
+            if (Random.nextLong(6) > 0) throw new Exception("initialization boom")
+            val (sourceQueue, sourceDone) = Source
+              .queue[(Long, Int)](20, OverflowStrategy.backpressure, 1)
+              .via(BatchN(5, 3))
+              .mapAsync(3) { batch =>
+                Future {
+                  if (sleepy) Threading.sleep(Random.nextLong(4) / 4)
+                  if (Random.nextLong(10) == 0) {
+                    boomCount.incrementAndGet()
+                    throw new Exception("boom")
+                  }
+                  batch
+                }
+              }
+              .map { batch =>
+                batch.foreach(elem => sink.getAndUpdate(elem :: _))
+                commit(batch.last._1)
+              }
+              .toMat(Sink.ignore)(Keep.both)
+              .run()
+            FutureQueueConsumer(
+              futureQueue = new PekkoSourceQueueToFutureQueue(
+                sourceQueue = sourceQueue,
+                sourceDone = sourceDone,
+                loggerFactory = loggerFactory,
+              ),
+              fromExclusive = sink.get().headOption.map(_._1).getOrElse(0),
+            )
+          }
+        )
+        testF.futureValue(PatienceConfiguration.Timeout(Span.Max))
+        val shutdownTestF = Future {
+          if (sleepy) Threading.sleep(Random.nextLong(10))
+          Iterator
+            .iterate(inputSize + 1)(_ + 1)
+            .take(inputSize)
+            .foreach { i =>
+              recoveringQueue.offer(i).futureValue
+            }
+        }
+        if (sleepy) Threading.sleep(Random.nextLong(100))
+        recoveringQueue.shutdown()
+        recoveringQueue.done.futureValue
+        shutdownTestF.failed.futureValue.getMessage should include(
+          "Cannot offer new elements to the queue, after shutdown is initiated"
+        )
+        sink.get().reverse shouldBe Range.inclusive(1, sink.get().size).map(i => i -> i).toList
+      }
+
+      loggerFactory.assertLogsSeq(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.Level(org.slf4j.event.Level.WARN)
+      )(
+        Range
+          .inclusive(
+            1,
+            6,
+          ) // high parallelism is not high load: this test is waiting most of the time
+          .map(_ => Future(Range.inclusive(1, 2).foreach(_ => test())))
+          .foreach(_.futureValue(PatienceConfiguration.Timeout(Span.Max))),
+        logentries =>
+          logentries.foldLeft(succeed) { case (_, entry) =>
+            if (entry.level == org.slf4j.event.Level.WARN) {
+              entry.warningMessage should include(
+                "blocked offer calls pending at the time of the shutdown. It is recommended that shutdown gracefully"
+              )
+            } else succeed
+          },
+      )
+    }
+
+    "work correctly for a fuzzy integration test with fuzzy delays case with many recovery cycles, and fuzzy shutdown" in assertAllStagesStopped {
+      fuzzyTest(sleepy = true)
+    }
+
+    "work correctly for a fuzzy integration test without fuzzy delays case with many recovery cycles, and fuzzy shutdown" in assertAllStagesStopped {
+      fuzzyTest(sleepy = false)
+    }
+
+    "squeeze trough 1M items in 100 seconds (10K/sec) with even small batch sizes in PekkoStream" in assertAllStagesStopped {
+      val inputSize = 1000 * 1000
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 1,
+        bufferSize = 20,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 2,
+          multiplier = 2,
+          cap = 10,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+      )
+      recoveringQueue.registerConsumerFactory(commit =>
+        Future {
+          val (sourceQueue, sourceDone) = Source
+            .queue[(Long, Int)](20, OverflowStrategy.backpressure, 1)
+            .via(BatchN(5, 3))
+            .mapAsync(3) { batch =>
+              Future {
+                batch
+              }
+            }
+            .map { batch =>
+              commit(batch.last._1)
+            }
+            .toMat(Sink.ignore)(Keep.both)
+            .run()
+          FutureQueueConsumer(
+            futureQueue = new PekkoSourceQueueToFutureQueue(
+              sourceQueue = sourceQueue,
+              sourceDone = sourceDone,
+              loggerFactory = loggerFactory,
+            ),
+            fromExclusive = 0,
+          )
+        }
+      )
+      val start = System.nanoTime()
+      Iterator
+        .iterate(1)(_ + 1)
+        .take(inputSize)
+        .foreach(i => recoveringQueue.offer(i).futureValue)
+      val end = System.nanoTime()
+      recoveringQueue.shutdown()
+      recoveringQueue.done.futureValue
+      val testTookMillis = (end - start) / 1000 / 1000
+      logger.info(s"1M elem processing took $testTookMillis millis")
+      testTookMillis should be < (100000L)
+    }
+  }
+
+  "FutureQueuePullProxy" should {
+
+    val iterations = {
+      def recursionThrows(i: Int, limit: Int): Int = {
+        if (i > limit) i
+        else recursionThrows(i + 1, limit) + 1
+      }
+      val atomicInteger = new AtomicInteger(10)
+      Future(try {
+        Iterator
+          .continually {
+            recursionThrows(0, atomicInteger.get())
+            atomicInteger.accumulateAndGet(10, _ * _)
+          }
+          .foreach(_ => ())
+        fail("StackOverflowError expected, but infinite loop ended unexpectedly")
+      } catch {
+        case _: StackOverflowError => ()
+      }).futureValue
+      atomicInteger.get()
+    }
+    logger.info(s"Found stack-overflow recursion depth: $iterations")
+
+    "not throw StackOverflowError, even if asynchronous iterations are running on the same thread" in assertAllStagesStopped {
+      val pullCounter = new AtomicInteger(0)
+      new FutureQueuePullProxy[Int](
+        initialEndIndex = 0,
+        pull = _ => {
+          if (pullCounter.incrementAndGet() > iterations) None
+          else Some(10)
+        },
+        delegate = new FutureQueue[(Long, Int)] {
+          private val shutdownPromise = Promise[Done]()
+
+          override def offer(elem: (Long, Int)): Future[Done] =
+            Future.successful(Done)
+
+          override def shutdown(): Unit =
+            shutdownPromise.trySuccess(Done)
+
+          override def done: Future[Done] =
+            shutdownPromise.future
+        },
+        loggerFactory = loggerFactory,
+      )
+      // this means that actually the constructor is already executed all the push-pull-iterations
+      pullCounter.incrementAndGet() should be > (iterations)
+    }
+  }
+
+  "IndexingFutureQueue" should {
+
+    "index correctly from the next element" in assertAllStagesStopped {
+      val offered = new AtomicReference[(Long, Int)]
+      val testee = new IndexingFutureQueue[Int](
+        futureQueueConsumer = FutureQueueConsumer(
+          futureQueue = new FutureQueue[(Long, Int)] {
+            private val shutdownPromise = Promise[Done]()
+
+            override def offer(elem: (Long, Int)): Future[Done] = {
+              offered.set(elem)
+              Future.successful(Done)
+            }
+
+            override def shutdown(): Unit =
+              shutdownPromise.trySuccess(Done)
+
+            override def done: Future[Done] =
+              shutdownPromise.future
+          },
+          fromExclusive = 15L,
+        )
+      )
+      testee.offer(16).futureValue
+      offered.get shouldBe (16L -> 16)
+      testee.shutdown()
+      testee.done.futureValue
+    }
+
+    "fail if used concurrently" in assertAllStagesStopped {
+      val releaseOffer = Promise[Done]()
+      val testee = new IndexingFutureQueue[Int](
+        futureQueueConsumer = FutureQueueConsumer(
+          futureQueue = new FutureQueue[(Long, Int)] {
+            private val shutdownPromise = Promise[Done]()
+
+            override def offer(elem: (Long, Int)): Future[Done] =
+              releaseOffer.future
+
+            override def shutdown(): Unit =
+              shutdownPromise.trySuccess(Done)
+
+            override def done: Future[Done] =
+              shutdownPromise.future
+          },
+          fromExclusive = 15L,
+        )
+      )
+      val blockedOffer = testee.offer(16)
+      testee.offer(17).failed.futureValue.getMessage should include(
+        "IndexingFutureQueue should be used sequentially"
+      )
+      blockedOffer.isCompleted shouldBe false
+      releaseOffer.trySuccess(Done)
+      blockedOffer.futureValue
+      testee.offer(16).futureValue
+      testee.shutdown()
+      testee.done.futureValue
+    }
+
+    "maintain order in indexing across concurrent users" in assertAllStagesStopped {
+      val elems = Range(0, 10).toList
+      val delegateQueue = new AtomicReference[Vector[(Long, (Int, Int))]](Vector.empty)
+      val testee = new IndexingFutureQueue[(Int, Int)](
+        futureQueueConsumer = FutureQueueConsumer(
+          futureQueue = new FutureQueue[(Long, (Int, Int))] {
+            private val shutdownPromise = Promise[Done]()
+
+            override def offer(elem: (Long, (Int, Int))): Future[Done] = {
+              delegateQueue.accumulateAndGet(Vector(elem), _ ++ _)
+              Future {
+                Threading.sleep(Random.nextLong(3))
+                Done
+              }
+            }
+
+            override def shutdown(): Unit =
+              shutdownPromise.trySuccess(Done)
+
+            override def done: Future[Done] =
+              shutdownPromise.future
+          },
+          fromExclusive = 0L,
+        )
+      )
+      def asyncPush(id: Int): Future[Unit] = Future(
+        elems.foreach { elem =>
+          Threading.sleep(Random.nextLong(2))
+          def offer(): Future[Done] =
+            testee.offer(id -> elem).recoverWith { _ =>
+              Threading.sleep(Random.nextLong(2))
+              offer()
+            }
+          offer().futureValue
+        }
+      )
+      List(
+        asyncPush(1),
+        asyncPush(2),
+        asyncPush(3),
+      ).foreach(_.futureValue)
+      testee.shutdown()
+      testee.done.futureValue
+      def verifyId(id: Int) =
+        delegateQueue.get().filter(_._2._1 == id).map(_._2) shouldBe elems.map(id -> _)
+      verifyId(1)
+      verifyId(2)
+      verifyId(3)
+      delegateQueue.get().map(_._1) shouldBe Range(1, 31).map(_.toLong).toVector
+    }
   }
 }
 

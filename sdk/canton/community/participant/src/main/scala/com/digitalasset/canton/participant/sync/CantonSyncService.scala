@@ -56,6 +56,11 @@ import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
+import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
+  TransactionSubmissionFailure,
+  TransactionSubmissionUnknown,
+  TransactionSubmitted,
+}
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -615,8 +620,21 @@ class CantonSyncService(
             logger.debug(s"Command ${submitterInfo.commandId} is now in-flight.")
             val loggedF = sequencedF.transformIntoSuccess { result =>
               result match {
-                case Success(UnlessShutdown.Outcome(_)) =>
-                  logger.debug(s"Successfully submitted transaction ${submitterInfo.commandId}.")
+                case Success(UnlessShutdown.Outcome(submissionResult)) =>
+                  submissionResult match {
+                    case TransactionSubmitted =>
+                      logger.debug(
+                        s"Successfully submitted transaction ${submitterInfo.commandId}."
+                      )
+                    case TransactionSubmissionFailure =>
+                      logger.info(
+                        s"Failed to submit transaction ${submitterInfo.commandId}"
+                      )
+                    case TransactionSubmissionUnknown(maxSequencingTime) =>
+                      logger.info(
+                        s"Unknown state of transaction submission ${submitterInfo.commandId}. Please wait until the max sequencing time $maxSequencingTime has elapsed."
+                      )
+                  }
                 case Success(UnlessShutdown.AbortedDueToShutdown) =>
                   logger.debug(
                     s"Transaction submission aborted due to shutdown ${submitterInfo.commandId}."

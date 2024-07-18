@@ -294,12 +294,12 @@ abstract class ProtocolProcessor[
 
     def observeSubmissionError(
         newTrackingData: SubmissionTrackingData
-    ): Future[SubmissionResult] = {
+    ): FutureUnlessShutdown[SubmissionResult] = {
       // Assign the currently observed domain timestamp so that the error will be published soon.
       // Cap it by the max sequencing time so that the timeout field can move only backwards.
       val timestamp = ephemeral.observedTimestampLookup.highWatermark min maxSequencingTime
       val newUnsequencedSubmission = UnsequencedSubmission(timestamp, newTrackingData)
-      for {
+      val fut = for {
         _unit <- inFlightSubmissionTracker.observeSubmissionError(
           tracked.changeIdHash,
           domainId,
@@ -323,28 +323,45 @@ abstract class ProtocolProcessor[
         // tracking data.
         _ = if (maxSequencingTime > timestamp)
           ephemeral.timelyRejectNotifier.notifyIfInPastAsync(timestamp)
-      } yield tracked.onFailure
+      } yield tracked.onDefinitiveFailure
+      FutureUnlessShutdown.outcomeF(fut)
     }
 
     // After in-flight registration, Make sure that all errors get a chance to update the tracking data and
     // instead return a `SubmissionResult` so that the submission will be acknowledged over the ledger API.
-    def unlessError[A](eitherT: EitherT[FutureUnlessShutdown, SubmissionTrackingData, A])(
+    def unlessError[A](
+        eitherT: EitherT[FutureUnlessShutdown, SubmissionTrackingData, A],
+        mayHaveBeenSent: Boolean,
+    )(
         continuation: A => FutureUnlessShutdown[SubmissionResult]
     ): FutureUnlessShutdown[SubmissionResult] = {
       eitherT.value.transformWith {
         case Success(UnlessShutdown.Outcome(Right(a))) => continuation(a)
         case Success(UnlessShutdown.Outcome(Left(newTrackingData))) =>
-          FutureUnlessShutdown.outcomeF(
-            observeSubmissionError(newTrackingData)
-          )
+          // The sequencer client's `sendAsync` method returns a `Left`, the participant knows
+          // that the submission request has not reached the sequencer. So even if `mayHaveBeenSent`
+          // is true, we know that the request has not made it and we can therefore call `observeSubmissionError`.
+          observeSubmissionError(newTrackingData)
         case Success(UnlessShutdown.AbortedDueToShutdown) =>
           logger.debug(s"Failed to process submission due to shutdown")
-          FutureUnlessShutdown.pure(tracked.onFailure)
+          if (mayHaveBeenSent) {
+            FutureUnlessShutdown.pure(tracked.onPotentialFailure(maxSequencingTime))
+          } else {
+            val trackingData =
+              tracked.definiteFailureTrackingData(UnlessShutdown.AbortedDueToShutdown)
+            observeSubmissionError(trackingData)
+          }
         case Failure(exception) =>
-          // We merely log an error and rely on the maxSequencingTimeout to produce a rejection event eventually.
-          // It is not clear whether we managed to send the submission.
           logger.error(s"Failed to submit submission", exception)
-          FutureUnlessShutdown.pure(tracked.onFailure)
+          if (mayHaveBeenSent) {
+            // We merely log an error and rely on the maxSequencingTimeout to produce a rejection event eventually.
+            // It is not clear whether we managed to send the submission.
+            FutureUnlessShutdown.pure(tracked.onPotentialFailure(maxSequencingTime))
+          } else {
+            val trackingData =
+              tracked.definiteFailureTrackingData(UnlessShutdown.Outcome(exception))
+            observeSubmissionError(trackingData)
+          }
       }
     }
 
@@ -352,9 +369,7 @@ abstract class ProtocolProcessor[
         deduplicationResult: Either[DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset]
     ): FutureUnlessShutdown[SubmissionResult] = deduplicationResult match {
       case Left(failed) =>
-        FutureUnlessShutdown.outcomeF(
-          observeSubmissionError(tracked.commandDeduplicationFailure(failed))
-        )
+        observeSubmissionError(tracked.commandDeduplicationFailure(failed))
       case Right(actualDeduplicationOffset) =>
         def sendBatch(
             preparedBatch: steps.PreparedBatch
@@ -375,11 +390,11 @@ abstract class ProtocolProcessor[
           // we would observe the sequencing here only if the participant has not crashed.
           // We therefore delegate observing the sequencing to the MessageDispatcher,
           // which can rely on the SequencedEventStore for persistence.
-          unlessError(submittedEF) { case (sendResult, resultArgs) =>
+          unlessError(submittedEF, mayHaveBeenSent = true) { case (sendResult, resultArgs) =>
             val submissionResult = sendResult match {
               case SendResult.Success(deliver) =>
                 steps.createSubmissionResult(deliver, resultArgs)
-              case _: SendResult.NotSequenced => tracked.onFailure
+              case _: SendResult.NotSequenced => tracked.onDefinitiveFailure
             }
             FutureUnlessShutdown.pure(submissionResult)
           }
@@ -393,7 +408,7 @@ abstract class ProtocolProcessor[
         val maxSequencingTimeHasElapsed =
           ephemeral.timelyRejectNotifier.notifyIfInPastAsync(maxSequencingTime)
         if (maxSequencingTimeHasElapsed) {
-          FutureUnlessShutdown.pure(tracked.onFailure)
+          FutureUnlessShutdown.pure(tracked.onDefinitiveFailure)
         } else {
           val batchF = for {
             batch <- tracked.prepareBatch(
@@ -407,7 +422,7 @@ abstract class ProtocolProcessor[
               )
               .mapK(FutureUnlessShutdown.outcomeK)
           } yield batch
-          unlessError(batchF)(sendBatch)
+          unlessError(batchF, mayHaveBeenSent = false)(sendBatch)
         }
     }
 

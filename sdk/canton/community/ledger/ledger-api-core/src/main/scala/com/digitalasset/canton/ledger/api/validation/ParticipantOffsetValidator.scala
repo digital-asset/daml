@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered.*
@@ -47,6 +48,14 @@ object ParticipantOffsetValidator {
     }
   }
 
+  def validate(ledgerOffset: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, String] =
+    if (ledgerOffset.isEmpty)
+      Right(ledgerOffset)
+    else
+      Ref.LedgerString.fromString(ledgerOffset).left.map(invalidArgument)
+
   def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
       ledgerOffset: domain.ParticipantOffset,
@@ -75,6 +84,21 @@ object ParticipantOffsetValidator {
     ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
       offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd)
     )
+
+  def offsetIsBeforeEndIfAbsolute(
+      offsetType: String,
+      ledgerOffset: String,
+      ledgerEnd: domain.ParticipantOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Unit] =
+    if (ledgerOffset > ledgerEnd.value)
+      Left(
+        RequestValidationErrors.OffsetAfterLedgerEnd
+          .Reject(offsetType, ledgerOffset, ledgerEnd.value)
+          .asGrpcError
+      )
+    else Right(())
 
   private def convertLedgerBoundary(
       fieldName: String,

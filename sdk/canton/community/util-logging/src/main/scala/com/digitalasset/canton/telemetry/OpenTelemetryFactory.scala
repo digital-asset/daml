@@ -4,7 +4,6 @@
 package com.digitalasset.canton.telemetry
 
 import com.daml.metrics.HistogramDefinition
-import com.daml.metrics.api.opentelemetry.OpenTelemetryUtil
 import com.daml.metrics.api.{HistogramInventory, MetricsInfoFilter}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
@@ -65,7 +64,7 @@ object OpenTelemetryFactory {
     val logger: TracedLogger = loggerFactory.getTracedLogger(getClass)
 
     logger.info(
-      s"Initializing open telemetry with trace-exporter=${config.exporter}, metrics-enabled=${metricsEnabled}"
+      s"Initializing open telemetry with trace-exporter=${config.exporter}, metrics-enabled=$metricsEnabled"
     )(
       TraceContext.empty
     )
@@ -102,7 +101,7 @@ object OpenTelemetryFactory {
       else builder
 
     val meterProviderBuilder =
-      OpenTelemetryUtil
+      OpenTelemetryViews
         .addViewsToProvider(
           SdkMeterProvider.builder,
           testingSupportAdhocMetrics,

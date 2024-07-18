@@ -74,10 +74,14 @@ final class ApiCommandCompletionService(
                 s"Received request for completion subscription, ${loggingContextWithTrace
                     .serializeFiltered("parties", "offset")}"
               )
-              val offset = request.offset.getOrElse(ParticipantOffset.ParticipantEnd)
+              val offset = request.offset
 
               completionsService
-                .getCompletions(offset, request.applicationId, request.parties)
+                .getCompletions(
+                  ParticipantOffset.fromString(offset),
+                  request.applicationId,
+                  request.parties,
+                )
                 .via(
                   logger.enrichedDebugStream(
                     "Responding with completions.",

@@ -32,11 +32,13 @@ sealed trait TopologyChangeOp extends Product with Serializable with PrettyPrint
 
 object TopologyChangeOp {
 
-  /** Adds or replaces an existing record */
+  /** Adds or replaces an existing mapping with the same unique key. */
   final case object Replace extends TopologyChangeOp {
     override def toProto: v30.Enums.TopologyChangeOp =
       v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE
   }
+
+  /** Removes an existing mappings with the same unique key. */
   final case object Remove extends TopologyChangeOp {
     override def toProto: v30.Enums.TopologyChangeOp =
       v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE
