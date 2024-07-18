@@ -1515,7 +1515,7 @@ object LedgerApiCommands {
 
     final case class CompletionRequest(
         partyId: LfPartyId,
-        beginOffset: ParticipantOffset,
+        beginOffset: String,
         expectedCompletions: Int,
         timeout: java.time.Duration,
         applicationId: String,
@@ -1531,7 +1531,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = Some(beginOffset),
+            beginExclusive = beginOffset,
           )
         )
 
@@ -1572,7 +1572,7 @@ object LedgerApiCommands {
 
     final case class CompletionCheckpointRequest(
         partyId: LfPartyId,
-        beginExclusive: ParticipantOffset,
+        beginExclusive: String,
         expectedCompletions: Int,
         timeout: config.NonNegativeDuration,
         applicationId: String,
@@ -1586,7 +1586,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = Some(beginExclusive),
+            beginExclusive = beginExclusive,
           )
         )
 
@@ -1625,7 +1625,7 @@ object LedgerApiCommands {
     final case class Subscribe(
         observer: StreamObserver[CompletionWrapper],
         parties: Seq[String],
-        offset: Option[ParticipantOffset],
+        offset: String,
         applicationId: String,
     )(implicit loggingContext: ErrorLoggingContext)
         extends BaseCommand[CompletionStreamRequest, AutoCloseable, AutoCloseable] {

@@ -7,15 +7,19 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ResourceCloseable
 import com.digitalasset.canton.platform.config.ServerRole
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerParticipantId, config}
 
@@ -31,8 +35,16 @@ final class LedgerApiStore(
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
 ) extends ResourceCloseable {
+  private val integrityStorageBackend =
+    ledgerApiDbSupport.storageBackendFactory.createIntegrityStorageBackend
   private val parameterStorageBackend =
     ledgerApiDbSupport.storageBackendFactory.createParameterStorageBackend(stringInterningView)
+  private val eventStorageBackend =
+    ledgerApiDbSupport.storageBackendFactory.createEventStorageBackend(
+      ledgerEndCache,
+      stringInterningView,
+      loggerFactory,
+    )
   private val stringInterningStorageBackend =
     ledgerApiDbSupport.storageBackendFactory.createStringInterningStorageBackend
 
@@ -43,9 +55,86 @@ final class LedgerApiStore(
       new LoggingContextWithTrace(LoggingEntries.empty, traceContext)
     )
 
+  def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    executeSql(DatabaseMetrics.ForTesting("checkIntegrity"))(
+      integrityStorageBackend.onlyForTestingVerifyIntegrity(failForEmptyDB)
+    )
+
+  def onlyForTestingMoveLedgerAndBackToScratch()(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    executeSql(DatabaseMetrics.ForTesting("onlyForTestingMoveLedgerAndBackToScratch"))(
+      integrityStorageBackend.onlyForTestingMoveLedgerEndBackToScratch()
+    )
+
+  def onlyForTestingNumberOfAcceptedTransactionsFor(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): Future[Int] =
+    executeSql(DatabaseMetrics.ForTesting("numberOfAcceptedTransactionsFor"))(
+      integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(domainId)
+    )
+
+  def domainIndex(domainId: DomainId)(implicit traceContext: TraceContext): Future[DomainIndex] =
+    executeSql(metrics.index.db.getDomainledgerEnd)(
+      parameterStorageBackend.domainLedgerEnd(domainId)
+    )
+
   def ledgerEnd(implicit traceContext: TraceContext): Future[LedgerEnd] =
     executeSql(metrics.index.db.getLedgerEnd)(
       parameterStorageBackend.ledgerEnd
+    )
+
+  def firstDomainOffsetAfterOrAt(
+      domainId: DomainId,
+      afterOrAtRecordTimeInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.firstDomainOffsetAfterOrAt)(
+      eventStorageBackend.firstDomainOffsetAfterOrAt(
+        domainId,
+        afterOrAtRecordTimeInclusive.underlying,
+      )
+    )
+
+  def lastDomainOffsetBeforeOrAt(
+      domainId: DomainId,
+      beforeOrAtOffsetInclusive: Offset,
+  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
+      eventStorageBackend.lastDomainOffsetBeforeOrAt(Some(domainId), beforeOrAtOffsetInclusive)
+    )
+
+  def lastDomainOffsetBeforeOrAt(
+      beforeOrAtOffsetInclusive: Offset
+  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAt)(
+      eventStorageBackend.lastDomainOffsetBeforeOrAt(None, beforeOrAtOffsetInclusive)
+    )
+
+  def domainOffset(offset: Offset)(implicit
+      traceContext: TraceContext
+  ): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.domainOffset)(
+      eventStorageBackend.domainOffset(offset)
+    )
+
+  def firstDomainOffsetAfterOrAtPublicationTime(
+      afterOrAtPublicationTimeInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.firstDomainOffsetAfterOrAtPublicationTime)(
+      eventStorageBackend.firstDomainOffsetAfterOrAtPublicationTime(
+        afterOrAtPublicationTimeInclusive.underlying
+      )
+    )
+
+  def lastDomainOffsetBeforerOrAtPublicationTime(
+      beforeOrAtPublicationTimeInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
+    executeSql(metrics.index.db.lastDomainOffsetBeforeOrAtPublicationTime)(
+      eventStorageBackend.lastDomainOffsetBeforerOrAtPublicationTime(
+        beforeOrAtPublicationTimeInclusive.underlying
+      )
     )
 
   private[api] def initializeInMemoryState(implicit
@@ -83,6 +172,7 @@ object LedgerApiStore {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       metrics: LedgerApiServerMetrics,
+      onlyForTesting_DoNotInitializeInMemoryState: Boolean = false,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContextIdlenessExecutorService,
@@ -134,7 +224,9 @@ object LedgerApiStore {
           )
         )
         .acquireFlagCloseable("Ledger API DB Support")
-      _ <- ledgerApiStore.initializeInMemoryState
+      _ <-
+        if (onlyForTesting_DoNotInitializeInMemoryState) Future.unit
+        else ledgerApiStore.initializeInMemoryState
     } yield ledgerApiStore
   }
 }

@@ -5,14 +5,23 @@ package com.digitalasset.canton.util
 
 import cats.Id
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.daml.metrics.api.noop.NoOpMeter
+import com.daml.metrics.api.{
+  MetricHandle,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 import com.daml.nonempty.NonEmpty
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggerFactory, NamedLoggingContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -20,7 +29,15 @@ import com.digitalasset.canton.util.TryUtil.*
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.Logger
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Flow, FlowOps, FlowOpsMat, Keep, RunnableGraph, Source}
+import org.apache.pekko.stream.scaladsl.{
+  Flow,
+  FlowOps,
+  FlowOpsMat,
+  Keep,
+  RunnableGraph,
+  Source,
+  SourceQueueWithComplete,
+}
 import org.apache.pekko.stream.stage.{
   GraphStageLogic,
   GraphStageWithMaterializedValue,
@@ -45,9 +62,9 @@ import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.language.implicitConversions
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -979,5 +996,535 @@ object PekkoUtil extends HasLoggerName {
           ff: K[Lambda[b => Flow[A, Context[b], Mat]]]
       ): K[ContextualizedFlow[Context, A, *, Mat]] = ff
     }
+  }
+
+  trait CompletingAndShutdownable {
+
+    /** After shutdown is triggered the done Future is expected to terminate successfully
+      */
+    def shutdown(): Unit
+
+    /** @return successfully after shutdown, or with a failure after aborted internally
+      */
+    def done: Future[Done]
+  }
+
+  trait FutureQueue[T] extends CompletingAndShutdownable {
+
+    /** Adding elements to the queue.
+      * The backpressure is implemented with the future result.
+      * An implementation may limit how many parallel unfinished futures can be outstanding at
+      * any point in time.
+      */
+    def offer(elem: T): Future[Done]
+  }
+
+  trait Commit {
+    def apply(index: Long): Unit
+  }
+
+  final case class FutureQueueConsumer[T](
+      futureQueue: FutureQueue[(Long, T)],
+      fromExclusive: Long,
+  )
+
+  trait RecoveringFutureQueue[T] extends FutureQueue[T] {
+
+    /** Explicit registration allows lazy construction.
+      * Only one consumer can be registered.
+      *
+      * RecoveringFutureQueue governs the life cycle of a FutureQueue, which is created asynchronously,
+      * can be initialized and started again after a failure and operates on elements that
+      * define a monotonically increasing index.
+      * As part of the recovery process, the implementation keeps track of already offered elements,
+      * and based on the provided fromExclusive index, replays the missing elements.
+      * The FutureQueue needs to make sure with help of the Commit, that up to the INDEX, the elements are fully
+      * processed. This needs to be done as soon as possible, because this allows to "forget" about the offered elements
+      * in the RecoveringFutureQueue implementation.
+      */
+    def registerConsumerFactory(
+        consumer: Commit => Future[FutureQueueConsumer[T]]
+    ): Unit
+
+    def firstSuccessfulConsumerInitialization: Future[Unit]
+
+    def uncommittedQueueSnapshot: Vector[(Long, T)]
+  }
+
+  def exponentialRetryWithCap(
+      minWait: Long,
+      multiplier: Int,
+      cap: Long,
+  ): Int => Long = {
+    assert(multiplier > 1)
+    def sequence = Iterator.iterate(minWait)(_ * multiplier)
+    val firstCappedAttempt = sequence.zipWithIndex
+      .find(_._1 >= cap)
+      .getOrElse(throw new IllegalStateException())
+      ._2
+      .+(1)
+    attempt => {
+      assert(attempt > 0)
+      if (attempt >= firstCappedAttempt) cap
+      else sequence.drop(attempt - 1).next()
+    }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  class RecoveringFutureQueueImpl[T](
+      maxBlockedOffer: Int,
+      bufferSize: Int,
+      loggerFactory: NamedLoggerFactory,
+      retryStategy: Int => Long,
+      retryAttemptWarnThreshold: Int,
+      retryAttemptErrorThreshold: Int,
+      uncommittedWarnTreshold: Int,
+      recoveringQueueMetrics: RecoveringQueueMetrics,
+  ) extends RecoveringFutureQueue[T] {
+    assert(maxBlockedOffer > 0)
+    assert(retryAttemptWarnThreshold > 0)
+    assert(retryAttemptErrorThreshold > 0)
+    assert(retryAttemptErrorThreshold >= retryAttemptWarnThreshold)
+
+    private val logger = loggerFactory.getLogger(this.getClass)
+    private implicit val directEC: ExecutionContext = DirectExecutionContext(logger)
+
+    private var consumerFactory: Option[Commit => Future[FutureQueueConsumer[T]]] =
+      None
+    private var consumer: Option[FutureQueuePullProxy[T]] = None
+
+    private val recoveringQueue: RecoveringQueue[T] = new RecoveringQueue(
+      maxBlocked = maxBlockedOffer,
+      bufferSize = bufferSize,
+      uncommittedWarnThreshold = uncommittedWarnTreshold,
+      logger = logger,
+      metrics = recoveringQueueMetrics,
+    )
+
+    private var shuttingDown: Boolean = false
+    private val donePromise: Promise[Done] = Promise()
+    private val firstSuccessfulConsumerInitializationPromise: Promise[Unit] = Promise()
+    donePromise.future.onComplete(_ =>
+      firstSuccessfulConsumerInitializationPromise.tryFailure(
+        new Exception("Shutting down, consumer never initialized successfully")
+      )
+    )
+
+    def firstSuccessfulConsumerInitialization: Future[Unit] =
+      firstSuccessfulConsumerInitializationPromise.future
+
+    override def registerConsumerFactory(
+        consumerFactory: Commit => Future[FutureQueueConsumer[T]]
+    ): Unit = blockingSynchronized {
+      if (donePromise.isCompleted)
+        throw new IllegalStateException("Cannot register consumer: already shut down")
+      if (shuttingDown)
+        throw new IllegalStateException("Cannot register consumer: shutdown in progress")
+      if (this.consumerFactory.nonEmpty)
+        throw new IllegalStateException("Consumer factory already defined")
+
+      logger.info("Consumer factory registered")
+      this.consumerFactory = Some(consumerFactory)
+      initializeConsumer()
+    }
+
+    override def offer(elem: T): Future[Done] = blockingSynchronized {
+      if (shuttingDown) {
+        Future.failed(
+          new IllegalStateException(
+            "Cannot offer new elements to the queue, after shutdown is initiated"
+          )
+        )
+      } else {
+        val result = recoveringQueue.enqueue(elem)
+        consumer.foreach(_.push())
+        result
+      }
+    }
+
+    override def shutdown(): Unit = blockingSynchronized {
+      if (shuttingDown) {
+        logger.debug("Already shutting down, nothing to do")
+      } else {
+        logger.info("Shutdown initiated")
+        shuttingDown = true
+        recoveringQueue.shutdown()
+        consumer match {
+          case Some(c) =>
+            logger.info("Consumer shutdown initiated")
+            c.shutdown()
+
+          case None if consumerFactory.isDefined =>
+            logger.debug("Consumer initialization is in progress, delaying shutdown...")
+
+          case None =>
+            logger.info("Terminated (no consumer factory set)")
+            discard(donePromise.trySuccess(Done))
+        }
+      }
+    }
+
+    override def done: Future[Done] = donePromise.future
+
+    private def initializeConsumer(): Unit = blockingSynchronized {
+      logger.info("Initializing consumer...")
+      consumerFactory.foreach(
+        _(recoveringQueue.commit)
+          .onComplete(consumerInitialized(_, 1))(directEC)
+      )
+    }
+
+    private def consumerInitialized(
+        result: Try[FutureQueueConsumer[T]],
+        attempt: Int,
+    ): Unit = blockingSynchronized {
+      result match {
+        case Success(queueConsumer) =>
+          try {
+            recoveringQueue.recover(queueConsumer.fromExclusive)
+          } catch {
+            case t: Throwable =>
+              logger.error(s"Exception caught while recovering: ${t.getMessage}. Shutting down.", t)
+              shutdown()
+          }
+          if (shuttingDown) {
+            logger.info(
+              "Consumer initialized, but since shutdown already in progress, consumer shutdown initiated"
+            )
+            queueConsumer.futureQueue.shutdown()
+            queueConsumer.futureQueue.done.onComplete(consumerTerminated)(directEC)
+          } else {
+            firstSuccessfulConsumerInitializationPromise.trySuccess(()).discard
+            logger.info("Consumer initialized")
+            consumer = Some(
+              new FutureQueuePullProxy(
+                initialEndIndex = queueConsumer.fromExclusive,
+                pull = recoveringQueue.dequeue,
+                delegate = queueConsumer.futureQueue,
+                loggerFactory = loggerFactory,
+              )
+            )
+            consumer.foreach(
+              _.done.onComplete(consumerTerminated)(directEC)
+            )
+          }
+
+        case Failure(failure) =>
+          if (shuttingDown) {
+            logger.info(
+              "Consumer initialization failed, but not retrying anymore since already shutting down",
+              failure,
+            )
+            logger.info("Terminated (interrupt consumer initialization retries)")
+            discard(donePromise.trySuccess(Done))
+          } else {
+            val waitMillis = retryStategy(attempt)
+            val logMessage =
+              s"Consumer initialization failed (attempt #$attempt), retrying after $waitMillis millis"
+            if (attempt > retryAttemptErrorThreshold) logger.error(logMessage, failure)
+            else if (attempt > retryAttemptWarnThreshold) logger.warn(logMessage, failure)
+            else logger.info(logMessage, failure)
+            Threading.sleep(waitMillis)
+            consumerFactory.foreach(
+              _(recoveringQueue.commit).onComplete(consumerInitialized(_, attempt + 1))(directEC)
+            )
+          }
+      }
+    }
+
+    private def consumerTerminated(result: Try[Done]): Unit = blockingSynchronized {
+      consumer = None
+      result match {
+        case Success(_) =>
+          logger.info("Consumer successfully terminated")
+        case Failure(failure) =>
+          logger.info("Consumer terminated with a failure", failure)
+      }
+      if (shuttingDown) {
+        logger.info("Terminated (consumer terminated)")
+        discard(donePromise.trySuccess(Done))
+      } else {
+        initializeConsumer()
+      }
+    }
+
+    override def uncommittedQueueSnapshot: Vector[(Long, T)] = blockingSynchronized {
+      recoveringQueue.uncommittedQueueSnapshot
+    }
+
+    private def blockingSynchronized[U](u: => U): U =
+      blocking(synchronized(u))
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  class FutureQueuePullProxy[T](
+      initialEndIndex: Long,
+      pull: Long => Option[T],
+      delegate: FutureQueue[(Long, T)],
+      loggerFactory: NamedLoggerFactory,
+  ) extends CompletingAndShutdownable {
+    private val logger = loggerFactory.getLogger(this.getClass)
+    private var index = initialEndIndex + 1
+    private var shutdownInitiated = false
+    private var offerInProgress = false
+    private val directEC = DirectExecutionContext(logger)
+
+    def push(): Unit = blockingSynchronized {
+      if (!shutdownInitiated && !done.isCompleted && !offerInProgress) {
+        pull(index).foreach { elem =>
+          offerInProgress = true
+          val offerF = delegate.offer(index -> elem)
+          index += 1
+          offerF
+            .onComplete(offerCompleted)(directEC)
+        }
+      }
+    }
+
+    override def shutdown(): Unit = blockingSynchronized {
+      if (!shutdownInitiated) {
+        shutdownInitiated = true
+        if (!done.isCompleted) {
+          delegate.shutdown()
+        }
+      }
+    }
+
+    override def done: Future[Done] = {
+      // it is possible that the delegate signals done earlier than completing the last offer Future (for example the failure case for pekko SourceQueue), but it is alright not waiting for those Future-s as
+      // - might not ever complete (for example the failure case for pekko SourceQueue)
+      // - this is not observable: decoupled from the observable RecoveryFutureQueue.offer completely
+      delegate.done
+    }
+
+    private def offerCompleted(result: Try[Done]): Unit = blockingSynchronized {
+      offerInProgress = false
+      result match {
+        case Success(_) =>
+          push()
+
+        case Failure(_: org.apache.pekko.stream.StreamDetachedException) =>
+        // might happen if the client stream is terminating/terminated: nothing to do, since this will result in delegate.done anyway
+
+        case Failure(failure) =>
+          if (shutdownInitiated || done.isCompleted) {
+            logger.debug(
+              "Offer failed after FutureQueuePullProxy is operational (either shutting down, or already terminated)",
+              failure,
+            )
+          } else {
+            logger.warn("Offer failed, shutting down delegate", failure)
+          }
+          shutdown()
+      }
+    }
+
+    private def blockingSynchronized[U](u: => U): U =
+      blocking(synchronized(u))
+
+    push()
+  }
+
+  trait RecoveringQueueMetrics {
+    def blocked: MetricHandle.Meter
+    def buffered: MetricHandle.Meter
+    def uncommitted: MetricHandle.Meter
+  }
+
+  object RecoveringQueueMetrics {
+    def apply(
+        blockedMeter: MetricHandle.Meter,
+        bufferedMeter: MetricHandle.Meter,
+        uncommittedMeter: MetricHandle.Meter,
+    ): RecoveringQueueMetrics = new RecoveringQueueMetrics {
+      override val blocked: MetricHandle.Meter = blockedMeter
+      override val buffered: MetricHandle.Meter = bufferedMeter
+      override val uncommitted: MetricHandle.Meter = uncommittedMeter
+    }
+
+    val NoOp: RecoveringQueueMetrics = {
+      val noOpMeter = NoOpMeter(
+        MetricInfo(MetricName.Daml, "", MetricQualification.Debug)
+      )
+      apply(noOpMeter, noOpMeter, noOpMeter)
+    }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  class RecoveringQueue[T](
+      maxBlocked: Int,
+      bufferSize: Int,
+      uncommittedWarnThreshold: Int,
+      logger: Logger,
+      metrics: RecoveringQueueMetrics,
+  ) {
+    private val blocked: mutable.Queue[(T, Promise[Done])] =
+      mutable.Queue()
+    private val buffered: mutable.Queue[T] = mutable.Queue()
+    private val uncommitted: mutable.Queue[(Long, T)] = mutable.Queue()
+
+    private var uncommittedMax: Int = 0
+
+    def dequeue(index: Long): Option[T] = blockingSynchronized {
+      if (buffered.nonEmpty) {
+        val nextElem = buffered.dequeue()
+        // logging warning for every 10 increase above the threshold, start logging from threshold again after uncommitted size shrank below
+        val uncommittedSize = uncommitted.size
+        if (uncommittedSize > uncommittedWarnThreshold && uncommittedMax + 10 < uncommittedSize) {
+          uncommittedMax = uncommittedSize
+          logger.warn(
+            s"Uncommitted queue is growing too large ($uncommittedSize is above threshold $uncommittedWarnThreshold). Either commit operation is not implemented properly, or uncommittedWarnThreshold is set too low for the underlying stream processing. This can result in increased memory usage."
+          )
+        }
+        if (uncommittedSize < uncommittedWarnThreshold && uncommittedMax != 0) {
+          uncommittedMax = 0
+        }
+        uncommitted.enqueue(index -> nextElem)
+        if (blocked.nonEmpty) {
+          val (elem, promise) = blocked.dequeue()
+          buffered.enqueue(elem)
+          discard(promise.trySuccess(Done))
+        }
+        updateMetrics()
+        Some(nextElem)
+      } else {
+        None
+      }
+    }
+
+    def enqueue(elem: T): Future[Done] = blockingSynchronized {
+      if (blocked.size >= maxBlocked) {
+        // consumer backpressures, consumer buffer is full, maximum number of blocked offer Futures exhausted, replying error
+        // synchronous result
+        Future.failed(
+          new IllegalStateException(
+            s"Too many parallel offer calls. Maximum allowed parallel offer calls: $maxBlocked"
+          )
+        )
+      } else if (buffered.size >= bufferSize) {
+        // consumer backpressures, consumer buffer is full, result is blocking until buffer is drained by consumer
+        // asynchronous result
+        val blockingPromise = Promise[Done]()
+        blocked.enqueue(elem -> blockingPromise)
+        updateMetrics()
+        blockingPromise.future
+      } else {
+        // there is space in buffer, so we enqueue
+        // synchronous result
+        buffered.enqueue(elem)
+        updateMetrics()
+        Future.successful(Done)
+      }
+    }
+
+    val commit: Commit =
+      commitIndex =>
+        blockingSynchronized {
+          discard(uncommitted.dequeueWhile(_._1 <= commitIndex))
+          updateMetrics()
+        }
+
+    def recover(fromExclusive: Long): Unit = blockingSynchronized {
+      commit(fromExclusive)
+      uncommitted.headOption.foreach { case (uncommittedHeadIndex, _) =>
+        assert(
+          uncommittedHeadIndex == fromExclusive + 1,
+          s"Program error. The next uncommitted after recovery is not the next element. Recovery index:$fromExclusive next uncommitted index:$uncommittedHeadIndex. Perhaps commit is not wired correctly, and committing non-persisted elements?",
+        )
+      }
+      uncommitted
+        .removeAllReverse()
+        .iterator
+        .map(_._2)
+        .foreach(buffered.prepend)
+      updateMetrics()
+    }
+
+    // complete all blocked futures with success (anyway no guarantees that an offered elem makes it through),
+    // in a way which is not interfering with the ongoing stream processing
+    def shutdown(): Unit = blockingSynchronized {
+      if (blocked.nonEmpty)
+        logger.warn(
+          s"There are still ${blocked.size} blocked offer calls pending at the time of the shutdown. It is recommended that shutdown gracefully propagates alongside of the stream processing direction, in which case no pending calls expected at this point."
+        )
+      blocked.foreach { case (_, promise) =>
+        discard(promise.trySuccess(Done))
+      }
+    }
+
+    def uncommittedQueueSnapshot: Vector[(Long, T)] = blockingSynchronized {
+      uncommitted.toVector ++ buffered.toVector.map(0L -> _) ++ blocked.toVector.map(-1L -> _._1)
+    }
+
+    private def blockingSynchronized[U](u: => U): U =
+      blocking(synchronized(u))
+
+    private def updateMetrics(): Unit = {
+      metrics.buffered.mark(buffered.size.toLong)(MetricsContext.Empty)
+      metrics.blocked.mark(blocked.size.toLong)(MetricsContext.Empty)
+      metrics.uncommitted.mark(uncommitted.size.toLong)(MetricsContext.Empty)
+    }
+  }
+
+  class PekkoSourceQueueToFutureQueue[T](
+      sourceQueue: SourceQueueWithComplete[T],
+      // The watchCompletion() of the sourceQueue is only providing information about the the beginning stage of the QueueSource,
+      // therefore we need to inject here the future manually, which signalizes all processing is finished with regards to the
+      // delegate pekko-queue.
+      sourceDone: Future[Done],
+      loggerFactory: NamedLoggerFactory,
+  ) extends FutureQueue[T] {
+    private val logger = loggerFactory.getLogger(this.getClass)
+    private implicit val directEC: ExecutionContext = DirectExecutionContext(logger)
+
+    override def offer(elem: T): Future[Done] =
+      sourceQueue.offer(elem).transform {
+        case Success(QueueOfferResult.Enqueued) => Success(Done)
+        case Success(QueueOfferResult.Dropped) =>
+          Failure(
+            new IllegalStateException(
+              "Unexpected: source queue dropped an element, please materialize the source queue with OverflowStrategy.Backpressure"
+            )
+          )
+        case Success(QueueOfferResult.Failure(failure)) => Failure(failure)
+        case Success(QueueOfferResult.QueueClosed) =>
+          Failure(new IllegalStateException("Queue already closed"))
+        case Failure(failure) => Failure(failure)
+      }
+
+    override def shutdown(): Unit = sourceQueue.complete()
+
+    override def done: Future[Done] = sourceDone
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  class IndexingFutureQueue[T](
+      futureQueueConsumer: FutureQueueConsumer[T]
+  ) extends FutureQueue[T] {
+    private var index: Long = futureQueueConsumer.fromExclusive
+    private var lastOffer: Future[Done] = Future.successful(Done)
+
+    @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
+    override def offer(elem: T): Future[Done] = blocking(
+      synchronized(
+        if (lastOffer.isCompleted) {
+          index = index + 1
+          lastOffer = futureQueueConsumer.futureQueue.offer(index -> elem)
+          lastOffer
+        } else {
+          Future.failed(
+            new IllegalStateException(
+              "IndexingFutureQueue should be used sequentially (only after the offer result completed, should be the next offer dispatched)"
+            )
+          )
+        }
+      )
+    )
+
+    override def shutdown(): Unit =
+      futureQueueConsumer.futureQueue.shutdown()
+
+    override def done: Future[Done] =
+      futureQueueConsumer.futureQueue.done
   }
 }

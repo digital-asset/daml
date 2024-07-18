@@ -13,6 +13,7 @@ import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
   InMemoryFanoutBuffer,
   MutableLedgerEndCache,
+  OffsetCheckpointCache,
 }
 import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
@@ -28,6 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
+    val offsetCheckpointCache: OffsetCheckpointCache,
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
@@ -108,6 +110,7 @@ object InMemoryState {
         metrics,
         loggerFactory,
       )(executionContext),
+      offsetCheckpointCache = new OffsetCheckpointCache,
       inMemoryFanoutBuffer = new InMemoryFanoutBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,

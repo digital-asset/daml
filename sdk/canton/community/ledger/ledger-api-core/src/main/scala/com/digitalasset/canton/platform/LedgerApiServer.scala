@@ -52,6 +52,8 @@ object LedgerApiServer {
         prepareUpdatesParallelism = indexServiceConfig.inMemoryStateUpdaterParallelism,
         preparePackageMetadataTimeOutWarning =
           indexServiceConfig.preparePackageMetadataTimeOutWarning.underlying,
+        offsetCheckpointCacheUpdateInterval =
+          indexServiceConfig.offsetCheckpointCacheUpdateInterval.underlying,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )

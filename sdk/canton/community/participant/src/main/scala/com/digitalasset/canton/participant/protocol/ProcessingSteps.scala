@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -241,12 +241,27 @@ trait ProcessingSteps[
       */
     def shutdownDuringInFlightRegistration: SubmissionError
 
-    /** The `SubmissionResult` to return if something went wrong after having registered the submission for tracking.
+    /** The `SubmissionResult` to return if something went wrong after having registered the submission for tracking
+      * and before the submission request was sent to a sequencer.
       * This result must not generate a completion event.
       *
       * Must not throw an exception.
       */
-    def onFailure: SubmissionResult
+    def onDefinitiveFailure: SubmissionResult
+
+    /** The submission tracking data to be used when submission fails definitely
+      * after registration and before being sent to a sequencer.
+      */
+    def definiteFailureTrackingData(failure: UnlessShutdown[Throwable]): SubmissionTrackingData
+
+    /** The `SubmissionResult` to return if something went wrong after having registered the submission for tracking
+      * and the submission result may have been sent to a sequencer.
+      * This result must not generate a completion event.
+      * It must not indicate a guaranteed submission failure over the ledger API.
+      *
+      * Must not throw an exception.
+      */
+    def onPotentialFailure(maxSequencingTime: CantonTimestamp): SubmissionResult
   }
 
   /** The actual batch to be sent for a [[TrackedSubmission]] */

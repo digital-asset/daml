@@ -5,9 +5,6 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code.*
@@ -22,12 +19,12 @@ class CompletionServiceRequestValidatorTest
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
     expectedApplicationId,
     List(party),
-    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
+    absoluteOffset,
   )
   private val completionReq = CompletionStreamRequest(
     Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
-    Some(domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
+    absoluteOffset,
   )
 
   private val validator = new CompletionServiceRequestValidator(
@@ -61,15 +58,11 @@ class CompletionServiceRequestValidatorTest
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withBeginExclusive(
-              ParticipantOffset(
-                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
-              )
-            )
+            grpcCompletionReq.withBeginExclusive("@#!#$@")
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown ledger boundary value '7' in field offset.boundary",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Ledger String \"@#!#$@\"",
           metadata = Map.empty,
         )
       }
@@ -81,6 +74,19 @@ class CompletionServiceRequestValidatorTest
           req shouldBe completionReq
         }
       }
+
+      "tolerate empty offset (participant begin)" in {
+        inside(
+          validator.validateGrpcCompletionStreamRequest(
+            grpcCompletionReq.withBeginExclusive("")
+          )
+        ) { case Right(req) =>
+          req.applicationId shouldEqual expectedApplicationId
+          req.parties shouldEqual Set(party)
+          req.offset shouldEqual ""
+        }
+      }
+
     }
 
     "validate domain completion requests" should {
@@ -111,11 +117,7 @@ class CompletionServiceRequestValidatorTest
         requestMustFailWith(
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
-              Some(
-                domain.ParticipantOffset.Absolute(
-                  Ref.LedgerString.assertFromString((ledgerEnd.value.toInt + 1).toString)
-                )
-              )
+              Ref.LedgerString.assertFromString((ledgerEnd.value.toInt + 1).toString)
             ),
             ledgerEnd,
           ),
@@ -126,16 +128,16 @@ class CompletionServiceRequestValidatorTest
         )
       }
 
-      "tolerate missing end" in {
+      "tolerate empty offset (participant begin)" in {
         inside(
           validator.validateCompletionStreamRequest(
-            completionReq.copy(offset = None),
+            completionReq.copy(offset = ""),
             ledgerEnd,
           )
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
-          req.offset shouldEqual None
+          req.offset shouldEqual ""
         }
       }
     }

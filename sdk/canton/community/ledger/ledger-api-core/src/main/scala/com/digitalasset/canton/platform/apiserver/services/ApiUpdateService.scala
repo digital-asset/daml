@@ -368,6 +368,8 @@ final class ApiUpdateService(
         entityLoggable(t.commandId, t.updateId, t.workflowId, t.offset)
       case GetUpdatesResponse.Update.Reassignment(r) =>
         entityLoggable(r.commandId, r.updateId, r.workflowId, r.offset)
+      case GetUpdatesResponse.Update.OffsetCheckpoint(c) =>
+        LoggingEntries(logging.offset(c.offset))
       case GetUpdatesResponse.Update.Empty =>
         LoggingEntries()
     }
@@ -378,6 +380,8 @@ final class ApiUpdateService(
         entityLoggable(t.commandId, t.updateId, t.workflowId, t.offset)
       case GetUpdateTreesResponse.Update.Reassignment(r) =>
         entityLoggable(r.commandId, r.updateId, r.workflowId, r.offset)
+      case GetUpdateTreesResponse.Update.OffsetCheckpoint(c) =>
+        LoggingEntries(logging.offset(c.offset))
       case GetUpdateTreesResponse.Update.Empty =>
         LoggingEntries()
     }

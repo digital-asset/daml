@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
-  TransactionSubmitted,
+  TransactionSubmissionResult,
 }
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractRoutingParties
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
@@ -64,7 +64,9 @@ class DomainRouter(
         WellFormedTransaction[WithoutSuffixes],
         TraceContext,
         Map[LfContractId, SerializableContract],
-    ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]],
+    ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[
+      TransactionSubmissionResult
+    ]],
     contractsTransferer: ContractsTransfer,
     snapshotProvider: DomainStateProvider,
     serializableContractAuthenticator: SerializableContractAuthenticator,
@@ -87,7 +89,7 @@ class DomainRouter(
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] = {
+  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] = {
 
     for {
       // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
@@ -336,7 +338,7 @@ object DomainRouter {
       disclosedContracts: Map[LfContractId, SerializableContract],
   )(implicit
       ec: ExecutionContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
+  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
     for {
       domain <- EitherT.fromEither[Future](
         connectedDomains

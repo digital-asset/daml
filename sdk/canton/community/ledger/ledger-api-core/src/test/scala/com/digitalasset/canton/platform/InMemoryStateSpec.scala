@@ -13,6 +13,7 @@ import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
   InMemoryFanoutBuffer,
   MutableLedgerEndCache,
+  OffsetCheckpointCache,
 }
 import com.digitalasset.canton.platform.store.interning.{
   StringInterningView,
@@ -151,6 +152,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
   ): Future[Assertion] = {
     val mutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches = mock[ContractStateCaches]
+    val offsetCheckpointCache = mock[OffsetCheckpointCache]
     val inMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView = mock[StringInterningView]
     val dispatcherState = mock[DispatcherState]
@@ -172,6 +174,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
     val inMemoryState = new InMemoryState(
       ledgerEndCache = mutableLedgerEndCache,
       contractStateCaches = contractStateCaches,
+      offsetCheckpointCache = offsetCheckpointCache,
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,

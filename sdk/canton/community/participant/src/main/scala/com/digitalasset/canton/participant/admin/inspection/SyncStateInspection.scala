@@ -563,6 +563,27 @@ final class SyncStateInspection(
       count <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
     } yield count > 0
 
+  def verifyLapiStoreIntegrity()(implicit traceContext: TraceContext): Unit =
+    timeouts.inspection.await(functionFullName)(
+      participantNodePersistentState.value.ledgerApiStore.onlyForTestingVerifyIntegrity()
+    )
+
+  def acceptedTransactionCount(domainAlias: DomainAlias)(implicit traceContext: TraceContext): Int =
+    getPersistentState(domainAlias)
+      .map(domainPersistentState =>
+        timeouts.inspection.await(functionFullName)(
+          participantNodePersistentState.value.ledgerApiStore
+            .onlyForTestingNumberOfAcceptedTransactionsFor(
+              domainPersistentState.domainId.domainId
+            )
+        )
+      )
+      .getOrElse(0)
+
+  def onlyForTestingMoveLedgerEndBackToScratch()(implicit traceContext: TraceContext): Unit =
+    timeouts.inspection.await(functionFullName)(
+      participantNodePersistentState.value.ledgerApiStore.onlyForTestingMoveLedgerAndBackToScratch()
+    )
 }
 
 object SyncStateInspection {

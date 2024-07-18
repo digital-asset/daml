@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
+import "com/daml/ledger/api/v2/offset_checkpoint.proto";
 import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
@@ -80,6 +81,7 @@ message GetUpdatesResponse {
   oneof update {
     Transaction transaction = 1;
     Reassignment reassignment = 2;
+    OffsetCheckpoint offset_checkpoint = 3;
   }
 }
 
@@ -88,6 +90,7 @@ message GetUpdateTreesResponse {
   oneof update {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
+    OffsetCheckpoint offset_checkpoint = 3;
   }
 }
 

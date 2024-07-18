@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -30,6 +31,7 @@ object AuthenticationTokenManagerTest extends org.mockito.MockitoSugar with Argu
     .thenReturn(FutureUnlessShutdown.unit)
 }
 
+@UnstableTest // TODO(#19469): Re-enable after fixing the frequent flakes
 class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
   val crypto = new SymbolicPureCrypto

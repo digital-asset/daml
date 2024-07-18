@@ -27,6 +27,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * @param transactionTreeStreams                  configurations pertaining to the ledger api server's streams of flat transactions
   * @param globalMaxEventIdQueries                 maximum number of concurrent event id queries across all stream types
   * @param globalMaxEventPayloadQueries            maximum number of concurrent event payload queries across all stream types
+  * @param offsetCheckpointCacheUpdateInterval     the interval duration for OffsetCheckpoint cache updates
   */
 final case class IndexServiceConfig(
     bufferedEventsProcessingParallelism: Int =
@@ -49,6 +50,8 @@ final case class IndexServiceConfig(
     transactionTreeStreams: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
     globalMaxEventIdQueries: Int = 20,
     globalMaxEventPayloadQueries: Int = 10,
+    offsetCheckpointCacheUpdateInterval: NonNegativeFiniteDuration =
+      IndexServiceConfig.OffsetCheckpointCacheUpdateInterval,
 )
 
 object IndexServiceConfig {
@@ -62,6 +65,8 @@ object IndexServiceConfig {
   val PreparePackageMetadataTimeOutWarning: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(5)
   val DefaultCompletionsPageSize = 1000
+  val OffsetCheckpointCacheUpdateInterval: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofSeconds(15)
 
   def DefaultInMemoryFanOutThreadPoolSize(logger: Logger): Int = {
     val numberOfThreads = Threading.detectNumberOfThreads(logger)

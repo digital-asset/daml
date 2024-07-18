@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.processing
 
+import cats.instances.order.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -48,13 +49,18 @@ class AuthorizationGraphTest
     val nsk1k1 = mkAdd(mkNs(namespace, key1, isRootDelegation = true), key1)
     val nsk1k1_remove = mkRemove(mkNs(namespace, key1, isRootDelegation = true), key1)
     val nsk2k1 = mkAdd(mkNs(namespace, key2, isRootDelegation = true), key1)
+    val nsk2k3 = mkAdd(mkNs(namespace, key2, isRootDelegation = true), key3)
     val nsk2k1_remove = mkRemove(mkNs(namespace, key2, isRootDelegation = true), key1)
+    val nsk2k1_nonRoot = mkAdd(mkNs(namespace, key2, isRootDelegation = false), key1)
     val nsk3k2 = mkAdd(mkNs(namespace, key3, isRootDelegation = true), key2)
     val nsk3k2_remove = mkRemove(mkNs(namespace, key3, isRootDelegation = true), key2)
+    val nsk3k2_nonRoot = mkAdd(mkNs(namespace, key3, isRootDelegation = false), key2)
     val nsk1k2 =
       mkAdd(mkNs(namespace, key1, isRootDelegation = true), key2) // cycle
     val nsk3k1_nonRoot = mkAdd(mkNs(namespace, key3, isRootDelegation = false), key1)
     val nsk3k1_nonRoot_remove = mkRemove(mkNs(namespace, key3, isRootDelegation = false), key1)
+    val nsk4k3 = mkAdd(mkNs(namespace, key4, isRootDelegation = true), key3)
+    val nsk5k3_nonRoot = mkAdd(mkNs(namespace, key5, isRootDelegation = false), key3)
 
     def replaceSignature[T <: TopologyMapping](
         authTx: AuthorizedTopologyTransaction[T],
@@ -118,14 +124,14 @@ class AuthorizationGraphTest
         check(graph, key3, requireRoot = false, valid = true)
         loggerFactory.assertLogs(
           graph.remove(nsk2k1_remove),
-          _.warningMessage should include("dangling"),
+          _.warningMessage should (include regex s"dangling.*${key3.fingerprint}"),
         )
         check(graph, key2, requireRoot = false, valid = false)
         check(graph, key3, requireRoot = false, valid = false)
         graph.add(nsk2k1)
         check(graph, key3, requireRoot = false, valid = true)
       }
-      "support several chains" in {
+      "not support several chains" in {
         val graph = mkGraph
         graph.add(nsk1k1)
         graph.add(nsk2k1)
@@ -134,16 +140,24 @@ class AuthorizationGraphTest
         graph.add(nsk3k1_nonRoot)
         check(graph, key3, requireRoot = false, valid = true)
         graph.remove(nsk3k1_nonRoot_remove)
-        check(graph, key3, requireRoot = false, valid = true)
+        check(graph, key3, requireRoot = false, valid = false)
       }
 
       "deal with cycles" in {
         val graph = mkGraph
         graph.add(nsk1k1)
         graph.add(nsk2k1)
-        graph.add(nsk1k2)
+        graph.add(nsk3k2)
+
+        val danglingKeys = List(key2, key3).map(_.fingerprint).sorted.mkString(", ")
+        loggerFactory.assertLogs(
+          // this overwrites nsk2k1, leading to a break in the authorization chain for the now dangling k2 and k3
+          graph.add(nsk2k3),
+          _.warningMessage should (include regex s"dangling.*$danglingKeys"),
+        )
         check(graph, key1, requireRoot = false, valid = true)
-        check(graph, key2, requireRoot = false, valid = true)
+        check(graph, key2, requireRoot = false, valid = false)
+        check(graph, key3, requireRoot = false, valid = false)
       }
 
       "deal with root revocations" in {
@@ -151,7 +165,12 @@ class AuthorizationGraphTest
         graph.add(nsk1k1)
         graph.add(nsk2k1)
         graph.add(nsk3k2)
-        graph.remove(nsk1k1_remove)
+
+        val danglingKeys = List(key1, key2, key3).map(_.fingerprint).sorted.mkString(", ")
+        loggerFactory.assertLogs(
+          graph.remove(nsk1k1_remove),
+          _.warningMessage should (include regex s"dangling.*$danglingKeys"),
+        )
         check(graph, key1, requireRoot = false, valid = false)
         check(graph, key2, requireRoot = false, valid = false)
         check(graph, key3, requireRoot = false, valid = false)
@@ -223,14 +242,80 @@ class AuthorizationGraphTest
         graph.remove(nsk2k1_remove)
         check(graph, key2, requireRoot = false, valid = false)
       }
-      "prevent a non-root authorization to authorize a root authorization" in {
+      "prevent a non-root authorization to authorize other namespace delegations" in {
         val graph = mkGraph
         graph.add(nsk1k1)
         graph.add(nsk3k1_nonRoot)
         check(graph, key3, requireRoot = false, valid = true)
-        val nsk4k3 = mkAdd(mkNs(namespace, key4, isRootDelegation = true), key3)
         graph.add(nsk4k3) shouldBe false
         check(graph, key4, requireRoot = false, valid = false)
+      }
+
+      "prevent a non-root authorization to authorize other authorization when adding via unauthorizedAdd (restart scenario)" in {
+        /* This could happen in the following scenario:
+           1. root -k1-> NSD(k2,root=true) -k2-> NSD(k3,root=true)
+           2. downgrade to NSD(k3,root=false)
+           3. downgrade to NSD(k2,root=false)
+           4. restart the node
+           5. upon restart, the NSDs from the topology store are added via unauthorizedAdd, which does not go through
+              a check that the NSDs were authorized by a root delegation
+         */
+        val graph = mkGraph
+        graph.add(nsk1k1)
+        graph.add(nsk3k1_nonRoot)
+        check(graph, key3, requireRoot = false, valid = true)
+        check(graph, key3, requireRoot = true, valid = false)
+
+        // add a root delegation signed by k3 via unauthorized add
+        loggerFactory.assertLogs(
+          graph.unauthorizedAdd(Seq(nsk4k3)),
+          _.warningMessage should (include regex s"${namespace} are dangling: .*${key4.fingerprint}"),
+        )
+        check(graph, key4, requireRoot = false, valid = false)
+
+        // add a non-root delegation signed by k3 via unauthorized add
+        loggerFactory.assertLogs(
+          graph.unauthorizedAdd(Seq(nsk5k3_nonRoot)),
+          _.warningMessage should (include regex s"${namespace} are dangling: .*${key5.fingerprint}"),
+        )
+        check(graph, key5, requireRoot = false, valid = false)
+      }
+
+      "prevent downgrading to a non-root delegation to leak previous authorization" in {
+        /* This could happen in the following scenario:
+           1. root -k1-> NSD(k2,root=true) -k2-> NSD(k3,root=true)
+           2. downgrade to NSD(k3,root=false)
+           3. downgrade to NSD(k2,root=false)
+
+         */
+        val graph = mkGraph
+        graph.add(nsk1k1)
+        // first set up the root delegations and verify that they work
+        graph.add(nsk2k1)
+        graph.add(nsk3k2)
+        check(graph, key2, requireRoot = true, valid = true)
+        check(graph, key3, requireRoot = true, valid = true)
+
+        // now downgrade in reverse order
+        graph.add(nsk3k2_nonRoot)
+        check(graph, key2, requireRoot = true, valid = true)
+        // key3 still has a non-root delegation
+        check(graph, key3, requireRoot = false, valid = true)
+        // but it's not a root delegation
+        check(graph, key3, requireRoot = true, valid = false)
+
+        loggerFactory.assertLogs(
+          // downgrading key2 to a non-root delegation breaks the authorization chain for key3
+          graph.add(nsk2k1_nonRoot),
+          _.warningMessage should (include regex s"${namespace} are dangling: .*${key3.fingerprint}"),
+        )
+        // key2 only has a non-root delegation
+        check(graph, key2, requireRoot = true, valid = false)
+        check(graph, key2, requireRoot = false, valid = true)
+
+        // key3 should not be considered authorized anymore at all
+        check(graph, key3, requireRoot = true, valid = false)
+        check(graph, key3, requireRoot = false, valid = false)
       }
 
       "prevent a non-root authorization to authorize a removal" in {

@@ -117,7 +117,7 @@ trait IndexerStabilitySpec
           Threading.sleep(1000L)
 
           // Verify the integrity of the index database
-          integrityStorageBackend.verifyIntegrity()(connection)
+          integrityStorageBackend.onlyForTestingVerifyIntegrity()(connection)
           logger.info(s"Integrity of the index database was checked")
 
           connection.close()

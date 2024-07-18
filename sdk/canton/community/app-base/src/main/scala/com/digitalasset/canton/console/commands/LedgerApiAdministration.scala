@@ -715,7 +715,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           .list(
             partyId = submitter,
             atLeastNumCompletions = 1,
-            beginOffset = ledgerEndBefore,
+            beginOffset = ledgerEndBefore.getAbsolute,
             filter = _.completion.commandId == commandId,
           )(0)
           .completion
@@ -1279,12 +1279,13 @@ trait BaseLedgerApiAdministration extends NoTracing {
       @Help.Summary("Lists command completions following the specified offset", FeatureFlag.Testing)
       @Help.Description(
         """If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than
-          |the pruning offset, this command fails with a `NOT_FOUND` error."""
+          |the pruning offset, this command fails with a `NOT_FOUND` error.
+          |An empty offset denotes the beginning of the participant's offsets."""
       )
       def list(
           partyId: PartyId,
           atLeastNumCompletions: Int,
-          beginOffset: ParticipantOffset,
+          beginOffset: String,
           applicationId: String = applicationId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: CompletionWrapper => Boolean = _ => true,
@@ -1312,7 +1313,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def list_with_checkpoint(
           partyId: PartyId,
           atLeastNumCompletions: Int,
-          beginExclusive: ParticipantOffset,
+          beginExclusive: String,
           applicationId: String = applicationId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
@@ -1334,16 +1335,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """This function connects to the command completion stream and passes command completions to `observer` until
           |the stream is completed.
           |Only completions for parties in `parties` will be returned.
-          |The returned completions start at `beginOffset` (default: `PARTICIPANT_BOUNDARY_BEGIN`).
+          |The returned completions start at `beginOffset` (default: the empty string denoting the participant begin).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error."""
       )
       def subscribe(
           observer: StreamObserver[CompletionWrapper],
           parties: Seq[PartyId],
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
+          beginOffset: String = "",
           applicationId: String = applicationId,
       ): AutoCloseable = {
         check(FeatureFlag.Testing)(
@@ -1352,7 +1351,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               LedgerApiCommands.CommandCompletionService.Subscribe(
                 observer,
                 parties.map(_.toLf),
-                Some(beginOffset),
+                beginOffset,
                 applicationId,
               )
             )

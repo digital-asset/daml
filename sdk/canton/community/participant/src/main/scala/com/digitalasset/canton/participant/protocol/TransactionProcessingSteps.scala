@@ -21,7 +21,11 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.RequestOffset
@@ -37,6 +41,8 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
   ContractAuthenticationFailed,
   DomainWithoutMediatorError,
   SequencerRequest,
+  SubmissionDuringShutdown,
+  SubmissionInternalError,
 }
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
@@ -128,7 +134,7 @@ class TransactionProcessingSteps(
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
       SubmissionParam,
-      TransactionSubmitted,
+      TransactionSubmissionResult,
       TransactionViewType,
       TransactionSubmissionError,
     ]
@@ -275,8 +281,18 @@ class TransactionProcessingSteps(
             error
           ) -> emptyDeduplicationPeriod
       }
-      TransactionSubmissionTrackingData(
+      mkTransactionSubmissionTrackingData(
+        error,
         submitterInfo.toCompletionInfo.copy(optDeduplicationPeriod = dedupInfo.some),
+      )
+    }
+
+    private def mkTransactionSubmissionTrackingData(
+        error: TransactionError,
+        completionInfo: CompletionInfo,
+    ): TransactionSubmissionTrackingData = {
+      TransactionSubmissionTrackingData(
+        completionInfo,
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
         domainId,
         protocolVersion,
@@ -498,7 +514,24 @@ class TransactionProcessingSteps(
     override def shutdownDuringInFlightRegistration: TransactionSubmissionError =
       TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown.Rejection()
 
-    override def onFailure: TransactionSubmitted = TransactionSubmitted
+    override def onDefinitiveFailure: TransactionSubmissionResult = TransactionSubmissionFailure
+
+    override def definiteFailureTrackingData(
+        failure: UnlessShutdown[Throwable]
+    ): SubmissionTrackingData = {
+      val error = (failure match {
+        case UnlessShutdown.AbortedDueToShutdown =>
+          SubmissionDuringShutdown.Rejection()
+        case UnlessShutdown.Outcome(exception) =>
+          SubmissionInternalError.Failure(exception)
+      }): TransactionError
+      mkTransactionSubmissionTrackingData(error, submitterInfo.toCompletionInfo)
+    }
+
+    override def onPotentialFailure(
+        maxSequencingTime: CantonTimestamp
+    ): TransactionSubmissionResult =
+      TransactionSubmissionUnknown(maxSequencingTime)
   }
 
   private class PreparedTransactionBatch(
