@@ -31,7 +31,6 @@ import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Network.URI as URI
-import System.FilePath (joinPath, splitPath)
 import DA.Cli.Damlc.Command.MultiIde.Types
 
 {-# ANN module ("HLint: ignore Avoid restricted flags" :: String) #-}
@@ -188,7 +187,4 @@ filePathFromURI miState uri =
           pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
         "untitled:" ->
           pure $ unPackageHome $ misDefaultPackagePath miState
-        -- For the GitHub Pull Request extension, which gives paths of the form `review:commit~<hash>/path/to/the/file`
-        "review:" ->
-          pure $ joinPath $ drop 1 $ splitPath $ URI.uriPath parsedUri
         _ -> Nothing
