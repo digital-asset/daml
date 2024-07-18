@@ -24,7 +24,7 @@ object GrpcStatusService {
 }
 
 class GrpcStatusService(
-    status: => Future[data.NodeStatus[_]],
+    status: => data.NodeStatus[_],
     healthDump: () => Future[File],
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
@@ -33,8 +33,8 @@ class GrpcStatusService(
 ) extends v0.StatusServiceGrpc.StatusService
     with NamedLogging {
 
-  override def status(request: Empty): Future[v0.NodeStatus] =
-    status.map {
+  override def status(request: Empty): Future[v0.NodeStatus] = {
+    val protoStatus = status match {
       case data.NodeStatus.Success(status) =>
         v0.NodeStatus(v0.NodeStatus.Response.Success(status.toProtoV0))
       case data.NodeStatus.NotInitialized(active) =>
@@ -43,6 +43,9 @@ class GrpcStatusService(
         // The node's status should never return a Failure here.
         v0.NodeStatus(v0.NodeStatus.Response.Empty)
     }
+
+    Future.successful(protoStatus)
+  }
 
   override def healthDump(
       request: HealthDumpRequest,

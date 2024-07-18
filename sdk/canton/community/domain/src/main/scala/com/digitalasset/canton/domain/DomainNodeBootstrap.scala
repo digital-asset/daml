@@ -742,30 +742,29 @@ class Domain(
 
   override def isActive: Boolean = true
 
-  override def status: Future[DomainStatus] =
-    for {
-      activeMembers <- sequencerRuntime.fetchActiveMembers()
-      sequencer <- sequencerRuntime.health
-    } yield {
-      val ports = Map("admin" -> config.adminApi.port, "public" -> config.publicApi.port)
-      val participants = activeMembers.collect { case x: ParticipantId =>
-        x
-      }
-      val topologyQueues = TopologyQueueStatus(
-        manager = domainTopologyManager.queueSize,
-        dispatcher = topologyManagementArtefacts.dispatcher.queueSize,
-        clients = topologyManagementArtefacts.client.numPendingChanges,
-      )
-      DomainStatus(
-        domainTopologyManager.id.uid,
-        uptime(),
-        ports,
-        participants,
-        sequencer,
-        topologyQueues,
-        healthData,
-      )
+  override def status: DomainStatus = {
+    val activeMembers = sequencerRuntime.fetchActiveMembers()
+    val sequencerHealth = sequencerRuntime.health
+
+    val ports = Map("admin" -> config.adminApi.port, "public" -> config.publicApi.port)
+    val participants = activeMembers.collect { case x: ParticipantId =>
+      x
     }
+    val topologyQueues = TopologyQueueStatus(
+      manager = domainTopologyManager.queueSize,
+      dispatcher = topologyManagementArtefacts.dispatcher.queueSize,
+      clients = topologyManagementArtefacts.client.numPendingChanges,
+    )
+    DomainStatus(
+      domainTopologyManager.id.uid,
+      uptime(),
+      ports,
+      participants,
+      sequencerHealth,
+      topologyQueues,
+      healthData,
+    )
+  }
 
   override def close(): Unit = {
     logger.debug("Stopping domain runner")

@@ -181,17 +181,17 @@ abstract class CantonNodeBootstrapBase[
 
   protected val ips = new IdentityProvidingServiceClient()
 
-  private def status: Future[NodeStatus[NodeStatus.Status]] = {
+  private def status: NodeStatus[NodeStatus.Status] =
     getNode
-      .map(_.status.map(NodeStatus.Success(_)))
-      .getOrElse(Future.successful(NodeStatus.NotInitialized(isActive)))
-  }
+      .map(_.status)
+      .map(NodeStatus.Success(_))
+      .getOrElse(NodeStatus.NotInitialized(isActive))
 
   protected def registerHealthGauge(): Unit = {
     arguments.metrics.healthMetrics
       .registerHealthGauge(
         name.toProtoPrimitive,
-        () => getNode.map(_.status.map(_.active)).getOrElse(Future(false)),
+        () => getNode.exists(_.status.active),
       )
       .discard // we still want to report the health even if the node is closed
   }
