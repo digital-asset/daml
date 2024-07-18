@@ -1,7 +1,7 @@
-sdk-version: 2.9.1-snapshot.20240711.12868.0.v71f67ec0
+sdk-version: 2.9.1
 name: AdminWorkflows
 source: AdminWorkflows.daml
-version: 2.9.0
+version: 2.9.2
 dependencies: 
 - daml-prim
 - daml-stdlib
