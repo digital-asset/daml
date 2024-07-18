@@ -159,6 +159,9 @@ da_scala_dar_resources_library(
         "WarnsWhenTemplateChangesSignatories",
         "FailsWithSynonymReturnTypeChange",
         "FailsOnlyInModuleNotInReexports",
+        "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes",
+        "FailsWhenMakingTypeSerializable",
+        "FailsWhenMakingTypeUnserializable",
     ]
 ]
 

@@ -202,6 +202,8 @@ data UnwarnableError
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
+  | EUpgradeDatatypeBecameSerializable !UpgradedRecordOrigin
+  | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
 data WarnableError
@@ -637,6 +639,8 @@ instance Pretty UnwarnableError where
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
     EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeDatatypeBecameSerializable origin -> "The upgraded " <> pPrint origin <> " was unserializable and is now serializable. Datatypes cannot change their serializability via upgrades."
+    EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case

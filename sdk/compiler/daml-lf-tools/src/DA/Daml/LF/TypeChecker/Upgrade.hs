@@ -264,7 +264,9 @@ checkModule package module_ = do
     checkUpgradedInterfacesAreUnused (_present package) (_present module_) instanceNew
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
-    (dtExisting, _dtNew) <- checkDeleted (EUpgradeMissingDataCon . NM.name) unownedDts
+    let (dtDeleted, dtExisting, _dtNew) = extractDelExistNew unownedDts
+    -- We ignore deletion of datatypes that are unserializable and thus never get interacted with via the upgrade model
+    throwIfNonEmpty ((Nothing,) . EUpgradeMissingDataCon . NM.name) (HMS.filter (getIsSerializable . dataSerializable) dtDeleted)
 
     forM_ dtExisting $ \dt ->
         -- Get origin/context for each datatype in both _past and _present
@@ -521,29 +523,37 @@ checkTemplate module_ template = do
 
 checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> TcUpgradeM ()
 checkDefDataType origin datatype = do
-    case fmap dataCons datatype of
-      Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
-          checkFields origin (Upgrading {..})
-      Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
-          let upgrade = Upgrading{..}
-          (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
-          when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
-              throwWithContextF present (EUpgradeVariantVariantsOrderChanged origin)
-          different <- filterHashMapM (fmap not . isSameType) existing
-          when (not (null different)) $
-              throwWithContextF present $ EUpgradeVariantChangedVariantType origin
-      Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
-          let upgrade = Upgrading{..}
-          (_, _new) <-
-              checkDeleted
-                (\_ -> EUpgradeEnumRemovedVariant origin)
-                (fmap (HMS.fromList . map (,())) upgrade)
-          when (not $ and $ foldU (zipWith (==)) upgrade) $
-              throwWithContextF present (EUpgradeEnumVariantsOrderChanged origin)
-      Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
-          pure ()
-      _ ->
-          throwWithContextF present (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)))
+  case getIsSerializable . dataSerializable <$> datatype of
+    Upgrading { _past = True, _present = False } ->
+      throwWithContextF present (EUpgradeDatatypeBecameUnserializable origin)
+    Upgrading { _past = False, _present = True } ->
+      throwWithContextF present (EUpgradeDatatypeBecameSerializable origin)
+    Upgrading { _past = False, _present = False } ->
+      pure ()
+    Upgrading { _past = True, _present = True } ->
+      case fmap dataCons datatype of
+        Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
+            checkFields origin (Upgrading {..})
+        Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
+            let upgrade = Upgrading{..}
+            (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
+            when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
+                throwWithContextF present (EUpgradeVariantVariantsOrderChanged origin)
+            different <- filterHashMapM (fmap not . isSameType) existing
+            when (not (null different)) $
+                throwWithContextF present $ EUpgradeVariantChangedVariantType origin
+        Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
+            let upgrade = Upgrading{..}
+            (_, _new) <-
+                checkDeleted
+                  (\_ -> EUpgradeEnumRemovedVariant origin)
+                  (fmap (HMS.fromList . map (,())) upgrade)
+            when (not $ and $ foldU (zipWith (==)) upgrade) $
+                throwWithContextF present (EUpgradeEnumVariantsOrderChanged origin)
+        Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
+            pure ()
+        _ ->
+            throwWithContextF present (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)))
 
 filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.HashMap k a)
 filterHashMapM pred t =
