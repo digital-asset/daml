@@ -94,8 +94,8 @@ contents: |
       getVersion = "V1"    -- @V 1
       getVersion = "V2"    -- @V  2
 
-    This choice exists here for convenience. It could be in a separate package which depends on this,
-    but additional unnecessary packages simply wastes time.
+    -- This choice exists here for convenience. It could be in a separate package which depends on this,
+    -- but additional unnecessary packages simply wastes time.
     choice FetchFromInterface : Text with
         cid : ContractId I
       controller party
