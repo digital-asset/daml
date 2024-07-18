@@ -1,5 +1,7 @@
 module DamlDocHoogle where
 
+-- @ WARN warn-bad-interface-instances
+
 -- | T docs
 template T with
     p : Party

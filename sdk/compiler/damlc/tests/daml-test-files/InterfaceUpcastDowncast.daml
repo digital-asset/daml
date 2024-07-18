@@ -1,7 +1,9 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
+-- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
 
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
@@ -124,7 +126,7 @@ templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
 -- will always fail, even for actions that make sense with A contracts.
 -- See useAction
 voidUseAction = exerciseTest VoidUseAction
--- @ERROR range=128:1-128:15; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=130:1-130:15; Attempt to use a contract via an interface that the contract does not implement
 fetchUseAction = exerciseTest FetchUseAction
--- @ERROR range=130:1-130:18; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=132:1-132:18; Attempt to use a contract via an interface that the contract does not implement
 exerciseUseAction = exerciseTest ExerciseUseAction

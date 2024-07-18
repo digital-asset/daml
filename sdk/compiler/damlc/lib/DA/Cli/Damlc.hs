@@ -13,7 +13,7 @@
 module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
+import Control.Exception (bracket, catch, displayException, throwIO, handle, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad (forM, forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
@@ -116,9 +116,10 @@ import DA.Daml.Options (toCompileOpts)
 import DA.Daml.Options.Types (EnableScenarioService(..),
                               Haddock(..),
                               IncrementalBuild (..),
-                              Options,
+                              Options(Options),
                               SkipScenarioValidation(..),
                               StudioAutorunAllScenarios,
+                              UpgradeInfo(..),
                               damlArtifactDir,
                               distDir,
                               getLogger,
@@ -137,7 +138,7 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optScenarioService,
                               optSkipScenarioValidation,
                               optThreads,
-                              optWarnBadInterfaceInstances,
+                              optUpgradeInfo,
                               pkgNameVersion,
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
@@ -697,6 +698,9 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
+          mPkgConfig <- withMaybeConfig (withPackageConfig defaultProjectPath) pure
+          let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
+          options <- updateUpgradePath "ide" options pkgConfUpgradeDar
           options <- pure options
               { optScenarioService = enableScenarioService
               , optEnableOfInterestRule = True
@@ -883,7 +887,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
         buildMulti mPkgConfig multiPackageConfigPath = do
-          putStrLn $ "Running multi-package build of "
+          hPutStrLn stderr $ "Running multi-package build of "
             <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
@@ -911,7 +915,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
         -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
         (False, Just pkgConfig, Nothing) -> do
-          putStrLn $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
+          hPutStrLn stderr $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
           buildSingle pkgConfig
 
         -- We have no package context, but we have found a multi package at the current directory
@@ -953,14 +957,16 @@ withMaybeConfig withConfig handler = do
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
         pure Nothing
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "packageless daml.yaml" `isInfixOf` exc -> do
-        putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
+        hPutStrLn stderr "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
     ) (withConfig $ pure . Just)
   handler mConfig
 
 buildEffect :: SdkVersion.Class.SdkVersioned => (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
-buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incrementalBuild initPkgDb = do
+buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
+  (pkgConfig, opts) <- syncUpgradesField pkgConfig opts
+  let PackageConfigFields{..} = pkgConfig
   installDepsAndInitPackageDb opts initPkgDb
   loggerH <- getLogger opts "build"
   Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
@@ -976,15 +982,15 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
         }
       loggerH
       diagnosticsLogger $ \compilerH -> do
+      fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       mbDar <-
           buildDar
               compilerH
               pkgConfig
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
-              (optWarnBadInterfaceInstances opts)
+              (optUpgradeInfo opts)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
-      fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
       createDarFile loggerH fp dar
       pure mPkgId
     where
@@ -992,6 +998,26 @@ buildEffect relativize pkgConfig@PackageConfigFields{..} opts mbOutFile incremen
           case mbOutFile of
             Nothing -> pure $ distDir </> name <.> "dar"
             Just out -> rel out
+
+        syncUpgradesField :: PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
+        syncUpgradesField pkgConf opts = do
+          opts <- updateUpgradePath "build" opts (pUpgradeDar pkgConf)
+          pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
+
+updateUpgradePath :: T.Text -> Options -> Maybe FilePath -> IO Options
+updateUpgradePath context opts@Options{optUpgradeInfo} newPkgPath = do
+  uiUpgradedPackagePath <- case (newPkgPath, uiUpgradedPackagePath optUpgradeInfo) of
+    (Just damlYamlOption, Just buildFlagsOption) | damlYamlOption /= buildFlagsOption -> do
+      loggerH <- getLogger opts context
+      Logger.logError loggerH $ T.unlines
+        [ "ERROR: Specified two different DARs to run upgrade checks against:"
+        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack damlYamlOption <> "'"
+        , "  Path specified in `--upgrades` build option is '" <> T.pack buildFlagsOption <> "'"
+        ]
+      exitFailure
+    (a, b) ->
+      pure (a <|> b)
+  pure $ opts { optUpgradeInfo = optUpgradeInfo { uiUpgradedPackagePath } }
 
 
 {- | Multi Build! (the multi-package.yaml approach)
@@ -1334,13 +1360,12 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDataDependencies = []
                               , pSdkVersion = SdkVersion.Class.unresolvedBuiltinSdkVersion
                               , pModulePrefixes = Map.empty
-                              , pUpgradedPackagePath = Nothing
-                              , pTypecheckUpgrades = False
+                              , pUpgradeDar = Nothing
                               -- execPackage is deprecated so it doesn't need to support upgrades
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
-                            (optWarnBadInterfaceInstances opts)
+                            (optUpgradeInfo opts)
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."

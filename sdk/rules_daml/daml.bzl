@@ -31,7 +31,10 @@ def _daml_configure_impl(ctx):
     typecheck_upgrades = ctx.attr.typecheck_upgrades
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
-    opts = ["--target={}".format(target)] if target else []
+    opts = (
+        (["--target={}".format(target)] if target else []) +
+        (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else [])
+    )
     ctx.actions.write(
         output = daml_yaml,
         content = """
@@ -45,7 +48,6 @@ module-prefixes:
 {module_prefixes}
 build-options: [{opts}]
 {upgrades}
-{typecheck_upgrades}
 """.format(
             sdk = sdk_version,
             name = project_name,
@@ -54,8 +56,7 @@ build-options: [{opts}]
             dependencies = ", ".join(dependencies),
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
-            upgrades = "upgrades: " + upgrades if upgrades else "",
-            typecheck_upgrades = "typecheck-upgrades: false" if not typecheck_upgrades else "",
+            upgrades = "upgrades: " + upgrades if upgrades and using_local_compiler(target) else "",
         ),
     )
 
@@ -297,8 +298,11 @@ _default_project_version = "1.0.0"
 
 default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
+def using_local_compiler(target):
+    return not target or target in COMPILER_LF_VERSIONS
+
 def damlc_for_target(target):
-    if not target or target in COMPILER_LF_VERSIONS:
+    if using_local_compiler(target):
         return "//compiler/damlc:damlc-compile-only"
     else:
         return "@damlc_legacy//:damlc_legacy"

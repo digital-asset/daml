@@ -158,9 +158,9 @@ decodePackage version selfPackageRef (LF2.Package mods internedStringsV interned
       runDecode env2 $ do
         Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata
 
-decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode PackageId
+decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =
-  PackageId . fst <$> lookupString upgradedPackageIdUpgradedPackageIdInternedStr
+  UpgradedPackageId . PackageId . fst <$> lookupString upgradedPackageIdUpgradedPackageIdInternedStr
 
 decodePackageMetadata :: LF2.PackageMetadata -> Decode PackageMetadata
 decodePackageMetadata LF2.PackageMetadata{..} = do

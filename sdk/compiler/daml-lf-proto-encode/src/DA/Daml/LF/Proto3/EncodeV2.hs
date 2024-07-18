@@ -959,9 +959,9 @@ encodeInterfaceMethod InterfaceMethod {..} = do
     interfaceMethodType <- encodeType ifmType
     pure $ P.InterfaceMethod{..}
 
-encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
+encodeUpgradedPackageId :: UpgradedPackageId -> Encode P.UpgradedPackageId
 encodeUpgradedPackageId upgradedPackageId = do
-  upgradedPackageIdUpgradedPackageIdInternedStr <- encodeInternableString (unPackageId upgradedPackageId)
+  upgradedPackageIdUpgradedPackageIdInternedStr <- encodeInternableString (unPackageId (unUpgradedPackageId upgradedPackageId))
   pure P.UpgradedPackageId{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
