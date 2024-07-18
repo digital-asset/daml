@@ -35,6 +35,10 @@ module DA.Daml.Options.Types
     , fullPkgName
     , optUnitId
     , getLogger
+    , UpgradeInfo (..)
+    , defaultUiTypecheckUpgrades
+    , defaultUiWarnBadInterfaceInstances
+    , defaultUpgradeInfo
     ) where
 
 import Control.Monad.Reader
@@ -51,7 +55,6 @@ import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
-import DA.Daml.Package.Config (UpgradeInfo (..), defaultUpgradeInfo)
 
 -- | Orphan instances for debugging
 instance Show PackageFlag where
@@ -130,6 +133,12 @@ data Options = Options
   -- ^ Do not warn when tuples of size > 5 are used
   , optUpgradeInfo :: UpgradeInfo
   }
+
+data UpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath :: Maybe FilePath
+    , uiTypecheckUpgrades :: Bool
+    , uiWarnBadInterfaceInstances :: Bool
+    }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -275,6 +284,17 @@ defaultOptions mbVersion =
         , optAllowLargeTuples = AllowLargeTuples False
         , optUpgradeInfo = defaultUpgradeInfo
         }
+
+defaultUpgradeInfo :: UpgradeInfo
+defaultUpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath = Nothing
+    , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
+    , uiWarnBadInterfaceInstances = defaultUiWarnBadInterfaceInstances
+    }
+
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades = True
+defaultUiWarnBadInterfaceInstances = False
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

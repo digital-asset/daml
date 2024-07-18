@@ -36,7 +36,6 @@ import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -305,9 +304,9 @@ generateDalfRule opts =
         pure $! case Serializability.inferModule world rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
-                let diags = LF.checkModule world lfVersion dalf
-                    diags2 = Upgrade.checkModule world dalf lfVersion (optUpgradeInfo opts) upgradedPackage
-                in second (dalf <$) (diagsToIdeResult file (diags ++ diags2))
+                let lfDiags = LF.checkModule world lfVersion dalf
+                    upgradeDiags = Upgrade.checkModule world dalf lfVersion (optUpgradeInfo opts) upgradedPackage
+                in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.

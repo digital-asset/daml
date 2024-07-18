@@ -17,7 +17,7 @@ import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.Package.Config (UpgradeInfo (..))
+import           DA.Daml.Options.Types (UpgradeInfo (..))
 import           Data.Bifunctor (first)
 import           Data.Data
 import           Data.Either (partitionEithers)
@@ -119,6 +119,7 @@ checkUpgrade pkg =
           checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
         checkSingle = do
           checkNewInterfacesAreUnused pkg
+          checkNewInterfacesHaveNoTemplates pkg
     in
     checkBothAndSingle world checkBoth checkSingle
 

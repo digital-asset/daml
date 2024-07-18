@@ -21,7 +21,6 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-import DA.Daml.Package.Config (UpgradeInfo (..), defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances)
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
