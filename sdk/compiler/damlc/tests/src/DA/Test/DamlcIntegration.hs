@@ -319,7 +319,8 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
-          let opts = (defaultOptions (Just version))
+          let opts0 = defaultOptions (Just version)
+              opts = opts0
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
                 , optCoreLinting = True
@@ -328,6 +329,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optPackageImports = packageFlags
+                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True }
                 }
 
               mkIde options = do
