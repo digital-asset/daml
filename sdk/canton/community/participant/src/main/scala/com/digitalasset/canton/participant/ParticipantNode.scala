@@ -658,21 +658,21 @@ class ParticipantNode(
   def readyDomains: Map[DomainId, Boolean] =
     sync.readyDomains.values.toMap
 
-  override def status: Future[ParticipantStatus] = {
+  override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
     val domains = readyDomains
     val topologyQueues = identityPusher.queueStatus
-    Future.successful(
-      ParticipantStatus(
-        id.uid,
-        uptime(),
-        ports,
-        domains,
-        sync.isActive(),
-        topologyQueues,
-        healthData,
-      )
+
+    ParticipantStatus(
+      id.uid,
+      uptime(),
+      ports,
+      domains,
+      sync.isActive(),
+      topologyQueues,
+      healthData,
     )
+
   }
 
   override def close(): Unit = {

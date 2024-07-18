@@ -235,8 +235,7 @@ class SequencerRuntime(
     )
   }
 
-  def health: Future[SequencerHealthStatus] =
-    Future.successful(sequencer.getState)
+  def health: SequencerHealthStatus = sequencer.getState
 
   def topologyQueue: TopologyQueueStatus = TopologyQueueStatus(
     manager = topologyManagerStatusO.map(_.queueSize).getOrElse(0),
@@ -247,8 +246,8 @@ class SequencerRuntime(
   def adminStatus: SequencerAdminStatus =
     sequencer.adminStatus
 
-  def fetchActiveMembers(): Future[Seq[Member]] =
-    Future.successful(sequencerService.membersWithActiveSubscriptions)
+  def fetchActiveMembers(): Seq[Member] =
+    sequencerService.membersWithActiveSubscriptions
 
   def registerAdminGrpcServices(
       register: ServerServiceDefinition => Unit
