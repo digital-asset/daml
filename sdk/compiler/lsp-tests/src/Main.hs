@@ -98,6 +98,8 @@ main = withSdkVersions $ do
                     , "- daml-prim"
                     , "- daml-stdlib"
                     , "upgrades: my-package.dar"
+                    , "build-options:"
+                    , "- --target=1.dev"
                     ]
                 withCurrentDirectory dir $ do
                     let cmd = damlcPath
