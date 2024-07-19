@@ -12,10 +12,9 @@ import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * Annotation for tagging whole test suites as unstable.
- * Unstable tests will only run as part of unstable_test jobs.
- * Unstable tests are still periodically executed and failures are reported to DataDog.
- * But pull requests can still be merged, even if unstable tests fail.
+ * Annotation for tagging whole test suites as unstable. Unstable tests will only run as part of
+ * unstable_test jobs. Unstable tests are still periodically executed and failures are reported to
+ * DataDog. But pull requests can still be merged, even if unstable tests fail.
  */
 @org.scalatest.TagAnnotation
 @Inherited

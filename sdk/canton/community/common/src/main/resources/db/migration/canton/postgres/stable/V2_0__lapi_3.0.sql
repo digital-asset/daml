@@ -63,6 +63,10 @@ CREATE TABLE lapi_parameters (
     ledger_end_publication_time bigint not null
 );
 
+CREATE TABLE lapi_post_processing_end (
+    post_processing_end VARCHAR(4000) collate "C" not null
+);
+
 CREATE TABLE lapi_ledger_end_domain_index (
   domain_id INTEGER PRIMARY KEY not null,
   sequencer_counter BIGINT,

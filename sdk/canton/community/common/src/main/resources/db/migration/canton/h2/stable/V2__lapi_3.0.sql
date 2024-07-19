@@ -21,6 +21,11 @@ CREATE TABLE lapi_parameters (
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR(4000)
 );
 
+CREATE TABLE lapi_post_processing_end (
+    post_processing_end VARCHAR(4000) NOT NULL
+);
+
+
 CREATE TABLE lapi_ledger_end_domain_index (
   domain_id INTEGER PRIMARY KEY NOT NULL,
   sequencer_counter BIGINT,

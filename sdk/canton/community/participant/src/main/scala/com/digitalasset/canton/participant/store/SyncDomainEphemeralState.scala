@@ -24,11 +24,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   RequestTrackerLookup,
 }
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
-import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionTracker,
-  WatermarkLookup,
-  WatermarkTracker,
-}
+import com.digitalasset.canton.participant.protocol.submission.{WatermarkLookup, WatermarkTracker}
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.PendingTransferSubmission
 import com.digitalasset.canton.participant.store.memory.TransferCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
@@ -47,9 +43,9 @@ import scala.concurrent.ExecutionContext
   */
 class SyncDomainEphemeralState(
     participantId: ParticipantId,
+    participantNodeEphemeralState: ParticipantNodeEphemeralState,
     persistentState: SyncDomainPersistentState,
     multiDomainEventLog: Eval[MultiDomainEventLog],
-    val inFlightSubmissionTracker: InFlightSubmissionTracker,
     val startingPoints: ProcessingStartingPoints,
     createTimeTracker: () => DomainTimeTracker,
     metrics: SyncDomainMetrics,
@@ -128,7 +124,7 @@ class SyncDomainEphemeralState(
       startingPoints.processing.prenextTimestamp,
       persistentState.eventLog,
       multiDomainEventLog,
-      inFlightSubmissionTracker,
+      participantNodeEphemeralState.inFlightSubmissionTracker,
       metrics.recordOrderPublisher,
       timeouts,
       loggerFactory,
@@ -171,7 +167,7 @@ class SyncDomainEphemeralState(
     InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, this)
 
   val timelyRejectNotifier: TimelyRejectNotifier = TimelyRejectNotifier(
-    inFlightSubmissionTracker,
+    participantNodeEphemeralState,
     persistentState.domainId.item,
     startingPoints.rewoundSequencerCounterPrehead.map(_.timestamp),
     loggerFactory,

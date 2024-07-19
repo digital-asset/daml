@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.indexer.parallel.{
   InitializeParallelIngestion,
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
+  PostPublishData,
   ReassignmentOffsetPersistence,
 }
 import com.digitalasset.canton.platform.store.DbSupport.{
@@ -21,15 +22,10 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.DbType
+import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
 import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
-import com.digitalasset.canton.platform.store.backend.{
-  ParameterStorageBackend,
-  StorageBackendFactory,
-  StringInterningStorageBackend,
-}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
-import com.digitalasset.canton.platform.store.interning.UpdatingStringInterningView
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -56,11 +52,10 @@ object JdbcIndexer {
       indexSericeDbDispatcher: Option[DbDispatcher],
       clock: Clock,
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
+      postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
   )(implicit materializer: Materializer) {
 
-    def initialized(
-        logger: TracedLogger
-    )(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
+    def initialized()(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
       val factory = StorageBackendFactory.of(
         DbType.jdbcType(participantDataSourceConfig.jdbcUrl),
         loggerFactory,
@@ -73,6 +68,8 @@ object JdbcIndexer {
       val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
+      val completionStorageBackend =
+        factory.createCompletionStorageBackend(inMemoryState.stringInterningView, loggerFactory)
       val dbConfig = dataSourceProperties
       // in case H2 backend, we share a single connection between indexer and index service
       // to prevent H2 synchronization bug to materialize
@@ -92,7 +89,10 @@ object JdbcIndexer {
           providedParticipantId = participantId,
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
+          completionStorageBackend = completionStorageBackend,
           stringInterningStorageBackend = stringInterningStorageBackend,
+          updatingStringInterningView = inMemoryState.stringInterningView,
+          postProcessor = postProcessor,
           metrics = metrics,
           loggerFactory = loggerFactory,
         ),
@@ -115,12 +115,14 @@ object JdbcIndexer {
           ingestionParallelism = ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           maxTailerBatchSize = config.maxTailerBatchSize,
+          postProcessingParallelism = config.postProcessingParallelism,
           maxOutputBatchedBufferSize = config.maxOutputBatchedBufferSize,
           excludedPackageIds = excludedPackageIds,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
           stringInterningView = inMemoryState.stringInterningView,
           reassignmentOffsetPersistence = reassignmentOffsetPersistence,
+          postProcessor = postProcessor,
           tracer = tracer,
           loggerFactory = loggerFactory,
         ),
@@ -133,18 +135,7 @@ object JdbcIndexer {
         ).apply,
         mat = materializer,
         readService = readService,
-        initializeInMemoryState = dbDispatcher =>
-          ledgerEnd =>
-            inMemoryState.initializeTo(ledgerEnd)(
-              updateStringInterningView = (updatingStringInterningView, ledgerEnd) =>
-                updateStringInterningView(
-                  stringInterningStorageBackend,
-                  metrics,
-                  dbDispatcher,
-                  updatingStringInterningView,
-                  ledgerEnd,
-                )
-            ),
+        initializeInMemoryState = inMemoryState.initializeTo,
         loggerFactory = loggerFactory,
         indexerDbDispatcherOverride = indexerDbDispatcherOverride,
         clock = clock,
@@ -153,24 +144,4 @@ object JdbcIndexer {
       indexer
     }
   }
-
-  private def updateStringInterningView(
-      stringInterningStorageBackend: StringInterningStorageBackend,
-      metrics: LedgerApiServerMetrics,
-      dbDispatcher: DbDispatcher,
-      updatingStringInterningView: UpdatingStringInterningView,
-      ledgerEnd: ParameterStorageBackend.LedgerEnd,
-  ): Future[Unit] =
-    updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
-      (fromExclusive, toInclusive) => {
-        implicit val loggingContext: LoggingContextWithTrace =
-          LoggingContextWithTrace.empty
-        dbDispatcher.executeSql(metrics.index.db.loadStringInterningEntries) {
-          stringInterningStorageBackend.loadStringInterningEntries(
-            fromExclusive,
-            toInclusive,
-          )
-        }
-      }
-    )
 }

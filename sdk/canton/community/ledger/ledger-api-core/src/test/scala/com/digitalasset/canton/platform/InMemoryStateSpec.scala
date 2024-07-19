@@ -61,15 +61,12 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
 
       for {
         // INITIALIZED THE STATE
-        _ <- inMemoryState.initializeTo(initLedgerEnd)(
-          updateStringInterningView
-        )
+        _ <- inMemoryState.initializeTo(initLedgerEnd)
 
         _ = {
           // ASSERT STATE INITIALIZED
 
           inOrder.verify(dispatcherState).stopDispatcher()
-          inOrder.verify(updateStringInterningView)(stringInterningView, initLedgerEnd)
           inOrder.verify(contractStateCaches).reset(initOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder
@@ -109,13 +106,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
         }
 
         // RE-INITIALIZE THE STATE
-        _ <- inMemoryState.initializeTo(reInitLedgerEnd)(
-          {
-            case (`stringInterningView`, ledgerEnd: LedgerEnd) =>
-              updateStringInterningView(stringInterningView, ledgerEnd)
-            case (other, _) => fail(s"Unexpected stringInterningView reference $other")
-          }
-        )
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd)
 
         // ASSERT STATE RE-INITIALIZED
         _ = {
@@ -123,7 +114,6 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
 
           when(dispatcherState.isRunning).thenReturn(false)
           inMemoryState.initialized shouldBe false
-          inOrder.verify(updateStringInterningView)(stringInterningView, reInitLedgerEnd)
           inOrder.verify(contractStateCaches).reset(reInitOffset)
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder

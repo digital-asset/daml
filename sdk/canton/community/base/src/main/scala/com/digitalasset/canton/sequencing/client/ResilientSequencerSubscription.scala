@@ -356,7 +356,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
     """This warning is logged when a sequencer subscription is interrupted. The system will keep on retrying to reconnect indefinitely."""
   )
   @Resolution(
-    "Monitor the situation and contact the server operator if the issues does not resolve itself automatically."
+    "Monitor the situation and contact the server operator if the issue does not resolve itself automatically."
   )
   object LostSequencerSubscription
       extends ErrorCode(
@@ -367,7 +367,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
     final case class Warn(sequencer: SequencerId, _logOnCreation: Boolean = true)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Lost subscription to sequencer ${sequencer}. Will try to recover automatically."
+          cause = s"Lost subscription to sequencer $sequencer. Will try to recover automatically."
         ) {
       override def logOnCreation: Boolean = _logOnCreation
     }

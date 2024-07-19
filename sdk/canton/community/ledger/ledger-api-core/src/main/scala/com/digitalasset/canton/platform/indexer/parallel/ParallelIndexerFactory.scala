@@ -50,7 +50,7 @@ object ParallelIndexerFactory {
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
-      initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
+      initializeInMemoryState: LedgerEnd => Future[Unit],
       loggerFactory: NamedLoggerFactory,
       indexerDbDispatcherOverride: Option[DbDispatcher],
       clock: Clock,
@@ -157,10 +157,8 @@ object ParallelIndexerFactory {
         ) { dbDispatcher =>
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            additionalInitialization = initializeInMemoryState(dbDispatcher),
+            initializeInMemoryState = initializeInMemoryState,
             readService = readService,
-            mat = mat,
-            ec = ec,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,

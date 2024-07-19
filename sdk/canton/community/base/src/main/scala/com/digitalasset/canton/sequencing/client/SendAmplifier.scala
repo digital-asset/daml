@@ -84,13 +84,14 @@ class SendAmplifier(
           sequencersTransportState.nextAmplifiedTransport(previousSequencers)
         val token = new Object
         state = SendAttempt(sequencerId +: previousSequencers, token)
-        (sequencerAlias, sequencerId, transport, patienceO, token)
+        (sequencerAlias, sequencerId, previousSequencers, transport, patienceO, token)
       }
-    }).foreach { case (sequencerAlias, sequencerId, transport, patienceO, token) =>
+    }).foreach { case (sequencerAlias, sequencerId, prevSequencers, transport, patienceO, token) =>
       val sendF =
         puc.performUnlessClosingUSF(s"sending message $messageId to sequencer $sequencerId") {
           logger.info(
-            s"Sending message ID $messageId to sequencer $sequencerId (alias $sequencerAlias) with max sequencing time ${signedRequest.content.maxSequencingTime}"
+            s"Sending message ID $messageId to sequencer $sequencerId (alias $sequencerAlias) with max sequencing time " +
+              s"${signedRequest.content.maxSequencingTime} (previous attempts = ${prevSequencers.size})"
           )
           transport.sendAsyncSigned(signedRequest, timeout).value.map { outcome =>
             noTracingLogger.whenDebugEnabled {

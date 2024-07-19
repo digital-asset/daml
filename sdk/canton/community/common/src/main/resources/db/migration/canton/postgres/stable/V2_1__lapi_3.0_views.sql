@@ -443,3 +443,8 @@ create or replace view debug.lapi_ledger_end_domain_index as
     debug.canton_timestamp(request_timestamp) as request_timestamp,
     request_sequencer_counter
   from lapi_ledger_end_domain_index;
+
+create or replace view debug.lapi_post_processing_end as
+  select
+    post_processing_end
+  from lapi_post_processing_end;

@@ -54,11 +54,13 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     submissionBatchSize: Long,
     maxOutputBatchedBufferSize: Int,
     maxTailerBatchSize: Int,
+    postProcessingParallelism: Int,
     excludedPackageIds: Set[Ref.PackageId],
     metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     stringInterningView: StringInterning & InternizingStringInterningView,
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
+    postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
@@ -82,6 +84,12 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       import MetricsContext.Implicits.empty
       val storeLedgerEndF = storeLedgerEnd(
         parameterStorageBackend.updateLedgerEnd,
+        dbDispatcher,
+        metrics,
+        logger,
+      )
+      val storePostProcessingEndF = storePostProcessingEnd(
+        parameterStorageBackend.updatePostProcessingEnd,
         dbDispatcher,
         metrics,
         logger,
@@ -141,7 +149,25 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             ),
           )
         )
-        .map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
+// TODO(i18695): FIXME on big bang rollout
+//        .async
+//        .mapAsync(postProcessingParallelism)(
+//          Future.successful
+//          postProcess(
+//            postProcessor,
+//            logger,
+//          )
+//        )
+        .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
+        .mapAsync(1)(
+          ingestPostProcessEnd[DB_BATCH](
+            storePostProcessingEndF,
+            logger,
+          )
+        )
+        .mapConcat(
+          _.map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
+        )
         .buffered(
           counter = metrics.parallelIndexer.outputBatchedBufferLength,
           size = maxOutputBatchedBufferSize,
@@ -459,6 +485,57 @@ object ParallelIndexerSubscription {
             )(loggingContext.traceContext)
           }
       }
+
+  def postProcess[DB_BATCH](
+      processor: (Vector[PostPublishData], TraceContext) => Future[Unit],
+      logger: TracedLogger,
+  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = {
+    val directExecutionContext = DirectExecutionContext(logger)
+    batch => {
+      val batchTraceContext: TraceContext = TraceContext.ofBatch(
+        batch.offsetsUpdates.iterator.map(_._2)
+      )(logger)
+      val postPublishData = batch.offsetsUpdates.flatMap { case (offset, tracedUpdate) =>
+        PostPublishData.from(tracedUpdate, offset, batch.publicationTime)
+      }
+      processor(postPublishData, batchTraceContext).map(_ => batch)(directExecutionContext)
+    }
+  }
+
+  def ingestPostProcessEnd[DB_BATCH](
+      storePostProcessingEnd: Offset => Future[Unit],
+      logger: TracedLogger,
+  )(implicit
+      traceContext: TraceContext
+  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = {
+    val directExecutionContext = DirectExecutionContext(logger)
+    batchOfBatches =>
+      batchOfBatches.lastOption match {
+        case Some(lastBatch) =>
+          storePostProcessingEnd(lastBatch.lastOffset)
+            .map(_ => batchOfBatches)(directExecutionContext)
+        case None =>
+          val message = "Unexpectedly encountered a zero-sized batch in ingestPostProcessEnd"
+          logger.error(message)
+          Future.failed(new IllegalStateException(message))
+      }
+  }
+
+  def storePostProcessingEnd(
+      storePostProcessEndFunction: Offset => Connection => Unit,
+      dbDispatcher: DbDispatcher,
+      metrics: LedgerApiServerMetrics,
+      logger: TracedLogger,
+  )(implicit traceContext: TraceContext): Offset => Future[Unit] = offset =>
+    LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> offset) {
+      implicit loggingContext =>
+        dbDispatcher.executeSql(metrics.parallelIndexer.postProcessingEndIngestion) { connection =>
+          storePostProcessEndFunction(offset)(connection)
+          logger.debug(
+            s"Post Processing end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."
+          )(loggingContext.traceContext)
+        }
+    }
 
   private def cleanUnusedBatch[DB_BATCH](
       zeroDbBatch: DB_BATCH

@@ -3,12 +3,19 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.duration.Duration
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.util.UUID
 
 private[backend] trait StorageBackendTestsCompletions
     extends Matchers
@@ -265,5 +272,107 @@ private[backend] trait StorageBackendTestsCompletions
       )
     )
     caught2.getMessage should be(expectedErrorMessage)
+  }
+
+  it should "correctly retrieve completions for post processing recovery" in {
+    val messageUuid = UUID.randomUUID()
+    val commandId = UUID.randomUUID().toString
+    val publicationTime = Timestamp.now()
+    val recordTime = Timestamp.now().addMicros(15)
+    val submissionId = UUID.randomUUID().toString
+    val dtos = Vector(
+      dtoCompletion(
+        offset(1)
+      ),
+      dtoCompletion(
+        offset = offset(2),
+        submitter = someParty,
+        commandId = commandId,
+        applicationId = "applicationid1",
+        submissionId = Some(submissionId),
+        domainId = "x::domain1",
+        messageUuid = Some(messageUuid.toString),
+        publicationTime = publicationTime,
+        isTransaction = true,
+      ),
+      dtoCompletion(
+        offset = offset(5),
+        submitter = someParty,
+        commandId = commandId,
+        applicationId = "applicationid1",
+        submissionId = Some(submissionId),
+        domainId = "x::domain1",
+        messageUuid = Some(messageUuid.toString),
+        publicationTime = publicationTime,
+        isTransaction = false,
+      ),
+      dtoCompletion(
+        offset = offset(9),
+        submitter = someParty,
+        commandId = commandId,
+        applicationId = "applicationid1",
+        submissionId = Some(submissionId),
+        domainId = "x::domain1",
+        recordTime = recordTime,
+        messageUuid = None,
+        transactionId = None,
+        publicationTime = publicationTime,
+        isTransaction = true,
+        requestSequencerCounter = Some(11),
+      ),
+      dtoCompletion(
+        offset = offset(11),
+        submitter = someParty,
+        commandId = commandId,
+        applicationId = "applicationid1",
+        submissionId = Some(submissionId),
+        domainId = "x::domain1",
+        recordTime = recordTime,
+        messageUuid = None,
+        transactionId = None,
+        publicationTime = publicationTime,
+        isTransaction = true,
+        requestSequencerCounter = None,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      backend.completion.commandCompletionsForRecovery(offset(1), offset(10))
+    ) shouldBe Vector(
+      PostPublishData(
+        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        publishSource = PublishSource.Local(messageUuid),
+        applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
+        commandId = Ref.CommandId.assertFromString(commandId),
+        actAs = Set(someParty),
+        offset = offset(2),
+        publicationTime = CantonTimestamp(publicationTime),
+        submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
+        accepted = true,
+        traceContext = TraceContext.empty,
+      ),
+      PostPublishData(
+        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        publishSource = PublishSource.Sequencer(
+          requestSequencerCounter = SequencerCounter(11),
+          sequencerTimestamp = CantonTimestamp(recordTime),
+        ),
+        applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
+        commandId = Ref.CommandId.assertFromString(commandId),
+        actAs = Set(someParty),
+        offset = offset(9),
+        publicationTime = CantonTimestamp(publicationTime),
+        submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
+        accepted = false,
+        traceContext = TraceContext.empty,
+      ),
+    )
+
+    // this tries to deserialize the last dto which has an invalid combination of message_uuid and request_sequencer_counter
+    intercept[IllegalStateException](
+      executeSql(backend.completion.commandCompletionsForRecovery(offset(2), offset(11)))
+    ).getMessage should include("if message_uuid is empty, this field should be populated")
   }
 }

@@ -144,4 +144,13 @@ private[backend] trait StorageBackendTestsParameters
     resultDomainIndexSecond2.requestIndex shouldBe None
     resultDomainIndexSecond2.sequencerIndex shouldBe someDomainIndex2.sequencerIndex
   }
+
+  it should "store and retrieve post processing end correctly" in {
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe None
+    executeSql(backend.parameter.updatePostProcessingEnd(offset(10)))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(10))
+    executeSql(backend.parameter.updatePostProcessingEnd(offset(20)))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(20))
+  }
 }

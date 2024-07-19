@@ -122,19 +122,9 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
   private val lastProgress: AtomicReference[(SequencerCounter, CantonTimestamp)] =
     new AtomicReference((initSc - 1) -> clock.now)
 
-  /** Tasks that have not yet been scheduled for execution.
-    * Barriers that have not yet been completed.
-    */
-  private val pending: mutable.PriorityQueue[Scheduled] = mutable.PriorityQueue()(
-    Ordering
-      .by[Scheduled, CantonTimestamp](_.scheduledAt.get())
-      .reverse
-  )
-
-  private def makePending(scheduled: Scheduled): Unit = {
-    scheduled.scheduledAt.set(clock.now)
-    pending.enqueue(scheduled)
-  }
+  /** The highest sequencer timestamp that has ever been ticked. */
+  private val highWatermark: AtomicReference[CantonTimestamp] =
+    new AtomicReference(initTimestamp)
 
   scheduleNextCheck(alertAfter)
 
@@ -156,22 +146,33 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       val (sc, lastTick) = lastProgress.get()
       val noProgressDuration = now - lastTick
 
-      blocking {
-        lock.synchronized {
-          val maxWaitingDuration = pending.headOption match {
-            case Some(scheduled) => now - scheduled.scheduledAt.get()
-            case None => JDuration.ZERO
+      if (noProgressDuration >= alertAfter) {
+        val highWatermarkTs = highWatermark.get()
+
+        def getBlockedTraceIds[A <: Scheduled](
+            queue: mutable.PriorityQueue[A]
+        ): mutable.Iterable[String] =
+          if (queue.headOption.exists(_.timestamp <= highWatermarkTs))
+            queue.filter(_.timestamp <= highWatermarkTs).map(_.traceContext.traceId.getOrElse(""))
+          else {
+            // If there is no blocked task, we do not need to traverse the entire queue.
+            mutable.Iterable.empty
           }
-          if (noProgressDuration >= alertAfter && maxWaitingDuration >= alertAfter) {
-            logger.info(
-              s"Task scheduler waits for tick of sc=${sc + 1}. Last tick: sc=$sc at $lastTick. " +
-                s"Blocked trace ids: ${pending.map(_.traceContext.traceId.getOrElse("")).toSet.mkString(", ")}"
-            )
-            scheduleNextCheck(alertEvery)
-          } else {
-            scheduleNextCheck(alertAfter minus (noProgressDuration min maxWaitingDuration))
+
+        val blocked = blocking {
+          lock.synchronized {
+            (getBlockedTraceIds(taskQueue) ++ getBlockedTraceIds(barrierQueue)).toSet
           }
         }
+        if (blocked.nonEmpty) {
+          logger.info(
+            s"Task scheduler waits for tick of sc=${sc + 1}. The tick with sc=$sc occurred at $lastTick. " +
+              s"Blocked trace ids: ${blocked.mkString(", ")}"
+          )
+        }
+        scheduleNextCheck(alertEvery)
+      } else {
+        scheduleNextCheck(alertAfter minus noProgressDuration)
       }
     }.onShutdown(logger.debug("Stop periodic check for missing ticks."))
   }
@@ -206,7 +207,6 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       )
       logger.trace(s"Adding task $task to the task scheduler.")
       taskQueue.enqueue(task)
-      makePending(task)
     }
   }
 
@@ -223,7 +223,6 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       else {
         val barrier = TaskScheduler.TimeBarrier(timestamp)
         barrierQueue.enqueue(barrier)
-        makePending(barrier)
         Some(barrier.completion.future)
       }
     }
@@ -322,6 +321,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
         if (nextFront > lastFront) nextFront -> now
         else lastState
       }
+      highWatermark.updateAndGet(_ max timestamp)
 
       performActionsAndCompleteBarriers()
     }
@@ -363,18 +363,9 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
 
     val _ = performUnlessClosing(functionFullName) {
       val observedTime = latestPolledTimestamp.get
-      cleanupPending(observedTime)
       completeBarriersUpTo(observedTime)
       performActionsUpto(observedTime)
     }
-  }
-
-  @tailrec
-  private[this] def cleanupPending(observedTime: CantonTimestamp): Unit = pending.headOption match {
-    case Some(scheduled) if scheduled.timestamp <= observedTime =>
-      pending.dequeue().discard[Scheduled]
-      cleanupPending(observedTime)
-    case _ => // nothing to do
   }
 
   /** Takes actions out of the `taskQueue` and processes them immediately until the next task has a timestamp
@@ -459,12 +450,6 @@ object TaskScheduler {
 
   sealed trait Scheduled {
     def traceContext: TraceContext
-
-    /** The time (according to TaskScheduler.clock) when the instance
-      * has been scheduled.
-      */
-    private[TaskScheduler] def scheduledAt: AtomicReference[CantonTimestamp] =
-      new AtomicReference[CantonTimestamp](CantonTimestamp.MinValue)
 
     /** The timestamp when the instance should be executed/completed. */
     def timestamp: CantonTimestamp

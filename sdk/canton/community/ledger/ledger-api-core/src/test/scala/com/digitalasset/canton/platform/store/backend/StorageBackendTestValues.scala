@@ -295,6 +295,8 @@ private[store] object StorageBackendTestValues {
       messageUuid: Option[String] = None,
       transactionId: Option[String] = Some(""),
       publicationTime: Timestamp = someTime,
+      isTransaction: Boolean = true,
+      requestSequencerCounter: Option[Long] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
@@ -314,8 +316,8 @@ private[store] object StorageBackendTestValues {
       deduplication_start = deduplicationStart.map(_.micros),
       domain_id = domainId,
       message_uuid = messageUuid,
-      request_sequencer_counter = None,
-      is_transaction = true,
+      request_sequencer_counter = requestSequencerCounter,
+      is_transaction = isTransaction,
       trace_context = traceContext,
     )
 

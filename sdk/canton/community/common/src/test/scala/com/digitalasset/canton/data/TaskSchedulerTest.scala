@@ -332,7 +332,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
           traceContext: TraceContext,
       ): Assertion = {
         capturingLoggerFactory.assertNextMessageIs(
-          s"Task scheduler waits for tick of sc=$waitFor. Last tick: sc=$lastSc at $lastTimestamp. Blocked trace ids: ${traceContext.traceId.value}",
+          s"Task scheduler waits for tick of sc=$waitFor. The tick with sc=$lastSc occurred at $lastTimestamp. Blocked trace ids: ${traceContext.traceId.value}",
           Level.INFO,
         )
         capturingLoggerFactory.assertNoMoreEvents(timeoutMillis)
@@ -342,13 +342,18 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
       clock.advance(alertAfter)
       capturingLoggerFactory.assertNoMoreEvents(timeoutMillis)
 
-      // Add a blocked task and check that a log line is emitted.
+      // Schedule a task. The scheduler should not log a problem as the task is above the high watermark.
       val task = TestTask(CantonTimestamp.ofEpochSecond(1), SequencerCounter(1))(
         traceContext = nonEmptyTraceContext1,
         ec = implicitly,
       )
       taskScheduler.scheduleTask(task)
-      clock.advance(alertAfter)
+      clock.advance(alertEvery)
+      capturingLoggerFactory.assertNoMoreEvents(timeoutMillis)
+
+      // Tick the task and check that a log line is emitted
+      taskScheduler.addTick(SequencerCounter(1), CantonTimestamp.ofEpochSecond(1))
+      clock.advance(alertEvery)
       assertInfoLogged(0, -1, CantonTimestamp.Epoch, nonEmptyTraceContext1)
 
       // After alertEvery, the log line should be emitted again.
@@ -357,18 +362,12 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
 
       // Add the missing ticks, wait and check that nothing is logged.
       taskScheduler.addTick(SequencerCounter(0), CantonTimestamp.ofEpochSecond(0))
-      taskScheduler.addTick(SequencerCounter(1), CantonTimestamp.ofEpochSecond(1))
       val tsOf1 = clock.now
       clock.advance(alertAfter)
       capturingLoggerFactory.assertNoMoreEvents(timeoutMillis)
 
       // Schedule a blocked barrier and check that a log line is emitted.
       taskScheduler.scheduleBarrier(CantonTimestamp.ofEpochSecond(3))(nonEmptyTraceContext2)
-      clock.advance(alertAfter)
-      assertInfoLogged(2, 1, tsOf1, nonEmptyTraceContext2)
-
-      // Add a tick that is not sufficient for unblocking the barrier.
-      // The log line should be emitted again.
       taskScheduler.addTick(SequencerCounter(3), CantonTimestamp.ofEpochSecond(3))
       clock.advance(alertEvery)
       assertInfoLogged(2, 1, tsOf1, nonEmptyTraceContext2)

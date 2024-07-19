@@ -13,7 +13,6 @@ import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.sequencing.PossiblyIgnoredSerializedEvent
 import com.digitalasset.canton.store.CursorPrehead.{
@@ -35,7 +34,7 @@ trait SyncDomainEphemeralStateFactory {
   def createFromPersistent(
       persistentState: SyncDomainPersistentState,
       multiDomainEventLog: Eval[MultiDomainEventLog],
-      inFlightSubmissionTracker: InFlightSubmissionTracker,
+      participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
       sessionKeyCacheConfig: SessionKeyCacheConfig,
@@ -58,7 +57,7 @@ class SyncDomainEphemeralStateFactoryImpl(
   override def createFromPersistent(
       persistentState: SyncDomainPersistentState,
       multiDomainEventLog: Eval[MultiDomainEventLog],
-      inFlightSubmissionTracker: InFlightSubmissionTracker,
+      participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => DomainTimeTracker,
       metrics: SyncDomainMetrics,
       sessionKeyCacheConfig: SessionKeyCacheConfig,
@@ -80,9 +79,9 @@ class SyncDomainEphemeralStateFactoryImpl(
       logger.debug("Created SyncDomainEphemeralState")
       new SyncDomainEphemeralState(
         participantId,
+        participantNodeEphemeralState,
         persistentState,
         multiDomainEventLog,
-        inFlightSubmissionTracker,
         startingPoints,
         createTimeTracker,
         metrics,

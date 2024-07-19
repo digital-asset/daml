@@ -119,4 +119,9 @@ class ParallelIndexerMetrics(
   // Tail ingestion stage
   // The throttled update of ledger end parameters
   val tailIngestion = new DatabaseMetrics(prefix :+ "tail_ingestion", openTelemetryMetricsFactory)
+
+  // Post Processing end ingestion stage
+  // The throttled update of post processing end parameter
+  val postProcessingEndIngestion =
+    new DatabaseMetrics(prefix :+ "post_processing_end_ingestion", openTelemetryMetricsFactory)
 }

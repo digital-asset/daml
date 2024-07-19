@@ -235,7 +235,12 @@ class ProtocolProcessorTest
       overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTracker.SubmissionData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
-  ): (TestInstance, SyncDomainPersistentState, SyncDomainEphemeralState) = {
+  ): (
+      TestInstance,
+      SyncDomainPersistentState,
+      SyncDomainEphemeralState,
+      ParticipantNodeEphemeralState,
+  ) = {
 
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val clock = new WallClock(timeouts, loggerFactory)
@@ -303,29 +308,32 @@ class ProtocolProcessorTest
       futureSupervisor,
       loggerFactory,
     )
-    val inFlightSubmissionTracker = overrideInFlightSubmissionTrackerO.getOrElse(
-      new InFlightSubmissionTracker(
+    val inFlightSubmissionTracker = overrideInFlightSubmissionTrackerO.getOrElse {
+      val tracker = new InFlightSubmissionTracker(
         Eval.now(
           overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)
         ),
-        eventPublisher,
         new NoCommandDeduplicator(),
         Eval.now(mdel),
-        _ =>
-          Option(ephemeralState.get())
-            .map(InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, _)),
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )
-    )
+      tracker.registerDomainStateLookup(_ =>
+        Option(ephemeralState.get())
+          .map(InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, _))
+      )
+      tracker
+    }
+    val participantNodeEphemeralState =
+      new ParticipantNodeEphemeralState(eventPublisher, inFlightSubmissionTracker)
     val timeTracker = mock[DomainTimeTracker]
 
     ephemeralState.set(
       new SyncDomainEphemeralState(
         participant,
+        participantNodeEphemeralState,
         persistentState,
         Eval.now(multiDomainEventLog),
-        inFlightSubmissionTracker,
         startingPoints,
         () => timeTracker,
         ParticipantTestMetrics.domain,
@@ -372,7 +380,7 @@ class ProtocolProcessorTest
       }
 
     ephemeralState.get().recordOrderPublisher.scheduleRecoveries(List.empty)
-    (sut, persistentState, ephemeralState.get())
+    (sut, persistentState, ephemeralState.get(), participantNodeEphemeralState)
   }
 
   private lazy val rootHash = RootHash(TestHash.digest(1))
@@ -439,7 +447,8 @@ class ProtocolProcessorTest
 
     "succeed without errors" in {
       val submissionMap = TrieMap[Int, Unit]()
-      val (sut, _persistent, _ephemeral) = testProcessingSteps(pendingSubmissionMap = submissionMap)
+      val (sut, _persistent, _ephemeral, _) =
+        testProcessingSteps(pendingSubmissionMap = submissionMap)
       sut
         .submit(0)
         .valueOrFailShutdown("submission")
@@ -465,7 +474,7 @@ class ProtocolProcessorTest
         )(anyTraceContext)
       )
         .thenReturn(EitherT.leftT[FutureUnlessShutdown, Unit](sendError))
-      val (sut, _persistent, _ephemeral) =
+      val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
           sequencerClient = failingSequencerClient,
           pendingSubmissionMap = submissionMap,
@@ -482,7 +491,8 @@ class ProtocolProcessorTest
 
     "clean up the pending submissions when no request is received" in {
       val submissionMap = TrieMap[Int, Unit]()
-      val (sut, _persistent, _ephemeral) = testProcessingSteps(pendingSubmissionMap = submissionMap)
+      val (sut, _persistent, _ephemeral, _) =
+        testProcessingSteps(pendingSubmissionMap = submissionMap)
 
       sut
         .submit(1)
@@ -508,7 +518,7 @@ class ProtocolProcessorTest
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
-      val (sut, persistent, ephemeral) = testProcessingSteps(crypto = crypto2)
+      val (sut, persistent, ephemeral, _) = testProcessingSteps(crypto = crypto2)
       val res = sut.submit(1).onShutdown(fail("submission shutdown")).value.futureValue
       res shouldBe Left(TestProcessorError(NoMediatorError(CantonTimestamp.Epoch)))
     }
@@ -517,7 +527,7 @@ class ProtocolProcessorTest
   "process request" should {
 
     "succeed without errors" in {
-      val (sut, _persistent, _ephemeral) = testProcessingSteps()
+      val (sut, _persistent, _ephemeral, _) = testProcessingSteps()
       val asyncRes = sut
         .processRequest(requestId.unwrap, rc, requestSc, someRequestBatch)
         .onShutdown(fail())
@@ -535,7 +545,7 @@ class ProtocolProcessorTest
         abortEngine = _ => (),
         engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
-      val (sut, _persistent, ephemeral) =
+      val (sut, _persistent, ephemeral, _) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
       val before = ephemeral.requestJournal.query(rc).value.futureValue
       before shouldEqual None
@@ -563,7 +573,7 @@ class ProtocolProcessorTest
           abortEngine = _ => (),
           engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
         )
-      val (sut, _persistent, ephemeral) =
+      val (sut, _persistent, ephemeral, _) =
         testProcessingSteps(
           overrideConstructedPendingRequestDataO = Some(pendingData),
           startingPoints = ProcessingStartingPoints.tryCreate(
@@ -604,7 +614,7 @@ class ProtocolProcessorTest
         abortEngine = _ => (),
         engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
       )
-      val (sut, _persistent, ephemeral) =
+      val (sut, _persistent, ephemeral, _) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
 
       val journal = ephemeral.requestJournal
@@ -666,7 +676,7 @@ class ProtocolProcessorTest
         isReceipt = false,
       )
 
-      val (sut, _persistent, _ephemeral) = testProcessingSteps()
+      val (sut, _persistent, _ephemeral, _) = testProcessingSteps()
       val asyncRes = loggerFactory
         .assertLogs(
           sut
@@ -702,7 +712,7 @@ class ProtocolProcessorTest
         isReceipt = false,
       )
 
-      val (sut, _persistent, _ephemeral) = testProcessingSteps()
+      val (sut, _persistent, _ephemeral, _) = testProcessingSteps()
       val asyncRes = loggerFactory
         .assertLogs(
           sut
@@ -734,7 +744,7 @@ class ProtocolProcessorTest
         isReceipt = false,
       )
 
-      val (sut, _persistent, _ephemeral) = testProcessingSteps()
+      val (sut, _persistent, _ephemeral, _) = testProcessingSteps()
       loggerFactory
         .assertLogs(
           sut
@@ -762,7 +772,7 @@ class ProtocolProcessorTest
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
 
-      val (sut, _persistent, _ephemeral) = testProcessingSteps(crypto = testCrypto)
+      val (sut, _persistent, _ephemeral, _) = testProcessingSteps(crypto = testCrypto)
       loggerFactory
         .assertLogs(
           sut
@@ -777,7 +787,7 @@ class ProtocolProcessorTest
     }
 
     "notify the in-flight submission tracker with the root hash when necessary" in {
-      val (sut, _persistent, _ephemeral) =
+      val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
@@ -801,7 +811,7 @@ class ProtocolProcessorTest
     }
 
     "not notify the in-flight submission tracker when the message is a receipt" in {
-      val (sut, _persistent, _ephemeral) =
+      val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
@@ -822,7 +832,7 @@ class ProtocolProcessorTest
     }
 
     "not notify the in-flight submission tracker when not submitting participant" in {
-      val (sut, _persistent, _ephemeral) =
+      val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
           overrideInFlightSubmissionTrackerO = Some(mockInFlightSubmissionTracker),
           submissionDataForTrackerO = Some(
@@ -862,7 +872,7 @@ class ProtocolProcessorTest
       // This test checks this situation when the non-normal notification loses this race.
 
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
-      val (sut, _persistent, ephemeral) = testProcessingSteps(
+      val (sut, _persistent, ephemeral, nodeEphemeral) = testProcessingSteps(
         submissionDataForTrackerO = Some(
           SubmissionTracker.SubmissionData(
             submittingParticipant = participant,
@@ -872,7 +882,7 @@ class ProtocolProcessorTest
         overrideInFlightSubmissionStoreO = Some(inFlightSubmissionStore),
       )
 
-      val ifst = ephemeral.inFlightSubmissionTracker
+      val ifst = nodeEphemeral.inFlightSubmissionTracker
       val subF = for {
         // The participant registers the submission in the in-flight submission tracker
         _ <- ifst
@@ -995,7 +1005,7 @@ class ProtocolProcessorTest
     }
 
     "succeed without errors and transit to clean" in {
-      val (sut, persistent, ephemeral) = testProcessingSteps()
+      val (sut, persistent, ephemeral, _) = testProcessingSteps()
       addRequestState(ephemeral)
 
       val taskScheduler = ephemeral.requestTracker.taskScheduler
@@ -1014,7 +1024,7 @@ class ProtocolProcessorTest
     }
 
     "wait for request processing to finish" in {
-      val (sut, _persistent, ephemeral) = testProcessingSteps()
+      val (sut, _persistent, ephemeral, _) = testProcessingSteps()
 
       val taskScheduler = ephemeral.requestTracker.taskScheduler
       val requestJournal = ephemeral.requestJournal
@@ -1061,7 +1071,7 @@ class ProtocolProcessorTest
 
     "succeed without errors on clean replay, not changing the request state" in {
 
-      val (sut, _persistent, ephemeral) = testProcessingSteps(
+      val (sut, _persistent, ephemeral, _) = testProcessingSteps(
         startingPoints = ProcessingStartingPoints.tryCreate(
           MessageCleanReplayStartingPoint(rc, requestSc, CantonTimestamp.Epoch.minusSeconds(1)),
           MessageProcessingStartingPoint(
@@ -1106,7 +1116,7 @@ class ProtocolProcessorTest
     }
 
     "give an error when decision time has elapsed" in {
-      val (sut, persistent, ephemeral) = testProcessingSteps()
+      val (sut, persistent, ephemeral, _) = testProcessingSteps()
 
       addRequestState(ephemeral, decisionTime = CantonTimestamp.Epoch.plusSeconds(5))
 
@@ -1129,7 +1139,7 @@ class ProtocolProcessorTest
     }
 
     "tick the record order publisher only after the clean request prehead has advanced" in {
-      val (sut, persistent, ephemeral) = testProcessingSteps(
+      val (sut, persistent, ephemeral, _) = testProcessingSteps(
         startingPoints = ProcessingStartingPoints.tryCreate(
           cleanReplay = MessageCleanReplayStartingPoint(
             rc - 1L,

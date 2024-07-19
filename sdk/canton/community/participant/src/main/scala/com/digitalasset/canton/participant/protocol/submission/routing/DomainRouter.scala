@@ -144,7 +144,7 @@ class DomainRouter(
 
       inputDomains = transactionData.inputContractsDomainData.domains
 
-      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees)
+      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId)
 
       domainRankTarget <-
         if (!isMultiDomainTx) {
@@ -200,18 +200,24 @@ class DomainRouter(
       domainRankTarget <- domainSelector.forMultiDomain
     } yield domainRankTarget
 
-  /** We have a multi-domain transaction if the input contracts are on more than one domain
-    * or if the (single) input domain does not host all informees
+  /** We have a multi-domain transaction if the input contracts are on more than one domain,
+    * if the (single) input domain does not host all informees
+    * or if the target domain is different than the domain of the input contracts
     * (because we will need to transfer the contracts to a domain that that *does* host all informees.
     * Transactions without input contracts are always single-domain.
     */
   private def isMultiDomainTx(
       inputDomains: Set[DomainId],
       informees: Set[LfPartyId],
+      optDomainId: Option[DomainId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
     if (inputDomains.sizeCompare(2) >= 0) EitherT.rightT(true)
+    else if (
+      optDomainId
+        .exists(targetDomain => inputDomains.exists(inputDomain => inputDomain != targetDomain))
+    ) EitherT.rightT(true)
     else
       inputDomains.toList
         .parTraverse(allInformeesOnDomain(informees)(_))
