@@ -2,6 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @WARN since-lf=1.16 2.0; warn-bad-interface-instances
 
 module InterfaceGuarded where
 
@@ -142,17 +145,17 @@ exerciseTest c = script do
 
 trueGuard = exerciseTest TrueGuard
 
--- @ERROR range=146:1-146:11; failing guard
+-- @ERROR range=149:1-149:11; failing guard
 falseGuard = exerciseTest FalseGuard
 
--- @ERROR range=149:1-149:11; failing guard
+-- @ERROR range=152:1-152:11; failing guard
 errorGuard = exerciseTest ErrorGuard
 
--- @ERROR range=152:1-152:17; failing guard
+-- @ERROR range=155:1-155:17; failing guard
 customErrorGuard = exerciseTest CustomErrorGuard
 
--- @ERROR range=155:1-155:14; failing guard
+-- @ERROR range=158:1-158:14; failing guard
 tryErrorGuard = exerciseTest TryErrorGuard
 
--- @ERROR range=158:1-158:20; failing guard
+-- @ERROR range=161:1-161:20; failing guard
 tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

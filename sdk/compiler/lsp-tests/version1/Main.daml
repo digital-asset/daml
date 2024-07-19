@@ -3,9 +3,8 @@
 
 module Main where
 
-import qualified Other
+template T with
+    p: Party
+  where
+    signatory p
 
-useOther : Other.Dummy -> ()
-useOther _ = ()
-
-data Dummy = Dummy {}

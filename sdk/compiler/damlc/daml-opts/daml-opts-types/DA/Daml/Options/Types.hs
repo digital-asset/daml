@@ -9,7 +9,6 @@ module DA.Daml.Options.Types
     , EnableScenarioService(..)
     , EnableScenarios(..)
     , AllowLargeTuples(..)
-    , WarnBadInterfaceInstances(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
     , DlintRulesFile(..)
@@ -35,6 +34,10 @@ module DA.Daml.Options.Types
     , fullPkgName
     , optUnitId
     , getLogger
+    , UpgradeInfo (..)
+    , defaultUiTypecheckUpgrades
+    , defaultUiWarnBadInterfaceInstances
+    , defaultUpgradeInfo
     ) where
 
 import Control.Monad.Reader
@@ -125,9 +128,14 @@ data Options = Options
   -- packages from remote ledgers.
   , optAllowLargeTuples :: AllowLargeTuples
   -- ^ Do not warn when tuples of size > 5 are used
-  , optWarnBadInterfaceInstances :: WarnBadInterfaceInstances
-  -- ^ Warn for bad interface instances instead of erroring out
+  , optUpgradeInfo :: UpgradeInfo
   }
+
+data UpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath :: Maybe FilePath
+    , uiTypecheckUpgrades :: Bool
+    , uiWarnBadInterfaceInstances :: Bool
+    }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -186,9 +194,6 @@ newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
 
 newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
     deriving Show
-
-newtype WarnBadInterfaceInstances = WarnBadInterfaceInstances { getWarnBadInterfaceInstances :: Bool }
-  deriving Show
 
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
@@ -270,8 +275,19 @@ defaultOptions mbVersion =
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
-        , optWarnBadInterfaceInstances = WarnBadInterfaceInstances False
+        , optUpgradeInfo = defaultUpgradeInfo
         }
+
+defaultUpgradeInfo :: UpgradeInfo
+defaultUpgradeInfo = UpgradeInfo
+    { uiUpgradedPackagePath = Nothing
+    , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
+    , uiWarnBadInterfaceInstances = defaultUiWarnBadInterfaceInstances
+    }
+
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades = True
+defaultUiWarnBadInterfaceInstances = False
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =
