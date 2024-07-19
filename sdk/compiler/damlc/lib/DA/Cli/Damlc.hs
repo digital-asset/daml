@@ -1235,7 +1235,7 @@ data BuildMultiPackageConfig = BuildMultiPackageConfig
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
   , bmDarDeps :: [FilePath]
-      -- ^ not canonicalized
+      -- ^ not canonicalized, all dars that the package requires to build, including "upgrades"
   , bmSourceDaml :: FilePath
       -- ^ not canonicalized
   , bmOutput :: Maybe FilePath
@@ -1386,7 +1386,6 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
             -- Call build via daml assistant so it selects the correct SDK version.
-            -- TODO[SW]: Update this check to compare version to most recent snapshot, once a snapshot is released that won't error with --enable-multi-package.
             runAssistant assistantRunner filePath $
               ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
@@ -1885,7 +1884,7 @@ darPathFromDamlYaml path = do
   where
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
--- | Subset of parseProjectConfig to get only what we need for differring to the correct build call with multi-package build
+-- | Subset of parseProjectConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
@@ -1897,7 +1896,8 @@ buildMultiPackageConfigFromDamlYaml path =
       bmSourceDaml <- queryProjectConfigRequired ["source"] project
       dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
       deps <- fromMaybe [] <$> queryProjectConfig ["dependencies"] project
-      let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps
+      upgradesDar <- maybe [] pure <$> queryProjectConfig ["upgrades"] project
+      let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps <> upgradesDar
       bmOutput <- queryProjectConfigBuildOutput project
       pure $ BuildMultiPackageConfig {..}
     )

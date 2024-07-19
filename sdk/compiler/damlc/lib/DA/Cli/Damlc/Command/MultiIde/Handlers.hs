@@ -214,14 +214,19 @@ clientMessageHandler miState unblock bs = do
     -- can't find the definition, it'll fall back to the known incorrect location.
     -- Once we have this, we return it as a response to the original STextDocumentDefinition request.
     LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
-      let path = filePathFromParamsWithTextDocument miState req
+      let mPath = filePathFromParamsWithTextDocument miState req
           lspId = castLspId _id
           method = LSP.SCustomMethod "daml/tryGetDefinition"
-          msg = LSP.FromClientMess method $ LSP.ReqMess $
+          forwardedMsg = LSP.FromClientMess method $ LSP.ReqMess $
             LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
               TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
-      logDebug miState "forwarding STextDocumentDefinition as daml/tryGetDefinition"
-      sendSubIdeByPath miState path msg
+      case mPath of
+        Just path -> do
+          logDebug miState "forwarding STextDocumentDefinition as daml/tryGetDefinition"
+          sendSubIdeByPath miState path forwardedMsg
+        Nothing -> do
+          logDebug miState "failed to forward STextDocumentDefinition as daml/tryGetDefinition as path could not be extracted, sending empty reply"
+          forM_ (noIDEReply $ castFromClientMessage msg) $ sendClient miState
 
     -- Watched file changes, used for restarting subIdes and changing coordinator state
     LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles msg@LSP.NotificationMessage {_params = LSP.DidChangeWatchedFilesParams (LSP.List changes)} -> do
@@ -292,6 +297,10 @@ clientMessageHandler miState unblock bs = do
             then sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) $ combine []
             else putReqMethodAll (misFromClientMethodTrackerVar miState) _id _method msg' ides combine
 
+        ForwardRequest _ CannotForwardRequest -> do
+          logDebug miState $ "cannot forward request on method " <> show meth <> ", sending empty reply"
+          forM_ (noIDEReply $ castFromClientMessage msg) $ sendClient miState
+
         ForwardNotification mess (Single path) -> do
           logDebug miState $ "single not on method " <> show meth <> " over path " <> path
           handleOpenFilesNotification miState mess path
@@ -301,6 +310,9 @@ clientMessageHandler miState unblock bs = do
         ForwardNotification _ AllNotification -> do
           logDebug miState $ "all not on method " <> show meth
           sendAllSubIdes_ miState (castFromClientMessage msg)
+
+        ForwardNotification _ CannotForwardRequest ->
+          logDebug miState $ "cannot forward notification on method " <> show meth <> ", ignoring"
 
         ExplicitHandler handler -> do
           logDebug miState "calling explicit handler"
