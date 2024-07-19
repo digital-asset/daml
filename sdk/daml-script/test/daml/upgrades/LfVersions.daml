@@ -1,0 +1,114 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfVersions (main) where
+
+import UpgradeTestLib
+import qualified V1.LfVersions as V1
+import qualified V2.LfVersions as V2
+import LfVersionsHelper
+
+{- PACKAGE
+name: lf-versions
+versions: 2
+lf-version: |
+  1.15  -- @V 1
+  1.dev -- @V 2
+-}
+
+{- MODULE
+package: lf-versions
+contents: |
+  module LfVersions where
+
+  template LfTemplate with
+      party : Party
+    where
+    signatory party
+
+    nonconsuming choice Noop : ()
+      controller party
+      do pure ()
+-}
+
+{- PACKAGE
+name: lf-versions-helper
+versions: 1
+depends: |
+  lf-versions-1.0.0
+  lf-versions-2.0.0
+-}
+
+{- MODULE
+package: lf-versions-helper
+contents: |
+  module LfVersionsHelper where
+
+  import qualified V1.LfVersions as V1
+  import qualified V2.LfVersions as V2
+
+  template LfTemplateHelper with
+      party : Party
+    where
+    signatory party
+
+    choice FetchV1 : V1.LfTemplate with
+        cid : ContractId V1.LfTemplate
+      controller party
+      do
+        fetch cid
+
+    choice FetchV2 : V2.LfTemplate with
+        cid : ContractId V2.LfTemplate
+      controller party
+      do
+        fetch cid
+-}
+
+main : TestTree
+main = tests
+  [ ("Fetch a LF < 1.16 contract with a LF >= 1.16 template ID, expect LF 1.16 implementation to attempt to be used, but fail upgrade", fetchNonUpgradableLfFail)
+  , ("Fetch a LF >= 1.16 contract with a LF < 1.16 template ID, expect LF 1.15 implementation to attempt to be used, but fail upgrade", fetchNonUpgradingLfFail)        
+  , ("Call a LF >= 1.16 choice on a LF < 1.16 contract, expect LF 1.16 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradableLfFail)
+  , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
+  ]
+
+
+mustBeWronglyTypedContract : Either SubmitError r -> Script ()
+mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
+mustBeWronglyTypedContract (Left e) = assertFail $ "Incorrect error: " <> show e
+mustBeWronglyTypedContract _ = assertFail $ "Expected failure and got success"
+
+fetchNonUpgradableLfFail : Test
+fetchNonUpgradableLfFail = test $ do
+  alice <- allocateParty "alice"
+  v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
+  let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
+
+  res <- alice `trySubmit` createAndExerciseCmd (LfTemplateHelper with party = alice) (FetchV2 with cid = v2Cid)
+  mustBeWronglyTypedContract res
+
+fetchNonUpgradingLfFail : Test
+fetchNonUpgradingLfFail = test $ do
+  alice <- allocateParty "alice"
+  v2Cid <- alice `submit` createExactCmd V2.LfTemplate with party = alice
+  let v1Cid = coerceContractId @V2.LfTemplate @V1.LfTemplate v2Cid
+
+  res <- alice `trySubmit` createAndExerciseCmd (LfTemplateHelper with party = alice) (FetchV1 with cid = v1Cid)
+  mustBeWronglyTypedContract res
+
+exerciseNonUpgradableLfFail: Test
+exerciseNonUpgradableLfFail = test $ do
+    alice <- allocateParty "alice"
+    v1Cid <- alice `submit` createExactCmd V1.LfTemplate with party = alice
+    let v2Cid = coerceContractId @V1.LfTemplate @V2.LfTemplate v1Cid
+    res <- alice `trySubmit` exerciseExactCmd @V2.LfTemplate v2Cid V2.Noop
+    mustBeWronglyTypedContract res
+
+exerciseNonUpgradingLfFail: Test
+exerciseNonUpgradingLfFail = test $ do
+    alice <- allocateParty "alice"
+    v2Cid <- alice `submit` createExactCmd V2.LfTemplate with party = alice
+    let v1Cid = coerceContractId @V2.LfTemplate @V1.LfTemplate v2Cid
+    res <- alice `trySubmit` exerciseExactCmd @V1.LfTemplate v1Cid V1.Noop
+    mustBeWronglyTypedContract res
