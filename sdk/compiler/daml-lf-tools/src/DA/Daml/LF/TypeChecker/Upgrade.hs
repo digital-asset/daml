@@ -553,7 +553,7 @@ checkDefDataType origin datatype = do
       Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
           pure ()
       _ ->
-          throwWithContextF present (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)))
+          throwWithContextF present (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)) (dataCons (_past datatype)) (dataCons (_present datatype)))
 
 filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.HashMap k a)
 filterHashMapM pred t =
