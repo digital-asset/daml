@@ -3,8 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
 

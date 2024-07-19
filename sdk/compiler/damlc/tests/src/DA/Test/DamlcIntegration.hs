@@ -419,7 +419,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
               testPassed . buildLog <$> getDamlOutput
           , singleTest "Check diagnostics" $ TestCase \log -> do
               diags <- diagnostics <$> getDamlOutput
-              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags
+              resDiag <- checkDiagnostics version log [fields | DiagnosticFields fields <- anns] diags
               pure $ maybe (testPassed "") testFailed resDiag
           , testGroup "jq Queries"
               [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do
@@ -483,6 +483,7 @@ data DiagnosticField
   | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
+  | DSinceLf !(MS.Map LF.MajorVersion LF.MinorVersion)
 
 renderRange :: Range -> String
 renderRange r = p (_start r) ++ "-" ++ p (_end r)
@@ -500,35 +501,46 @@ renderDiagnosticField f = case f of
         DsHint -> "@HINT"
     DSource s -> "source=" ++ s ++ ";"
     DMessage m -> m
+    DSinceLf versions -> "version=" ++ renderVersions versions ++ ";"
 
 renderDiagnosticFields :: [DiagnosticField] -> String
 renderDiagnosticFields fs = unwords ("--" : map renderDiagnosticField fs)
 
-checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got
-    -- you require the same number of diagnostics as expected
+checkDiagnostics :: LF.Version -> (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
+checkDiagnostics version log expected got
+    -- you require the same number of diagnostics as expected, minus those that
+    -- were ignored
     -- and each diagnostic is at least partially expected
-    | length expected /= length got = do
+    | length notIgnored /= length got = do
         logDiags
-        pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
+        pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length notIgnored) ++ ", but got " ++ show (length got)
     | notNull bad = do
         logDiags
         pure $ Just $ unlines ("Could not find matching diagnostics:" : map renderDiagnosticFields bad)
     | otherwise = pure Nothing
-    where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
+    where ignoreField :: DiagnosticField -> Bool
+          ignoreField f = case f of
+            DSinceLf versionBounds -> not (versionBounds `containsVersion` version)
+            _ -> False
+
+          checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
             DFilePath p -> toNormalizedFilePath' p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
+            DSinceLf _ -> True
             DMessage m ->
               standardizeQuotes (T.pack m)
                   `T.isInfixOf`
                       standardizeQuotes (redactStablePackageIds (T.unwords (T.words _message)))
           logDiags = log $ T.unpack $ showDiagnostics got
+          notIgnored = filter
+            (not . any ignoreField)
+            expected
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
-            expected
+            notIgnored
 
 ------------------------------------------------------------
 -- functionality
@@ -610,6 +622,9 @@ parseMaybeVersion s =
     Just v -> Just v
     Nothing -> error ("couldn't parse version: " <> show s)
 
+renderVersions :: MS.Map LF.MajorVersion LF.MinorVersion -> String
+renderVersions = unwords . map (LF.renderVersion . uncurry Version) . MS.toList
+
 parseFields :: String -> [DiagnosticField]
 parseFields = map (parseField . trim) . wordsBy (==';')
 
@@ -623,6 +638,7 @@ parseField s =
         "range" -> DRange (parseRange val)
         "source" -> DSource val
         "message" -> DMessage val
+        "since-lf" -> DSinceLf (parseMaybeVersions val)
         -- We do not parse severity fields as they are already
         -- specified by using @FAIL or @WARN.
         _ -> DMessage s

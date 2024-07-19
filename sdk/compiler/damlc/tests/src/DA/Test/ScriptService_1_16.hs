@@ -234,7 +234,10 @@ expectScriptSuccess xs vr pred = case find ((vr ==) . fst) xs of
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show r
 
 options :: Options
-options = defaultOptions (Just lfVersion)
+options =
+  let opts0 = defaultOptions (Just lfVersion)
+  in
+  opts0 { optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True } }
 
 
 runScripts :: SdkVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

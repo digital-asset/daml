@@ -2,8 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- @ERROR range=22:5-23:32;error type checking template InterfaceMissingMethod.T interface instance InterfaceMissingMethod:I for InterfaceMissingMethod:T: Interface instance lacks an implementation for method 'm'
 
 module InterfaceMissingMethod where
