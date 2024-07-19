@@ -370,7 +370,8 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "data C = C Int"
             ]
         (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
-        out @?= "Running single package build of proj as no multi-package.yaml was found.\n"
+        out @?= ""
+        assertInfixOf "Running single package build of proj as no multi-package.yaml was found.\n" err
         assertInfixOf "collision between module prefix A.B (from A.B.C) and variant A:B" err
         exitCode @?= ExitFailure 1
 

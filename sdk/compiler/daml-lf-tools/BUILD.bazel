@@ -29,6 +29,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
         "//libs-haskell/da-hs-base",
     ],
 )

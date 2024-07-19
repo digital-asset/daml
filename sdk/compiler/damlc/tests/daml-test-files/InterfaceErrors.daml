@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 module InterfaceErrors where
 
 import Daml.Script
@@ -43,12 +44,12 @@ template Test
                 exercise cid' MyVirtualChoice
                 pure ()
 
--- @ERROR range=47:1-47:17; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=48:1-48:17; Attempt to use a contract via an interface that the contract does not implement
 fetchBadContract = script do
     p <- allocateParty "Alice"
     p `submit` do createAndExerciseCmd (Test p) CoercedFetch
 
--- @ERROR range=52:1-52:20; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=53:1-53:20; Attempt to use a contract via an interface that the contract does not implement
 exerciseBadContract = script do
     p <- allocateParty "Alice"
     p `submit` do createAndExerciseCmd (Test p) CoercedExercise

@@ -26,12 +26,14 @@ import MkIface
 import Maybes (MaybeErr(..))
 import TcRnMonad (initIfaceLoad)
 
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
@@ -101,6 +103,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
+import qualified DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
 import DA.Pretty (PrettyLevel)
@@ -290,20 +293,22 @@ getExternalPackages file = do
         map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
 
 -- Generates and type checks the DALF for a module.
-generateDalfRule :: Rules ()
-generateDalfRule =
+generateDalfRule :: Options -> Rules ()
+generateDalfRule opts =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
+        upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         pure $! case Serializability.inferModule world lfVersion rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
-                let diags = LF.checkModule world lfVersion dalf
-                in second (dalf <$) (diagsToIdeResult file diags)
+                let lfDiags = LF.checkModule world lfVersion dalf
+                    upgradeDiags = Upgrade.checkModule world dalf lfVersion (optUpgradeInfo opts) upgradedPackage
+                in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.
@@ -530,6 +535,18 @@ generatePackageMap version mbProjRoot userPkgDbs = do
                      (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
                      (LF.dalfPackageId pkg)
 
+extractUpgradedPackageRule :: Options -> Rules ()
+extractUpgradedPackageRule opts = do
+  defineNoFile $ \ExtractUpgradedPackage ->
+    case uiUpgradedPackagePath (optUpgradeInfo opts) of
+      Nothing -> pure Nothing
+      Just path -> use ExtractUpgradedPackageFile (toNormalizedFilePath' path)
+  define $ \ExtractUpgradedPackageFile file -> do
+    ExtractedDar{edMain} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
+    case Archive.decodeArchive Archive.DecodeAsMain bs of
+      Left _ -> pure ([ideErrorPretty file ("Could not decode file as a DAR." :: T.Text)], Nothing)
+      Right (pid, package) -> pure ([], Just (pid, package))
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
@@ -1521,7 +1538,7 @@ internalModules = map FPP.normalise
 damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule
-    generateDalfRule
+    generateDalfRule opts
     generateSerializedDalfRule opts
     readSerializedDalfRule
     readInterfaceRule
@@ -1545,6 +1562,7 @@ damlRule opts = do
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
     damlGhcSessionRule opts
+    extractUpgradedPackageRule opts
     when (optEnableOfInterestRule opts) ofInterestRule
 
 mainRule :: SdkVersioned => Options -> Rules ()

@@ -50,6 +50,8 @@ main = withSdkVersions $ do
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
     scriptDarPath <- locateRunfiles $
         mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
+    myPackageDarPath <- locateRunfiles $
+        mainWorkspace </> "compiler" </> "lsp-tests" </> "my-package.dar"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
         runScripts s
             -- We are currently seeing issues with GRPC FFI calls which make everything
@@ -84,10 +86,41 @@ main = withSdkVersions $ do
                                     dir
                                     (s serverErr)
                             _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
+        runUpgrades s =
+            withTempDir $ \dir -> do
+                copyFile myPackageDarPath (dir </> "my-package.dar")
+                writeFileUTF8 (dir </> "daml.yaml") $ unlines
+                    [ "sdk-version: " <> sdkVersion
+                    , "name: my-package"
+                    , "version: 2.0.0"
+                    , "source: ."
+                    , "dependencies:"
+                    , "- daml-prim"
+                    , "- daml-stdlib"
+                    , "upgrades: my-package.dar"
+                    , "build-options:"
+                    , "- --target=1.dev"
+                    ]
+                withCurrentDirectory dir $ do
+                    let cmd = damlcPath
+                        args = ["ide", "--debug"]
+                        createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+                    withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
+                        case (mbServerIn, mbServerOut, mbServerErr) of
+                            (Just serverIn, Just serverOut, Just serverErr) -> do
+                                runSessionWithHandles
+                                    serverIn
+                                    serverOut
+                                    conf
+                                    fullCaps'
+                                    dir
+                                    (s serverErr)
+                            _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
+
 
     defaultMain $ testGroup "LSP"
         [ symbolsTests run
-        , diagnosticTests run runScripts
+        , diagnosticTests run runScripts runUpgrades
         , requestTests run runScripts
         , scriptTests runScripts
         , stressTests run
@@ -109,8 +142,9 @@ conf = defaultConfig
 diagnosticTests
     :: (Session () -> IO ())
     -> ((Handle -> Session ()) -> IO ())
+    -> ((Handle -> Session ()) -> IO ())
     -> TestTree
-diagnosticTests run runScripts = testGroup "diagnostics"
+diagnosticTests run runScripts runUpgrades = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "module Test where"
@@ -286,6 +320,25 @@ diagnosticTests run runScripts = testGroup "diagnostics"
           expectDiagnostics
               [ ( "Main.daml"
                 , [(DsError, (4, 0), "missing authorization from 'Alice'")]
+                )
+              ]
+          closeDoc main'
+    , testCase "upgrade error" $ runUpgrades $ \_stderr -> do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "template T with"
+              , "    p: Party"
+              , "    q: Int"
+              , "  where"
+              , "    signatory p"
+              ]
+          expectDiagnostics
+              [ ( "Main.daml"
+                , [ ( DsError
+                    , (1, 9)
+                    , "The upgraded template T has added new fields, but those fields are not Optional."
+                    )
+                  ]
                 )
               ]
           closeDoc main'

@@ -1084,9 +1084,9 @@ encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
     pure P.DefInterface_CoImplements {..}
 
-encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
+encodeUpgradedPackageId :: UpgradedPackageId -> Encode P.UpgradedPackageId
 encodeUpgradedPackageId upgradedPackageId = do
-  upgradedPackageIdUpgradedPackageIdInternedStr <- fromRight (error "Upgraded package-id is always interned") <$> encodeInternableString (unPackageId upgradedPackageId)
+  upgradedPackageIdUpgradedPackageIdInternedStr <- fromRight (error "Upgraded package-id is always interned") <$> encodeInternableString (unPackageId (unUpgradedPackageId upgradedPackageId))
   pure P.UpgradedPackageId{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata

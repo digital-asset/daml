@@ -6,6 +6,8 @@ module InterfaceChoiceGuardFailed where
 import Daml.Script
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @WARN since-lf=1.16 2.0; warn-bad-interface-instances
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
@@ -35,7 +37,7 @@ template Test
       do
         exerciseGuarded (const False) cidI IChoice
 
--- @ERROR range=39:1-39:5; Attempt to exercise a choice with a failing guard
+-- @ERROR range=41:1-41:5; Attempt to exercise a choice with a failing guard
 main = script do
   alice <- allocateParty "alice"
   cidT <- alice `submit` createCmd T with party = alice

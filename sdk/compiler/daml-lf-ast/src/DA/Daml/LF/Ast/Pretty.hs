@@ -58,6 +58,9 @@ pPrintDottedName = hcat . punctuate "." . map text
 instance Pretty PackageId where
     pPrint = text . unPackageId
 
+instance Pretty UpgradedPackageId where
+    pPrint = pPrint . unUpgradedPackageId
+
 instance Pretty ModuleName where
     pPrint = pPrintDottedName . unModuleName
 

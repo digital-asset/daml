@@ -26,14 +26,10 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.LF.TypeChecker.Error (UnwarnableError(EUnsupportedFeature))
-import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
+import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
-import DA.Pretty (renderPretty)
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -68,8 +64,6 @@ import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
 import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
-
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
 import SdkVersion.Class (SdkVersioned)
 
@@ -116,9 +110,9 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> WarnBadInterfaceInstances
+    -> UpgradeInfo
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstances = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -139,33 +133,19 @@ buildDar service PackageConfigFields {..} ifDir dalfInput warnBadInterfaceInstan
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
-                 mbUpgradedPackage <-
-                   forM pUpgradedPackagePath $ \path ->
-                     if lfVersion `LF.supports` LF.featurePackageUpgrades
-                       then do
-                         ExtractedDar{edMain} <- liftIO $ extractDar path
-                         let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-                         case Archive.decodeArchive Archive.DecodeAsMain bs of
-                            Left _ -> error $ "Could not decode path " ++ path
-                            Right (pid, package) -> return (pid, package)
-                       else do
-                         liftIO $
-                           IdeLogger.logError (ideLogger service) $
-                             renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
-                         MaybeT (pure Nothing)
+                 mbUpgradedPackage <- useNoFileE ExtractUpgradedPackage
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = fst <$> mbUpgradedPackage
+                        , upgradedPackageId = LF.UpgradedPackageId . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
-                 when (lfVersion `LF.supports` LF.featurePackageUpgrades) $
-                     MaybeT $
-                         runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                             TypeChecker.Upgrade.checkUpgrade lfVersion pTypecheckUpgrades warnBadInterfaceInstances pkg mbUpgradedPackage
+                 MaybeT $
+                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                         Upgrade.checkUpgrade pkg lfVersion upgradeInfo mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
