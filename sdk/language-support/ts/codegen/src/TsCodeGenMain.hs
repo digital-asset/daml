@@ -78,17 +78,18 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
--- Build a list of packages from a list of DAR file paths.
-readPackages :: [FilePath] -> IO [(PackageId, Package)]
+-- Build a list of packages from a list of DAR file paths. Also tags each Package with whether its a main package
+readPackages :: [FilePath] -> IO [(PackageId, Package, Bool)]
 readPackages dars = concatMapM darToPackages dars
   where
-    darToPackages :: FilePath -> IO [(PackageId, Package)]
+    darToPackages :: FilePath -> IO [(PackageId, Package, Bool)]
     darToPackages dar = do
       dar <- B.readFile dar
       let archive = Zip.toArchive $ BSL.fromStrict dar
       dalfs <- either fail pure $ DAR.readDalfs archive
-      forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf ->
-        either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+      forM ((DAR.mainDalf dalfs, True) : ((,False) <$> DAR.dalfs dalfs)) $ \(dalf, isMain) -> do
+        (pkgId, pkg) <- either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+        pure (pkgId, pkg, isMain)
 
 unitIdToText :: (PackageName, PackageVersion) -> T.Text
 unitIdToText (pkgName, pkgVersion) = unPackageName pkgName <> "-" <> unPackageVersion pkgVersion
@@ -98,14 +99,14 @@ packageUnitId pkg' = (\PackageMetadata {..} -> (packageName, packageVersion)) <$
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
-mergePackageMap :: [(PackageId, Package)] ->
+mergePackageMap :: [(PackageId, Package, Bool)] ->
                    Either T.Text (Map.Map PackageId (PackageReference, Package))
 mergePackageMap ps = fst <$> foldM merge mempty ps
   where
     merge :: (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion)) ->
-                  (PackageId, Package) ->
+                  (PackageId, Package, Bool) ->
                   Either T.Text (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion))
-    merge (pkgs, usedUnitIds) (pkgId, pkg) = do
+    merge (pkgs, usedUnitIds) (pkgId, pkg, isMain) = do
         let pkgIsUtil = isUtilityPackage pkg
             supportsUpgrades = not pkgIsUtil && packageLfVersion pkg `supports` featurePackageUpgrades
             pkgRef =
@@ -114,7 +115,7 @@ mergePackageMap ps = fst <$> foldM merge mempty ps
                   PkgNameVer (packageName, packageVersion)
                 _ ->
                   PkgId pkgId
-            mOwnUnitId = guard supportsUpgrades >> packageUnitId pkg
+            mOwnUnitId = guard (supportsUpgrades || isMain) >> packageUnitId pkg
             newUsedUnitIds = maybe usedUnitIds (`Set.insert` usedUnitIds) mOwnUnitId
             -- Do not include utility packages, as there is nothing to generate
             newPkgs = if pkgIsUtil then pkgs else Map.insert pkgId (pkgRef, pkg) pkgs
