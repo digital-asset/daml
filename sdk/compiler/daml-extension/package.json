@@ -117,7 +117,7 @@
                 "daml.multiPackageIdeSupport": {
                   "type": "boolean",
                   "default": false,
-                  "description": "EXPERIMENTAL: Enables the incomplete and experimental multi-ide feature."
+                  "description": "Enables the Initial Access support for multi-package compatibility in the IDE."
                 }
             }
         },
