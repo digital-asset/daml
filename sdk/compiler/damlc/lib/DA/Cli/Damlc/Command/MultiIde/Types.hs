@@ -385,6 +385,10 @@ data ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient t) where
     -> ForwardingBehaviour m
   AllNotification
     :: ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
+  -- For the case where a File Path cannot be deduced because it is unrecognised (i.e. unknown schema)
+  CannotForwardRequest
+    :: forall t (m :: LSP.Method 'LSP.FromClient t)
+    .  ForwardingBehaviour m
 
 -- Akin to ClientNotOrReq tagged with ForwardingBehaviour, and CustomMethod realised to req/not
 data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
