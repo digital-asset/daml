@@ -8,7 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, ExecutionContextMonitor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
+import com.digitalasset.canton.logging.SuppressingLogger.{LogEntryOptionality, NoSuppression, State}
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.typesafe.scalalogging.Logger
@@ -30,6 +30,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -53,8 +54,7 @@ class SuppressingLogger private[logging] (
     underlyingLoggerFactory: NamedLoggerFactory,
     pollTimeout: FiniteDuration,
     skipLogEntry: LogEntry => Boolean,
-    activeSuppressionRule: AtomicReference[SuppressionRule] =
-      new AtomicReference[SuppressionRule](SuppressionRule.NoSuppression),
+    activeState: AtomicReference[State] = new AtomicReference[State](NoSuppression),
     private[logging] val recordedLogEntries: java.util.concurrent.BlockingQueue[LogEntry] =
       new java.util.concurrent.LinkedBlockingQueue[LogEntry](),
 ) extends NamedLoggerFactory {
@@ -70,13 +70,15 @@ class SuppressingLogger private[logging] (
   override val name: String = underlyingLoggerFactory.name
   override val properties: ListMap[String, String] = underlyingLoggerFactory.properties
 
+  private def restoreNoSuppression = () => activeState.set(NoSuppression)
+
   override def appendUnnamedKey(key: String, value: String): NamedLoggerFactory =
     // intentionally share suppressedLevel and queues so suppression on a parent logger will effect a child and collect all suppressed messages
     new SuppressingLogger(
       underlyingLoggerFactory.appendUnnamedKey(key, value),
       pollTimeout,
       skipLogEntry,
-      activeSuppressionRule,
+      activeState,
       recordedLogEntries,
     )
 
@@ -86,7 +88,7 @@ class SuppressingLogger private[logging] (
       underlyingLoggerFactory.append(key, value),
       pollTimeout,
       skipLogEntry,
-      activeSuppressionRule,
+      activeState,
       recordedLogEntries,
     )
 
@@ -98,7 +100,7 @@ class SuppressingLogger private[logging] (
       new SuppressingLoggerDispatcher(
         actualLogger.underlying.getName,
         suppressedMessageLogger,
-        activeSuppressionRule,
+        activeState,
         SuppressionPrefix,
       )
     logger.setDelegate(actualLogger.underlying)
@@ -500,7 +502,13 @@ class SuppressingLogger private[logging] (
   }
 
   def suppress[A](rule: SuppressionRule)(within: => A): A = {
-    val endSuppress = beginSuppress(rule)
+    val endSuppress =
+      try { beginSuppress(rule) }
+      catch {
+        case NonFatal(t) =>
+          internalLogger.error("Failed to begin suppression", t)
+          restoreNoSuppression
+      }
     runWithCleanup(within, () => (), endSuppress)
   }
 
@@ -558,19 +566,22 @@ class SuppressingLogger private[logging] (
   }
 
   private def beginSuppress(rule: SuppressionRule): () => Unit = {
-    withClue("Trying to suppress warnings/errors several times") {
-      // Nested usages are not supported, because we clear the message queue when the suppression begins.
-      // So a second call of this method would purge the messages collected by previous calls.
+    // Nested usages are not supported, because we clear the message queue when the suppression begins.
+    // So a second call of this method would purge the messages collected by previous calls.
 
-      val previousRule = activeSuppressionRule.getAndUpdate { (previous: SuppressionRule) =>
-        if (previous == SuppressionRule.NoSuppression) rule else previous
-      }
-      previousRule shouldBe SuppressionRule.NoSuppression
-    }
+    val previous = activeState.getAndUpdate(state =>
+      if (state eq NoSuppression) State(rule)
+      else state
+    )
+    if (!(previous eq NoSuppression))
+      fail(
+        "`SuppressingLogger.suppress` support neither nested nor concurrent calls; stack trace of previous entrance attached as cause",
+        previous.creationStackTrace,
+      )
 
     recordedLogEntries.clear()
 
-    () => activeSuppressionRule.set(SuppressionRule.NoSuppression)
+    restoreNoSuppression
   }
 
   def assertSingleErrorLogEntry[A](
@@ -606,6 +617,13 @@ class SuppressingLogger private[logging] (
 }
 
 object SuppressingLogger {
+
+  final case class State(rule: SuppressionRule) {
+    val creationStackTrace = new Exception
+  }
+
+  private val NoSuppression = State(SuppressionRule.NoSuppression)
+
   def apply(
       testClass: Class[_],
       pollTimeout: FiniteDuration = 1.second,

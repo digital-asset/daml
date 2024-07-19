@@ -338,6 +338,22 @@ private[backend] class ParameterStorageBackendImpl(
       .getOrElse(DomainIndex.empty)
   }
 
+  override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit = {
+    batchUpsert(
+      "INSERT INTO lapi_post_processing_end VALUES ({postProcessingEnd})",
+      "UPDATE lapi_post_processing_end SET post_processing_end = {postProcessingEnd}",
+      List(
+        Seq[NamedParameter](
+          "postProcessingEnd" -> postProcessingEnd.toHexString.toString
+        )
+      ),
+    )(connection)
+  }
+
+  override def postProcessingEnd(connection: Connection): Option[Offset] =
+    SQL"select post_processing_end from lapi_post_processing_end"
+      .asSingleOpt(offset("post_processing_end"))(connection)
+
   private def batchSql(
       sqlWithNamedParams: String,
       namedParamsBatch: List[Seq[NamedParameter]],

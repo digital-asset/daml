@@ -25,7 +25,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.PendingTransferOut
@@ -37,7 +36,11 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.memory.*
-import com.digitalasset.canton.participant.store.{MultiDomainEventLog, SyncDomainEphemeralState}
+import com.digitalasset.canton.participant.store.{
+  MultiDomainEventLog,
+  ParticipantNodeEphemeralState,
+  SyncDomainEphemeralState,
+}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -152,9 +155,9 @@ final class TransferOutProcessingStepsTest
   private def mkState: SyncDomainEphemeralState =
     new SyncDomainEphemeralState(
       submittingParticipant,
+      mock[ParticipantNodeEphemeralState],
       persistentState,
       Eval.now(multiDomainEventLog),
-      mock[InFlightSubmissionTracker],
       ProcessingStartingPoints.default,
       () => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,

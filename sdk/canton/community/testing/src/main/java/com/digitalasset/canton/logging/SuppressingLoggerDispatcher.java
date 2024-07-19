@@ -14,20 +14,20 @@ import static org.slf4j.event.Level.*;
 
 class SuppressingLoggerDispatcher extends SubstituteLogger {
 
-  private Logger suppressedMessageLogger;
-  private AtomicReference<SuppressionRule> activeSuppressionRule;
-  private String suppressionPrefix;
+  private final Logger suppressedMessageLogger;
+  private final AtomicReference<SuppressingLogger.State> activeSuppressionState;
+  private final String suppressionPrefix;
 
   SuppressingLoggerDispatcher(
       String name,
       Logger suppressedMessageLogger,
-      AtomicReference<SuppressionRule> activeSuppressionRule,
+      AtomicReference<SuppressingLogger.State> activeSuppressionState,
       String suppressionPrefix) {
     // because we know we won't log anything before setting the delegate there's no need to set an
     // event queue hence the null
     super(name, null, true);
     this.suppressedMessageLogger = suppressedMessageLogger;
-    this.activeSuppressionRule = activeSuppressionRule;
+    this.activeSuppressionState = activeSuppressionState;
     this.suppressionPrefix = suppressionPrefix;
   }
 
@@ -432,7 +432,7 @@ class SuppressingLoggerDispatcher extends SubstituteLogger {
   }
 
   private boolean isSuppressed(Level level) {
-    return activeSuppressionRule.get().isSuppressed(getName(), level);
+    return activeSuppressionState.get().rule().isSuppressed(getName(), level);
   }
 
   public String withSuppressionHint(Level level, String msg) {

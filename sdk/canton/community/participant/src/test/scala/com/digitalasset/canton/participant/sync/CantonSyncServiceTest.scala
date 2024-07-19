@@ -10,6 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressingLogger
@@ -17,6 +18,10 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.{PackageService, ResourceManagementService}
 import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainRegistry}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
+import com.digitalasset.canton.participant.protocol.submission.{
+  CommandDeduplicatorImpl,
+  InFlightSubmissionTracker,
+}
 import com.digitalasset.canton.participant.pruning.NoOpPruningProcessor
 import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightReference
 import com.digitalasset.canton.participant.store.ParticipantEventLog.ProductionParticipantEventLogId
@@ -121,6 +126,27 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     when(inFlightSubmissionStore.delete(any[Seq[InFlightReference]])(anyTraceContext))
       .thenReturn(Future.unit)
 
+    val clock = new SimClock(loggerFactory = loggerFactory)
+
+    val commandDeduplicator = new CommandDeduplicatorImpl(
+      store = Eval.now(commandDeduplicationStore),
+      clock = clock,
+      publicationTimeLowerBound = Eval.now(CantonTimestamp.MinValue),
+      loggerFactory = loggerFactory,
+    )
+
+    val inFlightSubmissionTracker = new InFlightSubmissionTracker(
+      store = Eval.now(inFlightSubmissionStore),
+      deduplicator = commandDeduplicator,
+      multiDomainEventLog = Eval.now(multiDomainEventLog),
+      timeouts = LocalNodeParameters.processingTimeouts,
+      loggerFactory = loggerFactory,
+    )
+
+    when(participantNodeEphemeralState.inFlightSubmissionTracker).thenReturn(
+      inFlightSubmissionTracker
+    )
+
     val sync = new CantonSyncService(
       participantId,
       domainRegistry,
@@ -137,7 +163,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       pruningProcessor,
       DAMLe.newEngine(enableLfDev = false, enableLfBeta = false, enableStackTraces = false),
       syncDomainStateFactory,
-      new SimClock(loggerFactory = loggerFactory),
+      clock,
       new ResourceManagementService.CommunityResourceManagementService(
         None,
         ParticipantTestMetrics,

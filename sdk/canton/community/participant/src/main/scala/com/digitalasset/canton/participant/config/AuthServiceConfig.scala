@@ -112,7 +112,7 @@ object AuthServiceConfig {
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL */
-  final case class JwtRs256Jwks(
+  final case class JwtJwks(
       url: NonEmptyString,
       targetAudience: Option[String],
       targetScope: Option[String],

@@ -61,12 +61,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionUnknown,
   TransactionSubmitted,
 }
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
-import com.digitalasset.canton.participant.protocol.submission.{
-  CommandDeduplicatorImpl,
-  InFlightSubmissionTracker,
-}
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.participant.protocol.transfer.{
   IncompleteTransferData,
@@ -327,34 +322,14 @@ class CantonSyncService(
       new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
     else CommandProgressTracker.NoOp
 
-  private val commandDeduplicator = new CommandDeduplicatorImpl(
-    participantNodePersistentState.map(_.commandDeduplicationStore),
-    clock,
-    participantNodePersistentState.flatMap(mdel =>
-      Eval.always(mdel.multiDomainEventLog.publicationTimeLowerBound)
-    ),
-    loggerFactory,
+  participantNodeEphemeralState.inFlightSubmissionTracker.registerDomainStateLookup(domainId =>
+    connectedDomainsMap.get(domainId).map(_.ephemeral.inFlightSubmissionTrackerDomainState)
   )
-
-  private val inFlightSubmissionTracker = {
-    def domainStateFor(domainId: DomainId): Option[InFlightSubmissionTrackerDomainState] =
-      connectedDomainsMap.get(domainId).map(_.ephemeral.inFlightSubmissionTrackerDomainState)
-
-    new InFlightSubmissionTracker(
-      participantNodePersistentState.map(_.inFlightSubmissionStore),
-      participantNodeEphemeralState.participantEventPublisher,
-      commandDeduplicator,
-      participantNodePersistentState.map(_.multiDomainEventLog),
-      domainStateFor,
-      timeouts,
-      loggerFactory,
-    )
-  }
 
   // Setup the propagation from the MultiDomainEventLog to the InFlightSubmissionTracker
   // before we run crash recovery
   participantNodePersistentState.value.multiDomainEventLog.setOnPublish(
-    inFlightSubmissionTracker.onPublishListener
+    participantNodeEphemeralState.inFlightSubmissionTracker.onPublishListener
   )
 
   if (isActive()) {
@@ -773,7 +748,8 @@ class CantonSyncService(
           .collect { case domain if domain.status.isActive => domain.config.domain }
           .mapFilter(aliasManager.domainIdForAlias)
       for {
-        _ <- inFlightSubmissionTracker.recoverPublishedTimelyRejections(domains)
+        _ <- participantNodeEphemeralState.inFlightSubmissionTracker
+          .recoverPublishedTimelyRejections(domains)
         _ = logger.info("Publishing the unpublished events from the ParticipantEventLog")
         // These publications will propagate to the CommandDeduplicator and InFlightSubmissionTracker like during normal processing
         unpublished <- participantNodePersistentState.value.multiDomainEventLog.fetchUnpublished(
@@ -1398,7 +1374,7 @@ class CantonSyncService(
               .createFromPersistent(
                 persistent,
                 participantNodePersistentState.map(_.multiDomainEventLog),
-                inFlightSubmissionTracker,
+                participantNodeEphemeralState,
                 () => {
                   val tracker = DomainTimeTracker(
                     domainConnectionConfig.config.timeTracker,
@@ -1448,7 +1424,7 @@ class CantonSyncService(
             ),
           missingKeysAlerter,
           transferCoordination,
-          inFlightSubmissionTracker,
+          participantNodeEphemeralState.inFlightSubmissionTracker,
           commandProgressTracker,
           clock,
           domainMetrics,
@@ -1678,7 +1654,7 @@ class CantonSyncService(
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
       _ = participantNodePersistentState.value.multiDomainEventLog.setOnPublish(
-        inFlightSubmissionTracker.onPublishListener
+        participantNodeEphemeralState.inFlightSubmissionTracker.onPublishListener
       )
     } yield ()
 
@@ -1691,7 +1667,7 @@ class CantonSyncService(
     ) ++ syncCrypto.ips.allDomains.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
       domainRouter,
       domainRegistry,
-      inFlightSubmissionTracker,
+      participantNodeEphemeralState.inFlightSubmissionTracker,
       domainConnectionConfigStore,
       syncDomainPersistentStateManager,
       participantNodePersistentState.value,

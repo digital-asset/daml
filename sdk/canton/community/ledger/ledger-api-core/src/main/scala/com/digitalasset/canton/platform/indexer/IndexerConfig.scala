@@ -25,6 +25,7 @@ final case class IndexerConfig(
     submissionBatchSize: Long = DefaultSubmissionBatchSize,
     maxOutputBatchedBufferSize: Int = DefaultMaxOutputBatchedBufferSize,
     maxTailerBatchSize: Int = DefaultMaxTailerBatchSize,
+    postProcessingParallelism: Int = DefaultPostProcessingParallelism,
 )
 
 object IndexerConfig {
@@ -49,7 +50,8 @@ object IndexerConfig {
       ),
   ): ConnectionPoolConfig =
     ConnectionPoolConfig(
-      connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+      connectionPoolSize =
+        ingestionParallelism + 2, // + 2 for the tailing ledger_end and post processing end updates
       connectionTimeout = connectionTimeout,
     )
 
@@ -62,4 +64,5 @@ object IndexerConfig {
   val DefaultEnableCompression: Boolean = false
   val DefaultMaxOutputBatchedBufferSize: Int = 16
   val DefaultMaxTailerBatchSize: Int = 10
+  val DefaultPostProcessingParallelism: Int = 8
 }

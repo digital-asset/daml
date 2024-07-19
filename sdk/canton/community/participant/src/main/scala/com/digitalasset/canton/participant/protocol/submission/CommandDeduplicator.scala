@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
@@ -20,6 +21,7 @@ import com.digitalasset.canton.participant.store.CommandDeduplicationStore.Offse
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
+import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -37,6 +39,13 @@ trait CommandDeduplicator {
   /** Register the publication of the events in the [[com.digitalasset.canton.participant.store.CommandDeduplicationStore]] */
   def processPublications(
       publications: Seq[MultiDomainEventLog.OnPublish.Publication]
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
+  /** Register the publication of the events in the [[com.digitalasset.canton.participant.store.CommandDeduplicationStore]] */
+  def processPublications(
+      publications: Vector[PostPublishData]
   )(implicit
       traceContext: TraceContext
   ): Future[Unit]
@@ -108,6 +117,27 @@ class CommandDeduplicatorImpl(
     }
     store.value.storeDefiniteAnswers(offsetsAndCompletionInfos)
   }
+
+  override def processPublications(
+      publications: Vector[PostPublishData]
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    store.value.storeDefiniteAnswers(
+      publications.map(publication =>
+        (
+          ChangeId(
+            applicationId = publication.applicationId,
+            commandId = publication.commandId,
+            actAs = publication.actAs,
+          ),
+          DefiniteAnswerEvent(
+            offset = GlobalOffset.tryFromLong(publication.offset.toLong),
+            publicationTime = publication.publicationTime,
+            submissionIdO = publication.submissionId,
+          )(publication.traceContext),
+          publication.accepted,
+        )
+      )
+    )
 
   override def checkDuplication(
       changeIdHash: ChangeIdHash,

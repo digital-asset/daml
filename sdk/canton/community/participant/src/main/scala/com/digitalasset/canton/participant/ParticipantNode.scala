@@ -48,6 +48,10 @@ import com.digitalasset.canton.participant.ledger.api.{
   StartableStoppableLedgerApiServer,
 }
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.participant.protocol.submission.{
+  CommandDeduplicatorImpl,
+  InFlightSubmissionTracker,
+}
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantSchedulersParameters,
@@ -558,6 +562,23 @@ class ParticipantNodeBootstrap(
         )
       )
 
+      commandDeduplicator = new CommandDeduplicatorImpl(
+        persistentState.map(_.commandDeduplicationStore),
+        clock,
+        persistentState.flatMap(mdel =>
+          Eval.always(mdel.multiDomainEventLog.publicationTimeLowerBound)
+        ),
+        loggerFactory,
+      )
+
+      inFlightSubmissionTracker = new InFlightSubmissionTracker(
+        persistentState.map(_.inFlightSubmissionStore),
+        commandDeduplicator,
+        persistentState.map(_.multiDomainEventLog),
+        timeouts,
+        loggerFactory,
+      )
+
       excludedPackageIds =
         if (parameters.excludeInfrastructureTransactions) {
           Set(
@@ -575,6 +596,7 @@ class ParticipantNodeBootstrap(
       ephemeralState = ParticipantNodeEphemeralState(
         participantId,
         persistentState,
+        inFlightSubmissionTracker,
         clock,
         timeouts = parameterConfig.processingTimeouts,
         futureSupervisor,

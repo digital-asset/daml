@@ -15,10 +15,7 @@ import com.digitalasset.canton.platform.store.cache.{
   MutableLedgerEndCache,
   OffsetCheckpointCache,
 }
-import com.digitalasset.canton.platform.store.interning.{
-  StringInterningView,
-  UpdatingStringInterningView,
-}
+import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 
@@ -45,8 +42,8 @@ private[platform] class InMemoryState(
     *
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
-  final def initializeTo(ledgerEnd: LedgerEnd)(
-      updateStringInterningView: (UpdatingStringInterningView, LedgerEnd) => Future[Unit]
+  final def initializeTo(
+      ledgerEnd: LedgerEnd
   )(implicit traceContext: TraceContext): Future[Unit] = {
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
@@ -56,8 +53,6 @@ private[platform] class InMemoryState(
       // that new Ledger API subscriptions racing with `initializeTo`
       // do not observe an inconsistent state.
       _ <- dispatcherState.stopDispatcher()
-      // Reset the string interning view to the latest ledger end
-      _ <- updateStringInterningView(stringInterningView, ledgerEnd)
       // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)

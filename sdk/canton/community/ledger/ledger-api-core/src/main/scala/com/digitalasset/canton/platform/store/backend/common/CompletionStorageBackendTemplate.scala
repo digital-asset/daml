@@ -7,8 +7,10 @@ import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.backend.Conversions.{
@@ -20,11 +22,13 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.Sql
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{ApplicationId, Party}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.any
 import com.google.rpc.status.Status as StatusProto
 
 import java.sql.Connection
+import java.util.UUID
 
 class CompletionStorageBackendTemplate(
     queryStrategy: QueryStrategy,
@@ -170,6 +174,55 @@ class CompletionStorageBackendTemplate(
   private val completionParser: RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandParser | rejectedCommandParser
 
+  private val postPublishDataParser: RowParser[Option[PostPublishData]] =
+    int("domain_id") ~
+      str("message_uuid").? ~
+      long("request_sequencer_counter").? ~
+      long("record_time") ~
+      str("application_id") ~
+      str("command_id") ~
+      array[Int]("submitters") ~
+      offset("completion_offset") ~
+      long("publication_time") ~
+      str("submission_id").? ~
+      str("transaction_id").? ~
+      traceContextOption("trace_context")(noTracingLogger) ~
+      bool("is_transaction") map {
+        case internedDomainId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
+            commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ transactionIdOpt ~ traceContext ~ true =>
+          // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
+          Some(
+            PostPublishData(
+              submissionDomainId = stringInterning.domainId.externalize(internedDomainId),
+              publishSource = messageUuidString
+                .map(UUID.fromString)
+                .map(PublishSource.Local(_): PublishSource)
+                .getOrElse(
+                  PublishSource.Sequencer(
+                    requestSequencerCounter = SequencerCounter(
+                      requestSequencerCounterLong
+                        .getOrElse(
+                          throw new IllegalStateException(
+                            "if message_uuid is empty, this field should be populated"
+                          )
+                        )
+                    ),
+                    sequencerTimestamp = CantonTimestamp.ofEpochMicro(recordTimeMicros),
+                  )
+                ),
+              applicationId = Ref.ApplicationId.assertFromString(applicationId),
+              commandId = Ref.CommandId.assertFromString(commandId),
+              actAs = submitters.view.map(stringInterning.party.externalize).toSet,
+              offset = offset,
+              publicationTime = CantonTimestamp.ofEpochMicro(publicationTimeMicros),
+              submissionId = submissionId.map(Ref.SubmissionId.assertFromString),
+              accepted = transactionIdOpt.isDefined,
+              traceContext = traceContext,
+            )
+          )
+        case _ => None
+      }
+
   private def buildStatusProto(
       rejectionStatusCode: Int,
       rejectionStatusMessage: String,
@@ -206,5 +259,39 @@ class CompletionStorageBackendTemplate(
     logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(
       traceContext
     )
+  }
+
+  override def commandCompletionsForRecovery(
+      startExclusive: Offset,
+      endInclusive: Offset,
+  )(connection: Connection): Vector[PostPublishData] = {
+    import ComposableQuery.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+    SQL"""
+      SELECT
+        domain_id,
+        message_uuid,
+        request_sequencer_counter,
+        record_time,
+        application_id,
+        command_id,
+        submitters,
+        completion_offset,
+        publication_time,
+        submission_id,
+        transaction_id,
+        trace_context,
+        is_transaction
+      FROM
+        lapi_command_completions
+      WHERE
+        ${queryStrategy.offsetIsBetween(
+        nonNullableColumn = "completion_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
+      ORDER BY completion_offset ASC"""
+      .asVectorOf(postPublishDataParser)(connection)
+      .flatten
   }
 }

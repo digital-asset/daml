@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.*
@@ -38,6 +37,7 @@ import com.digitalasset.canton.participant.store.TransferStoreTest.{contract, tr
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   MultiDomainEventLog,
+  ParticipantNodeEphemeralState,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
   TransferStoreTest,
@@ -146,9 +146,9 @@ class TransferInProcessingStepsTest
     } yield {
       val state = new SyncDomainEphemeralState(
         participant,
+        mock[ParticipantNodeEphemeralState],
         persistentState,
         Eval.now(multiDomainEventLog),
-        mock[InFlightSubmissionTracker],
         ProcessingStartingPoints.default,
         () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,

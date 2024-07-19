@@ -822,6 +822,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainOwners: Seq[InstanceReference],
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
+        mediatorRequestAmplification: SubmissionRequestAmplification,
     ): DomainId = {
       val (decentralizedNamespace, foundingTxs) =
         bootstrap.decentralized_namespace(domainOwners, store = AuthorizedStore.filterName)
@@ -900,7 +901,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               mediatorSequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
               PositiveInt.one,
-              SubmissionRequestAmplification.NoAmplification,
+              mediatorRequestAmplification,
             ),
             // if we run bootstrap ourselves, we should have been able to reach the nodes
             // so we don't want the bootstrapping to fail spuriously here in the middle of
@@ -922,6 +923,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         mediators: Seq[MediatorReference],
         domainOwners: Seq[InstanceReference] = Seq.empty,
         staticDomainParameters: data.StaticDomainParameters,
+        mediatorRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
     ): DomainId =
       domain(
         domainName,
@@ -929,6 +932,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         mediators.map(_ -> sequencers).toMap,
         domainOwners,
         staticDomainParameters,
+        mediatorRequestAmplification,
       )
 
     @Help.Summary(
@@ -941,6 +945,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
         domainOwners: Seq[InstanceReference],
         staticDomainParameters: data.StaticDomainParameters,
+        mediatorRequestAmplification: SubmissionRequestAmplification,
     ): DomainId = {
       // skip over HA sequencers
       val uniqueSequencers =
@@ -964,6 +969,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             domainOwnersOrDefault,
             uniqueSequencers,
             mediatorsToSequencers,
+            mediatorRequestAmplification,
           )
         case Left(error) =>
           val message = s"The domain cannot be bootstrapped: $error"

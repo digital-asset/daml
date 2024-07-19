@@ -190,6 +190,12 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex =
       throw new UnsupportedOperationException
+
+    override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit =
+      throw new UnsupportedOperationException
+
+    override def postProcessingEnd(connection: Connection): Option[Offset] =
+      throw new UnsupportedOperationException
   }
 }
 

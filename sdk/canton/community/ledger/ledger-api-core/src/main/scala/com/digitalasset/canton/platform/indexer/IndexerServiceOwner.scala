@@ -71,6 +71,7 @@ final class IndexerServiceOwner(
       indexServiceDbDispatcher,
       clock,
       reassignmentOffsetPersistence,
+      (_, _) => Future.successful(()), // will be fixed with the big-bang fusion PR
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,
@@ -85,7 +86,7 @@ final class IndexerServiceOwner(
     ): Resource[ReportsHealth] =
       Resource
         .fromFuture(migration)
-        .flatMap(_ => indexerFactory.initialized(logger).acquire())
+        .flatMap(_ => indexerFactory.initialized().acquire())
         .flatMap(indexer.start)
         .map { case (healthReporter, _) =>
           logger.debug(initializedDebugLogMessage)
