@@ -166,13 +166,13 @@ getMessageForwardingBehaviour miState meth params =
     LSP.STextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
     LSP.SWorkspaceSemanticTokensRefresh -> unsupported "WorkspaceSemanticTokensRefresh"
 
-filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> FilePath
+filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> Maybe FilePath
 filePathFromParamsWithTextDocument miState params =
   let uri = params ^. LSP.params . LSP.textDocument . LSP.uri
-   in fromMaybe (error $ "Failed to extract path: " <> show uri) $ filePathFromURI miState uri
+   in filePathFromURI miState uri
 
 forwardingBehaviourFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> ForwardingBehaviour m
-forwardingBehaviourFromParamsWithTextDocument miState params = Single $ filePathFromParamsWithTextDocument miState params
+forwardingBehaviourFromParamsWithTextDocument miState params = maybe CannotForwardRequest Single $ filePathFromParamsWithTextDocument miState params
 
 -- Attempts to convert the URI directly to a filepath
 -- If the URI is a virtual resource, we instead parse it as such and extract the file from that
