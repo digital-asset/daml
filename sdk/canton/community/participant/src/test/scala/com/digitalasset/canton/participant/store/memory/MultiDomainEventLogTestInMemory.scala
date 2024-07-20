@@ -78,6 +78,7 @@ class MultiDomainEventLogTestInMemory extends MultiDomainEventLogTest {
         _ => domainIdOfEventId,
         _,
         ParticipantTestMetrics,
+        exitOnFatalFailures = true,
         indexedStringStore,
         timeouts,
         futureSupervisor,

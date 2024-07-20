@@ -17,7 +17,7 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
       val status = SequencerPruningStatus(
         lowerBound = ts(0),
         now = ts(15),
-        members = Seq(
+        members = Set(
           SequencerMemberStatus(
             member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(8),
@@ -39,7 +39,7 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
       val status = SequencerPruningStatus(
         lowerBound = ts(0),
         now = ts(15),
-        members = Seq(
+        members = Set(
           SequencerMemberStatus(
             member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(8),
@@ -61,7 +61,7 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
       val status = SequencerPruningStatus(
         lowerBound = ts(0),
         now = ts(12),
-        members = Seq(
+        members = Set(
           SequencerMemberStatus(
             member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(3),
@@ -77,7 +77,7 @@ class SequencerPruningStatusTest extends BaseTestWordSpec {
       val status = SequencerPruningStatus(
         lowerBound = ts(0),
         now = ts(12),
-        members = Seq(
+        members = Set(
           SequencerMemberStatus(
             member = DefaultTestIdentities.daSequencerId,
             registeredAt = ts(1),

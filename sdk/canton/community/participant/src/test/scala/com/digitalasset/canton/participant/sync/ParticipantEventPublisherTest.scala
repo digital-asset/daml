@@ -55,6 +55,7 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
       indexedStringStore,
       ParticipantTestMetrics,
       futureSupervisor,
+      exitOnFatalFailures = true,
       loggerFactory,
     )
     val publisher = new ParticipantEventPublisher(
@@ -62,6 +63,7 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
       Eval.now(eventLog),
       Eval.now(multiDomainEventLog),
       clock,
+      exitOnFatalFailures = true,
       timeouts,
       futureSupervisor,
       loggerFactory,

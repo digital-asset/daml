@@ -44,7 +44,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       contractRoutingParties: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainId: Option[DomainId],
+      prescribedDomainIdO: Option[DomainId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -66,7 +66,7 @@ private[routing] object TransactionData {
       requiredPackagesPerParty = Blinding.partyPackages(transaction),
       submitters = submitters,
       inputContractsDomainData = contractsDomainData,
-      prescribedDomainO = prescribedDomainId,
+      prescribedDomainO = prescribedDomainIdO,
     )
   }
 
@@ -76,7 +76,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       contractRoutingParties: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
-      submitterDomainId: Option[DomainId],
+      prescribedDomainO: Option[DomainId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -98,7 +98,7 @@ private[routing] object TransactionData {
         domainStateProvider,
         contractRoutingParties,
         disclosedContracts,
-        submitterDomainId,
+        prescribedDomainO,
       )
     } yield transactionData
   }

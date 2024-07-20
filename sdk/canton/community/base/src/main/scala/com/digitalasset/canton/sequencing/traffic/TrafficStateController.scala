@@ -25,7 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.AtomicReference
@@ -56,15 +56,6 @@ class TrafficStateController(
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
 
   def getState: TrafficState = getTrafficConsumed.toTrafficState(currentTrafficPurchased.get())
-
-  // Use a queue to process the incoming events in order while not blocking the sequencer client on continuing its own event processing.
-  private val consumeEventsQueue = new SimpleExecutionQueue(
-    "consume-traffic-queue",
-    futureSupervisor = futureSupervisor,
-    timeouts = timeouts,
-    loggerFactory = loggerFactory,
-    logTaskTiming = true,
-  )
 
   /** Update the traffic purchased entry for this member.
     * Only if the provided traffic purchased has a higher or equal serial number than the current traffic purchased.

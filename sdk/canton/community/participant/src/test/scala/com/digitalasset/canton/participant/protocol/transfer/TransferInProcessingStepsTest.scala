@@ -138,6 +138,7 @@ class TransferInProcessingStepsTest
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         loggerFactory = loggerFactory,
+        exitOnFatalFailures = true,
         timeouts = timeouts,
         futureSupervisor = futureSupervisor,
       )
@@ -152,6 +153,7 @@ class TransferInProcessingStepsTest
         ProcessingStartingPoints.default,
         () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
+        exitOnFatalFailures = true,
         CachingConfigs.defaultSessionKeyCacheConfig,
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,

@@ -20,25 +20,6 @@ object LfTransactionUtil {
   implicit val orderTransactionVersion: Order[TransactionVersion] =
     Order.by[TransactionVersion, String](_.protoValue)(Order.fromOrdering)
 
-  /** Return the template associated to a node.
-    * Note: unlike [[nodeTemplates]] below, it does not return the interface package
-    *       for exercise by interface nodes.
-    */
-  def nodeTemplate(node: LfActionNode): LfTemplateId = node match {
-    case n: LfNodeCreate => n.coinst.template
-    case n: LfNodeFetch => n.templateId
-    case n: LfNodeExercises => n.templateId
-    case n: LfNodeLookupByKey => n.templateId
-  }
-
-  /** Return the templates associated to a node. */
-  def nodeTemplates(node: LfActionNode): Seq[LfTemplateId] = node match {
-    case n: LfNodeCreate => Seq(n.coinst.template)
-    case n: LfNodeFetch => Seq(n.templateId)
-    case n: LfNodeExercises => n.templateId +: n.interfaceId.toList
-    case n: LfNodeLookupByKey => Seq(n.templateId)
-  }
-
   def consumedContractId(node: LfActionNode): Option[LfContractId] = node match {
     case _: LfNodeCreate => None
     case _: LfNodeFetch => None
@@ -55,7 +36,7 @@ object LfTransactionUtil {
   }
 
   def usedContractId(node: LfActionNode): Option[LfContractId] = node match {
-    case n: LfNodeCreate => None
+    case _: LfNodeCreate => None
     case n: LfNodeFetch => Some(n.coid)
     case n: LfNodeExercises => Some(n.targetCoid)
     case n: LfNodeLookupByKey => n.result

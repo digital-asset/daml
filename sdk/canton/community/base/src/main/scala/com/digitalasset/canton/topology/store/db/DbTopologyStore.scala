@@ -612,7 +612,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
     // TODO(#14061): Decide whether we want additional indices by mapping_key_hash and tx_hash (e.g. for update/removal and lookups)
     // TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
-    // TODO(#12390) should mapping_key_hash rather be tx_hash?
     storage.profile match {
       case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
         (sql"""INSERT INTO common_topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,

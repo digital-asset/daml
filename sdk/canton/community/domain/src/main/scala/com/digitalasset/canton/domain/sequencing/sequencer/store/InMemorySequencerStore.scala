@@ -414,7 +414,7 @@ class InMemorySequencerStore(
             lastAcknowledged = acknowledgements.asScala.get(memberId),
             enabled = enabled,
           )
-      }.toSeq,
+      }.toSet,
     )
 
   /** This store does not support multiple concurrent instances so will do nothing. */

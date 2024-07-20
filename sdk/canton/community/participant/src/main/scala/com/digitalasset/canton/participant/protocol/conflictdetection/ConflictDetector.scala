@@ -33,7 +33,6 @@ import com.digitalasset.canton.protocol.{LfContractId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
@@ -61,9 +60,9 @@ private[participant] class ConflictDetector(
     protected override val loggerFactory: NamedLoggerFactory,
     private val checkedInvariant: Boolean,
     private val executionContext: ExecutionContext,
+    exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
-    private val protocolVersion: ProtocolVersion,
 ) extends NamedLogging
     with FlagCloseable {
   import ConflictDetector.*
@@ -76,6 +75,7 @@ private[participant] class ConflictDetector(
       futureSupervisor,
       timeouts,
       loggerFactory,
+      crashOnFailure = exitOnFatalFailures,
     )
 
   /** Lock management and cache for contracts. */

@@ -44,11 +44,6 @@ class DecentralizedNamespaceAuthorizationGraphTest
     def mkGraph =
       DecentralizedNamespaceAuthorizationGraph(
         decentralizedNamespaceDefinition,
-        new AuthorizationGraph(
-          decentralizedNamespace,
-          extraDebugInfo = false,
-          loggerFactory = loggerFactory,
-        ),
         owners
           .map(new AuthorizationGraph(_, extraDebugInfo = false, loggerFactory = loggerFactory))
           .forgetNE
@@ -59,13 +54,12 @@ class DecentralizedNamespaceAuthorizationGraphTest
         dns: DecentralizedNamespaceAuthorizationGraph
     ) {
       def addAuth(authorizedNSD: AuthorizedNamespaceDelegation) = {
-        val found = (dns.direct +: dns.ownerGraphs)
-          .find(_.namespace == authorizedNSD.mapping.namespace)
+        val found = dns.ownerGraphs.find(_.namespace == authorizedNSD.mapping.namespace)
         found.exists(_.add(authorizedNSD))
       }
 
       def removeAuth(authorizedNSD: AuthorizedNamespaceDelegation) =
-        (dns.direct +: dns.ownerGraphs)
+        dns.ownerGraphs
           .find(_.namespace == authorizedNSD.mapping.namespace)
           .exists(_.remove(authorizedNSD))
 
@@ -73,9 +67,12 @@ class DecentralizedNamespaceAuthorizationGraphTest
 
     def mkAdd(
         nsd: NamespaceDelegation,
-        key: SigningPublicKey,
+        keys: SigningPublicKey*
     ): AuthorizedTopologyTransaction[NamespaceDelegation] = {
-      val tx = factory.mkAdd(nsd, key)
+      val tx = factory.mkAddMultiKey(
+        nsd,
+        NonEmpty.from(keys.toSet).getOrElse(sys.error("no signing keys specified")),
+      )
       AuthorizedTopologyTransaction(tx)
     }
 
@@ -243,6 +240,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         val graph = mkGraph
         graph.addAuth(ns1k1k1)
         graph.addAuth(ns2k2k2)
+        graph.addAuth(ns3k3k3)
 
         graph.addAuth(ns2k5k2)
         graph.addAuth(ns2k8k5)
@@ -252,10 +250,12 @@ class DecentralizedNamespaceAuthorizationGraphTest
           graph.removeAuth(ns2k2k2_remove),
           _.warningMessage should (include regex s"dangling.*$danglingKeys"),
         )
-
         check(graph, requireRoot = false, valid = false)(key1, key2)
         check(graph, requireRoot = false, valid = false)(key1, key5)
         check(graph, requireRoot = false, valid = false)(key1, key8)
+
+        // however, key1 and key3 can still reach quorum
+        check(graph, requireRoot = false, valid = true)(key1, key3)
       }
 
       "correctly distinguish on root delegations" in {
@@ -299,7 +299,4 @@ class DecentralizedNamespaceAuthorizationGraphTest
       }
     }
   }
-
-  // TODO(#12390) add test that checks that a namespace delegation for the decentralized namespace gets invalidated if
-  //              one of the keys signing that NSD gets invalidated
 }

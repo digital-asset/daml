@@ -76,7 +76,7 @@ class InMemorySequencerBlockStore(
           )
           .value
           .void
-      _ <- Future.traverse(initial.state.status.members.sortBy(_.registeredAt))(m =>
+      _ <- Future.traverse(initial.state.status.members.toSeq.sortBy(_.registeredAt))(m =>
         for {
           _ <- sequencerStore.addMember(m.member, m.registeredAt)
           _ <- m.lastAcknowledged.traverse_ { ts =>

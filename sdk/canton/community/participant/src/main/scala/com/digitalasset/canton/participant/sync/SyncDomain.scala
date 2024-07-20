@@ -274,6 +274,7 @@ class SyncDomain(
       loggerFactory,
       testingConfig,
       clock,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
     )
     ephemeral.recordOrderPublisher.setAcsChangeListener(listener)
     listener

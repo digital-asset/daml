@@ -358,18 +358,9 @@ class IncomingTopologyTransactionAuthorizationValidator(
             s"decentralizedNamespaceCache did not contain namespace $decentralizedNamespace even though the serial to validate is $serialToValidate"
           )
         }
-        val directDecentralizedNamespaceGraph = namespaceCache.getOrElseUpdate(
-          decentralizedNamespace,
-          new AuthorizationGraph(
-            decentralizedNamespace,
-            extraDebugInfo = false,
-            loggerFactory,
-          ),
-        )
         val ownerGraphs = tx.mapping.owners.forgetNE.toSeq.map(getAuthorizationGraphForNamespace)
         val newDecentralizedNamespaceGraph = DecentralizedNamespaceAuthorizationGraph(
           tx.mapping,
-          directDecentralizedNamespaceGraph,
           ownerGraphs,
         )
         newDecentralizedNamespaceGraph

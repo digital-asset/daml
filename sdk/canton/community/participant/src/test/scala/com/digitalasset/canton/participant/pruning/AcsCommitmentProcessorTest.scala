@@ -344,6 +344,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       loggerFactory,
       TestingConfigInternal(),
       new SimClock(loggerFactory = loggerFactory),
+      exitOnFatalFailures = true,
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
       Some(NonNegativeInt.zero),
     )

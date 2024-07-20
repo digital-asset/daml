@@ -75,6 +75,7 @@ class InMemoryMultiDomainEventLog(
     byEventId: NamedLoggingContext => EventId => OptionT[Future, (EventLogId, LocalOffset)],
     clock: Clock,
     metrics: ParticipantMetrics,
+    exitOnFatalFailures: Boolean,
     override val indexedStringStore: IndexedStringStore,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -123,6 +124,7 @@ class InMemoryMultiDomainEventLog(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   // Must run sequentially
@@ -543,6 +545,7 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
       indexedStringStore: IndexedStringStore,
       metrics: ParticipantMetrics,
       futureSupervisor: FutureSupervisor,
+      exitOnFatalFailures: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): InMemoryMultiDomainEventLog = {
 
@@ -561,6 +564,7 @@ object InMemoryMultiDomainEventLog extends HasLoggerName {
       byEventId(allEventLogs),
       clock,
       metrics,
+      exitOnFatalFailures = exitOnFatalFailures,
       indexedStringStore,
       timeouts,
       futureSupervisor,

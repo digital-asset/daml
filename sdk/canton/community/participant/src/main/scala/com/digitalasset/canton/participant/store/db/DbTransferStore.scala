@@ -58,6 +58,7 @@ class DbTransferStore(
     targetDomainProtocolVersion: TargetProtocolVersion,
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     // TODO(#9270) clean up how we parameterize our nodes
@@ -154,6 +155,7 @@ class DbTransferStore(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   override def addTransfer(

@@ -324,6 +324,7 @@ object MultiDomainEventLog {
       metrics: ParticipantMetrics,
       indexedStringStore: IndexedStringStore,
       timeouts: ProcessingTimeout,
+      exitOnFatalFailures: Boolean,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -344,6 +345,7 @@ object MultiDomainEventLog {
             indexedStringStore,
             metrics,
             futureSupervisor,
+            exitOnFatalFailures = exitOnFatalFailures,
             loggerFactory,
           )
         Future.successful(mdel)

@@ -65,6 +65,7 @@ class TopologyTransactionProcessor(
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -90,6 +91,7 @@ class TopologyTransactionProcessor(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   /** assumption: subscribers don't do heavy lifting */
@@ -563,6 +565,7 @@ object TopologyTransactionProcessor {
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
       futureSupervisor,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
       parameters.processingTimeouts,
       loggerFactory,
     )

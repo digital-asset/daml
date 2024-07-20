@@ -18,7 +18,13 @@ trait DbParticipantSettingsStoreTest extends ParticipantSettingsStoreTest with D
   }
 
   def mk(s: DbStorage): DbParticipantSettingsStore =
-    new DbParticipantSettingsStore(s, timeouts, futureSupervisor, loggerFactory)(
+    new DbParticipantSettingsStore(
+      s,
+      timeouts,
+      futureSupervisor,
+      exitOnFatalFailures = true,
+      loggerFactory,
+    )(
       parallelExecutionContext
     )
 

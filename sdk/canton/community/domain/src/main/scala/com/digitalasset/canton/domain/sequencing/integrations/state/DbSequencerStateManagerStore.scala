@@ -125,7 +125,7 @@ class DbSequencerStateManagerStore(
           inFlightAggregations,
           InternalSequencerPruningStatus(
             lowerBound.getOrElse(CantonTimestamp.Epoch),
-            toMemberStatusSeq(members),
+            toMemberStatusSet(members),
           ),
         )
       }
@@ -534,20 +534,20 @@ class DbSequencerStateManagerStore(
         .as[(Member, CantonTimestamp, Boolean, Option[CantonTimestamp])]
   } yield InternalSequencerPruningStatus(
     lowerBound = lowerBoundO.getOrElse(CantonTimestamp.Epoch),
-    members = toMemberStatusSeq(members),
+    members = toMemberStatusSet(members),
   )
 
-  private def toMemberStatusSeq(
+  private def toMemberStatusSet(
       members: Vector[(Member, CantonTimestamp, Boolean, Option[CantonTimestamp])]
-  ): Seq[SequencerMemberStatus] = {
-    members.map { case (member, addedAt, enabled, acknowledgedAt) =>
+  ): Set[SequencerMemberStatus] = {
+    members.view.map { case (member, addedAt, enabled, acknowledgedAt) =>
       SequencerMemberStatus(
         member,
         addedAt,
         lastAcknowledged = acknowledgedAt,
         enabled = enabled,
       )
-    }
+    }.toSet
   }
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit

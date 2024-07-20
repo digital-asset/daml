@@ -40,6 +40,7 @@ class LedgerServerPartyNotifier(
     clock: Clock,
     futureSupervisor: FutureSupervisor,
     mustTrackSubmissionIds: Boolean,
+    exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -166,6 +167,7 @@ class LedgerServerPartyNotifier(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   def setDisplayName(partyId: PartyId, displayName: DisplayName)(implicit

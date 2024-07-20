@@ -47,6 +47,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     alertEvery: JDuration,
     equalTimestampTaskOrdering: Ordering[Task],
     metrics: TaskSchedulerMetrics,
+    exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -109,6 +110,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       timeouts,
       loggerFactory,
       logTaskTiming = true,
+      crashOnFailure = exitOnFatalFailures,
     )
 
   private[this] val lock: Object = new Object
@@ -431,6 +433,7 @@ object TaskScheduler {
       initTimestamp: CantonTimestamp,
       equalTimestampTaskOrdering: Ordering[Task],
       metrics: TaskSchedulerMetrics,
+      exitOnFatalFailures: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
@@ -442,6 +445,7 @@ object TaskScheduler {
     timeouts.slowFutureWarn.asJavaApproximation,
     equalTimestampTaskOrdering,
     metrics,
+    exitOnFatalFailures = exitOnFatalFailures,
     timeouts,
     loggerFactory,
     futureSupervisor,

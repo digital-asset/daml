@@ -99,9 +99,9 @@ class ConflictDetectorTest
       loggerFactory,
       true,
       parallelExecutionContext,
+      exitOnFatalFailures = true,
       timeouts,
       futureSupervisor,
-      testedProtocolVersion,
     )
 
   "ConflictDetector" should {

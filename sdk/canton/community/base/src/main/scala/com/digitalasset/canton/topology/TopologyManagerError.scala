@@ -7,7 +7,6 @@ import com.daml.error.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
@@ -16,7 +15,7 @@ import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   GenericTopologyTransaction,
@@ -52,41 +51,12 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class CryptoPublicError(error: CryptoPublicStoreError)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Operation on the public crypto store failed"
-        )
-        with TopologyManagerError
-
-    final case class CryptoPrivateError(error: CryptoPrivateStoreError)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Operation on the secret crypto store failed"
-        )
-        with TopologyManagerError
-
-    final case class IncompatibleOpMapping(op: TopologyChangeOp, mapping: TopologyMapping)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "The operation is incompatible with the mapping"
-        )
-        with TopologyManagerError
-
     final case class TopologySigningError(error: SigningError)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Creating a signed transaction failed due to a crypto error"
         )
         with TopologyManagerError
-
-    final case class ReplaceExistingFailed(invalid: GenericValidatedTopologyTransaction)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Replacing existing transaction failed upon removal"
-        )
-        with TopologyManagerError
-
   }
 
   @Explanation("""The topology manager has received a malformed message from another node.""")
@@ -118,6 +88,30 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  @Explanation(
+    "This error indicates that more than one topology transaction with the same transaction hash was found."
+  )
+  @Resolution(
+    """Inspect the topology state for consistency and take corrective measures before retrying.
+      |The metadata details of this error contains the transactions in the field ``transactions``."""
+  )
+  object TooManyTransactionsWithHash
+      extends ErrorCode(
+        "TOPOLOGY_TOO_MANY_TRANSACTION_WITH_HASH",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failure(
+        txHash: TxHash,
+        effectiveTime: EffectiveTime,
+        transactions: Seq[GenericSignedTopologyTransaction],
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Found more than one topology transaction with hash $txHash at $effectiveTime: $transactions"
+        )
+        with TopologyManagerError
+  }
   @Explanation(
     """This error indicates that the secret key with the respective fingerprint can not be found."""
   )
@@ -651,6 +645,44 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"The namespace $namespace is already in use by another entity."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the partyId to allocate is the same as an already existing admin party."
+  )
+  @Resolution("Submit the topology transaction with a changed partyId.")
+  object PartyIdIsAdminParty
+      extends ErrorCode(
+        id = "TOPOLOGY_PARTY_ID_IS_ADMIN_PARTY",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    final case class Reject(partyId: PartyId)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Tried to allocate party $partyId with the same UID as an already existing admin party."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that a participant failed to be onboarded, because it has the same UID as an already existing party."
+  )
+  @Resolution(
+    "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the domain again."
+  )
+  object ParticipantIdClashesWithPartyId
+      extends ErrorCode(
+        id = "TOPOLOGY_PARTICIPANT_ID_CLASH_WITH_PARTY",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    final case class Reject(participantId: ParticipantId, partyId: PartyId)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Tried to onboard participant $participantId while party $partyId with the same UID already exists."
         )
         with TopologyManagerError
   }

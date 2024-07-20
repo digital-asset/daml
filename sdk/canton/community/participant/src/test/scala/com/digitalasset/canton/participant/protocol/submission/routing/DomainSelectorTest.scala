@@ -515,7 +515,7 @@ private[routing] object DomainSelectorTest {
           transaction = tx,
           domainStateProvider = TestDomainStateProvider,
           contractRoutingParties = inputContractStakeholders,
-          prescribedDomainId = prescribedSubmitterDomainId,
+          prescribedDomainIdO = prescribedSubmitterDomainId,
           disclosedContracts = Nil,
         )
 

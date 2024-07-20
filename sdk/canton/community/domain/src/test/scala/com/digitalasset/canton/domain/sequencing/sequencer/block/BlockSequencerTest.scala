@@ -177,6 +177,7 @@ class BlockSequencerTest
         SequencerMetrics.noop(this.getClass.getName),
         loggerFactory,
         unifiedSequencer = testedUseUnifiedSequencer,
+        exitOnFatalFailures = true,
         runtimeReady = FutureUnlessShutdown.unit,
       )
 

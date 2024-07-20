@@ -52,6 +52,7 @@ class PackageUploader(
     hashOps: HashOps,
     packageDependencyResolver: PackageDependencyResolver,
     packageMetadataView: MutablePackageMetadataView,
+    exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -62,6 +63,7 @@ class PackageUploader(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
   private val packageUpgradeValidator = new PackageUpgradeValidator(
@@ -117,7 +119,7 @@ class PackageUploader(
           catchUpstreamErrors(Decode.decodeArchive(archive)).map(archive -> _)
         )
         hash <- EitherT(
-          uploadDarExecutionQueue.executeUnderFailuresUS(
+          uploadDarExecutionQueue.executeUS(
             uploadDarSequentialStep(
               darPayload = darPayload,
               mainPackage = mainPackage,
@@ -146,7 +148,7 @@ class PackageUploader(
         dar: Dar,
         uploadedAt: CantonTimestamp,
         allPackages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
-    ) =
+    ): FutureUnlessShutdown[Unit] =
       for {
         _ <- packagesDarsStore.append(
           pkgs = allPackages.map(_._1),

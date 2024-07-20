@@ -66,6 +66,7 @@ object ParticipantSettingsStore {
       storage: Storage,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
+      exitOnFatalFailures: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
@@ -73,7 +74,13 @@ object ParticipantSettingsStore {
     storage match {
       case _: MemoryStorage => new InMemoryParticipantSettingsStore(loggerFactory)
       case storage: DbStorage =>
-        new DbParticipantSettingsStore(storage, timeouts, futureSupervisor, loggerFactory)
+        new DbParticipantSettingsStore(
+          storage,
+          timeouts,
+          futureSupervisor,
+          exitOnFatalFailures = exitOnFatalFailures,
+          loggerFactory,
+        )
     }
   }
 

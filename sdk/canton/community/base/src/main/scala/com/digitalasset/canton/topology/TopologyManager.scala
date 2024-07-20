@@ -50,6 +50,7 @@ class DomainTopologyManager(
     override val store: TopologyStore[DomainStore],
     val outboxQueue: DomainOutboxQueue,
     protocolVersion: ProtocolVersion,
+    exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -60,6 +61,7 @@ class DomainTopologyManager(
       crypto,
       store,
       TopologyManager.PV(protocolVersion),
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -84,6 +86,7 @@ class AuthorizedTopologyManager(
     clock: Clock,
     crypto: Crypto,
     store: TopologyStore[AuthorizedStore],
+    exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
@@ -94,6 +97,7 @@ class AuthorizedTopologyManager(
       crypto,
       store,
       TopologyManager.NoPV,
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -118,6 +122,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     val crypto: Crypto,
     val store: TopologyStore[StoreID],
     val managerVersion: TopologyManager.Version,
+    exitOnFatalFailures: Boolean,
     val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
@@ -134,6 +139,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   protected val processor: TopologyStateProcessor
@@ -217,11 +223,9 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
               TopologyManagerError.TopologyTransactionNotFound.Failure(transactionHash, effective)
             )
           case tooManyActiveTransactionsWithSameHash =>
-            // TODO(#12390) proper error
             Left(
-              TopologyManagerError.InternalError.ImplementMe(
-                s"found too many transactions for txHash=$transactionsForHash: $tooManyActiveTransactionsWithSameHash"
-              )
+              TopologyManagerError.TooManyTransactionsWithHash
+                .Failure(transactionHash, effective, tooManyActiveTransactionsWithSameHash)
             )
         })
       extendedTransaction <- extendSignature(existingTransaction, signingKeys)
@@ -253,14 +257,13 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           s"found more than one valid mapping for unique key ${mapping.uniqueKey} of type ${mapping.code}"
         )
       existingTransaction = existingTransactions
-        .sortBy(_.serial)
-        .lastOption
+        .maxByOption(_.serial)
         .map(t => (t.operation, t.mapping, t.serial, t.signatures))
 
       // If the same operation and mapping is proposed repeatedly, insist that
       // new keys are being added. Otherwise reject consistently with daml 2.x-based topology management.
       _ <- existingTransaction match {
-        case Some((`op`, `mapping`, _, existingSignatures)) if op == TopologyChangeOp.Replace =>
+        case Some((`op`, `mapping`, _, existingSignatures)) =>
           EitherT.cond[Future][TopologyManagerError, Unit](
             (newSigningKeys.toSet -- existingSignatures.map(_.signedBy).toSet).nonEmpty,
             (),
@@ -281,10 +284,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
             PositiveInt.one,
             TopologyManagerError.SerialMismatch.Failure(PositiveInt.one, proposed),
           )
-
-        // TODO(#12390) existing mapping and the proposed mapping are the same. does this only add a (superfluous) signature?
-        //              maybe we should reject this proposal, but for now we need this to pass through successfully, because we don't
-        //              support proper topology transaction validation yet, especially not for multi-sig transactions.
+        // The stored mapping and the proposed mapping are the same. This likely only adds an additional signature.
+        // If not, then duplicates will be filtered out down the line.
         case (Some((`op`, `mapping`, existingSerial, _)), None) =>
           // auto-select existing
           EitherT.rightT(existingSerial)

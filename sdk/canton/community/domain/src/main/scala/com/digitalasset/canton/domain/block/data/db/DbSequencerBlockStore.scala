@@ -238,7 +238,7 @@ class DbSequencerBlockStore(
       initial: BlockEphemeralState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val members = initial.state.status.members
+    val members = initial.state.status.members.toSeq
     val updateBlockHeight = updateBlockHeightDBIO(initial.latestBlock)
     val updateLowerBound =
       sequencerStore.saveLowerBoundDBIO(

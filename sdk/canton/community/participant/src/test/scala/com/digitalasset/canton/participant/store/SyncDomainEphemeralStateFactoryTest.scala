@@ -81,6 +81,7 @@ class SyncDomainEphemeralStateFactoryTest extends AsyncWordSpec with BaseTest wi
       byEventId = _ => _ => OptionT(Future.successful(Option.empty)),
       clock = new SimClock(loggerFactory = loggerFactory),
       metrics = ParticipantTestMetrics,
+      exitOnFatalFailures = true,
       indexedStringStore = indexedStringStore,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,

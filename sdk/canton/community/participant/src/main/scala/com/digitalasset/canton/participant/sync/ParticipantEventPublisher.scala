@@ -45,6 +45,7 @@ class ParticipantEventPublisher(
     private val participantEventLog: Eval[ParticipantEventLog],
     multiDomainEventLog: Eval[MultiDomainEventLog],
     participantClock: Clock,
+    exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -59,6 +60,7 @@ class ParticipantEventPublisher(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   private def publishInternal(

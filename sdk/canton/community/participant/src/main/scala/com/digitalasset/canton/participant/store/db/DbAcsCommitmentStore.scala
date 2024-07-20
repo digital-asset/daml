@@ -11,7 +11,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{CryptoPureApi, Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -52,9 +52,9 @@ class DbAcsCommitmentStore(
     override protected val storage: DbStorage,
     override val domainId: IndexedDomain,
     protocolVersion: ProtocolVersion,
-    cryptoApi: CryptoPureApi,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends AcsCommitmentStore
@@ -71,6 +71,7 @@ class DbAcsCommitmentStore(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>

@@ -20,13 +20,14 @@ sealed trait TopologyTransactionRejection extends PrettyPrinting with Product wi
     String256M.tryCreate(asString, Some("topology transaction rejection"))
 
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError
+
+  override def pretty: Pretty[this.type] = prettyOfString(_ => asString)
 }
 object TopologyTransactionRejection {
 
   final case class NoDelegationFoundForKeys(keys: Set[Fingerprint])
       extends TopologyTransactionRejection {
     override def asString: String = s"No delegation found for keys ${keys.mkString(", ")}"
-    override def pretty: Pretty[NoDelegationFoundForKeys] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.UnauthorizedTransaction.Failure(asString)
@@ -34,7 +35,6 @@ object TopologyTransactionRejection {
   }
   case object NotAuthorized extends TopologyTransactionRejection {
     override def asString: String = "Not authorized"
-    override def pretty: Pretty[NotAuthorized.type] = prettyOfString(_ => asString)
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.UnauthorizedTransaction.Failure(asString)
@@ -43,7 +43,6 @@ object TopologyTransactionRejection {
   final case class UnknownParties(parties: Seq[PartyId]) extends TopologyTransactionRejection {
     override def asString: String = s"Parties ${parties.sorted.mkString(", ")} are unknown."
 
-    override def pretty: Pretty[UnknownParties.this.type] = prettyOfString(_ => asString)
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.UnknownParties.Failure(parties)
   }
@@ -56,8 +55,6 @@ object TopologyTransactionRejection {
     override def asString: String =
       s"Participant ${participant} onboarding rejected as restrictions ${restriction} are in place."
 
-    override def pretty: Pretty[OnboardingRestrictionInPlace] = prettyOfString(_ => asString)
-
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
       TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
     }
@@ -67,15 +64,12 @@ object TopologyTransactionRejection {
       extends TopologyTransactionRejection {
     override def asString: String =
       s"There is no active topology transaction matching the mapping of the revocation request: $mapping"
-    override def pretty: Pretty[NoCorrespondingActiveTxToRevoke.this.type] =
-      prettyOfString(_ => asString)
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.NoCorrespondingActiveTxToRevoke.Mapping(mapping)
   }
 
   final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
     override def asString: String = s"Invalid mapping: $err"
-    override def pretty: Pretty[InvalidTopologyMapping] = prettyOfString(_ => asString)
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InvalidTopologyMapping.Reject(err)
   }
@@ -112,8 +106,6 @@ object TopologyTransactionRejection {
   }
   final case class Other(str: String) extends TopologyTransactionRejection {
     override def asString: String = str
-    override def pretty: Pretty[Other] = prettyOfString(_ => asString)
-
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InternalError.Other(str)
   }
@@ -207,8 +199,6 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.MissingTopologyMapping.Reject(missing)
-
-    override def pretty: Pretty[MissingMappings.this.type] = prettyOfString(_ => asString)
   }
 
   final case class MissingDomainParameters(effective: EffectiveTime)
@@ -217,8 +207,6 @@ object TopologyTransactionRejection {
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.MissingTopologyMapping.MissingDomainParameters(effective)
-
-    override def pretty: Pretty[MissingDomainParameters.this.type] = prettyOfString(_ => asString)
   }
 
   final case class NamespaceAlreadyInUse(namespace: Namespace)
@@ -228,6 +216,34 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.NamespaceAlreadyInUse.Reject(namespace)
 
-    override def pretty: Pretty[NamespaceAlreadyInUse.this.type] = prettyOfString(_ => asString)
+    override def pretty: Pretty[NamespaceAlreadyInUse.this.type] = prettyOfClass(
+      param("namespace", _.namespace)
+    )
+  }
+
+  final case class PartyIdIsAdminParty(partyId: PartyId) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"The partyId $partyId is the same as an already existing admin party."
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.PartyIdIsAdminParty.Reject(partyId)
+
+    override def pretty: Pretty[PartyIdIsAdminParty.this.type] = prettyOfClass(
+      param("partyId", _.partyId)
+    )
+  }
+
+  final case class ParticipantIdClashesWithPartyId(participantId: ParticipantId, partyId: PartyId)
+      extends TopologyTransactionRejection {
+    override def asString: String = ???
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.ParticipantIdClashesWithPartyId.Reject(participantId, partyId)
+
+    override def pretty: Pretty[ParticipantIdClashesWithPartyId.this.type] =
+      prettyOfClass(
+        param("participantId", _.participantId),
+        param("partyId", _.partyId),
+      )
   }
 }
