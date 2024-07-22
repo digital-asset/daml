@@ -4,12 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{
-  BatchingConfig,
-  CachingConfigs,
-  ProcessingTimeout,
-  TopologyConfig,
-}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -35,7 +30,7 @@ class TopologyComponentFactory(
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
-    topologyConfig: TopologyConfig,
+    exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[DomainStore],
     loggerFactory: NamedLoggerFactory,
 ) {
@@ -62,6 +57,7 @@ class TopologyComponentFactory(
         acsCommitmentScheduleEffectiveTime,
         terminateTopologyProcessing,
         futureSupervisor,
+        exitOnFatalFailures = exitOnFatalFailures,
         timeouts,
         loggerFactory,
       )

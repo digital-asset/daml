@@ -11,6 +11,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
+import com.digitalasset.canton.environment.DefaultNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
@@ -499,7 +500,8 @@ object BaseTest {
 
   protected def tryGetUseUnifiedSequencerFromEnv: Boolean = sys.env
     .get("CANTON_UNIFIED_SEQUENCER")
-    .exists(_.toBoolean)
+    .map(_.toBoolean)
+    .getOrElse(DefaultNodeParameters.UseUnifiedSequencer)
 
 }
 

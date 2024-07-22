@@ -77,7 +77,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()
-      override def useUnifiedSequencer: Boolean = false
+      override def useUnifiedSequencer: Boolean = testedUseUnifiedSequencer
       override def alphaVersionSupport: Boolean = false
       override def watchdog: Option[WatchdogConfig] = None
     }
@@ -102,7 +102,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
       exitOnFatalFailures: Boolean = true,
-      useUnifiedSequencer: Boolean = false,
+      useUnifiedSequencer: Boolean = testedUseUnifiedSequencer,
       watchdog: Option[WatchdogConfig] = None,
   ) extends CantonNodeParameters
 

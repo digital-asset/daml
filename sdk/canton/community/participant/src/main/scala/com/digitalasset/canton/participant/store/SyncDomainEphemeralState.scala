@@ -49,6 +49,7 @@ class SyncDomainEphemeralState(
     val startingPoints: ProcessingStartingPoints,
     createTimeTracker: () => DomainTimeTracker,
     metrics: SyncDomainMetrics,
+    exitOnFatalFailures: Boolean,
     sessionKeyCacheConfig: SessionKeyCacheConfig,
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
@@ -99,9 +100,9 @@ class SyncDomainEphemeralState(
       loggerFactory,
       persistentState.enableAdditionalConsistencyChecks,
       executionContext,
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       futureSupervisor,
-      persistentState.protocolVersion,
     )
 
     new NaiveRequestTracker(
@@ -109,6 +110,7 @@ class SyncDomainEphemeralState(
       startingPoints.cleanReplay.prenextTimestamp,
       conflictDetector,
       metrics.conflictDetection,
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       loggerFactory,
       futureSupervisor,
@@ -126,6 +128,7 @@ class SyncDomainEphemeralState(
       multiDomainEventLog,
       participantNodeEphemeralState.inFlightSubmissionTracker,
       metrics.recordOrderPublisher,
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       loggerFactory,
       futureSupervisor,

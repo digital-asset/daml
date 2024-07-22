@@ -22,7 +22,6 @@ class NaiveRequestTrackerTest
   private val clock: SimClock = new SimClock(loggerFactory = loggerFactory)
 
   def mk(
-      rc: RequestCounter,
       sc: SequencerCounter,
       ts: CantonTimestamp,
       acs: ActiveContractStore,
@@ -40,9 +39,9 @@ class NaiveRequestTrackerTest
         loggerFactory,
         checkedInvariant = true,
         parallelExecutionContext,
+        exitOnFatalFailures = true,
         timeouts,
         futureSupervisor,
-        testedProtocolVersion,
       )
 
     new NaiveRequestTracker(
@@ -50,6 +49,7 @@ class NaiveRequestTrackerTest
       ts,
       conflictDetector,
       ParticipantTestMetrics.domain.conflictDetection,
+      exitOnFatalFailures = false,
       timeouts,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -64,7 +64,7 @@ class NaiveRequestTrackerTest
   "requests are evicted when they are finalized" in {
     for {
       acs <- mkAcs()
-      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.MinValue, acs)
+      rt = mk(SequencerCounter(0), CantonTimestamp.MinValue, acs)
       (cdF, toF) <- enterCR(
         rt,
         RequestCounter(0),
@@ -109,7 +109,7 @@ class NaiveRequestTrackerTest
   "requests are evicted when they time out" in {
     for {
       acs <- mkAcs()
-      rt = mk(RequestCounter(0), SequencerCounter(0), CantonTimestamp.Epoch, acs)
+      rt = mk(SequencerCounter(0), CantonTimestamp.Epoch, acs)
       (cdF, toF) <- enterCR(
         rt,
         RequestCounter(0),

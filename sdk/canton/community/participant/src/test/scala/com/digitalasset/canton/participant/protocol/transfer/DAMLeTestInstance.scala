@@ -52,6 +52,7 @@ object DAMLeTestInstance {
       packageDependencyResolver = packageDependencyResolver,
       enableUpgradeValidation = false,
       futureSupervisor = FutureSupervisor.Noop,
+      exitOnFatalFailures = true,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       packageMetadataView = NoopPackageMetadataView,

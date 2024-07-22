@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.domain
 
-import cats.Eval
 import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.bifunctor.*
@@ -21,10 +20,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.DomainRegistryError.HandshakeErrors.DomainIdMismatch
 import com.digitalasset.canton.participant.domain.DomainRegistryHelpers.DomainHandle
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.store.{
-  ParticipantSettingsLookup,
-  SyncDomainPersistentState,
-}
+import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
@@ -74,7 +70,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       packageDependencyResolver: PackageDependencyResolverUS,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: DomainAlias => SyncDomainMetrics,
-      participantSettings: Eval[ParticipantSettingsLookup],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, DomainHandle] = {
@@ -95,7 +90,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           config.domain,
           indexedDomainId,
           sequencerAggregatedInfo.staticDomainParameters,
-          participantSettings,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.transaction
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.*
@@ -28,6 +28,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
@@ -104,26 +105,13 @@ class ValidatingTopologyMappingChecksTest
     "validating DecentralizedNamespaceDefinition" should {
       "reject namespaces not derived from their owners' namespaces" in {
         val (checks, store) = mk()
-        val keys = NonEmpty.mk(
-          Set,
+        val (keys, namespaces, rootCerts) = setUpRootCerts(
           factory.SigningKeys.key1,
           factory.SigningKeys.key2,
           factory.SigningKeys.key3,
         )
-        val (namespaces, rootCerts) =
-          keys.map { key =>
-            val namespace = Namespace(key.fingerprint)
-            namespace -> factory.mkAdd(
-              NamespaceDelegation.tryCreate(
-                namespace,
-                key,
-                isRootDelegation = true,
-              ),
-              signingKey = key,
-            )
-          }.unzip
 
-        addToStore(store, rootCerts.toSeq*)
+        addToStore(store, rootCerts*)
 
         val dns = factory.mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -144,16 +132,84 @@ class ValidatingTopologyMappingChecksTest
         }
       }
 
-      // TODO(#19716) how does one produce a key with a specific hash? by using symbolic crypto?
-      "reject if a root certificate with the same namespace already exists" ignore {
-        fail("TODO(#19716)")
+      "reject if a namespace delegation with the same namespace already exists" in {
+        val (checks, store) = mk()
+        val (keys, namespaces, rootCerts) = setUpRootCerts(
+          factory.SigningKeys.key1,
+          factory.SigningKeys.key2,
+          factory.SigningKeys.key3,
+        )
+
+        val dnd_namespace = DecentralizedNamespaceDefinition.computeNamespace(namespaces.toSet)
+
+        // we are creating namespace delegation with the same namespace as the decentralized namespace.
+        // this nsd however is not actually fully authorized, but for the purpose of this test, we want to see
+        // that the decentralized namespace definition gets rejected.
+        val conflicting_nsd = factory.mkAdd(
+          NamespaceDelegation
+            .tryCreate(dnd_namespace, factory.SigningKeys.key8, isRootDelegation = false),
+          factory.SigningKeys.key8,
+        )
+        addToStore(store, (rootCerts :+ conflicting_nsd)*)
+
+        val dnd = factory.mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              dnd_namespace,
+              PositiveInt.one,
+              NonEmpty.from(namespaces).value.toSet,
+            )
+            .value,
+          signingKeys = keys,
+          serial = PositiveInt.one,
+        )
+
+        checkTransaction(checks, dnd, None) shouldBe Left(
+          TopologyTransactionRejection.NamespaceAlreadyInUse(`dnd_namespace`)
+        )
       }
     }
 
     "validating NamespaceDelegation" should {
-      // TODO(#19715) how does one produce a key with a specific hash? by using symbolic crypto?
-      "reject a root certificate if a decentralized namespace with the same namespace already exists" ignore {
-        fail("TODO(#19715)")
+      "reject a namespace delegation if a decentralized namespace with the same namespace already exists" in {
+        val (checks, store) = mk()
+        val (rootKeys, namespaces, rootCerts) = setUpRootCerts(
+          factory.SigningKeys.key1,
+          factory.SigningKeys.key2,
+          factory.SigningKeys.key3,
+        )
+
+        val dnd_namespace = DecentralizedNamespaceDefinition.computeNamespace(namespaces.toSet)
+
+        val dnd = factory.mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              dnd_namespace,
+              PositiveInt.one,
+              NonEmpty.from(namespaces).value.toSet,
+            )
+            .value,
+          signingKeys = rootKeys,
+          serial = PositiveInt.one,
+        )
+
+        addToStore(store, (rootCerts :+ dnd)*)
+
+        // we are creating namespace delegation with the same namespace as the decentralized namespace.
+        // even if it is signed by enough owners of the decentralized namespace, we don't allow namespace delegations
+        // for a decentralized namespace, because
+        // 1. it goes against the very purpose of a decentralized namespace
+        // 2. the authorization machinery is actually not prepared to deal with it
+        // A similar effect can be achieved by setting the threshold of the DND to 1
+        val conflicting_nsd = factory.mkAddMultiKey(
+          NamespaceDelegation
+            .tryCreate(dnd_namespace, factory.SigningKeys.key8, isRootDelegation = false),
+          rootKeys,
+        )
+
+        checkTransaction(checks, conflicting_nsd, None) shouldBe Left(
+          TopologyTransactionRejection.NamespaceAlreadyInUse(`dnd_namespace`)
+        )
       }
     }
 
@@ -683,6 +739,27 @@ class ValidatingTopologyMappingChecksTest
         )
       )
       .futureValue
+  }
+
+  private def setUpRootCerts(keys: SigningPublicKey*): (
+      NonEmpty[Set[SigningPublicKey]],
+      Seq[Namespace],
+      Seq[SignedTopologyTransaction[Replace, NamespaceDelegation]],
+  ) = {
+    val (namespaces, rootCerts) =
+      keys.map { key =>
+        val namespace = Namespace(key.fingerprint)
+        namespace -> factory.mkAdd(
+          NamespaceDelegation.tryCreate(
+            namespace,
+            key,
+            isRootDelegation = true,
+          ),
+          signingKey = key,
+        )
+      }.unzip
+    val keysNE = NonEmpty.from(keys).value.toSet
+    (keysNE, namespaces, rootCerts)
   }
 
 }

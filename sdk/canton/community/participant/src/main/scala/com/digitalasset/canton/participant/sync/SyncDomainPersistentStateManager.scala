@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.sync
 
-import cats.Eval
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
@@ -89,7 +88,7 @@ class SyncDomainPersistentStateManager(
         )
         domainIdIndexed <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(domainId))
         protocolVersion <- getProtocolVersion(domainId)
-        persistentState = createPersistentState(alias, domainIdIndexed, protocolVersion)
+        persistentState = createPersistentState(domainIdIndexed, protocolVersion)
         _lastProcessedPresent <- persistentState.sequencedEventStore
           .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
           .leftMap(_ => "No persistent event")
@@ -116,13 +115,11 @@ class SyncDomainPersistentStateManager(
       domainAlias: DomainAlias,
       domainId: IndexedDomain,
       domainParameters: StaticDomainParameters,
-      participantSettings: Eval[ParticipantSettingsLookup],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, DomainRegistryError, SyncDomainPersistentState] = {
     // TODO(#14048) does this method need to be synchronized?
-    val persistentState =
-      createPersistentState(domainAlias, domainId, domainParameters.protocolVersion)
+    val persistentState = createPersistentState(domainId, domainParameters.protocolVersion)
     for {
       _ <- checkAndUpdateDomainParameters(
         domainAlias,
@@ -137,14 +134,11 @@ class SyncDomainPersistentStateManager(
   }
 
   private def createPersistentState(
-      alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
   ): SyncDomainPersistentState =
     get(domainId.item)
-      .getOrElse(
-        mkPersistentState(alias, domainId, protocolVersion)
-      )
+      .getOrElse(mkPersistentState(domainId, protocolVersion))
 
   private def checkAndUpdateDomainParameters(
       alias: DomainAlias,
@@ -202,7 +196,6 @@ class SyncDomainPersistentStateManager(
     aliasResolution.aliasForDomainId(domainId)
 
   private def mkPersistentState(
-      alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
   ): SyncDomainPersistentState = SyncDomainPersistentState
@@ -213,11 +206,7 @@ class SyncDomainPersistentStateManager(
       protocolVersion,
       clock,
       crypto,
-      parameters.stores,
-      parameters.cachingConfigs,
-      parameters.batchingConfig,
-      parameters.processingTimeouts,
-      parameters.enableAdditionalConsistencyChecks,
+      parameters,
       indexedStringStore,
       loggerFactory,
       futureSupervisor,
@@ -233,7 +222,7 @@ class SyncDomainPersistentStateManager(
         futureSupervisor,
         parameters.cachingConfigs,
         parameters.batchingConfig,
-        topologyConfig,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
         loggerFactory.append("domainId", domainId.toString),
       )

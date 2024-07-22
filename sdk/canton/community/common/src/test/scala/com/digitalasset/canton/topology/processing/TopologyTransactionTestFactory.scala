@@ -252,6 +252,19 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     signingKey = key2,
     isProposal = true,
   )
+  // this only differs from dnd_proposal_k2 by having a different threshold
+  val dnd_proposal_k2_alternative = mkAdd(
+    DecentralizedNamespaceDefinition
+      .create(
+        dndNamespace,
+        PositiveInt.one,
+        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
+      )
+      .fold(sys.error, identity),
+    signingKey = key2,
+    isProposal = true,
+  )
+
   val dnd_proposal_k3 = mkAdd(
     DecentralizedNamespaceDefinition
       .create(

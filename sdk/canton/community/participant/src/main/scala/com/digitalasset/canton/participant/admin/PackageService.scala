@@ -379,6 +379,7 @@ object PackageService {
       hashOps: HashOps,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
+      exitOnFatalFailures: Boolean,
       packageMetadataViewConfig: PackageMetadataViewConfig,
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
@@ -403,6 +404,7 @@ object PackageService {
       hashOps,
       packageDependencyResolver,
       mutablePackageMetadataView,
+      exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       loggerFactory,
     )

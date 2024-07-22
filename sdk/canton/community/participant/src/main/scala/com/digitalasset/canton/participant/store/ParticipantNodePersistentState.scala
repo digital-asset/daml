@@ -73,6 +73,7 @@ trait ParticipantNodePersistentStateFactory {
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
       storageConfig: StorageConfig,
+      exitOnFatalFailures: Boolean,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
@@ -96,6 +97,7 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
       storageConfig: StorageConfig,
+      exitOnFatalFailures: Boolean,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
@@ -116,6 +118,7 @@ object ParticipantNodePersistentStateFactory extends ParticipantNodePersistentSt
       syncDomainPersistentStates,
       storage,
       storageConfig,
+      exitOnFatalFailures = exitOnFatalFailures,
       clock,
       maxDeduplicationDurationO,
       batching,
@@ -139,6 +142,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
       syncDomainPersistentStates: SyncDomainPersistentStateLookup,
       storage: Storage,
       storageConfig: StorageConfig,
+      exitOnFatalFailures: Boolean,
       clock: Clock,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
       batching: BatchingConfig,
@@ -155,7 +159,13 @@ object ParticipantNodePersistentState extends HasLoggerName {
       mat: Materializer,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[ParticipantNodePersistentState] = {
-    val settingsStore = ParticipantSettingsStore(storage, timeouts, futureSupervisor, loggerFactory)
+    val settingsStore = ParticipantSettingsStore(
+      storage,
+      timeouts,
+      futureSupervisor,
+      exitOnFatalFailures = exitOnFatalFailures,
+      loggerFactory,
+    )
     val participantEventLog =
       ParticipantEventLog(
         storage,
@@ -250,6 +260,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
           metrics,
           indexedStringStore,
           timeouts,
+          exitOnFatalFailures = exitOnFatalFailures,
           futureSupervisor,
           loggerFactory,
         )

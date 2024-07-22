@@ -291,10 +291,16 @@ trait TransactionAuthorizationValidator {
         .collectLatestByUniqueKey
         .result
         .map(_.transaction)
+      foundDecentralizedNamespaces = decentralizedNamespaces.map(_.mapping.namespace)
       decentralizedNamespaceOwnersToLoad = decentralizedNamespaces
         .flatMap(_.mapping.owners)
         .toSet -- namespaceCache.keySet
-      namespacesToLoad = uncachedNamespaces ++ decentralizedNamespaceOwnersToLoad
+      namespacesToLoad =
+        uncachedNamespaces
+        // load decentralized namespaces for DND owners that we haven't loaded yet
+          ++ decentralizedNamespaceOwnersToLoad
+          // if we found a decentralized namespace, we don't need to look for a namespace delegation for the DND namespace
+          -- foundDecentralizedNamespaces
 
       storedNamespaceDelegations <- store.findPositiveTransactions(
         timestamp,
@@ -355,14 +361,6 @@ trait TransactionAuthorizationValidator {
             ),
           )
         )
-        val directDecentralizedNamespaceGraph = namespaceCache.getOrElseUpdate(
-          namespace,
-          new AuthorizationGraph(
-            namespace,
-            extraDebugInfo = false,
-            loggerFactory,
-          ),
-        )
         decentralizedNamespaceCache
           .put(
             namespace,
@@ -370,7 +368,6 @@ trait TransactionAuthorizationValidator {
               dns.mapping,
               DecentralizedNamespaceAuthorizationGraph(
                 dns.mapping,
-                directDecentralizedNamespaceGraph,
                 graphs,
               ),
             ),

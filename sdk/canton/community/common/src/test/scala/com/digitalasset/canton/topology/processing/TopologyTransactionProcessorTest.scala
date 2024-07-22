@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -53,6 +54,7 @@ abstract class TopologyTransactionProcessorTest
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
       futureSupervisor,
+      exitOnFatalFailures = true,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
@@ -110,8 +112,8 @@ abstract class TopologyTransactionProcessorTest
     )
 
   private def validate(
-      observed: List[TopologyMapping],
-      expected: List[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      observed: Seq[TopologyMapping],
+      expected: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ) = {
     observed.toSet shouldBe expected.map(_.mapping).toSet
   }
@@ -180,7 +182,14 @@ abstract class TopologyTransactionProcessorTest
       val block2 = List(ns1k2_k1, dtcp1_k1)
       val block3 = List(okm1bk5k1E_k1)
       val block4 = List(dnd_proposal_k1)
-      val block5 = List(dnd_proposal_k2)
+      // using two competing proposals in the same block with the same
+      // * serial
+      // * mapping_unique_key
+      // * operation
+      // * validFrom
+      // * signing keys
+      // to check that the unique index is not too general
+      val block5 = List(dnd_proposal_k2, dnd_proposal_k2_alternative)
       val block6 = List(dnd_proposal_k3)
       process(proc, ts(0), 0, block1)
       process(proc, ts(1), 1, block2)
@@ -192,6 +201,9 @@ abstract class TopologyTransactionProcessorTest
       val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
         .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
         .valueOrFail("Couldn't find DND")
+
+      // check that we indeed stored 2 proposals
+      storeAfterProcessing.result.filter(_.validFrom == EffectiveTime(ts(4))) should have size (2)
 
       val proc2 = mk(store)._1
       process(proc2, ts(0), 0, block1)
@@ -408,6 +420,85 @@ abstract class TopologyTransactionProcessorTest
 
       // the latest non-rejected transaction should still be the one
       checkDop(ts(2).immediateSuccessor, expectedSignatures = 4, expectedValidFrom = ts(1))
+    }
+
+    "correctly handle competing proposals getting enough signatures in the same block" in {
+      import SigningKeys.{ec as _, *}
+      val dndNamespace = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1))
+
+      def createDnd(
+          owners: Namespace*
+      )(key: SigningPublicKey, serial: PositiveInt, isProposal: Boolean) = {
+        mkAddMultiKey(
+          DecentralizedNamespaceDefinition
+            .create(
+              dndNamespace,
+              PositiveInt.one,
+              NonEmpty.from(owners).value.toSet,
+            )
+            .value,
+          NonEmpty(Set, key),
+          serial = serial,
+          isProposal = isProposal,
+        )
+      }
+
+      val dnd = createDnd(ns1)(key1, serial = PositiveInt.one, isProposal = false)
+      val dnd_add_ns2_k2 = createDnd(ns1, ns2)(key2, serial = PositiveInt.two, isProposal = true)
+      val dnd_add_ns2_k1 = createDnd(ns1, ns2)(key1, serial = PositiveInt.two, isProposal = true)
+      val dnd_add_ns3_k3 = createDnd(ns1, ns3)(key3, serial = PositiveInt.two, isProposal = true)
+      val dnd_add_ns3_k1 = createDnd(ns1, ns3)(key1, serial = PositiveInt.two, isProposal = true)
+      val (proc, store) = mk()
+
+      val rootCertificates = Seq[GenericSignedTopologyTransaction](ns1k1_k1, ns2k2_k2, ns3k3_k3)
+      store
+        .bootstrap(
+          StoredTopologyTransactions(
+            (rootCertificates :+ dnd).map(
+              StoredTopologyTransaction(
+                SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
+                EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+                None,
+                _,
+              )
+            )
+          )
+        )
+        .futureValue
+
+      // add proposal to add ns2 to dnd signed by k2
+      val block1 = List[GenericSignedTopologyTransaction](dnd_add_ns2_k2)
+      process(proc, ts(1), 1L, block1)
+      validate(fetch(store, ts(1).immediateSuccessor, isProposal = true), block1)
+
+      // add proposal to add ns3 to dnd signed by k3
+      val block2 = List[GenericSignedTopologyTransaction](dnd_add_ns3_k3)
+      process(proc, ts(2), 2L, block2)
+      // now we'll find both proposals
+      validate(fetch(store, ts(2).immediateSuccessor, isProposal = true), block1 ++ block2)
+
+      // k1 signs both proposals and processes in the same block
+      val block3 = List[GenericSignedTopologyTransaction](dnd_add_ns2_k1, dnd_add_ns3_k1)
+      process(proc, ts(3), 3L, block3)
+      // now there should be no more proposals active
+      validate(fetch(store, ts(3).immediateSuccessor, isProposal = true), Seq.empty)
+      // and if we query fully authorized mappings, we should find all root certs
+      // and the updated DND with ns2 as additional owner.
+      // validate only looks at the mapping of dnd_add_ns2_k1 for the comparison,
+      // therefore we don't have to manually merge signatures here first.
+      validate(fetch(store, ts(3).immediateSuccessor), rootCertificates :+ dnd_add_ns2_k1)
+
+      // additionally when we look up dnd_add_ns3_k1 by tx_hash,
+      // we should find that it has been stored without merged signatures
+      // and validFrom == validUntil.
+      val rejected_dnd_add_ns3_k1 =
+        store
+          .findStored(CantonTimestamp.MaxValue, dnd_add_ns3_k1, includeRejected = true)
+          .futureValue
+          .value
+      rejected_dnd_add_ns3_k1.transaction shouldBe dnd_add_ns3_k1
+      rejected_dnd_add_ns3_k1.validUntil shouldBe Some(EffectiveTime(ts(3)))
+      rejected_dnd_add_ns3_k1.validFrom shouldBe EffectiveTime(ts(3))
     }
 
     /* This tests the following scenario for transactions with

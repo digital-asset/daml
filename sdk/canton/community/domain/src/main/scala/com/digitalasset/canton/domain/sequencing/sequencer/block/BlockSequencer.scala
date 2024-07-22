@@ -89,6 +89,7 @@ class BlockSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     unifiedSequencer: Boolean,
+    exitOnFatalFailures: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends DatabaseSequencer(
@@ -128,6 +129,7 @@ class BlockSequencer(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   override lazy val rateLimitManager: Option[SequencerRateLimitManager] = Some(
@@ -532,41 +534,38 @@ class BlockSequencer(
           requestedTimestamp <= status.safePruningTimestamp,
           UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
         )
-        msgs <- EitherT.right(
+        msg <- EitherT(
           pruningQueue
             .execute(
               for {
                 eventsMsg <- store.prune(requestedTimestamp)
                 trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
-              } yield ((eventsMsg, trafficMsg)),
+                msgEither <-
+                  if (unifiedSequencer) {
+                    super[DatabaseSequencer]
+                      .prune(requestedTimestamp)
+                      .map(dbsMsg =>
+                        s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
+                      )
+                      .value
+                  } else {
+                    Future.successful(Right(s"$eventsMsg\n$trafficMsg"))
+                  }
+              } yield msgEither,
               s"pruning sequencer at $requestedTimestamp",
             )
             .unwrap
             .map(
               _.onShutdown(
-                (s"pruning at $requestedTimestamp canceled because we're shutting down", "")
+                Right(s"pruning at $requestedTimestamp canceled because we're shutting down")
               )
             )
         )
-        (eventsMsg, trafficMsg) = msgs
         _ <- EitherT.right(
           placeLocalEvent(BlockSequencer.UpdateInitialMemberCounters(requestedTimestamp))
         )
         _ <- EitherT.right(supervisedPruningF)
-        dbsMsg <-
-          if (unifiedSequencer) {
-            // TODO(#19526): Move in together within the pruningQueue.execute above
-            super[DatabaseSequencer].prune(requestedTimestamp)
-          } else {
-            EitherT.pure[Future, PruningError]("")
-          }
-      } yield {
-        if (unifiedSequencer) {
-          s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
-        } else {
-          s"$eventsMsg\n$trafficMsg"
-        }
-      }
+      } yield msg
     else
       EitherT.right(
         supervisedPruningF.map(_ =>

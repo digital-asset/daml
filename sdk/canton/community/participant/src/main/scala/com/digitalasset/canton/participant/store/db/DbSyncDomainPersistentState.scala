@@ -4,11 +4,10 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.config.ParticipantStoreConfig
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.protocol.TargetDomainId
@@ -33,11 +32,7 @@ class DbSyncDomainPersistentState(
     clock: Clock,
     storage: DbStorage,
     crypto: Crypto,
-    parameters: ParticipantStoreConfig,
-    val caching: CachingConfigs,
-    val batching: BatchingConfig,
-    val timeouts: ProcessingTimeout,
-    override val enableAdditionalConsistencyChecks: Boolean,
+    parameters: ParticipantNodeParameters,
     indexedStringStore: IndexedStringStore,
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
@@ -47,6 +42,13 @@ class DbSyncDomainPersistentState(
     with NoTracing {
 
   override val pureCryptoApi: CryptoPureApi = crypto.pureCrypto
+
+  private val timeouts = parameters.processingTimeouts
+  private val batching = parameters.batchingConfig
+  private val caching = parameters.cachingConfigs
+
+  override def enableAdditionalConsistencyChecks: Boolean =
+    parameters.enableAdditionalConsistencyChecks
 
   val eventLog: DbSingleDimensionEventLog[DomainEventLogId] = new DbSingleDimensionEventLog(
     DomainEventLogId(domainId),
@@ -75,6 +77,7 @@ class DbSyncDomainPersistentState(
     TargetProtocolVersion(protocolVersion),
     pureCryptoApi,
     futureSupervisor,
+    exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts,
     loggerFactory,
   )
@@ -84,7 +87,7 @@ class DbSyncDomainPersistentState(
       domainId,
       enableAdditionalConsistencyChecks,
       batching.maxItemsInSqlClause,
-      parameters.journalPruning.toInternal,
+      parameters.stores.journalPruning.toInternal,
       indexedStringStore,
       protocolVersion,
       timeouts,
@@ -110,9 +113,9 @@ class DbSyncDomainPersistentState(
     storage,
     domainId,
     protocolVersion,
-    pureCryptoApi,
     timeouts,
     futureSupervisor,
+    exitOnFatalFailures = parameters.exitOnFatalFailures,
     loggerFactory,
   )
 
@@ -127,7 +130,7 @@ class DbSyncDomainPersistentState(
     new DbSubmissionTrackerStore(
       storage,
       domainId,
-      parameters.journalPruning.toInternal,
+      parameters.stores.journalPruning.toInternal,
       timeouts,
       loggerFactory,
     )
@@ -148,6 +151,7 @@ class DbSyncDomainPersistentState(
     crypto = crypto,
     store = topologyStore,
     outboxQueue = domainOutboxQueue,
+    exitOnFatalFailures = parameters.exitOnFatalFailures,
     protocolVersion = protocolVersion,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,

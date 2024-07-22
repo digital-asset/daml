@@ -353,12 +353,17 @@ class CantonSyncService(
   val cantonAuthorityResolver: AuthorityResolver =
     new CantonAuthorityResolver(connectedDomainsLookup, loggerFactory)
 
-  private val connectQueue = new SimpleExecutionQueue(
-    "sync-service-connect-and-repair-queue",
-    futureSupervisor,
-    timeouts,
-    loggerFactory,
-  )
+  private val connectQueue = {
+    val queueName = "sync-service-connect-and-repair-queue"
+
+    new SimpleExecutionQueue(
+      queueName,
+      futureSupervisor,
+      timeouts,
+      loggerFactory,
+      crashOnFailure = parameters.exitOnFatalFailures,
+    )
+  }
 
   val repairService: RepairService = new RepairService(
     participantId,
@@ -975,8 +980,6 @@ class CantonSyncService(
     connectQueue.executeEUS(
       performReconnectDomains(ignoreFailures),
       "reconnect domains",
-      // If sequencer is down for a long time and comes back, we don't want to cache previous failures.
-      runIfFailed = true,
     )
 
   private def performReconnectDomains(ignoreFailures: Boolean)(implicit
@@ -1211,45 +1214,44 @@ class CantonSyncService(
         case Some(old) => Some(ts.max(old))
       }
 
-    val _ = clock.scheduleAt(
-      ts => {
-        val (reconnect, nextO) = {
-          attemptReconnect.toList.foldLeft(
-            (Seq.empty[AttemptReconnect], None: Option[CantonTimestamp])
-          ) { case ((reconnect, next), (alias, item)) =>
-            // if we can't retry now, remember to retry again
-            if (item.earliest > ts)
-              (reconnect, mergeLarger(next, item.earliest))
-            else {
-              // update when we retried
-              val nextRetry = item.retryDelay.*(2.0)
-              val maxRetry = parameters.sequencerClient.maxConnectionRetryDelay.unwrap
-              val nextRetryCapped = if (nextRetry > maxRetry) maxRetry else nextRetry
-              attemptReconnect
-                .put(alias, item.copy(last = ts, retryDelay = nextRetryCapped))
-                .discard
-              (reconnect :+ item, mergeLarger(next, ts.plusMillis(nextRetryCapped.toMillis)))
-            }
+    def reconnectAttempt(ts: CantonTimestamp): Unit = {
+      val (reconnect, nextO) = {
+        attemptReconnect.toList.foldLeft(
+          (Seq.empty[AttemptReconnect], None: Option[CantonTimestamp])
+        ) { case ((reconnect, next), (alias, item)) =>
+          // if we can't retry now, remember to retry again
+          if (item.earliest > ts)
+            (reconnect, mergeLarger(next, item.earliest))
+          else {
+            // update when we retried
+            val nextRetry = item.retryDelay.*(2.0)
+            val maxRetry = parameters.sequencerClient.maxConnectionRetryDelay.unwrap
+            val nextRetryCapped = if (nextRetry > maxRetry) maxRetry else nextRetry
+            attemptReconnect
+              .put(alias, item.copy(last = ts, retryDelay = nextRetryCapped))
+              .discard
+            (reconnect :+ item, mergeLarger(next, ts.plusMillis(nextRetryCapped.toMillis)))
           }
         }
-        reconnect.foreach { item =>
-          implicit val traceContext: TraceContext = item.trace
-          val domainAlias = item.alias
-          logger.debug(s"Starting background reconnect attempt for $domainAlias")
-          EitherTUtil.doNotAwaitUS(
-            attemptDomainConnection(
-              item.alias,
-              keepRetrying = true,
-              initial = false,
-              connectDomain = connectDomain,
-            ),
-            s"Background reconnect to $domainAlias",
-          )
-        }
-        nextO.foreach(scheduleReconnectAttempt(_, connectDomain))
-      },
-      timestamp,
-    )
+      }
+      reconnect.foreach { item =>
+        implicit val traceContext: TraceContext = item.trace
+        val domainAlias = item.alias
+        logger.debug(s"Starting background reconnect attempt for $domainAlias")
+        EitherTUtil.doNotAwaitUS(
+          attemptDomainConnection(
+            item.alias,
+            keepRetrying = true,
+            initial = false,
+            connectDomain = connectDomain,
+          ),
+          s"Background reconnect to $domainAlias",
+        )
+      }
+      nextO.foreach(scheduleReconnectAttempt(_, connectDomain))
+    }
+
+    clock.scheduleAt(reconnectAttempt, timestamp).discard
   }
 
   def domainConnectionConfigByAlias(
@@ -1915,6 +1917,7 @@ object CantonSyncService {
         indexedStringStore: IndexedStringStore,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
+        exitOnFatalFailures: Boolean,
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
@@ -1945,6 +1948,7 @@ object CantonSyncService {
         indexedStringStore: IndexedStringStore,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
+        exitOnFatalFailures: Boolean,
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,

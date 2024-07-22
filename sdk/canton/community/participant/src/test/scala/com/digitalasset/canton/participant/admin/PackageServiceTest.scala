@@ -90,6 +90,7 @@ class PackageServiceTest
         hashOps = new SymbolicPureCrypto(),
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,
+        exitOnFatalFailures = true,
         packageMetadataViewConfig = PackageMetadataViewConfig(),
         packageOps = new PackageOpsForTesting(participantId, loggerFactory),
         timeouts = processingTimeouts,

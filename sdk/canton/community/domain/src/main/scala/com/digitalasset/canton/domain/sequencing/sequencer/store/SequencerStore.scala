@@ -831,7 +831,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     val snapshot = initialState.snapshot
     val lastTs = snapshot.lastTs
     for {
-      _ <- snapshot.status.members.parTraverse { memberStatus =>
+      _ <- snapshot.status.members.toSeq.parTraverse { memberStatus =>
         for {
           id <- eitherT(registerMember(memberStatus.member, memberStatus.registeredAt))
           _ <-

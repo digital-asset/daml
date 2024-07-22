@@ -232,6 +232,9 @@ abstract class BlockSequencerFactory(
       _ <- balanceManager.initialize
       stateManager <- stateManagerF
     } yield {
+      logger.info(
+        s"Creating block sequencer with unified mode set to: ${nodeParameters.useUnifiedSequencer}"
+      )
       val sequencer = createBlockSequencer(
         name,
         domainId,

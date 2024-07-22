@@ -611,9 +611,6 @@ class GrpcSequencerService(
   private def permissionDenied(message: String): Status =
     Status.PERMISSION_DENIED.withDescription(message)
 
-  private def wrongProtocolVersion(message: String): Status =
-    Status.UNIMPLEMENTED.withDescription(message)
-
   // avoid emitting a warning during the first sequencing of the topology snapshot
   private def warnOnUsingDefaults(sender: Option[Member]): Boolean = sender match {
     case Some(_: ParticipantId) => true

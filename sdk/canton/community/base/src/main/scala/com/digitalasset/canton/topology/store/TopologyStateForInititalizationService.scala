@@ -7,8 +7,9 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
+import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -61,9 +62,14 @@ final class StoreBasedTopologyStateForInitializationService(
           .map(_.map(_.validFrom))
       case mediator @ MediatorId(_) =>
         domainTopologyStore.findFirstMediatorStateForMediator(mediator).map(_.map(_.validFrom))
-      case _ =>
-        // TODO(#12390) proper error
-        ???
+      case SequencerId(_) =>
+        Future.failed(
+          Status.INVALID_ARGUMENT
+            .withDescription(
+              s"Downloading the initial topology snapshot for sequencers is not supported."
+            )
+            .asException()
+        )
     }
 
     effectiveFromF.flatMap { effectiveFromO =>
@@ -75,8 +81,15 @@ final class StoreBasedTopologyStateForInitializationService(
           val referenceSequencedTime = SequencedTime(effectiveFrom.value)
           domainTopologyStore.findEssentialStateAtSequencedTime(referenceSequencedTime)
         }
-        // TODO(#12390) should this error out if nothing can be found?
-        .getOrElse(Future.successful(StoredTopologyTransactions.empty))
+        .getOrElse(
+          domainTopologyStore.maxTimestamp().flatMap { maxTimestamp =>
+            Future.failed(
+              Status.FAILED_PRECONDITION
+                .withDescription(s"No onboarding transaction found for $member as of $maxTimestamp")
+                .asException()
+            )
+          }
+        )
     }
   }
 }

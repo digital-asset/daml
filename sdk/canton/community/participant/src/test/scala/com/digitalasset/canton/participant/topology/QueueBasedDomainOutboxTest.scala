@@ -102,6 +102,7 @@ class QueueBasedDomainOutboxTest
       queue,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       testedProtocolVersion,
+      exitOnFatalFailures = true,
       timeouts,
       futureSupervisor,
       loggerFactory,

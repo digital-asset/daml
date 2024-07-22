@@ -58,7 +58,6 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
       snapshot: SyncCryptoApi,
       member: Member,
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
     ClosedEnvelope.verifySignatures(
       snapshot,
       member,

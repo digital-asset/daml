@@ -101,6 +101,7 @@ class StartableStoppableLedgerApiServer(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = parameters.exitOnFatalFailures,
   )
 
   private val ledgerApiResource = new AtomicReference[Option[Resource[Unit]]](None)

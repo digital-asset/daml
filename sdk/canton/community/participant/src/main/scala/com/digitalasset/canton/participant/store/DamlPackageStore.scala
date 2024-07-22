@@ -104,6 +104,7 @@ object DamlPackageStore {
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       parameterConfig: ParticipantNodeParameters,
+      exitOnFatalFailures: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
@@ -117,6 +118,7 @@ object DamlPackageStore {
           pool,
           parameterConfig.processingTimeouts,
           futureSupervisor,
+          exitOnFatalFailures = exitOnFatalFailures,
           loggerFactory,
         )
     }

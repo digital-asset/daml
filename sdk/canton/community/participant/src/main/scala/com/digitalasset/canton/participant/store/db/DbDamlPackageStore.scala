@@ -39,6 +39,7 @@ class DbDamlPackageStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends DamlPackageStore
@@ -56,6 +57,7 @@ class DbDamlPackageStore(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   private def exists(packageId: PackageId): DbAction.ReadOnly[Option[DamlLf.Archive]] =

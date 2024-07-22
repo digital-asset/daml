@@ -25,6 +25,7 @@ class DbParticipantSettingsStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ParticipantSettingsStore
@@ -37,6 +38,7 @@ class DbParticipantSettingsStore(
     futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
   )
 
   import storage.api.*

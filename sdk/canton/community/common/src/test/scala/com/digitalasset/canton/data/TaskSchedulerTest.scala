@@ -50,6 +50,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
     alertEvery,
     TestTaskOrdering,
     metrics,
+    exitOnFatalFailures = true,
     timeouts,
     loggerFactory,
     futureSupervisor,

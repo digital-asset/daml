@@ -210,7 +210,7 @@ class TransactionTreeFactoryImpl(
         }
       val rootPackages = rootViewDecomposition.allNodes
         .collect { case sameView: TransactionViewDecomposition.SameView =>
-          LfTransactionUtil.nodeTemplates(sameView.lfNode).map(_.packageId).toSet
+          sameView.lfNode.packageIds.toSet
         }
         .flatten
         .toSet

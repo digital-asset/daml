@@ -191,6 +191,7 @@ abstract class CantonNodeBootstrapImpl[
     arguments.futureSupervisor,
     timeouts,
     loggerFactory,
+    crashOnFailure = parameters.exitOnFatalFailures,
   )
 
   // This absolutely must be a "def", because it is used during class initialization.
@@ -574,6 +575,7 @@ abstract class CantonNodeBootstrapImpl[
         clock,
         crypto,
         authorizedStore,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
         bootstrapStageCallback.timeouts,
         futureSupervisor,
         bootstrapStageCallback.loggerFactory,

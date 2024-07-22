@@ -1354,14 +1354,14 @@ class DbSequencerStore(
       SequencerPruningStatus(
         lowerBound = lowerBoundO.getOrElse(CantonTimestamp.Epoch),
         now = now,
-        members = members.map { case (member, memberId, registeredAt, enabled) =>
+        members = members.view.map { case (member, memberId, registeredAt, enabled) =>
           SequencerMemberStatus(
             member,
             registeredAt,
             lastAcknowledged = acknowledgements.get(memberId),
             enabled = enabled,
           )
-        },
+        }.toSet,
       )
     }
   }

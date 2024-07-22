@@ -47,7 +47,8 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         store,
         clock,
         FutureSupervisor.Noop,
-        false,
+        mustTrackSubmissionIds = false,
+        exitOnFatalFailures = true,
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )

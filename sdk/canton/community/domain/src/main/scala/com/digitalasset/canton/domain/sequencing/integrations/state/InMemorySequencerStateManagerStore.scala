@@ -184,7 +184,7 @@ class InMemorySequencerStateManagerStore(
         lowerBound = pruningLowerBound.getOrElse(CantonTimestamp.Epoch),
         members = indices.toSeq.mapFilter { case (member, index) =>
           Option.when(asOf.forall(index.addedAt <= _))(index.toStatus(member))
-        },
+        }.toSet,
       )
 
     def addMember(member: Member, addedAt: CantonTimestamp): State =

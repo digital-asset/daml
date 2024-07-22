@@ -4,10 +4,9 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.config.ParticipantStoreConfig
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
 import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
@@ -58,11 +57,7 @@ object SyncDomainPersistentState {
       protocolVersion: ProtocolVersion,
       clock: Clock,
       crypto: Crypto,
-      parameters: ParticipantStoreConfig,
-      caching: CachingConfigs,
-      batching: BatchingConfig,
-      processingTimeouts: ProcessingTimeout,
-      enableAdditionalConsistencyChecks: Boolean,
+      parameters: ParticipantNodeParameters,
       indexedStringStore: IndexedStringStore,
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
@@ -76,10 +71,11 @@ object SyncDomainPersistentState {
           crypto,
           domainId,
           protocolVersion,
-          enableAdditionalConsistencyChecks,
+          parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
           domainLoggerFactory,
-          processingTimeouts,
+          parameters.processingTimeouts,
           futureSupervisor,
         )
       case db: DbStorage =>
@@ -91,10 +87,6 @@ object SyncDomainPersistentState {
           db,
           crypto,
           parameters,
-          caching,
-          batching,
-          processingTimeouts,
-          enableAdditionalConsistencyChecks,
           indexedStringStore,
           domainLoggerFactory,
           futureSupervisor,

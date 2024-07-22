@@ -46,6 +46,7 @@ trait SyncDomainEphemeralStateFactory {
 }
 
 class SyncDomainEphemeralStateFactoryImpl(
+    exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -85,6 +86,7 @@ class SyncDomainEphemeralStateFactoryImpl(
         startingPoints,
         createTimeTracker,
         metrics,
+        exitOnFatalFailures = exitOnFatalFailures,
         sessionKeyCacheConfig,
         timeouts,
         persistentState.loggerFactory,

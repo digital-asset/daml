@@ -253,6 +253,7 @@ class ProtocolProcessorTest
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
+        exitOnFatalFailures = true,
         loggerFactory,
         timeouts,
         futureSupervisor,
@@ -264,13 +265,16 @@ class ProtocolProcessorTest
         )
       }
     val indexedStringStore = InMemoryIndexedStringStore()
+
     implicit val mat: Materializer = mock[Materializer]
+
     val nodePersistentState = timeouts.default.await("creating node persistent state")(
       ParticipantNodePersistentState
         .create(
           syncDomainPersistentStates,
           new MemoryStorage(loggerFactory, timeouts),
           CommunityStorageConfig.Memory(),
+          exitOnFatalFailures = true,
           clock,
           None,
           BatchingConfig(),
@@ -294,6 +298,7 @@ class ProtocolProcessorTest
       indexedStringStore,
       ParticipantTestMetrics,
       futureSupervisor,
+      exitOnFatalFailures = true,
       loggerFactory,
     )
 
@@ -304,6 +309,7 @@ class ProtocolProcessorTest
       Eval.now(nodePersistentState.participantEventLog),
       Eval.now(mdel),
       clock,
+      exitOnFatalFailures = true,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -337,6 +343,7 @@ class ProtocolProcessorTest
         startingPoints,
         () => timeTracker,
         ParticipantTestMetrics.domain,
+        exitOnFatalFailures = true,
         CachingConfigs.defaultSessionKeyCacheConfig,
         timeouts,
         loggerFactory,

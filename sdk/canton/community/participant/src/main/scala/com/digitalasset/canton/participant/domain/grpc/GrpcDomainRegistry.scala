@@ -163,7 +163,6 @@ class GrpcDomainRegistry(
         packageDependencyResolver,
         partyNotifier,
         metrics,
-        participantSettings,
       )
     } yield new GrpcDomainHandle(
       domainHandle.domainId,

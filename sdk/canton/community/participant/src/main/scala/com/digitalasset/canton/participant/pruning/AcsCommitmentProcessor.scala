@@ -194,6 +194,7 @@ class AcsCommitmentProcessor(
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
     clock: Clock,
+    exitOnFatalFailures: Boolean,
     maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
@@ -285,6 +286,7 @@ class AcsCommitmentProcessor(
       timeouts,
       loggerFactory,
       logTaskTiming = true,
+      crashOnFailure = exitOnFatalFailures,
     )
 
   /** Queue to serialize the publication of ACS changes */
@@ -295,6 +297,7 @@ class AcsCommitmentProcessor(
       timeouts,
       loggerFactory,
       logTaskTiming = true,
+      crashOnFailure = exitOnFatalFailures,
     )
 
   private def getReconciliationIntervals(validAt: CantonTimestamp)(implicit

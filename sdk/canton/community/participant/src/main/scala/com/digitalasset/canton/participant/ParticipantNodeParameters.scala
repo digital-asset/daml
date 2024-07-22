@@ -12,7 +12,11 @@ import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   LoggingConfig,
 }
-import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
+import com.digitalasset.canton.environment.{
+  CantonNodeParameters,
+  DefaultNodeParameters,
+  HasGeneralCantonNodeParameters,
+}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.{
   CantonEngineConfig,
@@ -69,7 +73,7 @@ object ParticipantNodeParameters {
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
-      useUnifiedSequencer = false,
+      useUnifiedSequencer = DefaultNodeParameters.UseUnifiedSequencer,
       watchdog = None,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,

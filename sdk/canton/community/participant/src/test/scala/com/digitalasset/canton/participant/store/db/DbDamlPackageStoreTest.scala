@@ -33,6 +33,7 @@ trait DbDamlPackageStoreTest extends DamlPackageStoreTest {
         storage,
         timeouts,
         futureSupervisor,
+        exitOnFatalFailures = true,
         loggerFactory,
       )
     )

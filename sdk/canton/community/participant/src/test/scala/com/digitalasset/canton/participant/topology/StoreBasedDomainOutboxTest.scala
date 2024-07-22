@@ -88,6 +88,7 @@ class StoreBasedDomainOutboxTest
       clock,
       crypto,
       source,
+      exitOnFatalFailures = true,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       timeouts,
       futureSupervisor,

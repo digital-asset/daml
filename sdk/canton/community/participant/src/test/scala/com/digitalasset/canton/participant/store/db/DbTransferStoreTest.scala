@@ -30,6 +30,7 @@ trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStore
         TargetProtocolVersion(testedProtocolVersion),
         new SymbolicPureCrypto,
         futureSupervisor,
+        exitOnFatalFailures = true,
         timeouts,
         loggerFactory,
       )

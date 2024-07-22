@@ -270,7 +270,7 @@ class AuthorizationGraph(
   }
 
   def report()(implicit traceContext: TraceContext): Unit = {
-    if (rootNode.nonEmpty) {
+    if (rootNode.isEmpty) {
       logger.debug(
         s"Namespace $namespace has no root node, therefore no namespace delegation is authorized."
       )
@@ -360,29 +360,21 @@ object AuthorizationCheck {
   */
 final case class DecentralizedNamespaceAuthorizationGraph(
     dnd: DecentralizedNamespaceDefinition,
-    direct: AuthorizationGraph,
     ownerGraphs: Seq[AuthorizationGraph],
 ) extends AuthorizationCheck {
-  require(
-    dnd.namespace == direct.namespace,
-    s"The direct graph refers to the wrong namespace (expected: ${dnd.namespace}, actual: ${direct.namespace}).",
-  )
 
   override def existsAuthorizedKeyIn(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
   ): Boolean = {
-    val viaNamespaceDelegation = direct.existsAuthorizedKeyIn(authKeys, requireRoot)
-    val viaCollective =
-      ownerGraphs.count(_.existsAuthorizedKeyIn(authKeys, requireRoot)) >= dnd.threshold.value
-    viaNamespaceDelegation || viaCollective
+    ownerGraphs.count(_.existsAuthorizedKeyIn(authKeys, requireRoot)) >= dnd.threshold.value
   }
 
   override def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
   ): Set[SigningPublicKey] = {
-    (direct +: ownerGraphs)
+    ownerGraphs
       .flatMap(_.keysSupportingAuthorization(authKeys, requireRoot))
       .toSet
   }

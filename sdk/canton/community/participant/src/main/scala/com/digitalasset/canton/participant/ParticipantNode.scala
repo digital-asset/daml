@@ -167,14 +167,13 @@ class ParticipantNodeBootstrap(
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[ParticipantNode] =
-    new StartupNode(storage, crypto, nodeId, manager, healthReporter, healthService)
+    new StartupNode(storage, crypto, nodeId, manager, healthService)
 
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
-      healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ) extends BootstrapStage[ParticipantNode, RunningNode[ParticipantNode]](
         description = "Startup participant node",
@@ -189,6 +188,7 @@ class ParticipantNodeBootstrap(
         storage,
         arguments.futureSupervisor,
         arguments.parameterConfig,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
         loggerFactory,
       ),
       arguments.parameterConfig.processingTimeouts,
@@ -327,6 +327,7 @@ class ParticipantNodeBootstrap(
           clock,
           arguments.futureSupervisor,
           mustTrackSubmissionIds = true,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
@@ -548,6 +549,7 @@ class ParticipantNodeBootstrap(
           syncDomainPersistentStateManager,
           storage,
           config.storage,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
           clock,
           config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
           parameterConfig.batchingConfig,
@@ -598,6 +600,7 @@ class ParticipantNodeBootstrap(
         persistentState,
         inFlightSubmissionTracker,
         clock,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
         timeouts = parameterConfig.processingTimeouts,
         futureSupervisor,
         loggerFactory,
@@ -615,6 +618,7 @@ class ParticipantNodeBootstrap(
               hashOps = syncCrypto.pureCrypto,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,
+              exitOnFatalFailures = parameters.exitOnFatalFailures,
               packageMetadataViewConfig = config.parameters.packageMetadataView,
               packageOps = createPackageOps(syncDomainPersistentStateManager),
               timeouts = parameterConfig.processingTimeouts,
@@ -658,6 +662,7 @@ class ParticipantNodeBootstrap(
       )
 
       syncDomainEphemeralStateFactory = new SyncDomainEphemeralStateFactoryImpl(
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
         parameterConfig.processingTimeouts,
         loggerFactory,
         futureSupervisor,
@@ -715,6 +720,7 @@ class ParticipantNodeBootstrap(
         indexedStringStore,
         schedulers,
         arguments.metrics,
+        exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
         sequencerInfoLoader,
         arguments.futureSupervisor,
         loggerFactory,
