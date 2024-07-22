@@ -4,7 +4,6 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
-import com.daml.ledger.javaapi.data.ParticipantOffset
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator.nonEmptyLedgerContent
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
@@ -114,14 +113,13 @@ class StateClientImplTest
         Observable.empty(),
         Observable.fromIterable(ledgerContent.asJava),
       ) { (stateClient, _) =>
-        val expectedOffset = new ParticipantOffset.Absolute(transactions.last.getOffset)
+        val expectedOffset = transactions.last.getOffset
         stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset
       }
   }
 
   it should "provide LEDGER_BEGIN from empty ledger" in
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (transactionClient, _) =>
-      transactionClient.getLedgerEnd.blockingGet() shouldBe
-        ParticipantOffset.ParticipantBegin.getInstance()
+      transactionClient.getLedgerEnd.blockingGet() shouldBe "" // ParticipantBegin
     }
 }
