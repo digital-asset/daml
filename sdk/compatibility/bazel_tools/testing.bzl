@@ -747,7 +747,7 @@ excluded_test_tool_tests = [
         "start": "2.9.0-snapshot.20240613",
         "platform_ranges": [
             {
-                "end": "2.9.0-snapshot.20240612",
+                "end": "2.9.1",
                 "exclusions": [
                     "TransactionServiceQueryIT:TXFlatTransactionByIdExplicitDisclosure",
                     "TransactionServiceQueryIT:TXFlatTransactionByEventIdExplicitDisclosure",
