@@ -566,6 +566,77 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    "Fails when adding deps downgrade versions." in {
+      for {
+        _ <- uploadPackage("test-common/upgrades-FailsWhenDepsDowngradeVersions-dep-v1.dar")
+        _ <- uploadPackage("test-common/upgrades-FailsWhenDepsDowngradeVersions-dep-v2.dar")
+        result <- testPackagePair(
+          "test-common/upgrades-FailsWhenDepsDowngradeVersions-v1.dar",
+          "test-common/upgrades-FailsWhenDepsDowngradeVersions-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 1.0.0 on the upgrading package, which is older than version 2.0.0 on the upgraded package."
+            )
+          ),
+        )
+      } yield result
+    }
+
+    def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
+      import com.digitalasset.daml.lf.testing.parser._
+      import com.digitalasset.daml.lf.testing.parser.Implicits._
+      import com.digitalasset.daml.lf.archive.testing.Encode
+
+      val selfPkgId = PackageId.assertFromString("-self-")
+
+      implicit val parserParameters: ParserParameters[this.type] =
+        ParserParameters(
+          defaultPackageId = selfPkgId,
+          languageVersion = lfVersion,
+        )
+
+      val pkg =
+        p""" metadata ( '$pkgName' : '$pkgVersion' )
+        module Mod {
+          record @serializable T = { sig: Party };
+          template (this: T) = {
+             precondition True;
+             signatories Cons @Party [Mod:T {sig} this] (Nil @Party);
+             observers Nil @Party;
+          };
+        }"""
+
+      val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
+      val pkgId = PackageId.assertFromString(
+        MessageDigestPrototype.Sha256.newDigest
+          .digest(archive.getPayload.toByteArray)
+          .map("%02x" format _)
+          .mkString
+      )
+      val os = ByteString.newOutput()
+      DarWriter.encode(
+        SdkVersion.sdkVersion,
+        Dar(("archive.dalf", archive.toByteArray), List()),
+        os,
+      )
+
+      pkgId -> os.toByteString
+    }
+
+    "report no upgrade errors when the upgrade use a newer version of LF" in
+      testPackagePair(
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v2_1),
+        mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v2_dev),
+        assertPackageUpgradeCheck(None),
+      )
+
+    "report upgrade errors when the upgrade use a older version of LF" in
+      testPackagePair(
+        mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v2_dev),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
+        assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
+      )
   }
 }
 

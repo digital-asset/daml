@@ -135,15 +135,12 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = LF.UpgradedPackageId . fst <$> mbUpgradedPackage
+                        , upgradedPackageId = LF.UpgradedPackageId . fst . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion pMeta files
 
-                 MaybeT $
-                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkUpgrade pkg lfVersion upgradeInfo mbUpgradedPackage
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
@@ -161,10 +158,16 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
+                 MaybeT $
+                     runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                         Upgrade.checkUpgrade pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
+                 --MaybeT $
+                 --    runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
+                 --        TypeChecker.Upgrade.checkUpgradeDependencies lfVersion pTypecheckUpgrades pkg (Map.elems dalfDependencies0) mbUpgradedPackage
                  unstableDeps <- getUnstableDalfDependencies files
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]

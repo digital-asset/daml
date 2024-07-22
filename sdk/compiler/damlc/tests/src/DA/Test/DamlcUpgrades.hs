@@ -384,14 +384,14 @@ tests damlc =
                       "FailsWithSynonymReturnTypeChangeInSeparatePackage"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
                       LF.versionDefault
-                      SeparateDeps
+                      (SeparateDeps False)
                       False
                       setUpgradeField
                 , test
                       "SucceedsWhenUpgradingADependency"
                       Succeed
                       LF.versionDefault
-                      SeparateDeps
+                      (SeparateDeps False)
                       False
                       setUpgradeField
                 , test
@@ -406,6 +406,13 @@ tests damlc =
                       (FailWithError "\ESC\\[0;91merror type checking data type Main.RecordToEnum:\n  The upgraded data type RecordToEnum has changed from a record to a enum.")
                       LF.versionDefault
                       NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenDepsDowngradeVersions"
+                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 0.0.1 on the upgrading package, which is older than version 0.0.2 on the upgraded package.\n  Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages.")
+                      LF.versionDefault
+                      (SeparateDeps True)
                       False
                       setUpgradeField
                 ]
@@ -510,10 +517,10 @@ tests damlc =
                       )
                 let sharedDir = dir </> "shared"
                 let sharedDar = sharedDir </> "out.dar"
-                writeFiles sharedDir (projectFile ("upgrades-example-" <> location <> "-dep") Nothing Nothing : sharedDepFiles)
+                writeFiles sharedDir (projectFile "0.0.1" ("upgrades-example-" <> location <> "-dep") Nothing Nothing : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", sharedDir, "-o", sharedDar]
                 pure (Just sharedDar, Just sharedDar)
-              SeparateDeps -> do
+              SeparateDeps { shouldSwap } -> do
                 depV1FilePaths <- listDirectory =<< testRunfile (location </> "dep-v1")
                 let depV1Files = flip map depV1FilePaths $ \path ->
                       ( "daml" </> path
@@ -521,7 +528,7 @@ tests damlc =
                       )
                 let depV1Dir = dir </> "shared-v1"
                 let depV1Dar = depV1Dir </> "out.dar"
-                writeFiles depV1Dir (projectFile ("upgrades-example-" <> location <> "-dep-v1") Nothing Nothing : depV1Files)
+                writeFiles depV1Dir (projectFile "0.0.1" ("upgrades-example-" <> location <> "-dep") Nothing Nothing : depV1Files)
                 callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
 
                 depV2FilePaths <- listDirectory =<< testRunfile (location </> "dep-v2")
@@ -531,19 +538,21 @@ tests damlc =
                       )
                 let depV2Dir = dir </> "shared-v2"
                 let depV2Dar = depV2Dir </> "out.dar"
-                writeFiles depV2Dir (projectFile ("upgrades-example-" <> location <> "-dep-v2") Nothing Nothing : depV2Files)
+                writeFiles depV2Dir (projectFile "0.0.2" ("upgrades-example-" <> location <> "-dep") Nothing Nothing : depV2Files)
                 callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
 
-                pure (Just depV1Dar, Just depV2Dar)
+                if shouldSwap
+                   then pure (Just depV2Dar, Just depV1Dar)
+                   else pure (Just depV1Dar, Just depV2Dar)
               DependOnV1 ->
                 pure (Nothing, Just oldDar)
               _ ->
                 pure (Nothing, Nothing)
 
-            writeFiles oldDir (projectFile ("upgrades-example-" <> location) Nothing depV1Dar : oldVersion)
+            writeFiles oldDir (projectFile "0.0.1" ("upgrades-example-" <> location) Nothing depV1Dar : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
-            writeFiles newDir (projectFile ("upgrades-example-" <> location <> "-v2") (if setUpgradeField then Just oldDar else Nothing) depV2Dar : newVersion)
+            writeFiles newDir (projectFile "0.0.2" ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar : newVersion)
 
             case expectation of
               Succeed ->
@@ -568,13 +577,13 @@ tests damlc =
                       else when (matchTest compiledRegex stderr) $
                             assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
           where
-          projectFile name upgradedFile mbDep =
+          projectFile version name upgradedFile mbDep =
               ( "daml.yaml"
               , unlines $
                 [ "sdk-version: " <> sdkVersion
                 , "name: " <> name
                 , "source: daml"
-                , "version: 0.0.1"
+                , "version: " <> version
                 , "dependencies:"
                 , "  - daml-prim"
                 , "  - daml-stdlib"
@@ -604,4 +613,4 @@ data Dependency
   = NoDependencies
   | DependOnV1
   | SeparateDep
-  | SeparateDeps
+  | SeparateDeps { shouldSwap :: Bool }
