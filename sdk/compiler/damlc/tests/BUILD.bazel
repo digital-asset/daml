@@ -497,6 +497,7 @@ da_haskell_test(
         "//test-common:upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-files",
         "//test-common:upgrades-SucceedsWhenUpgradingADependency-files",
         "//test-common:upgrades-TemplateChangedKeyType-files",
+        "//test-common:upgrades-TemplateChangedKeyType2-files",
         "//test-common:upgrades-ValidUpgrade-files",
         "//test-common:upgrades-WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage-files",
         "//test-common:upgrades-WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt-files",

@@ -367,6 +367,13 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
+                      "TemplateChangedKeyType2"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
+                      contractKeysMinVersion
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
                       "RecordFieldsNewNonOptional"
                       (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but those fields are not Optional.")
                       LF.versionDefault
