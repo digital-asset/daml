@@ -166,7 +166,7 @@ message GetLedgerEndRequest {}
 
 message GetLedgerEndResponse {
   // The absolute offset of the current ledger end.
-  ParticipantOffset offset = 1;
+  string offset = 1;
 }
 
 message GetLatestPrunedOffsetsRequest {

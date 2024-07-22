@@ -385,7 +385,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
           val filterParty = TransactionFilterProto(parties.map(_.toLf -> Filters()).toMap)
 
           logger.info(s"Start measuring throughput (metric: $metricName).")
-          subscribe_trees(observer, filterParty, state.end(), verbose = false)
+          subscribe_trees(
+            observer,
+            filterParty,
+            state.endOffset(),
+            verbose = false,
+          )
         }
 
       @Help.Summary("Get a (tree) transaction by its ID", FeatureFlag.Testing)
@@ -715,7 +720,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           .list(
             partyId = submitter,
             atLeastNumCompletions = 1,
-            beginOffset = ledgerEndBefore.getAbsolute,
+            beginOffset = ledgerEndBefore,
             filter = _.completion.commandId == commandId,
           )(0)
           .completion
@@ -803,12 +808,16 @@ trait BaseLedgerApiAdministration extends NoTracing {
     object state extends Helpful {
 
       @Help.Summary("Read the current ledger end offset", FeatureFlag.Testing)
-      def end(): ParticipantOffset =
+      def end(): String =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.StateService.LedgerEnd()
           )
         })
+
+      @Help.Summary("Read the current ledger end offset in ParticipantOffset", FeatureFlag.Testing)
+      def endOffset(): ParticipantOffset =
+        ParticipantOffset.defaultInstance.withAbsolute(end())
 
       @Help.Summary("Read the current connected domains for a party", FeatureFlag.Testing)
       def connected_domains(partyId: PartyId): GetConnectedDomainsResponse =
@@ -2246,7 +2255,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
 
     private def waitForUpdateId(
         administration: BaseLedgerApiAdministration,
-        from: ParticipantOffset,
+        from: String,
         queryPartyId: PartyId,
         updateId: String,
         timeout: config.NonNegativeDuration,
@@ -2257,7 +2266,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         administration.ledger_api.updates
           .flat(
             partyIds = Set(queryPartyId),
-            beginOffset = from,
+            beginOffset = ParticipantOffset.defaultInstance.withAbsolute(from),
             completeAfter = 1,
             resultFilter = {
               case reassignmentW: ReassignmentWrapper =>

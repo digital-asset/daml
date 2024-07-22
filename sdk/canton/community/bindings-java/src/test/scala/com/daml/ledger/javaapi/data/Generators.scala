@@ -585,7 +585,7 @@ object Generators {
 
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] = {
     for {
-      offset <- participantOffsetGen
+      offset <- Arbitrary.arbString.arbitrary
     } yield v2.StateServiceOuterClass.GetLedgerEndResponse
       .newBuilder()
       .setOffset(offset)
