@@ -23,7 +23,7 @@ import           Data.Data
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
-import           Data.List (foldl')
+import           Data.List (foldl', find)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -672,7 +672,15 @@ isSameType deps type_ = do
     pure (foldU alphaType strippedIdentifiers)
 
 unifyIdentifier :: [Upgrading LF.PackageId] -> Qualified a -> Qualified a
-unifyIdentifier _ q = q { qualPackage = PRSelf }
+unifyIdentifier deps q =
+  case qualPackage q of
+    PRSelf -> q
+    PRImport targetPkgId ->
+      let upgradesQualification upgr = _past upgr == targetPkgId
+      in
+      case find upgradesQualification deps of
+        Just Upgrading {_present} -> q { qualPackage = PRImport _present }
+        _ -> q
 
 unifyTypes :: [Upgrading LF.PackageId] -> Type -> Type
 unifyTypes deps typ =
