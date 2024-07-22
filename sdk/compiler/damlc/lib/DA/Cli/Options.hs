@@ -436,7 +436,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optEnableScenarios <- enableScenariosOpt
     optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
-    optWarnBadInterfaceInstances <- warnBadInterfaceInstancesOpt
+    optUpgradeInfo <- optUpgradeInfo
 
     return Options{..}
   where
@@ -563,14 +563,34 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         <> help "Set path to CPP."
         <> internal
 
-warnBadInterfaceInstancesOpt :: Parser WarnBadInterfaceInstances
-warnBadInterfaceInstancesOpt =
-  WarnBadInterfaceInstances <$>
-  flagYesNoAuto
-    "warn-bad-interface-instances"
-    False
-    "Convert errors about bad, non-upgradeable interface instances into warnings."
-    idm
+    optUpgradeDar :: Parser (Maybe FilePath)
+    optUpgradeDar = optional . optionOnce str
+        $ metavar "UPGRADE_DAR"
+        <> long "upgrades"
+        <> help "Set DAR to upgrade"
+
+    optTypecheckUpgrades :: Parser Bool
+    optTypecheckUpgrades =
+      flagYesNoAuto
+        "typecheck-upgrades"
+        defaultUiTypecheckUpgrades
+        "Typecheck upgrades."
+        idm
+
+    optWarnBadInterfaceInstances :: Parser Bool
+    optWarnBadInterfaceInstances =
+      flagYesNoAuto
+        "warn-bad-interface-instances"
+        defaultUiWarnBadInterfaceInstances
+        "Convert errors about bad, non-upgradeable interface instances into warnings."
+        idm
+
+    optUpgradeInfo :: Parser UpgradeInfo
+    optUpgradeInfo = do
+      uiTypecheckUpgrades <- optTypecheckUpgrades
+      uiUpgradedPackagePath <- optUpgradeDar
+      uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
+      pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

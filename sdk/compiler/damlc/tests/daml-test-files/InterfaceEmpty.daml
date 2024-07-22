@@ -3,6 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- | Test that empty interfaces are fine.
 module InterfaceEmpty (I, EmptyInterfaceView(..)) where
 
