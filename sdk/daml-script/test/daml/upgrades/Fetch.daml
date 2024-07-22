@@ -36,13 +36,13 @@ contents: |
         do fetch cid
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Upgrade a contract when fetching", fetchUpgraded)
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
   , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
-  , -- Fetching tests with unvetted sources (BROKEN)
+  , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
   , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
   ]
@@ -59,8 +59,8 @@ tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.FetchHelper 
 tryExerciseV2Util : Choice V2.FetchHelper c r => Party -> c -> Script (Either SubmitError r)
 tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.FetchHelper with party = p) c
 
-fetchUpgraded : Script ()
-fetchUpgraded = do
+fetchUpgraded : Test
+fetchUpgraded = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd V1.FetchTemplate with party = a
 
@@ -68,16 +68,16 @@ fetchUpgraded = do
   v2Name <- a `exerciseV2Util` V2.DoFetch with cid = v2Cid
   v2Name === V2.FetchTemplate with party = a, newField = None
 
-fetchDowngradedNone : Script ()
-fetchDowngradedNone = do
+fetchDowngradedNone : Test
+fetchDowngradedNone = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = None
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
   v1Name <- a `exerciseV1Util` V1.DoFetch with cid = v1Cid
   v1Name === V1.FetchTemplate with party = a
 
-fetchDowngradedSome : Script ()
-fetchDowngradedSome = do
+fetchDowngradedSome : Test
+fetchDowngradedSome = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
@@ -89,8 +89,8 @@ fetchDowngradedSome = do
       -> pure ()
     res -> assertFail $ "Expected DevError Upgrade, got " <> show res
 
-fetchUpgradedSourceUnvetted : Script ()
-fetchUpgradedSourceUnvetted = do
+fetchUpgradedSourceUnvetted : Test
+fetchUpgradedSourceUnvetted = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd V1.FetchTemplate with party = a
 
@@ -102,8 +102,8 @@ fetchUpgradedSourceUnvetted = do
       Right v2Name -> v2Name === V2.FetchTemplate with party = a, newField = None
       Left err -> assertFail $ "Expected success but got " <> show err
 
-fetchDowngradedNoneSourceUnvetted : Script ()
-fetchDowngradedNoneSourceUnvetted = do
+fetchDowngradedNoneSourceUnvetted : Test
+fetchDowngradedNoneSourceUnvetted = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = None
 
@@ -115,4 +115,3 @@ fetchDowngradedNoneSourceUnvetted = do
     case res of
       Right v1Name -> v1Name === V1.FetchTemplate with party = a
       Left err -> assertFail $ "Expected success but got " <> show err
-

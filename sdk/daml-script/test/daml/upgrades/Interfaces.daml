@@ -1,0 +1,238 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Interfaces (main) where
+
+import UpgradeTestLib
+import FixedInterface
+import FixedInterfaceCaller
+import qualified V1.Interfaces as V1
+import qualified V1.InterfacesAlt as V1
+import qualified V2.Interfaces as V2
+import qualified V2.InterfacesAlt as V2
+import PackageIds
+import DA.Foldable
+import DA.Optional
+import DA.Text
+
+-- Fixed package containing only the interface
+{- PACKAGE
+name: fixed-interface
+versions: 1
+-}
+
+{- MODULE
+package: fixed-interface
+contents: |
+  module FixedInterface where
+
+  data IV = IV with
+    owner : Party
+    version : Text
+
+  interface I where
+    viewtype IV
+
+    getVersion : Text
+    nonconsuming choice GetVersion : Text
+      controller (view this).owner
+      do
+        pure $ getVersion this
+-}
+
+-- Another fixed package containing a helper template for exercising the interface in a choice
+{- PACKAGE
+name: fixed-interface-caller
+versions: 1
+depends: fixed-interface-1.0.0
+-}
+
+{- MODULE
+package: fixed-interface-caller
+contents: |
+  module FixedInterfaceCaller where
+
+  import FixedInterface
+
+  template Caller with
+      party : Party
+    where
+    signatory party
+
+    choice CallInterface : Text with
+        cid : ContractId I
+      controller party
+      do
+        exercise cid GetVersion
+-}
+
+-- The versioned/upgraded package
+{- PACKAGE
+name: interfaces
+versions: 2
+depends: fixed-interface-1.0.0
+-}
+
+{- MODULE
+package: interfaces
+contents: |
+  module Interfaces where
+
+  import FixedInterface
+  import DA.Optional
+
+  template FITemplate with
+      party : Party
+    where
+    signatory party
+
+    interface instance I for FITemplate where
+      view = IV party "V1" -- @V 1
+      view = IV party "V2" -- @V  2
+      getVersion = "V1"    -- @V 1
+      getVersion = "V2"    -- @V  2
+
+    -- This choice exists here for convenience. It could be in a separate package which depends on this,
+    -- but additional unnecessary packages simply wastes time.
+    choice FetchFromInterface : Text with
+        cid : ContractId I
+      controller party
+      do
+        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @FITemplate cid
+        let v = view $ toInterface @I res
+        pure v.version
+-}
+
+-- Alt templates package to test multiple preference at once
+{- PACKAGE
+name: interfaces-alt
+versions: 2
+depends: fixed-interface-1.0.0
+-}
+
+{- MODULE
+package: interfaces-alt
+contents: |
+  module InterfacesAlt where
+
+  import FixedInterface
+
+  template FITemplateAlt with
+      party : Party
+    where
+    signatory party
+
+    interface instance I for FITemplateAlt where
+      view = IV party "V1" -- @V 1
+      view = IV party "V2" -- @V  2
+      getVersion = "V1"    -- @V 1
+      getVersion = "V2"    -- @V  2
+-}
+
+interfacesV1 : PackageId
+interfacesV1 = getPackageId "interfaces-1.0.0"
+
+interfacesAltV1 : PackageId
+interfacesAltV1 = getPackageId "interfaces-alt-1.0.0"
+
+interfacesV2 : PackageId
+interfacesV2 = getPackageId "interfaces-2.0.0"
+
+interfacesAltV2 : PackageId
+interfacesAltV2 = getPackageId "interfaces-alt-2.0.0"
+
+-- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
+main : TestTree
+main = tests
+  [ brokenOnIDELedger ("Calling an interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationCommand)
+  , brokenOnIDELedger ("Calling an interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationUpdate)
+  , brokenOnIDELedger ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
+  , brokenOnIDELedger ("Package map preference is used for interface implementation selection at choice body level", interfaceChoicePackagePreferenceUpdate)
+  , brokenOnIDELedger ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
+  , brokenOnIDELedger ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
+  , broken ("queryInterfaceContractId uses highest version of view", queryInterfaceUpgrades)
+  , broken ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
+  ]
+
+setupAliceAndInterface : Script (Party, ContractId I)
+setupAliceAndInterface = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
+  pure (alice, toInterfaceContractId @I cid)
+
+defaultHighestVersionChoiceImplementationCommand : Test
+defaultHighestVersionChoiceImplementationCommand = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `submit` exerciseCmd icid GetVersion
+  res === "V2"
+
+defaultHighestVersionChoiceImplementationUpdate : Test
+defaultHighestVersionChoiceImplementationUpdate = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid)
+  res === "V2"
+
+interfaceChoicePackagePreferenceCommand : Test
+interfaceChoicePackagePreferenceCommand = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <-
+    submitWithOptions
+      (actAs alice <> packagePreference [interfacesV1])
+      (exerciseCmd icid GetVersion)
+  res === "V1"
+
+interfaceChoicePackagePreferenceUpdate : Test
+interfaceChoicePackagePreferenceUpdate = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <-
+    submitWithOptions
+      (actAs alice <> packagePreference [interfacesV1])
+      (createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid))
+  res === "V1"
+
+multipleInterfaceChoicePackagePreference : (Party -> ContractId I -> Commands Text) -> Test
+multipleInterfaceChoicePackagePreference doExercise = test $ do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
+  cidAlt <- alice `submit` createExactCmd V1.FITemplateAlt with party = alice
+  let icid = toInterfaceContractId @I cid
+      icidAlt = toInterfaceContractId @I cidAlt
+      -- Tests all 4 combinations of 2 versions for 2 packages
+      cases = 
+        [ (interfacesVersion, interfacesVersionStr, interfacesAltVersion, interfacesAltVersionStr)
+        | (interfacesVersion, interfacesVersionStr) <- [(interfacesV1, "V1"), (interfacesV2, "V2")]
+        , (interfacesAltVersion, interfacesAltVersionStr) <- [(interfacesAltV1, "V1"), (interfacesAltV2, "V2")]
+        ]
+
+  forM_ cases $ \(interfacesVersion, interfacesVersionStr, interfacesAltVersion, interfacesAltVersionStr) -> do
+    (res, resAlt) <-
+      submitWithOptions (actAs alice <> packagePreference [interfacesVersion, interfacesAltVersion]) $ do
+        res <- doExercise alice icid
+        resAlt <- doExercise alice icidAlt
+        pure (res, resAlt)
+    res === interfacesVersionStr
+    resAlt === interfacesAltVersionStr
+
+multipleInterfaceChoicePackagePreferenceCommand : Test
+multipleInterfaceChoicePackagePreferenceCommand =
+  multipleInterfaceChoicePackagePreference $ \_ icid ->
+    exerciseCmd icid GetVersion
+
+multipleInterfaceChoicePackagePreferenceUpdate : Test
+multipleInterfaceChoicePackagePreferenceUpdate =
+  multipleInterfaceChoicePackagePreference $ \alice icid ->
+    createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid)
+
+queryInterfaceUpgrades : Test
+queryInterfaceUpgrades = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
+  res.version === "V2"
+
+fetchFromInterfaceUpgrades : Test
+fetchFromInterfaceUpgrades = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `submit` createAndExerciseCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with cid = icid)
+  res === "V2"

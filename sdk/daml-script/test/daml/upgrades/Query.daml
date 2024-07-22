@@ -25,15 +25,15 @@ contents: |
       signatory party
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Upgrade a contract when querying", queryUpgraded)
   , ("Downgrade a contract with Nones when querying", queryDowngradedNone)
   , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
   ]
 
-queryUpgraded : Script ()
-queryUpgraded = do
+queryUpgraded : Test
+queryUpgraded = test $ do
   a <- allocatePartyOn "alice" participant0
 
   cid <- a `submit` createExactCmd V1.QueryTemplate with party = a
@@ -41,8 +41,8 @@ queryUpgraded = do
   v2Name <- queryContractId a v2Cid
   v2Name === Some V2.QueryTemplate with party = a, newField = None
 
-queryDowngradedNone : Script ()
-queryDowngradedNone = do
+queryDowngradedNone : Test
+queryDowngradedNone = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.QueryTemplate with party = a, newField = None
   let v1Cid = coerceContractId @V2.QueryTemplate @V1.QueryTemplate cid
@@ -50,8 +50,8 @@ queryDowngradedNone = do
   v1Name === Some V1.QueryTemplate with party = a
   pure ()
 
-queryDowngradedSome : Script ()
-queryDowngradedSome = do
+queryDowngradedSome : Test
+queryDowngradedSome = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createCmd V2.QueryTemplate with party = a, newField = Some("Text")
   let v1Cid = coerceContractId @V2.QueryTemplate @V1.QueryTemplate cid

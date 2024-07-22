@@ -36,7 +36,7 @@ contents: |
         do pure "V2"       -- @V  2
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
   , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
@@ -49,8 +49,8 @@ testForPreconditionFailed
   => (Party -> t1)
   -> c2
   -> Bool
-  -> Script ()
-testForPreconditionFailed makeV1Contract v2Choice explicitPackageIds = do
+  -> Test
+testForPreconditionFailed makeV1Contract v2Choice explicitPackageIds = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
@@ -59,17 +59,17 @@ testForPreconditionFailed makeV1Contract v2Choice explicitPackageIds = do
     Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
     res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
-ensureClauseBecomesInvalid : Script ()
+ensureClauseBecomesInvalid : Test
 ensureClauseBecomesInvalid =
   testForPreconditionFailed @V2.EnsureChangesTemplate (V1.EnsureChangesTemplate True False) V2.EnsureChangesCall False
 
-onlyV2EnsureClauseRequiredForImplicitUpgrade : Script ()
-onlyV2EnsureClauseRequiredForImplicitUpgrade = do
+onlyV2EnsureClauseRequiredForImplicitUpgrade : Test
+onlyV2EnsureClauseRequiredForImplicitUpgrade = test $ do
   a <- allocatePartyOn "alice" participant0
   -- The V1 should be implicitly upgraded to V2 before evaluating the ensure clause.
   a `submit` createCmd (V1.EnsureChangesTemplate False True a)
   pure ()
 
-ensureClauseDowngradeToNoLongerValid : Script ()
+ensureClauseDowngradeToNoLongerValid : Test
 ensureClauseDowngradeToNoLongerValid =
   testForPreconditionFailed @V1.EnsureChangesTemplate (V2.EnsureChangesTemplate False True) V1.EnsureChangesCall True
