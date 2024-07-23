@@ -39,7 +39,6 @@ import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake (IdeRule, use)
 import Development.IDE.GHC.Error (srcSpanToLocation)
 import Development.IDE.Plugin
-import Development.IDE.Spans.Type (getNameM, spaninfoSource, spansExprs)
 import Development.IDE.Types.Location
 import Development.Shake (Action)
 import qualified Language.LSP.Server as LSP
@@ -49,14 +48,18 @@ import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Utils as LSP
 import System.FilePath ((</>))
 import "ghc-lib" GhcPlugins (
+  HomeModInfo (..),
+  ModIface (..),
   Module,
   isGoodSrcSpan,
   moduleName,
   moduleNameString,
   moduleUnitId,
+  nameSetElemsStable,
   occNameString,
   unitIdString,
  )
+import "ghc-lib-parser" Avail (availsToNameSetWithSelectors)
 import "ghc-lib-parser" Name (
   Name,
   NameSpace,
@@ -216,16 +219,15 @@ gotoDefinitionByName ideState params = do
     file <-
       hoistMaybe (Just "Failed to find module") $
         find (isSuffixOf moduleSuffix . ("/" <> ) . fromNormalizedFilePath) sortedSrcFiles
+    tc <- useOrThrow "Failed to typecheck" TypeCheck file
     
-    -- It might be better to get the typechecked module and look for the identifier in there?
-    spans <- useOrThrow "Failed to get span info" GetSpanInfo file
     let expectedOccName = mkOccName (fromTryGetDefinitionNameSpace $ tgdnIdentifierNameSpace $ gdnpName params) (tgdnIdentifierName $ gdnpName params)
-        locations = 
+        locations =
           [ srcSpanToLocation $ nameSrcSpan name
-          | Just name <- getNameM . spaninfoSource <$> spansExprs spans
-          , expectedOccName == nameOccName name && isGoodSrcSpan (nameSrcSpan name)
+          | name <- nameSetElemsStable $ availsToNameSetWithSelectors $ mi_exports $ hm_iface $ tmrModInfo tc
+          , nameOccName name == expectedOccName && isGoodSrcSpan (nameSrcSpan name)
           ]
-    
+
     hoistMaybe Nothing $ listToMaybe locations
   where
     -- A Nothing error means no location, a string error means a response error
