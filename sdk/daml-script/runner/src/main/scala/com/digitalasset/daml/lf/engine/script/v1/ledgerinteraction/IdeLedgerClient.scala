@@ -314,8 +314,8 @@ class IdeLedgerClient(
           translated,
           optLocation,
           nextSeed(),
-          traceLog,
-          warningLog,
+          traceLog = traceLog,
+          warningLog = warningLog,
         )(Script.DummyLoggingContext)
 
       @tailrec

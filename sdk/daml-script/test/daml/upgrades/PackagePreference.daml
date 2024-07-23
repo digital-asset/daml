@@ -37,9 +37,9 @@ v1PackageId = getPackageId "package-preference-1.0.0"
 main : TestTree
 main = tests
   [ ("No package preference uses the default 'highest version' logic for exercise", noPackagePreference)
-  , brokenOnIDELedger ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
-  , brokenOnIDELedger ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
-  , brokenOnIDELedger ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
+  , ("Explicit package preference is used over highest version for exercise", explicitPackagePreference)
+  , ("Explicit package preference is not used for exact exercises", explicitPackagePreferenceWithExact)
+  , ("Explicit package preference is not used for exact exercises in transactions that do use preference", explicitPackagePreferenceWithExactAndNon)
   ]
 
 noPackagePreference : Test
