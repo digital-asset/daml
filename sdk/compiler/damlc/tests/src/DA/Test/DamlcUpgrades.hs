@@ -401,6 +401,27 @@ tests damlc =
                       NoDependencies
                       False
                       setUpgradeField
+                , test
+                      "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
+                      Succeed
+                      LF.versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenMakingTypeUnserializable"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
+                      LF.versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenMakingTypeSerializable"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was unserializable and is now serializable. Datatypes cannot change their serializability via upgrades.")
+                      LF.versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
                 ]
             | setUpgradeField <- [True, False]
             ] ++

@@ -1,0 +1,19 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+data Unserializable1 = Unserializable1
+  { field1 : Int -> Int
+  , nonOptionalField : Int
+  }
+
+data Unserializable2
+  = Unserializable2Variant1 (Int -> Int)
+  | Unserializable2Variant2 (Int -> Int)
+
+-- Delete Unserializable3
+--data Unserializable3 = Unserializable3
+--  { field1 : Int -> Int
+--  }
+
