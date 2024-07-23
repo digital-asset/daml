@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.TestSemaphoreUtil
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.domain.sequencing.sequencer.store.DbSequencerStoreTest.MaxInClauseSize
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -73,10 +72,6 @@ object DbSequencerStoreTest {
   }
 }
 
-class SequencerStoreTestH2 extends DbSequencerStoreTest with H2Test {
-  override protected val semaphoreKey: Option[String] = TestSemaphoreUtil.SEQUENCER_DB_H2
-}
+class SequencerStoreTestH2 extends DbSequencerStoreTest with H2Test
 
-class SequencerStoreTestPostgres extends DbSequencerStoreTest with PostgresTest {
-  override protected val semaphoreKey: Option[String] = TestSemaphoreUtil.SEQUENCER_DB_PG
-}
+class SequencerStoreTestPostgres extends DbSequencerStoreTest with PostgresTest

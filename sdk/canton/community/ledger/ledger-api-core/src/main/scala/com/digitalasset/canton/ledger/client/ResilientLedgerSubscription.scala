@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.client
 
 import com.daml.error.utils.DecodedCantonError
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -36,11 +35,11 @@ import scala.util.{Failure, Success, Try}
   * (i.e. allow re-processing the same transaction twice).
   */
 class ResilientLedgerSubscription[S, T](
-    makeSource: ParticipantOffset => Source[S, NotUsed],
+    makeSource: String => Source[S, NotUsed],
     consumingFlow: Flow[S, T, ?],
     subscriptionName: String,
-    startOffset: ParticipantOffset,
-    extractOffset: S => Option[ParticipantOffset],
+    startOffset: String,
+    extractOffset: S => Option[String],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     resubscribeIfPruned: Boolean = false,
@@ -51,7 +50,7 @@ class ResilientLedgerSubscription[S, T](
     with NamedLogging
     with Spanning
     with NoTracing {
-  private val offsetRef = new AtomicReference[ParticipantOffset](startOffset)
+  private val offsetRef = new AtomicReference[String](startOffset)
   private implicit val policyRetry: retry.Success[Any] = retry.Success.always
   private val ledgerSubscriptionRef = new AtomicReference[Option[LedgerSubscription]](None)
   private[client] val subscriptionF = retry
@@ -164,7 +163,7 @@ class ResilientLedgerSubscription[S, T](
             logger.warn(
               s"Setting the ${subject(capitalized = false)} offset to a later offset [$earliestOffset] due to pruning. Some commands might timeout or events might become stale."
             )
-            offsetRef.set(ParticipantOffset(ParticipantOffset.Value.Absolute(earliestOffset)))
+            offsetRef.set(earliestOffset)
           } else {
             logger.error(
               s"Connection ${subject(capitalized = false)} failed to resubscribe from  ${offsetRef
@@ -180,14 +179,14 @@ class ResilientLedgerSubscription[S, T](
 }
 
 object ResilientLedgerSubscription {
-  def extractOffsetFromGetUpdateResponse(response: GetUpdatesResponse): Option[ParticipantOffset] =
-    (response.update match {
+  def extractOffsetFromGetUpdateResponse(response: GetUpdatesResponse): Option[String] =
+    response.update match {
       case Update.Transaction(value) =>
         Some(value.offset)
       case Update.Reassignment(value) =>
         Some(value.offset)
       case Update.OffsetCheckpoint(_) => None
       case Update.Empty => None
-    }).map(off => ParticipantOffset(ParticipantOffset.Value.Absolute(off)))
+    }
 
 }

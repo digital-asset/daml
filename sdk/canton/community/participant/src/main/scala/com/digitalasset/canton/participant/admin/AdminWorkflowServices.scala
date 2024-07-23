@@ -231,12 +231,12 @@ class AdminWorkflowServices(
 
     val startupF =
       client.v2.stateService.getActiveContracts(service.filters).map { case (acs, offset) =>
-        logger.debug(s"Loading ${acs} $service")
+        logger.debug(s"Loading $acs $service")
         service.processAcs(acs)
         new ResilientLedgerSubscription(
-          subscribeOffset =>
+          makeSource = subscribeOffset =>
             client.v2.updateService.getUpdatesSource(subscribeOffset, service.filters),
-          Flow[GetUpdatesResponse]
+          consumingFlow = Flow[GetUpdatesResponse]
             .map(_.update)
             .map {
               case GetUpdatesResponse.Update.Transaction(tx) =>
@@ -247,10 +247,10 @@ class AdminWorkflowServices(
               case GetUpdatesResponse.Update.Empty => ()
             },
           subscriptionName = service.getClass.getSimpleName,
-          offset,
-          ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
-          timeouts,
-          loggerFactory,
+          startOffset = offset,
+          extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
+          timeouts = timeouts,
+          loggerFactory = loggerFactory,
           resubscribeIfPruned = resubscribeIfPruned,
         )
       }

@@ -51,5 +51,5 @@ trait IndexTransactionsService extends LedgerEndService {
 
   def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(ParticipantOffset.Absolute, ParticipantOffset.Absolute)]
+  ): Future[(String, String)]
 }

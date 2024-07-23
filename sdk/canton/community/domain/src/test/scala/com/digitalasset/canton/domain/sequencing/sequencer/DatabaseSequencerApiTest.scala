@@ -14,7 +14,7 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import org.apache.pekko.stream.Materializer
 
-// TODO(#18423) reenable this test once DB sequencer works with implicit member registration
+// TODO(#16087) Re-enabled when Database sequencer is revived
 abstract class DatabaseSequencerApiTest extends SequencerApiTest {
 
   def createSequencer(

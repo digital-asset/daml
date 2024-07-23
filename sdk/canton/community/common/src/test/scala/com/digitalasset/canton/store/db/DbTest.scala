@@ -107,6 +107,9 @@ trait PostgresTest extends DbTest { this: Suite =>
   override protected def mkDbConfig(basicConfig: DbBasicConfig): Postgres =
     basicConfig.toPostgresDbConfig
 
-  override protected def createSetup(): DbStorageSetup =
-    DbStorageSetup.postgres(loggerFactory, migrationMode, mkDbConfig)
+  override protected def createSetup(): DbStorageSetup = {
+    // postgres has limit of 63 chars for the db name
+    val dbName = this.getClass.getSimpleName.replaceAll("[^a-zA-Z0-9]", "").toLowerCase.take(63)
+    DbStorageSetup.postgres(loggerFactory, migrationMode, mkDbConfig, useDbNameO = Some(dbName))
+  }
 }

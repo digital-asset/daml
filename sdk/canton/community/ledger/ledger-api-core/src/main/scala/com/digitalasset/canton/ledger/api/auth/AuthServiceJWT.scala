@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifier, JwtVerifierBase}
+import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifierBase}
 import com.digitalasset.canton.ledger.api.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -17,11 +17,10 @@ import scala.util.Try
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
-class AuthServiceJWT(
+abstract class AuthServiceJWTBase(
     verifier: JwtVerifierBase,
     targetAudience: Option[String],
     targetScope: Option[String],
-    val loggerFactory: NamedLoggerFactory,
 ) extends AuthService
     with NamedLogging {
 
@@ -44,7 +43,7 @@ class AuthServiceJWT(
         logger.warn("Authorization error: " + error.message)
         ClaimSet.Unauthenticated
       },
-      token => payloadToClaims(token),
+      payloadToClaims,
     )
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
@@ -109,7 +108,16 @@ class AuthServiceJWT(
       parsed <- parsePayload(decoded.payload)
     } yield parsed
 
-  private[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
+  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet
+}
+
+class AuthServiceJWT(
+    verifier: JwtVerifierBase,
+    targetAudience: Option[String],
+    targetScope: Option[String],
+    val loggerFactory: NamedLoggerFactory,
+) extends AuthServiceJWTBase(verifier, targetAudience, targetScope) {
+  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
         identityProviderId = IdentityProviderId.Default,
@@ -120,20 +128,46 @@ class AuthServiceJWT(
   }
 }
 
-object AuthServiceJWT {
-  def apply(
-      verifier: com.auth0.jwt.interfaces.JWTVerifier,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      loggerFactory: NamedLoggerFactory,
-  ): AuthServiceJWT =
-    new AuthServiceJWT(new JwtVerifier(verifier), targetAudience, targetScope, loggerFactory)
+class AuthServicePrivilegedJWT(
+    verifier: JwtVerifierBase,
+    targetScope: String,
+    val loggerFactory: NamedLoggerFactory,
+) extends AuthServiceJWTBase(
+      verifier = verifier,
+      targetAudience = None,
+      targetScope = Some(targetScope),
+    ) {
+  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
+    // TODO(i20232) alternate between wildcard and plain admin claims depending on the config
+    case payload: StandardJWTPayload =>
+      ClaimSet.Claims(
+        claims = ClaimSet.Claims.Wildcard.claims,
+        identityProviderId = IdentityProviderId.Default,
+        participantId = payload.participantId,
+        applicationId = Option.when(payload.userId.nonEmpty)(payload.userId),
+        expiration = payload.exp,
+        resolvedFromUser = false,
+      )
+  }
+}
 
+object AuthServiceJWT {
   def apply(
       verifier: JwtVerifierBase,
       targetAudience: Option[String],
       targetScope: Option[String],
+      privileged: Boolean,
       loggerFactory: NamedLoggerFactory,
-  ): AuthServiceJWT =
-    new AuthServiceJWT(verifier, targetAudience, targetScope, loggerFactory)
+  ): AuthServiceJWTBase = {
+    (privileged, targetScope) match {
+      case (true, Some(scope)) =>
+        new AuthServicePrivilegedJWT(verifier, scope, loggerFactory)
+      case (true, None) =>
+        throw new IllegalArgumentException(
+          "Missing targetScope in the definition of a privileged JWT AuthService"
+        )
+      case (false, _) =>
+        new AuthServiceJWT(verifier, targetAudience, targetScope, loggerFactory)
+    }
+  }
 }
