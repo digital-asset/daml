@@ -1437,7 +1437,7 @@ object ParticipantAdminCommands {
         PruningServiceGrpc.stub(channel)
     }
 
-    final case class GetSafePruningOffsetCommand(beforeOrAt: Instant, ledgerEnd: ParticipantOffset)
+    final case class GetSafePruningOffsetCommand(beforeOrAt: Instant, ledgerEnd: String)
         extends Base[v30.GetSafePruningOffsetRequest, v30.GetSafePruningOffsetResponse, Option[
           ParticipantOffset
         ]] {
@@ -1445,10 +1445,6 @@ object ParticipantAdminCommands {
       override def createRequest(): Either[String, v30.GetSafePruningOffsetRequest] =
         for {
           beforeOrAt <- CantonTimestamp.fromInstant(beforeOrAt)
-          ledgerEnd <- ledgerEnd.value match {
-            case Value.Absolute(value) => Right(value)
-            case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
-          }
         } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd)
 
       override def submitRequest(

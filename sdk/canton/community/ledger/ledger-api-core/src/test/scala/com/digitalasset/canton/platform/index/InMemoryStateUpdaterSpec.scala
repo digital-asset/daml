@@ -7,7 +7,6 @@ import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
@@ -66,6 +65,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.concurrent.ConcurrentLinkedQueue
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
@@ -201,9 +201,9 @@ class InMemoryStateUpdaterSpec
     // here we define the offset, domainId and recordTime for each offset-update pair the same way they arrive to the flow as Some values
     // the None values denote the ticks arrived that are used to update the offset checkpoint cache
     val offsetsAndTicks =
-      Seq(None, Some(1L), Some(2L), None, None, Some(3L), Some(4L), Some(5L), None, Some(6L), None)
+      Seq(Some(1L), Some(2L), None, None, Some(3L), Some(4L), Some(5L), None, Some(6L), None)
     val domainIdsAndTicks =
-      Seq(None, Some(1L), Some(2L), None, None, Some(2L), Some(1L), Some(3L), None, Some(1L), None)
+      Seq(Some(1L), Some(2L), None, None, Some(2L), Some(1L), Some(3L), None, Some(1L), None)
     val recordTimesAndTicks = offsetsAndTicks
 
     val offsetCheckpointsExpected =
@@ -779,17 +779,33 @@ object InMemoryStateUpdaterSpec {
   def runUpdateOffsetCheckpointCacheFlow(
       inputSeq: Seq[Option[(Offset, Traced[Update.TransactionAccepted])]]
   )(implicit materializer: Materializer, ec: ExecutionContext) = {
+    val elementsQueue =
+      new ConcurrentLinkedQueue[Option[(Offset, Traced[Update.TransactionAccepted])]]
+    inputSeq.foreach(elementsQueue.add)
 
     val flattenedSeq: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)] =
       inputSeq.flatten.map(Vector(_)).map((_, 1L, CantonTimestamp.MinValue))
 
-    val bufferSize = 1000
+    val bufferSize = 100
     val (sourceQueueSomes, sourceSomes) = Source
       .queue[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)](bufferSize)
       .preMaterialize()
     val (sourceQueueNones, sourceNones) = Source
       .queue[Option[Nothing]](bufferSize)
       .preMaterialize()
+
+    def offerNext() =
+      Option(elementsQueue.poll()) match {
+        // send element
+        case Some(Some(pair)) =>
+          sourceQueueSomes.offer((Vector(pair), 1L, CantonTimestamp.MinValue))
+        // send tick
+        case Some(None) =>
+          sourceQueueNones.offer(None)
+        // queue is empty send finished message
+        case None => sourceQueueSomes.complete()
+      }
+    offerNext()
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var checkpoints: Seq[OffsetCheckpoint] = Seq.empty
@@ -800,24 +816,13 @@ object InMemoryStateUpdaterSpec {
           .updateOffsetCheckpointCacheFlowWithTickingSource(
             updateOffsetCheckpointCache = oc => {
               checkpoints = checkpoints :+ oc
+              offerNext()
             },
             tick = sourceNones,
           )
       )
+      .alsoTo(Sink.foreach(_ => offerNext()))
       .runWith(Sink.seq)
-
-    inputSeq
-      .foreach { x =>
-        // add delay to ensure that the order of the original sequence is preserved
-        Threading.sleep(100)
-        x match {
-          case Some(pair) =>
-            sourceQueueSomes.offer((Vector(pair), 1L, CantonTimestamp.MinValue))
-          case None =>
-            sourceQueueNones.offer(None)
-        }
-      }
-    sourceQueueSomes.complete()
 
     output.map(o => (flattenedSeq, o, checkpoints))
 

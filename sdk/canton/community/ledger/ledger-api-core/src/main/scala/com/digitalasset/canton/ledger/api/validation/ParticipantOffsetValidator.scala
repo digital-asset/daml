@@ -39,6 +39,8 @@ object ParticipantOffsetValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.ParticipantOffset] = {
     ledgerOffset.value match {
+      case ParticipantOffset.Value.Absolute("") =>
+        Right(domain.ParticipantOffset.ParticipantBegin)
       case ParticipantOffset.Value.Absolute(value) =>
         requireLedgerString(value, fieldName).map(domain.ParticipantOffset.Absolute)
       case ParticipantOffset.Value.Boundary(value) =>

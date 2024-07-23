@@ -8,11 +8,7 @@ import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
-import com.daml.ledger.api.v2.update_service.{
-  GetUpdateTreesResponse,
-  GetUpdatesRequest,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.update_service.{GetUpdatesRequest, GetUpdatesResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
@@ -22,7 +18,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
   def getUpdatesSource(
-      begin: ParticipantOffset,
+      begin: String,
       filter: TransactionFilter,
       verbose: Boolean = false,
       end: Option[ParticipantOffset] = None,
@@ -31,7 +27,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
     ClientAdapter
       .serverStreaming(
         GetUpdatesRequest(
-          beginExclusive = Some(begin),
+          beginExclusive = Some(ParticipantOffset.defaultInstance.withAbsolute(begin)),
           endInclusive = end,
           filter = Some(filter),
           verbose = verbose,
@@ -39,24 +35,4 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
         LedgerClient.stubWithTracing(service, token).getUpdates,
       )
   }
-
-  def getUpdateTreesSource(
-      begin: ParticipantOffset,
-      filter: TransactionFilter,
-      verbose: Boolean = false,
-      end: Option[ParticipantOffset] = None,
-      token: Option[String] = None,
-  )(implicit traceContext: TraceContext): Source[GetUpdateTreesResponse, NotUsed] = {
-    ClientAdapter
-      .serverStreaming(
-        GetUpdatesRequest(
-          beginExclusive = Some(begin),
-          endInclusive = end,
-          filter = Some(filter),
-          verbose = verbose,
-        ),
-        LedgerClient.stubWithTracing(service, token).getUpdateTrees,
-      )
-  }
-
 }

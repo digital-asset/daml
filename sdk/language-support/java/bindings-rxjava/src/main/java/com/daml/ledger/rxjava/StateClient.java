@@ -44,7 +44,7 @@ public interface StateClient {
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
 
-  Single<ParticipantOffset> getLedgerEnd();
+  Single<String> getLedgerEnd();
 
-  Single<ParticipantOffset> getLedgerEnd(String accessToken);
+  Single<String> getLedgerEnd(String accessToken);
 }

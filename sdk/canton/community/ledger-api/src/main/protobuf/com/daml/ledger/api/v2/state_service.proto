@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/event.proto";
-import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
@@ -166,7 +165,7 @@ message GetLedgerEndRequest {}
 
 message GetLedgerEndResponse {
   // The absolute offset of the current ledger end.
-  ParticipantOffset offset = 1;
+  string offset = 1;
 }
 
 message GetLatestPrunedOffsetsRequest {
@@ -175,11 +174,11 @@ message GetLatestPrunedOffsetsRequest {
 
 message GetLatestPrunedOffsetsResponse {
   // The offset up to which the ledger has been pruned, disregarding the state of all divulged contracts pruning.
-  ParticipantOffset participant_pruned_up_to_inclusive = 1;
+  string participant_pruned_up_to_inclusive = 1;
 
   // The offset up to which all divulged events have been pruned on the ledger. It can be at or before the
   // ``participant_pruned_up_to_inclusive`` offset.
   // For more details about all divulged events pruning,
   // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
-  ParticipantOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
+  string all_divulged_contracts_pruned_up_to_inclusive = 2;
 }

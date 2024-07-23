@@ -8,8 +8,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 class SequencerStoreTestInMemory extends AsyncWordSpec with BaseTest with SequencerStoreTest {
 
-  override protected val semaphoreKey: Option[String] = None
-
   "InMemorySequencerStore" should {
     behave like sequencerStore(() =>
       new InMemorySequencerStore(

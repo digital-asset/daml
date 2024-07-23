@@ -3,9 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.{Absolute, Boundary}
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.StateServiceAuthorization
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateService
@@ -55,10 +52,8 @@ final class StateServiceImpl(
     val promise = Promise[GetLedgerEndResponse]()
     val result =
       ledgerContent
-        .map[GetLedgerEndResponse](t =>
-          GetLedgerEndResponse(Option(ParticipantOffset(Absolute(t.offset))))
-        )
-        .last(GetLedgerEndResponse(Option(ParticipantOffset(Boundary(PARTICIPANT_BOUNDARY_BEGIN)))))
+        .map[GetLedgerEndResponse](t => GetLedgerEndResponse(t.offset))
+        .last(GetLedgerEndResponse(""))
     result.subscribe(promise.success _, promise.failure _)
     promise.future
   }

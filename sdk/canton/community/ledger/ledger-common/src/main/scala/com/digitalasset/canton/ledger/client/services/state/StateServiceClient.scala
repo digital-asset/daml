@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.client.services.state
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateServiceStub
 import com.daml.ledger.api.v2.state_service.{
@@ -64,7 +63,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
-  ): Future[(Seq[ActiveContract], ParticipantOffset)] = {
+  ): Future[(Seq[ActiveContract], String)] = {
     val (offsetF, contractsF) =
       getActiveContractsSource(filter, verbose, validAtOffset, token)
         .toMat(Sink.seq)(Keep.both)
@@ -79,7 +78,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
     for {
       active <- activeF
       offset <- offsetF
-    } yield (active, ParticipantOffset(value = ParticipantOffset.Value.Absolute(offset)))
+    } yield (active, offset)
   }
 
   def getLedgerEnd(
@@ -92,11 +91,9 @@ class StateServiceClient(service: StateServiceStub)(implicit
   /** Get the current participant offset */
   def getLedgerEndOffset(
       token: Option[String] = None
-  )(implicit traceContext: TraceContext): Future[ParticipantOffset] =
+  )(implicit traceContext: TraceContext): Future[String] =
     getLedgerEnd(token).map { response =>
-      response.offset.getOrElse(
-        throw new IllegalStateException("Invalid empty getLedgerEnd response from server")
-      )
+      response.offset
     }
 
 }

@@ -85,7 +85,6 @@ class GrpcSequencerInitializationService(
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
-      // TODO(i17940): Remove this when we have a method to distinguish between initialization during an upgrade and initialization during the bootstrap of a domain
       // reset effective time and sequenced time if we are initializing the sequencer from the beginning
       genesisState: StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
         StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](

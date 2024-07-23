@@ -134,10 +134,14 @@ abstract class PostgresDbStorageSetup(
 /** Assumes Postgres is available on a already running and that connections details are
   * provided through environment variables.
   * In CI this is done by running a Postgres docker container alongside the build.
+  * @param migrationMode migration mode to use
+  * @param mkDbConfig function to create a db config from a basic config
+  * @param useDbNameO optional name of the database to use for the tests (will be created if it does not exist)
   */
 class PostgresCISetup(
     override val migrationMode: MigrationMode,
     override val mkDbConfig: DbBasicConfig => Postgres,
+    useDbNameO: Option[String] = None,
     loggerFactory: NamedLoggerFactory,
 )(implicit
     override val executionContext: ExecutionContext
@@ -147,7 +151,8 @@ class PostgresCISetup(
   private lazy val envDb = env("POSTGRES_DB")
 
   /** name of db to use for the tests (avoiding flyway migration conflicts) */
-  private lazy val useDb = envDb + (if (migrationMode == MigrationMode.DevVersion) "_dev" else "")
+  private lazy val useDb =
+    useDbNameO.getOrElse(envDb) + (if (migrationMode == MigrationMode.DevVersion) "_dev" else "")
 
   private lazy val useHost = sys.env.getOrElse("POSTGRES_HOST", "localhost")
 
@@ -291,6 +296,7 @@ object DbStorageSetup {
       migrationMode: MigrationMode = MigrationMode.Standard,
       mkDbConfig: DbBasicConfig => Postgres = _.toPostgresDbConfig,
       forceTestContainer: Boolean = false,
+      useDbNameO: Option[String] = None,
   )(implicit ec: ExecutionContext): PostgresDbStorageSetup = {
 
     val isCI = sys.env.contains("CI")
@@ -298,7 +304,7 @@ object DbStorageSetup {
     val useTestContainerByForce = sys.env.contains("DB_FORCE_TEST_CONTAINER") || forceTestContainer
 
     if (!useTestContainerByForce && (isCI && !isMachine))
-      new PostgresCISetup(migrationMode, mkDbConfig, loggerFactory).initialized()
+      new PostgresCISetup(migrationMode, mkDbConfig, useDbNameO, loggerFactory).initialized()
     else new PostgresTestContainerSetup(migrationMode, mkDbConfig, loggerFactory).initialized()
   }
 

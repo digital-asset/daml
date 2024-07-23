@@ -6,9 +6,10 @@ package com.digitalasset.canton.data
 import com.digitalasset.canton.data.ActionDescription.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionBuilder
-import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
+import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageId, defaultTemplateId}
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfPackageName, LfVersioned}
+import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, LfVersioned}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -30,6 +31,40 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
     ActionDescription.protocolVersionRepresentativeFor(testedProtocolVersion)
 
   "An action description" should {
+
+    "accept creation" when {
+
+      "a valid fetch node is presented" in {
+
+        val targetTemplateId =
+          Ref.Identifier(defaultPackageId, defaultTemplateId.qualifiedName)
+
+        val actingParties = Set(LfPartyId.assertFromString("acting"))
+
+        val node = ExampleTransactionFactory.fetchNode(
+          cid = suffixedId,
+          templateId = targetTemplateId,
+          actingParties = Set(LfPartyId.assertFromString("acting")),
+        )
+
+        val expected = FetchActionDescription(
+          inputContractId = suffixedId,
+          actors = actingParties,
+          byKey = false,
+          templateId = targetTemplateId,
+        )(protocolVersionRepresentativeFor(testedProtocolVersion))
+
+        ActionDescription.fromLfActionNode(
+          node,
+          None,
+          Set.empty,
+          testedProtocolVersion,
+        ) shouldBe
+          Right(expected)
+      }
+
+    }
+
     "reject creation" when {
       "the choice argument cannot be serialized" in {
         ExerciseActionDescription.create(
