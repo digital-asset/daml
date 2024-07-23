@@ -92,7 +92,15 @@ object UpgradeError {
       variety: Upgrading[Ast.DataCons],
   ) extends Error {
     override def message: String =
-      s"EUpgradeMismatchDataConsVariety $dataConName"
+      s"The upgraded data type $dataConName has changed from a ${printCons(variety.past)} to a ${printCons(variety.present)}. Datatypes cannot change variety via upgrades."
+
+    def printCons(variety: DataCons) =
+      variety match {
+        case _: Ast.DataRecord => "record"
+        case _: Ast.DataVariant => "variant"
+        case _: Ast.DataEnum => "enum"
+        case Ast.DataInterface => "interface"
+      }
   }
 
   final case class RecordFieldsMissing(

@@ -538,6 +538,16 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "Fails when datatype changes variety" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type RecordToEnum has changed from a record to a enum.")
+        ),
+      )
+    }
+
     def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
       import com.daml.lf.testing.parser._
       import com.daml.lf.testing.parser.Implicits._
