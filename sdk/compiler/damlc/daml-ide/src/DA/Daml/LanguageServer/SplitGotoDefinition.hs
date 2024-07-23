@@ -46,7 +46,7 @@ import Language.LSP.Types
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Utils as LSP
-import System.FilePath ((</>))
+import System.FilePath (normalise, (</>))
 import "ghc-lib" GhcPlugins (
   HomeModInfo (..),
   ModIface (..),
@@ -209,7 +209,7 @@ gotoDefinitionByName ideState params = do
     projectConfig <- liftIO $ readProjectConfig (ProjectPath root)
     config <- except $ first (Just . show) $ parseProjectConfig projectConfig
 
-    srcFiles <- maybeTToExceptT "Failed to get source files" $ getDamlFiles $ root </> pSrc config
+    srcFiles <- maybeTToExceptT "Failed to get source files" $ getDamlFiles $ normalise $ root </> pSrc config
     -- Must be sorted shorted to longest, since we always want the shortest path that matches our suffix
     -- to avoid accidentally picking Main.A.B.C if we're just looking for A.B.C
     -- We also prefix all paths with "/" and search for our suffix starting with "/"
