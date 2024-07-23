@@ -458,6 +458,7 @@ da_haskell_test(
         "//test-common:upgrades-FailsWhenATopLevelVariantRemovesAVariant-files",
         "//test-common:upgrades-FailsWhenAnInstanceIsDropped-files",
         "//test-common:upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-files",
+        "//test-common:upgrades-FailsWhenDatatypeChangesVariety-files",
         "//test-common:upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-files",
         "//test-common:upgrades-FailsWhenExistingFieldInTemplateIsChanged-files",
         "//test-common:upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-files",
