@@ -499,6 +499,125 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "Fails when datatype changes variety" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type RecordToEnum has changed from a record to a enum.")
+        ),
+      )
+    }
+
+    def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
+      import com.daml.lf.testing.parser._
+      import com.daml.lf.testing.parser.Implicits._
+      import com.daml.lf.archive.testing.Encode
+
+      val selfPkgId = PackageId.assertFromString("-self-")
+
+      implicit val parserParameters: ParserParameters[this.type] =
+        ParserParameters(
+          defaultPackageId = selfPkgId,
+          languageVersion = lfVersion,
+        )
+
+      val pkg =
+        p""" metadata ( '$pkgName' : '$pkgVersion' )
+        module Mod {
+          record @serializable T = { sig: Party };
+          template (this: T) = {
+             precondition True;
+             signatories Cons @Party [Mod:T {sig} this] (Nil @Party);
+             observers Nil @Party;
+             agreement "";
+          };
+        }"""
+
+      val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
+      val pkgId = PackageId.assertFromString(
+        MessageDigestPrototype.Sha256.newDigest
+          .digest(archive.getPayload.toByteArray)
+          .map("%02x" format _)
+          .mkString
+      )
+      val os = ByteString.newOutput()
+      DarWriter.encode(
+        SdkVersion.sdkVersion,
+        Dar(("archive.dalf", archive.toByteArray), List()),
+        os,
+      )
+
+      pkgId -> os.toByteString
+    }
+
+    "report no upgrade errors when the upgrade use a newer version of LF" in {
+      testPackagePair(
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v1_dev),
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "report upgrade errors when the upgrade use a older version of LF" in
+      testPackagePair(
+        mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v1_dev),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_16),
+        assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
+      )
+
+    "Succeeds when v2 depends on v2dep which is a valid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-ValidUpgrade-v1.dar",
+          "test-common/upgrades-ValidUpgrade-v2.dar",
+          None,
+        ),
+      )
+
+    "report upgrade errors when v2 depends on v2dep which is an invalid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+          Some("The upgraded template A has changed the types of some of its original fields."),
+        ),
+      )
+
+    "Succeeds even when non-serializable types are incompatible" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when comparing types from packages with different names" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type A has changed the types of some of its original fields.")
+        ),
+      )
+    }
+
+    "Fails when comparing type constructors from other packages that resolve to incompatible types" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type T has changed the types of some of its original fields.")
+        ),
+      )
+    }
+
     // Copied interface tests
     "Succeeds when an interface is only defined in the initial package." in {
       testPackagePair(

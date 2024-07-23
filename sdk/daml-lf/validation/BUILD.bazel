@@ -240,6 +240,8 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
             "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v1.dar",
             "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
+            "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
+            "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
         ],
         flaky = True,
         scala_deps = [

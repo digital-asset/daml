@@ -182,7 +182,7 @@ data UnwarnableError
   | EUpgradeMissingTemplate !TypeConName
   | EUpgradeMissingChoice !ChoiceName
   | EUpgradeMissingDataCon !TypeConName
-  | EUpgradeMismatchDataConsVariety !TypeConName
+  | EUpgradeMismatchDataConsVariety !TypeConName !DataCons !DataCons
   | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin
   | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin
   | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin
@@ -617,7 +617,14 @@ instance Pretty UnwarnableError where
     EUpgradeMissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
     EUpgradeMissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
     EUpgradeMissingDataCon dataConName -> "Data type " <> pPrint dataConName <> " appears in package that is being upgraded, but does not appear in this package."
-    EUpgradeMismatchDataConsVariety dataConName -> "EUpgradeMismatchDataConsVariety " <> pretty dataConName
+    EUpgradeMismatchDataConsVariety dataConName pastCons presentCons ->
+        "The upgraded data type " <> pretty dataConName <> " has changed from a " <> printCons pastCons <> " to a " <> printCons presentCons <> ". Datatypes cannot change variety via upgrades."
+      where
+        printCons :: DataCons -> Doc ann
+        printCons DataRecord {} = "record"
+        printCons DataVariant {} = "variant"
+        printCons DataEnum {} = "enum"
+        printCons DataInterface {} = "interface"
     EUpgradeRecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
     EUpgradeRecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
     EUpgradeRecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
