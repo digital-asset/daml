@@ -14,20 +14,20 @@ import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 
 abstract class JwtVerifierBase {
-  def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String]
+  def verify(jwt: Jwt): Error \/ DecodedJwt[String]
 }
 
 class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
 
-  def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
+  def verify(jwt: Jwt): Error \/ DecodedJwt[String] = {
     // The auth0 library verification already fails if the token has expired,
     // but we still need to do manual expiration checks in ongoing streams
     \/.attempt(verifier.verify(jwt.value))(e => Error(Symbol("verify"), e.getMessage))
-      .map(a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload))
+      .map(a => DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
   }
 
-  private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
+  private def base64Decode(jwt: DecodedJwt[String]): Error \/ DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
 
 }

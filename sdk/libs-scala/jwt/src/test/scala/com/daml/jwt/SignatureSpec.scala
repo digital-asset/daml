@@ -26,7 +26,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val secret = "secret key"
         val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
 
         val signedJwt = JwtSigner.HMAC256
           .sign(jwt, secret)
@@ -41,7 +41,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val secret = "secret key"
         val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
 
         val success = {
           val signedJwt = JwtSigner.HMAC256
@@ -69,7 +69,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "RS256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
 
         val signedJwt = JwtSigner.RSA256
           .sign(jwt, privateKey)
@@ -91,7 +91,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "RS256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
 
         val signedJwt = JwtSigner.RSA256
           .sign(jwt, privateKey)
@@ -116,7 +116,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
 
         val signedJwt = JwtSigner.ECDSA
           .sign(jwt, privateKey, Algorithm.ECDSA256(null, _))
@@ -139,7 +139,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
         val success = {
           val signedJwt = JwtSigner.ECDSA
             .sign(jwt, privateKey1, Algorithm.ECDSA256(null, _))
@@ -166,7 +166,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
         val signedJwt = JwtSigner.ECDSA
           .sign(jwt, privateKey, Algorithm.ECDSA512(null, _))
           .assertRight
@@ -189,7 +189,7 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
         val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
-        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val jwt = DecodedJwt[String](jwtHeader, jwtPayload)
         val success = {
           val signedJwt = JwtSigner.ECDSA
             .sign(jwt, privateKey1, Algorithm.ECDSA512(null, _))

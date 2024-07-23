@@ -88,7 +88,7 @@ class JwksVerifier(
       )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
   }
 
-  def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
+  def verify(jwt: Jwt): Error \/ DecodedJwt[String] = {
     for {
       keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
         Error(Symbol("verify"), e.getMessage)

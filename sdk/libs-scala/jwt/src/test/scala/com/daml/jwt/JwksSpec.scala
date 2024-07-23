@@ -3,7 +3,7 @@
 
 package com.daml.jwt
 
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}

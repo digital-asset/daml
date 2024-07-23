@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.jwt
+package com.daml
 
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Traverse}
 
-package domain {
+package jwt {
 
   final case class KeyPair[A](publicKey: A, privateKey: A)
 

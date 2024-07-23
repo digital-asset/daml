@@ -16,7 +16,7 @@ object JwtSigner {
   private val charset = Charset.forName("ASCII")
 
   object HMAC256 {
-    def sign(jwt: domain.DecodedJwt[String], secret: String): Error \/ domain.Jwt =
+    def sign(jwt: DecodedJwt[String], secret: String): Error \/ Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
@@ -30,13 +30,13 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield domain.Jwt(
+      } yield Jwt(
         s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
       )
   }
 
   object RSA256 {
-    def sign(jwt: domain.DecodedJwt[String], privateKey: RSAPrivateKey): Error \/ domain.Jwt =
+    def sign(jwt: DecodedJwt[String], privateKey: RSAPrivateKey): Error \/ Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
@@ -50,17 +50,17 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield domain.Jwt(
+      } yield Jwt(
         s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
       )
   }
 
   object ECDSA {
     def sign(
-        jwt: domain.DecodedJwt[String],
+        jwt: DecodedJwt[String],
         privateKey: ECPrivateKey,
         algorithm: ECPrivateKey => Algorithm,
-    ): Error \/ domain.Jwt =
+    ): Error \/ Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
@@ -74,14 +74,14 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield domain.Jwt(
+      } yield Jwt(
         s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
       )
   }
 
   private def str(bs: Array[Byte]) = new String(bs, charset)
 
-  private def base64Encode(a: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[Array[Byte]] =
+  private def base64Encode(a: DecodedJwt[String]): Error \/ DecodedJwt[Array[Byte]] =
     a.traverse(base64Encode)
 
   private def base64Encode(str: String): Error \/ Array[Byte] =

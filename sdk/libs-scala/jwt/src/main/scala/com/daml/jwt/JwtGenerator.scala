@@ -6,5 +6,5 @@ package com.daml.jwt
 import scala.util.Try
 
 object JwtGenerator {
-  def generate: Try[domain.Jwt] = Try(domain.Jwt("dummy"))
+  def generate: Try[Jwt] = Try(Jwt("dummy"))
 }

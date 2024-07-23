@@ -5,7 +5,7 @@ package com.daml.jwt
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.{Verification}
+import com.auth0.jwt.interfaces.Verification
 
 final case class JwtTimestampLeeway(
     default: Option[Long] = None,
