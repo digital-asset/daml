@@ -33,15 +33,15 @@ contents: |
           do pure ()
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ( "Disclosure retrieved with an upgraded template ID are valid disclosures"
     , queriedDisclosuresAreValid
     )
   ]
 
-queriedDisclosuresAreValid : Script ()
-queriedDisclosuresAreValid = do
+queriedDisclosuresAreValid : Test
+queriedDisclosuresAreValid = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant0
 

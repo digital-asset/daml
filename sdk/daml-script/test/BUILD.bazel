@@ -233,119 +233,6 @@ da_scala_library(
     ],
 )
 
-[
-    daml_compile(
-        name = "coin-v1-{}".format(lf_version),
-        srcs = [":upgrades/coin-v1/Coin.daml"],
-        project_name = "coin",
-        target = lf_version,
-        version = "1.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-v2-{}".format(lf_version),
-        srcs = [":upgrades/coin-v2/Coin.daml"],
-        project_name = "coin",
-        target = lf_version,
-        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
-        version = "2.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-v2-new-field-{}".format(lf_version),
-        srcs = [":upgrades/coin-v2-new-field/Coin.daml"],
-        project_name = "coin",
-        target = lf_version,
-        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
-        version = "2.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-v3-{}".format(lf_version),
-        srcs = [":upgrades/coin-v3/Coin.daml"],
-        project_name = "coin",
-        target = lf_version,
-        # upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
-        version = "3.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-upgrade-v1-v2-{}".format(lf_version),
-        srcs = [":upgrades/coin-upgrade-v1-v2/CoinUpgrade.daml"],
-        data_dependencies = [
-            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
-            "//daml-script/test:coin-v2-{}.dar".format(lf_version),
-        ],
-        dependencies = [
-            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
-        ],
-        module_prefixes = {
-            "coin-1.0.0": "Coin_1_0_0",
-            "coin-2.0.0": "Coin_2_0_0",
-        },
-        project_name = "coin-upgrade",
-        target = lf_version,
-        version = "2.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-upgrade-v1-v2-new-field-{}".format(lf_version),
-        srcs = [":upgrades/coin-upgrade-v1-v2-new-field/CoinUpgrade.daml"],
-        data_dependencies = [
-            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
-            "//daml-script/test:coin-v2-new-field-{}.dar".format(lf_version),
-        ],
-        dependencies = [
-            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
-        ],
-        module_prefixes = {
-            "coin-1.0.0": "Coin_1",
-            "coin-2.0.0": "Coin_2",
-        },
-        project_name = "coin-upgrade",
-        target = lf_version,
-        version = "2.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
-[
-    daml_compile(
-        name = "coin-upgrade-v1-v3-{}".format(lf_version),
-        srcs = [":upgrades/coin-upgrade-v1-v3/CoinUpgrade.daml"],
-        data_dependencies = [
-            "//daml-script/test:coin-v1-{}.dar".format(lf_version),
-            "//daml-script/test:coin-v3-{}.dar".format(lf_version),
-        ],
-        dependencies = [
-            "//daml-script/daml:daml-script-{}.dar".format(lf_version),
-        ],
-        module_prefixes = {
-            "coin-1.0.0": "Coin_1_0_0",
-            "coin-3.0.0": "Coin_3_0_0",
-        },
-        project_name = "coin-upgrade",
-        target = lf_version,
-        version = "3.0.0",
-    )
-    for lf_version in ENGINE_LF_DEV_VERSIONS
-]
-
 daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
@@ -476,13 +363,6 @@ da_scala_test_suite(
         ["src/main/scala/com/**/*Dev*.scala"],
     ),
     data = [dep for deps in [[
-        ":coin-upgrade-v1-v2-{}.dar".format(lf),
-        ":coin-upgrade-v1-v2-new-field-{}.dar".format(lf),
-        ":coin-upgrade-v1-v3-{}.dar".format(lf),
-        ":coin-v1-{}.dar".format(lf),
-        ":coin-v2-{}.dar".format(lf),
-        ":coin-v2-new-field-{}.dar".format(lf),
-        ":coin-v3-{}.dar".format(lf),
         ":script-test-{}.dar".format(lf),
     ] for lf in ENGINE_LF_DEV_VERSIONS] for dep in deps] + [
         ":script-test-no-ledger.dar",

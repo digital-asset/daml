@@ -35,7 +35,7 @@ contents: |
         do pure ()                                    -- @V  2
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
   , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
@@ -53,8 +53,8 @@ signatoryObserverUpgrade
   :  Bool
   -> ((Party, Party, Party) -> ([Party], [Party]))
   -> ((Party, Party, Party) -> ([Party], [Party]))
-  -> Script ()
-signatoryObserverUpgrade shouldSucceed sigF obsF = do
+  -> Test
+signatoryObserverUpgrade shouldSucceed sigF obsF = test $ do
   alice <- allocatePartyOn "alice" participant0
   bob <- allocatePartyOn "bob" participant0
   charlie <- allocatePartyOn "charlie" participant0
@@ -79,31 +79,31 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = do
 unchanged : (Party, Party, Party) -> ([Party], [Party])
 unchanged (alice, bob, charlie) = ([alice], [alice])
 
-signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Test
 signatoryUpgrade shouldSucceed f = signatoryObserverUpgrade shouldSucceed f unchanged
 
-observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Test
 observerUpgrade shouldSucceed = signatoryObserverUpgrade shouldSucceed unchanged
 
-unchangedSignatoryUpgrade : Script ()
+unchangedSignatoryUpgrade : Test
 unchangedSignatoryUpgrade = signatoryUpgrade True unchanged
 
-largerSignatoryUpgrade : Script ()
+largerSignatoryUpgrade : Test
 largerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
 
-smallerSignatoryUpgrade : Script ()
+smallerSignatoryUpgrade : Test
 smallerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
-unchangeObserverUpgrade : Script ()
+unchangeObserverUpgrade : Test
 unchangeObserverUpgrade = observerUpgrade True unchanged
 
-largerObserverUpgrade : Script ()
+largerObserverUpgrade : Test
 largerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
 
-smallerObserverUpgrade : Script ()
+smallerObserverUpgrade : Test
 smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
-canRemoveObserversThatAreSignatories : Script ()
+canRemoveObserversThatAreSignatories : Test
 canRemoveObserversThatAreSignatories =
   signatoryObserverUpgrade
     True

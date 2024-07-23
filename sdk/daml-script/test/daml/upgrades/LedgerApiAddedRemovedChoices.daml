@@ -36,7 +36,7 @@ contents: |
         do pure "V2"                 -- @V  2
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Succeeds explicitly calling a new V2 choice on a V1 contract", explicitNewV2ChoiceV1Contract)
   , ("Succeeds implicitly calling a new V2 choice on a V1 contract", implicitNewV2ChoiceV1Contract)
@@ -53,36 +53,36 @@ genericUpgradeTest
   -> c2
   -> Bool
   -> (Either SubmitError r -> Script ())
-  -> Script ()
-genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = do
+  -> Test
+genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
   res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
   handleRes res
 
-choiceTest : forall t2 t1 c2 r. (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
+choiceTest : forall t2 t1 c2 r. (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Test
 choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = genericUpgradeTest @t2 makeV1Contract v2Choice explicitPackageIds $ \res ->
   case res of
     Right returnValue -> returnValue === expectedResult
     Left err -> assertFail $ "Expected " <> show expectedResult <> " but got " <> show err
 
-explicitNewV2ChoiceV1Contract : Script ()
+explicitNewV2ChoiceV1Contract : Test
 explicitNewV2ChoiceV1Contract = choiceTest @V2.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V2.NewAddedChoice True "V2"
 
-implicitNewV2ChoiceV1Contract : Script ()
+implicitNewV2ChoiceV1Contract : Test
 implicitNewV2ChoiceV1Contract = choiceTest @V2.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V2.NewAddedChoice False "V2"
 
-explicitRemovedV1ChoiceV2Contract : Script ()
+explicitRemovedV1ChoiceV2Contract : Test
 explicitRemovedV1ChoiceV2Contract = choiceTest @V1.AddedRemovedChoiceTemplate (`V2.AddedRemovedChoiceTemplate` None) V1.OldRemovedChoice True "V1"
 
-implicitRemovedV1ChoiceV2Contract : Script ()
+implicitRemovedV1ChoiceV2Contract : Test
 implicitRemovedV1ChoiceV2Contract =
   genericUpgradeTest @V1.AddedRemovedChoiceTemplate (`V2.AddedRemovedChoiceTemplate` None) V1.OldRemovedChoice False $ \case
     Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
     res -> assertFail $ "Expected unknown choice error, got " <> show res
 
-implicitRemovedV1ChoiceV1Contract : Script ()
+implicitRemovedV1ChoiceV1Contract : Test
 implicitRemovedV1ChoiceV1Contract =
   genericUpgradeTest @V1.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V1.OldRemovedChoice False $ \case
     Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()

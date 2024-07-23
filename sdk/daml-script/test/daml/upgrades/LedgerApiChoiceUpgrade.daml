@@ -42,7 +42,7 @@ contents: |
             secondArg                                   -- @V  2
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used.", explicitV1ChoiceV1Contract)
   , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded.", explicitV2ChoiceV1Contract)
@@ -60,8 +60,8 @@ choiceTest
   -> c2
   -> Bool
   -> r
-  -> Script ()
-choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = do
+  -> Test
+choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
@@ -70,39 +70,38 @@ choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = do
     Right returnValue -> returnValue === expectedResult
     Left err -> assertFail $ "Expected " <> show expectedResult <> " but got " <> show err
 
-explicitV1ChoiceV1Contract : Script ()
+explicitV1ChoiceV1Contract : Test
 explicitV1ChoiceV1Contract =
   choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") True (V1.UpgradedChoiceReturn "v1 to v1:V1")
 
-explicitV2ChoiceV1Contract : Script ()
+explicitV2ChoiceV1Contract : Test
 explicitV2ChoiceV1Contract =
   choiceTest @V2.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V2.UpgradedChoice "v2 to v1" $ Some "extra") True (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
 -- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
 -- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
 -- and since the extra data in the return will also be none, the downgrade can succeed.
-inferredV1ChoiceV1Contract : Script ()
+inferredV1ChoiceV1Contract : Test
 inferredV1ChoiceV1Contract =
   choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V2:None")
 
-inferredV2ChoiceV1Contract : Script ()
+inferredV2ChoiceV1Contract : Test
 inferredV2ChoiceV1Contract =
   choiceTest @V2.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V2.UpgradedChoice "v2 to v1" $ Some "extra") False (V2.UpgradedChoiceReturn "v2 to v1:V2:Some \"extra\"" $ Some "extra")
 
 -- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
--- TODO: This test fails for several reasons:
---   first it tries to use v2 even through its unvetted <- this is not correct behaviour
---   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
-inferredV1ChoiceV1ContractWithoutV2 : Script ()
+-- Ledger-api still considers unvetted packages in package selection
+-- IDE ledger doesn't support vettiing
+inferredV1ChoiceV1ContractWithoutV2 : Test
 inferredV1ChoiceV1ContractWithoutV2 =
-  withUnvettedDar "ledger-api-choice-upgrades-2.0.0" $
+  withUnvettedDar "ledger-api-choice-upgrades-2.0.0" .
     choiceTest @V1.UpgradedChoiceTemplate V1.UpgradedChoiceTemplate (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
 
-explicitV1ChoiceV2Contract : Script ()
+explicitV1ChoiceV2Contract : Test
 explicitV1ChoiceV2Contract =
   choiceTest @V1.UpgradedChoiceTemplate (`V2.UpgradedChoiceTemplate` None) (V1.UpgradedChoice "v1 to v2") True (V1.UpgradedChoiceReturn "v1 to v2:V1")
 
-explicitV2ChoiceV2Contract : Script ()
+explicitV2ChoiceV2Contract : Test
 explicitV2ChoiceV2Contract =
   choiceTest @V2.UpgradedChoiceTemplate (`V2.UpgradedChoiceTemplate` Some "text") (V2.UpgradedChoice "v2 to v2" $ Some "extra") True (V2.UpgradedChoiceReturn "v2 to v2:V2:Some \"extra\"" $ Some "extra")
 

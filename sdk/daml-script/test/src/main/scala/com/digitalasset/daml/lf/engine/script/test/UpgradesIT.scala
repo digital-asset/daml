@@ -14,6 +14,8 @@ import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -58,10 +60,34 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
-      testCase.name in {
+      // IDE tests are disabled until IDE support is forward ported.
+      (testCase.name + " on IDE Ledger") ignore {
         for {
           // Build dars
-          (testDarPath, deps) <- buildTestCaseDar(testCase)
+          (testDarPath, deps) <- buildTestCaseDarMemoized(testCase)
+
+          // Create ide ledger client
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
+          participants <- Runner.ideLedgerClient(
+            testDar.compiledPackages,
+            newTraceLog,
+            newWarningLog,
+          )
+
+          // Run tests
+          _ <- run(
+            participants,
+            QualifiedName.assertFromString(s"${testCase.name}:main"),
+            inputValue = Some(Value.ValueText("ide-ledger")),
+            dar = testDar,
+            enableContractUpgrading = true,
+          )
+        } yield succeed
+      }
+      (testCase.name + " on Canton") in {
+        for {
+          // Build dars
+          (testDarPath, deps) <- buildTestCaseDarMemoized(testCase)
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
@@ -78,10 +104,10 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           }
 
           _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
-            Future.traverse(deps) { dep =>
+            Future.traverse(deps.reverse) { dep =>
               Thread.sleep(500)
               println(
-                s"Uploading ${dep.versionedName} to participant on port ${ledgerPort}"
+                s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to participant on port ${ledgerPort}"
               )
               adminClient
                 .uploadDar(dep.path.toFile)
@@ -100,6 +126,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
+            inputValue = Some(Value.ValueText("canton")),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -124,10 +151,22 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       })
   }
 
+  private val builtTestCaseDars: mutable.HashMap[TestCase, (Path, Seq[Dar])] =
+    new mutable.HashMap[TestCase, (Path, Seq[Dar])]
+
+  def buildTestCaseDarMemoized(testCase: TestCase): Future[(Path, Seq[Dar])] =
+    builtTestCaseDars
+      .get(testCase)
+      .fold(buildTestCaseDar(testCase).map { res =>
+        builtTestCaseDars.update(testCase, res)
+        res
+      })(Future.successful(_))
+
   def buildTestCaseDar(testCase: TestCase): Future[(Path, Seq[Dar])] = Future {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
-    val dars: Seq[Dar] = testCase.pkgDefs.map(_.build(testCaseRoot))
+    // Each dar is tagged with whether it needs to be uploaded, to save time on duplicate uploads
+    val dars: Seq[(Dar, Boolean)] = testCase.buildPkgDefs(testCaseRoot)
     // For package preference tests, we need to know package ids
     // These cannot be hard coded due to sdk version changes
     val packageIdsModuleSource =
@@ -137,7 +176,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
          |import UpgradeTestLib (PackageId (..))
          |packageIds : Map.Map Text PackageId
          |packageIds = Map.fromList [${dars
-          .map(dar => s"(\"${dar.versionedName}\",PackageId \"${dar.mainPackageId}\")")
+          .map { case (dar, _) => s"(\"${dar.versionedName}\",PackageId \"${dar.mainPackageId}\")" }
           .mkString(",")}]
          |getPackageId : Text -> PackageId
          |getPackageId name = fromSomeNote ("Couldn't find package id of " <> name) $$ Map.lookup name packageIds
@@ -149,7 +188,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
         (testCase.name, Files.readString(testCase.damlPath)),
         ("PackageIds", packageIdsModuleSource),
       ),
-      dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { dar =>
+      dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { case (dar, _) =>
         DataDep(
           path = dar.path,
           prefix = Some((dar.versionedName, s"V${dar.version}")),
@@ -157,12 +196,13 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       },
       tmpDir = Some(testCasePkg),
     ).path
-    (darPath, dars)
+    (darPath, dars.filter(_._2).map(_._1))
   }
 
   def assertBuildDar(
       name: String,
       version: Int = 1,
+      lfVersion: LanguageVersion = LanguageVersion.v2_dev,
       modules: Map[String, String],
       deps: Seq[Path] = Seq.empty,
       dataDeps: Seq[DataDep] = Seq.empty,
@@ -174,7 +214,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     buildDar(
       name = name,
       version = version,
-      lfVersion = languageVersion,
+      lfVersion = lfVersion,
       modules = modules,
       deps = deps,
       dataDeps = dataDeps,
@@ -195,7 +235,47 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       damlPath: Path,
       damlRelPath: Path,
       pkgDefs: Seq[PackageDefinition],
-  )
+  ) {
+    val unitIdMap = pkgDefs.map(pd => (s"${pd.name}-${pd.version}.0.0", pd)).toMap
+
+    val sortedPkgDefs = {
+      val res = mutable.ListBuffer[(PackageDefinition, String)]()
+      def sortPkgDef(pkgName: String, seen: Set[String] = Set[String]()): Unit = {
+        if (seen(pkgName)) throw new IllegalArgumentException(s"Cycle detected: ${seen + pkgName}")
+        if (!res.exists { case (_, name) => name == pkgName }) {
+          val pkgDef = unitIdMap.getOrElse(
+            pkgName,
+            throw new IllegalArgumentException(s"Package $pkgName is not defined in this file"),
+          )
+          pkgDef.depends.foreach(sortPkgDef(_, seen + pkgName))
+          res += ((pkgDef, pkgName))
+        }
+      }
+      unitIdMap.keys.foreach(sortPkgDef(_))
+      res.map(_._1).toSeq
+    }
+
+    def buildPkgDefs(tmpDir: Path): Seq[(Dar, Boolean)] = {
+      val builtDars: mutable.Map[String, Dar] = mutable.Map[String, Dar]()
+      val topLevelDars: mutable.Set[Dar] = mutable.Set[Dar]()
+      sortedPkgDefs.foreach { pd =>
+        val deps = pd.depends.map(
+          builtDars.getOrElse(
+            _,
+            throw new IllegalArgumentException("Impossible missing dependency while building"),
+          )
+        )
+        val builtDar = pd.build(tmpDir, deps)
+        builtDars += ((builtDar.versionedName, builtDar))
+        topLevelDars subtractAll deps
+        topLevelDars += builtDar
+      }
+      builtDars.values
+        .map(dar => (dar, topLevelDars(dar)))
+        .toSeq
+        .sortBy(_._1.versionedName)(Ordering[String].reverse)
+    }
+  }
 
   // Ensures no package name is defined twice across all test files
   def getTestCases(testFileDir: Path): Seq[TestCase] = {
@@ -239,15 +319,20 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   case class PackageDefinition(
       name: String,
       version: Int,
+      lfVersion: LanguageVersion,
+      depends: Seq[String], // List of unit ids of dependencies
       modules: Map[String, String],
   ) {
-    def build(tmpDir: Path): Dar = {
+    def build(tmpDir: Path, dataDeps: Seq[Dar] = Seq[Dar]()): Dar = {
       assertBuildDar(
         name = this.name,
         version = this.version,
+        lfVersion = this.lfVersion,
         modules = this.modules,
-        deps = Seq(damlScriptDar.toPath),
+        dataDeps =
+          dataDeps.map(dar => DataDep(dar.path, Some((dar.versionedName, s"V${dar.version}")))),
         tmpDir = Some(tmpDir),
+        opts = Seq("--enable-interfaces=yes"),
       )
     }
   }
@@ -257,6 +342,8 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     case class PackageComment(
         name: String,
         versions: Int,
+        lfVersion: Option[String],
+        depends: String,
     )
 
     // TODO[SW] Consider another attempt at using io.circe.generic.auto._
@@ -268,8 +355,10 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           for {
             name <- c.downField("name").as[String]
             versions <- c.downField("versions").as[Int]
+            lfVersion <- c.downField("lf-version").as[Option[String]]
+            depends <- c.downField("depends").as[Option[String]].map(_.getOrElse(""))
           } yield {
-            new PackageComment(name, versions)
+            new PackageComment(name, versions, lfVersion, depends)
           }
       }
 
@@ -331,10 +420,16 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           .groupMap(_.packageName)(c => readVersionedLines(c.contents))
 
       packageComments.flatMap { c =>
+        val versionedLfVersion = c.lfVersion.map(readVersionedLines(_))
+        val versionedDepends = readVersionedLines(c.depends)
         (1 to c.versions).toSeq.map { version =>
           PackageDefinition(
             name = c.name,
             version = version,
+            lfVersion = versionedLfVersion.fold(LanguageVersion.v2_dev)(vLf =>
+              LanguageVersion.assertFromString(unversionLines(vLf, version))
+            ),
+            depends = unversionLines(versionedDepends, version).split('\n').toSeq.filter(_ != ""),
             modules = moduleMap
               .getOrElse(c.name, Seq.empty)
               .map(getVersionedModule(c.name, _, version))
@@ -353,15 +448,18 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     )
 
     def readVersionedLines(contents: String): Seq[VersionedLine] = {
-      val versionedLinePat: Regex = "-- @V(.*)$".r
+      val versionedLinePat: Regex = " *-- @V(.*)$".r
       val intPat: Regex = "\\d+".r
       contents.split('\n').toSeq.map { line =>
-        VersionedLine(
-          line = line,
-          versions = versionedLinePat.findFirstMatchIn(line).map { m =>
-            intPat.findAllMatchIn(m.group(1)).toSeq.map(_.group(0).toInt)
-          },
-        )
+        versionedLinePat
+          .findFirstMatchIn(line)
+          .map { m =>
+            VersionedLine(
+              line = line.take(m.start),
+              versions = Some(intPat.findAllMatchIn(m.group(1)).toSeq.map(_.group(0).toInt)),
+            )
+          }
+          .getOrElse(VersionedLine(line, None))
       }
     }
 
@@ -371,9 +469,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
         version: Int,
     ): (String, String) = {
       val modNamePat: Regex = "module +([^ ]+) +where".r
-      val contents = lines
-        .collect { case vl if vl.versions.fold(true)(_.contains(version)) => vl.line }
-        .mkString("\n")
+      val contents = unversionLines(lines, version)
       modNamePat.findFirstMatchIn(contents) match {
         case Some(m) => (m.group(1), contents)
         case None =>
@@ -382,6 +478,14 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           )
       }
     }
+
+    def unversionLines(
+        lines: Seq[VersionedLine],
+        version: Int,
+    ): String =
+      lines
+        .collect { case vl if vl.versions.fold(true)(_.contains(version)) => vl.line }
+        .mkString("\n")
 
     def assertUnique(
         packageName: String,

@@ -24,14 +24,14 @@ contents: |
       signatory party
 -}
 
-main : Script ()
+main : TestTree
 main = tests
   [ -- https://github.com/DACH-NY/canton/issues/14718
     broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
   ]
 
-packageSelectionChoosesUnvettedPackages : Script ()
-packageSelectionChoosesUnvettedPackages =
+packageSelectionChoosesUnvettedPackages : Test
+packageSelectionChoosesUnvettedPackages = test $
   -- Unvet the v2 dar on all participants on the domain
   withUnvettedDar "package-selection-2.0.0" $ do
     a <- allocatePartyOn "alice" participant0
