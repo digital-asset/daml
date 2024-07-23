@@ -102,12 +102,15 @@ class IdeLedgerClient(
     preprocessor = makePreprocessor
   }
 
-  // Throws if the packageId isn't known
+  // Returns false if the package is unknown, leaving the packageId unmodified
+  // so later computation can throw a better formulated error
   def packageSupportsUpgrades(packageId: PackageId): Boolean =
     compiledPackages.pkgInterface
       .lookupPackage(packageId)
-      .getOrElse(throw new IllegalArgumentException("Unknown PackageId"))
-      .languageVersion >= LanguageVersion.Features.packageUpgrades
+      .fold(
+        _ => false,
+        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+      )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -499,7 +502,7 @@ class IdeLedgerClient(
   private def toCommand(
       cmdWithMeta: ScriptLedgerClient.CommandWithMeta,
       // This map only contains packageIds >=LF1.16
-      packageIdMap: Map[PackageId, ScriptLedgerClient.ReadablePackageId],
+      packageIdMap: PartialFunction[PackageId, ScriptLedgerClient.ReadablePackageId],
   ): ApiCommand = {
     def adjustTypeConRef(old: TypeConRef): TypeConRef =
       old match {
@@ -608,7 +611,9 @@ class IdeLedgerClient(
           Right(
             preprocessor.unsafePreprocessApiCommands(
               packageMap,
-              commands.map(toCommand(_, reversePackageIdMap)).to(ImmArray),
+              commands
+                .map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
+                .to(ImmArray),
             )
           )
         } catch {
