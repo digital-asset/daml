@@ -31,10 +31,11 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val ns7 = Namespace(key7.fingerprint)
   val ns8 = Namespace(key8.fingerprint)
   val ns9 = Namespace(key9.fingerprint)
-  val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", ns1))
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
+  val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", ns1))
+  val domainId1a = DomainId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
@@ -56,24 +57,24 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val okm1ak5k1E_k2 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key2, key5),
     )
   val okm1bk5k1E_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key1, key5),
     )
   val okm1bk5k1E_k4 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, Some(domainId1), NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key4, key5),
     )
 
   val sequencer1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", ns1))
   val okmS1k7_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(sequencer1, Some(domainId1), NonEmpty(Seq, key7)),
+      OwnerToKeyMapping(sequencer1, None, NonEmpty(Seq, key7)),
       NonEmpty(Set, key1, key7),
     )
   val sdmS1_k1 =
@@ -92,7 +93,8 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
       .getOrElse(sys.error(s"tried to remove the last key of $otk"))
   }
 
-  val dtcp1_k1 = mkAdd(DomainTrustCertificate(participant1, domainId1, false, Seq.empty), key1)
+  val dtcp1_k1 =
+    mkAdd(DomainTrustCertificate(participant1, DomainId(uid1a), false, Seq.empty), key1)
 
   val defaultDomainParameters = TestDomainParameters.defaultDynamic
 

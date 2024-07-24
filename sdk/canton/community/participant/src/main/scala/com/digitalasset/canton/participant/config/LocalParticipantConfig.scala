@@ -359,7 +359,7 @@ final case class ParticipantNodeParameterConfig(
     ),
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     alphaVersionSupport: Boolean = true,
-    BetaVersionSupport: Boolean = false,
+    betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)

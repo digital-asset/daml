@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.jwt.{JwtSigner, KeyUtils}
+import com.daml.jwt.{DecodedJwt, Jwt, JwtSigner, KeyUtils}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import scalaz.syntax.show.*
 

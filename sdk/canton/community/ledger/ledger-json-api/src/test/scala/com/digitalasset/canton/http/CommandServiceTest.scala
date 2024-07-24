@@ -14,7 +14,7 @@ import com.digitalasset.canton.http.util.Logging as HLogging
 import com.daml.logging.LoggingContextOf
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.auth.{
   AuthServiceJWTCodec,

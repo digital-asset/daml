@@ -222,10 +222,12 @@ class GrpcTopologyManagerReadService(
           }
           domainStores match {
             case Nil =>
-              TopologyManagerError.WrongDomain.InvalidFilterStore(filterStore.filterString).asLeft
+              TopologyManagerError.InvalidDomain.InvalidFilterStore(filterStore.filterString).asLeft
             case Seq(domainStore) => domainStore.asRight
             case _ =>
-              TopologyManagerError.WrongDomain.MultipleDomainStores(filterStore.filterString).asLeft
+              TopologyManagerError.InvalidDomain
+                .MultipleDomainStores(filterStore.filterString)
+                .asLeft
           }
 
         case None =>

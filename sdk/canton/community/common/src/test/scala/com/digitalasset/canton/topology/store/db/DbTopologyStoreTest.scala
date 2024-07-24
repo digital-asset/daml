@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -20,10 +21,10 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
   }
 
   "DbTopologyStore" should {
-    behave like topologyStore(() => createTopologyStore())
+    behave like topologyStore(() => createTopologyStore(DefaultTestIdentities.domainId))
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = createTopologyStore()
+      val store = createTopologyStore(DefaultTestIdentities.domainId)
 
       val transactions = (0 to maxItemsInSqlQuery.value * 2 + 3) map { i =>
         val ts = CantonTimestamp.Epoch.plusSeconds(i.toLong)

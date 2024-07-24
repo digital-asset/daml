@@ -28,7 +28,7 @@ import util.ApiValueToLfValueConverter.apiValueToLfValue
 import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
 import query.ValuePredicate.LfV
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import scalaz.syntax.bifunctor.*
 import scalaz.syntax.std.boolean.*
 import scalaz.syntax.std.option.*

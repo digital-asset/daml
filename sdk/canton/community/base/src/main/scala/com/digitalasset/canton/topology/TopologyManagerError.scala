@@ -172,12 +172,18 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  object WrongDomain
+  @Explanation(
+    """This error is returned if a transaction was submitted that is restricted to another domain."""
+  )
+  @Resolution(
+    """Recreate the content of the transaction with a correct domain identifier."""
+  )
+  object InvalidDomain
       extends ErrorCode(id = "INVALID_DOMAIN", ErrorCategory.InvalidIndependentOfSystemState) {
-    final case class Failure(wrong: DomainId)(implicit
+    final case class Failure(invalid: DomainId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Wrong domain $wrong"
+          cause = s"Invalid domain $invalid"
         )
         with TopologyManagerError
 

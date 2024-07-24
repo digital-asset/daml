@@ -26,9 +26,8 @@ sealed trait EnterpriseFeatureInCommunityIntegrationTest
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
-      .addConfigTransforms(
-        CommunityConfigTransforms.uniquePorts
-      )
+      .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
+      .addConfigTransforms(CommunityConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
       .withSetup { implicit env =>
         import env.*

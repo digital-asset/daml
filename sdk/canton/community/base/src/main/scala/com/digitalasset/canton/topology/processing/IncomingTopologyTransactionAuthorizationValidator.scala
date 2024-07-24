@@ -105,12 +105,14 @@ object UpdateAggregation {
 class IncomingTopologyTransactionAuthorizationValidator(
     val pureCrypto: CryptoPureApi,
     val store: TopologyStore[TopologyStoreId],
-    domainId: Option[DomainId],
     validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with TransactionAuthorizationValidator {
+
+  private val domainId =
+    TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.domainId)
 
   def reset(): Unit = {
     namespaceCache.clear()
@@ -397,7 +399,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
           Either.cond(
             domainId.forall(_ == txDomainId),
             (),
-            TopologyTransactionRejection.WrongDomain(txDomainId),
+            TopologyTransactionRejection.InvalidDomain(txDomainId),
           )
         case None => Right(())
       }

@@ -9,7 +9,7 @@ import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
 import com.digitalasset.canton.http.util.FutureUtil.either
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.digitalasset.canton.ledger.api.auth.StandardJWTPayload
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.traverse.*

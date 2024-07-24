@@ -120,21 +120,14 @@ object TopologyStoreId {
     case domain => DomainStore(DomainId(UniqueIdentifier.tryFromProtoPrimitive(domain)))
   }
 
-  trait IdTypeChecker[A <: TopologyStoreId] {
-    def isOfType(id: TopologyStoreId): Boolean
-  }
-
-  implicit val domainTypeChecker: IdTypeChecker[DomainStore] = new IdTypeChecker[DomainStore] {
-    override def isOfType(id: TopologyStoreId): Boolean = id.isDomainStore
-  }
-
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def select[StoreId <: TopologyStoreId](store: TopologyStore[TopologyStoreId])(implicit
-      checker: IdTypeChecker[StoreId]
-  ): Option[TopologyStore[StoreId]] = if (checker.isOfType(store.storeId))
-    Some(store.asInstanceOf[TopologyStore[StoreId]])
-  else None
-
+  def select[StoreId <: TopologyStoreId: ClassTag](
+      store: TopologyStore[TopologyStoreId]
+  ): Option[TopologyStore[StoreId]] = store.storeId match {
+    // this typecheck is safe to do, because we have a ClassTag in scope
+    case _: StoreId => Some(store.asInstanceOf[TopologyStore[StoreId]])
+    case _ => None
+  }
 }
 
 final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](

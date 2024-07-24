@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt, JwtSigner}
 import com.digitalasset.canton.ledger.api.auth.{
   AuthServiceJWTCodec,
   StandardJWTPayload,

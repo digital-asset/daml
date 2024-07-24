@@ -108,21 +108,4 @@ object DomainTopologyManagerError extends TopologyManagerError.DomainErrorGroup(
         )
         with DomainTopologyManagerError
   }
-
-  @Explanation(
-    """This error is returned if a transaction restricted to a domain should be added to another domain."""
-  )
-  @Resolution(
-    """Recreate the content of the transaction with a correct domain identifier."""
-  )
-  object WrongDomain
-      extends ErrorCode(id = "WRONG_DOMAIN", ErrorCategory.InvalidGivenCurrentSystemStateOther) {
-    final case class Failure(wrongDomain: DomainId)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Domain restricted transaction can not be added to different domain"
-        )
-        with DomainTopologyManagerError
-  }
-
 }
