@@ -146,12 +146,12 @@ interfacesAltV2 = getPackageId "interfaces-alt-2.0.0"
 -- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
 main : TestTree
 main = tests
-  [ brokenOnIDELedger ("Calling an interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationCommand)
-  , brokenOnIDELedger ("Calling an interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationUpdate)
-  , brokenOnIDELedger ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
-  , brokenOnIDELedger ("Package map preference is used for interface implementation selection at choice body level", interfaceChoicePackagePreferenceUpdate)
-  , brokenOnIDELedger ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
-  , brokenOnIDELedger ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
+  [ ("Calling an interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationCommand)
+  , ("Calling an interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationUpdate)
+  , ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
+  , ("Package map preference is used for interface implementation selection at choice body level", interfaceChoicePackagePreferenceUpdate)
+  , ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
+  , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
   , broken ("queryInterfaceContractId uses highest version of view", queryInterfaceUpgrades)
   , broken ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
   ]

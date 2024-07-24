@@ -431,12 +431,13 @@ private[lf] object ScenarioRunner {
       commands: SExpr,
       location: Option[Location],
       seed: crypto.Hash,
+      packageResolution: Map[PackageName, PackageId] = Map.empty,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
     val ledgerMachine = Speedy.UpdateMachine(
-      packageResolution = Map.empty,
+      packageResolution = packageResolution,
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
