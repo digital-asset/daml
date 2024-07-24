@@ -93,7 +93,7 @@ object UpgradeError {
     override def message: String =
       s"The upgraded data type $dataConName has changed from a ${printCons(variety.past)} to a ${printCons(variety.present)}. Datatypes cannot change variety via upgrades."
 
-    def printCons(variety: DataCons) =
+    def printCons(variety: Ast.DataCons) =
       variety match {
         case _: Ast.DataRecord => "record"
         case _: Ast.DataVariant => "variant"
