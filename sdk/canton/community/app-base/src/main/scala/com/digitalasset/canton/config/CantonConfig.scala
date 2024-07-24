@@ -381,7 +381,7 @@ trait CantonConfig {
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           alphaVersionSupport = participantParameters.alphaVersionSupport,
-          betaVersionSupport = participantParameters.BetaVersionSupport,
+          betaVersionSupport = participantParameters.betaVersionSupport,
           dontWarnOnDeprecatedPV = participantParameters.dontWarnOnDeprecatedPV,
         ),
         ledgerApiServerParameters = participantParameters.ledgerApiServer,

@@ -19,13 +19,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
-import com.digitalasset.canton.topology.store.{
-  SignedTopologyTransactions,
-  TopologyStore,
-  TopologyStoreId,
-  TopologyTransactionRejection,
-  ValidatedTopologyTransaction,
-}
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
@@ -83,7 +77,6 @@ class TopologyStateProcessor(
     new IncomingTopologyTransactionAuthorizationValidator(
       pureCrypto,
       store,
-      None,
       // if transactions are put directly into a store (ie there is no outbox queue)
       // then the authorization validation is final.
       validationIsFinal = outboxQueue.isEmpty,

@@ -23,7 +23,7 @@ import com.digitalasset.canton.http.json.*
 import com.digitalasset.canton.http.Endpoints
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import lav2.value.Value as ApiValue
 import scalaz.std.scalaFuture.*

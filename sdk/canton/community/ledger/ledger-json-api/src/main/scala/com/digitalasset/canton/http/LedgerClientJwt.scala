@@ -5,7 +5,7 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,

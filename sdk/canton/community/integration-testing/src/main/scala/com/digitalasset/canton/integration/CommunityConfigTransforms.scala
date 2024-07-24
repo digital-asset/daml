@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.domain.mediator.CommunityMediatorNodeConfig
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
+import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
 
@@ -103,6 +104,80 @@ object CommunityConfigTransforms {
     } compose updateAllParticipantConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     }
+  }
+
+  def setNonStandardConfig(enable: Boolean): CommunityConfigTransform =
+    _.focus(_.parameters.nonStandardConfig).replace(enable)
+
+  def setGlobalAlphaVersionSupport(enable: Boolean): CommunityConfigTransform =
+    _.focus(_.parameters.alphaVersionSupport).replace(enable)
+
+  def setGlobalBetaVersionSupport(enable: Boolean): CommunityConfigTransform =
+    _.focus(_.parameters.betaVersionSupport).replace(enable)
+
+  def updateAllParticipantConfigs_(
+      update: CommunityParticipantConfig => CommunityParticipantConfig
+  ): CommunityConfigTransform =
+    updateAllParticipantConfigs((_, participantConfig) => update(participantConfig))
+
+  def setAlphaVersionSupport(enable: Boolean): Seq[CommunityConfigTransform] = Seq(
+    setNonStandardConfig(enable),
+    setGlobalAlphaVersionSupport(enable),
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.alphaVersionSupport)
+        .replace(enable)
+    ),
+  )
+
+  def setBetaVersionSupport(enable: Boolean): Seq[CommunityConfigTransform] =
+    Seq(
+      setGlobalBetaVersionSupport(enable),
+      updateAllParticipantConfigs_(
+        _.focus(_.parameters.betaVersionSupport)
+          .replace(enable)
+      ),
+    )
+
+  lazy val enableAlphaVersionSupport: Seq[CommunityConfigTransform] = setAlphaVersionSupport(true)
+  lazy val enableBetaVersionSupport: Seq[CommunityConfigTransform] = setBetaVersionSupport(true)
+
+  lazy val dontWarnOnDeprecatedPV = Seq(
+    updateAllSequencerConfigs_(
+      _.focus(_.parameters.dontWarnOnDeprecatedPV).replace(true)
+    ),
+    updateAllMediatorConfigs_(
+      _.focus(_.parameters.dontWarnOnDeprecatedPV).replace(true)
+    ),
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.dontWarnOnDeprecatedPV).replace(true)
+    ),
+  )
+
+  def updateAllInitialProtocolVersion(pv: ProtocolVersion): Seq[CommunityConfigTransform] = Seq(
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.initialProtocolVersion).replace(ParticipantProtocolVersion(pv))
+    )
+  )
+
+  def setProtocolVersion(pv: ProtocolVersion): Seq[CommunityConfigTransform] = {
+    def configTransformsWhen(predicate: Boolean)(transforms: => Seq[CommunityConfigTransform]) =
+      if (predicate) transforms else Seq()
+
+    val enableAlpha = configTransformsWhen(pv.isAlpha)(enableAlphaVersionSupport)
+    val enableBeta = configTransformsWhen(pv.isBeta)(enableBetaVersionSupport)
+
+    val deprecatedPVWarning = configTransformsWhen(pv.isDeprecated)(dontWarnOnDeprecatedPV)
+
+    val updateParticipants = Seq(
+      updateAllParticipantConfigs_(
+        _.focus(_.parameters.minimumProtocolVersion)
+          .replace(Some(ParticipantProtocolVersion(pv)))
+      )
+    )
+
+    val updateInitialProtocolVersion = updateAllInitialProtocolVersion(pv)
+
+    updateParticipants ++ enableAlpha ++ enableBeta ++ deprecatedPVWarning ++ updateInitialProtocolVersion
   }
 
   def uniquePorts: CommunityConfigTransform = {

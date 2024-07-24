@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.*

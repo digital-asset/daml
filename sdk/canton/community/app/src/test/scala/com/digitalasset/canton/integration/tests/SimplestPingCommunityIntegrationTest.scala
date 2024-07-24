@@ -23,6 +23,7 @@ sealed trait SimplestPingCommunityIntegrationTest
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
       .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
+      .addConfigTransforms(CommunityConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
 
   "we can run a trivial ping" in { implicit env =>

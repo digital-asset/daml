@@ -325,7 +325,7 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => createTopologyStore())
+    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.domainId))
   }
 
 }
