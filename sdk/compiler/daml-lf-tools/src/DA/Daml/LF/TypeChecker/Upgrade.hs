@@ -691,12 +691,14 @@ isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     deps <- view upgradingDeps
-    let tconCheck t1 t2 =
-          alphaTypeCon t1 t2 &&
+    let checkSelf = alphaTypeCon
+        checkImport t1 t2 =
           case (qualPackage t1, qualPackage t2) of
             (PRImport pkgId1, PRImport pkgId2) ->
+              pkgId1 == pkgId2 ||
               Upgrading pkgId1 pkgId2 `elem` deps && removePkgId t1 == removePkgId t2
             _ -> False
+        tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
     pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
 isStructurallyEquivalentType :: AlphaEnv -> [TypeConName] -> Upgrading Type -> TcUpgradeM Bool
@@ -707,12 +709,12 @@ isStructurallyEquivalentType alphaEnv identicalCons type_ = do
             [ qualPackage t1 == PRSelf
             , qualPackage t2 == PRSelf
             , qualObject t2 `elem` identicalCons
-            , t1 == t2
+            , alphaTypeCon t1 t2
             ]
         checkImport t1 t2 =
           qualPackage t1 /= PRSelf
           && qualPackage t2 /= PRSelf
-          && t1 == t2
+          && alphaTypeCon t1 t2
         tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
     pure $ foldU (alphaType' alphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
@@ -761,3 +763,4 @@ structurallyEqualDataTypes hasModules =
       let names = map fst list
       list' <- filterM (isStructurallyEquivalentDatatype names . snd) list
       if names /= map fst list' then go list' else pure names
+
