@@ -401,6 +401,13 @@ tests damlc =
                       NoDependencies
                       False
                       setUpgradeField
+                , test
+                      "FailsWhenDatatypeChangesVariety"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.RecordToEnum:\n  The upgraded data type RecordToEnum has changed from a record to a enum.")
+                      LF.versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
                 ]
             | setUpgradeField <- [True, False]
             ] ++

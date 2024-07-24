@@ -4,13 +4,10 @@
 package com.digitalasset.daml.lf.validation
 package upgrade
 
-import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.crypto.MessageDigestPrototype
 import com.daml.integrationtest.CantonFixture
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.digitalasset.daml.lf.archive.{DarReader}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf.ByteString
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.Inspectors.forEvery
@@ -499,6 +496,16 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "Fails when datatype changes variety" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
+        "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type RecordToEnum has changed from a record to a enum.")
+        ),
+      )
+    }
+
     // Copied interface tests
     "Succeeds when an interface is only defined in the initial package." in {
       testPackagePair(
@@ -559,61 +566,6 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
-
-    def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
-      import com.digitalasset.daml.lf.testing.parser._
-      import com.digitalasset.daml.lf.testing.parser.Implicits._
-      import com.digitalasset.daml.lf.archive.testing.Encode
-
-      val selfPkgId = PackageId.assertFromString("-self-")
-
-      implicit val parserParameters: ParserParameters[this.type] =
-        ParserParameters(
-          defaultPackageId = selfPkgId,
-          languageVersion = lfVersion,
-        )
-
-      val pkg =
-        p""" metadata ( '$pkgName' : '$pkgVersion' )
-        module Mod {
-          record @serializable T = { sig: Party };
-          template (this: T) = {
-             precondition True;
-             signatories Cons @Party [Mod:T {sig} this] (Nil @Party);
-             observers Nil @Party;
-          };
-        }"""
-
-      val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
-      val pkgId = PackageId.assertFromString(
-        MessageDigestPrototype.Sha256.newDigest
-          .digest(archive.getPayload.toByteArray)
-          .map("%02x" format _)
-          .mkString
-      )
-      val os = ByteString.newOutput()
-      DarWriter.encode(
-        SdkVersion.sdkVersion,
-        Dar(("archive.dalf", archive.toByteArray), List()),
-        os,
-      )
-
-      pkgId -> os.toByteString
-    }
-
-    "report no upgrade errors when the upgrade use a newer version of LF" in
-      testPackagePair(
-        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v2_1),
-        mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v2_dev),
-        assertPackageUpgradeCheck(None),
-      )
-
-    "report upgrade errors when the upgrade use a older version of LF" in
-      testPackagePair(
-        mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v2_dev),
-        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
-        assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
-      )
   }
 }
 
@@ -670,6 +622,21 @@ abstract class UpgradesSpec(val suffix: String)
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
     assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
+
+  def assertPackageDependenciesUpgradeCheck(
+      v1dep: String,
+      v2dep: String,
+      failureMessage: Option[String],
+  )(
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+  )(cantonLogSrc: String): Assertion = {
+    val v1depId = loadPackageIdAndBS(v1dep)._1
+    val v2depId = loadPackageIdAndBS(v2dep)._1
+    assertPackageUpgradeCheckGeneral(failureMessage)((v1depId, v1._2), (v2depId, v2._2), true)(
+      cantonLogSrc
+    )
+  }
 
   def assertPackageUpgradeCheckGeneral(
       failureMessage: Option[String]
