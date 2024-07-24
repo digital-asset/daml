@@ -12,10 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{HashOps, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v0
-import com.digitalasset.canton.domain.service.store.{
-  ServiceAgreementAcceptanceStore,
-  ServiceAgreementAcceptanceStoreError,
-}
+import com.digitalasset.canton.domain.service.store.ServiceAgreementAcceptanceStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -94,19 +91,13 @@ class ServiceAgreementManager private (
         ServiceAgreementManagerError.ServiceAgreementMismatch(agreement.id, agreementId),
       )
       acceptance = ServiceAgreementAcceptance(agreementId, participantId, signature, timestamp)
-      _ <- store
-        .insertAcceptance(acceptance)
-        .leftMap[ServiceAgreementManagerError](
-          ServiceAgreementManagerError.ServiceAgreementStoreError
-        )
+      _ <- EitherT.right(store.insertAcceptance(acceptance))
     } yield ()
 
   def listAcceptances()(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ServiceAgreementManagerError, Seq[ServiceAgreementAcceptance]] =
-    store
-      .listAcceptances()
-      .leftMap(ServiceAgreementManagerError.ServiceAgreementStoreError)
+  ): Future[Seq[ServiceAgreementAcceptance]] =
+    store.listAcceptances()
 
 }
 
@@ -140,13 +131,8 @@ object ServiceAgreementManager {
 sealed trait ServiceAgreementManagerError
 
 object ServiceAgreementManagerError {
-
-  final case class ServiceAgreementStoreError(error: ServiceAgreementAcceptanceStoreError)
-      extends ServiceAgreementManagerError
-
   final case class ServiceAgreementMismatch(
       configuredId: ServiceAgreementId,
       acceptedId: ServiceAgreementId,
   ) extends ServiceAgreementManagerError
-
 }

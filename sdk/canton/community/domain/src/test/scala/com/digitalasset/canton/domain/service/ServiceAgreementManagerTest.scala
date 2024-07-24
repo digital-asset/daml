@@ -53,7 +53,10 @@ class ServiceAgreementManagerTest extends AsyncWordSpec with BaseTest {
 
       for {
         preAcceptances <- sam.listAcceptances()
-        _ <- sam.insertAcceptance(agreementId, participantId, signature, timestamp)
+        _ <- sam
+          .insertAcceptance(agreementId, participantId, signature, timestamp)
+          .value
+          .map(_.value)
         postAcceptances <- sam.listAcceptances()
       } yield {
         preAcceptances should have size 0

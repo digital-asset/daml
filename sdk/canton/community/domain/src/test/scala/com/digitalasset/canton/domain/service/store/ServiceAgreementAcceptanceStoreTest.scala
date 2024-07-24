@@ -25,9 +25,9 @@ trait ServiceAgreementAcceptanceStoreTest extends BaseTest { this: AsyncWordSpec
     "insert and list a new acceptance" in {
       val store = newStore
       for {
-        _ <- store.insertAcceptance(acceptance).valueOrFail("insert first acceptance")
+        _ <- store.insertAcceptance(acceptance)
         acceptance2 = acceptance.copy(participantId = DefaultTestIdentities.participant2)
-        _ <- store.insertAcceptance(acceptance2).valueOrFail("insert second acceptance")
+        _ <- store.insertAcceptance(acceptance2)
         acceptances <- store.listAcceptances()
       } yield {
         acceptances should have size 2
@@ -37,9 +37,9 @@ trait ServiceAgreementAcceptanceStoreTest extends BaseTest { this: AsyncWordSpec
     "ignore insert of a second acceptance" in {
       val store = newStore
       for {
-        _ <- store.insertAcceptance(acceptance).valueOrFail("insert first acceptance")
+        _ <- store.insertAcceptance(acceptance)
         acceptance2 = acceptance.copy(timestamp = CantonTimestamp.Epoch.addMicros(100))
-        _ <- store.insertAcceptance(acceptance2).valueOrFail("insert second acceptance")
+        _ <- store.insertAcceptance(acceptance2)
         acceptances <- store.listAcceptances()
       } yield {
         acceptances should have size 1

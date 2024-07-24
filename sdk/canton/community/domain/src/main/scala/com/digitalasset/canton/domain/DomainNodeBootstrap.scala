@@ -77,7 +77,7 @@ import com.digitalasset.canton.topology.store.{DomainTopologyStore, TopologyStor
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.ErrorUtil
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.actor.ActorSystem
 
@@ -567,11 +567,8 @@ class DomainNodeBootstrap(
           loggerFactory,
         )
 
-        maxRequestSize <- EitherTUtil
-          .fromFuture(
-            domainParamsLookup.getApproximate(),
-            error => s"Unable to retrieve the domain parameters: ${error.getMessage}",
-          )
+        maxRequestSize <- EitherT
+          .right[String](domainParamsLookup.getApproximate())
           .map(paramsO =>
             paramsO.map(_.maxRequestSize).getOrElse(MaxRequestSize(NonNegativeInt.maxValue))
           )

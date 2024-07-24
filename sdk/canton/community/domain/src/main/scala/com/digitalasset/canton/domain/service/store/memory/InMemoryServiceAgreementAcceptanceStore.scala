@@ -3,23 +3,18 @@
 
 package com.digitalasset.canton.domain.service.store.memory
 
-import cats.data.EitherT
 import com.digitalasset.canton.common.domain.ServiceAgreementId
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
-import com.digitalasset.canton.domain.service.store.{
-  ServiceAgreementAcceptanceStore,
-  ServiceAgreementAcceptanceStoreError,
-}
+import com.digitalasset.canton.domain.service.store.ServiceAgreementAcceptanceStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class InMemoryServiceAgreementAcceptanceStore(protected val loggerFactory: NamedLoggerFactory)(
-    implicit ec: ExecutionContext
-) extends ServiceAgreementAcceptanceStore
+class InMemoryServiceAgreementAcceptanceStore(protected val loggerFactory: NamedLoggerFactory)
+    extends ServiceAgreementAcceptanceStore
     with NamedLogging {
 
   private val acceptances =
@@ -27,7 +22,7 @@ class InMemoryServiceAgreementAcceptanceStore(protected val loggerFactory: Named
 
   override def insertAcceptance(acceptance: ServiceAgreementAcceptance)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ServiceAgreementAcceptanceStoreError, Unit] = {
+  ): Future[Unit] = {
     val agreementId = acceptance.agreementId
     val participantId = acceptance.participantId
 
@@ -40,11 +35,11 @@ class InMemoryServiceAgreementAcceptanceStore(protected val loggerFactory: Named
         )
     }
 
-    EitherT.rightT(())
+    Future.unit
   }
 
   override def listAcceptances()(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ServiceAgreementAcceptanceStoreError, Seq[ServiceAgreementAcceptance]] =
-    EitherT.rightT[Future, ServiceAgreementAcceptanceStoreError](acceptances.values.toSeq)
+  ): Future[Seq[ServiceAgreementAcceptance]] =
+    Future.successful(acceptances.values.toSeq)
 }
