@@ -87,6 +87,29 @@ da_scala_library(
     ],
 )
 
+### daml-common-staging/daml-jwt ###
+
+da_scala_library(
+    name = "daml-common-staging_daml-jwt",
+    srcs = glob(["daml-common-staging/daml-jwt/src/main/**/*.scala"]),
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-jwt:__VERSION__"],
+    unused_dependency_checker_mode = "error",
+    visibility = [
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
+    deps = [
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_scalaz_scalaz_core_2_13",
+    ],
+)
+
 ### community/lib/pekko ###
 
 scala_library(
@@ -613,6 +636,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_daml-tls",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
@@ -628,7 +652,6 @@ scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/executors",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
@@ -706,6 +729,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_daml-tls",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -717,7 +741,6 @@ scala_library(
         "//daml-lf/transaction",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/nonempty",
@@ -958,6 +981,7 @@ scala_library(
         ":community_participant_admin-workflows_java",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_daml-tls",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
@@ -970,7 +994,6 @@ scala_library(
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
@@ -1140,6 +1163,7 @@ scala_library(
         ":community_sequencer-driver",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -1147,7 +1171,6 @@ scala_library(
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
-        "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
         "//libs-scala/nonempty",
@@ -1231,10 +1254,10 @@ scala_library(
         ":community_participant",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_util-external",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
-        "//libs-scala/jwt",
         "//libs-scala/nonempty",
         "//libs-scala/rs-grpc-bridge",
         "//observability/metrics",
