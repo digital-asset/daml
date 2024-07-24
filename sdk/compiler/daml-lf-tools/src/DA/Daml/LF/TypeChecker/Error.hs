@@ -204,12 +204,15 @@ data UnwarnableError
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
+  | EUpgradeDependencyHasLowerVersionDespiteUpgrade !PackageName !PackageVersion !PackageVersion
   deriving (Show)
 
 data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | WEPastDependencyHasUnparseableVersion !PackageName !PackageVersion
+  | WEPresentDependencyHasUnparseableVersion !PackageName !PackageVersion
   deriving (Show)
 
 instance Pretty WarnableError where
@@ -235,6 +238,10 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
+    WEPastDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgrading package has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WEPresentDependencyHasUnparseableVersion pkgName version ->
+      "Dependency " <> pPrint pkgName <> " of upgraded package has a version which cannot be parsed: '" <> pPrint version <> "'"
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
@@ -650,6 +657,12 @@ instance Pretty UnwarnableError where
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
     EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
+    EUpgradeDependencyHasLowerVersionDespiteUpgrade pkgName presentVersion pastVersion ->
+      vcat
+        [ "Dependency " <> pPrint pkgName <> " has version " <> pPrint presentVersion <> " on the upgrading package, which is older than version " <> pPrint pastVersion <> " on the upgraded package."
+        , "Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
+        ]
+
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case

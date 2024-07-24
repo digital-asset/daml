@@ -9,11 +9,12 @@ module DA.Daml.LF.TypeChecker.Upgrade (
     ) where
 
 import           Control.DeepSeq
-import           Control.Monad (unless, forM_, when)
-import           Control.Monad.Reader (withReaderT)
+import           Control.Monad (unless, forM, forM_, when)
+import           Control.Monad.Extra (allM, filterM)
+import           Control.Monad.Reader (withReaderT, local)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
+import           DA.Daml.LF.Ast.Alpha (alphaExpr, AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, bindTypeVar)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -24,6 +25,7 @@ import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
 import           Data.List (foldl')
+import           Data.Maybe (mapMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -53,19 +55,32 @@ instance Applicative Upgrading where
 foldU :: (a -> a -> b) -> Upgrading a -> b
 foldU f u = f (_past u) (_present u)
 
+unsafeFlattenUpgrading :: Upgrading [a] -> [Upgrading a]
+unsafeFlattenUpgrading = foldU (zipWith Upgrading)
+
 -- Allows us to split the world into upgraded and non-upgraded
-type TcUpgradeM = TcMF (Upgrading Gamma)
+type TcUpgradeM = TcMF UpgradingEnv
+
+data UpgradingEnv = UpgradingEnv
+  { _upgradingGamma :: Upgrading Gamma
+  , _upgradingDeps :: [Upgrading LF.PackageId]
+  }
+
+makeLenses ''UpgradingEnv
+
+present' :: Functor f => (Gamma -> f Gamma) -> UpgradingEnv -> f UpgradingEnv
+present' = upgradingGamma . present
 
 runGammaUnderUpgrades :: Upgrading (TcM a) -> TcUpgradeM (Upgrading a)
 runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } = do
-    pastResult <- withReaderT _past pastAction
-    presentResult <- withReaderT _present presentAction
+    pastResult <- withReaderT (_past . _upgradingGamma) pastAction
+    presentResult <- withReaderT (_present . _upgradingGamma) presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
 checkBothAndSingle
-  :: World -> (LF.UpgradedPackageId -> LF.Package -> TcUpgradeM ()) -> TcM ()
+  :: World -> (LF.UpgradedPackageId -> LF.Package -> [(LF.PackageId, LF.Package)] -> TcUpgradeM ()) -> TcM ()
   -> Version -> UpgradeInfo
-  -> Maybe (LF.PackageId, LF.Package)
+  -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
 checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPackage =
     let shouldTypecheck = version `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades upgradeInfo
@@ -90,12 +105,16 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
             case mbUpgradedPackage of
                 Nothing ->
                     Right ((), [])
-                Just (pastPkgId, pastPkg) ->
+                Just ((pastPkgId, pastPkg), deps) ->
                     let upgradingWorld = Upgrading { _past = initWorldSelf [] pastPkg, _present = world }
-                        upgradingGamma = fmap gamma upgradingWorld
+                        upgradingEnv =
+                          UpgradingEnv
+                            { _upgradingGamma = fmap gamma upgradingWorld
+                            , _upgradingDeps = []
+                            }
                     in
-                    runGammaF upgradingGamma $
-                        when shouldTypecheck (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
+                    runGammaF upgradingEnv $
+                        when (uiTypecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg deps)
 
         singlePkgDiagnostics :: Either Error ((), [Warning])
         singlePkgDiagnostics =
@@ -111,14 +130,16 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
     extractDiagnostics bothPkgDiagnostics ++ extractDiagnostics singlePkgDiagnostics
 
 checkUpgrade
-  :: LF.Package
+  :: LF.Package -> [LF.DalfPackage]
   -> Version -> UpgradeInfo
-  -> Maybe (LF.PackageId, LF.Package)
+  -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkUpgrade pkg =
+checkUpgrade pkg deps =
     let world = initWorldSelf [] pkg
-        checkBoth upgradedPkgId upgradedPkg =
-          checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
+        checkBoth upgradedPkgId upgradedPkg upgradedDeps = do
+          deps <- checkUpgradeDependenciesM deps upgradedDeps
+          local (\env -> env { _upgradingDeps = deps }) $
+            checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
         checkSingle = do
           checkNewInterfacesAreUnused pkg
           checkNewInterfacesHaveNoTemplates pkg
@@ -126,29 +147,66 @@ checkUpgrade pkg =
     checkBothAndSingle world checkBoth checkSingle
 
 checkModule
-  :: LF.World -> LF.Module
+  :: LF.World -> LF.Module -> [LF.DalfPackage]
   -> Version -> UpgradeInfo
-  -> Maybe (LF.PackageId, LF.Package)
+  -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkModule world0 module_ =
+checkModule world0 module_ deps =
     let world = extendWorldSelf module_ world0
-        checkBoth upgradedPkgId upgradedPkg =
+        checkBoth upgradedPkgId upgradedPkg upgradedDeps = do
+          deps <- checkUpgradeDependenciesM deps upgradedDeps
           case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
             Nothing -> pure ()
-            Just pastModule ->
+            Just pastModule -> do
               let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
-              in
-              checkModuleM upgradedPkgId upgradingModule
+              equalDataTypes <- structurallyEqualDataTypes upgradingModule
+              local (\env -> env { _upgradingDeps = deps }) $
+                checkModuleM equalDataTypes upgradedPkgId upgradingModule
         checkSingle = do
           checkNewInterfacesAreUnused module_
           checkNewInterfacesHaveNoTemplates module_
     in
     checkBothAndSingle world checkBoth checkSingle
 
+checkUpgradeDependenciesM
+    :: [LF.DalfPackage]
+    -> [(LF.PackageId, LF.Package)]
+    -> TcUpgradeM [Upgrading LF.PackageId]
+checkUpgradeDependenciesM presentDeps pastDeps = do
+    let pkgToTriple :: LF.PackageId -> LF.Package -> Maybe (LF.PackageName, (LF.PackageVersion, LF.PackageId))
+        pkgToTriple packageId LF.Package{packageMetadata = Just LF.PackageMetadata{packageName, packageVersion}} = Just (packageName, (packageVersion, packageId))
+        pkgToTriple _ _ = Nothing
+        dalfPkgToTriple LF.DalfPackage{dalfPackageId,dalfPackagePkg} =
+          pkgToTriple dalfPackageId (extPackagePkg dalfPackagePkg)
+    let upgrading = Upgrading
+          { _past = HMS.fromList $ mapMaybe (uncurry pkgToTriple) pastDeps
+          , _present = HMS.fromList $ mapMaybe dalfPkgToTriple presentDeps
+          }
+    let (_del, existingDeps, _new) = extractDelExistNew upgrading
+    depRelations <- forM (HMS.toList existingDeps) $ \(depName, dep) ->
+        let versions = fmap fst dep
+            pkgIds = fmap snd dep
+        in
+        case foldU LF.comparePackageVersion versions of
+          Left (FirstVersionUnparseable presentVersion) -> do
+            diagnosticWithContextF present' $
+              WEPresentDependencyHasUnparseableVersion depName presentVersion
+            pure []
+          Left (SecondVersionUnparseable pastVersion) -> do
+            diagnosticWithContextF present' $
+              WEPastDependencyHasUnparseableVersion depName pastVersion
+            pure []
+          Right GT ->
+            throwWithContextF present' $
+              EUpgradeDependencyHasLowerVersionDespiteUpgrade depName (_present versions) (_past versions)
+          _ -> pure [pkgIds] -- if past package is lesser than or equal, the dependency is a valid upgrade
+    pure (concat depRelations)
+
 checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM upgradedPackageId package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    forM_ upgradedModules $ checkModuleM upgradedPackageId
+    equalDataTypes <- structurallyEqualDataTypes package
+    forM_ upgradedModules $ checkModuleM equalDataTypes upgradedPackageId
 
 extractDelExistNew
     :: (Eq k, Hashable k)
@@ -198,19 +256,19 @@ throwIfNonEmpty handleError hm =
               ctxHandler =
                   case ctx of
                     Nothing -> id
-                    Just ctx -> withContextF present ctx
+                    Just ctx -> withContextF present' ctx
           in
-          ctxHandler $ diagnosticWithContextF present err
+          ctxHandler $ diagnosticWithContextF present' err
       _ -> pure ()
 
-checkModuleM :: LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
-checkModuleM upgradedPackageId module_ = do
+checkModuleM :: [LF.TypeConName] -> LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
+checkModuleM equalDataTypes upgradedPackageId module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
-            present
+            present'
             (ContextTemplate (_present module_) (_present template) TPWhole)
-            (checkTemplate module_ template)
+            (checkTemplate equalDataTypes module_ template)
 
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
@@ -311,11 +369,11 @@ checkModuleM upgradedPackageId module_ = do
         in
         -- If origins don't match, record has changed origin
         if foldU (/=) (fst <$> origin) then
-            withContextF present (ContextDefDataType (_present module_) (_present dt)) $
-                throwWithContextF present (EUpgradeRecordChangedOrigin (dataTypeCon (_present dt)) (fst (_past origin)) (fst (_present origin)))
+            withContextF present' (ContextDefDataType (_present module_) (_present dt)) $
+                throwWithContextF present' (EUpgradeRecordChangedOrigin (dataTypeCon (_present dt)) (fst (_past origin)) (fst (_present origin)))
         else do
             let (presentOrigin, context) = _present origin
-            withContextF present context $ checkDefDataType presentOrigin dt
+            withContextF present' context $ checkDefDataType presentOrigin dt
 
 -- It is always invalid to keep an interface in an upgrade
 checkContinuedIfaces
@@ -326,8 +384,8 @@ checkContinuedIfaces module_ ifaces =
     forM_ ifaces $ \upgradedDtIface ->
         let (_dt, iface) = _present upgradedDtIface
         in
-        withContextF present (ContextDefInterface (_present module_) iface IPWhole) $
-            throwWithContextF present $ EUpgradeTriedToUpgradeIface (NM.name iface)
+        withContextF present' (ContextDefInterface (_present module_) iface IPWhole) $
+            throwWithContextF present' $ EUpgradeTriedToUpgradeIface (NM.name iface)
 
 class HasModules a where
   getModules :: a -> NM.NameMap LF.Module
@@ -393,8 +451,8 @@ checkUpgradedInterfacesAreUnused upgradedPackageId module_ newInstances = do
             let qualifiedTplName = Qualified PRSelf (moduleName module_) tplName
                 ifaceInstanceHead = InterfaceInstanceHead ifaceName qualifiedTplName
             in
-            withContextF present (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
-                diagnosticWithContextF present $ WEUpgradeShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
+            withContextF present' (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
+                diagnosticWithContextF present' $ WEUpgradeShouldDefineTplInSeparatePackage (NM.name tpl) (LF.qualObject (NM.name implementation))
     where
     fromUpgradedPackage :: forall a. LF.Qualified a -> Bool
     fromUpgradedPackage identifier =
@@ -409,17 +467,17 @@ instantiatedIfaces modules = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap
     , template <- NM.elems (moduleTemplates module_)
     ]
 
-checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
-checkTemplate module_ template = do
+checkTemplate :: [LF.TypeConName] -> Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
+checkTemplate equalDataTypes module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
-        withContextF present (ContextTemplate (_present module_) (_present template) (TPChoice (_present choice))) $ do
-            checkUpgradeType (fmap chcReturnType choice)
+        withContextF present' (ContextTemplate (_present module_) (_present template) (TPChoice (_present choice))) $ do
+            checkType (fmap chcReturnType choice)
                 (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
-                warnWithContextF present $ WChoiceChangedControllers $ NM.name $ _present choice
+                warnWithContextF present' $ WChoiceChangedControllers $ NM.name $ _present choice
 
             let observersErr = WChoiceChangedObservers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcObservers) choice of
@@ -428,9 +486,9 @@ checkTemplate module_ template = do
                Upgrading { _past = Just _past, _present = Just _present } -> do
                    whenDifferent "observers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (warnWithContextF present observersErr)
+                       (warnWithContextF present' observersErr)
                _ -> do
-                   warnWithContextF present observersErr
+                   warnWithContextF present' observersErr
 
             let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
@@ -438,28 +496,28 @@ checkTemplate module_ template = do
                Upgrading { _past = Just _past, _present = Just _present } ->
                    whenDifferent "authorizers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (warnWithContextF present authorizersErr)
-               _ -> warnWithContextF present authorizersErr
+                       (warnWithContextF present' authorizersErr)
+               _ -> warnWithContextF present' authorizersErr
         pure choice
 
     -- This check assumes that we encode signatories etc. on a template as
     -- $<uniquename> this, where $<uniquename> is a function that contains the
     -- actual definition. We resolve this function and check that it is
     -- identical.
-    withContextF present (ContextTemplate (_present module_) (_present template) TPPrecondition) $
+    withContextF present' (ContextTemplate (_present module_) (_present template) TPPrecondition) $
         whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition) template $
-            warnWithContextF present $ WTemplateChangedPrecondition $ NM.name $ _present template
-    withContextF present (ContextTemplate (_present module_) (_present template) TPSignatories) $
+            warnWithContextF present' $ WTemplateChangedPrecondition $ NM.name $ _present template
+    withContextF present' (ContextTemplate (_present module_) (_present template) TPSignatories) $
         whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories) template $
-            warnWithContextF present $ WTemplateChangedSignatories $ NM.name $ _present template
-    withContextF present (ContextTemplate (_present module_) (_present template) TPObservers) $
+            warnWithContextF present' $ WTemplateChangedSignatories $ NM.name $ _present template
+    withContextF present' (ContextTemplate (_present module_) (_present template) TPObservers) $
         whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
-            warnWithContextF present $ WTemplateChangedObservers $ NM.name $ _present template
-    withContextF present (ContextTemplate (_present module_) (_present template) TPAgreement) $
+            warnWithContextF present' $ WTemplateChangedObservers $ NM.name $ _present template
+    withContextF present' (ContextTemplate (_present module_) (_present template) TPAgreement) $
         whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement) template $
-            warnWithContextF present $ WTemplateChangedAgreement $ NM.name $ _present template
+            warnWithContextF present' $ WTemplateChangedAgreement $ NM.name $ _present template
 
-    withContextF present (ContextTemplate (_present module_) (_present template) TPKey) $ do
+    withContextF present' (ContextTemplate (_present module_) (_present template) TPKey) $ do
         case fmap tplKey template of
            Upgrading { _past = Nothing, _present = Nothing } -> do
                pure ()
@@ -467,20 +525,21 @@ checkTemplate module_ template = do
                let tplKey = Upgrading pastKey presentKey
 
                -- Key type musn't change
-               checkUpgradeType (fmap tplKeyType tplKey)
-                   (EUpgradeTemplateChangedKeyType (NM.name (_present template)))
+               iset <- isStructurallyEquivalentType initialAlphaEnv equalDataTypes (fmap tplKeyType tplKey)
+               when (not iset) $
+                   diagnosticWithContextF present' (EUpgradeTemplateChangedKeyType (NM.name (_present template)))
 
                -- But expression for computing it may
                whenDifferent "key expression"
                    (extractFuncFromFuncThis . tplKeyBody) tplKey
-                   (warnWithContextF present $ WTemplateChangedKeyExpression $ NM.name $ _present template)
+                   (warnWithContextF present' $ WTemplateChangedKeyExpression $ NM.name $ _present template)
                whenDifferent "key maintainers"
                    (extractFuncFromTyAppNil . tplKeyMaintainers) tplKey
-                   (warnWithContextF present $ WTemplateChangedKeyMaintainers $ NM.name $ _present template)
+                   (warnWithContextF present' $ WTemplateChangedKeyMaintainers $ NM.name $ _present template)
            Upgrading { _past = Just pastKey, _present = Nothing } ->
-               throwWithContextF present $ EUpgradeTemplateRemovedKey (NM.name (_present template)) pastKey
+               throwWithContextF present' $ EUpgradeTemplateRemovedKey (NM.name (_present template)) pastKey
            Upgrading { _past = Nothing, _present = Just presentKey } ->
-               throwWithContextF present $ EUpgradeTemplateAddedKey (NM.name (_present template)) presentKey
+               throwWithContextF present' $ EUpgradeTemplateAddedKey (NM.name (_present template)) presentKey
 
     -- TODO: Check that return type of a choice is compatible
     pure ()
@@ -497,7 +556,7 @@ checkTemplate module_ template = do
             in
             case resolvedWithPossibleError of
                 Left err ->
-                    warnWithContextF present (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
+                    warnWithContextF present' (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
                 Right resolvedExprs ->
                     let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
                     in
@@ -589,10 +648,10 @@ checkDefDataType origin datatype = do
           let upgrade = Upgrading{..}
           (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
           when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
-              throwWithContextF present (EUpgradeVariantVariantsOrderChanged origin)
-          different <- filterHashMapM (fmap not . isSameType) existing
+              throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
+          different <- filterHashMapM (fmap not . isUpgradedType) existing
           when (not (null different)) $
-              throwWithContextF present $ EUpgradeVariantChangedVariantType origin
+              throwWithContextF present' $ EUpgradeVariantChangedVariantType origin
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
           let upgrade = Upgrading{..}
           (_, _new) <-
@@ -600,11 +659,11 @@ checkDefDataType origin datatype = do
                 (\_ -> EUpgradeEnumRemovedVariant origin)
                 (fmap (HMS.fromList . map (,())) upgrade)
           when (not $ and $ foldU (zipWith (==)) upgrade) $
-              throwWithContextF present (EUpgradeEnumVariantsOrderChanged origin)
+              throwWithContextF present' (EUpgradeEnumVariantsOrderChanged origin)
       Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
           pure ()
       _ ->
-          throwWithContextF present (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)) (dataCons (_past datatype)) (dataCons (_present datatype)))
+          throwWithContextF present' (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)) (dataCons (_past datatype)) (dataCons (_present datatype)))
 
 filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.HashMap k a)
 filterHashMapM pred t =
@@ -614,47 +673,102 @@ checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> TcUpgrad
 checkFields origin fields = do
     (existing, new) <- checkDeleted (\_ -> EUpgradeRecordFieldsMissing origin) (fmap HMS.fromList fields)
     -- If a field from the upgraded package has had its type changed
-    different <- filterHashMapM (fmap not . isSameType) existing
+    different <- filterHashMapM (fmap not . isUpgradedType) existing
     when (not (HMS.null different)) $
-        throwWithContextF present (EUpgradeRecordFieldsExistingChanged origin)
+        throwWithContextF present' (EUpgradeRecordFieldsExistingChanged origin)
     when (not (all newFieldOptionalType new)) $
         case origin of
           VariantConstructor{} ->
-            throwWithContextF present (EUpgradeVariantAddedVariantField origin)
+            throwWithContextF present' (EUpgradeVariantAddedVariantField origin)
           _ ->
-            throwWithContextF present (EUpgradeRecordFieldsNewNonOptional origin)
+            throwWithContextF present' (EUpgradeRecordFieldsNewNonOptional origin)
         -- If a new field has a non-optional type
     -- If the order of fields changed
     when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) fields) $
-        throwWithContextF present (EUpgradeRecordFieldsOrderChanged origin)
+        throwWithContextF present' (EUpgradeRecordFieldsOrderChanged origin)
     where
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
 
 -- Check type upgradability
-checkUpgradeType :: SomeErrorOrWarning e => Upgrading Type -> e -> TcUpgradeM ()
-checkUpgradeType type_ err = do
-    sameType <- isSameType type_
-    unless sameType $ diagnosticWithContextF present err
+checkType :: SomeErrorOrWarning e => Upgrading Type -> e -> TcUpgradeM ()
+checkType type_ err = do
+    sameType <- isUpgradedType type_
+    unless sameType $ diagnosticWithContextF present' err
 
-isSameType :: Upgrading Type -> TcUpgradeM Bool
-isSameType type_ = do
+isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
+isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
-    let strippedIdentifiers = fmap unifyTypes expandedTypes
-    pure (foldU alphaType strippedIdentifiers)
+    deps <- view upgradingDeps
+    let checkSelf = alphaTypeCon
+        checkImport t1 t2 =
+          case (qualPackage t1, qualPackage t2) of
+            (PRImport pkgId1, PRImport pkgId2) ->
+              pkgId1 == pkgId2 ||
+              Upgrading pkgId1 pkgId2 `elem` deps && removePkgId t1 == removePkgId t2
+            _ -> False
+        tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
+    pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
-unifyIdentifier :: Qualified a -> Qualified a
-unifyIdentifier q = q { qualPackage = PRSelf }
+isStructurallyEquivalentType :: AlphaEnv -> [TypeConName] -> Upgrading Type -> TcUpgradeM Bool
+isStructurallyEquivalentType alphaEnv identicalCons type_ = do
+    expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
+    let checkSelf t1 t2 =
+          and
+            [ qualPackage t1 == PRSelf
+            , qualPackage t2 == PRSelf
+            , qualObject t2 `elem` identicalCons
+            , alphaTypeCon t1 t2
+            ]
+        checkImport t1 t2 =
+          qualPackage t1 /= PRSelf
+          && qualPackage t2 /= PRSelf
+          && alphaTypeCon t1 t2
+        tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
+    pure $ foldU (alphaType' alphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
-unifyTypes :: Type -> Type
-unifyTypes typ =
-    case typ of
-      TNat n -> TNat n
-      TSynApp n args -> TSynApp (unifyIdentifier n) (map unifyTypes args)
-      TVar n -> TVar n
-      TCon con -> TCon (unifyIdentifier con)
-      TBuiltin bt -> TBuiltin bt
-      TApp fun arg -> TApp (unifyTypes fun) (unifyTypes arg)
-      TForall v body -> TForall v (unifyTypes body)
-      TStruct fields -> TStruct ((map . fmap) unifyTypes fields)
+removePkgId :: Qualified a -> Qualified a
+removePkgId a = a { qualPackage = PRSelf }
 
+isStructurallyEquivalentDatatype :: [TypeConName] -> Upgrading DefDataType -> TcUpgradeM Bool
+isStructurallyEquivalentDatatype identicalCons datatype =
+    let params = dataParams <$> datatype
+        allKindsMatch = foldU (==) (map snd <$> params)
+        paramNames = unsafeFlattenUpgrading (map fst <$> params)
+    in
+    if not allKindsMatch
+      then pure False
+      else
+        let env = foldl' (flip (foldU bindTypeVar)) initialAlphaEnv paramNames
+        in
+        case fmap dataCons datatype of
+          Upgrading { _past = DataRecord _past, _present = DataRecord _present } -> do
+              let allFieldsMatch = map fst _past == map fst _present
+              let types = zipWith Upgrading (map snd _past) (map snd _present)
+              allTypesMatch <- allM (isStructurallyEquivalentType env identicalCons) types
+              pure (allFieldsMatch && allTypesMatch)
+          Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
+              let allConNamesMatch = map fst _past == map fst _present
+              let types = zipWith Upgrading (map snd _past) (map snd _present)
+              allTypesMatch <- allM (isStructurallyEquivalentType env identicalCons) types
+              pure (allConNamesMatch && allTypesMatch)
+          Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
+              pure $ _past == _present
+          Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
+              pure False
+          _ ->
+              pure False
+
+structurallyEqualDataTypes :: HasModules a => Upgrading a -> TcUpgradeM [TypeConName]
+structurallyEqualDataTypes hasModules =
+  let module_ = NM.toHashMap . getModules <$> hasModules
+      (_, existingModules, _) = extractDelExistNew module_
+      (_, existingDatatypes, _) = foldMap (extractDelExistNew . fmap (NM.toHashMap . moduleDataTypes)) (HMS.elems existingModules)
+  in
+  go (HMS.toList existingDatatypes)
+  where
+    go :: [(TypeConName, Upgrading DefDataType)] -> TcUpgradeM [TypeConName]
+    go list = do
+      let names = map fst list
+      list' <- filterM (isStructurallyEquivalentDatatype names . snd) list
+      if names /= map fst list' then go list' else pure names
