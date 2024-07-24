@@ -12,12 +12,10 @@ import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Implicits.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -71,11 +69,6 @@ class DbCryptoPrivateStore(
 
   import storage.api.*
 
-  private val insertTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("crypto-private-store-insert")
-  private val queryTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("crypto-private-store-query")
-
   private def queryKeys(purpose: KeyPurpose): DbAction.ReadOnly[Set[StoredPrivateKey]] =
     sql"select key_id, data, purpose, name, wrapper_key_id from crypto_private_keys where purpose = $purpose"
       .as[StoredPrivateKey]
@@ -122,33 +115,31 @@ class DbCryptoPrivateStore(
       }
     }
 
-    insertTime.eitherTEvent {
-      for {
-        inserted <- EitherT.right(
-          storage.update(insertKeyUpdate(key), functionFullName)
-        )
-        res <-
-          if (inserted == 0) {
-            // If no key was inserted by the insert query, check that the existing value matches
-            storage
-              .querySingle(queryKey(key.id, key.purpose), functionFullName)
-              // If we don't find the duplicate key, it may have been concurrently deleted and we could retry to insert it.
-              .toRight(
-                CryptoPrivateStoreError
-                  .FailedToInsertKey(key.id, "No key inserted and no key found")
-              )
-              .flatMap { existingKey =>
-                EitherT
-                  .cond[Future](
-                    equalKeys(existingKey, key),
-                    (),
-                    CryptoPrivateStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
-                  )
-                  .leftWiden[CryptoPrivateStoreError]
-              }
-          } else EitherT.rightT[Future, CryptoPrivateStoreError](())
-      } yield res
-    }
+    for {
+      inserted <- EitherT.right(
+        storage.update(insertKeyUpdate(key), functionFullName)
+      )
+      res <-
+        if (inserted == 0) {
+          // If no key was inserted by the insert query, check that the existing value matches
+          storage
+            .querySingle(queryKey(key.id, key.purpose), functionFullName)
+            // If we don't find the duplicate key, it may have been concurrently deleted and we could retry to insert it.
+            .toRight(
+              CryptoPrivateStoreError
+                .FailedToInsertKey(key.id, "No key inserted and no key found")
+            )
+            .flatMap { existingKey =>
+              EitherT
+                .cond[Future](
+                  equalKeys(existingKey, key),
+                  (),
+                  CryptoPrivateStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
+                )
+                .leftWiden[CryptoPrivateStoreError]
+            }
+        } else EitherT.rightT[Future, CryptoPrivateStoreError](())
+    } yield res
   }
 
   private[crypto] def readPrivateKey(
@@ -156,16 +147,16 @@ class DbCryptoPrivateStore(
       purpose: KeyPurpose,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
-    EitherTUtil.fromFuture(
+  ): EitherT[Future, CryptoPrivateStoreError, Option[StoredPrivateKey]] = {
+    EitherT.right(
       storage
         .querySingle(
           queryKey(keyId, purpose),
           functionFullName,
         )
-        .value,
-      err => CryptoPrivateStoreError.FailedToReadKey(keyId, err.toString),
+        .value
     )
+  }
 
   private[crypto] def writePrivateKey(
       key: StoredPrivateKey
@@ -177,16 +168,13 @@ class DbCryptoPrivateStore(
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
-    EitherTUtil
-      .fromFuture(
-        queryTime
-          .event(
-            storage.query(queryKeys(purpose), functionFullName)
-          )
-          .map(keys => keys.filter(_.isEncrypted == encrypted)),
-        err => CryptoPrivateStoreError.FailedToListKeys(err.toString),
-      )
+  ): EitherT[Future, CryptoPrivateStoreError, Set[StoredPrivateKey]] = {
+    EitherT.right(
+      storage
+        .query(queryKeys(purpose), functionFullName)
+        .map(keys => keys.filter(_.isEncrypted == encrypted))
+    )
+  }
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
     sqlu"delete from crypto_private_keys where key_id = $keyId"
@@ -197,30 +185,24 @@ class DbCryptoPrivateStore(
   private[crypto] def replaceStoredPrivateKeys(newKeys: Seq[StoredPrivateKey])(implicit
       traceContext: TraceContext
   ): EitherT[Future, CryptoPrivateStoreError, Unit] =
-    EitherTUtil.fromFuture(
-      insertTime.event {
-        storage
-          .update_(
-            DBIOAction
-              .sequence(
-                newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
-              )
-              .transactionally,
-            functionFullName,
-          )
-      },
-      err => CryptoPrivateStoreError.FailedToReplaceKeys(newKeys.map(_.id), err.toString),
+    EitherT.right(
+      storage
+        .update_(
+          DBIOAction
+            .sequence(
+              newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
+            )
+            .transactionally,
+          functionFullName,
+        )
     )
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[Future, CryptoPrivateStoreError, Unit] =
-    EitherTUtil.fromFuture(
-      insertTime.event(
-        storage
-          .update_(deleteKey(keyId), functionFullName)
-      ),
-      err => CryptoPrivateStoreError.FailedToDeleteKey(keyId, err.toString),
+    EitherT.right(
+      storage
+        .update_(deleteKey(keyId), functionFullName)
     )
 
   private[crypto] def encrypted(
@@ -243,30 +225,23 @@ class DbCryptoPrivateStore(
   private[crypto] def getWrapperKeyId()(implicit
       traceContext: TraceContext
   ): EitherT[Future, CryptoPrivateStoreError, Option[String300]] =
-    EitherTUtil
-      .fromFuture(
-        queryTime
-          .event(
-            storage.query(
-              {
-                sql"select distinct wrapper_key_id from crypto_private_keys"
-                  .as[Option[String300]]
-                  .map(_.toSeq)
-              },
-              functionFullName,
-            )
-          ),
-        err => CryptoPrivateStoreError.FailedToGetWrapperKeyId(err.toString),
+    EitherT
+      .right(
+        storage
+          .query(
+            sql"select distinct wrapper_key_id from crypto_private_keys"
+              .as[Option[String300]]
+              .map(_.toSeq),
+            functionFullName,
+          )
       )
-      .transform {
-        case Left(err) => Left(err)
-        case Right(wrapper_keys) =>
-          if (wrapper_keys.size > 1)
-            Left(
-              CryptoPrivateStoreError
-                .FailedToGetWrapperKeyId("Found more than one distinct wrapper_key_id")
-            )
-          else
-            Right(wrapper_keys.flatten.headOption)
+      .subflatMap { wrapperKeys =>
+        if (wrapperKeys.size > 1)
+          Left(
+            CryptoPrivateStoreError
+              .FailedToGetWrapperKeyId("Found more than one distinct wrapper_key_id")
+          )
+        else
+          Right(wrapperKeys.flatten.headOption)
       }
 }
