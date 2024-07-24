@@ -318,7 +318,7 @@ instance Binary ExtractUpgradedPackage
 instance Hashable ExtractUpgradedPackage
 instance NFData ExtractUpgradedPackage
 
-type instance RuleResult ExtractUpgradedPackage = Maybe (LF.PackageId, LF.Package)
+type instance RuleResult ExtractUpgradedPackage = Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
 
 data ExtractUpgradedPackageFile = ExtractUpgradedPackageFile
    deriving (Eq, Show, Typeable, Generic)
@@ -326,4 +326,4 @@ instance Binary ExtractUpgradedPackageFile
 instance Hashable ExtractUpgradedPackageFile
 instance NFData ExtractUpgradedPackageFile
 
-type instance RuleResult ExtractUpgradedPackageFile = (LF.PackageId, LF.Package)
+type instance RuleResult ExtractUpgradedPackageFile = ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
