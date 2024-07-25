@@ -28,8 +28,8 @@ trait DomainNodeSettingsStoreTest {
       val store = mkStore(false)
       val config = makeConfig()
       for {
-        _ <- store.saveSettings(config).valueOrFail("save")
-        current <- store.fetchSettings.valueOrFail("fetch")
+        _ <- store.saveSettings(config)
+        current <- store.fetchSettings
       } yield {
         current should contain(config)
       }
@@ -42,9 +42,9 @@ trait DomainNodeSettingsStoreTest {
       val updateConfig = makeConfig(true)
 
       for {
-        _ <- store.saveSettings(config).valueOrFail("save")
-        _ <- store.saveSettings(updateConfig).valueOrFail("save")
-        current <- store.fetchSettings.valueOrFail("fetch")
+        _ <- store.saveSettings(config)
+        _ <- store.saveSettings(updateConfig)
+        current <- store.fetchSettings
       } yield {
         current should contain(updateConfig)
       }
@@ -96,7 +96,7 @@ trait DbDomainNodeSettingsStoreTest
   "prepopulates empty stores" in {
     val store = mkStore(false)
     for {
-      current <- store.fetchSettings.value.map(_.value)
+      current <- store.fetchSettings
     } yield {
       current should contain(makeConfig())
     }
@@ -107,11 +107,11 @@ trait DbDomainNodeSettingsStoreTest
     val store = mkStore(false)
 
     for {
-      _ <- store.saveSettings(nonDefaultConfig).valueOrFail("save")
+      _ <- store.saveSettings(nonDefaultConfig)
       store2 = mkStore(true)
       current <-
         loggerFactory.assertLogs(
-          store2.fetchSettings.valueOrFail("fetch"),
+          store2.fetchSettings,
           _.warningMessage should include("Resetting static domain parameters to the ones "),
         )
     } yield {

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.config.store
 
-import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String1
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -11,7 +10,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import slick.jdbc.SetParameter
 
 import java.util.concurrent.atomic.AtomicBoolean
@@ -71,47 +69,43 @@ class DbDomainNodeSettingsStore(
 
   override def fetchSettings(implicit
       traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Option[StoredDomainNodeSettings]] = {
+  ): Future[Option[StoredDomainNodeSettings]] = {
     // we need to run this here since we introduced HA into the domain manager, as the pool
     // might not be active, so would throw a PassiveInstanceException, taking the entire node down
     fixPreviousSettingsOnce()
-    EitherTUtil.fromFuture(
-      storage
-        .query(
-          sql"""select static_domain_parameters from domain_node_settings #${storage
-              .limit(1)}""".as[StaticDomainParameters].headOption,
-          functionFullName,
-        )
-        .map(_.map(StoredDomainNodeSettings)),
-      BaseNodeSettingsStoreError.DbError,
-    )
+
+    storage
+      .query(
+        sql"""select static_domain_parameters from domain_node_settings #${storage
+            .limit(1)}""".as[StaticDomainParameters].headOption,
+        functionFullName,
+      )
+      .map(_.map(StoredDomainNodeSettings))
   }
 
   override def saveSettings(
       settings: StoredDomainNodeSettings
-  )(implicit traceContext: TraceContext): EitherT[Future, BaseNodeSettingsStoreError, Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
 
     val params = settings.staticDomainParameters
     @unused
     implicit val setConnParam: SetParameter[StaticDomainParameters] =
       StaticDomainParameters.getVersionedSetParameter
 
-    EitherT.right(
-      storage
-        .update_(
-          storage.profile match {
-            case _: DbStorage.Profile.H2 =>
-              sqlu"""merge into domain_node_settings
+    storage.update_(
+      storage.profile match {
+        case _: DbStorage.Profile.H2 =>
+          sqlu"""merge into domain_node_settings
                    (lock, static_domain_parameters)
                    values
                    ($singleRowLockValue, ${params})"""
-            case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into domain_node_settings (static_domain_parameters)
+        case _: DbStorage.Profile.Postgres =>
+          sqlu"""insert into domain_node_settings (static_domain_parameters)
               values (${params})
               on conflict (lock) do update set
                   static_domain_parameters = excluded.static_domain_parameters"""
-            case _: DbStorage.Profile.Oracle =>
-              sqlu"""merge into domain_node_settings dsc
+        case _: DbStorage.Profile.Oracle =>
+          sqlu"""merge into domain_node_settings dsc
                       using (
                         select
                           ${params} static_domain_parameters
@@ -125,9 +119,8 @@ class DbDomainNodeSettingsStore(
                         insert (static_domain_parameters)
                         values (excluded.static_domain_parameters)
                      """
-          },
-          functionFullName,
-        )
+      },
+      functionFullName,
     )
   }
 }
