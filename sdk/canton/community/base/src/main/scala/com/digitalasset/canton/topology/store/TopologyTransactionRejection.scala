@@ -74,6 +74,14 @@ object TopologyTransactionRejection {
       TopologyManagerError.InvalidTopologyMapping.Reject(err)
   }
 
+  final case class RemoveMustNotChangeMapping(actual: TopologyMapping, expected: TopologyMapping)
+      extends TopologyTransactionRejection {
+    override def asString: String = "Remove operation must not change the mapping to remove."
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.RemoveMustNotChangeMapping.Reject(actual, expected)
+  }
+
   final case class SignatureCheckFailed(err: SignatureCheckError)
       extends TopologyTransactionRejection {
     override def asString: String = err.toString

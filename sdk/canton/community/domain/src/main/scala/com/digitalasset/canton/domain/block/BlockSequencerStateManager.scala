@@ -509,12 +509,14 @@ class BlockSequencerStateManager(
         )
 
         _ <- EitherT.right[String](
-          store.partialBlockUpdate(
-            newMembers = Map.empty,
-            events = Seq.empty,
-            acknowledgments = Map.empty,
-            membersDisabled = Seq.empty,
-            inFlightAggregationUpdates = update.inFlightAggregationUpdates,
+          performUnlessClosingF("partialBlockUpdate")(
+            store.partialBlockUpdate(
+              newMembers = Map.empty,
+              events = Seq.empty,
+              acknowledgments = Map.empty,
+              membersDisabled = Seq.empty,
+              inFlightAggregationUpdates = update.inFlightAggregationUpdates,
+            )
           )
         )
       } yield {
@@ -529,7 +531,10 @@ class BlockSequencerStateManager(
         newHead
       }).valueOr(e =>
         ErrorUtil.internalError(new RuntimeException(s"handleChunkUpdate failed with error: $e"))
-      )
+      ).onShutdown {
+        logger.info(s"handleChunkUpdate skipped due to shut down")
+        priorHead
+      }
     } else {
       // Block sequencer flow
       for {

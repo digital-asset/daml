@@ -277,7 +277,6 @@ trait TransactionAuthorizationValidator {
       namespaces -- namespaceCache.keySet -- decentralizedNamespaceCache.keySet // only load the ones we don't already hold in memory
 
     for {
-      // TODO(#12390) this doesn't find fully validated transactions from the same batch
       storedDecentralizedNamespace <- store.findPositiveTransactions(
         timestamp,
         asOfInclusive = false,

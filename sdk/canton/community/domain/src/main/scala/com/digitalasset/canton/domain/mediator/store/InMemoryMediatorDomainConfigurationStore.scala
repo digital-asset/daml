@@ -3,29 +3,24 @@
 
 package com.digitalasset.canton.domain.mediator.store
 
-import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.ExecutionContext
 
-class InMemoryMediatorDomainConfigurationStore(implicit executionContext: ExecutionContext)
-    extends MediatorDomainConfigurationStore {
+class InMemoryMediatorDomainConfigurationStore extends MediatorDomainConfigurationStore {
   private val currentConfiguration = new AtomicReference[Option[MediatorDomainConfiguration]](None)
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Option[
-    MediatorDomainConfiguration
-  ]] =
-    EitherT.pure(currentConfiguration.get())
+  ): FutureUnlessShutdown[Option[MediatorDomainConfiguration]] =
+    FutureUnlessShutdown.pure(currentConfiguration.get())
 
   override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     currentConfiguration.set(Some(configuration))
-    EitherT.pure(())
+    FutureUnlessShutdown.unit
   }
 
   override def close(): Unit = ()

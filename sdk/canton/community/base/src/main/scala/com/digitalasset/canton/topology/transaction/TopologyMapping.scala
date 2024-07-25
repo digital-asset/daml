@@ -829,22 +829,25 @@ object ParticipantPermission {
 }
 
 final case class ParticipantDomainLimits(
-    confirmationRequestsMaxRate: Int,
-    maxNumParties: Int,
-    maxNumPackages: Int,
-) {
+    confirmationRequestsMaxRate: NonNegativeInt
+) extends PrettyPrinting {
+
+  override def pretty: Pretty[ParticipantDomainLimits] =
+    prettyOfClass(
+      param("confirmation requests max rate", _.confirmationRequestsMaxRate)
+    )
+
   def toProto: v30.ParticipantDomainLimits =
-    v30.ParticipantDomainLimits(confirmationRequestsMaxRate, maxNumParties, maxNumPackages)
+    v30.ParticipantDomainLimits(confirmationRequestsMaxRate.unwrap)
 }
 object ParticipantDomainLimits {
-  def fromProtoV30(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
-    ParticipantDomainLimits(
-      value.confirmationRequestsMaxRate,
-      value.maxNumParties,
-      value.maxNumPackages,
-    )
+  def fromProtoV30(value: v30.ParticipantDomainLimits): ParsingResult[ParticipantDomainLimits] =
+    for {
+      confirmationRequestsMaxRate <- NonNegativeInt
+        .create(value.confirmationRequestsMaxRate)
+        .leftMap(ProtoDeserializationError.InvariantViolation("confirmation_requests_max_rate", _))
+    } yield ParticipantDomainLimits(confirmationRequestsMaxRate)
 }
-
 final case class ParticipantDomainPermission(
     domainId: DomainId,
     participantId: ParticipantId,
@@ -933,7 +936,7 @@ object ParticipantDomainPermission {
         "participant_uid",
       )
       permission <- ParticipantPermission.fromProtoV30(value.permission)
-      limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
+      limits <- value.limits.traverse(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
     } yield ParticipantDomainPermission(
       domainId,

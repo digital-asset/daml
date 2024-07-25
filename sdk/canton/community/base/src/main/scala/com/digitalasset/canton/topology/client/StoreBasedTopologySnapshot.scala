@@ -12,6 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
+  DynamicDomainParameters,
   DynamicDomainParametersWithValidity,
   DynamicSequencingParametersWithValidity,
 }
@@ -581,7 +582,7 @@ class StoreBasedTopologySnapshot(
             pid,
             ParticipantDomainPermission.default(domainParametersState.domain, pid),
           )
-          .setDefaultLimitIfNotSet(domainParametersState.parameters.v2DefaultParticipantLimits)
+          .setDefaultLimitIfNotSet(DynamicDomainParameters.defaultParticipantDomainLimits)
       }.toMap
       participantIdDomainPermissionsMap
     }

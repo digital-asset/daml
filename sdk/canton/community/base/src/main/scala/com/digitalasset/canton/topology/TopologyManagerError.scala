@@ -584,6 +584,26 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    """This error indicates that the removal of a topology mapping also changed the content compared
+      |to the mapping with the previous serial."""
+  )
+  @Resolution(
+    "Submit the transaction with the same topology mapping as the previous serial, but with the operation REMOVE."
+  )
+  object RemoveMustNotChangeMapping
+      extends ErrorCode(
+        id = "TOPOLOGY_REMOVE_MUST_NOT_CHANGE_MAPPING",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(actual: TopologyMapping, expected: TopologyMapping)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause = s"""REMOVE must not change the topology mapping:
+        |actual: $actual
+        |expected: $expected""".stripMargin)
+        with TopologyManagerError {}
+  }
+
+  @Explanation(
     "This error indicates that the submitted topology snapshot was internally inconsistent."
   )
   @Resolution(

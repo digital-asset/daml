@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.mediator.store
 
-import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -13,6 +13,7 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
@@ -37,50 +38,49 @@ class DbMediatorDomainConfigurationStore(
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Option[
-    MediatorDomainConfiguration
-  ]] =
+  ): FutureUnlessShutdown[Option[MediatorDomainConfiguration]] =
     for {
-      rowO <- EitherT.right(
+      rowO <-
         storage
           .queryUnlessShutdown(
             sql"""select domain_id, static_domain_parameters, sequencer_connection
             from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
           )
-      )
-      config <- EitherT
-        .fromEither[FutureUnlessShutdown](rowO.traverse(deserialize))
-        .leftMap[MediatorDomainConfigurationStoreError](
-          MediatorDomainConfigurationStoreError.DeserializationError
+
+      config = rowO
+        .traverse(deserialize)
+        .valueOr(err =>
+          throw new DbDeserializationException(
+            s"Failed to deserialize mediator domain configuration: $err"
+          )
         )
     } yield config
 
   override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, MediatorDomainConfigurationStoreError, Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val (domainId, domainParameters, sequencerConnection) = serialize(
       configuration
     )
 
-    EitherT.right(
-      storage
-        .updateUnlessShutdown_(
-          storage.profile match {
-            case _: DbStorage.Profile.H2 =>
-              sqlu"""merge into mediator_domain_configuration
+    storage
+      .updateUnlessShutdown_(
+        storage.profile match {
+          case _: DbStorage.Profile.H2 =>
+            sqlu"""merge into mediator_domain_configuration
                    (lock, domain_id, static_domain_parameters, sequencer_connection)
                    values
                    ($singleRowLockValue, $domainId, $domainParameters, $sequencerConnection)"""
-            case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into mediator_domain_configuration (domain_id, static_domain_parameters, sequencer_connection)
+          case _: DbStorage.Profile.Postgres =>
+            sqlu"""insert into mediator_domain_configuration (domain_id, static_domain_parameters, sequencer_connection)
               values ($domainId, $domainParameters, $sequencerConnection)
               on conflict (lock) do update set
                 domain_id = excluded.domain_id,
                 static_domain_parameters = excluded.static_domain_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
-            case _: DbStorage.Profile.Oracle =>
-              sqlu"""merge into mediator_domain_configuration mdc
+          case _: DbStorage.Profile.Oracle =>
+            sqlu"""merge into mediator_domain_configuration mdc
                       using (
                         select
                           $domainId domain_id,
@@ -99,10 +99,9 @@ class DbMediatorDomainConfigurationStore(
                         values (excluded.domain_id, excluded.static_domain_parameters, excluded.sequencer_connection)
                      """
 
-          },
-          "save-configuration",
-        )
-    )
+        },
+        "save-configuration",
+      )
   }
 
   private def serialize(config: MediatorDomainConfiguration): SerializedRow = {

@@ -1284,16 +1284,15 @@ class TopologyAdministrationGroup(
       val (existingPermissions, newSerial, threshold, groupAddressing) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
+            // if the existing mapping was REMOVEd, we start from scratch
             Map.empty[ParticipantId, ParticipantPermission],
             Some(current.context.serial.increment),
             current.item.threshold,
             current.item.groupAddressing,
           )
         case Some(current) =>
-          val currentPermissions =
-            current.item.participants.map(p => p.participantId -> p.permission).toMap
           (
-            currentPermissions,
+            current.item.participants.map(p => p.participantId -> p.permission).toMap,
             Some(current.context.serial.increment),
             current.item.threshold,
             current.item.groupAddressing,
@@ -1315,18 +1314,39 @@ class TopologyAdministrationGroup(
         )
         .valueOr(err => throw new IllegalArgumentException(err))
 
-      propose(
-        party = party,
-        newParticipants = newPermissions.toSeq,
-        threshold = threshold,
-        domainId = domainId,
-        signedBy = signedBy,
-        serial = newSerial,
-        synchronize = synchronize,
-        groupAddressing = groupAddressing,
-        mustFullyAuthorize = mustFullyAuthorize,
-        store = store,
-      )
+      if (newPermissions.nonEmpty) {
+        // issue a REPLACE
+        propose(
+          party = party,
+          newParticipants = newPermissions.toSeq,
+          threshold = threshold,
+          domainId = domainId,
+          signedBy = signedBy,
+          operation = TopologyChangeOp.Replace,
+          serial = newSerial,
+          synchronize = synchronize,
+          groupAddressing = groupAddressing,
+          mustFullyAuthorize = mustFullyAuthorize,
+          store = store,
+        )
+      } else {
+        // we would remove the last participant, therefore we issue a REMOVE
+        // with the same mapping values as the existing serial
+        propose(
+          party = party,
+          newParticipants = existingPermissions.toSeq,
+          threshold = threshold,
+          domainId = domainId,
+          signedBy = signedBy,
+          operation = TopologyChangeOp.Remove,
+          serial = newSerial,
+          synchronize = synchronize,
+          groupAddressing = groupAddressing,
+          mustFullyAuthorize = mustFullyAuthorize,
+          store = store,
+        )
+
+      }
     }
 
     @Help.Summary("Replace party to participant mapping")
@@ -1343,6 +1363,9 @@ class TopologyAdministrationGroup(
               This transaction will be rejected if another fully authorized transaction with the same serial already
               exists, or if there is a gap between this serial and the most recently used serial.
               If None, the serial will be automatically selected by the node.
+      operation: The operation to use. When adding a mapping or making changes, use TopologyChangeOp.Replace.
+                 When removing a mapping, use TopologyChangeOp.Remove and pass the same values as the currently effective mapping.
+                 The default value is TopologyChangeOp.Replace.
       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
       groupAddressing: If true, Daml transactions are sent to the consortium party rather than the hosting participants.
       mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
@@ -1364,6 +1387,7 @@ class TopologyAdministrationGroup(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
         serial: Option[PositiveInt] = None,
+        operation: TopologyChangeOp = TopologyChangeOp.Replace,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1371,11 +1395,6 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = false,
         store: String = AuthorizedStore.filterName,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
-      val op = NonEmpty.from(newParticipants) match {
-        case Some(_) => TopologyChangeOp.Replace
-        case None => TopologyChangeOp.Remove
-      }
-
       val command = TopologyAdminCommands.Write.Propose(
         mapping = PartyToParticipant.create(
           partyId = party,
@@ -1386,7 +1405,7 @@ class TopologyAdministrationGroup(
         ),
         signedBy = signedBy.toList,
         serial = serial,
-        change = op,
+        change = operation,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         forceChanges = ForceFlags.none,

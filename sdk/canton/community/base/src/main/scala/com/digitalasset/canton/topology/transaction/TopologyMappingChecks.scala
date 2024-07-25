@@ -64,6 +64,16 @@ class ValidatingTopologyMappingChecks(
         !(toValidate.operation == TopologyChangeOp.Remove && inStore.isEmpty),
         TopologyTransactionRejection.NoCorrespondingActiveTxToRevoke(toValidate.mapping),
       )
+    val checkRemoveDoesNotChangeMapping = EitherT.fromEither[Future](
+      inStore
+        .collect {
+          case expected
+              if toValidate.operation == TopologyChangeOp.Remove && toValidate.mapping != expected.mapping =>
+            TopologyTransactionRejection
+              .RemoveMustNotChangeMapping(toValidate.mapping, expected.mapping)
+        }
+        .toLeft(())
+    )
 
     lazy val checkOpt = (toValidate.mapping.code, inStore.map(_.mapping.code)) match {
       case (Code.DomainTrustCertificate, None | Some(Code.DomainTrustCertificate)) =>
@@ -156,8 +166,12 @@ class ValidatingTopologyMappingChecks(
       case _otherwise => None
     }
 
-    checkFirstIsNotRemove
-      .flatMap(_ => checkOpt.getOrElse(EitherTUtil.unit))
+    for {
+      _ <- checkFirstIsNotRemove
+      _ <- checkRemoveDoesNotChangeMapping
+      _ <- checkOpt.getOrElse(EitherTUtil.unit)
+    } yield ()
+
   }
 
   private def loadFromStore(

@@ -17,14 +17,11 @@ message AcsCommitmentsCatchUpConfig {
 
 // individual per participant limits
 message ParticipantDomainLimits {
-  // TODO(#14052) implement per participant rate limits
   uint32 confirmation_requests_max_rate = 1;
 
-  // TODO(#14052) implement per participant party limits
-  uint32 max_num_parties = 2;
+  reserved 2; // was max_num_parties = 2;
 
-  // TODO(#14052) implement per participant package limits
-  uint32 max_num_packages = 3;
+  reserved 3; // was max_num_packages = 3;
 }
 
 // Controls how participants can join the domain
@@ -63,15 +60,11 @@ message DynamicDomainParameters {
   // put on the allow list can onboard to the domain
   OnboardingRestriction onboarding_restriction = 9;
 
-  // required packages are the default packages that must be supported by all participants on a domain
-  // TODO(#14054) enable this feature (necessary for canton network such that an SVC can't do a rug-pull)
-  repeated string required_packages = 11;
+  reserved 11; // was required_packages = 11;
 
-  // if true, then only the required packages are supported on the given domain
-  // TODO(#14055) enable this feature (was requested by Curtis)
-  bool only_required_packages_permitted = 12;
+  reserved 12; // was only_required_packages_permitted = 12;
 
-  ParticipantDomainLimits default_participant_limits = 13;
+  ParticipantDomainLimits participant_domain_limits = 13;
 
   // TODO(#14050) implement party hosting limits
   uint32 default_max_hosting_participants_per_party = 14;

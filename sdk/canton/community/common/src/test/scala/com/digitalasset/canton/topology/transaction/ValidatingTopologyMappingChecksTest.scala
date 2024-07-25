@@ -100,6 +100,28 @@ class ValidatingTopologyMappingChecksTest
           TopologyTransactionRejection.NoCorrespondingActiveTxToRevoke(removeNsdSerial3.mapping)
         )
       }
+
+      "reject if removal also changes the content" in {
+        import factory.SigningKeys.{key1, key2}
+        val (checks, _) = mk()
+
+        val removeNs1k2 = factory.mkRemove(
+          NamespaceDelegation
+            .tryCreate(
+              Namespace(key1.fingerprint),
+              key2,
+              // changing the mapping compared to ns1k2 by setting isRootDelegation = true
+              isRootDelegation = true,
+            ),
+          serial = PositiveInt.two,
+        )
+        checkTransaction(checks, removeNs1k2, Some(ns1k2)) shouldBe Left(
+          TopologyTransactionRejection.RemoveMustNotChangeMapping(
+            removeNs1k2.mapping,
+            ns1k2.mapping,
+          )
+        )
+      }
     }
 
     "validating DecentralizedNamespaceDefinition" should {
