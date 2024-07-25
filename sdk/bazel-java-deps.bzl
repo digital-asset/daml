@@ -47,13 +47,13 @@ version_specific = {
 
 netty_tcnative_version = "2.0.61.Final"
 netty_version = "4.1.108.Final"
-grpc_version = "1.60.0"
+grpc_version = "1.64.0"
 protobuf_version = "3.24.0"
-pekko_version = "1.0.1"
-pekko_http_version = "1.0.0"
+pekko_version = "1.1.0-M1"
+pekko_http_version = "1.1.0-M1"
 tapir_version = "1.8.5"
 
-guava_version = "31.1-jre"
+guava_version = "33.0.0-jre"
 
 # Updated 2024-03-15
 opentelemetry_version = "1.36.0"
