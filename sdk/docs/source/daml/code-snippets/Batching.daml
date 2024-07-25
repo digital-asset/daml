@@ -9,8 +9,8 @@ doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
 
 doUpdate efficient owner obs batch = do
    if efficient then do
-      -- Would be even more efficient if we can reuse the BatchFoo contract
       batcher <- create BatchFoo with owner
+      -- This only works out if obs is the same observer on all the exercised Example contracts
       batcher `exercise` Run with batch = batch; obs = obs
    else do
       -- Canton will create one view per exercise
