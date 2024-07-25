@@ -222,9 +222,11 @@ class DomainNodeBootstrap(
         _ <- initializeSequencerServices
         _ <- initializeSequencer(domainId, topologyManager, namespaceKey)
         // store the static domain parameters in our settings store
-        _ <- settingsStore
-          .saveSettings(StoredDomainNodeSettings(staticDomainParametersFromConfig))
-          .leftMap(_.toString)
+        _ <- EitherT
+          .right(
+            settingsStore
+              .saveSettings(StoredDomainNodeSettings(staticDomainParametersFromConfig))
+          )
           .mapK(FutureUnlessShutdown.outcomeK)
         // finally, store the node id (which means we have completed initialisation)
         // as all methods above are idempotent, if we die during initialisation, we should come back here
@@ -355,11 +357,11 @@ class DomainNodeBootstrap(
       //    with another init call (which then writes to the node config store).
       //    fix this and either support crash recovery for init data or only persist once everything
       //    is properly initialized
-      staticDomainParameters <- settingsStore.fetchSettings
-        .map(
-          _.fold(staticDomainParametersFromConfig)(_.staticDomainParameters)
+      staticDomainParameters <- EitherT
+        .right(
+          settingsStore.fetchSettings
+            .map(_.fold(staticDomainParametersFromConfig)(_.staticDomainParameters))
         )
-        .leftMap(_.toString)
         .mapK(FutureUnlessShutdown.outcomeK)
       manager <- EitherT
         .fromEither[FutureUnlessShutdown](

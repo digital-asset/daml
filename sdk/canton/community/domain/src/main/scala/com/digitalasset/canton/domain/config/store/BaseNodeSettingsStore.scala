@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.domain.config.store
 
-import cats.data.EitherT
-import cats.instances.future.*
-import cats.syntax.either.*
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -27,23 +23,19 @@ trait BaseNodeSettingsStore[T] extends AutoCloseable {
   //          (as we do it for participant settings).
   //          also, the update configuration should be atomic. right now, we do fetch / save, which is racy
   //          also, update this to mediator and sequencer. right now, we only do this for domain manager and domain nodes
-  def fetchSettings(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Option[T]]
+  def fetchSettings(implicit traceContext: TraceContext): Future[Option[T]]
 
-  def saveSettings(settings: T)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Unit]
+  def saveSettings(settings: T)(implicit traceContext: TraceContext): Future[Unit]
 
   // TODO(#15153) remove once we can assume that static domain parameters are persisted
   protected def fixPreviousSettings(resetToConfig: Boolean, timeout: NonNegativeDuration)(
-      update: Option[T] => EitherT[Future, BaseNodeSettingsStoreError, Unit]
+      update: Option[T] => Future[Unit]
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Unit = {
 
-    val eitherT = fetchSettings.flatMap {
+    val result: Future[Unit] = fetchSettings.flatMap {
       // if a value is stored, don't do anything
       case Some(_) if !resetToConfig =>
-        EitherT.rightT[Future, BaseNodeSettingsStoreError](())
+        Future.unit
       case Some(value) =>
         noTracingLogger.warn(
           "Resetting static domain parameters to the ones defined in the config! Please disable this again."
@@ -51,13 +43,9 @@ trait BaseNodeSettingsStore[T] extends AutoCloseable {
         update(Some(value))
       case None => update(None)
     }
+
     // wait until setting of static domain parameters completed
-    timeout
-      .await("Setting static domain parameters")(eitherT.value)
-      .valueOr { err =>
-        logger.error(s"Failed to updating static domain parameters during initialization: $err")
-        throw new RuntimeException(err.toString)
-      }
+    timeout.await("Setting static domain parameters")(result)
   }
 
 }
@@ -67,8 +55,6 @@ object BaseNodeSettingsStore {
       storage: Storage,
       dbFactory: DbStorage => BaseNodeSettingsStore[T],
       loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext
   ): BaseNodeSettingsStore[T] =
     storage match {
       case _: MemoryStorage => new InMemoryBaseNodeConfigStore[T](loggerFactory)
@@ -77,30 +63,22 @@ object BaseNodeSettingsStore {
 
 }
 
-sealed trait BaseNodeSettingsStoreError
-object BaseNodeSettingsStoreError {
-  final case class DbError(exception: Throwable) extends BaseNodeSettingsStoreError
-  final case class DeserializationError(deserializationError: ProtoDeserializationError)
-      extends BaseNodeSettingsStoreError
-}
-
-class InMemoryBaseNodeConfigStore[T](val loggerFactory: NamedLoggerFactory)(implicit
-    executionContext: ExecutionContext
-) extends BaseNodeSettingsStore[T]
+class InMemoryBaseNodeConfigStore[T](val loggerFactory: NamedLoggerFactory)
+    extends BaseNodeSettingsStore[T]
     with NamedLogging {
 
   private val currentSettings = new AtomicReference[Option[T]](None)
 
   override def fetchSettings(implicit
       traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Option[T]] =
-    EitherT.pure(currentSettings.get())
+  ): Future[Option[T]] =
+    Future.successful(currentSettings.get())
 
   override def saveSettings(settings: T)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Unit] = {
+  ): Future[Unit] = {
     currentSettings.set(Some(settings))
-    EitherT.pure(())
+    Future.unit
   }
 
   override def close(): Unit = ()
