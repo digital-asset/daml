@@ -115,11 +115,11 @@ da_scala_library(
 da_scala_library(
     name = "daml-common-staging_daml-jwt-tests-lib",
     srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
-    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -145,11 +145,11 @@ da_scala_test(
     name = "daml-common-staging_daml-jwt-tests",
     size = "medium",
     srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
-    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
