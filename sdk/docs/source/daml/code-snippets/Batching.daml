@@ -1,10 +1,13 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Batching example.
+module Batching where
+
+import DA.Foldable
 
 doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
-   doUpdate efficient owner obs batch = do
+
+doUpdate efficient owner obs batch = do
    if efficient then do
       -- Would be even more efficient if we can reuse the BatchFoo contract
       batcher <- create BatchFoo with owner
@@ -14,7 +17,7 @@ doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
       forA_ batch (`exercise` Foo)
    pure ()
 
-   template Example
+template Example
    with
       owner : Party
       obs: Party
@@ -27,7 +30,7 @@ doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
          do
          return ()
 
-   template BatchFoo
+template BatchFoo
    with
       owner : Party
    where
@@ -40,7 +43,7 @@ doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
          -- The observer here is a choice observer. Therefore, Canton will
          -- ship a single view with the top node of this choice if the observer of the
          -- choice aligns with the observer of the contract.
-         observer obs
-         controller owner
+            observer obs
+            controller owner
          do
          forA_ batch (`exercise` Foo)
