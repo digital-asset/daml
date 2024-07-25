@@ -18,6 +18,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_macro_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "kind_projector_plugin",
     "scala_source_jar",
@@ -91,22 +92,79 @@ da_scala_library(
 
 da_scala_library(
     name = "daml-common-staging_daml-jwt",
-    srcs = glob(["daml-common-staging/daml-jwt/src/main/**/*.scala"]),
+    srcs = glob(["daml-common-staging/daml-jwt/src/main/scala/**/*.scala"]),
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-jwt:__VERSION__"],
-    unused_dependency_checker_mode = "error",
-    visibility = [
-        "//daml-script:__subpackages__",
-        "//test-common/canton:__subpackages__",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
         "@maven//:com_google_guava_guava",
-        "@maven//:org_scalaz_scalaz_core_2_13",
+    ],
+)
+
+da_scala_library(
+    name = "daml-common-staging_daml-jwt-tests-lib",
+    srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-common-staging_daml-jwt",
+        "//libs-scala/http-test-utils",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "daml-common-staging_daml-jwt-tests",
+    size = "medium",
+    srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ],
+    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    deps = [
+        ":daml-common-staging_daml-jwt",
+        "//libs-scala/http-test-utils",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -220,7 +278,7 @@ da_scala_library(
     ],
 )
 
-### community/util-external ###
+### daml-common-staging/util-external ###
 
 da_scala_library(
     name = "daml-common-staging_util-external",
