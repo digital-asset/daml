@@ -153,7 +153,7 @@ main = tests
   , ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
   , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
   , broken ("queryInterfaceContractId uses highest version of view", queryInterfaceUpgrades)
-  , broken ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
+  , ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
@@ -234,5 +234,7 @@ queryInterfaceUpgrades = test $ do
 fetchFromInterfaceUpgrades : Test
 fetchFromInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
-  res <- alice `submit` createAndExerciseCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with cid = icid)
-  res === "V2"
+  resV1 <- alice `submit` createAndExerciseExactCmd (V1.FITemplate with party = alice) (V1.FetchFromInterface with cid = icid)
+  resV1 === "V1"
+  resV2 <- alice `submit` createAndExerciseExactCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with cid = icid)
+  resV2 === "V2"

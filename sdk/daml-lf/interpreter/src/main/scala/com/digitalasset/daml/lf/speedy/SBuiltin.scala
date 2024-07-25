@@ -1259,11 +1259,11 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[TypeConName] = None // no upgrading
+      val templateId = getSAnyContract(args, 0)._1
       val e = SEBuiltin(
         SBUInsertFetchNode(
-          getSAnyContract(args, 0)._1,
-          optTargetTemplateId,
+          templateId,
+          Some(templateId),
           byKey = false,
         )
       )
@@ -1304,13 +1304,27 @@ private[lf] object SBuiltin {
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
       tplId: TypeConName
-  ) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       val (tyCon, record) = getSAnyContract(args, 0)
+
       if (tplId == tyCon) {
-        SOptional(Some(record))
+        Control.Value(SOptional(Some(record)))
       } else {
-        SOptional(None)
+        val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
+        val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
+        val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
+        val oTyConPkgName = machine.tmplId2PackageName(tyCon, tyConTemplateVersion)
+        (oTplIdPkgName, oTyConPkgName) match {
+          case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
+            importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
+              Control.Value(SOptional(Some(templateArg)))
+            }
+          case _ => Control.Value(SOptional(None))
+        }
       }
     }
   }
