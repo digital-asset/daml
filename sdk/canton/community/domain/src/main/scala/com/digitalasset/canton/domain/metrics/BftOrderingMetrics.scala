@@ -65,6 +65,31 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
     )
   }
 
+  object output {
+    private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "output"
+
+    private[metrics] val blockSizeBytes: Item = Item(
+      prefix :+ "block-size-bytes",
+      summary = "Block size (bytes)",
+      description = "Records the size (in bytes) of blocks ordered.",
+      qualification = MetricQualification.Traffic,
+    )
+
+    private[metrics] val blockSizeRequests: Item = Item(
+      prefix :+ "block-size-requests",
+      summary = "Block size (requests)",
+      description = "Records the size (in requests) of blocks ordered.",
+      qualification = MetricQualification.Traffic,
+    )
+
+    private[metrics] val blockSizeBatches: Item = Item(
+      prefix :+ "block-size-batches",
+      summary = "Block size (batches)",
+      description = "Records the size (in batches) of blocks ordered.",
+      qualification = MetricQualification.Traffic,
+    )
+  }
+
   object topology {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "topology"
 
@@ -83,6 +108,9 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
     ingress.requestsSize.discard
     consensus.consensusCommitLatency.discard
     topology.queryLatency.discard
+    output.blockSizeBytes.discard
+    output.blockSizeRequests.discard
+    output.blockSizeBatches.discard
   }
 }
 
@@ -104,33 +132,6 @@ class BftOrderingMetrics(
   object global {
 
     private val prefix = histograms.global.prefix
-
-    val bytesOrdered: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "ordered-bytes",
-        summary = "Bytes ordered",
-        description = "Measures the total bytes ordered.",
-        qualification = MetricQualification.Traffic,
-      )
-    )
-
-    val requestsOrdered: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "ordered-requests",
-        summary = "Requests ordered",
-        description = "Measures the total requests ordered.",
-        qualification = MetricQualification.Traffic,
-      )
-    )
-
-    val batchesOrdered: Meter = openTelemetryMetricsFactory.meter(
-      MetricInfo(
-        prefix :+ "ordered-batches",
-        summary = "Batches ordered",
-        description = "Measures the total batches ordered.",
-        qualification = MetricQualification.Traffic,
-      )
-    )
 
     val blocksOrdered: Meter = openTelemetryMetricsFactory.meter(
       MetricInfo(
@@ -178,6 +179,16 @@ class BftOrderingMetrics(
         description = "Measures the total requests received.",
         qualification = MetricQualification.Traffic,
       )
+    )
+
+    val requestsQueued: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "requests-queued",
+        summary = "Requests queued",
+        description = "Measures the size of the mempool.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
     )
 
     val bytesReceived: Meter = openTelemetryMetricsFactory.meter(
@@ -269,6 +280,17 @@ class BftOrderingMetrics(
       ),
       0.0d,
     )
+  }
+
+  object output {
+    val blockSizeBytes: Histogram =
+      openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBytes.info)
+
+    val blockSizeRequests: Histogram =
+      openTelemetryMetricsFactory.histogram(histograms.output.blockSizeRequests.info)
+
+    val blockSizeBatches: Histogram =
+      openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBatches.info)
   }
 
   object topology {

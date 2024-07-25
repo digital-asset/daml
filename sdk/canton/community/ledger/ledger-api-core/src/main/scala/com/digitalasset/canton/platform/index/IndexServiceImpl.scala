@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.index
 import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.offset_checkpoint.OffsetCheckpoint.DomainTime
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
@@ -13,6 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.daml.ledger.api.v2.offset_checkpoint as v2
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -24,6 +26,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -42,6 +45,7 @@ import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
+import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
@@ -60,7 +64,7 @@ import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -74,6 +78,7 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
+    fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -109,6 +114,7 @@ private[index] class IndexServiceImpl(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
+    val isTailingStream = endInclusive.isEmpty
 
     withValidatedFilter(transactionFilter, getPackageMetadataSnapshot(contextualizedErrorLogger)) {
       between(startExclusive, endInclusive) { (from, to) =>
@@ -140,8 +146,17 @@ private[index] class IndexServiceImpl(
                         eventProjectionProperties,
                       )
                   }
+                  .via(rangeDecorator(startExclusive, endInclusive))
             },
             to,
+          )
+          // when a tailing stream is requested add checkpoint messages
+          .via(
+            checkpointFlow(
+              cond = isTailingStream,
+              fetchOffsetCheckpoint = fetchOffsetCheckpoint,
+              responseFromCheckpoint = updatesResponseFromOffsetCheckpoint,
+            )
           )
           .mapError(shutdownError)
           .map(_._2)
@@ -157,6 +172,35 @@ private[index] class IndexServiceImpl(
       )
     }(contextualizedErrorLogger)
   }
+
+  //  this flow adds checkpoint messages if the condition is met in the following way:
+  //  a checkpoint message is fetched in the beginning of each batch (RangeBegin decorator)
+  //  and applied exactly after an element that has the same or greater offset
+  // if the condition is not true the original elements are streamed and the range decorators are ignored
+  private def checkpointFlow[T](
+      cond: Boolean,
+      fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
+      responseFromCheckpoint: OffsetCheckpoint => T,
+  ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
+    if (cond) injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint)
+    else
+      Flow[(Offset, Carrier[T])].collect { case (off, Element(elem)) =>
+        (off, elem)
+      }
+
+  private def updatesResponseFromOffsetCheckpoint(
+      offsetCheckpoint: OffsetCheckpoint
+  ): GetUpdatesResponse =
+    GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(
+      v2.OffsetCheckpoint(
+        offset = offsetCheckpoint.offset.toApiString,
+        domainTimes = offsetCheckpoint.domainTimes
+          .map({ case (domain, t) =>
+            DomainTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
+          })
+          .toSeq,
+      )
+    )
 
   override def transactionTrees(
       startExclusive: ParticipantOffset,
@@ -750,5 +794,85 @@ object IndexServiceImpl {
         }.toSet)
     }
   }
+
+  // adds a RangeBegin message exactly before the original elements
+  // and adds a End message exactly after the original elements
+  private[index] def rangeDecorator[T](
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): Flow[(Offset, T), (Offset, Carrier[T]), NotUsed] =
+    Flow[(Offset, T)]
+      .map[(Offset, Carrier[T])] { case (off, elem) =>
+        (off, Element(elem))
+      }
+      .prepend(Source.single((startExclusive, RangeBegin)))
+      .concat(Source.single((endInclusive, RangeEnd)))
+
+  def injectCheckpoints[T](
+      fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
+      responseFromCheckpoint: OffsetCheckpoint => T,
+  ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
+    Flow[(Offset, Carrier[T])]
+      .statefulMap[(Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[Offset]), Seq[
+        (Offset, T)
+      ]](create = () => (None, None, None))(
+        f = { case ((lastFetchedCheckpointO, lastStreamedCheckpointO, streamedOffsetO), elem) =>
+          elem match {
+            // range begin received
+            case (startExclusive, RangeBegin) =>
+              val fetchedCheckpointO = fetchOffsetCheckpoint()
+              // we allow checkpoints that predate the current range only for RangeBegin to allow checkpoints
+              // that arrived delayed
+              val response =
+                if (fetchedCheckpointO != lastStreamedCheckpointO)
+                  fetchedCheckpointO.collect {
+                    case c: OffsetCheckpoint
+                        if c.offset == startExclusive
+                          && c.offset >= streamedOffsetO.getOrElse(Offset.beforeBegin) =>
+                      (c.offset, responseFromCheckpoint(c))
+                  }.toList
+                else Seq.empty
+              val streamedCheckpointO =
+                if (response.nonEmpty) fetchedCheckpointO else lastStreamedCheckpointO
+              val relevantCheckpointO = fetchedCheckpointO.collect {
+                case c: OffsetCheckpoint if c.offset > startExclusive => c
+              }
+              ((relevantCheckpointO, streamedCheckpointO, streamedOffsetO), response)
+            // regular element received
+            case (currentOffset, Element(currElem)) =>
+              val prepend = lastFetchedCheckpointO.collect {
+                case c: OffsetCheckpoint if c.offset < currentOffset =>
+                  (c.offset, responseFromCheckpoint(c))
+              }
+              val responses = prepend.toList :+ (currentOffset, currElem)
+              val newCheckpointO =
+                lastFetchedCheckpointO.collect { case c: OffsetCheckpoint if prepend.isEmpty => c }
+              val streamedCheckpointO =
+                if (prepend.nonEmpty) lastFetchedCheckpointO else lastStreamedCheckpointO
+              ((newCheckpointO, streamedCheckpointO, Some(currentOffset)), responses)
+            // range end indicator received
+            case (endInclusive, RangeEnd) =>
+              val responses = lastFetchedCheckpointO.collect {
+                case c: OffsetCheckpoint if c.offset <= endInclusive =>
+                  (c.offset, responseFromCheckpoint(c))
+              }.toList
+              val newCheckpointO =
+                lastFetchedCheckpointO.collect {
+                  case c: OffsetCheckpoint if responses.isEmpty => c
+                }
+              val streamedCheckpointO =
+                if (responses.nonEmpty) lastFetchedCheckpointO else lastStreamedCheckpointO
+              ((newCheckpointO, streamedCheckpointO, Some(endInclusive)), responses)
+          }
+        },
+        onComplete = _ => None,
+      )
+      .mapConcat(identity)
+
+  sealed abstract class Carrier[+T]
+
+  final case object RangeBegin extends Carrier[Nothing]
+  final case object RangeEnd extends Carrier[Nothing]
+  final case class Element[T](element: T) extends Carrier[T]
 
 }

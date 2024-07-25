@@ -301,7 +301,7 @@ class DatabaseSequencer(
       outcome: DeliverableSubmissionOutcome
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
     writer.blockSequencerWrite(outcome)
 
   override protected def sendAsyncSignedInternal(

@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -69,7 +70,6 @@ final class GeneratorsProtocol(
       representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
 
       reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
-      confirmationRequestsMaxRate <- Arbitrary.arbitrary[NonNegativeInt]
       maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
 
       trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
@@ -79,6 +79,8 @@ final class GeneratorsProtocol(
 
       sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
+
+      participantDomainLimits <- Arbitrary.arbitrary[ParticipantDomainLimits]
 
       acsCommitmentsCatchupConfig <-
         for {
@@ -104,12 +106,12 @@ final class GeneratorsProtocol(
         ledgerTimeRecordTimeTolerance,
         updatedMediatorDeduplicationTimeout,
         reconciliationInterval,
-        confirmationRequestsMaxRate,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
         onboardingRestriction,
         acsCommitmentsCatchupConfig,
+        participantDomainLimits,
       )(representativePV)
 
     } yield dynamicDomainParameters
