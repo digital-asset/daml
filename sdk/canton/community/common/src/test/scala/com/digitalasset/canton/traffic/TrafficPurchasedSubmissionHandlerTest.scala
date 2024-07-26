@@ -4,6 +4,7 @@
 package com.digitalasset.canton.traffic
 
 import cats.data.EitherT
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -95,7 +96,7 @@ class TrafficPurchasedSubmissionHandlerTest
         aggregationRuleCapture.capture(),
         callbackCapture.capture(),
         any[Boolean],
-      )(any[TraceContext])
+      )(any[TraceContext], any[MetricsContext])
     ).thenReturn(EitherT.pure(()))
 
     val resultF = handler
@@ -179,7 +180,7 @@ class TrafficPurchasedSubmissionHandlerTest
         any[Option[AggregationRule]],
         callbackCapture.capture(),
         any[Boolean],
-      )(any[TraceContext])
+      )(any[TraceContext], any[MetricsContext])
     ).thenReturn(EitherT.pure(()))
 
     val resultF = handler
@@ -234,7 +235,7 @@ class TrafficPurchasedSubmissionHandlerTest
         any[Option[AggregationRule]],
         any[SendCallback],
         any[Boolean],
-      )(any[TraceContext])
+      )(any[TraceContext], any[MetricsContext])
     )
       .thenReturn(EitherT.leftT(SendAsyncClientError.RequestFailed("failed")))
 
@@ -270,7 +271,7 @@ class TrafficPurchasedSubmissionHandlerTest
         any[Option[AggregationRule]],
         callbackCapture.capture(),
         any[Boolean],
-      )(any[TraceContext])
+      )(any[TraceContext], any[MetricsContext])
     )
       .thenReturn(EitherT.pure(()))
 
@@ -323,7 +324,7 @@ class TrafficPurchasedSubmissionHandlerTest
         any[Option[AggregationRule]],
         callbackCapture.capture(),
         any[Boolean],
-      )(any[TraceContext])
+      )(any[TraceContext], any[MetricsContext])
     )
       .thenReturn(EitherT.pure(()))
     clearInvocations(domainTimeTracker)

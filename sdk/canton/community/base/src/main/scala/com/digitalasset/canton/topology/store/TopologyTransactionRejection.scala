@@ -174,25 +174,6 @@ object TopologyTransactionRejection {
       )
   }
 
-  final case class PartyExceedsHostingLimit(
-      partyId: PartyId,
-      limit: Int,
-      numParticipants: Int,
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Party $partyId exceeds hosting limit of $limit with desired number of $numParticipants hosting participants."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.PartyExceedsHostingLimit.Reject(partyId, limit, numParticipants)
-
-    override def pretty: Pretty[PartyExceedsHostingLimit.this.type] =
-      prettyOfClass(
-        param("partyId", _.partyId),
-        param("limit", _.limit),
-        param("number of hosting participants", _.numParticipants),
-      )
-  }
-
   final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
       extends TopologyTransactionRejection {
     override def asString: String = {
@@ -229,26 +210,28 @@ object TopologyTransactionRejection {
     )
   }
 
-  final case class PartyIdIsAdminParty(partyId: PartyId) extends TopologyTransactionRejection {
+  final case class PartyIdConflictWithAdminParty(partyId: PartyId)
+      extends TopologyTransactionRejection {
     override def asString: String =
       s"The partyId $partyId is the same as an already existing admin party."
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.PartyIdIsAdminParty.Reject(partyId)
+      TopologyManagerError.PartyIdConflictWithAdminParty.Reject(partyId)
 
-    override def pretty: Pretty[PartyIdIsAdminParty.this.type] = prettyOfClass(
+    override def pretty: Pretty[PartyIdConflictWithAdminParty.this.type] = prettyOfClass(
       param("partyId", _.partyId)
     )
   }
 
-  final case class ParticipantIdClashesWithPartyId(participantId: ParticipantId, partyId: PartyId)
+  final case class ParticipantIdConflictWithPartyId(participantId: ParticipantId, partyId: PartyId)
       extends TopologyTransactionRejection {
-    override def asString: String = ???
+    override def asString: String =
+      s"Tried to onboard participant $participantId while party $partyId with the same UID already exists."
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.ParticipantIdClashesWithPartyId.Reject(participantId, partyId)
+      TopologyManagerError.ParticipantIdConflictWithPartyId.Reject(participantId, partyId)
 
-    override def pretty: Pretty[ParticipantIdClashesWithPartyId.this.type] =
+    override def pretty: Pretty[ParticipantIdConflictWithPartyId.this.type] =
       prettyOfClass(
         param("participantId", _.participantId),
         param("partyId", _.partyId),

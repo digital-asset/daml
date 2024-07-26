@@ -13,7 +13,7 @@ import com.digitalasset.canton.sequencing.protocol.SendAsyncError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{MonadUtil, retry}
 
 import scala.concurrent.ExecutionContext
@@ -105,7 +105,7 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
                   .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
                   .value
                   .unwrap,
-                NoExnRetryable,
+                NoExceptionRetryPolicy,
               )
             )
           )

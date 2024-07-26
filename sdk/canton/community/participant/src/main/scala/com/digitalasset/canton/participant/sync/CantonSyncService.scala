@@ -106,7 +106,7 @@ import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -310,13 +310,6 @@ class CantonSyncService(
     (tracedDomainId: Traced[DomainId]) =>
       syncDomainPersistentStateManager.protocolVersionFor(tracedDomainId.value)
 
-  val transferService: TransferService = new TransferService(
-    domainIdOfAlias = aliasManager.domainIdForAlias,
-    submissionHandles = readySyncDomainById,
-    transferLookups = domainId =>
-      syncDomainPersistentStateManager.get(domainId.unwrap).map(_.transferStore),
-    protocolVersionFor = protocolVersionGetter,
-  )
   val commandProgressTracker: CommandProgressTracker =
     if (parameters.commandProgressTracking.enabled)
       new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
@@ -1706,7 +1699,7 @@ class CantonSyncService(
           domain: DomainId,
           remoteDomain: DomainId,
       )(
-          transfer: ProtocolVersion => SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
+          transfer: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
         for {
           syncDomain <- EitherT.fromOption[Future](
@@ -1714,12 +1707,7 @@ class CantonSyncService(
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Domain ID not found: $domain"): DamlError,
           )
-          remoteProtocolVersion <- EitherT.fromOption[Future](
-            protocolVersionGetter(Traced(remoteDomain)),
-            ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Domain ID's protocol version not found: $remoteDomain"): DamlError,
-          )
-          _ <- transfer(remoteProtocolVersion)(syncDomain)
+          _ <- transfer(syncDomain)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
@@ -1734,32 +1722,49 @@ class CantonSyncService(
         .leftMap(error => SubmissionResult.SynchronousError(error.rpcStatus()))
         .merge
 
+      def getProtocolVersion(domainId: DomainId): Future[ProtocolVersion] =
+        protocolVersionGetter(Traced(domainId)) match {
+          case Some(protocolVersion) => Future.successful(protocolVersion)
+          case None =>
+            Future.failed(
+              RequestValidationErrors.InvalidArgument
+                .Reject(s"Domain ID's protocol version not found: $domainId")
+                .asGrpcError
+            )
+        }
+
       reassignmentCommand match {
         case unassign: ReassignmentCommand.Unassign =>
-          doTransfer(
-            domain = unassign.sourceDomain.unwrap,
-            remoteDomain = unassign.targetDomain.unwrap,
-          )(protocolVersion =>
-            _.submitTransferOut(
-              submitterMetadata = TransferSubmitterMetadata(
-                submitter = submitter,
-                applicationId = applicationId,
-                submittingParticipant = participantId,
-                commandId = commandId,
-                submissionId = submissionId,
-                workflowId = workflowId,
-              ),
-              contractId = unassign.contractId,
-              targetDomain = unassign.targetDomain,
-              targetProtocolVersion = TargetProtocolVersion(protocolVersion),
+          for {
+            targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(
+              TargetProtocolVersion(_)
             )
-          )
+
+            submissionResult <- doTransfer(
+              domain = unassign.sourceDomain.unwrap,
+              remoteDomain = unassign.targetDomain.unwrap,
+            )(
+              _.submitTransferOut(
+                submitterMetadata = TransferSubmitterMetadata(
+                  submitter = submitter,
+                  applicationId = applicationId,
+                  submittingParticipant = participantId,
+                  commandId = commandId,
+                  submissionId = submissionId,
+                  workflowId = workflowId,
+                ),
+                contractId = unassign.contractId,
+                targetDomain = unassign.targetDomain,
+                targetProtocolVersion = targetProtocolVersion,
+              )
+            )
+          } yield submissionResult
 
         case assign: ReassignmentCommand.Assign =>
           doTransfer(
             domain = assign.targetDomain.unwrap,
             remoteDomain = assign.sourceDomain.unwrap,
-          )(protocolVersion =>
+          )(
             _.submitTransferIn(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
@@ -1770,7 +1775,6 @@ class CantonSyncService(
                 workflowId = workflowId,
               ),
               transferId = TransferId(assign.sourceDomain, assign.unassignId),
-              sourceProtocolVersion = SourceProtocolVersion(protocolVersion),
             )
           )
       }

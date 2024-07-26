@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.Eval
 import cats.data.EitherT
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
@@ -148,7 +149,7 @@ class ProtocolProcessorTest
       any[Option[AggregationRule]],
       any[SendCallback],
       any[Boolean],
-    )(anyTraceContext)
+    )(anyTraceContext, any[MetricsContext])
   )
     .thenAnswer(
       (
@@ -384,6 +385,10 @@ class ProtocolProcessorTest
         override def participantId: ParticipantId = participant
 
         override def timeouts: ProcessingTimeout = ProtocolProcessorTest.this.timeouts
+
+        override protected def metricsContextForSubmissionParam(
+            submissionParam: Int
+        ): MetricsContext = MetricsContext.Empty
       }
 
     ephemeralState.get().recordOrderPublisher.scheduleRecoveries(List.empty)
@@ -478,7 +483,7 @@ class ProtocolProcessorTest
           any[Option[AggregationRule]],
           any[SendCallback],
           any[Boolean],
-        )(anyTraceContext)
+        )(anyTraceContext, any[MetricsContext])
       )
         .thenReturn(EitherT.leftT[FutureUnlessShutdown, Unit](sendError))
       val (sut, _persistent, _ephemeral, _) =

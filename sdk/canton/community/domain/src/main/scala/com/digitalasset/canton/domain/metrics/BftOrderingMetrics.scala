@@ -185,7 +185,17 @@ class BftOrderingMetrics(
       MetricInfo(
         prefix :+ "requests-queued",
         summary = "Requests queued",
-        description = "Measures the size of the mempool.",
+        description = "Measures the size of the mempool in requests.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+
+    val bytesQueued: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "bytes-queued",
+        summary = "Bytes queued",
+        description = "Measures the size of the mempool in bytes.",
         qualification = MetricQualification.Saturation,
       ),
       0,
@@ -202,6 +212,78 @@ class BftOrderingMetrics(
 
     val requestsSize: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.ingress.requestsSize.info)
+  }
+
+  object mempool {
+    private val prefix = BftOrderingMetrics.this.prefix :+ "mempool"
+
+    val requestedBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "requested-batches",
+        summary = "Requested batches",
+        description = "Number of batches requested from the mempool by the availability module.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+  }
+
+  object availability {
+    private val prefix = BftOrderingMetrics.this.prefix :+ "availability"
+
+    val requestedProposals: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "requested-proposals",
+        summary = "Requested proposals",
+        description = "Number of proposals requested from availability by the consensus module.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+
+    val requestedBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "requested-batches",
+        summary = "Requested batches",
+        description =
+          "Maximum number of batches requested from availability by the consensus module.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+
+    val readyBytes: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "ready-bytes",
+        summary = "Bytes ready for consensus",
+        description =
+          "Number of bytes disseminated, provably highly available and ready for consensus.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+
+    val readyRequests: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "ready-requests",
+        summary = "Requests ready for consensus",
+        description =
+          "Number of requests disseminated, provably highly available and ready for consensus.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
+
+    val readyBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "ready-batches",
+        summary = "Batches ready for consensus",
+        description =
+          "Number of batches disseminated, provably highly available and ready for consensus.",
+        qualification = MetricQualification.Saturation,
+      ),
+      0,
+    )
   }
 
   object security {

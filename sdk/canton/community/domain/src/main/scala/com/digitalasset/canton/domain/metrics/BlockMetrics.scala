@@ -30,6 +30,23 @@ class BlockMetrics(
       0L,
     )(MetricsContext.Empty)
 
+  val delay: Gauge[Long] = openTelemetryMetricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "delay",
+      summary = "The block processing delay in milliseconds, relative to wall clock",
+      description =
+        """Every block carries a timestamp that was assigned by the ordering service when it ordered the block.
+          |This metric shows the difference between the wall clock of the sequencer node and the timestamp
+          |of the last processed block. The difference will include the clock-skew and the processing latency
+          |of the ordering service. If the delay is large compared to the usual latencies, clock skew can be ruled out,
+          |and enough sequencers are not slow, then it means that the node is still trying to catch up reading blocks
+          |from the ordering service. This can happen after having been offline for a while or if the node is
+          |too slow to keep up with the block processing load.""",
+      qualification = MetricQualification.Latency,
+    ),
+    0L,
+  )(MetricsContext.Empty)
+
   private val labels =
     Map("sender" -> "The sender of the submission request", "type" -> "Type of request")
   val blockEvents: Meter =

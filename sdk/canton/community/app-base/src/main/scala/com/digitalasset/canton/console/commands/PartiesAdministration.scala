@@ -21,7 +21,6 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
-  BaseInspection,
   CantonInternalError,
   CommandFailure,
   ConsoleCommandResult,
@@ -31,13 +30,10 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReference,
-  LocalParticipantReference,
   ParticipantReference,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.transaction.*
@@ -97,12 +93,11 @@ class PartiesAdministrationGroup(
 
 class ParticipantPartiesAdministrationGroup(
     participantId: => ParticipantId,
-    runner: AdminCommandRunner
-      & ParticipantAdministration
-      & BaseLedgerApiAdministration
-      & InstanceReference,
-    consoleEnvironment: ConsoleEnvironment,
-) extends PartiesAdministrationGroup(runner, consoleEnvironment) {
+    reference: ParticipantReference,
+    override protected val consoleEnvironment: ConsoleEnvironment,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends PartiesAdministrationGroup(reference, consoleEnvironment)
+    with FeatureFlagFilter {
 
   @Help.Summary("List parties hosted by this participant")
   @Help.Description("""Inspect the parties hosted by this participant as used for synchronisation.
@@ -182,7 +177,7 @@ class ParticipantPartiesAdministrationGroup(
       )
 
     def primaryConnected: Either[String, Seq[ListConnectedDomainsResult]] =
-      runner
+      reference
         .adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConnectedDomains())
         .toEither
 
@@ -261,7 +256,7 @@ class ParticipantPartiesAdministrationGroup(
           _ <- validDisplayName match {
             case None => Right(())
             case Some(name) =>
-              runner
+              reference
                 .adminCommand(
                   ParticipantAdminCommands.PartyNameManagement
                     .SetPartyDisplayName(partyId, name.unwrap)
@@ -273,7 +268,7 @@ class ParticipantPartiesAdministrationGroup(
             // sync with ledger-api server if this node is connected to at least one domain
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
-                runner.ledger_api.parties.list().map(_.party).contains(partyId),
+                reference.ledger_api.parties.list().map(_.party).contains(partyId),
                 show"The party $partyId never appeared on the ledger API server",
               )
             else Right(())
@@ -303,12 +298,16 @@ class ParticipantPartiesAdministrationGroup(
       groupAddressing: Boolean,
       mustFullyAuthorize: Boolean,
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
+    // determine the next serial
+    val nextSerial = reference.topology.party_to_participant_mappings
+      .list_from_authorized(filterParty = partyId.filterString)
+      .filter(_.item.domainId.isEmpty)
+      .maxByOption(_.context.serial)
+      .map(_.context.serial.increment)
 
-    runner
+    reference
       .adminCommand(
         TopologyAdminCommands.Write.Propose(
-          // TODO(#14048) properly set the serial or introduce auto-detection so we don't
-          //              have to set it on the client side
           mapping = PartyToParticipant.create(
             partyId,
             None,
@@ -323,7 +322,7 @@ class ParticipantPartiesAdministrationGroup(
             groupAddressing,
           ),
           signedBy = Seq(this.participantId.fingerprint),
-          serial = None,
+          serial = nextSerial,
           store = AuthorizedStore.filterName,
           mustFullyAuthorize = mustFullyAuthorize,
           change = TopologyChangeOp.Replace,
@@ -335,9 +334,9 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Summary("Disable party on participant")
   // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
   def disable(name: String /*, force: Boolean = false*/ ): Unit = {
-    runner.topology.party_to_participant_mappings
+    reference.topology.party_to_participant_mappings
       .propose_delta(
-        PartyId(runner.id.member.uid.tryChangeId(name)),
+        PartyId(reference.id.member.uid.tryChangeId(name)),
         removes = List(this.participantId),
       )
       .discard
@@ -354,7 +353,7 @@ class ParticipantPartiesAdministrationGroup(
       party: PartyId,
       modifier: PartyDetails => PartyDetails,
   ): PartyDetails = {
-    runner.ledger_api.parties.update(
+    reference.ledger_api.parties.update(
       party = party,
       modifier = modifier,
     )
@@ -366,25 +365,10 @@ class ParticipantPartiesAdministrationGroup(
   )
   def set_display_name(party: PartyId, displayName: String): Unit = consoleEnvironment.run {
     // takes displayName as String argument which is validated at GrpcPartyNameManagementService
-    runner.adminCommand(
+    reference.adminCommand(
       ParticipantAdminCommands.PartyNameManagement.SetPartyDisplayName(party, displayName)
     )
   }
-}
-
-class LocalParticipantPartiesAdministrationGroup(
-    reference: LocalParticipantReference,
-    runner: AdminCommandRunner
-      & BaseInspection[ParticipantNode]
-      & ParticipantAdministration
-      & BaseLedgerApiAdministration
-      & InstanceReference,
-    val consoleEnvironment: ConsoleEnvironment,
-    val loggerFactory: NamedLoggerFactory,
-) extends ParticipantPartiesAdministrationGroup(reference.id, runner, consoleEnvironment)
-    with FeatureFlagFilter {
-
-  import runner.*
 
   @Help.Summary("Waits for any topology changes to be observed", FeatureFlag.Preview)
   @Help.Description(
@@ -395,11 +379,9 @@ class LocalParticipantPartiesAdministrationGroup(
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
   )(implicit env: ConsoleEnvironment): Unit =
     check(FeatureFlag.Preview) {
-      access(node =>
-        TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
-      )
+      reference.health.wait_for_initialized()
+      TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
     }
-
 }
 
 object TopologySynchronisation {

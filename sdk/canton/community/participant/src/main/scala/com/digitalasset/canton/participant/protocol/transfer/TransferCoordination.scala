@@ -32,7 +32,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -131,7 +131,6 @@ class TransferCoordination(
       targetDomain: TargetDomainId,
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
-      sourceProtocolVersion: SourceProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, TransferInProcessingSteps.SubmissionResult] = {
@@ -147,7 +146,6 @@ class TransferCoordination(
         .submitTransferIn(
           submitterMetadata,
           transferId,
-          sourceProtocolVersion,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
@@ -311,7 +309,6 @@ trait TransferSubmissionHandle {
   def submitTransferIn(
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
-      sourceProtocolVersion: SourceProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[

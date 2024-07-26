@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.transfer
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
@@ -65,4 +66,13 @@ class TransferInProcessor(
       targetProtocolVersion.v,
       loggerFactory,
       futureSupervisor,
+    ) {
+  override protected def metricsContextForSubmissionParam(
+      submissionParam: TransferInProcessingSteps.SubmissionParam
+  ): MetricsContext = {
+    MetricsContext(
+      "application-id" -> submissionParam.submitterMetadata.applicationId,
+      "type" -> "transfer-in",
     )
+  }
+}

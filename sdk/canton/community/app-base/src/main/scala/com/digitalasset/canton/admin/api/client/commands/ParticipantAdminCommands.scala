@@ -26,7 +26,6 @@ import com.digitalasset.canton.admin.participant.v30.PartyNameManagementServiceG
 import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingServiceStub
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGrpc.ResourceManagementServiceStub
-import com.digitalasset.canton.admin.participant.v30.TransferServiceGrpc.TransferServiceStub
 import com.digitalasset.canton.admin.participant.v30.{ResourceLimits as _, *}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.admin.pruning.v30.{NoWaitCommitmentsSetup, WaitCommitmentsSetup}
@@ -34,7 +33,6 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
-import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDomainConnectionConfig
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
@@ -48,7 +46,6 @@ import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPerio
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -885,60 +882,6 @@ object ParticipantAdminCommands {
         service.modifyDomain(request)
 
       override def handleResponse(response: ModifyDomainResponse): Either[String, Unit] = Right(())
-
-    }
-
-  }
-
-  object Transfer {
-
-    abstract class Base[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-      override type Svc = TransferServiceStub
-
-      override def createService(channel: ManagedChannel): TransferServiceStub =
-        TransferServiceGrpc.stub(channel)
-    }
-
-    final case class TransferSearch(
-        targetDomain: DomainAlias,
-        sourceDomainFilter: Option[DomainAlias],
-        timestampFilter: Option[Instant],
-        submittingPartyFilter: Option[PartyId],
-        limit0: Int,
-    ) extends Base[
-          AdminTransferSearchQuery,
-          AdminTransferSearchResponse,
-          Seq[TransferSearchResult],
-        ] {
-
-      override def createRequest(): Either[String, AdminTransferSearchQuery] =
-        Right(
-          AdminTransferSearchQuery(
-            searchDomain = targetDomain.toProtoPrimitive,
-            filterOriginDomain = sourceDomainFilter.map(_.toProtoPrimitive).getOrElse(""),
-            filterTimestamp =
-              timestampFilter.map((value: Instant) => InstantConverter.toProtoPrimitive(value)),
-            filterSubmittingParty = submittingPartyFilter.fold("")(_.toLf),
-            limit = limit0.toLong,
-          )
-        )
-
-      override def submitRequest(
-          service: TransferServiceStub,
-          request: AdminTransferSearchQuery,
-      ): Future[AdminTransferSearchResponse] =
-        service.transferSearch(request)
-
-      override def handleResponse(
-          response: AdminTransferSearchResponse
-      ): Either[String, Seq[TransferSearchResult]] =
-        response match {
-          case AdminTransferSearchResponse(results) =>
-            results.traverse(TransferSearchResult.fromProtoV30).leftMap(_.toString)
-        }
-
-      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
     }
   }
 

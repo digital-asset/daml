@@ -115,7 +115,7 @@ class BlockSequencer(
       Some(blockRateLimitManager.trafficConsumedStore),
       protocolVersion,
       cryptoApi,
-      SequencerMetrics.noop("TODO"), // TODO(#18406)
+      metrics,
       loggerFactory,
       unifiedSequencer,
       runtimeReady,
@@ -189,8 +189,8 @@ class BlockSequencer(
     }
     val combinedSourceWithBlockHandling = combinedSource.async
       .via(stateManager.applyBlockUpdate(sequencerIntegration))
-      .map { case Traced(lastTs) =>
-        metrics.sequencerClient.handler.delay.updateValue((clock.now - lastTs).toMillis)
+      .wireTap { lastTs =>
+        metrics.block.delay.updateValue((clock.now - lastTs.value).toMillis)
       }
     val ((killSwitchF, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
@@ -643,11 +643,7 @@ class BlockSequencer(
 
   /** Compute traffic states for the specified members at the provided timestamp.
     * @param requestedMembers members for which to compute traffic states
-    * @param approximateUsingWallClock if true, the max between wall clock time and last sequenced event timestamp
-    *                                  will be used when computing the traffic states. This is useful mostly for testing
-    *                                  when using SimClock to get updates on the state when domain time does not advance.
-    *                                  When set to true, the result may NOT be the correct one by the time the domain
-    *                                  reaches the wall clock timestamp.
+    * @param selector timestamp selector determining at what time the traffic states will be computed
     */
   private def trafficStatesForMembers(
       requestedMembers: Set[Member],
@@ -655,25 +651,31 @@ class BlockSequencer(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, Either[String, TrafficState]]] = {
-    val timestamp = selector match {
-      case ExactTimestamp(timestamp) => Some(timestamp)
-      case LastUpdatePerMember => None
-      // For the latest safe timestamp, we use the last timestamp of the latest processed block.
-      // Even though it may be more recent than the TrafficConsumed timestamp of individual members,
-      // we are sure that nothing has been consumed since then, because by the time we update getHeadState.block.lastTs
-      // all traffic has been consumed for that block. This means we can use this timestamp to compute an updated
-      // base traffic that will be correct.
-      case LatestSafe => Some(stateManager.getHeadState.block.lastTs)
-      case LatestApproximate => Some(clock.now.max(stateManager.getHeadState.block.lastTs))
-    }
+    if (requestedMembers.isEmpty) {
+      // getStates interprets an empty list of members as "return all members"
+      // so we handle it here.
+      FutureUnlessShutdown.pure(Map.empty)
+    } else {
+      val timestamp = selector match {
+        case ExactTimestamp(timestamp) => Some(timestamp)
+        case LastUpdatePerMember => None
+        // For the latest safe timestamp, we use the last timestamp of the latest processed block.
+        // Even though it may be more recent than the TrafficConsumed timestamp of individual members,
+        // we are sure that nothing has been consumed since then, because by the time we update getHeadState.block.lastTs
+        // all traffic has been consumed for that block. This means we can use this timestamp to compute an updated
+        // base traffic that will be correct.
+        case LatestSafe => Some(stateManager.getHeadState.block.lastTs)
+        case LatestApproximate => Some(clock.now.max(stateManager.getHeadState.block.lastTs))
+      }
 
-    blockRateLimitManager.getStates(
-      requestedMembers,
-      timestamp,
-      stateManager.getHeadState.block.latestSequencerEventTimestamp,
-      // Warn on approximate topology or traffic purchased when getting exact traffic states only (so when selector is not LatestApproximate)
-      warnIfApproximate = selector != LatestApproximate,
-    )
+      blockRateLimitManager.getStates(
+        requestedMembers,
+        timestamp,
+        stateManager.getHeadState.block.latestSequencerEventTimestamp,
+        // Warn on approximate topology or traffic purchased when getting exact traffic states only (so when selector is not LatestApproximate)
+        warnIfApproximate = selector != LatestApproximate,
+      )
+    }
   }
 
   override def setTrafficPurchased(
@@ -714,17 +716,17 @@ class BlockSequencer(
       members <-
         if (requestedMembers.isEmpty) {
           // If requestedMembers is not set get the traffic states of all known members
-          if (unifiedSequencer) {
-            FutureUnlessShutdown.outcomeF(
-              cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
-            )
-          } else {
-            FutureUnlessShutdown.pure(
-              stateManager.getHeadState.chunk.ephemeral.status.membersMap.keySet
-            )
-          }
+          FutureUnlessShutdown.outcomeF(
+            cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
+          )
         } else {
-          FutureUnlessShutdown.pure(requestedMembers.toSet)
+          FutureUnlessShutdown.outcomeF(
+            cryptoApi.currentSnapshotApproximation.ipsSnapshot
+              .allMembers()
+              .map { registered =>
+                requestedMembers.toSet.intersect(registered)
+              }
+          )
         }
       trafficState <- trafficStatesForMembers(
         members,

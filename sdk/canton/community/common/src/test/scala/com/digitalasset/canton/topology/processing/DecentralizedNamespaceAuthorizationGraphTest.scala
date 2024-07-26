@@ -53,16 +53,15 @@ class DecentralizedNamespaceAuthorizationGraphTest
     implicit class DecentralizedNamespaceAuthorizationGraphExtension(
         dns: DecentralizedNamespaceAuthorizationGraph
     ) {
-      def addAuth(authorizedNSD: AuthorizedNamespaceDelegation) = {
-        val found = dns.ownerGraphs.find(_.namespace == authorizedNSD.mapping.namespace)
-        found.exists(_.add(authorizedNSD))
-      }
-
-      def removeAuth(authorizedNSD: AuthorizedNamespaceDelegation) =
+      def addAuth(authorizedNSD: AuthorizedNamespaceDelegation): Unit =
         dns.ownerGraphs
           .find(_.namespace == authorizedNSD.mapping.namespace)
-          .exists(_.remove(authorizedNSD))
+          .foreach(_.replace(authorizedNSD))
 
+      def removeAuth(authorizedNSD: AuthorizedNamespaceDelegation): Unit =
+        dns.ownerGraphs
+          .find(_.namespace == authorizedNSD.mapping.namespace)
+          .foreach(_.remove(authorizedNSD))
     }
 
     def mkAdd(
@@ -136,9 +135,9 @@ class DecentralizedNamespaceAuthorizationGraphTest
       import fixture.factory.SigningKeys.*
       "work for a simple quorum" in {
         val graph = mkGraph
-        graph.addAuth(ns1k1k1) shouldBe true
-        graph.addAuth(ns2k2k2) shouldBe true
-        graph.addAuth(ns3k3k3) shouldBe true
+        graph.addAuth(ns1k1k1)
+        graph.addAuth(ns2k2k2)
+        graph.addAuth(ns3k3k3)
 
         // Individual keys are not enough
         for {

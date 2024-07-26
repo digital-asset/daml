@@ -1428,7 +1428,7 @@ class TopologyAdministrationGroup(
                    TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
         operation: Optionally, what type of operation the transaction should have.
         filterParty: Filter for parties starting with the given filter string.
-        filterParticipant: Filter for participants starting with the given filter string.
+        filterParticipant: If non-empty, returns only parties that are hosted on this participants.
         filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
         protocolVersion: Export the topology transactions in the optional protocol version.
         |"""
@@ -1554,7 +1554,6 @@ class TopologyAdministrationGroup(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-        // TODO(#14048) should be filterDomain and filterParticipant
         filterUid: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
@@ -1582,14 +1581,10 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose a change to a participant's domain trust certificate.")
     @Help.Description(
-      """A participant's domain trust certificate serves two functions:
-        |1. It signals to the domain that the participant would like to act on the domain.
-        |2. It controls whether contracts can be reassigned to any domain or only a specific set of domains.
+      """A participant's domain trust certificate signals to the domain that the participant would like to act on the domain.
 
         participantId: the identifier of the trust certificate's target participant
         domainId: the identifier of the domain on which the participant would like to act
-        transferOnlyToGivenTargetDomains: whether or not to restrict reassignments to a set of domains
-        targetDomains: the set of domains to which the participant permits assignments of contracts
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                propagated to connected domains, if applicable.
@@ -1609,8 +1604,6 @@ class TopologyAdministrationGroup(
     def propose(
         participantId: ParticipantId,
         domainId: DomainId,
-        transferOnlyToGivenTargetDomains: Boolean = false,
-        targetDomains: Seq[DomainId] = Seq.empty,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1624,8 +1617,6 @@ class TopologyAdministrationGroup(
         mapping = DomainTrustCertificate(
           participantId,
           domainId,
-          transferOnlyToGivenTargetDomains,
-          targetDomains,
         ),
         signedBy = Seq(instance.id.fingerprint),
         store = store.getOrElse(domainId.filterString),
@@ -1761,30 +1752,12 @@ class TopologyAdministrationGroup(
       )
     }
 
-    @Help.Summary("Propose a limitation of how many participants may host a certain party")
-    @Help.Description("""
-        domainId: the domain on which to impose the limits for the given party
-        partyId: the party to which the hosting limits are applied
-        maxNumHostingParticipants: the maximum number of participants that may host the given party
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected domains, if applicable.
-               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
-                                storing it locally first. This also means it will _not_ be synchronized to other domains
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.""")
+    // When we removed the field maxNumHostingParticipants from the PartyHostingLimits, this method did not make sense anymore.
+    // We keep it here for now, because it's already implemented and might be useful in the future.
+    // Look at the history if you need the summary and description of this method.
     def propose(
         domainId: DomainId,
         partyId: PartyId,
-        maxNumHostingParticipants: Int,
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         signedBy: Seq[Fingerprint] = Seq(instance.id.fingerprint),
@@ -1795,7 +1768,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, PartyHostingLimits] = {
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
-          PartyHostingLimits(domainId, partyId, maxNumHostingParticipants),
+          PartyHostingLimits(domainId, partyId),
           signedBy = signedBy,
           store = store.getOrElse(domainId.toProtoPrimitive),
           serial = serial,

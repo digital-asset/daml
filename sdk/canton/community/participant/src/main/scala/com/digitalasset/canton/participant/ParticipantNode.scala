@@ -803,13 +803,6 @@ class ParticipantNodeBootstrap(
         )
       adminServerRegistry
         .addServiceU(
-          TransferServiceGrpc.bindService(
-            new GrpcTransferService(sync.transferService, participantId, loggerFactory),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
           InspectionServiceGrpc.bindService(
             new GrpcInspectionService(sync.stateInspection),
             executionContext,

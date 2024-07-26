@@ -29,7 +29,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{EitherTUtil, retry}
 import io.grpc.{Status, StatusException}
 import monocle.Lens
@@ -253,7 +253,7 @@ object GrpcSequencerConnectionService {
         )
         .apply(
           tryNewConfig.value,
-          NoExnRetryable,
+          NoExceptionRetryPolicy,
         )
     )
   }

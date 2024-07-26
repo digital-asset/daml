@@ -160,6 +160,7 @@ class DatabaseSequencer(
     loggerFactory,
     topologyClientMember,
     unifiedSequencer = unifiedSequencer,
+    metrics = metrics,
   )
 
   private lazy val storageForAdminChanges: Storage = exclusiveStorage.getOrElse(

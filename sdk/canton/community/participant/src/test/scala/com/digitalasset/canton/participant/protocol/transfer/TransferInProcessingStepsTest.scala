@@ -53,8 +53,8 @@ import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallC
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -203,12 +203,10 @@ class TransferInProcessingStepsTest
     val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
     val transferDataF =
       TransferStoreTest.mkTransferDataForDomain(transferId, sourceMediator, party1, targetDomain)
-    val submissionParam =
-      SubmissionParam(
-        submitterInfo(party1),
-        transferId,
-        SourceProtocolVersion(testedProtocolVersion),
-      )
+    val submissionParam = SubmissionParam(
+      submitterInfo(party1),
+      transferId,
+    )
     val transferOutResult =
       TransferResultHelpers.transferOutResult(
         sourceDomain,
@@ -316,12 +314,10 @@ class TransferInProcessingStepsTest
     }
 
     "fail when submitting party is not a stakeholder" in {
-      val submissionParam2 =
-        SubmissionParam(
-          submitterInfo(party2),
-          transferId,
-          SourceProtocolVersion(testedProtocolVersion),
-        )
+      val submissionParam2 = SubmissionParam(
+        submitterInfo(party2),
+        transferId,
+      )
 
       for {
         transferData <- transferDataF
@@ -372,12 +368,10 @@ class TransferInProcessingStepsTest
     }
 
     "fail when submitting party not hosted on the participant" in {
-      val submissionParam2 =
-        SubmissionParam(
-          submitterInfo(party2),
-          transferId,
-          SourceProtocolVersion(testedProtocolVersion),
-        )
+      val submissionParam2 = SubmissionParam(
+        submitterInfo(party2),
+        transferId,
+      )
       for {
         transferData2 <- TransferStoreTest.mkTransferDataForDomain(
           transferId,
@@ -400,31 +394,6 @@ class TransferInProcessingStepsTest
         preparedSubmission should matchPattern { case NoTransferSubmissionPermission(_, _, _) =>
         }
       }
-    }
-
-    "fail when protocol version are incompatible" in {
-      // source domain does not support transfer counters
-      val submissionParam2 =
-        submissionParam.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v31))
-      for {
-        transferData <- transferDataF
-        deps <- statefulDependencies
-        (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
-        preparedSubmission <-
-          transferInProcessingSteps
-            .createSubmission(
-              submissionParam2,
-              targetMediator,
-              ephemeralState,
-              cryptoSnapshot,
-            )
-            .value
-            .failOnShutdown
-      } yield {
-        preparedSubmission should matchPattern { case Right(_) => }
-      }
-
     }
   }
 

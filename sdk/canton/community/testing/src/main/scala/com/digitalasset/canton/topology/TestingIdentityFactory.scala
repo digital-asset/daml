@@ -560,8 +560,6 @@ class TestingIdentityFactory(
         DomainTrustCertificate(
           participantId,
           domainId,
-          transferOnlyToGivenTargetDomains = false,
-          targetDomains = Seq.empty,
         )
       ) :+ mkAdd(
         ParticipantDomainPermission(
@@ -641,8 +639,6 @@ class TestingOwnerWithKeys(
       DomainTrustCertificate(
         participant1,
         domainId,
-        transferOnlyToGivenTargetDomains = false,
-        targetDomains = Seq.empty,
       )
 
     private val defaultDomainParameters = TestDomainParameters.defaultDynamic
@@ -685,9 +681,9 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
-    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId, false, Seq.empty))
-    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId, false, Seq.empty))
+    val p1_dtc = mkAdd(DomainTrustCertificate(participant1, domainId))
+    val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId))
+    val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId))
     val p1_otk = mkAddMultiKey(
       OwnerToKeyMapping(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
       NonEmpty(Set, key1),

@@ -165,7 +165,7 @@ object TopologyMapping {
   }
 
   // Small wrapper to not have to work with (Set[Namespace], Set[Namespace], Set[Uid])
-  final case class RequiredAuthAuthorizations(
+  final case class ReferencedAuthorizations(
       namespacesWithRoot: Set[Namespace] = Set.empty,
       namespaces: Set[Namespace] = Set.empty,
       uids: Set[UniqueIdentifier] = Set.empty,
@@ -174,7 +174,7 @@ object TopologyMapping {
     def isEmpty: Boolean =
       namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty && extraKeys.isEmpty
 
-    override def pretty: Pretty[RequiredAuthAuthorizations.this.type] = prettyOfClass(
+    override def pretty: Pretty[ReferencedAuthorizations.this.type] = prettyOfClass(
       paramIfNonEmpty("namespacesWithRoot", _.namespacesWithRoot),
       paramIfNonEmpty("namespaces", _.namespaces),
       paramIfNonEmpty("uids", _.uids),
@@ -182,19 +182,19 @@ object TopologyMapping {
     )
   }
 
-  object RequiredAuthAuthorizations {
+  object ReferencedAuthorizations {
 
-    val empty: RequiredAuthAuthorizations = RequiredAuthAuthorizations()
+    val empty: ReferencedAuthorizations = ReferencedAuthorizations()
 
-    implicit val monoid: Monoid[RequiredAuthAuthorizations] =
-      new Monoid[RequiredAuthAuthorizations] {
-        override def empty: RequiredAuthAuthorizations = RequiredAuthAuthorizations.empty
+    implicit val monoid: Monoid[ReferencedAuthorizations] =
+      new Monoid[ReferencedAuthorizations] {
+        override def empty: ReferencedAuthorizations = ReferencedAuthorizations.empty
 
         override def combine(
-            x: RequiredAuthAuthorizations,
-            y: RequiredAuthAuthorizations,
-        ): RequiredAuthAuthorizations =
-          RequiredAuthAuthorizations(
+            x: ReferencedAuthorizations,
+            y: ReferencedAuthorizations,
+        ): ReferencedAuthorizations =
+          ReferencedAuthorizations(
             namespacesWithRoot = x.namespacesWithRoot ++ y.namespacesWithRoot,
             namespaces = x.namespaces ++ y.namespaces,
             uids = x.uids ++ y.uids,
@@ -206,36 +206,28 @@ object TopologyMapping {
   sealed trait RequiredAuth extends PrettyPrinting {
     def requireRootDelegation: Boolean = false
     def satisfiedByActualAuthorizers(
-        provided: RequiredAuthAuthorizations
-    ): Either[RequiredAuthAuthorizations, Unit]
+        provided: ReferencedAuthorizations
+    ): Either[ReferencedAuthorizations, Unit]
 
     final def or(next: RequiredAuth): RequiredAuth =
       RequiredAuth.Or(this, next)
 
-    final def foldMap[T](
-        namespaceCheck: RequiredNamespaces => T,
-        uidCheck: RequiredUids => T,
-    )(implicit T: Monoid[T]): T = {
-      def loop(x: RequiredAuth): T = x match {
-        case ns @ RequiredNamespaces(_, _) => namespaceCheck(ns)
-        case uids @ RequiredUids(_, _) => uidCheck(uids)
-        case EmptyAuthorization => T.empty
-        case Or(first, second) => T.combine(loop(first), loop(second))
-      }
-      loop(this)
-    }
-
-    def authorizations: RequiredAuthAuthorizations
+    /** Authorizations referenced by this instance.
+      * Note that the result is not equivalent to this instance, as an "or" gets translated to an "and".
+      * Instead, the result indicates which authorization keys need to be evaluated in order to check
+      * if this RequiredAuth is met.
+      */
+    def referenced: ReferencedAuthorizations
   }
 
   object RequiredAuth {
 
     private[transaction] case object EmptyAuthorization extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          provided: RequiredAuthAuthorizations
-      ): Either[RequiredAuthAuthorizations, Unit] = Either.unit
+          provided: ReferencedAuthorizations
+      ): Either[ReferencedAuthorizations, Unit] = Either.unit
 
-      override def authorizations: RequiredAuthAuthorizations = RequiredAuthAuthorizations()
+      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations()
 
       override def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
     }
@@ -245,21 +237,21 @@ object TopologyMapping {
         override val requireRootDelegation: Boolean = false,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          provided: RequiredAuthAuthorizations
-      ): Either[RequiredAuthAuthorizations, Unit] = {
+          provided: ReferencedAuthorizations
+      ): Either[ReferencedAuthorizations, Unit] = {
         val filter = if (requireRootDelegation) provided.namespacesWithRoot else provided.namespaces
         val missing = namespaces.filter(ns => !filter(ns))
         Either.cond(
           missing.isEmpty,
           (),
-          RequiredAuthAuthorizations(
+          ReferencedAuthorizations(
             namespacesWithRoot = if (requireRootDelegation) missing else Set.empty,
             namespaces = if (requireRootDelegation) Set.empty else missing,
           ),
         )
       }
 
-      override def authorizations: RequiredAuthAuthorizations = RequiredAuthAuthorizations(
+      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations(
         namespacesWithRoot = if (requireRootDelegation) namespaces else Set.empty,
         namespaces = if (requireRootDelegation) Set.empty else namespaces,
       )
@@ -275,13 +267,13 @@ object TopologyMapping {
         extraKeys: Set[Fingerprint] = Set.empty,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          provided: RequiredAuthAuthorizations
-      ): Either[RequiredAuthAuthorizations, Unit] = {
+          provided: ReferencedAuthorizations
+      ): Either[ReferencedAuthorizations, Unit] = {
         val missingUids =
           uids.filter(uid => !provided.uids(uid) && !provided.namespaces(uid.namespace))
         val missingExtraKeys = extraKeys -- provided.extraKeys
         val missingAuth =
-          RequiredAuthAuthorizations(uids = missingUids, extraKeys = missingExtraKeys)
+          ReferencedAuthorizations(uids = missingUids, extraKeys = missingExtraKeys)
         Either.cond(
           missingAuth.isEmpty,
           (),
@@ -289,7 +281,7 @@ object TopologyMapping {
         )
       }
 
-      override def authorizations: RequiredAuthAuthorizations = RequiredAuthAuthorizations(
+      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations(
         uids = uids,
         extraKeys = extraKeys,
       )
@@ -305,14 +297,14 @@ object TopologyMapping {
         second: RequiredAuth,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
-          provided: RequiredAuthAuthorizations
-      ): Either[RequiredAuthAuthorizations, Unit] =
+          provided: ReferencedAuthorizations
+      ): Either[ReferencedAuthorizations, Unit] =
         first
           .satisfiedByActualAuthorizers(provided)
           .orElse(second.satisfiedByActualAuthorizers(provided))
 
-      override def authorizations: RequiredAuthAuthorizations =
-        RequiredAuthAuthorizations.monoid.combine(first.authorizations, second.authorizations)
+      override def referenced: ReferencedAuthorizations =
+        ReferencedAuthorizations.monoid.combine(first.referenced, second.referenced)
 
       override def pretty: Pretty[Or.this.type] =
         prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
@@ -493,23 +485,18 @@ final case class DecentralizedNamespaceDefinition private (
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = {
-    previous match {
-      case None =>
-        RequiredNamespaces(owners.forgetNE)
-      case Some(
-            TopologyTransaction(
+    previous
+      .collect {
+        case TopologyTransaction(
               _op,
               _serial,
               DecentralizedNamespaceDefinition(`namespace`, _previousThreshold, previousOwners),
-            )
-          ) =>
-        val added = owners.diff(previousOwners)
-        // all added owners and the quorum of existing owners MUST sign
-        RequiredNamespaces(added + namespace)
-      case Some(_topoTx) =>
-        // TODO(#14048): proper error or ignore
-        sys.error(s"unexpected transaction data: $previous")
-    }
+            ) =>
+          val added = owners.diff(previousOwners)
+          // all added owners and the quorum of existing owners MUST sign
+          RequiredNamespaces(added + namespace)
+      }
+      .getOrElse(RequiredNamespaces(owners.forgetNE))
   }
 
   override def uniqueKey: MappingHash = DecentralizedNamespaceDefinition.uniqueKey(namespace)
@@ -708,17 +695,12 @@ object OwnerToKeyMapping {
 final case class DomainTrustCertificate(
     participantId: ParticipantId,
     domainId: DomainId,
-    // TODO(#15399): respect this restriction when reassigning contracts
-    transferOnlyToGivenTargetDomains: Boolean,
-    targetDomains: Seq[DomainId],
 ) extends TopologyMapping {
 
   def toProto: v30.DomainTrustCertificate =
     v30.DomainTrustCertificate(
       participantUid = participantId.uid.toProtoPrimitive,
       domain = domainId.toProtoPrimitive,
-      transferOnlyToGivenTargetDomains = transferOnlyToGivenTargetDomains,
-      targetDomains = targetDomains.map(_.toProtoPrimitive),
     )
 
   override def toProtoV30: v30.TopologyMapping =
@@ -761,15 +743,9 @@ object DomainTrustCertificate {
         "participant_uid",
       )
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      transferOnlyToGivenTargetDomains = value.transferOnlyToGivenTargetDomains
-      targetDomains <- value.targetDomains.traverse(
-        DomainId.fromProtoPrimitive(_, "target_domains")
-      )
     } yield DomainTrustCertificate(
       participantId,
       domainId,
-      transferOnlyToGivenTargetDomains,
-      targetDomains,
     )
 }
 
@@ -951,14 +927,12 @@ object ParticipantDomainPermission {
 final case class PartyHostingLimits(
     domainId: DomainId,
     partyId: PartyId,
-    quota: Int,
 ) extends TopologyMapping {
 
   def toProto: v30.PartyHostingLimits =
     v30.PartyHostingLimits(
       domain = domainId.toProtoPrimitive,
       party = partyId.toProtoPrimitive,
-      quota = quota,
     )
 
   override def toProtoV30: v30.TopologyMapping =
@@ -998,8 +972,7 @@ object PartyHostingLimits {
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
-      quota = value.quota
-    } yield PartyHostingLimits(domainId, partyId, quota)
+    } yield PartyHostingLimits(domainId, partyId)
 }
 
 // Package vetting

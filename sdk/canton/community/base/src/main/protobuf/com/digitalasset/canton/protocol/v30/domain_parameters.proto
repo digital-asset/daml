@@ -66,9 +66,7 @@ message DynamicDomainParameters {
 
   ParticipantDomainLimits participant_domain_limits = 13;
 
-  // TODO(#14050) implement party hosting limits
-  uint32 default_max_hosting_participants_per_party = 14;
-
+  reserved 14; // was default_max_hosting_participants_per_party = 14;
   google.protobuf.Duration sequencer_aggregate_submission_timeout = 15;
   com.digitalasset.canton.protocol.v30.TrafficControlParameters traffic_control_parameters = 16;
   AcsCommitmentsCatchUpConfig acs_commitments_catchup_config = 17;

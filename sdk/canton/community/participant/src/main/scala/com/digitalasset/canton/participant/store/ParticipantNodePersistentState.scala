@@ -33,7 +33,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{ErrorUtil, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import org.apache.pekko.stream.Materializer
@@ -210,7 +210,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
         )
         .unlessShutdown(
           settingsStore.refreshCache().map(_ => lens(settingsStore.settings).toRight(())),
-          NoExnRetryable,
+          NoExceptionRetryPolicy,
         )
         .map(_.getOrElse {
           ErrorUtil.internalError(

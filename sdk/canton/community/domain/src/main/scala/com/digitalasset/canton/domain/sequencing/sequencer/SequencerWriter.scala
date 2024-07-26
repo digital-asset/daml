@@ -14,6 +14,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
 import com.digitalasset.canton.domain.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
@@ -28,8 +29,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.retry.Pause
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Pause}
 import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, PekkoUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -310,7 +310,7 @@ class SequencerWriter(
                   .mapK(FutureUnlessShutdown.outcomeK)
               } yield writerStore
             }.value,
-            AllExnRetryable,
+            AllExceptionRetryPolicy,
           )
         }
       }
@@ -498,6 +498,7 @@ object SequencerWriter {
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
       unifiedSequencer: Boolean,
+      metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     val logger = TracedLogger(SequencerWriter.getClass, loggerFactory)
 
@@ -515,6 +516,7 @@ object SequencerWriter {
           eventSignaller,
           loggerFactory,
           protocolVersion,
+          metrics,
         )
           .toMat(Sink.ignore)(Keep.both)
           .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void)),

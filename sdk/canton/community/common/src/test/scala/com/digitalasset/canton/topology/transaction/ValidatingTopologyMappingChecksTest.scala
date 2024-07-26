@@ -11,10 +11,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, seque
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
-  InvalidTopologyMapping,
-  PartyExceedsHostingLimit,
-}
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -288,38 +285,63 @@ class ValidatingTopologyMappingChecksTest
         }
       }
 
-      "reject when the party exceeds the explicitly issued PartyHostingLimits" in {
-        def mkPTP(numParticipants: Int) = {
-          val hostingParticipants = Seq[HostingParticipant](
-            participant1 -> Observation,
-            participant2 -> Submission,
-            participant3 -> Submission,
-          )
-          factory.mkAdd(
-            PartyToParticipant.tryCreate(
-              partyId = party1,
+      "handle conflicts between partyId and existing admin parties from domain trust certificates" in {
+        // the defaults below are a valid explicit admin party allocation for participant1.adminParty
+        def mkPTP(
+            partyId: PartyId = participant1.adminParty,
+            participants: Seq[HostingParticipant] =
+              Seq(HostingParticipant(participant1, Submission)),
+            groupdAddressing: Boolean = false,
+        ) = factory.mkAdd(
+          PartyToParticipant
+            .create(
+              partyId = partyId,
               domainId = None,
               threshold = PositiveInt.one,
-              participants = hostingParticipants.take(numParticipants),
-              groupAddressing = false,
+              participants = participants,
+              groupAddressing = groupdAddressing,
             )
-          )
-        }
-
-        val (checks, store) = mk()
-        val limits = factory.mkAdd(PartyHostingLimits(domainId, party1, 2))
-        addToStore(store, p1_otk, p1_dtc, p2_otk, p2_dtc, p3_otk, p3_dtc, limits)
-
-        // 2 participants are at the limit
-        val twoParticipants = mkPTP(numParticipants = 2)
-        checkTransaction(checks, twoParticipants) shouldBe Right(())
-
-        // 3 participants exceed the limit imposed by the domain
-        val threeParticipants = mkPTP(numParticipants = 3)
-        checkTransaction(checks, threeParticipants) shouldBe Left(
-          PartyExceedsHostingLimit(party1, 2, 3)
+            .value
         )
 
+        val (checks, store) = mk()
+        addToStore(store, p1_otk, p1_dtc, p2_otk, p2_dtc)
+
+        // handle the happy case
+        checkTransaction(checks, mkPTP()) shouldBe Right(())
+
+        // unhappy scenarios
+        val invalidParticipantPermission = Seq(
+          mkPTP(participants = Seq(HostingParticipant(participant1, Confirmation))),
+          mkPTP(participants = Seq(HostingParticipant(participant1, Observation))),
+        )
+
+        val invalidNumberOfHostingParticipants = mkPTP(participants =
+          Seq(
+            HostingParticipant(participant1, Submission),
+            HostingParticipant(participant2, Submission),
+          )
+        )
+
+        val foreignParticipant =
+          mkPTP(participants = Seq(HostingParticipant(participant2, Submission)))
+
+        val invalidGroupAddressing = mkPTP(groupdAddressing = true)
+
+        // we don't need to explicitly check threshold > 1, because we already reject the PTP if participants.size > 1
+        // and the threshold can never be higher than the number of participants
+
+        val unhappyCases = invalidParticipantPermission ++ Seq(
+          foreignParticipant,
+          invalidNumberOfHostingParticipants,
+          invalidGroupAddressing,
+        )
+
+        forAll(unhappyCases)(ptp =>
+          checkTransaction(checks, ptp) shouldBe Left(
+            TopologyTransactionRejection.PartyIdConflictWithAdminParty(ptp.mapping.partyId)
+          )
+        )
       }
 
       "report no errors for valid mappings" in {
@@ -370,22 +392,74 @@ class ValidatingTopologyMappingChecksTest
           store,
           ptp,
         )
-        val prior = factory.mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
+        val prior = factory.mkAdd(DomainTrustCertificate(participant1, domainId))
 
         val dtc =
-          factory.mkRemove(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
+          factory.mkRemove(DomainTrustCertificate(participant1, domainId))
 
         checkTransaction(checks, dtc, Some(prior)) shouldBe Left(
           TopologyTransactionRejection.ParticipantStillHostsParties(participant1, Seq(party1))
         )
+      }
 
+      "handle conflicts with existing party allocations" in {
+        val explicitAdminPartyParticipant1 = factory.mkAdd(
+          PartyToParticipant
+            .create(
+              partyId = participant1.adminParty,
+              domainId = None,
+              threshold = PositiveInt.one,
+              participants = Seq(HostingParticipant(participant1, Submission)),
+              groupAddressing = false,
+            )
+            .value
+        )
+
+        // we allocate a party with participant2's UID on participant1.
+        // this is not an explicit admin party allocation, the party just so happens to use the same UID as participant2.
+        val partyWithParticipant2Uid = factory.mkAdd(
+          PartyToParticipant
+            .create(
+              partyId = participant2.adminParty,
+              domainId = None,
+              threshold = PositiveInt.one,
+              participants = Seq(HostingParticipant(participant1, Submission)),
+              groupAddressing = false,
+            )
+            .value
+        )
+
+        val dop = factory.mkAdd(
+          DomainParametersState(
+            domainId,
+            DynamicDomainParameters.defaultValues(testedProtocolVersion),
+          )
+        )
+
+        val (checks, store) = mk()
+
+        // normally it's not possible to have a valid PTP without an already existing DTC of the hosting participants.
+        // but let's pretend for this check.
+        addToStore(store, dop, explicitAdminPartyParticipant1, partyWithParticipant2Uid)
+
+        // happy case: we allow the DTC (either a creation or modifying an existing one)
+        // if there is a valid explicit admin party allocation
+        checkTransaction(checks, p1_dtc, None) shouldBe Right(())
+
+        // unhappy case: there already exists a normal party allocation with the same UID
+        checkTransaction(checks, p2_dtc, None) shouldBe Left(
+          TopologyTransactionRejection.ParticipantIdConflictWithPartyId(
+            participant2,
+            partyWithParticipant2Uid.mapping.partyId,
+          )
+        )
       }
 
       "reject the addition if the domain is locked" in {
         Seq(OnboardingRestriction.RestrictedLocked, OnboardingRestriction.UnrestrictedLocked)
           .foreach { restriction =>
             val (checks, store) = mk()
-            val ptp = factory.mkAdd(
+            val dop = factory.mkAdd(
               DomainParametersState(
                 domainId,
                 DynamicDomainParameters
@@ -393,10 +467,10 @@ class ValidatingTopologyMappingChecksTest
                   .tryUpdate(onboardingRestriction = restriction),
               )
             )
-            addToStore(store, ptp)
+            addToStore(store, dop)
 
             val dtc =
-              factory.mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty))
+              factory.mkAdd(DomainTrustCertificate(participant1, domainId))
 
             checkTransaction(checks, dtc) shouldBe Left(
               TopologyTransactionRejection.OnboardingRestrictionInPlace(
@@ -410,7 +484,7 @@ class ValidatingTopologyMappingChecksTest
 
       "reject the addition if the domain is restricted" in {
         val (checks, store) = mk()
-        val ptp = factory.mkAdd(
+        val dop = factory.mkAdd(
           DomainParametersState(
             domainId,
             DynamicDomainParameters
@@ -420,7 +494,7 @@ class ValidatingTopologyMappingChecksTest
         )
         addToStore(
           store,
-          ptp,
+          dop,
           factory.mkAdd(
             ParticipantDomainPermission(
               domainId,
@@ -435,7 +509,7 @@ class ValidatingTopologyMappingChecksTest
         // participant2 does not have permission from the domain to join
         checkTransaction(
           checks,
-          factory.mkAdd(DomainTrustCertificate(participant2, domainId, false, Seq.empty)),
+          factory.mkAdd(DomainTrustCertificate(participant2, domainId)),
         ) shouldBe Left(
           TopologyTransactionRejection.OnboardingRestrictionInPlace(
             participant2,
@@ -447,7 +521,7 @@ class ValidatingTopologyMappingChecksTest
         // participant1 has been permissioned by the domain
         checkTransaction(
           checks,
-          factory.mkAdd(DomainTrustCertificate(participant1, domainId, false, Seq.empty)),
+          factory.mkAdd(DomainTrustCertificate(participant1, domainId)),
           None,
         ) shouldBe Right(())
       }

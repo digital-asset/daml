@@ -11,6 +11,7 @@ import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.BaseCantonError
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
@@ -245,9 +246,15 @@ class SendTracker(
     // Update the traffic controller with the traffic consumed in the receipt
     (trafficStateController, resultO) match {
       case (Some(tsc), Some(UnlessShutdown.Outcome(Success(deliver)))) =>
-        deliver.trafficReceipt.foreach(tsc.updateWithReceipt(_, deliver.timestamp))
+        deliver.trafficReceipt.foreach(tsc.updateWithReceipt(_, deliver.timestamp, None))
       case (Some(tsc), Some(UnlessShutdown.Outcome(Error(deliverError)))) =>
-        deliverError.trafficReceipt.foreach(tsc.updateWithReceipt(_, deliverError.timestamp))
+        deliverError.trafficReceipt.foreach(
+          tsc.updateWithReceipt(
+            _,
+            deliverError.timestamp,
+            BaseCantonError.statusErrorCodes(deliverError.reason).headOption.orElse(Some("unknown")),
+          )
+        )
       case (Some(tsc), Some(UnlessShutdown.Outcome(Timeout(timestamp)))) =>
         // Event was not sequenced but we can still advance the base rate at the timestamp
         tsc.tickStateAt(timestamp)

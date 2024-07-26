@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -1082,8 +1083,10 @@ class SequencerClientTest
         messageId: MessageId = client.generateMessageId,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncClientError, Unit] =
+    ): EitherT[Future, SendAsyncClientError, Unit] = {
+      implicit val metricsContext: MetricsContext = MetricsContext.Empty
       client.sendAsync(batch, messageId = messageId).onShutdown(fail())
+    }
   }
 
   private class MockSubscription[E] extends SequencerSubscription[E] {

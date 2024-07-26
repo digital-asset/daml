@@ -181,7 +181,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       tx <- build(op, mapping, serial, protocolVersion, signingKeys).mapK(
         FutureUnlessShutdown.outcomeK
       )
-      signedTx <- signTransaction(tx, signingKeys, isProposal = !expectFullAuthorization)
+      signedTx <- signTransaction(
+        tx,
+        signingKeys,
+        isProposal = !expectFullAuthorization,
+        protocolVersion,
+      )
       _ <- add(Seq(signedTx), forceChanges, expectFullAuthorization)
     } yield signedTx
   }
@@ -315,6 +320,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       transaction: TopologyTransaction[Op, M],
       signingKeys: Seq[Fingerprint],
       isProposal: Boolean,
+      protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, SignedTopologyTransaction[Op, M]] = {
@@ -339,8 +345,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           keys,
           isProposal,
           crypto.privateCrypto,
-          // TODO(#14048) The `SignedTopologyTransaction` may use a different versioning scheme than the contained transaction. Use the right protocol version here
-          transaction.representativeProtocolVersion.representative,
+          protocolVersion,
         )
         .leftMap {
           case SigningError.UnknownSigningKey(keyId) =>

@@ -34,7 +34,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -120,7 +120,7 @@ class SequencerInfoLoader(
         )
         .apply(
           getBootstrapInfoDomainParameters(domainAlias, sequencerAlias, client).value,
-          NoExnRetryable,
+          NoExceptionRetryPolicy,
         )
     )
   }

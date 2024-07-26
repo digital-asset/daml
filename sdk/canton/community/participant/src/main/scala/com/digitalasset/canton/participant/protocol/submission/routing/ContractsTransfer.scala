@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -97,7 +97,6 @@ private[routing] class ContractsTransfer(
         .submitTransferIn(
           submitterMetadata,
           outResult.transferId,
-          SourceProtocolVersion(sourceSyncDomain.staticDomainParameters.protocolVersion),
         )
         .leftMap[String](err => s"Transfer in failed with error ${err}")
         .flatMap { s =>

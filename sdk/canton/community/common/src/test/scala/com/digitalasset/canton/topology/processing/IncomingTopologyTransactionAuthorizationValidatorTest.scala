@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.processing
 
 import cats.Apply
 import cats.instances.list.*
-import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SignatureCheckError.InvalidSignature
@@ -17,6 +16,7 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   NoDelegationFoundForKeys,
   NotAuthorized,
 }
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -27,6 +27,8 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.concurrent.Future
 
 class IncomingTopologyTransactionAuthorizationValidatorTest
     extends AsyncWordSpec
@@ -75,7 +77,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],
         expectFullAuthorization: Boolean,
-    )(implicit traceContext: TraceContext) = {
+    )(implicit traceContext: TraceContext): Future[Seq[GenericValidatedTopologyTransaction]] =
       MonadUtil
         .sequentialTraverse(toValidate)(tx =>
           validator.validateAndUpdateHeadAuthState(
@@ -85,11 +87,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization,
           )
         )
-        .map { results =>
-          val (aggregations, transactions) = results.unzip
-          (aggregations.combineAll, transactions)
-        }
-    }
 
     "receiving transactions with signatures" should {
       "succeed to add if the signature is valid" in {
@@ -104,7 +101,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None))
+          check(res, Seq(None, None))
         }
       }
       "fail to add if the signature is invalid" in {
@@ -112,7 +109,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         import Factory.*
         val invalid = ns1k2_k1.copy(signatures = ns1k1_k1.signatures)
         for {
-          (_, validatedTopologyTransactions) <- validate(
+          validatedTopologyTransactions <- validate(
             validator,
             ts(0),
             List(ns1k1_k1, invalid),
@@ -140,7 +137,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         val okmS1k7_k1_missing_k7 =
           okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
         for {
-          (_, validatedTopologyTransactions) <- validate(
+          validatedTopologyTransactions <- validate(
             validator,
             ts(0),
             List(ns1k1_k1, okmS1k7_k1_missing_k7),
@@ -167,8 +164,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           DomainTrustCertificate(
             pid,
             wrongDomain,
-            false,
-            Seq.empty,
           ),
           Factory.SigningKeys.key1,
         )
@@ -182,7 +177,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               None,
               Some({
@@ -256,7 +251,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = false,
           )
         } yield {
-          result._2.loneElement.rejectionReason shouldBe None
+          result.loneElement.rejectionReason shouldBe None
         }
       }
     }
@@ -274,7 +269,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None))
+          check(res, Seq(None, None, None))
         }
       }
       "fail if the signature of a root certificate is not valid" in {
@@ -297,7 +292,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               Some({
                 case TopologyTransactionRejection.SignatureCheckFailed(
@@ -324,7 +319,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               None,
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
@@ -356,7 +351,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None))
+          check(res, Seq(None, None))
         }
       }
 
@@ -374,7 +369,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
 
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               None,
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
@@ -402,7 +397,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None))
+          check(res, Seq(None, None, None, None))
         }
       }
       "fail if transaction is not properly authorized" in {
@@ -418,7 +413,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
               None,
@@ -444,7 +439,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None, None, None, None))
+          check(res, Seq(None, None, None, None, None, None, None))
         }
       }
       "fail if transaction is not properly authorized" in {
@@ -469,7 +464,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
 
         } yield {
           check(
-            resultExpectFullAuthorization._2,
+            resultExpectFullAuthorization,
             Seq(
               None,
               Some(_ == NotAuthorized),
@@ -478,7 +473,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
 
           check(
-            resultDontExpectFullAuthorization._2,
+            resultDontExpectFullAuthorization,
             Seq(
               None,
               Some(_ == NotAuthorized),
@@ -509,7 +504,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None))
+          check(res, Seq(None, None, None))
         }
       }
     }
@@ -529,7 +524,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None, None))
+          check(res, Seq(None, None, None, None, None))
         }
       }
 
@@ -548,7 +543,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            res._2,
+            res,
             Seq(
               None,
               None,
@@ -562,141 +557,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         }
       }
 
-    }
-
-    "correctly determine cascading update for" should {
-      "namespace additions" in {
-        val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
-        val validator = mk(store)
-        import Factory.*
-        for {
-          _ <- store.update(
-            SequencedTime(ts(0)),
-            EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
-            additions = List(ns6k6_k6).map(ValidatedTopologyTransaction(_)),
-          )
-          res <- validate(
-            validator,
-            ts(1),
-            List(ns1k1_k1, okm1bk5k1E_k1, p1p6_k6),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-        } yield {
-          res._1.cascadingNamespaces shouldBe Set(ns1)
-        }
-      }
-
-      "namespace removals" in {
-        val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
-        val validator = mk(store)
-        import Factory.*
-        val Rns1k1_k1 = mkTrans(ns1k1_k1.transaction.reverse)
-        for {
-          _ <- store.update(
-            SequencedTime(ts(0)),
-            EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
-            additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
-          )
-          res <- validate(
-            validator,
-            ts(1),
-            List(Rns1k1_k1, okm1bk5k1E_k1),
-            Map(Rns1k1_k1.mapping.uniqueKey -> ns1k1_k1),
-            expectFullAuthorization = true,
-          )
-        } yield {
-          check(
-            res._2,
-            Seq(None, Some(_ == NotAuthorized)),
-          )
-          res._1.cascadingNamespaces shouldBe Set(ns1)
-        }
-      }
-
-      "identifier additions and removals" in {
-        val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
-        val validator = mk(store)
-        import Factory.*
-        val Rid1ak4_k1 = mkTrans(id1ak4_k1.transaction.reverse)
-        for {
-          _ <- store.update(
-            SequencedTime(ts(0)),
-            EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
-            additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
-          )
-          res <- validate(
-            validator,
-            ts(1),
-            List(id1ak4_k1),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-          res2 <- validate(
-            validator,
-            ts(2),
-            List(Rid1ak4_k1),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-        } yield {
-          res._1.cascadingNamespaces shouldBe Set()
-          res._1.cascadingUids shouldBe Set(uid1a)
-          res2._1.cascadingUids shouldBe Set(uid1a)
-        }
-      }
-
-      "cascading invalidation pre-existing identifier uids" in {
-        val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
-        val validator = mk(store)
-        import Factory.*
-        import Factory.SigningKeys.{ec as _, *}
-        // scenario: we have id1ak4_k2 previously loaded. now we get a removal on k2. we need to ensure that
-        // nothing can be added by k4
-        val Rns1k2_k1 = mkTrans(ns1k2_k1.transaction.reverse)
-        val id6ak7_k6 = mkAdd(IdentifierDelegation(uid6, key7), key6)
-        for {
-          _ <- store.update(
-            SequencedTime(ts(0)),
-            EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
-            additions =
-              List(ns1k1_k1, ns1k2_k1, id1ak4_k2, ns6k6_k6).map(ValidatedTopologyTransaction(_)),
-          )
-          res <- validate(
-            validator,
-            ts(1),
-            List(p1p6_k2k6, Rns1k2_k1, id6ak7_k6, p1p6_k2),
-            Map(
-              ns1k2_k1.mapping.uniqueKey -> ns1k2_k1
-            ),
-            expectFullAuthorization = true,
-          )
-        } yield {
-          check(
-            res._2,
-            Seq(
-              None,
-              None,
-              None,
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
-            ),
-          )
-          res._1.cascadingNamespaces shouldBe Set(ns1)
-          res._1.filteredCascadingUids shouldBe Set(uid6)
-        }
-      }
     }
 
     "observing PartyToParticipant mappings" should {
@@ -810,11 +670,11 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = false,
           )
         } yield {
-          check(hostingResult._2, Seq(None))
-          check(unhostingResult._2, Seq(None))
-          check(unhostingMixedResult._2, Seq(None))
+          check(hostingResult, Seq(None))
+          check(unhostingResult, Seq(None))
+          check(unhostingMixedResult, Seq(None))
           check(
-            unhostingAndThresholdChangeResult._2,
+            unhostingAndThresholdChangeResult,
             Seq(Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint)))),
           )
         }
@@ -847,7 +707,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = false,
           )
         } yield {
-          check(res._2, Seq(None))
+          check(res, Seq(None))
         }
       }
 
@@ -890,7 +750,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None))
+          check(res, Seq(None))
         }
       }
 
@@ -908,13 +768,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             Map.empty,
             expectFullAuthorization = true,
           )
-          _ = resultAddOwners._2.foreach(_.rejectionReason shouldBe None)
+          _ = resultAddOwners.foreach(_.rejectionReason shouldBe None)
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = resultAddOwners._2,
+            additions = resultAddOwners,
           )
 
           // 2. validate and store the decentralized namespace definition
@@ -926,13 +786,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             Map.empty,
             expectFullAuthorization = true,
           )
-          _ = resultAddDND._2.foreach(_.rejectionReason shouldBe None)
+          _ = resultAddDND.foreach(_.rejectionReason shouldBe None)
           _ <- store.update(
             SequencedTime(ts(1)),
             EffectiveTime(ts(1)),
             removeMapping = Map.empty,
             removeTxs = Set.empty,
-            additions = resultAddDND._2,
+            additions = resultAddDND,
           )
 
           // 3. now process the removal of the decentralized namespace definition
@@ -944,13 +804,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             Map(dns1.mapping.uniqueKey -> dns1),
             expectFullAuthorization = true,
           )
-          _ = resRemoveDND._2.foreach(_.rejectionReason shouldBe None)
+          _ = resRemoveDND.foreach(_.rejectionReason shouldBe None)
           _ <- store.update(
             SequencedTime(ts(2)),
             EffectiveTime(ts(2)),
             removeMapping = Map(dns1Removal.mapping.uniqueKey -> dns1Removal.serial),
             removeTxs = Set.empty,
-            additions = resRemoveDND._2,
+            additions = resRemoveDND,
           )
 
           // 4. Now to the actual test: try to authorize something for the decentralized namespace.
@@ -965,7 +825,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           )
         } yield {
           check(
-            resultUnauthorizedIDD._2,
+            resultUnauthorizedIDD,
             Seq(
               Some(
                 _ == NoDelegationFoundForKeys(
@@ -1031,7 +891,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         )
 
       } yield {
-        val validatedPkgTx = result_packageVetting._2.loneElement
+        val validatedPkgTx = result_packageVetting.loneElement
 
         validatedPkgTx.rejectionReason shouldBe None
         withClue("package transaction is proposal")(
@@ -1111,7 +971,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         )
 
       } yield {
-        val validatedPkgTx = resultPackageVetting._2.loneElement
+        val validatedPkgTx = resultPackageVetting.loneElement
         val signatures = validatedPkgTx.transaction.signatures
 
         validatedPkgTx.rejectionReason shouldBe None
@@ -1119,7 +979,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           _.id
         ))
 
-        resultOnlySuperfluousSignatures._2.loneElement.rejectionReason shouldBe Some(
+        resultOnlySuperfluousSignatures.loneElement.rejectionReason shouldBe Some(
           TopologyTransactionRejection.NoDelegationFoundForKeys(Set(key3.id, key5.id))
         )
       }
@@ -1159,21 +1019,22 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           isProposal: Boolean,
           expectFullAuthorization: Boolean,
           signingKeys: SigningPublicKey*
-      ) = TraceContext.withNewTraceContext { freshTraceContext =>
-        validate(
-          validator,
-          ts(1),
-          toValidate = List(
-            mkTrans(
-              pkgTx,
-              isProposal = isProposal,
-              signingKeys = NonEmpty.from(signingKeys.toSet).value,
-            )
-          ),
-          inStore = Map.empty,
-          expectFullAuthorization = expectFullAuthorization,
-        )(freshTraceContext)
-          .map(_._2.loneElement)
+      ): Future[GenericValidatedTopologyTransaction] = TraceContext.withNewTraceContext {
+        freshTraceContext =>
+          validate(
+            validator,
+            ts(1),
+            toValidate = List(
+              mkTrans(
+                pkgTx,
+                isProposal = isProposal,
+                signingKeys = NonEmpty.from(signingKeys.toSet).value,
+              )
+            ),
+            inStore = Map.empty,
+            expectFullAuthorization = expectFullAuthorization,
+          )(freshTraceContext)
+            .map(_.loneElement)
       }
 
       for {
@@ -1214,7 +1075,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         )
 
         // try with 2/3 signatures
-        key1_key8_notAuthorized <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
+        _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
           case (isProposal, expectFullAuthorization) =>
             clueF(
               s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"

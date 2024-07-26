@@ -148,7 +148,7 @@ class LedgerServerPartyNotifier(
               )
             }
         // propagate admin parties
-        case DomainTrustCertificate(participantId, _, _, _) =>
+        case DomainTrustCertificate(participantId, _) =>
           Seq(
             (
               participantId.adminParty,

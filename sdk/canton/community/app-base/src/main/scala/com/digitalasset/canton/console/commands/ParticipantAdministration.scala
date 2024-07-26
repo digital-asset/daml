@@ -65,7 +65,6 @@ import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.ResourceLimits
-import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
@@ -1725,36 +1724,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } yield ()
       }
     }
-
-  }
-
-  @Help.Summary("Composability related functionality", FeatureFlag.Preview)
-  @Help.Group("Transfer")
-  object transfer extends Helpful {
-
-    @Help.Summary("Search the currently in-flight transfers", FeatureFlag.Testing)
-    @Help.Description(
-      "Returns all in-flight transfers with the given target domain that match the filters, but no more than the limit specifies."
-    )
-    def search(
-        targetDomain: DomainAlias,
-        filterSourceDomain: Option[DomainAlias],
-        filterTimestamp: Option[Instant],
-        filterSubmittingParty: Option[PartyId],
-        limit: PositiveInt = defaultLimit,
-    ): Seq[TransferSearchResult] =
-      check(FeatureFlag.Preview)(consoleEnvironment.run {
-        adminCommand(
-          ParticipantAdminCommands.Transfer
-            .TransferSearch(
-              targetDomain,
-              filterSourceDomain,
-              filterTimestamp,
-              filterSubmittingParty,
-              limit.value,
-            )
-        )
-      })
   }
 
   @Help.Summary("Functionality for managing resources")
