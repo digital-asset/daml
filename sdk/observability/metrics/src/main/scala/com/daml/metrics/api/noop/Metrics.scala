@@ -33,9 +33,11 @@ final case class NoOpGauge[T](info: MetricInfo, value: T) extends Gauge[T] {
 
   private val ref = new AtomicReference[T](value)
 
-  override def updateValue(newValue: T): Unit = ref.set(newValue)
+  override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit = ref.set(newValue)
 
   override def getValue: T = ref.get()
+
+  override def getValueAndContext: (T, MetricsContext) = ref.get() -> MetricsContext.Empty
 
   override def updateValue(f: T => T): Unit = {
     val _ = ref.updateAndGet(f(_))
