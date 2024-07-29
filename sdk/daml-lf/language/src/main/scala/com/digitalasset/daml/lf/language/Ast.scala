@@ -1287,14 +1287,14 @@ object Ast {
     ): GenPackage[E] = {
       val isUtilityPackage =
         metadata.name == "daml-prim" || metadata.name == "daml-stdlib" ||
-        modules.values.forall(mod =>
-          mod.templates.isEmpty &&
-            mod.interfaces.isEmpty &&
-            mod.definitions.values.forall {
-              case DDataType(serializable, _, _) => !serializable
-              case _ => true
-            }
-        )
+          modules.values.forall(mod =>
+            mod.templates.isEmpty &&
+              mod.interfaces.isEmpty &&
+              mod.definitions.values.forall {
+                case DDataType(serializable, _, _) => !serializable
+                case _ => true
+              }
+          )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
