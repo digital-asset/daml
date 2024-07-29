@@ -188,20 +188,25 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
       context: MetricsContext,
       initial: T,
   ) extends Gauge[T] {
-    val value = new AtomicReference[T](initial)
+    val value = new AtomicReference[(T, MetricsContext)](initial -> context)
     val closed = new AtomicBoolean(false)
 
-    override def updateValue(newValue: T): Unit = {
+    override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit = {
       checkClosed()
-      value.set(newValue)
+      value.set(newValue -> mc)
     }
 
     override def updateValue(f: T => T): Unit = {
       checkClosed()
-      discard(value.updateAndGet(value => f(value)))
+      discard(value.updateAndGet { case (value, mc) => f(value) -> mc })
     }
 
     override def getValue: T = {
+      checkClosed()
+      value.get()._1
+    }
+
+    override def getValueAndContext: (T, MetricsContext) = {
       checkClosed()
       value.get()
     }

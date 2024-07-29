@@ -4,7 +4,6 @@
 package com.daml.metrics.api
 
 import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
-import com.daml.metrics.api.MetricQualification
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -148,11 +147,13 @@ object MetricHandle {
   trait Gauge[T] extends MetricHandle with CloseableGauge {
     def metricType: String = "Gauge"
 
-    def updateValue(newValue: T): Unit
+    def updateValue(newValue: T)(implicit mc: MetricsContext = MetricsContext.Empty): Unit
 
     def updateValue(f: T => T): Unit
 
     def getValue: T
+
+    def getValueAndContext: (T, MetricsContext)
   }
 
   object Gauge {

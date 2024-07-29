@@ -14,6 +14,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   convertNanosecondsToSeconds,
 }
 import com.daml.metrics.api._
+import com.daml.scalautil.Statement.discard
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
   DoubleHistogram,
@@ -106,36 +107,34 @@ class OpenTelemetryMetricsFactory(
       globalMetricsContext.merge(context),
     )
   }
+
   override def gauge[T](info: MetricInfo, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
-    val attributes = globalMetricsContext.merge(context).asAttributes
-    val gauge = OpenTelemetryGauge(info, initial)
-
+    val gauge = OpenTelemetryGauge(info, initial, context)
+    val gaugeBuilder = otelMeter.gaugeBuilder(info.name).setDescription(info.summary)
     val registered = initial match {
       case _: Int =>
-        otelMeter
-          .gaugeBuilder(info.name)
+        gaugeBuilder
           .ofLongs()
-          .setDescription(info.summary)
           .buildWithCallback { consumer =>
-            consumer.record(gauge.getValue.asInstanceOf[Int].toLong, attributes)
+            val (newValue, newContext) = gauge.getValueAndContext
+            consumer.record(newValue.asInstanceOf[Int].toLong, newContext.asAttributes)
           }
       case _: Long =>
-        otelMeter
-          .gaugeBuilder(info.name)
+        gaugeBuilder
           .ofLongs()
-          .setDescription(info.summary)
           .buildWithCallback { consumer =>
-            consumer.record(gauge.getValue.asInstanceOf[Long], attributes)
+            val (newValue, newContext) = gauge.getValueAndContext
+            consumer.record(newValue.asInstanceOf[Long], newContext.asAttributes)
           }
       case _: Double =>
-        otelMeter.gaugeBuilder(info.name).setDescription(info.summary).buildWithCallback {
-          consumer =>
-            consumer.record(gauge.getValue.asInstanceOf[Double], attributes)
+        gaugeBuilder.buildWithCallback { consumer =>
+          val (newValue, newContext) = gauge.getValueAndContext
+          consumer.record(newValue.asInstanceOf[Double], newContext.asAttributes)
         }
       case _ =>
-        throw new IllegalArgumentException("Gauges support only numeric values.")
+        throw new IllegalArgumentException("Only Int, Long and Double gauges are supported.")
     }
     gauge.reference.set(Some(registered))
     gauge
@@ -147,40 +146,35 @@ class OpenTelemetryMetricsFactory(
   )(implicit
       context: MetricsContext = MetricsContext.Empty
   ): CloseableGauge = {
-    val value = valueSupplier()
-    val attributes = globalMetricsContext.merge(context).asAttributes
-    value match {
+    val (typeProbeValue, _) = valueSupplier()
+    val gaugeBuilder = otelMeter.gaugeBuilder(info.name).setDescription(info.summary)
+    val attributes = context.asAttributes
+    typeProbeValue match {
       case _: Int =>
-        val gaugeHandle = otelMeter
-          .gaugeBuilder(info.name)
-          .ofLongs()
-          .setDescription(info.summary)
-          .buildWithCallback { consumer =>
-            val value = valueSupplier()
-            consumer.record(value.asInstanceOf[Int].toLong, attributes)
-          }
+        val gaugeHandle =
+          gaugeBuilder
+            .ofLongs()
+            .buildWithCallback { consumer =>
+              consumer.record(valueSupplier().asInstanceOf[Int].toLong, attributes)
+            }
         SimpleCloseableGauge(info, gaugeHandle)
       case _: Long =>
-        val gaugeHandle = otelMeter
-          .gaugeBuilder(info.name)
-          .ofLongs()
-          .setDescription(info.summary)
-          .buildWithCallback { consumer =>
-            val value = valueSupplier()
-            consumer.record(value.asInstanceOf[Long], attributes)
-          }
+        val gaugeHandle =
+          gaugeBuilder
+            .ofLongs()
+            .buildWithCallback { consumer =>
+              consumer.record(valueSupplier().asInstanceOf[Long], attributes)
+            }
         SimpleCloseableGauge(info, gaugeHandle)
       case _: Double =>
-        val gaugeHandle = otelMeter
-          .gaugeBuilder(info.name)
-          .setDescription(info.summary)
-          .buildWithCallback { consumer =>
-            val value = valueSupplier()
-            consumer.record(value.asInstanceOf[Double], attributes)
-          }
+        val gaugeHandle =
+          gaugeBuilder
+            .buildWithCallback { consumer =>
+              consumer.record(valueSupplier().asInstanceOf[Double], attributes)
+            }
         SimpleCloseableGauge(info, gaugeHandle)
       case _ =>
-        throw new IllegalArgumentException("Gauges support only numeric values.")
+        throw new IllegalArgumentException("Only Int, Long and Double gauges are supported.")
     }
   }
 
@@ -268,21 +262,22 @@ object OpenTelemetryTimer {
   }
 }
 
-case class OpenTelemetryGauge[T](override val info: MetricInfo, initial: T) extends Gauge[T] {
+case class OpenTelemetryGauge[T](override val info: MetricInfo, initial: T, context: MetricsContext)
+    extends Gauge[T] {
 
-  private val ref = new AtomicReference[T](initial)
+  private val ref = new AtomicReference[(T, MetricsContext)](initial -> context)
   private[opentelemetry] val reference = new AtomicReference[Option[AutoCloseable]](None)
 
-  override def updateValue(newValue: T): Unit = ref.set(newValue)
+  override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit = ref.set(newValue -> mc)
 
-  override def getValue: T = ref.get()
+  override def getValue: T = ref.get()._1
 
-  override def updateValue(f: T => T): Unit = {
-    val _ = ref.updateAndGet(f(_))
-  }
+  override def getValueAndContext: (T, MetricsContext) = ref.get()
+
+  override def updateValue(f: T => T): Unit =
+    discard(ref.updateAndGet { case (value, mc) => f(value) -> mc })
 
   override def close(): Unit = reference.getAndSet(None).foreach(_.close())
-
 }
 
 case class OpenTelemetryMeter(
