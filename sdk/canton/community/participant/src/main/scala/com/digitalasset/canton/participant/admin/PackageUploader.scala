@@ -36,8 +36,9 @@ import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 import java.nio.file.Paths
 import java.util.zip.ZipInputStream
@@ -88,7 +89,7 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
-        _ <- validatePackages(mainPackage, dependencies)
+        _ <- validatePackages(mainPackage :: dependencies)
       } yield hash
     }
 
@@ -98,7 +99,7 @@ class PackageUploader(
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, (List[Ref.PackageId], Hash)] =
+  ): EitherT[FutureUnlessShutdown, DamlError, (List[LfPackageId], Hash)] =
     performUnlessClosingEitherUSF("upload DAR") {
       val darNameO =
         fileNameO.map(fn => PathUtils.getFilenameWithoutExtension(Paths.get(fn).getFileName))
@@ -118,12 +119,12 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive)).map(archive -> _)
         )
+        allPackages = mainPackage :: dependencies
         hash <- EitherT(
           uploadDarExecutionQueue.executeUS(
             uploadDarSequentialStep(
               darPayload = darPayload,
-              mainPackage = mainPackage,
-              dependencies = dependencies,
+              packages = allPackages,
               // TODO(#17635): Allow more generic source descriptions or rename source description to DAR name
               lengthValidatedDarName = lengthValidatedNameO,
               submissionId = submissionId,
@@ -131,7 +132,7 @@ class PackageUploader(
             description = "store DAR",
           )
         )
-      } yield (mainPackage._2._1 :: dependencies.map(_._2._1)) -> hash
+      } yield allPackages.map(_._2._1) -> hash
     }
 
   // This stage must be run sequentially to exclude the possibility
@@ -139,8 +140,7 @@ class PackageUploader(
   // is happening concurrently with an update of the package metadata view.
   private def uploadDarSequentialStep(
       darPayload: ByteString,
-      mainPackage: (DamlLf.Archive, (LfPackageId, Ast.Package)),
-      dependencies: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
+      packages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
       lengthValidatedDarName: Option[String255],
       submissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[DamlError, Hash]] = {
@@ -165,7 +165,9 @@ class PackageUploader(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
+          if (pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage) {
+            packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
+          }
         }
       } yield ()
 
@@ -178,10 +180,8 @@ class PackageUploader(
         DarDescriptor(hash, persistedDarName),
         darPayload.toByteArray,
       )
-    validatePackages(mainPackage._2, dependencies.map(_._2))
-      .semiflatMap { _ =>
-        val allPackages = mainPackage :: dependencies
-        val result = persist(darDescriptor, uploadTime, allPackages)
+    validatePackages(packages.map(_._2)).semiflatMap { _ =>
+        val result = persist(darDescriptor, uploadTime, packages)
         handleUploadResult(result, submissionId)
       }
       .map(_ => hash)
@@ -213,15 +213,14 @@ class PackageUploader(
     }
 
   private def validatePackages(
-      mainPackage: (LfPackageId, Ast.Package),
-      dependencies: List[(LfPackageId, Ast.Package)],
+      packages: List[(LfPackageId, Ast.Package)]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
-          .validatePackages((mainPackage :: dependencies).toMap)
+          .validatePackages(packages.toMap)
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
@@ -229,10 +228,12 @@ class PackageUploader(
       _ <-
         if (enableUpgradeValidation) {
           packageUpgradeValidator
-            .validateUpgrade(mainPackage)(LoggingContextWithTrace(loggerFactory))
+            .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
             .mapK(FutureUnlessShutdown.outcomeK)
         } else {
-          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
+          logger.info(
+            s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
+          )
           EitherT.pure[FutureUnlessShutdown, DamlError](())
         }
     } yield ()

@@ -1233,6 +1233,7 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
+      isUtilityPackage: Boolean,
   ) {
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
@@ -1254,8 +1255,10 @@ object Ast {
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
+        // Packages that do not define any serializable types are referred to as utility packages
+        // in the context of upgrades. They will not be considered for upgrade checks.
     ): GenPackage[E] =
-      GenPackage(
+      apply(
         modules = toMapWithoutDuplicate(
           modules.view.map(m => m.name -> m),
           (modName: ModuleName) => PackageError(s"Collision on module name ${modName.toString}"),
@@ -1269,13 +1272,25 @@ object Ast {
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
-    ): GenPackage[E] =
+    ): GenPackage[E] = {
+      val isUtilityPackage =
+        metadata.name == "daml-prim" || metadata.name == "daml-stdlib" ||
+        modules.values.forall(mod =>
+          mod.templates.isEmpty &&
+            mod.interfaces.isEmpty &&
+            mod.definitions.values.forall {
+              case DDataType(serializable, _, _) => !serializable
+              case _ => true
+            }
+        )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
         languageVersion = languageVersion,
         metadata = metadata,
+        isUtilityPackage = isUtilityPackage,
       )
+    }
 
     def unapply(arg: GenPackage[E]): Some[
       (

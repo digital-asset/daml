@@ -152,6 +152,8 @@ da_scala_test_suite(
             "//test-common:upgrades-TemplateChangedKeyType-v2.dar",
             "//test-common:upgrades-ValidUpgrade-v1.dar",
             "//test-common:upgrades-ValidUpgrade-v2.dar",
+            "//test-common:upgrades-EmptyProject-v21.dar",
+            "//test-common:upgrades-EmptyProject-v2dev.dar",
 
             # Ported from DamlcUpgrades.hs
             "//test-common:upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
@@ -243,7 +245,7 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
             "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
         ],
-        flaky = True,
+        flaky = False,
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
