@@ -73,7 +73,6 @@ main = tests
   , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
   ]
 
-
 mustBeWronglyTypedContract : Either SubmitError r -> Script ()
 mustBeWronglyTypedContract (Left (WronglyTypedContract {})) = pure ()
 mustBeWronglyTypedContract (Left e) = assertFail $ "Incorrect error: " <> show e
