@@ -13,7 +13,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
-import shapeless.{Coproduct => HSum, HNil}
+import shapeless.{HNil, Coproduct => HSum}
 
 import scala.language.implicitConversions
 
@@ -162,6 +162,34 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       hash1 should !==(hash2)
     }
 
+    "not produce collision in list of records" in {
+      val recordT =
+        VA.record(
+          defRef(name = "Tuple2"),
+          HRecord(_1 = VA.text, _2 = VA.text),
+        )
+      val value1 = ValueList(
+        FrontStack(
+          recordT._2.inj(HRecord(_1 = "A", _2 = "B")),
+          recordT._2.inj(HRecord(_1 = "", _2 = "")),
+        )
+      )
+
+      val value2 = ValueList(
+        FrontStack(
+          recordT._2.inj(HRecord(_1 = "A", _2 = "")),
+          recordT._2.inj(HRecord(_1 = "", _2 = "B")),
+        )
+      )
+
+      val tid = defRef("module", "name")
+
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
+
+      hash1 should !==(hash2)
+    }
+
     "not produce collision in Variant constructor" in {
       val variantT =
         VA.variant(
@@ -217,6 +245,46 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       val hash1 = assertHashContractKey(tid, value1)
       val hash2 = assertHashContractKey(tid, value2)
 
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in TextMap of records" in {
+      def ref4(x4: Long) = {
+        ValueRecord(
+          None,
+          ImmArray(
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueUnit,
+            None -> ValueInt64(x4),
+          ),
+        )
+      }
+
+      def genmap(elements: (String, Value)*) =
+        ValueGenMap(ImmArray.from(elements.map { case (k, v) => ValueText(k) -> v }))
+      val value1 = genmap(
+        "0" -> // '00000001' + '30'
+          ref4(0x3030303030303030L), // '00000008' + '3030303030303030'
+        "00000000" -> // '00000008' + '3030303030303030'
+          ref4(0), // <empty>
+      )
+      val value2 = genmap(
+        "0" -> // '00000001' + '30'
+          ref4(0), // <empty>
+        "00000000" -> // '00000004' + '30303030'
+          ref4(0x3030303030303030L), // '00000004' + '30303030'
+      )
+
+      val tid = defRef("module", "name")
+
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
       hash1 should !==(hash2)
     }
 
@@ -382,7 +450,6 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
         import org.scalacheck.{Arbitrary, Gen}
         VA.contractId(Arbitrary(Gen.fail)).inj(ContractId.V1 assertFromString str)
       }
-
     val enumT1 = VA.enumeration("Color", List("Red", "Green"))._2
     val enumT2 = VA.enumeration("ColorBis", List("Red", "Green"))._2
 
