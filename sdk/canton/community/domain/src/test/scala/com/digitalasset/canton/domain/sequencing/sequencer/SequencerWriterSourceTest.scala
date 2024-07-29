@@ -9,6 +9,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.PayloadToEventTimeBoundExceeded
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.lifecycle.{
@@ -128,6 +129,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
           eventSignaller,
           loggerFactory,
           testedProtocolVersion,
+          SequencerMetrics.noop(suiteName),
         )(executorService, implicitly[TraceContext])
           .toMat(Sink.ignore)(Keep.both)
       },

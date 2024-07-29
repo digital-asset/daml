@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.utils
 
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.concurrent.Threading
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.{Assertion, Assertions}
@@ -11,6 +12,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
+@UnstableTest // TODO(#20340) Remove UnstableTest annotation once it is fixed
 final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
   behavior of "QueueBasedConcurrencyLimiter"
 

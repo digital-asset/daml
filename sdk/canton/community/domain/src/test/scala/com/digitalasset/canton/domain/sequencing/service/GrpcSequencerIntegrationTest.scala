@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -391,7 +392,7 @@ class GrpcSequencerIntegrationTest
         .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
         .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
-
+      implicit val metricsContext: MetricsContext = MetricsContext.Empty
       val result = for {
         response <- env.client
           .sendAsync(

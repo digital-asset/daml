@@ -50,7 +50,7 @@ trait CryptoFactory {
       symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
         .map(_.default)
       encryptionAlgorithmSpec <- selectSchemes(
-        config.encryptionAlgorithms,
+        config.encryption.algorithms,
         config.provider.encryptionAlgorithms,
       )
       supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
@@ -104,12 +104,12 @@ trait CryptoFactory {
         .map(_.default)
         .toEitherT[FutureUnlessShutdown]
       encryptionCryptoAlgorithmSpec <- selectSchemes(
-        config.encryptionAlgorithms,
+        config.encryption.algorithms,
         config.provider.encryptionAlgorithms,
       )
         .map(_.default)
         .toEitherT[FutureUnlessShutdown]
-      encryptionKeySpec <- selectSchemes(config.encryptionKeys, config.provider.encryptionKeys)
+      encryptionKeySpec <- selectSchemes(config.encryption.keys, config.provider.encryptionKeys)
         .map(_.default)
         .toEitherT[FutureUnlessShutdown]
       // TODO(#18934): Ensure required/allowed schemes are enforced by private/pure crypto classes
@@ -183,12 +183,12 @@ object CryptoFactory {
   def selectAllowedEncryptionAlgorithmSpecs(
       config: CryptoConfig
   ): Either[String, NonEmpty[Set[EncryptionAlgorithmSpec]]] =
-    selectSchemes(config.encryptionAlgorithms, config.provider.encryptionAlgorithms).map(_.allowed)
+    selectSchemes(config.encryption.algorithms, config.provider.encryptionAlgorithms).map(_.allowed)
 
   def selectAllowedEncryptionKeySpecs(
       config: CryptoConfig
   ): Either[String, NonEmpty[Set[EncryptionKeySpec]]] =
-    selectSchemes(config.encryptionKeys, config.provider.encryptionKeys).map(_.allowed)
+    selectSchemes(config.encryption.keys, config.provider.encryptionKeys).map(_.allowed)
 
 }
 

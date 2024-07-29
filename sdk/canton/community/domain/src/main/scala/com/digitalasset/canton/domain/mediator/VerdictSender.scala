@@ -8,6 +8,7 @@ import cats.implicits.toFunctorFilterOps
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoError}
@@ -152,6 +153,7 @@ private[mediator] class DefaultVerdictSender(
     }
 
     val sendET = if (sendVerdict) {
+      implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-verdict")
       // the result of send request will be logged within the returned future however any error is effectively
       // discarded. Any error logged by the eventual callback will most likely occur after the returned future has
       // completed.

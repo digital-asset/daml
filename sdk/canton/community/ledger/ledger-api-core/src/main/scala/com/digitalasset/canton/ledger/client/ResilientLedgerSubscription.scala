@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{NoTracing, Spanning}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{FutureUtil, retry}
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
@@ -62,7 +62,7 @@ class ResilientLedgerSubscription[S, T](
       maxDelay = 5.seconds,
       operationName = s"restartable-$subscriptionName",
     )
-    .apply(resilientSubscription(), AllExnRetryable)
+    .apply(resilientSubscription(), AllExceptionRetryPolicy)
 
   runOnShutdown_(new RunOnShutdown {
     override def name: String = s"$subscriptionName-shutdown"

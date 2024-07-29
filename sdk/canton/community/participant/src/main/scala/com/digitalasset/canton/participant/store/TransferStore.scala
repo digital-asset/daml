@@ -350,8 +350,7 @@ trait TransferLookup {
       traceContext: TraceContext
   ): EitherT[Future, TransferLookupError, TransferData]
 
-  /** Find utility to look for in-flight transfers. Queried by
-    * [[com.digitalasset.canton.console.commands.ParticipantAdministration#transfer.search]].
+  /** Find utility to look for in-flight transfers.
     * Results need not be consistent with [[lookup]].
     */
   def find(

@@ -113,13 +113,9 @@ message DomainTrustCertificate {
   // the uid of the domain that the participant trusts
   string domain = 2;
 
-  // if true, the participant restricts the domains to which it accepts transfer-outs
-  // TODO(#1252) implement transfer permissions
-  bool transfer_only_to_given_target_domains = 3;
+  reserved 3; // was bool transfer_only_to_given_target_domains = 3;
 
-  // the uids of the target domains that this participants supports for transfer if transfer
-  // is restricted.
-  repeated string target_domains = 4;
+  reserved 4; // was repeated string target_domains = 4;
 }
 
 // the optional trust certificate of the domain towards the participant
@@ -146,13 +142,10 @@ message ParticipantDomainPermission {
 // these limits can be used to limit the number of participants that can host a given party
 // authorization: whoever controls the domain uid
 // UNIQUE(domain,party)
-// TODO(#14050) implement me
 message PartyHostingLimits {
   string domain = 1;
   string party = 2;
-
-  // how many participants can be assigned to the given party
-  uint32 quota = 3;
+  reserved 3; // was quota = 3;
 }
 
 // list of packages supported by this participant

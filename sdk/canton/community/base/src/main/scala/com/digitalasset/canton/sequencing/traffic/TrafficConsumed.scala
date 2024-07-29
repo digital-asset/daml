@@ -125,6 +125,10 @@ final case class TrafficConsumed(
     ) =
       baseTrafficRemainderAtCurrentTime.subtract(cost)
 
+    tracedLogger.debug(
+      s"Consuming cost ${cost.value}: From base traffic: ${baseTrafficRemainderAtCurrentTime.value - baseTrafficRemainderAfterConsume.value} From extra traffic: $extraTrafficConsumed"
+    )
+
     copy(
       baseTrafficRemainder = baseTrafficRemainderAfterConsume,
       extraTrafficConsumed = this.extraTrafficConsumed + extraTrafficConsumed,

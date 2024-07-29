@@ -61,7 +61,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.google.common.annotations.VisibleForTesting
@@ -1120,7 +1120,7 @@ final class RepairService(
             )
             .unlessShutdown(
               FutureUnlessShutdown.outcomeF(check(persistentState, indexedDomain)),
-              AllExnRetryable,
+              AllExceptionRetryPolicy,
             )
         )
       }

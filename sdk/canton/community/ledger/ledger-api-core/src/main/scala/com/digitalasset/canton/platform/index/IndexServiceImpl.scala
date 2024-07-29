@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.index
 import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v2.offset_checkpoint.OffsetCheckpoint.DomainTime
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
@@ -14,7 +13,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.daml.ledger.api.v2.offset_checkpoint as v2
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -26,7 +24,6 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -155,7 +152,7 @@ private[index] class IndexServiceImpl(
             checkpointFlow(
               cond = isTailingStream,
               fetchOffsetCheckpoint = fetchOffsetCheckpoint,
-              responseFromCheckpoint = updatesResponseFromOffsetCheckpoint,
+              responseFromCheckpoint = updatesResponse,
             )
           )
           .mapError(shutdownError)
@@ -188,20 +185,6 @@ private[index] class IndexServiceImpl(
         (off, elem)
       }
 
-  private def updatesResponseFromOffsetCheckpoint(
-      offsetCheckpoint: OffsetCheckpoint
-  ): GetUpdatesResponse =
-    GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(
-      v2.OffsetCheckpoint(
-        offset = offsetCheckpoint.offset.toApiString,
-        domainTimes = offsetCheckpoint.domainTimes
-          .map({ case (domain, t) =>
-            DomainTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
-          })
-          .toSeq,
-      )
-    )
-
   override def transactionTrees(
       startExclusive: ParticipantOffset,
       endInclusive: Option[ParticipantOffset],
@@ -213,6 +196,7 @@ private[index] class IndexServiceImpl(
       transactionFilter,
       getPackageMetadataSnapshot(contextualizedErrorLogger),
     ) {
+      val isTailingStream = endInclusive.isEmpty
       val parties =
         if (transactionFilter.filtersForAnyParty.isEmpty)
           Some(transactionFilter.filtersByParty.keySet)
@@ -247,9 +231,18 @@ private[index] class IndexServiceImpl(
                         parties,
                         eventProjectionProperties,
                       )
+                      .via(rangeDecorator(startExclusive, endInclusive))
                   }
             },
             to,
+          )
+          // when a tailing stream is requested add checkpoint messages
+          .via(
+            checkpointFlow(
+              cond = isTailingStream,
+              fetchOffsetCheckpoint = fetchOffsetCheckpoint,
+              responseFromCheckpoint = updateTreesResponse,
+            )
           )
           .mapError(shutdownError)
           .map(_._2)
@@ -874,5 +867,15 @@ object IndexServiceImpl {
   final case object RangeBegin extends Carrier[Nothing]
   final case object RangeEnd extends Carrier[Nothing]
   final case class Element[T](element: T) extends Carrier[T]
+
+  private def updatesResponse(
+      offsetCheckpoint: OffsetCheckpoint
+  ): GetUpdatesResponse =
+    GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
+
+  private def updateTreesResponse(
+      offsetCheckpoint: OffsetCheckpoint
+  ): GetUpdateTreesResponse =
+    GetUpdateTreesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
 }

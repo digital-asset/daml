@@ -508,7 +508,12 @@ abstract class ParticipantReference(
   override def health: ParticipantHealthAdministration =
     new ParticipantHealthAdministration(this, consoleEnvironment, loggerFactory)
 
-  override def parties: ParticipantPartiesAdministrationGroup
+  @Help.Summary("Inspect and manage parties")
+  @Help.Group("Parties")
+  def parties: ParticipantPartiesAdministrationGroup = partiesGroup
+  // above command needs to be def such that `Help` works.
+  lazy private val partiesGroup =
+    new ParticipantPartiesAdministrationGroup(id, this, consoleEnvironment, loggerFactory)
 
   private lazy val topology_ =
     new TopologyAdministrationGroup(
@@ -604,14 +609,6 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
     extends ParticipantReference(environment, name)
     with RemoteInstanceReference {
 
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  override def parties: ParticipantPartiesAdministrationGroup = partiesGroup
-
-  // above command needs to be def such that `Help` works.
-  lazy private val partiesGroup =
-    new ParticipantPartiesAdministrationGroup(id, this, consoleEnvironment)
-
   @Help.Summary("Return remote participant config")
   def config: RemoteParticipantConfig =
     consoleEnvironment.environment.config.remoteParticipantsByString(name)
@@ -672,15 +669,6 @@ class LocalParticipantReference(
 
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
-
-  // TODO(#14048) these are "remote" groups. the normal participant node has "local" versions.
-  //   but rather than keeping this, we should make local == remote and add local methods separately
-  @Help.Summary("Inspect and manage parties")
-  @Help.Group("Parties")
-  def parties: LocalParticipantPartiesAdministrationGroup = partiesGroup
-  // above command needs to be def such that `Help` works.
-  lazy private val partiesGroup =
-    new LocalParticipantPartiesAdministrationGroup(this, this, consoleEnvironment, loggerFactory)
 
   private lazy val testing_ =
     new LocalParticipantTestingGroup(this, consoleEnvironment, loggerFactory)

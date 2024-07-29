@@ -4,10 +4,12 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.syntax.either.*
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{PerformUnlessClosing, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SignedContent, SubmissionRequest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
@@ -30,7 +32,8 @@ class SendAmplifier(
     peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
     puc: PerformUnlessClosing,
     timeout: scala.concurrent.duration.Duration,
-)(implicit ec: ExecutionContext)
+    metrics: SequencerClientMetrics,
+)(implicit ec: ExecutionContext, metricsContext: MetricsContext)
     extends NamedLogging {
   import SendAmplifier.*
 
@@ -87,11 +90,16 @@ class SendAmplifier(
         (sequencerAlias, sequencerId, previousSequencers, transport, patienceO, token)
       }
     }).foreach { case (sequencerAlias, sequencerId, prevSequencers, transport, patienceO, token) =>
+      val submissionCostOrZero =
+        signedRequest.content.submissionCost.map(_.cost.value).getOrElse(0L)
       val sendF =
         puc.performUnlessClosingUSF(s"sending message $messageId to sequencer $sequencerId") {
           logger.info(
-            s"Sending message ID $messageId to sequencer $sequencerId (alias $sequencerAlias) with max sequencing time " +
+            s"Sending message ID $messageId to sequencer $sequencerId (alias $sequencerAlias) with max sequencing time  and submission cost $submissionCostOrZero " +
               s"${signedRequest.content.maxSequencingTime} (previous attempts = ${prevSequencers.size})"
+          )
+          metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(
+            metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
           )
           transport.sendAsyncSigned(signedRequest, timeout).value.map { outcome =>
             noTracingLogger.whenDebugEnabled {

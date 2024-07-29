@@ -4,6 +4,7 @@
 package com.digitalasset.canton.common.domain
 
 import cats.data.EitherT
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
@@ -131,6 +132,9 @@ class DomainTopologyService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+    implicit val metricsContext: MetricsContext = MetricsContext(
+      "type" -> "send-topology"
+    )
     logger.debug(s"Broadcasting topology transaction: ${request.broadcasts}")
     EitherTUtil.logOnErrorU(
       sequencerClient.sendAsync(

@@ -886,7 +886,6 @@ class SyncDomain(
   override def submitTransferIn(
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
-      sourceProtocolVersion: SourceProtocolVersion,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
@@ -906,11 +905,7 @@ class SyncDomain(
       transferInProcessor
         .submit(
           TransferInProcessingSteps
-            .SubmissionParam(
-              submitterMetadata,
-              transferId,
-              sourceProtocolVersion,
-            )
+            .SubmissionParam(submitterMetadata, transferId)
         )
         .onShutdown(Left(DomainNotReady(domainId, "The domain is shutting down")))
     }

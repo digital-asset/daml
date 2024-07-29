@@ -8,6 +8,7 @@ import cats.implicits.catsStdInstancesForFuture
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -429,6 +430,8 @@ abstract class ProtocolProcessor[
     registeredF.mapK(FutureUnlessShutdown.outcomeK).map(afterRegistration)
   }
 
+  protected def metricsContextForSubmissionParam(submissionParam: SubmissionParam): MetricsContext
+
   /** Submit the batch to the sequencer.
     * Also registers `submissionParam` as pending submission.
     */
@@ -446,6 +449,8 @@ abstract class ProtocolProcessor[
     steps.SubmissionSendError,
     (SendResult, steps.SubmissionResultArgs),
   ] = {
+    implicit val metricsContext: MetricsContext = metricsContextForSubmissionParam(submissionParam)
+
     def removePendingSubmission(): Unit = {
       steps
         .removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId)

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.data.EitherT
 import com.daml.error.*
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
@@ -118,6 +119,15 @@ class TransactionProcessor(
       loggerFactory,
       futureSupervisor,
     ) {
+
+  override protected def metricsContextForSubmissionParam(
+      submissionParam: TransactionProcessingSteps.SubmissionParam
+  ): MetricsContext = {
+    MetricsContext(
+      "application-id" -> submissionParam.submitterInfo.applicationId,
+      "type" -> "send-confirmation-request",
+    )
+  }
 
   def submit(
       submitterInfo: SubmitterInfo,

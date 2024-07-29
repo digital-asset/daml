@@ -4,7 +4,7 @@
 package com.digitalasset.canton.metrics
 
 import cats.Eval
-import com.daml.metrics.api.MetricHandle.{Gauge, LabeledMetricsFactory}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory}
 import com.daml.metrics.api.MetricQualification.Traffic
 import com.daml.metrics.api.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
@@ -22,6 +22,60 @@ class TrafficConsumptionMetrics(
     prefix: MetricName,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
+  val trafficCostOfSubmittedEvent = labeledMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "submitted-event-cost",
+      summary = "Cost of event submitted from the sequencer client.",
+      description = """When the sequencer client sends an event to the sequencer to be sequenced,
+           it will record on this metric the cost of the event. Note that the event may or may not end up being sequenced.
+           So this metric may not exactly match the actual consumed traffic.""",
+      qualification = MetricQualification.Traffic,
+    )
+  )(MetricsContext.Empty)
+
+  val trafficCostOfDeliveredSequencedEvent = labeledMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "event-delivered-cost",
+      summary = "Cost of events that were sequenced and delivered.",
+      description = """Cost of events for which the sender received confirmation that they were delivered.
+          There is an exception for aggregated submissions: the cost of aggregate events will be recorded
+          as soon as the event is ordered and the sequencer waits to receive threshold-many events.
+          The final event may or may not be delivered successfully depending on the result of the aggregation.
+          """,
+      qualification = MetricQualification.Traffic,
+    )
+  )(MetricsContext.Empty)
+
+  val deliveredEventCounter: Counter = labeledMetricsFactory.counter(
+    MetricInfo(
+      prefix :+ "event-delivered",
+      summary = "Number of events that were sequenced and delivered.",
+      description = """Counter for event-delivered-cost.""",
+      qualification = MetricQualification.Traffic,
+    )
+  )
+
+  val trafficCostOfNotDeliveredSequencedEvent = labeledMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "event-rejected-cost",
+      summary = "Cost of events that were sequenced but no delivered successfully.",
+      description =
+        """Cost of events for which the sender received confirmation that the events will not be delivered.
+           The reason for non-delivery is labeled on the metric, if available.
+          """,
+      qualification = MetricQualification.Traffic,
+    )
+  )(MetricsContext.Empty)
+
+  val rejectedEventCounter: Counter = labeledMetricsFactory.counter(
+    MetricInfo(
+      prefix :+ "event-rejected",
+      summary = "Number of events that were sequenced but not delivered.",
+      description = """Counter for event-rejected-cost.""",
+      qualification = MetricQualification.Traffic,
+    )
+  )
+
   // Gauges don't support metrics context per update. So instead create a map with a gauge per context.
   private val lastTrafficUpdateTimestampMetrics: TrieMap[MetricsContext, Eval[Gauge[Long]]] =
     TrieMap.empty[MetricsContext, Eval[Gauge[Long]]]

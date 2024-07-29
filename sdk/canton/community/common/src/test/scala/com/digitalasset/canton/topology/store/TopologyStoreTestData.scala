@@ -128,16 +128,12 @@ class TopologyStoreTestData(
     DomainTrustCertificate(
       participantId2,
       domainId1,
-      transferOnlyToGivenTargetDomains = false,
-      targetDomains = Seq.empty,
     )
   )
   val tx6_DTC_Update = makeSignedTx(
     DomainTrustCertificate(
       participantId2,
       domainId1,
-      transferOnlyToGivenTargetDomains = true,
-      targetDomains = Seq(domainId1),
     ),
     serial = PositiveInt.tryCreate(2),
   )

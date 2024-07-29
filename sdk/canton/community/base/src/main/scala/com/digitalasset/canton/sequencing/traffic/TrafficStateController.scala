@@ -124,9 +124,23 @@ class TrafficStateController(
     s"Failed to update traffic consumed state at $sequencingTimestamp",
   )
 
-  def updateWithReceipt(trafficReceipt: TrafficReceipt, timestamp: CantonTimestamp)(implicit
+  def updateWithReceipt(
+      trafficReceipt: TrafficReceipt,
+      timestamp: CantonTimestamp,
+      deliverErrorReason: Option[String],
+  )(implicit
       metricsContext: MetricsContext
   ): Unit = {
+    deliverErrorReason match {
+      case Some(reason) =>
+        metrics.trafficCostOfNotDeliveredSequencedEvent.mark(trafficReceipt.consumedCost.value)(
+          metricsContext.withExtraLabels("reason" -> reason)
+        )
+        metrics.deliveredEventCounter.inc()
+      case None =>
+        metrics.trafficCostOfDeliveredSequencedEvent.mark(trafficReceipt.consumedCost.value)
+        metrics.rejectedEventCounter.inc()
+    }
     trafficConsumedManager.updateWithReceipt(trafficReceipt, timestamp).discard
   }
 

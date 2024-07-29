@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxAlternativeSeparate
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
@@ -180,6 +181,7 @@ class TrafficPurchasedSubmissionHandler(
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
     val callback = SendCallback.future
+    implicit val metricsContext: MetricsContext = MetricsContext("type" -> "traffic-purchase")
     // Make sure that the sequencer will ask for a time proof if it doesn't observe the sequencing in time
     domainTimeTracker.requestTick(maxSequencingTime)
     for {

@@ -454,7 +454,7 @@ object TopologyStore {
     //  TopologyStore.filterInitialParticipantDispatchingTransactions
     transactions.map(_.transaction).collect {
       case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, DomainTrustCertificate(`participantId`, `domainId`, _, _)),
+            TopologyTransaction(_, _, DomainTrustCertificate(`participantId`, `domainId`)),
             _,
             _,
           ) =>

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.util.retry.RetryUtil.{DbExceptionRetryable, FatalErrorKind}
+import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, DbStorage}
+import com.digitalasset.canton.util.retry.ErrorKind.FatalErrorKind
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
 import slick.sql.SqlAction
@@ -60,7 +60,7 @@ trait DatabaseLimitNbParamTest
         rawStorage
           .update(query.asUpdate, "parameter limit query", maxRetries = 1)
           .transformWith { outcome =>
-            val errorKind = DbExceptionRetryable.retryOK(outcome, logger, None)
+            val errorKind = DbExceptionRetryPolicy.logAndDetermineErrorKind(outcome, logger, None)
             errorKind match {
               case FatalErrorKind =>
               case _ => fail("Database error kind should be fatal")

@@ -11,8 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
-import com.digitalasset.canton.util.retry.{Backoff, Success}
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Backoff, Success}
 import com.digitalasset.canton.util.{FutureUtil, HasFlushFuture, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -104,7 +103,7 @@ private[time] class TimeProofRequestSubmitterImpl(
             "request current time",
           )
           retrySendTimeRequest
-            .unlessShutdown(mkRequest(), AllExnRetryable)
+            .unlessShutdown(mkRequest(), AllExceptionRetryPolicy)
             .map { _ =>
               // if we still care about the outcome (we could have witnessed a recent time while sending the request),
               // then schedule retrying a new request.

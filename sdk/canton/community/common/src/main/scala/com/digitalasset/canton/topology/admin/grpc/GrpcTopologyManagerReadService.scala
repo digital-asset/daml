@@ -594,14 +594,16 @@ class GrpcTopologyManagerReadService(
         namespaceFilter = Some(namespaceFilter),
       )
     } yield {
+      def partyPredicate(x: PartyToParticipant) =
+        x.partyId.toProtoPrimitive.startsWith(request.filterParty)
+      def participantPredicate(x: PartyToParticipant) =
+        request.filterParticipant.isEmpty || x.participantIds.exists(
+          _.toProtoPrimitive.contains(request.filterParticipant)
+        )
+
       val results = res
         .collect {
-          case (result, x: PartyToParticipant)
-              if x.partyId.toProtoPrimitive.startsWith(
-                request.filterParty
-              ) && (request.filterParticipant.isEmpty || x.participantIds.exists(
-                _.toProtoPrimitive.contains(request.filterParticipant)
-              )) =>
+          case (result, x: PartyToParticipant) if partyPredicate(x) && participantPredicate(x) =>
             (result, x)
         }
         .map { case (context, elem) =>

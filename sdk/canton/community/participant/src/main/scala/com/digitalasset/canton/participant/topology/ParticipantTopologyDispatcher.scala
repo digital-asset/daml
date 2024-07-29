@@ -169,7 +169,7 @@ class ParticipantTopologyDispatcher(
                   filterNamespace = None,
                 )
                 .map(_.toTopologyState.exists {
-                  case DomainTrustCertificate(`participantId`, `domainId`, _, _) => true
+                  case DomainTrustCertificate(`participantId`, `domainId`) => true
                   case _ => false
                 })
             )
@@ -186,8 +186,6 @@ class ParticipantTopologyDispatcher(
               DomainTrustCertificate(
                 participantId,
                 domainId,
-                transferOnlyToGivenTargetDomains = false,
-                targetDomains = Seq.empty,
               ),
               serial = None,
               // TODO(#12390) auto-determine signing keys

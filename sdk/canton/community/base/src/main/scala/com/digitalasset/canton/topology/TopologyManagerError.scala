@@ -458,20 +458,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  object PartyExceedsHostingLimit
-      extends ErrorCode(
-        id = "PARTY_EXCEEDS_HOSTING_LIMIT",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Reject(party: PartyId, limit: Int, numParticipants: Int)(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"Party $party exceeds hosting limit of $limit with desired number of $numParticipants hosting participant."
-        )
-        with TopologyManagerError
-  }
-
   @Explanation(
     "This error indicates that the topology transaction references members that are currently unknown."
   )
@@ -679,9 +665,9 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     "This error indicates that the partyId to allocate is the same as an already existing admin party."
   )
   @Resolution("Submit the topology transaction with a changed partyId.")
-  object PartyIdIsAdminParty
+  object PartyIdConflictWithAdminParty
       extends ErrorCode(
-        id = "TOPOLOGY_PARTY_ID_IS_ADMIN_PARTY",
+        id = "TOPOLOGY_PARTY_ID_CONFLICT_WITH_ADMIN_PARTY",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
     final case class Reject(partyId: PartyId)(implicit
@@ -699,9 +685,9 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   @Resolution(
     "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the domain again."
   )
-  object ParticipantIdClashesWithPartyId
+  object ParticipantIdConflictWithPartyId
       extends ErrorCode(
-        id = "TOPOLOGY_PARTICIPANT_ID_CLASH_WITH_PARTY",
+        id = "TOPOLOGY_PARTICIPANT_ID_CONFLICT_WITH_PARTY",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
     final case class Reject(participantId: ParticipantId, partyId: PartyId)(implicit

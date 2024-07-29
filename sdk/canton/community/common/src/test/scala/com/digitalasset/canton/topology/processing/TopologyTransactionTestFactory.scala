@@ -94,7 +94,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   }
 
   val dtcp1_k1 =
-    mkAdd(DomainTrustCertificate(participant1, DomainId(uid1a), false, Seq.empty), key1)
+    mkAdd(DomainTrustCertificate(participant1, DomainId(uid1a)), key1)
 
   val defaultDomainParameters = TestDomainParameters.defaultDynamic
 
@@ -227,7 +227,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   )
   val decentralizedNamespaceOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9)
   val decentralizedNamespaceWithMultipleOwnerThreshold =
-    List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, dns1)
+    List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns1)
 
   private val dndOwners =
     NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_))

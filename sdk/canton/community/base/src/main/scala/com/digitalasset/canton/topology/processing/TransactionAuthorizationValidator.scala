@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, SigningPublicKey}
+import com.digitalasset.canton.crypto.{CryptoPureApi, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLogging
@@ -16,11 +16,12 @@ import com.digitalasset.canton.topology.store.{
   TopologyTransactionRejection,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuthAuthorizations
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,18 +31,35 @@ trait TransactionAuthorizationValidator {
 
   this: NamedLogging =>
 
+  /** Invariants:
+    * - If it stores ns -> graph, then graph consists of all active namespace delegations for ns.
+    * - If it stores ns -> graph and graph is non-empty, then there is no decentralized namespace delegation active for ns.
+    */
   protected val namespaceCache = new TrieMap[Namespace, AuthorizationGraph]()
-  protected val identifierDelegationCache =
-    new TrieMap[UniqueIdentifier, Set[AuthorizedIdentifierDelegation]]()
+
+  /** Invariants:
+    * - If it stores ns -> Some(graph), then the graph corresponds to the active decentralized namespace delegation for ns.
+    *   Moreover, for each owner o, the owner graph is namespaceCache(o).
+    * - If it stores ns -> None, then there is no decentralized namespace delegation active for ns.
+    * - If it stores ns -> Some(graph), then there is no direct namespace delegation active for ns.
+    */
   protected val decentralizedNamespaceCache =
     new TrieMap[
       Namespace,
-      (DecentralizedNamespaceDefinition, DecentralizedNamespaceAuthorizationGraph),
+      Option[DecentralizedNamespaceAuthorizationGraph],
     ]()
+
+  /** Invariants:
+    * - If it stores id -> ids, then ids consists of all active identifier delegations for id.
+    */
+  protected val identifierDelegationCache =
+    new TrieMap[UniqueIdentifier, Set[AuthorizedIdentifierDelegation]]()
 
   protected def store: TopologyStore[TopologyStoreId]
 
   protected def pureCrypto: CryptoPureApi
+
+  implicit protected def executionContext: ExecutionContext
 
   def validateSignaturesAndDetermineMissingAuthorizers(
       toValidate: GenericSignedTopologyTransaction,
@@ -50,51 +68,45 @@ trait TransactionAuthorizationValidator {
       traceContext: TraceContext
   ): Either[
     TopologyTransactionRejection,
-    (GenericSignedTopologyTransaction, RequiredAuthAuthorizations),
+    (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ] = {
     // first determine all possible namespaces and uids that need to sign the transaction
     val requiredAuth = toValidate.mapping.requiredAuth(inStore.map(_.transaction))
 
     logger.debug(s"Required authorizations: $requiredAuth")
 
-    val required = requiredAuth
-      .foldMap(
-        namespaceCheck = rns =>
-          RequiredAuthAuthorizations(
-            namespacesWithRoot =
-              if (rns.requireRootDelegation) rns.namespaces else Set.empty[Namespace],
-            namespaces = if (rns.requireRootDelegation) Set.empty[Namespace] else rns.namespaces,
-          ),
-        uidCheck = ruid => RequiredAuthAuthorizations(uids = ruid.uids, extraKeys = ruid.extraKeys),
-      )
+    val referencedAuth = requiredAuth.referenced
 
     val signingKeys = toValidate.signatures.map(_.signedBy)
     val namespaceWithRootAuthorizations =
-      required.namespacesWithRoot.map { ns =>
-        val check = getAuthorizationCheckForNamespace(ns)
+      referencedAuth.namespacesWithRoot.map { ns =>
+        // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+        val check = tryGetAuthorizationCheckForNamespace(ns)
         val keysUsed = check.keysSupportingAuthorization(
           signingKeys,
           requireRoot = true,
         )
         val keysAuthorizeNamespace =
           check.existsAuthorizedKeyIn(signingKeys, requireRoot = true)
-        (ns -> (keysAuthorizeNamespace, keysUsed))
+        ns -> (keysAuthorizeNamespace, keysUsed)
       }.toMap
 
     // Now let's determine which namespaces and uids actually delegated to any of the keys
-    val namespaceAuthorizations = required.namespaces.map { ns =>
-      val check = getAuthorizationCheckForNamespace(ns)
+    val namespaceAuthorizations = referencedAuth.namespaces.map { ns =>
+      // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+      val check = tryGetAuthorizationCheckForNamespace(ns)
       val keysUsed = check.keysSupportingAuthorization(
         signingKeys,
         requireRoot = false,
       )
       val keysAuthorizeNamespace = check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
-      (ns -> (keysAuthorizeNamespace, keysUsed))
+      ns -> (keysAuthorizeNamespace, keysUsed)
     }.toMap
 
     val uidAuthorizations =
-      required.uids.map { uid =>
-        val check = getAuthorizationCheckForNamespace(uid.namespace)
+      referencedAuth.uids.map { uid =>
+        // This succeeds because loading of uid.namespace is requested in AuthorizationKeys.requiredForCheckingAuthorization
+        val check = tryGetAuthorizationCheckForNamespace(uid.namespace)
         val keysUsed = check.keysSupportingAuthorization(
           signingKeys,
           requireRoot = false,
@@ -103,15 +115,23 @@ trait TransactionAuthorizationValidator {
           check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
 
         val keyForUid =
-          getAuthorizedIdentifierDelegation(check, uid, toValidate.signatures.map(_.signedBy))
+          // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+          tryGetIdentifierDelegationsForUid(uid)
+            .find(aid =>
+              signingKeys.contains(aid.mapping.target.id) &&
+                check.existsAuthorizedKeyIn(
+                  aid.signingKeys,
+                  requireRoot = false,
+                )
+            )
             .map(_.mapping.target)
 
-        (uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid))
+        uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid)
       }.toMap
 
     val extraKeyAuthorizations = {
       // assume extra keys are not found
-      required.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
+      referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
         // and replace with those that were actually found
         // we have to dive into the owner to key mapping directly here, because we don't
         // need to keep it around (like we do for namespace delegations) and the OTK is the
@@ -125,7 +145,7 @@ trait TransactionAuthorizationValidator {
                   // only consider the public key as "found" if:
                   // * it's required and
                   // * actually used to sign the transaction
-                  if required.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
+                  if referencedAuth.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
                 k.fingerprint -> (true, Set(k))
             }
           }
@@ -195,7 +215,7 @@ trait TransactionAuthorizationValidator {
       def onlyFullyAuthorized[A](map: Map[A, (Boolean, ?)]): Set[A] = map.collect {
         case (a, (true, _)) => a
       }.toSet
-      val actual = RequiredAuthAuthorizations(
+      val actual = ReferencedAuthorizations(
         namespacesWithRoot = onlyFullyAuthorized(namespaceWithRootAuthorizations),
         namespaces = onlyFullyAuthorized(namespaceAuthorizations),
         uids = onlyFullyAuthorized(uidAuthorizations),
@@ -205,7 +225,7 @@ trait TransactionAuthorizationValidator {
         txWithSignaturesToVerify,
         requiredAuth
           .satisfiedByActualAuthorizers(actual)
-          .fold(identity, _ => RequiredAuthAuthorizations.empty),
+          .fold(identity, _ => ReferencedAuthorizations.empty),
       )
     }
   }
@@ -229,80 +249,75 @@ trait TransactionAuthorizationValidator {
     }
   }
 
-  private def getAuthorizedIdentifierDelegation(
-      graph: AuthorizationCheck,
-      uid: UniqueIdentifier,
-      authKeys: Set[Fingerprint],
-  ): Option[AuthorizedIdentifierDelegation] = {
-    getIdentifierDelegationsForUid(uid)
-      .find(aid =>
-        authKeys(aid.mapping.target.id) && graph.existsAuthorizedKeyIn(
-          aid.signingKeys,
-          requireRoot = false,
-        )
-      )
-  }
-
-  protected def getIdentifierDelegationsForUid(
+  protected def tryGetIdentifierDelegationsForUid(
       uid: UniqueIdentifier
-  ): Set[AuthorizedIdentifierDelegation] = {
-    identifierDelegationCache
-      .getOrElse(uid, Set())
-  }
+  )(implicit traceContext: TraceContext): Set[AuthorizedIdentifierDelegation] =
+    identifierDelegationCache.getOrElse(
+      uid,
+      ErrorUtil.invalidState(s"Cache miss for identifier $uid"),
+    )
 
-  protected def getAuthorizationCheckForNamespace(
+  private def tryGetAuthorizationCheckForNamespace(
       namespace: Namespace
-  ): AuthorizationCheck = {
-    val decentralizedNamespaceCheck = decentralizedNamespaceCache.get(namespace).map(_._2)
-    val namespaceCheck = namespaceCache.get(namespace)
-    decentralizedNamespaceCheck
-      .orElse(namespaceCheck)
-      .getOrElse(AuthorizationCheck.empty)
-  }
-
-  protected def getAuthorizationGraphForNamespace(
-      namespace: Namespace
-  ): AuthorizationGraph = {
-    namespaceCache.getOrElseUpdate(
+  )(implicit traceContext: TraceContext): AuthorizationCheck = {
+    val directGraph = tryGetAuthorizationGraphForNamespace(namespace)
+    val decentralizedGraphO = decentralizedNamespaceCache.getOrElse(
       namespace,
-      new AuthorizationGraph(namespace, extraDebugInfo = false, loggerFactory),
+      ErrorUtil.invalidState(s"Cache miss for decentralized namespace $namespace"),
+    )
+
+    decentralizedGraphO match {
+      case Some(decentralizedGraph) =>
+        val directGraphNodes = directGraph.nodes
+        ErrorUtil.requireState(
+          directGraphNodes.isEmpty,
+          show"Namespace $namespace has both direct and decentralized delegations.\n${decentralizedGraph.dnd}\nDirect delegations for: $directGraphNodes",
+        )
+        decentralizedGraph
+      case None => directGraph
+    }
+  }
+
+  protected def tryGetAuthorizationGraphForNamespace(
+      namespace: Namespace
+  )(implicit traceContext: TraceContext): AuthorizationGraph = {
+    namespaceCache.getOrElse(
+      namespace,
+      ErrorUtil.invalidState(s"Cache miss for direct namespace $namespace"),
     )
   }
 
-  protected def loadAuthorizationGraphs(
-      timestamp: CantonTimestamp,
+  protected def loadNamespaceCaches(
+      effectiveTime: CantonTimestamp,
       namespaces: Set[Namespace],
-  )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
-    val uncachedNamespaces =
-      namespaces -- namespaceCache.keySet -- decentralizedNamespaceCache.keySet // only load the ones we don't already hold in memory
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+
+    // only load the ones we don't already hold in memory
+    val decentralizedNamespacesToLoad = namespaces -- decentralizedNamespaceCache.keys
 
     for {
       storedDecentralizedNamespace <- store.findPositiveTransactions(
-        timestamp,
+        effectiveTime,
         asOfInclusive = false,
         isProposal = false,
         types = Seq(DecentralizedNamespaceDefinition.code),
         filterUid = None,
-        filterNamespace = Some(uncachedNamespaces.toSeq),
+        filterNamespace = Some(decentralizedNamespacesToLoad.toSeq),
       )
-      decentralizedNamespaces = storedDecentralizedNamespace
+      decentralizedNamespaceDefinitions = storedDecentralizedNamespace
         .collectOfMapping[DecentralizedNamespaceDefinition]
         .collectLatestByUniqueKey
         .result
         .map(_.transaction)
-      foundDecentralizedNamespaces = decentralizedNamespaces.map(_.mapping.namespace)
-      decentralizedNamespaceOwnersToLoad = decentralizedNamespaces
+
+      // We need to add queries for owners here, because the caller cannot know them up front.
+      decentralizedNamespaceOwners = decentralizedNamespaceDefinitions
         .flatMap(_.mapping.owners)
-        .toSet -- namespaceCache.keySet
-      namespacesToLoad =
-        uncachedNamespaces
-        // load decentralized namespaces for DND owners that we haven't loaded yet
-          ++ decentralizedNamespaceOwnersToLoad
-          // if we found a decentralized namespace, we don't need to look for a namespace delegation for the DND namespace
-          -- foundDecentralizedNamespaces
+        .toSet
+      namespacesToLoad = namespaces ++ decentralizedNamespaceOwners -- namespaceCache.keys
 
       storedNamespaceDelegations <- store.findPositiveTransactions(
-        timestamp,
+        effectiveTime,
         asOfInclusive = false,
         isProposal = false,
         types = Seq(NamespaceDelegation.code),
@@ -315,112 +330,105 @@ trait TransactionAuthorizationValidator {
         .result
         .map(_.transaction)
     } yield {
-      val missingNSDs =
-        namespacesToLoad -- namespaceDelegations.map(_.mapping.namespace).toSet
-      if (missingNSDs.nonEmpty)
-        logger.debug(s"Didn't find a namespace delegations for $missingNSDs at $timestamp")
 
-      val namespaceToTx = namespaceDelegations
+      namespaceDelegations
         .groupBy(_.mapping.namespace)
-      namespaceToTx
         .foreach { case (namespace, transactions) =>
-          ErrorUtil.requireArgument(
-            !namespaceCache.isDefinedAt(namespace),
-            s"graph shouldn't exist before loading ${namespace} vs ${namespaceCache.get(namespace)}",
-          )
           val graph = new AuthorizationGraph(
             namespace,
             extraDebugInfo = false,
             loggerFactory,
           )
-          namespaceCache.put(namespace, graph).discard
-          // use un-authorized batch load. while we are checking for proper authorization when we
-          // add a certificate the first time, we allow for the situation where an intermediate certificate
-          // is currently expired, but might be replaced with another cert. in this case,
-          // the authorization check would fail.
-          // unauthorized certificates are not really an issue as we'll simply exclude them when calculating
-          // the connected graph
-          graph.unauthorizedAdd(transactions.map(AuthorizedTopologyTransaction(_)))
+          graph.replace(transactions.map(AuthorizedTopologyTransaction(_)))
+          val previous = namespaceCache.put(namespace, graph)
+          ErrorUtil.requireState(
+            previous.isEmpty,
+            s"Unexpected cache hit for namespace $namespace: $previous",
+          )
+          val conflictingDecentralizedNamespaceDefinition =
+            decentralizedNamespaceCache.get(namespace).flatten
+          ErrorUtil.requireState(
+            conflictingDecentralizedNamespaceDefinition.isEmpty,
+            s"Conflicting decentralized namespace definition for namespace $namespace: $conflictingDecentralizedNamespaceDefinition",
+          )
         }
 
-      decentralizedNamespaces.foreach { dns =>
-        val namespace = dns.mapping.namespace
-        ErrorUtil.requireArgument(
-          !decentralizedNamespaceCache.isDefinedAt(namespace),
-          s"decentralized namespace shouldn't already be cached before loading $namespace vs ${decentralizedNamespaceCache
-              .get(namespace)}",
-        )
-        val graphs = dns.mapping.owners.forgetNE.toSeq.map(ns =>
-          namespaceCache.getOrElseUpdate(
-            ns,
+      namespacesToLoad.foreach { namespace =>
+        namespaceCache
+          .putIfAbsent(
+            namespace,
             new AuthorizationGraph(
-              ns,
+              namespace,
               extraDebugInfo = false,
               loggerFactory,
             ),
           )
-        )
-        decentralizedNamespaceCache
-          .put(
-            namespace,
-            (
-              dns.mapping,
-              DecentralizedNamespaceAuthorizationGraph(
-                dns.mapping,
-                graphs,
-              ),
-            ),
-          )
           .discard
       }
+
+      decentralizedNamespaceDefinitions.foreach { dns =>
+        val namespace = dns.mapping.namespace
+        val ownerGraphs =
+          dns.mapping.owners.forgetNE.toSeq.map(
+            // This will succeed, because owner graphs have been loaded just above.
+            tryGetAuthorizationGraphForNamespace(_)
+          )
+        val decentralizedGraph = DecentralizedNamespaceAuthorizationGraph(
+          dns.mapping,
+          ownerGraphs,
+        )
+        val previous = decentralizedNamespaceCache.put(namespace, Some(decentralizedGraph))
+        ErrorUtil.requireState(
+          previous.isEmpty,
+          s"Unexpected cache hit for decentralized namespace $namespace: $previous",
+        )
+        val conflictingDirectGraphNodes = namespaceCache.get(namespace).toList.flatMap(_.nodes)
+        ErrorUtil.requireState(
+          conflictingDirectGraphNodes.isEmpty,
+          s"Conflicting direct namespace graph for namespace $namespace: $conflictingDirectGraphNodes",
+        )
+      }
+
+      decentralizedNamespacesToLoad.foreach(
+        decentralizedNamespaceCache.putIfAbsent(_, None).discard
+      )
     }
   }
 
-  protected def loadIdentifierDelegations(
-      timestamp: CantonTimestamp,
-      namespaces: Seq[Namespace],
+  protected def loadIdentifierDelegationCaches(
+      effectiveTime: CantonTimestamp,
       uids: Set[UniqueIdentifier],
   )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Set[UniqueIdentifier]] = {
-    val uidFilter = (uids -- identifierDelegationCache.keySet)
-    store
-      .findPositiveTransactions(
-        timestamp,
-        asOfInclusive = false,
-        isProposal = false,
-        types = Seq(IdentifierDelegation.code),
-        filterUid = Some(uidFilter.toSeq),
-        filterNamespace = None,
-      )
-      .map { stored =>
-        val loaded = stored.result.flatMap(
-          _.transaction.selectMapping[IdentifierDelegation].map(AuthorizedTopologyTransaction(_))
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val identifierDelegationsToLoad = uids -- identifierDelegationCache.keySet
+    for {
+      stored <- store
+        .findPositiveTransactions(
+          effectiveTime,
+          asOfInclusive = false,
+          isProposal = false,
+          types = Seq(IdentifierDelegation.code),
+          filterUid = Some(identifierDelegationsToLoad.toSeq),
+          filterNamespace = None,
         )
-        val start =
-          identifierDelegationCache.keySet
-            .filter(cached => namespaces.contains(cached.namespace))
-            .toSet
-        loaded.foldLeft(start) { case (acc, item) =>
-          mergeLoadedIdentifierDelegation(item)
-          val uid = item.mapping.identifier
-          if (namespaces.contains(uid.namespace))
-            acc + uid
-          else acc
-        }
+    } yield {
+      val identifierDelegations = stored
+        .collectOfMapping[IdentifierDelegation]
+        .collectLatestByUniqueKey
+        .result
+        .map(identifierDelegation =>
+          AuthorizedTopologyTransaction(identifierDelegation.transaction)
+        )
 
+      identifierDelegations.groupBy(_.mapping.identifier).foreach { case (uid, delegations) =>
+        val previous = identifierDelegationCache.put(uid, delegations.toSet)
+        ErrorUtil.requireState(
+          previous.isEmpty,
+          s"Unexpected cache hit for identiefier $uid: $previous",
+        )
       }
-  }
-
-  private def mergeLoadedIdentifierDelegation(item: AuthorizedIdentifierDelegation): Unit =
-    updateIdentifierDelegationCache(item.mapping.identifier, _ + item)
-
-  protected def updateIdentifierDelegationCache(
-      uid: UniqueIdentifier,
-      op: Set[AuthorizedIdentifierDelegation] => Set[AuthorizedIdentifierDelegation],
-  ): Unit = {
-    val cur = identifierDelegationCache.getOrElseUpdate(uid, Set())
-    identifierDelegationCache.update(uid, op(cur)).discard
+      identifierDelegationsToLoad.foreach(identifierDelegationCache.putIfAbsent(_, Set()).discard)
+    }
   }
 }

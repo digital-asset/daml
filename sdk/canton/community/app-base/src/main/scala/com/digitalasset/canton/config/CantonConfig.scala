@@ -720,6 +720,8 @@ object CantonConfig {
       deriveEnumerationReader[PbkdfScheme]
     lazy implicit val cryptoKeyFormatReader: ConfigReader[CryptoKeyFormat] =
       deriveEnumerationReader[CryptoKeyFormat]
+    lazy implicit val encryptionSchemeConfigReader: ConfigReader[EncryptionSchemeConfig] =
+      deriveReader[EncryptionSchemeConfig]
     implicit def cryptoSchemeConfig[S: ConfigReader: Order]: ConfigReader[CryptoSchemeConfig[S]] =
       deriveReader[CryptoSchemeConfig[S]]
     lazy implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
@@ -1138,6 +1140,8 @@ object CantonConfig {
       deriveEnumerationWriter[PbkdfScheme]
     lazy implicit val cryptoKeyFormatWriter: ConfigWriter[CryptoKeyFormat] =
       deriveEnumerationWriter[CryptoKeyFormat]
+    lazy implicit val encryptionSchemeConfigWriter: ConfigWriter[EncryptionSchemeConfig] =
+      deriveWriter[EncryptionSchemeConfig]
     implicit def cryptoSchemeConfigWriter[S: ConfigWriter]: ConfigWriter[CryptoSchemeConfig[S]] =
       deriveWriter[CryptoSchemeConfig[S]]
     lazy implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =

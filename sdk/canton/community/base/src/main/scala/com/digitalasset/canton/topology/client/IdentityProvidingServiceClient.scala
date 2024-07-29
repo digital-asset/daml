@@ -312,10 +312,7 @@ trait PartyTopologySnapshotClient {
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[
-    Set[PartyId]
-  ] // TODO(#14048): Decide on whether to standarize APIs on LfPartyId or PartyId and unify interfaces
-
+  )(implicit traceContext: TraceContext): Future[Set[PartyId]]
 }
 
 object PartyTopologySnapshotClient {

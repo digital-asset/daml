@@ -27,6 +27,16 @@ final case class CryptoSchemeConfig[S](
     allowed: Option[NonEmpty[Set[S]]] = None,
 )
 
+/** Stores the configuration of the encryption scheme.
+  *
+  * @param algorithms the algorithm specifications
+  * @param keys the key specifications
+  */
+final case class EncryptionSchemeConfig(
+    algorithms: CryptoSchemeConfig[EncryptionAlgorithmSpec] = CryptoSchemeConfig(),
+    keys: CryptoSchemeConfig[EncryptionKeySpec] = CryptoSchemeConfig(),
+)
+
 /** Cryptography configuration. */
 trait CryptoConfig {
 
@@ -36,11 +46,8 @@ trait CryptoConfig {
   /** the signing key scheme configuration */
   def signing: CryptoSchemeConfig[SigningKeyScheme]
 
-  /** the encryption algorithm configuration */
-  def encryptionAlgorithms: CryptoSchemeConfig[EncryptionAlgorithmSpec]
-
-  /** the encryption key configuration */
-  def encryptionKeys: CryptoSchemeConfig[EncryptionKeySpec]
+  /** the encryption scheme configuration */
+  def encryption: EncryptionSchemeConfig
 
   /** the symmetric key scheme configuration */
   def symmetric: CryptoSchemeConfig[SymmetricKeyScheme]
@@ -55,8 +62,7 @@ trait CryptoConfig {
 final case class CommunityCryptoConfig(
     provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
     signing: CryptoSchemeConfig[SigningKeyScheme] = CryptoSchemeConfig(),
-    encryptionAlgorithms: CryptoSchemeConfig[EncryptionAlgorithmSpec] = CryptoSchemeConfig(),
-    encryptionKeys: CryptoSchemeConfig[EncryptionKeySpec] = CryptoSchemeConfig(),
+    encryption: EncryptionSchemeConfig = EncryptionSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
     pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),

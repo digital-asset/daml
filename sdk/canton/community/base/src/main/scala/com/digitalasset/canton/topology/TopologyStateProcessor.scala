@@ -300,7 +300,7 @@ class TopologyStateProcessor(
             expectFullAuthorization,
           )
       )
-      .subflatMap { case (_, tx) =>
+      .subflatMap { tx =>
         tx.rejectionReason.toLeft(tx.transaction)
       }
   }

@@ -429,8 +429,6 @@ final case class DynamicDomainParameters private (
     maxRequestSize = maxRequestSize.unwrap,
     onboardingRestriction = onboardingRestriction.toProtoV30,
     participantDomainLimits = Some(participantDomainLimits.toProto),
-    // TODO(#14050) limit number of participants that can be allocated to a given party
-    defaultMaxHostingParticipantsPerParty = 0,
     sequencerAggregateSubmissionTimeout =
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
     trafficControlParameters = trafficControlParameters.map(_.toProtoV30),
@@ -671,7 +669,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       maxRequestSizeP,
       onboardingRestrictionP,
       defaultLimitsP,
-      _partyHostingLimits,
       sequencerAggregateSubmissionTimeoutP,
       trafficControlConfigP,
       acsCommitmentCatchupConfigP,

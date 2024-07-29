@@ -73,7 +73,7 @@ import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, WithKillSwitc
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
@@ -228,7 +228,8 @@ abstract class SequencerClientImpl(
       callback: SendCallback,
       amplify: Boolean,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     for {
       // TODO(#12950): Validate that group addresses map to at least one member
@@ -269,7 +270,8 @@ abstract class SequencerClientImpl(
       callback: SendCallback,
       amplify: Boolean,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       def mkRequestE(
@@ -420,7 +422,8 @@ abstract class SequencerClientImpl(
       peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
       topologySnapshot: SyncCryptoApi,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     EitherTUtil
       .timed(metrics.submissions.sends) {
@@ -467,7 +470,7 @@ abstract class SequencerClientImpl(
       signedRequest: SignedContent[SubmissionRequest],
       amplify: Boolean,
       peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
     val amplifier = new SendAmplifier(
       clock,
       signedRequest,
@@ -476,6 +479,7 @@ abstract class SequencerClientImpl(
       peekAtSendResult,
       this,
       timeouts.network.duration,
+      metrics,
     )
     if (amplify) amplifier.sendAmplified() else amplifier.sendOnce()
   }
@@ -1811,7 +1815,7 @@ object SequencerClient {
     }
     retry
       .Pause(loggingContext.logger, performUnlessClosing, maxRetries, delay, sendDescription)
-      .unlessShutdown(doSend(), AllExnRetryable)(
+      .unlessShutdown(doSend(), AllExceptionRetryPolicy)(
         retry.Success.always,
         ec,
         loggingContext.traceContext,

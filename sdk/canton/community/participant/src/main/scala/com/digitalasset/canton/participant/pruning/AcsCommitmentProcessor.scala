@@ -11,6 +11,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
@@ -1361,6 +1362,7 @@ class AcsCommitmentProcessor(
     val delayMillis = if (maxDelayMillis > 0) rand.nextInt(maxDelayMillis) else 0
 
     def sendUnlessClosing()(ts: CantonTimestamp) = {
+      implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
       performUnlessClosingUSF(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
         val cryptoSnapshot = domainCrypto.currentSnapshotApproximation

@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -314,7 +314,7 @@ class QueueBasedDomainOutbox(
               s"Pushing topology transactions to $domain",
             )
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         )
         .map { responses =>
           if (responses.length != transactions.length) {

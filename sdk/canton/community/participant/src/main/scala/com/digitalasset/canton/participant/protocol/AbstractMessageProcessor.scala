@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -86,6 +87,9 @@ abstract class AbstractMessageProcessor(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
+    implicit val metricsContext: MetricsContext = MetricsContext(
+      "type" -> "send-confirmation-response"
+    )
     if (messages.isEmpty) FutureUnlessShutdown.unit
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
