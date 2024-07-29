@@ -47,13 +47,13 @@ version_specific = {
 
 netty_tcnative_version = "2.0.61.Final"
 netty_version = "4.1.108.Final"
-grpc_version = "1.60.0"
+grpc_version = "1.64.0"
 protobuf_version = "3.24.0"
-pekko_version = "1.0.1"
-pekko_http_version = "1.0.0"
+pekko_version = "1.1.0-M1"
+pekko_http_version = "1.1.0-M1"
 
 #gatling_version = "3.5.1"
-guava_version = "31.1-jre"
+guava_version = "33.0.0-jre"
 
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
