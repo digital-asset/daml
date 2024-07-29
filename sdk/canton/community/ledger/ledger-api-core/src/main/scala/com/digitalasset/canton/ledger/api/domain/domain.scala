@@ -75,7 +75,7 @@ object ParticipantOffset {
 
   case object ParticipantBegin extends ParticipantOffset
 
-  case object ParticipantEnd extends ParticipantOffset
+  case object ParticipantEnd extends ParticipantOffset // TODO(#20098) delete
 
   implicit val `Absolute Ordering`: Ordering[ParticipantOffset.Absolute] =
     Ordering.by[ParticipantOffset.Absolute, String](_.value)

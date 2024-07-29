@@ -7,20 +7,21 @@ import com.daml.ledger.api.v2.UpdateServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class GetUpdatesRequest {
 
-  @NonNull private final ParticipantOffset beginExclusive;
+  @NonNull private final String beginExclusive;
 
-  @NonNull private final ParticipantOffset endInclusive;
+  @NonNull private final String endInclusive;
 
   @NonNull private final TransactionFilter transactionFilter;
 
   private final boolean verbose;
 
   public GetUpdatesRequest(
-      @NonNull ParticipantOffset beginExclusive,
-      @NonNull ParticipantOffset endInclusive,
+      @NonNull String beginExclusive,
+      @NonNull String endInclusive,
       @NonNull TransactionFilter transactionFilter,
       boolean verbose) {
     this.beginExclusive = beginExclusive;
@@ -33,28 +34,25 @@ public final class GetUpdatesRequest {
     TransactionFilter filters = TransactionFilter.fromProto(request.getFilter());
     boolean verbose = request.getVerbose();
     return new GetUpdatesRequest(
-        ParticipantOffset.fromProto(request.getBeginExclusive()),
-        ParticipantOffset.fromProto(request.getEndInclusive()),
-        filters,
-        verbose);
+        request.getBeginExclusive(), request.getEndInclusive(), filters, verbose);
   }
 
   public UpdateServiceOuterClass.GetUpdatesRequest toProto() {
     return UpdateServiceOuterClass.GetUpdatesRequest.newBuilder()
-        .setBeginExclusive(beginExclusive.toProto())
-        .setEndInclusive(endInclusive.toProto())
+        .setBeginExclusive(beginExclusive)
+        .setEndInclusive(endInclusive)
         .setFilter(this.transactionFilter.toProto())
         .setVerbose(this.verbose)
         .build();
   }
 
   @NonNull
-  public ParticipantOffset getBeginExclusive() {
+  public String getBeginExclusive() {
     return beginExclusive;
   }
 
   @NonNull
-  public ParticipantOffset getEndInclusive() {
+  public String getEndInclusive() {
     return endInclusive;
   }
 

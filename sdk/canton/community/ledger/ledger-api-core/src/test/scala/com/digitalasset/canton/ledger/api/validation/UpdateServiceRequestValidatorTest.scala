@@ -4,8 +4,6 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.api.v2.state_service.GetLedgerEndRequest
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
@@ -37,13 +35,9 @@ class UpdateServiceRequestValidatorTest
   private val templateId = Identifier(packageId, includedModule, includedTemplate)
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
-    Some(
-      ParticipantOffset(
-        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
-      )
-    ),
-    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
-    Some(
+    beginExclusive = "",
+    endInclusive = absoluteOffset,
+    filter = Some(
       TransactionFilter(
         Map(
           party ->
@@ -74,7 +68,7 @@ class UpdateServiceRequestValidatorTest
         )
       )
     ),
-    verbose,
+    verbose = verbose,
   )
   private val txReq = txReqBuilder(Seq(templateId))
   private val txReqWithPackageNameScoping = txReqBuilder(
@@ -82,14 +76,10 @@ class UpdateServiceRequestValidatorTest
   )
 
   private val txTreeReq = GetUpdatesRequest(
-    Some(
-      ParticipantOffset(
-        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
-      )
-    ),
-    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
-    Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
-    verbose,
+    beginExclusive = "",
+    endInclusive = absoluteOffset,
+    filter = Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
+    verbose = verbose,
   )
 
   private val endReq = GetLedgerEndRequest()
@@ -162,67 +152,15 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
-      "return the correct error on missing begin" in {
-        requestMustFailWith(
-          request = validator.validate(txReq.update(_.optionalBeginExclusive := None), ledgerEnd),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on empty begin " in {
-        requestMustFailWith(
-          request =
-            validator.validate(txReq.update(_.beginExclusive := ParticipantOffset()), ledgerEnd),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin.(boundary|value)",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on empty end " in {
-        requestMustFailWith(
-          request = validator.validate(txReq.withEndInclusive(ParticipantOffset()), ledgerEnd),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: end.(boundary|value)",
-          metadata = Map.empty,
-        )
-      }
-
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive(
-              ParticipantOffset(
-                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
-              )
-            ),
+            txReq.withBeginExclusive("123@"),
             ledgerEnd,
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown ledger boundary value '7' in field begin.boundary",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on unknown end boundary" in {
-        requestMustFailWith(
-          request = validator.validate(
-            txReq.withEndInclusive(
-              ParticipantOffset(
-                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
-              )
-            ),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown ledger boundary value '7' in field end.boundary",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Ledger String \"123@\"",
           metadata = Map.empty,
         )
       }
@@ -230,11 +168,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive(
-              ParticipantOffset(
-                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
-              )
-            ),
+            txReq.withBeginExclusive((ledgerEnd.value.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -247,11 +181,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEndInclusive(
-              ParticipantOffset(
-                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
-              )
-            ),
+            txReq.withEndInclusive((ledgerEnd.value.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -262,7 +192,7 @@ class UpdateServiceRequestValidatorTest
       }
 
       "tolerate missing end" in {
-        inside(validator.validate(txReq.update(_.optionalEndInclusive := None), ledgerEnd)) {
+        inside(validator.validate(txReq.update(_.endInclusive := ""), ledgerEnd)) {
           case Right(req) =>
             req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
             req.endInclusive shouldEqual None

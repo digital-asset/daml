@@ -116,7 +116,7 @@ class PingService(
   }
 
   private val retrySubmitter = new CommandSubmitterWithRetry(
-    connection.v2.commandService,
+    connection.commandService,
     clock,
     futureSupervisor,
     timeouts,

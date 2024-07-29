@@ -1040,9 +1040,9 @@ object LedgerApiCommands {
         extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
         with SubscribeBase[GetUpdatesRequest, Resp, Res] {
 
-      def beginExclusive: ParticipantOffset
+      def beginExclusive: String
 
-      def endInclusive: Option[ParticipantOffset]
+      def endInclusive: String
 
       def filter: TransactionFilter
 
@@ -1050,7 +1050,7 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = Some(beginExclusive),
+          beginExclusive = beginExclusive,
           endInclusive = endInclusive,
           verbose = verbose,
           filter = Some(filter),
@@ -1060,8 +1060,8 @@ object LedgerApiCommands {
 
     final case class SubscribeTrees(
         override val observer: StreamObserver[UpdateTreeWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1083,8 +1083,8 @@ object LedgerApiCommands {
 
     final case class SubscribeFlat(
         override val observer: StreamObserver[UpdateWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)

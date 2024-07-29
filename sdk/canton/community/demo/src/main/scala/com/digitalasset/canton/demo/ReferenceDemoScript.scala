@@ -72,9 +72,9 @@ class ReferenceDemoScript(
 
   val maxImage: Int = 28
 
-  private val readyToSubscribeM = new AtomicReference[Map[String, ParticipantOffset]](Map())
+  private val readyToSubscribeM = new AtomicReference[Map[String, String]](Map())
 
-  override def subscriptions(): Map[String, ParticipantOffset] = readyToSubscribeM.get()
+  override def subscriptions(): Map[String, String] = readyToSubscribeM.get()
 
   def imagePath: String = s"file:$rootPath/images/"
 
@@ -200,7 +200,7 @@ class ReferenceDemoScript(
     participant.domains.reconnect(name).discard
   }
 
-  private val pruningOffset = new AtomicReference[Option[(ParticipantOffset, Instant)]](None)
+  private val pruningOffset = new AtomicReference[Option[(String, Instant)]](None)
   val steps = TraceContext.withNewTraceContext { implicit traceContext =>
     List[Step](
       Noop, // pres page nr = page * 2 - 1
@@ -224,7 +224,7 @@ class ReferenceDemoScript(
             partyIdCache.put(name, (pid, participant)).discard
             readyToSubscribeM
               .updateAndGet(cur => cur + (name -> ParticipantTab.LedgerBegin))
-              .discard[Map[String, ParticipantOffset]]
+              .discard[Map[String, String]]
           }
 
         },
@@ -432,7 +432,7 @@ class ReferenceDemoScript(
           }
           // now, remember the offset to prune at
           val participantOffset =
-            participant5.ledger_api.state.endOffset()
+            participant5.ledger_api.state.end()
           // Trigger advancement of the clean head, so the previous contracts become safe to prune
           if (editionSupportsPruning) {
             participant5.health
@@ -474,7 +474,7 @@ class ReferenceDemoScript(
                 // give the ACS commitment processor some time to catchup
                 Threading.sleep(5.seconds.toMillis)
                 logger.info(s"Pruning ledger up to offset $offset inclusively")
-                participant5.pruning.prune(offset)
+                participant5.pruning.prune(ParticipantOffset.defaultInstance.withAbsolute(offset))
                 logger.info(s"Pruned ledger up to offset $offset inclusively.")
                 offset
               }

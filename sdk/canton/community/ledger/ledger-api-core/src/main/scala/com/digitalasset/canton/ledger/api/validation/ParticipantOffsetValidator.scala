@@ -20,18 +20,6 @@ object ParticipantOffsetValidator {
   import FieldValidator.requireLedgerString
   import ValidationErrors.{invalidArgument, missingField}
 
-  def validateOptional(
-      ledgerOffset: Option[ParticipantOffset],
-      fieldName: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[domain.ParticipantOffset]] =
-    ledgerOffset
-      .map(validate(_, fieldName))
-      .fold[Either[StatusRuntimeException, Option[domain.ParticipantOffset]]](Right(None))(
-        _.map(Some(_))
-      )
-
   def validate(
       ledgerOffset: ParticipantOffset,
       fieldName: String,

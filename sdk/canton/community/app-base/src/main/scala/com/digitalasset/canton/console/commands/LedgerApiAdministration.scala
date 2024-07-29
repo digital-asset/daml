@@ -140,15 +140,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |until either `completeAfter` update trees have been received or `timeout` has elapsed.
           |The returned update trees can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-          |this command fails with a `NOT_FOUND` error."""
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned."""
       )
       def trees(
           partyIds: Set[PartyId],
           completeAfter: Int,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
@@ -172,15 +172,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |this command fails with a `NOT_FOUND` error.
           |NOTE: As opposed to the flat transaction streams, the transaction filter provided for transaction trees DO NOT
           | filter the events in the tree, but decide instead the event payloads projection rules.
-          | (e.g. whether to include in the CreatedEvent the created event blob)."""
+          | (e.g. whether to include in the CreatedEvent the created event blob).
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned."""
       )
       def trees_with_tx_filter(
           filter: TransactionFilterProto,
           completeAfter: Int,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
@@ -202,15 +202,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |Use `filter = TransactionFilter(Map(myParty.toLf -> Filters()))` to return all trees for `myParty: PartyId`.
           |The returned updates can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-          |this command fails with a `NOT_FOUND` error."""
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned."""
       )
       def subscribe_trees(
           observer: StreamObserver[UpdateTreeWrapper],
           filter: TransactionFilterProto,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
       ): AutoCloseable = {
         check(FeatureFlag.Testing)(
@@ -235,15 +235,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |The returned updates can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error. If you need to specify filtering conditions for template IDs and
-          |including create event blobs for explicit disclosure, consider using `flat_with_tx_filter`."""
+          |including create event blobs for explicit disclosure, consider using `flat_with_tx_filter`.
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned."""
       )
       def flat(
           partyIds: Set[PartyId],
           completeAfter: Int,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -265,15 +265,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |The returned transactions can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error. If you only need to filter by a set of parties, consider using
-          |`flat` instead."""
+          |`flat` instead.
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned."""
       )
       def flat_with_tx_filter(
           filter: TransactionFilterProto,
           completeAfter: Int,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -294,14 +294,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |Use `filter = TransactionFilter(Map(myParty.toLf -> Filters()))` to return all updates for `myParty: PartyId`.
           |The returned updates can be filtered to be between the given offsets (default: no filtering).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-          |this command fails with a `NOT_FOUND` error.""")
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is empty then the participant begin is taken as beginning offset.
+          |If the endOffset is empty then a continuous stream is returned.""")
       def subscribe_flat(
           observer: StreamObserver[UpdateWrapper],
           filter: TransactionFilterProto,
-          beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-          ),
-          endOffset: Option[ParticipantOffset] = None,
+          beginOffset: String = "",
+          endOffset: String = "",
           verbose: Boolean = true,
       ): AutoCloseable = {
         check(FeatureFlag.Testing)(
@@ -387,7 +387,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           subscribe_trees(
             observer,
             filterParty,
-            state.endOffset(),
+            state.end(),
             verbose = false,
           )
         }
@@ -2040,15 +2040,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |until either `completeAfter` update trees have been received or `timeout` has elapsed.
             |The returned update trees can be filtered to be between the given offsets (default: no filtering).
             |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
-            |this command fails with a `NOT_FOUND` error."""
+            |this command fails with a `NOT_FOUND` error.
+            |If the beginOffset is empty then the participant begin is taken as beginning offset.
+            |If the endOffset is empty then a continuous stream is returned."""
         )
         def trees(
             partyIds: Set[PartyId],
             completeAfter: Int,
-            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-            ),
-            endOffset: Option[ParticipantOffset] = None,
+            beginOffset: String = "",
+            endOffset: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateTreeWrapper => Boolean = _ => true,
@@ -2080,15 +2080,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |The returned updates can be filtered to be between the given offsets (default: no filtering).
             |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
             |this command fails with a `NOT_FOUND` error. If you need to specify filtering conditions for template IDs and
-            |including create event blobs for explicit disclosure, consider using `flat_with_tx_filter`."""
+            |including create event blobs for explicit disclosure, consider using `flat_with_tx_filter`.
+            |If the beginOffset is empty then the participant begin is taken as beginning offset.
+            |If the endOffset is empty then a continuous stream is returned."""
         )
         def flat(
             partyIds: Set[PartyId],
             completeAfter: Int,
-            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-            ),
-            endOffset: Option[ParticipantOffset] = None,
+            beginOffset: String = "",
+            endOffset: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -2120,15 +2120,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |The returned transactions can be filtered to be between the given offsets (default: no filtering).
             |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
             |this command fails with a `NOT_FOUND` error. If you only need to filter by a set of parties, consider using
-            |`flat` instead."""
+            |`flat` instead.
+            |If the beginOffset is empty then the participant begin is taken as beginning offset.
+            |If the endOffset is empty then a continuous stream is returned."""
         )
         def flat_with_tx_filter(
             filter: TransactionFilter,
             completeAfter: Int,
-            beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-            ),
-            endOffset: Option[ParticipantOffset] = None,
+            beginOffset: String = "",
+            endOffset: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -2265,7 +2265,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         administration.ledger_api.updates
           .flat(
             partyIds = Set(queryPartyId),
-            beginOffset = ParticipantOffset.defaultInstance.withAbsolute(from),
+            beginOffset = from,
             completeAfter = 1,
             resultFilter = {
               case reassignmentW: ReassignmentWrapper =>

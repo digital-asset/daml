@@ -43,12 +43,12 @@ object V2Routes {
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 
-    val versionService = new JsVersionService(ledgerClient.v2.versionClient)
+    val versionService = new JsVersionService(ledgerClient.versionClient)
 
     val partyManagementService = new JsPartyManagementService(ledgerClient.partyManagementClient, loggerFactory)
 
     val packageService =
-      new JsPackageService(ledgerClient.v2.packageService, ledgerClient.packageManagementClient)(
+      new JsPackageService(ledgerClient.packageService, ledgerClient.packageManagementClient)(
         executionContext,
         materializer,
       )

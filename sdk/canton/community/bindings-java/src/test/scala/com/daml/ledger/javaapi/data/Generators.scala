@@ -840,17 +840,27 @@ object Generators {
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.{GetUpdatesRequest as Request}
     for {
-      beginExclusive <- participantOffsetGen
-      endInclusive <- participantOffsetGen
+      beginExclusive <- Arbitrary.arbString.arbitrary
+      endInclusiveO <- Gen.option(Arbitrary.arbString.arbitrary)
       filter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
-    } yield Request
-      .newBuilder()
-      .setBeginExclusive(beginExclusive)
-      .setEndInclusive(endInclusive)
-      .setFilter(filter)
-      .setVerbose(verbose)
-      .build()
+    } yield {
+      val partialBuilder = Request
+        .newBuilder()
+        .setBeginExclusive(beginExclusive)
+        .setFilter(filter)
+        .setVerbose(verbose)
+
+      endInclusiveO match {
+        case Some(endInclusive) =>
+          partialBuilder
+            .setEndInclusive(endInclusive)
+            .build()
+        case None =>
+          partialBuilder
+            .build()
+      }
+    }
   }
 
   def getUpdatesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesResponse] = {

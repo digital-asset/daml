@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.client.services.updates
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{GetUpdatesRequest, GetUpdatesResponse}
@@ -21,13 +20,13 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
       begin: String,
       filter: TransactionFilter,
       verbose: Boolean = false,
-      end: Option[ParticipantOffset] = None,
+      end: String = "",
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Source[GetUpdatesResponse, NotUsed] = {
     ClientAdapter
       .serverStreaming(
         GetUpdatesRequest(
-          beginExclusive = Some(ParticipantOffset.defaultInstance.withAbsolute(begin)),
+          beginExclusive = begin,
           endInclusive = end,
           filter = Some(filter),
           verbose = verbose,

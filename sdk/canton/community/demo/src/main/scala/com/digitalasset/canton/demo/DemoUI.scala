@@ -4,7 +4,6 @@
 package com.digitalasset.canton.demo
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.ledger.api.v2.update_service.{
@@ -64,7 +63,7 @@ trait BaseScript extends NamedLogging {
 
   def steps: Seq[Step]
   def parties(): Seq[(String, ParticipantReference)]
-  def subscriptions(): Map[String, ParticipantOffset]
+  def subscriptions(): Map[String, String]
   def maxImage: Int
   def imagePath: String
 
@@ -169,7 +168,7 @@ class ParticipantTab(
       flushing: Boolean,
       channel: Option[ManagedChannel],
       resubscribe: Boolean,
-      subscribeFrom: ParticipantOffset,
+      subscribeFrom: String,
   )
 
   private val currentChannel = new AtomicReference[SubscriptionState](
@@ -249,7 +248,7 @@ class ParticipantTab(
     }
   }
 
-  def reStart(newOffsetO: Option[ParticipantOffset] = None): Unit = {
+  def reStart(newOffsetO: Option[String] = None): Unit = {
     val cur = currentChannel.updateAndGet(x =>
       x.copy(resubscribe = true, subscribeFrom = newOffsetO.getOrElse(x.subscribeFrom))
     )
@@ -259,10 +258,10 @@ class ParticipantTab(
     }
   }
 
-  private def subscribeToChannel(offset: ParticipantOffset): Unit = {
+  private def subscribeToChannel(offset: String): Unit = {
     val channel =
       ClientChannelBuilder.createChannelToTrustedServer(participant.config.clientLedgerApi)
-    logger.debug(s"Subscribing ${participant.name} at ${offset.toString}")
+    logger.debug(s"Subscribing ${participant.name} at $offset")
     val current = currentChannel.getAndUpdate { cur =>
       // store channel and set subscribed offset to None unless it has changed in the meantime
 
@@ -347,8 +346,8 @@ class ParticipantTab(
               "Transactions request from ([0-9a-fA-F]*) to ([0-9a-fA-F]*) precedes pruned offset ([0-9a-fA-F]+)".r
             Try {
               val errorPattern(_badStartHexOffset, _endHexOffset, hexPrunedOffset) = message
-              logger.info(s"Identified pruning offset position as ${hexPrunedOffset}")
-              new ParticipantOffset().withAbsolute(hexPrunedOffset)
+              logger.info(s"Identified pruning offset position as $hexPrunedOffset")
+              hexPrunedOffset
             } match {
               case Success(prunedOffset) =>
                 logger.info(s"Resubscribing from offset $prunedOffset instead")
@@ -366,7 +365,7 @@ class ParticipantTab(
 
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
     val req = new GetUpdatesRequest(
-      beginExclusive = Some(offset),
+      beginExclusive = offset,
       filter = Some(TransactionFilter(filtersByParty = Map(partyId -> Filters()))),
       verbose = true,
     )
@@ -536,11 +535,7 @@ class ParticipantTab(
 }
 
 object ParticipantTab {
-  val LedgerBegin: ParticipantOffset = ParticipantOffset(
-    ParticipantOffset.Value.Boundary(
-      ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
-    )
-  )
+  val LedgerBegin: String = ""
 }
 
 class Controls(
