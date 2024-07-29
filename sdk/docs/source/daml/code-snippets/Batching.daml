@@ -1,0 +1,46 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Batching where
+
+import DA.Foldable
+
+doUpdate : Bool -> Party -> Party -> [ContractId Example] -> Update ()
+
+doUpdate efficient owner obs batch = do
+  if efficient then do
+    batcher <- create BatchFoo with owner
+    -- This only works out if obs is the same observer on all the exercised Example contracts
+    batcher `exercise` Run with batch = batch; obs = obs
+  else do
+    -- Canton will create one view per exercise
+    forA_ batch (`exercise` Foo)
+  pure ()
+
+template Example with
+    owner : Party
+    obs: Party
+  where
+    signatory owner
+    observer obs
+
+    choice Foo : ()
+      controller owner
+      do
+        return ()
+
+template BatchFoo with
+    owner : Party
+  where
+    signatory owner
+
+    choice Run : () with
+        batch : [ContractId Example]
+        obs : Party
+      -- The observer here is a choice observer. Therefore, Canton will
+      -- ship a single view with the top node of this choice if the observer of the
+      -- choice aligns with the observer of the contract.
+      observer obs
+      controller owner
+      do
+        forA_ batch (`exercise` Foo)
