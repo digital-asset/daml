@@ -111,7 +111,7 @@ class OpenTelemetryMetricsFactory(
   override def gauge[T](info: MetricInfo, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
-    val gauge = OpenTelemetryGauge(info, initial, context)
+    val gauge = OpenTelemetryGauge(info, initial, globalMetricsContext.merge(context))
     val gaugeBuilder = otelMeter.gaugeBuilder(info.name).setDescription(info.summary)
     val registered = initial match {
       case _: Int =>
@@ -146,9 +146,9 @@ class OpenTelemetryMetricsFactory(
   )(implicit
       context: MetricsContext = MetricsContext.Empty
   ): CloseableGauge = {
-    val (typeProbeValue, _) = valueSupplier()
     val gaugeBuilder = otelMeter.gaugeBuilder(info.name).setDescription(info.summary)
-    val attributes = context.asAttributes
+    val attributes = globalMetricsContext.merge(context).asAttributes
+    val typeProbeValue = valueSupplier()
     typeProbeValue match {
       case _: Int =>
         val gaugeHandle =
