@@ -221,7 +221,7 @@ object Script {
 
   final case class FailedCmd(description: String, stackTrace: StackTrace, cause: Throwable)
       extends RuntimeException(
-        s"""Command ${description} failed: ${cause.getMessage}
+        s"""Command ${description} failed: ${Option(cause.getMessage).getOrElse(cause)}
           |Daml stacktrace:
           |${stackTrace.pretty()}""".stripMargin,
         cause,
