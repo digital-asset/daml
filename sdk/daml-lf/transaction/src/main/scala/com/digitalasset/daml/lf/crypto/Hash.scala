@@ -71,7 +71,7 @@ object Hash {
   // Thread safe
   def secureRandom(seed: Hash): () => Hash = {
     val counter = new AtomicLong
-    () => hMacBuilder(seed).add(counter.getAndIncrement()).build
+    () => hMacBuilder(seed).addLong(counter.getAndIncrement()).build
   }
 
   implicit val ordering: Ordering[Hash] =
@@ -103,101 +103,101 @@ object Hash {
       new Hash(Bytes.fromByteArray(a))
     }
 
-    final def add(buffer: Array[Byte]): this.type = {
+    final def addBytes(buffer: Array[Byte]): this.type = {
       update(buffer)
       this
     }
 
-    final def add(buffer: ByteBuffer): this.type = {
+    final def addBytes(buffer: ByteBuffer): this.type = {
       update(buffer)
       this
     }
 
-    final def add(a: Bytes): this.type =
-      add(a.toByteBuffer)
+    final def addBytes(a: Bytes): this.type =
+      addBytes(a.toByteBuffer)
 
     private val byteBuff = Array.ofDim[Byte](1)
 
-    final def add(a: Byte): this.type = {
+    final def addByte(a: Byte): this.type = {
       byteBuff(0) = a
-      add(byteBuff)
+      addBytes(byteBuff)
     }
 
-    final def add(a: Hash): this.type = add(a.bytes)
+    final def addHash(a: Hash): this.type = addBytes(a.bytes)
 
-    final def add(s: String): this.type = {
+    final def addString(s: String): this.type = {
       val a = Utf8.getBytes(s)
-      add(a.length).add(a)
+      addInt(a.length).addBytes(a)
     }
 
-    private def add(fieldNumber: Int, v: String): this.type =
-      if (v.nonEmpty) add(fieldNumber).add(v) else this
+    private def addString(fieldNumber: Int, v: String): this.type =
+      if (v.nonEmpty) addInt(fieldNumber).addString(v) else this
 
-    final def add(b: Boolean): this.type =
-      add(if (b) 1.toByte else 0.toByte)
+    final def addBool(b: Boolean): this.type =
+      addByte(if (b) 1.toByte else 0.toByte)
 
-    private def add(fieldNumber: Int, v: Boolean): this.type = {
-      if (v) add(fieldNumber).add(v) else this
+    private def addBool(fieldNumber: Int, v: Boolean): this.type = {
+      if (v) addInt(fieldNumber).addBool(v) else this
     }
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
-    final def add(a: Int): this.type = {
+    final def addInt(a: Int): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      add(intBuffer)
+      addBytes(intBuffer)
     }
 
-    private def add(fieldNumber: Int, v: Int): this.type =
-      if (v != 0) add(fieldNumber).add(v) else this
+    private def addInt(fieldNumber: Int, v: Int): this.type =
+      if (v != 0) addInt(fieldNumber).addInt(v) else this
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
-    final def add(a: Long): this.type = {
+    final def addLong(a: Long): this.type = {
       discard(longBuffer.rewind())
       discard(longBuffer.putLong(a).position(0))
-      add(longBuffer)
+      addBytes(longBuffer)
     }
 
-    private def add(fieldNumber: Int, v: Long): this.type =
-      if (v != 0) add(fieldNumber).add(v) else this
+    private def addLong(fieldNumber: Int, v: Long): this.type =
+      if (v != 0) addInt(fieldNumber).addLong(v) else this
 
-    final def add(v: data.Numeric): this.type = {
+    final def addNumeric(v: data.Numeric): this.type = {
       val a = v.unscaledValue().toByteArray
-      add(a.length).add(a)
+      addInt(a.length).addBytes(a)
     }
 
-    private def add(fieldNumber: Int, v: data.Numeric): this.type =
-      if (v.signum() != 0) add(fieldNumber).add(v) else this
+    private def addNumeric(fieldNumber: Int, v: data.Numeric): this.type =
+      if (v.signum() != 0) addInt(fieldNumber).addNumeric(v) else this
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
-      a.foldLeft[this.type](add(a.length))(f)
+      a.foldLeft[this.type](addInt(a.length))(f)
 
     private def iterateOver[T, U](fieldNumber: Int, a: ImmArray[T])(
         f: (this.type, T) => this.type
     ): this.type =
       if (a.nonEmpty)
-        a.foldLeft[this.type](add(fieldNumber).add(a.length))(f)
+        a.foldLeft[this.type](addInt(fieldNumber).addInt(a.length))(f)
       else
         this
 
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
-      a.foldLeft[this.type](add(size))(f)
+      a.foldLeft[this.type](addInt(size))(f)
 
     final def iterateOver[T](fieldNumber: Int, a: Iterator[T], size: Int)(
         f: (this.type, T) => this.type
     ): this.type =
       if (a.nonEmpty)
-        a.foldLeft[this.type](add(fieldNumber).add(size))(f)
+        a.foldLeft[this.type](addInt(fieldNumber).addInt(size))(f)
       else
         this
 
     final def iterateOver[T](v: Option[T])(f: (this.type, T) => this.type): this.type =
       v match {
         case Some(v) =>
-          f(add(1), v)
+          f(addInt(1), v)
         case None =>
-          add(0)
+          addInt(0)
       }
 
     final def iterateOver[T](fieldNumber: Int, v: Option[T])(
@@ -205,29 +205,29 @@ object Hash {
     ): this.type =
       v match {
         case Some(v) =>
-          f(add(fieldNumber), v)
+          f(addInt(fieldNumber), v)
         case None =>
           this
       }
 
     final def addDottedName(name: Ref.DottedName): this.type =
-      iterateOver(name.segments)(_ add _)
+      iterateOver(name.segments)(_ addString _)
 
     final def addQualifiedName(name: Ref.QualifiedName): this.type =
       addDottedName(name.module).addDottedName(name.name)
 
     final def addIdentifier(id: Ref.Identifier): this.type =
-      add(id.packageId).addQualifiedName(id.qualifiedName)
+      addString(id.packageId).addQualifiedName(id.qualifiedName)
 
     final def addStringSet[S <: String](set: Set[S]): this.type = {
       val ss = set.toSeq.sorted[String]
-      iterateOver(ss.iterator, ss.size)(_ add _)
+      iterateOver(ss.iterator, ss.size)(_ addString _)
     }
 
     @throws[HashingError]
     final def addCid(cid: Value.ContractId): this.type = {
       val bytes = cid2Bytes(cid)
-      add(bytes.length).add(bytes)
+      addInt(bytes.length).addBytes(bytes)
     }
 
     private def addRecord(fs: ImmArray[(_, Value)]): this.type =
@@ -236,8 +236,9 @@ object Hash {
           discard(addTypedValue(i, v))
         }
         this
-      } else
+      } else {
         iterateOver(fs)(_ addTypedValue _._2)
+      }
 
     // In order to avoid hash collision, this should be used together
     // with another data representing uniquely the type of `value`.
@@ -246,21 +247,21 @@ object Hash {
     final def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          add(0.toByte)
+          addByte(0.toByte)
         case Value.ValueBool(b) =>
-          add(b)
+          addBool(b)
         case Value.ValueInt64(v) =>
-          add(v)
+          addLong(v)
         case Value.ValueNumeric(v) =>
-          add(v)
+          addNumeric(v)
         case Value.ValueTimestamp(v) =>
-          add(v.micros)
+          addLong(v.micros)
         case Value.ValueDate(v) =>
-          add(v.days)
+          addInt(v.days)
         case Value.ValueParty(v) =>
-          add(v)
+          addString(v)
         case Value.ValueText(v) =>
-          add(v)
+          addString(v)
         case Value.ValueContractId(cid) =>
           addCid(cid)
         case Value.ValueOptional(opt) =>
@@ -268,13 +269,13 @@ object Hash {
         case Value.ValueList(xs) =>
           iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
-          iterateOver(xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
+          iterateOver(xs.toImmArray)((acc, x) => acc.addString(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
           addRecord(fs)
         case Value.ValueVariant(_, variant, v) =>
-          add(variant).addTypedValue(v)
+          addString(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>
-          add(v)
+          addString(v)
         case Value.ValueGenMap(entries) =>
           iterateOver(entries.iterator, entries.length)((acc, x) =>
             acc.addTypedValue(x._1).addTypedValue(x._2)
@@ -286,38 +287,40 @@ object Hash {
         case Value.ValueUnit =>
           this
         case Value.ValueBool(b) =>
-          add(fieldNumber, b)
+          addBool(fieldNumber, b)
         case Value.ValueInt64(v) =>
-          add(fieldNumber, v)
+          addLong(fieldNumber, v)
         case Value.ValueNumeric(v) =>
-          add(fieldNumber, v)
+          addNumeric(fieldNumber, v)
         case Value.ValueTimestamp(v) =>
-          add(fieldNumber, v.micros)
+          addLong(fieldNumber, v.micros)
         case Value.ValueDate(v) =>
-          add(fieldNumber, v.days)
+          addInt(fieldNumber, v.days)
         case Value.ValueParty(v) =>
           // No default
-          add(fieldNumber).add(v)
+          addInt(fieldNumber).addString(v)
         case Value.ValueText(v) =>
-          add(fieldNumber, v)
+          addString(fieldNumber, v)
         case Value.ValueContractId(cid) =>
           // No default
-          add(fieldNumber).addCid(cid)
+          addInt(fieldNumber).addCid(cid)
         case Value.ValueOptional(opt) =>
           iterateOver(fieldNumber, opt)(_ addTypedValue _)
         case Value.ValueList(xs) =>
           iterateOver(fieldNumber, xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
-          iterateOver(fieldNumber, xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
+          iterateOver(fieldNumber, xs.toImmArray)((acc, x) =>
+            acc.addString(x._1).addTypedValue(x._2)
+          )
         case Value.ValueRecord(_, fs) =>
           // No default
-          add(fieldNumber).addRecord(fs)
+          addInt(fieldNumber).addRecord(fs)
         case Value.ValueVariant(_, variant, v) =>
           // No default
-          add(fieldNumber).add(variant).addTypedValue(v)
+          addInt(fieldNumber).addString(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>
           // No default
-          add(fieldNumber).add(v)
+          addInt(fieldNumber).addString(v)
         case Value.ValueGenMap(entries) =>
           iterateOver(fieldNumber, entries.iterator, entries.length)((acc, x) =>
             acc.addTypedValue(x._1).addTypedValue(x._2)
@@ -400,7 +403,7 @@ object Hash {
     data.assertRight(fromString(s))
 
   def hashPrivateKey(s: String): Hash =
-    builder(Purpose.PrivateKey, noCid2String).add(s).build
+    builder(Purpose.PrivateKey, noCid2String).addString(s).build
 
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
@@ -414,7 +417,7 @@ object Hash {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
     hashBuilder
       .addQualifiedName(templateId.qualifiedName)
-      .add(packageName)
+      .addString(packageName)
       .addTypedValue(key)
       .build
   }
@@ -444,7 +447,7 @@ object Hash {
       aCid2Bytes,
       langVersion >= TransactionVersion.minContractKeys,
     )
-    discard(b.add(packageName).addIdentifier(templateId))
+    discard(b.addString(packageName).addIdentifier(templateId))
     discard(b.addTypedValue(arg))
     b.build
   }
@@ -463,8 +466,8 @@ object Hash {
       actAs: Set[Ref.Party],
   ): Hash =
     builder(Purpose.ChangeId, noCid2String)
-      .add(applicationId)
-      .add(commandId)
+      .addString(applicationId)
+      .addString(commandId)
       .addStringSet(actAs)
       .build
 
@@ -475,9 +478,9 @@ object Hash {
       submitter: Ref.Party,
   ): Hash =
     hMacBuilder(nonce)
-      .add(applicationId)
-      .add(commandId)
-      .add(submitter)
+      .addString(applicationId)
+      .addString(commandId)
+      .addString(submitter)
       .build
 
   def deriveTransactionSeed(
@@ -486,15 +489,15 @@ object Hash {
       submitTime: Time.Timestamp,
   ): Hash =
     hMacBuilder(submissionSeed)
-      .add(participantId)
-      .add(submitTime.micros)
+      .addString(participantId)
+      .addLong(submitTime.micros)
       .build
 
   def deriveNodeSeed(
       parentDiscriminator: Hash,
       childIdx: Int,
   ): Hash =
-    hMacBuilder(parentDiscriminator).add(childIdx).build
+    hMacBuilder(parentDiscriminator).addInt(childIdx).build
 
   def deriveContractDiscriminator(
       nodeSeed: Hash,
@@ -502,7 +505,7 @@ object Hash {
       parties: Set[Ref.Party],
   ): Hash =
     hMacBuilder(nodeSeed)
-      .add(submitTime.micros)
+      .addLong(submitTime.micros)
       .addStringSet(parties)
       .build
 
@@ -512,7 +515,7 @@ object Hash {
       maintainer: Ref.Party,
   ): Hash =
     builder(Purpose.MaintainerContractKeyUUID, noCid2String)
-      .add(keyHash)
-      .add(maintainer)
+      .addHash(keyHash)
+      .addString(maintainer)
       .build
 }
