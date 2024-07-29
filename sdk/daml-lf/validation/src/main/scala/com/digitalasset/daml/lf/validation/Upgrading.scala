@@ -183,17 +183,6 @@ object UpgradeError {
       s"The upgraded $origin has changed the order of its variants - any new variant must be added at the end of the enum."
   }
 
-  final case class TriedToUpgradeIface(iface: Ref.DottedName) extends Error {
-    override def message: String =
-      s"Tried to upgrade interface $iface, but interfaces cannot be upgraded. They should be removed in any upgrading package."
-  }
-
-  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName)
-      extends Error {
-    override def message: String =
-      s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
-  }
-
   final case class DependencyHasLowerVersionDespiteUpgrade(
       depName: Ref.PackageName,
       depPresentVersion: Ref.PackageVersion,
@@ -209,6 +198,17 @@ object UpgradeError {
   ) extends Error {
     override def message: String =
       s"The upgraded package uses an older LF version (${presentVersion.pretty} < ${pastVersion.pretty})"
+  }
+
+  final case class TriedToUpgradeIface(iface: Ref.DottedName) extends Error {
+    override def message: String =
+      s"Tried to upgrade interface $iface, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+  }
+
+  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName)
+      extends Error {
+    override def message: String =
+      s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
 }
 
@@ -416,7 +416,7 @@ case class TypecheckUpgrades(
     val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
       lookupInterface(module, tcon, dt)
     })
-    (ifaces.toMap, other.toMap)
+    (ifaces.toMap, other.filter(_._2.serializable).toMap)
   }
 
   private def lookupInterface(
@@ -443,14 +443,10 @@ case class TypecheckUpgrades(
   }
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
-    def serializable(datatypes: Map[Ref.DottedName, Ast.DDataType]): Map[Ref.DottedName, Ast.DDataType] =
-      datatypes.collect {
-        case (k, v: Ast.DDataType) if v.serializable => (k, v)
-      }
     val (pastIfaceDts, pastUnownedDts) = splitModuleDts(module.past)
     val (presentIfaceDts, presentUnownedDts) = splitModuleDts(module.present)
     val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
-    val unownedSerializableDts = Upgrading(past = serializable(pastUnownedDts), present = serializable(presentUnownedDts))
+    val unownedDts = Upgrading(past = pastUnownedDts, present = presentUnownedDts)
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
@@ -474,7 +470,7 @@ case class TypecheckUpgrades(
         )
 
       (existingDatatypes, _new) <- checkDeleted(
-        unownedSerializableDts,
+        unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
       )
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
