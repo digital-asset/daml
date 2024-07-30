@@ -647,7 +647,6 @@ test("exercise using explicit disclosure", async () => {
         },
         beginExclusive: "",
         endInclusive: ledgerEnd,
-        // endInclusive: { boundary: "PARTICIPANT_BOUNDARY_END" },
       }),
       "localhost:5011",
       "com.daml.ledger.api.v2.UpdateService/GetUpdates",
