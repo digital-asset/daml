@@ -645,12 +645,12 @@ typeOfUpdate = \case
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
     return (TUpdate typ)
-  UFetchByKey retrieveByKey -> do
-    (keyType, cidType, contractType) <- checkRetrieveByKey retrieveByKey
+  UFetchByKey template -> do
+    (keyType, cidType, contractType) <- checkRetrieveByKey template
     return (keyType :-> TUpdate (TTuple2 cidType contractType))
-  ULookupByKey retrieveByKey -> do
-    (keyType, cidType, _contractType) <- checkRetrieveByKey retrieveByKey
-    return (keyType :-> TUpdate (TOptional cidType))
+  ULookupByKey template -> do
+    (keyType, cidType, _contractType) <- checkRetrieveByKey template
+    return (TInt64 :-> keyType :-> TUpdate (TList cidType))
   UTryCatch typ expr var handler -> do
     checkType typ KStar
     checkExpr expr (TUpdate typ)

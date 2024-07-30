@@ -424,10 +424,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           T"ContractId Mod:T → (( Update Mod:T ))",
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
           T"ContractId Mod:I → (( Update Mod:I ))",
-        E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
-          T"Party → (( Update ($tuple2TyCon (ContractId Mod:T) Mod:T) ))",
-        E"λ (e: Party) →  (( lookup_by_key @Mod:T e ))" ->
-          T"Party → (( Update (Option (ContractId Mod:T)) ))",
+        E"(( fetch_by_key @Mod:T ))" ->
+          T"Int64 → Party → (( Update ($tuple2TyCon (ContractId Mod:T) Mod:T) ))",
+        E"(( lookup_by_key @Mod:T ))" ->
+          T"Int64 → Party → (( Update (List (ContractId Mod:T)) ))",
         E"(( uget_time ))" ->
           T"(( Update Timestamp ))",
         E"Λ (τ : ⋆). λ (e: Update τ) →(( uembed_expr @τ e ))" ->

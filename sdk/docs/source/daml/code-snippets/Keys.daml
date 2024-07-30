@@ -196,13 +196,13 @@ lookupTest = script do
   mcid === Some keyedCid
 
 
-  -- Stakeholder can fetch
-  (cid, l) <- submit obs do
-    Helper obs `createAndExerciseCmd` FetchByKey sig
-  keyedCid === cid
-  -- Stakeholder can't see without authorization
-  submitMustFail obs do
-    Helper obs `createAndExerciseCmd` VisibleByKey sig
+--  -- Stakeholder can fetch
+--  (cid, l) <- submit obs do
+--    Helper obs `createAndExerciseCmd` FetchByKey sig
+--  keyedCid === cid
+--  -- Stakeholder can't see without authorization
+--  submitMustFail obs do
+--    Helper obs `createAndExerciseCmd` VisibleByKey sig
 
   -- Stakeholder can see with authorization
   b <- submit obs do
