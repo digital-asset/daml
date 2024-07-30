@@ -30,7 +30,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, RateLimiter}
+import com.digitalasset.canton.util.RateLimiter
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
@@ -594,11 +594,8 @@ class GrpcSequencerService(
     sender match {
       case participantId: ParticipantId if request.isRequest =>
         for {
-          maxRatePerParticipant <- EitherTUtil
-            .fromFuture(
-              domainParamsLookup.getApproximateOrDefaultValue(),
-              e => SendAsyncError.Internal(s"Unable to retrieve domain parameters: ${e.getMessage}"),
-            )
+          maxRatePerParticipant <- EitherT
+            .right(domainParamsLookup.getApproximateOrDefaultValue())
             .map(_.maxRatePerParticipant)
           _ <- EitherT.fromEither[Future](checkRate(participantId, maxRatePerParticipant))
         } yield ()

@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -870,11 +868,9 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $source with domain id $sourceDomainId"
       )
-      _ <- migrationService
-        .pruneSelectedDeactivatedDomainStores(sourceDomainId)
-        .leftMap[SyncServiceError](
-          SyncServiceError.SyncServiceMigrationError(source, target.domain, _)
-        )
+      _ <- EitherT.right(
+        migrationService.pruneSelectedDeactivatedDomainStores(sourceDomainId)
+      )
     } yield ()
 
   /* Verify that specified domain has inactive status and selectively prune sync domain stores.
@@ -901,10 +897,9 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $domain with domain id $domainId"
       )
-      _ <- migrationService
-        .pruneSelectedDeactivatedDomainStores(domainId)
-        .leftMap(err => PruningServiceError.InternalServerError.Error(err.cause))
-        .leftWiden[CantonError]
+      _ <- EitherT.right(
+        migrationService.pruneSelectedDeactivatedDomainStores(domainId)
+      )
     } yield ()
   }
 
@@ -1043,14 +1038,8 @@ class CantonSyncService(
   private def startDomain(alias: DomainAlias, syncDomain: SyncDomain)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
-    EitherTUtil
-      .fromFuture(
-        syncDomain.start(),
-        t => SyncServiceError.SyncServiceInternalError.Failure(alias, t),
-      )
-      .subflatMap[SyncServiceError, Unit](
-        _.leftMap(error => SyncServiceError.SyncServiceInternalError.InitError(alias, error))
-      )
+    EitherT(syncDomain.start())
+      .leftMap(error => SyncServiceError.SyncServiceInternalError.InitError(alias, error))
 
   /** Connect the sync service to the given domain.
     * This method makes sure there can only be one connection in progress at a time.
@@ -2056,14 +2045,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
         "SYNC_SERVICE_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-
-    final case class UnknownDomainParameters(domain: DomainAlias)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "The domain parameters for the given domain are missing in the store"
-        )
-        with SyncServiceError
-
     final case class Failure(domain: DomainAlias, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
