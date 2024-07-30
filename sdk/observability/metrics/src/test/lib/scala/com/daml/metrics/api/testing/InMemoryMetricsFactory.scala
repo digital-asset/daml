@@ -193,7 +193,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
     override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit = {
       checkClosed()
-      value.set(newValue -> mc)
+      value.set(newValue -> context.merge(mc))
     }
 
     override def updateValue(f: T => T): Unit = {

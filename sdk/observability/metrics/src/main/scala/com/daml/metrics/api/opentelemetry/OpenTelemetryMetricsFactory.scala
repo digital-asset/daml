@@ -268,7 +268,8 @@ case class OpenTelemetryGauge[T](override val info: MetricInfo, initial: T, cont
   private val ref = new AtomicReference[(T, MetricsContext)](initial -> context)
   private[opentelemetry] val reference = new AtomicReference[Option[AutoCloseable]](None)
 
-  override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit = ref.set(newValue -> mc)
+  override def updateValue(newValue: T)(implicit mc: MetricsContext): Unit =
+    ref.set(newValue -> context.merge(mc))
 
   override def getValue: T = ref.get()._1
 
