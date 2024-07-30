@@ -12,8 +12,6 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
 import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.TransactionFilter
@@ -62,8 +60,7 @@ final class UpdateClientImplTest
 
   implicit def tupleNoShrink[A, B]: Shrink[(A, B)] = Shrink.shrinkAny
 
-  private val ledgerBegin = data.ParticipantOffset.ParticipantBegin.getInstance()
-  private val ledgerEnd = data.ParticipantOffset.ParticipantEnd.getInstance()
+  private val ledgerBegin = ""
   private val emptyFilter =
     new TransactionFilter(Map.empty[String, data.Filter].asJava, None.toJava)
 
@@ -71,6 +68,7 @@ final class UpdateClientImplTest
 
   it should "return transactions from the ledger" in forAll(ledgerContentGen) {
     case (ledgerContent, expectedTransactions) =>
+      val ledgerEnd = expectedTransactions.lastOption.fold("")(_.getOffset)
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           {
@@ -93,8 +91,8 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = new data.ParticipantOffset.Absolute("1")
-      val end = new data.ParticipantOffset.Absolute("2")
+      val begin = "1"
+      val end = "2"
 
       val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
@@ -116,8 +114,8 @@ final class UpdateClientImplTest
         .blockingGet()
 
       val request = transactionService.lastUpdatesRequest.get()
-      request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
-      request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
+      request.beginExclusive shouldBe "1"
+      request.endInclusive shouldBe "2"
       val filterByParty = request.filter.get.filtersByParty
       filterByParty.keySet shouldBe Set("Alice")
       filterByParty("Alice").cumulative
@@ -140,6 +138,7 @@ final class UpdateClientImplTest
 
   it should "return transaction trees from the ledger" ignore forAll(ledgerContentTreeGen) {
     case (ledgerContent, expectedTransactionsTrees) =>
+      val ledgerEnd = expectedTransactionsTrees.last.getOffset
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           transactionClient
@@ -154,8 +153,8 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = new data.ParticipantOffset.Absolute("1")
-      val end = new data.ParticipantOffset.Absolute("2")
+      val begin = "1"
+      val end = "2"
 
       val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
@@ -177,8 +176,8 @@ final class UpdateClientImplTest
         .blockingGet()
 
       val request = transactionService.lastUpdatesTreesRequest.get()
-      request.beginExclusive shouldBe Some(ParticipantOffset(Absolute("1")))
-      request.endInclusive shouldBe Some(ParticipantOffset(Absolute("2")))
+      request.beginExclusive shouldBe "1"
+      request.endInclusive shouldBe "2"
       val filterByParty = request.filter.get.filtersByParty
       filterByParty.keySet shouldBe Set("Alice")
       filterByParty("Alice").cumulative
@@ -271,18 +270,7 @@ final class UpdateClientImplTest
     withClue("getTransactions specifying end") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactions(ledgerBegin, ledgerEnd, filterFor(someParty), false)
-            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-            .blockingIterable()
-            .asScala
-            .size
-        )
-      }
-    }
-    withClue("getTransactions without specifying end") {
-      expectUnauthenticated {
-        toAuthenticatedServer(
-          _.getTransactions(ledgerBegin, filterFor(someParty), false)
+          _.getTransactions(ledgerBegin, "1", filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -293,7 +281,7 @@ final class UpdateClientImplTest
     withClue("getTransactionsTree specifying end") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactionsTrees(ledgerBegin, ledgerEnd, filterFor(someParty), false)
+          _.getTransactionsTrees(ledgerBegin, "1", filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -333,22 +321,11 @@ final class UpdateClientImplTest
         toAuthenticatedServer(
           _.getTransactions(
             ledgerBegin,
-            ledgerEnd,
+            "1",
             filterFor(someParty),
             false,
             someOtherPartyReadWriteToken,
           )
-            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-            .blockingIterable()
-            .asScala
-            .size
-        )
-      }
-    }
-    withClue("getTransactions without specifying end") {
-      expectPermissionDenied {
-        toAuthenticatedServer(
-          _.getTransactions(ledgerBegin, filterFor(someParty), false, someOtherPartyReadWriteToken)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -361,7 +338,7 @@ final class UpdateClientImplTest
         toAuthenticatedServer(
           _.getTransactionsTrees(
             ledgerBegin,
-            ledgerEnd,
+            "1",
             filterFor(someParty),
             false,
             someOtherPartyReadWriteToken,
@@ -412,7 +389,7 @@ final class UpdateClientImplTest
       toAuthenticatedServer(
         _.getTransactions(
           ledgerBegin,
-          ledgerEnd,
+          "1",
           filterFor(someParty),
           false,
           somePartyReadWriteToken,
@@ -423,20 +400,11 @@ final class UpdateClientImplTest
           .size
       )
     }
-    withClue("getTransactions without specifying end") {
-      toAuthenticatedServer(
-        _.getTransactions(ledgerBegin, filterFor(someParty), false, somePartyReadWriteToken)
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingIterable()
-          .asScala
-          .size
-      )
-    }
     withClue("getTransactionsTree specifying end") {
       toAuthenticatedServer(
         _.getTransactionsTrees(
           ledgerBegin,
-          ledgerEnd,
+          "1",
           filterFor(someParty),
           false,
           somePartyReadWriteToken,

@@ -599,6 +599,24 @@ test("exercise using explicit disclosure", async () => {
     buildAndLint.Main.ReferenceData,
     payload,
   );
+
+  // TODO replace the ledger end query with json api when the new version enables it
+  const ledgerEndResponse = execFileSync(
+    "grpcurl",
+    [
+      "-plaintext",
+      "-H",
+      `Authorization: Bearer ${ALICE_TOKEN}`,
+      "-d",
+      JSON.stringify({}),
+      "localhost:5011",
+      "com.daml.ledger.api.v2.StateService/GetLedgerEnd",
+    ],
+    { encoding: "utf8" },
+  );
+
+  const ledgerEnd = JSON.parse(ledgerEndResponse).offset;
+
   // TODO(https://digitalasset.atlassian.net/browse/LT-5)
   // The JSON API does not expose created_event_blob so we read it directly through the gRPC API.
   const output = execFileSync(
@@ -627,8 +645,9 @@ test("exercise using explicit disclosure", async () => {
             },
           },
         },
-        beginExclusive: { boundary: "PARTICIPANT_BOUNDARY_BEGIN" },
-        endInclusive: { boundary: "PARTICIPANT_BOUNDARY_END" },
+        beginExclusive: "",
+        endInclusive: ledgerEnd,
+        // endInclusive: { boundary: "PARTICIPANT_BOUNDARY_END" },
       }),
       "localhost:5011",
       "com.daml.ledger.api.v2.UpdateService/GetUpdates",
