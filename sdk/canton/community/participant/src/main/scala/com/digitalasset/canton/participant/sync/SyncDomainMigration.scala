@@ -30,7 +30,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 }
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{DomainAlias, SequencerCounter}
 
@@ -291,20 +290,15 @@ class SyncDomainMigration(
       domainId: DomainId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
-    performUnlessClosingEitherU("pruneSelectedDeactivatedDomainStores") {
+  ): FutureUnlessShutdown[Unit] = {
+    performUnlessClosingF("pruneSelectedDeactivatedDomainStores") {
       logger.info(
         s"About to prune deactivated sync domain $domainId sequenced event store'"
       )
+
       repair.syncDomainPersistentStateManager
         .get(domainId)
-        .fold(EitherT.pure[Future, SyncDomainMigrationError](())) { state =>
-          EitherTUtil.fromFuture[SyncDomainMigrationError, Unit](
-            state.sequencedEventStore.delete(SequencerCounter.Genesis),
-            t =>
-              SyncDomainMigrationError.InternalError.PurgeDeactivatedDomain(domainId, t.getMessage),
-          )
-        }
+        .fold(Future.unit)(_.sequencedEventStore.delete(SequencerCounter.Genesis))
     }
   }
 
@@ -447,11 +441,6 @@ object SyncDomainMigrationError extends MigrationErrors() {
     ) extends CantonError.Impl(
           cause = show"Migrating the ACS to the new domain failed unexpectedly!"
         )
-        with SyncDomainMigrationError
-
-    final case class PurgeDeactivatedDomain(source: DomainId, err: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = show"The domain cannot be purged")
         with SyncDomainMigrationError
 
     final case class Generic(reason: String)(implicit
