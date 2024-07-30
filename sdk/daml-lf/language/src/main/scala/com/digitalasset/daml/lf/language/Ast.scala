@@ -1237,20 +1237,17 @@ object Ast {
       // in the context of upgrades. They will not be considered for upgrade checks.
       isUtilityPackage: Boolean,
   ) {
-    import Ordering.Implicits._
-
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
     private[lf] val name: Option[Ref.PackageName] =
-      if (languageVersion >= LanguageVersion.Features.packageUpgrades && !isUtilityPackage)
+      if (LanguageVersion.supportsPackageUpgrades(languageVersion) && !isUtilityPackage)
         Some(metadata.name)
       else
         None
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
-      import Ordering.Implicits._
-      if (languageVersion < LanguageVersion.Features.persistedPackageVersion)
+      if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
         None
       else
         Some(metadata.version)
