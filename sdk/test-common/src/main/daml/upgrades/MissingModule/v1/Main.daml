@@ -4,11 +4,8 @@
 module Main where
 
 import qualified Other
-import Daml.Script
 
-main : Script ()
-main = do
-  Other.main
-  pure ()
+useOther : Other.Dummy -> ()
+useOther _ = ()
 
 data Dummy = Dummy {}
