@@ -257,6 +257,8 @@ class CommandProgressTrackerImpl(
         optDeduplicationOffset = None,
         optDeduplicationDurationSeconds = None,
         optDeduplicationDurationNanos = None,
+        offset = "",
+        domainTime = None,
       ),
       state = CommandState.COMMAND_STATE_PENDING,
       commands = commands,
@@ -303,20 +305,21 @@ class CommandProgressTrackerImpl(
   override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit =
     update.value match {
       case TransactionLogUpdate.TransactionRejected(_offset, completionDetails) =>
-        completionDetails.completionStreamResponse.completion.foreach { completionInfo =>
-          val key = (
-            completionInfo.commandId,
-            completionInfo.applicationId,
-            completionDetails.submitters,
-            Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
-          )
-          // remove from pending
-          lock.synchronized(pending.remove(key)).foreach { cur =>
-            if (config.maxFailed.value > 0) {
-              cur.failedAsync(completionInfo.status)
-              addToCollection(cur.ref.get(), failed, config.maxFailed.value)
+        completionDetails.completionStreamResponse.completionResponse.completion.foreach {
+          completionInfo =>
+            val key = (
+              completionInfo.commandId,
+              completionInfo.applicationId,
+              completionDetails.submitters,
+              Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
+            )
+            // remove from pending
+            lock.synchronized(pending.remove(key)).foreach { cur =>
+              if (config.maxFailed.value > 0) {
+                cur.failedAsync(completionInfo.status)
+                addToCollection(cur.ref.get(), failed, config.maxFailed.value)
+              }
             }
-          }
         }
       case TransactionLogUpdate.TransactionAccepted(
             _transactionId,
@@ -329,19 +332,20 @@ class CommandProgressTrackerImpl(
             _domainId,
             _recordTime,
           ) =>
-        completionDetails.completionStreamResponse.completion.foreach { completionInfo =>
-          val key = (
-            commandId,
-            completionInfo.applicationId,
-            completionDetails.submitters,
-            Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
-          )
-          // remove from pending
-          lock.synchronized(pending.remove(key)).foreach { cur =>
-            // mark as done
-            cur.succeeded()
-            addToCollection(cur.ref.get(), succeeded, config.maxSucceeded.value)
-          }
+        completionDetails.completionStreamResponse.completionResponse.completion.foreach {
+          completionInfo =>
+            val key = (
+              commandId,
+              completionInfo.applicationId,
+              completionDetails.submitters,
+              Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
+            )
+            // remove from pending
+            lock.synchronized(pending.remove(key)).foreach { cur =>
+              // mark as done
+              cur.succeeded()
+              addToCollection(cur.ref.get(), succeeded, config.maxSucceeded.value)
+            }
         }
       case _ =>
     }

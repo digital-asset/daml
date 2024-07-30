@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.RpcProtoExtractors
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
@@ -221,10 +220,7 @@ class CommandServiceImplSpec
 
   private class TestContext {
     val trackerCompletionResponse = tracking.CompletionResponse(
-      completion = completion,
-      checkpoint = Some(
-        Checkpoint(offset = "offset")
-      ),
+      completion = completion
     )
     val commands = someCommands()
     val submissionTracker = mock[SubmissionTracker]
@@ -311,6 +307,7 @@ object CommandServiceImplSpec {
     commandId = "command ID",
     status = Some(OkStatus),
     updateId = "transaction ID",
+    offset = "offset",
   )
 
   val expectedSubmissionKey = SubmissionKey(

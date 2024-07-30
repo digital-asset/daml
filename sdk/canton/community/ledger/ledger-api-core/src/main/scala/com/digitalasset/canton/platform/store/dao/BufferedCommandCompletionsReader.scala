@@ -68,7 +68,7 @@ class BufferedCommandCompletionsReader(
       parties: Set[Party],
       applicationId: String,
   ): Option[CompletionStreamResponse] = {
-    val completion = completionDetails.completionStreamResponse.completion
+    val completion = completionDetails.completionStreamResponse.completionResponse.completion
       .getOrElse(throw new RuntimeException("No completion in completion stream response"))
 
     val visibilityPredicate =

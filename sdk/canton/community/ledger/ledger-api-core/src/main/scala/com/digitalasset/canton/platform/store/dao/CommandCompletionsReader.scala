@@ -32,7 +32,9 @@ private[dao] final class CommandCompletionsReader(
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetFor(response: CompletionStreamResponse): Offset =
     // It would be nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
-    ApiOffset.assertFromString(response.checkpoint.get.offset)
+    ApiOffset.assertFromString(
+      response.completionResponse.completion.get.offset
+    )
 
   override def getCommandCompletions(
       startExclusive: Offset,

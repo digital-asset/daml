@@ -834,7 +834,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Future[Seq[(String, Int)]] =
     ledgerDao.completions
       .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-      .map(_._2.completion.toList.head)
+      .map(_._2.completionResponse.completion.toList.head)
       .map(c => c.commandId -> c.status.value.code)
       .runWith(Sink.seq)
 

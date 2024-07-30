@@ -5,8 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v2/checkpoint.proto";
 import "com/daml/ledger/api/v2/completion.proto";
+import "com/daml/ledger/api/v2/offset_checkpoint.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CommandCompletionServiceOuterClass";
@@ -51,19 +51,8 @@ message CompletionStreamRequest {
 }
 
 message CompletionStreamResponse {
-  // This checkpoint may be used to restart consumption.  The
-  // checkpoint belongs to the completion in this response.
-  // Required
-  Checkpoint checkpoint = 1;
-
-  // Required
-  Completion completion = 2;
-
-  // The sequencing domain.
-  // In case
-  //   - successful/failed transactions: identifies the sequencing domain of the transaction
-  //   - for successful/failed unassign commands: identifies the source domain
-  //   - for successful/failed assign commands: identifies the target domain
-  // Required
-  string domain_id = 3;
+  oneof completion_response {
+    Completion completion = 1;
+    OffsetCheckpoint offset_checkpoint = 2;
+  }
 }

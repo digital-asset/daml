@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.platform.store
 
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
@@ -34,8 +35,7 @@ object CompletionFromTransaction {
       optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
-      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
-      completion = Some(
+      completionResponse = CompletionResponse.Completion(
         toApiCompletion(
           commandId = commandId,
           transactionId = transactionId,
@@ -46,9 +46,10 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
+          offset = offset.toApiString,
+          domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
-      ),
-      domainId = domainId,
+      )
     )
 
   def rejectedCompletion(
@@ -65,8 +66,7 @@ object CompletionFromTransaction {
       optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
     CompletionStreamResponse.of(
-      checkpoint = Some(toApiCheckpoint(recordTime, offset)),
-      completion = Some(
+      completionResponse = CompletionResponse.Completion(
         toApiCompletion(
           commandId = commandId,
           transactionId = RejectionTransactionId,
@@ -77,15 +77,16 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
+          offset = offset.toApiString,
+          domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
-      ),
-      domainId = domainId,
+      )
     )
 
-  private def toApiCheckpoint(recordTime: Timestamp, offset: Offset): Checkpoint =
-    Checkpoint.of(
+  private def toApiDomainTime(domainId: String, recordTime: Timestamp): DomainTime =
+    DomainTime.of(
+      domainId = domainId,
       recordTime = Some(fromInstant(recordTime.toInstant)),
-      offset = offset.toApiString,
     )
 
   def toApiCompletion(
@@ -98,6 +99,8 @@ object CompletionFromTransaction {
       optDeduplicationOffset: Option[String],
       optDeduplicationDurationSeconds: Option[Long],
       optDeduplicationDurationNanos: Option[Int],
+      offset: String,
+      domainTime: Option[DomainTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
       commandId = commandId,
@@ -105,6 +108,8 @@ object CompletionFromTransaction {
       updateId = transactionId,
       applicationId = applicationId,
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
+      offset = offset,
+      domainTime = domainTime,
     )
     val optDeduplicationPeriod = toApiDeduplicationPeriod(
       optDeduplicationOffset = optDeduplicationOffset,
