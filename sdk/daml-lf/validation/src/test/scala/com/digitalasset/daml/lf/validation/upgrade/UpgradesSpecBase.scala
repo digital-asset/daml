@@ -965,7 +965,6 @@ abstract class UpgradesSpec(val suffix: String)
     )
   }
 
-
   def filterLog(log: String, str: String): String =
     log.split("\n").view.filter(_.contains(str)).mkString("\n")
 }
