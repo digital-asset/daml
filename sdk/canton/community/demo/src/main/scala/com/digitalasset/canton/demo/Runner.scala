@@ -44,10 +44,9 @@ object Notify {
       case Success(is) =>
         try {
           @tailrec
-          def readStream(): Unit = {
+          def readStream(): Unit =
             if (is.read() != -1)
               readStream()
-          }
           readStream()
         } finally {
           is.close();

@@ -82,9 +82,8 @@ object DelayUtil extends NamedLogging {
     val cancelToken = onShutdownRunner.runOnShutdown(new RunOnShutdown() {
       val name = s"$functionFullName-shutdown"
       def done = promise.isCompleted
-      def run(): Unit = {
+      def run(): Unit =
         promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard
-      }
     })
 
     val trySuccess: Runnable = { () =>

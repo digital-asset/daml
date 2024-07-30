@@ -323,14 +323,13 @@ object ExampleTransactionFactory {
   private def serializableFromCreate(
       node: LfNodeCreate,
       salt: Salt,
-  ): SerializableContract = {
+  ): SerializableContract =
     asSerializable(
       node.coid,
       node.versionedCoinst,
       metadataFromCreate(node),
       salt = salt,
     )
-  }
 
   // Parties and participants
 

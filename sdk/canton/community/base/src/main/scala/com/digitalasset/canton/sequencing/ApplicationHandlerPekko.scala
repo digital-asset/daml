@@ -54,7 +54,7 @@ class ApplicationHandlerPekko[F[+_], Context](
     F[BoxedEnvelope[PossiblyIgnoredEnvelopeBox, ClosedEnvelope]],
     F[UnlessShutdown[Either[ApplicationHandlerError, Unit]]],
     NotUsed,
-  ] = {
+  ] =
     Flow[F[BoxedEnvelope[PossiblyIgnoredEnvelopeBox, ClosedEnvelope]]].contextualize
       .statefulMapAsyncContextualizedUS(KeepGoing: State)(processSynchronously)
       // do not use mapAsyncUS because the asynchronous futures have already been spawned
@@ -77,7 +77,6 @@ class ApplicationHandlerPekko[F[+_], Context](
           asyncResult.unwrap
         }
       }
-  }
 
   private[this] def processSynchronously(
       state: State,
@@ -88,8 +87,7 @@ class ApplicationHandlerPekko[F[+_], Context](
         State,
         Either[ApplicationHandlerError, Option[EventBatchSynchronousResult]],
     )
-  ] = {
-
+  ] =
     state match {
       case KeepGoing =>
         tracedEventBatch.traverse(NonEmpty.from) match {
@@ -101,7 +99,6 @@ class ApplicationHandlerPekko[F[+_], Context](
       case Halt =>
         FutureUnlessShutdown.pure(Halt -> Right(None))
     }
-  }
 
   private def handleNextBatch(
       tracedBatch: Traced[NonEmpty[Seq[PossiblyIgnoredSequencedEvent[ClosedEnvelope]]]],

@@ -152,14 +152,13 @@ object TopologyStore {
   def fromProto(
       store: adminProto.Store,
       fieldName: String,
-  ): Either[ProtoDeserializationError, TopologyStore] = {
+  ): Either[ProtoDeserializationError, TopologyStore] =
     store.store match {
       case adminProto.Store.Store.Empty => Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case adminProto.Store.Store.Authorized(_) => Right(TopologyStore.Authorized)
       case adminProto.Store.Store.Domain(domain) =>
         DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain)
     }
-  }
 
   final case class Domain(id: DomainId) extends TopologyStore {
     override def toProto: adminProto.Store =
@@ -818,14 +817,13 @@ class GrpcTopologyManagerReadService(
   override def genesisState(
       request: GenesisStateRequest,
       responseObserver: StreamObserver[GenesisStateResponse],
-  ): Unit = {
+  ): Unit =
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => getGenesisState(request.filterDomainStore, request.timestamp, out),
       responseObserver,
       byteString => GenesisStateResponse(byteString),
       processingTimeout.unbounded.duration,
     )
-  }
 
   private def getGenesisState(
       filterDomainStore: Option[Store],

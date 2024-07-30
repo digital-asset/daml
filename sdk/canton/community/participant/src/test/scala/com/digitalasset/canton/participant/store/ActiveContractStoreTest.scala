@@ -1850,7 +1850,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       def addContractsToStore(
           contractStore: ContractStore,
           contracts: List[(LfContractId, LfPackageId)],
-      ): Future[Unit] = {
+      ): Future[Unit] =
         contracts.parTraverse_ { case (contractId, pkg) =>
           contractStore.storeCreatedContract(
             RequestCounter(0),
@@ -1866,7 +1866,6 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             ),
           )
         }
-      }
 
       def activateMaybeDeactivate(
           activate: ActiveContractStore => CheckedT[Future, AcsError, AcsWarning, Unit] = { acs =>

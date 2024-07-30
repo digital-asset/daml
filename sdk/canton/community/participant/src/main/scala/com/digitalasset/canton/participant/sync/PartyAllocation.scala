@@ -53,13 +53,12 @@ private[sync] class PartyAllocation(
       hint: Option[LfPartyId],
       displayName: Option[String],
       rawSubmissionId: LedgerSubmissionId,
-  )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] = {
+  )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
 
       allocateInternal(hint, displayName, rawSubmissionId)
     }.asJava
-  }
 
   private def allocateInternal(
       hint: Option[LfPartyId],
@@ -176,7 +175,7 @@ private[sync] class PartyAllocation(
       result: SubmissionResult,
   )(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     FutureUtil.doNotAwait(
       participantNodeEphemeralState.participantEventPublisher
         .publish(
@@ -193,6 +192,5 @@ private[sync] class PartyAllocation(
         ),
       s"Failed to publish allocation rejection for party $displayName",
     )
-  }
 
 }

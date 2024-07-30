@@ -28,25 +28,23 @@ object LfEngineToApi {
 
   private[this] type LfValue = Lf
 
-  def toApiIdentifier(identifier: Ref.Identifier): api.Identifier = {
+  def toApiIdentifier(identifier: Ref.Identifier): api.Identifier =
     api.Identifier(
       identifier.packageId,
       identifier.qualifiedName.module.toString(),
       identifier.qualifiedName.name.toString(),
     )
-  }
 
   def toApiIdentifier(typConRef: Ref.TypeConRef): api.Identifier =
     toApiIdentifier(typConRef.assertToTypeConName)
 
-  def toTimestamp(instant: Instant): Timestamp = {
+  def toTimestamp(instant: Instant): Timestamp =
     Timestamp.apply(instant.getEpochSecond, instant.getNano)
-  }
 
   def lfValueToApiRecord(
       verbose: Boolean,
       recordValue: LfValue,
-  ): Either[String, api.Record] = {
+  ): Either[String, api.Record] =
     recordValue match {
       case Lf.ValueRecord(tycon, fields) =>
         val fs = fields.foldLeft[Either[String, Vector[api.RecordField]]](Right(Vector.empty)) {
@@ -67,7 +65,6 @@ object LfEngineToApi {
         Left(s"Expected value to be record, but got $other")
     }
 
-  }
   def lfValueToApiValue(
       verbose: Boolean,
       lf: Option[LfValue],

@@ -90,7 +90,7 @@ class SendTracker(
       callback: SendCallback = SendCallback.empty,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] =
     performUnlessClosingEitherU(s"track $messageId") {
       for {
         _ <- store.savePendingSend(messageId, maxSequencingTime)
@@ -120,7 +120,6 @@ class SendTracker(
     }.tapOnShutdown {
       callback(UnlessShutdown.AbortedDueToShutdown)
     }
-  }
 
   /** Cancels a pending send without notifying any callers of the result.
     * Should only be used if the send operation itself fails and the transport returns an error
@@ -199,14 +198,13 @@ class SendTracker(
       }
 
   private def updateSequencedMetrics(pendingSend: PendingSend, result: SendResult): Unit = {
-    def recordSequencingTime(): Unit = {
+    def recordSequencingTime(): Unit =
       withEmptyMetricsContext { implicit metricsContext =>
         pendingSend.startedAt foreach { startedAt =>
           val elapsed = java.time.Duration.between(startedAt, Instant.now())
           metrics.submissions.sequencingTime.update(elapsed)
         }
       }
-    }
 
     result match {
       case SendResult.Success(_) => recordSequencingTime()
@@ -278,14 +276,14 @@ class SendTracker(
         // We observed the command being sequenced but it arrived too late to be processed.
         Future.unit
       case _ =>
-        logger.debug(s"Removing unknown pending command ${messageId}")
+        logger.debug(s"Removing unknown pending command $messageId")
         store.removePendingSend(messageId)
     }
   }
 
   private def extractSendResult(
       event: SequencedEvent[_]
-  )(implicit traceContext: TraceContext): Option[(MessageId, SendResult)] = {
+  )(implicit traceContext: TraceContext): Option[(MessageId, SendResult)] =
     Option(event) collect {
       case deliver @ Deliver(_, _, _, Some(messageId), _, _, _) =>
         logger.trace(s"Send [$messageId] was successful")
@@ -295,7 +293,6 @@ class SendTracker(
         logger.debug(s"Send [$messageId] failed: $reason")
         (messageId, SendResult.Error(error))
     }
-  }
 
   override def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.emptyTraceContext

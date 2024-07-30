@@ -78,11 +78,10 @@ object MigrationTestSupport {
 
   def insertMany(
       inputs: (TableSchema, Seq[Row])*
-  )(implicit connection: Connection): Unit = {
+  )(implicit connection: Connection): Unit =
     inputs.foreach { case (tableSchema, rows) =>
       insert(tableSchema, rows*)
     }
-  }
 
   def insert(tableSchema: TableSchema, rows: Row*)(implicit connection: Connection): Unit =
     rows.foreach { row =>

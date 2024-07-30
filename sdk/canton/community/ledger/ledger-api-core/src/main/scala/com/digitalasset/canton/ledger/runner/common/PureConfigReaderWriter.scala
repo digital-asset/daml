@@ -103,7 +103,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
           CannotConvert(
             unknownSeeding,
             Seeding.getClass.getName,
-            s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: ${unknownSeeding}",
+            s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: $unknownSeeding",
           )
         )
     }

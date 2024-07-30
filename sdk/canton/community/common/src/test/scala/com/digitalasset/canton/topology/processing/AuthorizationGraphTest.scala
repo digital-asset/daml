@@ -82,9 +82,8 @@ class AuthorizationGraphTest
       key: SigningPublicKey,
       requireRoot: Boolean,
       valid: Boolean,
-  ) = {
+  ) =
     graph.existsAuthorizedKeyIn(Set(key.fingerprint), requireRoot = requireRoot) shouldBe valid
-  }
 
   "authorization graph" when {
     import fixture.*
@@ -232,7 +231,7 @@ class AuthorizationGraphTest
 
         loggerFactory.assertLogs(
           graph.replace(nsk3k2),
-          _.warningMessage should (include regex s"${namespace} are dangling: .*${key3.fingerprint}"),
+          _.warningMessage should (include regex s"$namespace are dangling: .*${key3.fingerprint}"),
         )
         check(graph, key3, requireRoot = false, valid = false)
       }
@@ -258,7 +257,7 @@ class AuthorizationGraphTest
         // add a root delegation signed by k3 via unauthorized add
         loggerFactory.assertLogs(
           graph.replace(Seq(nsk4k3, nsk5k3_nonRoot)),
-          _.warningMessage should ((include regex s"${namespace} are dangling: .*${key4.fingerprint}") and (include regex s"${namespace} are dangling: .*${key5.fingerprint}")),
+          _.warningMessage should ((include regex s"$namespace are dangling: .*${key4.fingerprint}") and (include regex s"$namespace are dangling: .*${key5.fingerprint}")),
         )
         check(graph, key4, requireRoot = false, valid = false)
         check(graph, key5, requireRoot = false, valid = false)
@@ -290,7 +289,7 @@ class AuthorizationGraphTest
         loggerFactory.assertLogs(
           // downgrading key2 to a non-root delegation breaks the authorization chain for key3
           graph.replace(nsk2k1_nonRoot),
-          _.warningMessage should (include regex s"${namespace} are dangling: .*${key3.fingerprint}"),
+          _.warningMessage should (include regex s"$namespace are dangling: .*${key3.fingerprint}"),
         )
         // key2 only has a non-root delegation
         check(graph, key2, requireRoot = true, valid = false)

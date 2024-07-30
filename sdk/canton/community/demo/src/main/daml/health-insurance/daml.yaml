@@ -1,4 +1,4 @@
-sdk-version: 3.2.0-snapshot.20240724.13201.0.v2357fdb4
+sdk-version: 3.2.0-snapshot.20240725.13204.0.vabe822d8
 build-options: 
 - --target=2.1
 name: health-insurance

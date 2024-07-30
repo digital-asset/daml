@@ -72,21 +72,18 @@ object ResourceUtil {
 
   def withResourceEitherT[T <: AutoCloseable, E, V, F[_]](r: => T)(f: T => EitherT[Future, E, V])(
       implicit ec: ExecutionContext
-  ): EitherT[Future, E, V] = {
+  ): EitherT[Future, E, V] =
     withResourceM(r)(f)
-  }
 
   def withResourceFuture[T <: AutoCloseable, V](r: => T)(f: T => Future[V])(implicit
       ec: ExecutionContext
-  ): Future[V] = {
+  ): Future[V] =
     withResourceM(r)(f)
-  }
 
   def withResourceFutureUS[T <: AutoCloseable, V](r: => T)(f: T => FutureUnlessShutdown[V])(implicit
       ec: ExecutionContext
-  ): FutureUnlessShutdown[V] = {
+  ): FutureUnlessShutdown[V] =
     withResourceM(r)(f)
-  }
 
   def closeAndAddSuppressed(e: Option[Throwable], resource: AutoCloseable): Unit =
     e.fold(resource.close()) { exception =>

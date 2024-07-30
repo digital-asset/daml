@@ -108,13 +108,12 @@ final case class LocalReject(reason: com.google.rpc.status.Status, isMalformed: 
 
   override def logWithContext(
       extra: Map[String, String]
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
     // Log with level INFO, leave it to LocalRejectError to log the details.
     contextualizedErrorLogger.withContext(extra) {
       lazy val action = if (isMalformed) "malformed" else "rejected"
       contextualizedErrorLogger.info(show"Request is $action. $reason")
     }
-  }
 
   override private[messages] def toProtoV30: v30.LocalVerdict = {
     val codeP =

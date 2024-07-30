@@ -488,17 +488,15 @@ class GenTransactionTreeTest
 
         val partiallyBlindedTree =
           example.fullInformeeTree.tree.blind {
-            {
-              case _: GenTransactionTree => RevealIfNeedBe
-              case _: CommonMetadata => RevealSubtree
-              case _: SubmitterMetadata => RevealSubtree
+            case _: GenTransactionTree => RevealIfNeedBe
+            case _: CommonMetadata => RevealSubtree
+            case _: SubmitterMetadata => RevealSubtree
 
-              case v: TransactionView =>
-                if (hashesOfUnblindedViews.contains(v.viewHash))
-                  RevealIfNeedBe // Necessary to reveal view0 and view1
-                else BlindSubtree // This will blind every other view
-              case _: ViewCommonData => RevealSubtree // Necessary to reveal view0 and view1
-            }
+            case v: TransactionView =>
+              if (hashesOfUnblindedViews.contains(v.viewHash))
+                RevealIfNeedBe // Necessary to reveal view0 and view1
+              else BlindSubtree // This will blind every other view
+            case _: ViewCommonData => RevealSubtree // Necessary to reveal view0 and view1
           }.tryUnwrap
 
         FullInformeeTree

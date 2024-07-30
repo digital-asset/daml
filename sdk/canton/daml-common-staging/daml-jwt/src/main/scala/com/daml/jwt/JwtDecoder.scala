@@ -15,11 +15,10 @@ object JwtDecoder {
       Show.shows(e => s"JwtDecoder.Error: ${e.what}, ${e.message}")
   }
 
-  def decode(jwt: Jwt): Error \/ DecodedJwt[String] = {
+  def decode(jwt: Jwt): Error \/ DecodedJwt[String] =
     \/.attempt(com.auth0.jwt.JWT.decode(jwt.value))(e => Error(Symbol("decode"), e.getMessage))
       .map(a => DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
-  }
 
   private def base64Decode(jwt: DecodedJwt[String]): Error \/ DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))

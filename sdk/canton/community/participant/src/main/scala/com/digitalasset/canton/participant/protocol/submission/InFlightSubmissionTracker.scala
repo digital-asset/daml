@@ -161,7 +161,7 @@ class InFlightSubmissionTracker(
       domainId: DomainId,
       messageId: MessageId,
       newTrackingData: UnsequencedSubmission,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData).map {
       (_: Unit) =>
         // Request a tick for the new timestamp if we're still connected to the domain
@@ -174,7 +174,6 @@ class InFlightSubmissionTracker(
             )
         }
     }
-  }
 
   /** Updates the unsequenced submission corresponding to the [[com.digitalasset.canton.sequencing.protocol.DeliverError]],
     * if any, using [[com.digitalasset.canton.participant.protocol.submission.SubmissionTrackingData.updateOnNotSequenced]].
@@ -359,7 +358,7 @@ class InFlightSubmissionTracker(
     */
   def recoverPublishedTimelyRejections(
       domains: Seq[DomainId]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       unsequenceds <- domains.parTraverse { domainId =>
         store.value.lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.MaxValue)
@@ -384,7 +383,6 @@ class InFlightSubmissionTracker(
       _ <- deduplicator.processPublications(publications)
       _ <- store.value.delete(references)
     } yield ()
-  }
 
   /** Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
     * and informs the [[CommandDeduplicator]] about the published events.
@@ -548,13 +546,12 @@ object InFlightSubmissionTracker {
     def fromSyncDomainState(
         persistent: SyncDomainPersistentState,
         ephemeral: SyncDomainEphemeralState,
-    ): InFlightSubmissionTrackerDomainState = {
+    ): InFlightSubmissionTrackerDomainState =
       InFlightSubmissionTrackerDomainState(
         ephemeral.observedTimestampTracker,
         ephemeral.timeTracker,
         persistent.eventLog,
       )
-    }
   }
 
   sealed trait InFlightSubmissionTrackerError extends Product with Serializable

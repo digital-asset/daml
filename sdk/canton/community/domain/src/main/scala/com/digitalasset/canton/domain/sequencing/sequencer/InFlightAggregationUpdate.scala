@@ -19,7 +19,7 @@ final case class InFlightAggregationUpdate(
 ) {
   def tryMerge(
       other: InFlightAggregationUpdate
-  )(implicit loggingContext: ErrorLoggingContext): InFlightAggregationUpdate = {
+  )(implicit loggingContext: ErrorLoggingContext): InFlightAggregationUpdate =
     InFlightAggregationUpdate(
       OptionUtil.mergeWith(this.freshAggregation, other.freshAggregation) {
         (thisFresh, otherFresh) =>
@@ -31,7 +31,6 @@ final case class InFlightAggregationUpdate(
       },
       this.aggregatedSenders ++ other.aggregatedSenders,
     )
-  }
 }
 
 object InFlightAggregationUpdate {

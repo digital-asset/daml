@@ -46,35 +46,32 @@ class DbParticipantEventLog(
   override def firstEventWithAssociatedDomainAtOrAfter(
       associatedDomain: DomainId,
       atOrAfter: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Option[TimestampedEvent]] = {
+  )(implicit traceContext: TraceContext): Future[Option[TimestampedEvent]] =
     IndexedDomain.indexed(indexedStringStore)(associatedDomain).flatMap { associatedDomainIndex =>
-      {
-        // Use #$ instead of $ for ParticipantEventLogId.log_id so that it shows up as a literal string
-        // in the prepared statement instead of a ?. This ensures that the query planner can pick the partial index.
-        //
-        // Note that the index will only be used for ParticipantEventLog.ProductionParticipantEventLogId!
-        val query = storage.profile match {
-          case _: DbStorage.Profile.Oracle =>
-            sql"""
+      // Use #$ instead of $ for ParticipantEventLogId.log_id so that it shows up as a literal string
+      // in the prepared statement instead of a ?. This ensures that the query planner can pick the partial index.
+      //
+      // Note that the index will only be used for ParticipantEventLog.ProductionParticipantEventLogId!
+      val query = storage.profile match {
+        case _: DbStorage.Profile.Oracle =>
+          sql"""
         select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from par_event_log
         where (case when log_id = '#${id.index}' then associated_domain end) = $associatedDomainIndex
           and (case when log_id = '#${id.index}' and associated_domain is not null then ts end) >= $atOrAfter
         order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc
         #${storage.limit(1)}
         """.as[TimestampedEvent]
-          case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-            sql"""
+        case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
+          sql"""
         select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from par_event_log
         where log_id = '#${id.index}' and associated_domain is not null
           and associated_domain = $associatedDomainIndex and ts >= $atOrAfter
         order by (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) asc
         #${storage.limit(1)}
         """.as[TimestampedEvent]
-        }
-        storage.query(query.headOption, functionFullName)
       }
+      storage.query(query.headOption, functionFullName)
     }
-  }
 
   override def nextLocalOffsets(
       count: NonNegativeInt

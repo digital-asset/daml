@@ -60,7 +60,7 @@ class SequencerAggregatorPekkoTest
         timeouts,
         futureSupervisor,
       )
-    ) { env => withFixture(test.toNoArgTest(env)) }
+    )(env => withFixture(test.toNoArgTest(env)))
 
   private val domainId = DefaultTestIdentities.domainId
 

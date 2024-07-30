@@ -66,13 +66,12 @@ final class PartyManagementServiceAuthorization(
 
   override def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderIdRequest
-  ): Future[UpdatePartyIdentityProviderIdResponse] = {
+  ): Future[UpdatePartyIdentityProviderIdResponse] =
     authorizer.requireAdminClaims(
       call = service.updatePartyIdentityProviderId
     )(
       request
     )
-  }
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)

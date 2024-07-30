@@ -33,12 +33,14 @@ import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerIntegration
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.resource.MemoryStorage
+import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
@@ -227,6 +229,10 @@ class BlockSequencerTest
     override def firstBlockHeight: Long = ???
 
     override def orderingTimeFixMode: OrderingTimeFixMode = ???
+
+    override def sequencerSnapshotAdditionalInfo(
+        timestamp: CantonTimestamp
+    ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] = ???
   }
 
   class FakeBlockSequencerStateManager extends BlockSequencerStateManagerBase {

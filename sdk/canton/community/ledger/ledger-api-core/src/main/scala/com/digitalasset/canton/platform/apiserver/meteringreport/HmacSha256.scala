@@ -50,14 +50,13 @@ object HmacSha256 {
   val algorithm = "HmacSHA256"
   private val macPrototype = new MacPrototype(algorithm)
 
-  def compute(key: Key, message: Array[Byte]): Either[Throwable, Array[Byte]] = {
+  def compute(key: Key, message: Array[Byte]): Either[Throwable, Array[Byte]] =
     Try {
       val mac = macPrototype.newMac
       val secretKey = new SecretKeySpec(key.encoded.bytes, key.algorithm)
       mac.init(secretKey)
       mac.doFinal(message)
     }.toEither
-  }
 
   def generateKey(scheme: String): Key = {
     val generator = KeyGenerator.getInstance(algorithm)

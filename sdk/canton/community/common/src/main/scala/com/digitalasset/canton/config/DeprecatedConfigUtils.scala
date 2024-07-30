@@ -22,14 +22,13 @@ object DeprecatedConfigUtils {
       since: String,
       valueFilter: Option[T] = None,
   ) {
-    def isDeprecatedValue(configValue: ConfigValue): Boolean = {
+    def isDeprecatedValue(configValue: ConfigValue): Boolean =
       valueFilter.forall { dValue =>
         implicitly[ConfigReader[T]].from(configValue) match {
           case Right(value) => dValue == value
           case _ => false
         }
       }
-    }
   }
 
   object DeprecatedFieldsFor {
@@ -84,10 +83,10 @@ object DeprecatedConfigUtils {
                   .withFallback(cursorConfigValue)
 
                 to
-                  .foldLeft(originalConfig)({
+                  .foldLeft(originalConfig) {
                     // Adding the deprecated value to its new location(s)
                     case (config, toPath) => config.withFallback(deprecated.atPath(toPath))
-                  })
+                  }
                   // Deleting the deprecated value from the config, so that we don't get an "Unknown key" error later
                   .withoutPath(from)
                   .root()

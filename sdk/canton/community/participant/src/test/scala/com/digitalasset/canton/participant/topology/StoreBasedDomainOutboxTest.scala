@@ -142,7 +142,7 @@ class StoreBasedDomainOutboxTest
         batches += transactions
         val finalResult = transactions.map(_ => responses.next())
         for {
-          _ <- MonadUtil.sequentialTraverse(transactions)(x => {
+          _ <- MonadUtil.sequentialTraverse(transactions) { x =>
             logger.debug(s"Processing $x")
             val ts = CantonTimestamp.now()
             if (finalResult.forall(_ == State.Accepted))
@@ -171,7 +171,7 @@ class StoreBasedDomainOutboxTest
                     .onShutdown(())
                 )
             else Future.unit
-          })
+          }
           _ = if (buffer.length >= expect.get()) {
             promise.get().success(batches.toSeq)
           }

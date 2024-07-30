@@ -20,8 +20,7 @@ object TracedScaffeine {
       allLoader: Option[TraceContext => Iterable[K1] => Future[Map[K1, V1]]] = None,
   )(
       tracedLogger: TracedLogger
-  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[K1, V1] = {
-
+  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[K1, V1] =
     new TracedAsyncLoadingCache[K1, V1](
       cache.buildAsyncFuture[TracedKey[K1], V1](
         loader = tracedKey => loader(tracedKey.traceContext)(tracedKey.key),
@@ -38,16 +37,13 @@ object TracedScaffeine {
       )
     )(tracedLogger)
 
-  }
-
   def buildTracedAsyncFutureUS[K1, V1](
       cache: Scaffeine[Any, Any],
       loader: TraceContext => K1 => FutureUnlessShutdown[V1],
       allLoader: Option[TraceContext => Iterable[K1] => FutureUnlessShutdown[Map[K1, V1]]] = None,
   )(
       tracedLogger: TracedLogger
-  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[K1, V1] = {
-
+  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[K1, V1] =
     new TracedAsyncLoadingCache[K1, V1](
       cache.buildAsyncFuture[TracedKey[K1], V1](
         loader = tracedKey =>
@@ -66,7 +62,6 @@ object TracedScaffeine {
       )
     )(tracedLogger)
 
-  }
 }
 
 class TracedAsyncLoadingCache[K, V](
@@ -82,9 +77,8 @@ class TracedAsyncLoadingCache[K, V](
     underlying.get(TracedKey(key)(traceContext))
 
   // Remove those mappings for which the predicate p returns true
-  def clear(filter: (K, V) => Boolean): Unit = {
+  def clear(filter: (K, V) => Boolean): Unit =
     discard(underlying.synchronous().asMap().filterInPlace((t, v) => !filter(t.key, v)))
-  }
 
   def getUS(key: K)(implicit traceContext: TraceContext): FutureUnlessShutdown[V] =
     FutureUnlessShutdown.transformAbortedF(get(key))
@@ -101,9 +95,8 @@ class TracedAsyncLoadingCache[K, V](
 
   def getAllUS(
       keys: Iterable[K]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[K, V]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[K, V]] =
     FutureUnlessShutdown.transformAbortedF(getAll(keys))
-  }
 
   override def toString = s"TracedAsyncLoadingCache($underlying)"
 }

@@ -242,6 +242,10 @@ object SequencerError extends SequencerErrorGroup {
           cause = s"No safe watermark found for the sequencer $id"
         )
         with SequencerError
+
+    final case class CouldNotRetrieveSnapshot(message: String)
+        extends BaseCantonError.Impl(message)
+        with SequencerError
   }
 
   @Explanation("""This error indicates that no block can be found for the given timestamp.""")

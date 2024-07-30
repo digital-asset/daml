@@ -119,7 +119,7 @@ final class TransferOutProcessingStepsTest
 
   private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       submittingParticipant,
@@ -128,7 +128,6 @@ final class TransferOutProcessingStepsTest
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
-  }
 
   private lazy val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
 

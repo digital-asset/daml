@@ -89,12 +89,11 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
       hashes: NonEmpty[Set[TxHash]],
-  )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransaction]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransaction]] =
     findFilter(
       asOfExclusive,
       entry => hashes.contains(entry.hash) && entry.transaction.isProposal,
     )
-  }
 
   private def findFilter(
       asOfExclusive: EffectiveTime,
@@ -120,7 +119,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       hashes: NonEmpty[Set[MappingHash]],
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]] = {
+  ): Future[Seq[GenericSignedTopologyTransaction]] =
     findFilter(
       asOfExclusive,
       entry =>
@@ -128,7 +127,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
           entry.mapping.uniqueKey
         ),
     )
-  }
 
   override def update(
       sequenced: SequencedTime,
@@ -240,32 +238,31 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     val (prefixParticipantIdentifier, prefixParticipantNS) =
       UniqueIdentifier.splitFilter(filterParticipant)
 
-    def filter(entry: TopologyStoreEntry): Boolean = {
+    def filter(entry: TopologyStoreEntry): Boolean =
       // active
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
-      // not rejected
-      entry.rejected.isEmpty &&
-      // is not a proposal
-      !entry.transaction.isProposal &&
-      // is of type Replace
-      entry.operation == TopologyChangeOp.Replace &&
-      // matches a party to participant mapping (with appropriate filters)
-      (entry.mapping match {
-        case ptp: PartyToParticipant =>
-          ptp.partyId.uid.matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
-          (filterParticipant.isEmpty ||
-            ptp.participants.exists(
-              _.participantId.uid
-                .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
-            ))
-        case cert: DomainTrustCertificate =>
-          cert.participantId.adminParty.uid
-            .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
-          cert.participantId.uid
-            .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
-        case _ => false
-      })
-    }
+        // not rejected
+        entry.rejected.isEmpty &&
+        // is not a proposal
+        !entry.transaction.isProposal &&
+        // is of type Replace
+        entry.operation == TopologyChangeOp.Replace &&
+        // matches a party to participant mapping (with appropriate filters)
+        (entry.mapping match {
+          case ptp: PartyToParticipant =>
+            ptp.partyId.uid.matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
+            (filterParticipant.isEmpty ||
+              ptp.participants.exists(
+                _.participantId.uid
+                  .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
+              ))
+          case cert: DomainTrustCertificate =>
+            cert.participantId.adminParty.uid
+              .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
+            cert.participantId.uid
+              .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
+          case _ => false
+        })
 
     val topologyStateStoreSeq = blocking(synchronized(topologyTransactionStore.toSeq))
     Future.successful(
@@ -305,23 +302,21 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
     val filter2: TopologyStoreEntry => Boolean = entry => op.forall(_ == entry.operation)
 
-    val filter3: TopologyStoreEntry => Boolean = {
+    val filter3: TopologyStoreEntry => Boolean =
       idFilter match {
         case Some(value) if value.nonEmpty =>
           (entry: TopologyStoreEntry) =>
             entry.mapping.maybeUid.exists(_.identifier.unwrap.startsWith(value))
         case _ => _ => true
       }
-    }
 
-    val filter4: TopologyStoreEntry => Boolean = {
+    val filter4: TopologyStoreEntry => Boolean =
       namespaceFilter match {
         case Some(value) if value.nonEmpty =>
           (entry: TopologyStoreEntry) =>
             entry.mapping.namespace.fingerprint.unwrap.startsWith(value)
         case _ => _ => true
       }
-    }
 
     val filter0: TopologyStoreEntry => Boolean = entry =>
       types.isEmpty || types.contains(entry.mapping.code)
@@ -356,16 +351,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       filterNamespace: Option[Seq[Namespace]],
   ): Future[GenericStoredTopologyTransactions] = {
     val timeFilter = asOfFilter(asOf, asOfInclusive)
-    def pathFilter(mapping: TopologyMapping): Boolean = {
+    def pathFilter(mapping: TopologyMapping): Boolean =
       if (filterUid.isEmpty && filterNamespace.isEmpty)
         true
       else {
         mapping.maybeUid.exists(uid => filterUid.exists(_.contains(uid))) ||
         filterNamespace.exists(_.contains(mapping.namespace))
       }
-    }
     filteredState(
-      blocking(synchronized { topologyTransactionStore.toSeq }),
+      blocking(synchronized(topologyTransactionStore.toSeq)),
       entry => {
         timeFilter(entry.from.value, entry.until.map(_.value)) &&
         types.contains(entry.mapping.code) &&
@@ -381,7 +375,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[
     Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]
-  ] = {
+  ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry =>
@@ -397,13 +391,12 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         .sortBy(_.serial)
         .headOption
     )
-  }
 
   override def findFirstMediatorStateForMediator(
       mediatorId: MediatorId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]] = {
+  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry =>
@@ -419,7 +412,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         .sortBy(_.serial)
         .headOption
     )
-  }
 
   def findFirstTrustCertificateForParticipant(
       participant: ParticipantId
@@ -427,7 +419,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[
     Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]
-  ] = {
+  ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry =>
@@ -444,14 +436,12 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         .headOption
     )
 
-  }
-
   override def findEssentialStateAtSequencedTime(
       asOfInclusive: SequencedTime,
       excludeMappings: Seq[TopologyMapping.Code],
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions] = {
+  ): Future[GenericStoredTopologyTransactions] =
     // asOfInclusive is the effective time of the transaction that onboarded the member.
     // 1. load all transactions with a sequenced time <= asOfInclusive, including proposals
     filteredState(
@@ -467,7 +457,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         // and remove proposals that have been superseded by full authorized transactions
         .retainAuthorizedHistoryAndEffectiveProposals
     )
-  }
 
   /** store an initial set of topology transactions as given into the store */
   override def bootstrap(
@@ -604,7 +593,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     watermark.getAndSet(Some(timestamp)) match {
       case Some(old) if old > timestamp =>
         logger.error(
-          s"Topology dispatching watermark is running backwards! new=$timestamp, old=${old}"
+          s"Topology dispatching watermark is running backwards! new=$timestamp, old=$old"
         )
       case _ => ()
     }

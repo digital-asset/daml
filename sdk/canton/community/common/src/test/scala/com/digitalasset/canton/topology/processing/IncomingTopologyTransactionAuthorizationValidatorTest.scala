@@ -121,10 +121,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             validatedTopologyTransactions,
             Seq(
               None,
-              Some({
+              Some {
                 case TopologyTransactionRejection.SignatureCheckFailed(_) => true
                 case _ => false
-              }),
+              },
             ),
           )
         }
@@ -180,10 +180,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             res,
             Seq(
               None,
-              Some({
+              Some {
                 case TopologyTransactionRejection.InvalidDomain(_) => true
                 case _ => false
-              }),
+              },
             ),
           )
         }
@@ -294,13 +294,13 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
           check(
             res,
             Seq(
-              Some({
+              Some {
                 case TopologyTransactionRejection.SignatureCheckFailed(
                       InvalidSignature(`sig_k1_emptySignature`, _, _)
                     ) =>
                   true
                 case _ => false
-              }),
+              },
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
             ),
           )

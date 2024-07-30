@@ -59,27 +59,24 @@ class TrafficPurchasedManagerTest
       manager: TrafficPurchasedManager,
       timestamp: CantonTimestamp,
       balance: TrafficPurchased,
-  ) = {
+  ) =
     manager
       .getTrafficPurchasedAt(member, timestamp, warnIfApproximate = false)
       .value
       .futureValueUS shouldBe Right(
       Some(balance)
     )
-  }
 
   private def assertEmptyBalance(
       manager: TrafficPurchasedManager,
       timestamp: CantonTimestamp,
-  ) = {
+  ) =
     manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Right(None)
-  }
 
-  private def assertFailed(manager: TrafficPurchasedManager, timestamp: CantonTimestamp) = {
+  private def assertFailed(manager: TrafficPurchasedManager, timestamp: CantonTimestamp) =
     manager.getTrafficPurchasedAt(member, timestamp).value.futureValueUS shouldBe Left(
       TrafficPurchasedAlreadyPruned(member, timestamp)
     )
-  }
 
   private def mkBalance(serial: Int, balance: Long, timestamp: CantonTimestamp = timestamp) =
     TrafficPurchased(

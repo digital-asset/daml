@@ -154,7 +154,7 @@ class DbSequencerBlockStore(
 
   private def readAtBlock(
       block: BlockInfo
-  ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] = {
+  ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] =
     for {
       initialCounters <- initialMemberCountersDBIO
       stateAtTimestamp <- sequencerStore.readAtBlockTimestampDBIO(block.lastTs)
@@ -162,7 +162,6 @@ class DbSequencerBlockStore(
       block,
       mergeWithInitialCounters(stateAtTimestamp, initialCounters),
     )
-  }
 
   private def mergeWithInitialCounters(
       state: EphemeralState,
@@ -221,11 +220,10 @@ class DbSequencerBlockStore(
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     storage
       .queryAndUpdate(updateBlockHeightDBIO(block), functionFullName)
       .flatMap((_: Unit) => checkBlockInvariantIfEnabled(block.height))
-  }
 
   override def readRange(
       member: Member,

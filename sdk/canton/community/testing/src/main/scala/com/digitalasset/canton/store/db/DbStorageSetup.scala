@@ -195,9 +195,9 @@ class PostgresCISetup(
           .recover(transformQueryResult(Vector(1)))
           .flatMap { res =>
             if (res.isEmpty) {
-              logger.debug(s"Creating database ${useDb} using connection to ${envDb}")
+              logger.debug(s"Creating database $useDb using connection to $envDb")
               envDbStorage
-                .update_(sqlu"CREATE DATABASE #${useDb}", functionFullName)
+                .update_(sqlu"CREATE DATABASE #$useDb", functionFullName)
                 .recover(transformQueryResult(()))
                 .flatMap(_ =>
                   Future {
@@ -246,7 +246,7 @@ class PostgresTestContainerSetup(
     postgresContainer.setCommandParts(command.toArray)
     noTracingLogger.debug(s"Starting postgres container with $command")
 
-    val startF = Future { postgresContainer.start() }
+    val startF = Future(postgresContainer.start())
     dbStartupTimeout.await_("startup of postgres container")(startF)
   }
 

@@ -163,10 +163,9 @@ trait PublicKey extends CryptoKeyPairKey {
 
   def fingerprint: Fingerprint = id
 
-  override lazy val id: Fingerprint = {
+  override lazy val id: Fingerprint =
     // TODO(i15649): Consider the key format and fingerprint scheme before computing
     Fingerprint.create(key)
-  }
 
   def purpose: KeyPurpose
 

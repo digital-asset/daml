@@ -60,12 +60,11 @@ object CompletionResponse {
   def closing(implicit errorLogger: ContextualizedErrorLogger): Try[CompletionResponse] =
     Failure(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
 
-  private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
+  private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     CommonErrors.ServiceInternalError
       .Generic(
         "Missing status in completion response",
         throwableO = None,
       )(errorLogger)
       .asGrpcError
-  }
 }

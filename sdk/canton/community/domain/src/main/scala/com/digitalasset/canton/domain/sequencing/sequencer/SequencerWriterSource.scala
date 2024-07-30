@@ -148,7 +148,7 @@ class SequencerWriterQueues private[sequencer] (
     */
   private def writeInternal(
       submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] =
     for {
       event <- eventGenerator.generate(submissionOrOutcome)
       enqueueResult = deliverEventQueue.offer(event)
@@ -162,7 +162,6 @@ class SequencerWriterQueues private[sequencer] (
           Right(())
       })
     } yield ()
-  }
 
   def complete(): Unit = {
     implicit val tc: TraceContext = TraceContext.empty
@@ -434,7 +433,7 @@ object AssertMonotonicBlockSequencerTimestampsFlow {
                 if (lastTimestamp.exists(_ > blockSequencerTimestamp)) {
                   logger.warn(
                     s"Block sequencer timestamp is not monotonically increasing: " +
-                      s"lastTimestamp=${lastTimestamp}, blockSequencerTimestamp=$blockSequencerTimestamp"
+                      s"lastTimestamp=$lastTimestamp, blockSequencerTimestamp=$blockSequencerTimestamp"
                   )
                 }
                 lastTimestamp = Some(blockSequencerTimestamp)
@@ -627,7 +626,7 @@ object WritePayloadsFlow {
 
     def writePayloads(
         events: Seq[Presequenced[StoreEvent[Payload]]]
-    ): Future[Seq[Presequenced[StoreEvent[PayloadId]]]] = {
+    ): Future[Seq[Presequenced[StoreEvent[PayloadId]]]] =
       if (events.isEmpty) Future.successful(Seq.empty[Presequenced[StoreEvent[PayloadId]]])
       else {
         implicit val traceContext: TraceContext = TraceContext.ofBatch(events)(logger)
@@ -651,7 +650,6 @@ object WritePayloadsFlow {
             .map((_: Unit) => eventsWithPayloadId)
         }
       }
-    }
 
     def extractPayload(event: StoreEvent[Payload]): Option[Payload] = event match {
       case DeliverStoreEvent(_, _, _, payload, _, _) => payload.some
@@ -682,15 +680,14 @@ object UpdateWatermarkFlow {
 
   private def retryDbException(error: Throwable, logger: TracedLogger)(implicit
       tc: TraceContext
-  ): Boolean = {
+  ): Boolean =
     DbExceptionRetryPolicy
       .logAndDetermineErrorKind(Failure(error), logger, None)
       .maxRetries == Int.MaxValue
-  }
 
   def apply(store: SequencerWriterStore, logger: TracedLogger)(implicit
       executionContext: ExecutionContext
-  ): Flow[Traced[BatchWritten], Traced[BatchWritten], NotUsed] = {
+  ): Flow[Traced[BatchWritten], Traced[BatchWritten], NotUsed] =
     Flow[Traced[BatchWritten]]
       .mapAsync(1)(_.withTraceContext { implicit traceContext => written =>
         for {
@@ -718,7 +715,6 @@ object UpdateWatermarkFlow {
         } yield Traced(written)
       })
       .named("updateWatermark")
-  }
 }
 
 object NotifyEventSignallerFlow {

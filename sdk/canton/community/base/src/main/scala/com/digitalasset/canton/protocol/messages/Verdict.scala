@@ -98,14 +98,12 @@ object Verdict
 
     override def logWithContext(
         extra: Map[String, String]
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit = {
+    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
       // Log with level INFO, leave it to MediatorError to log the details.
       contextualizedErrorLogger.withContext(extra) {
         lazy val action = if (isMalformed) "malformed" else "rejected"
         contextualizedErrorLogger.info(show"Request is finalized as $action. $reason")
       }
-
-    }
 
     override def isTimeoutDeterminedByMediator: Boolean =
       DecodedCantonError.fromGrpcStatus(reason).exists(_.code.id == MediatorError.Timeout.id)

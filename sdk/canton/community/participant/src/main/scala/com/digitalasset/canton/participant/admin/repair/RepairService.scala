@@ -710,7 +710,7 @@ final class RepairService(
       hostedWitnesses: Set[LfPartyId],
       ignoreStakeholderCheck: Boolean,
       contracts: Seq[ContractToAdd],
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
       // All referenced templates known and vetted
       _packagesVetted <- contracts
@@ -724,7 +724,6 @@ final class RepairService(
         addContractChecks(repair, hostedWitnesses, ignoreStakeholderCheck = ignoreStakeholderCheck)
       )
     } yield ()
-  }
 
   /** Checks that one contract can be added (stakeholders hosted, ...)
     * @param hostedParties Relevant locally hosted parties
@@ -811,7 +810,7 @@ final class RepairService(
       storedContracts: Map[LfContractId, SerializableContract],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     for {
       // We compute first which changes we need to persist
       missingContracts <- contractsToAdd
@@ -872,7 +871,6 @@ final class RepairService(
         )
 
     } yield ()
-  }
 
   /** For the given contract, returns the operations (purge, transfer-in to perform
     * @param acsStatus Status of the contract
@@ -1081,7 +1079,7 @@ final class RepairService(
     def check(
         persistentState: SyncDomainPersistentState,
         indexedDomain: IndexedDomain,
-    ): Future[Either[String, Unit]] = {
+    ): Future[Either[String, Unit]] =
       SyncDomainEphemeralStateFactory
         .startingPoints(
           indexedDomain,
@@ -1093,19 +1091,18 @@ final class RepairService(
         .map { startingPoints =>
           if (startingPoints.processing.prenextTimestamp >= timestamp) {
             logger.debug(
-              s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing ${timestamp}"
+              s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing $timestamp"
             )
             Right(())
           } else {
             logger.debug(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet ${timestamp}"
+              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
             )
             Left(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet ${timestamp}"
+              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
             )
           }
         }
-    }
     getPersistentState(domainId)
       .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap { case (persistentState, _, indexedDomain) =>
@@ -1116,7 +1113,7 @@ final class RepairService(
               this,
               retry.Forever,
               50.milliseconds,
-              s"awaiting clean-head for=${domainId} at ts=${timestamp}",
+              s"awaiting clean-head for=$domainId at ts=$timestamp",
             )
             .unlessShutdown(
               FutureUnlessShutdown.outcomeF(check(persistentState, indexedDomain)),
@@ -1145,7 +1142,7 @@ final class RepairService(
     val domainAlias = aliasManager.aliasForDomainId(domainId).fold(domainId.filterString)(_.unwrap)
     for {
       persistentState <- EitherT.fromEither[Future](
-        lookUpDomainPersistence(domainId, s"domain ${domainAlias}")
+        lookUpDomainPersistence(domainId, s"domain $domainAlias")
       )
       indexedDomain <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(domainId))
     } yield (persistentState, domainAlias, indexedDomain)
@@ -1258,7 +1255,7 @@ final class RepairService(
 
   private def markClean(
       repair: RepairRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     repair.requestCounters.forgetNE
       .parTraverse_(
         repair.domain.persistentState.requestJournalStore.replace(
@@ -1269,7 +1266,6 @@ final class RepairService(
         )
       )
       .leftMap(t => log(s"Failed to update request journal store on ${repair.domain.alias}: $t"))
-  }
 
   private def commitRepairs(
       repairs: RepairRequest*
@@ -1404,7 +1400,7 @@ final class RepairService(
     lockAndAwait[B](
       description,
       domainIds.flatMap(Function.tupled(code)),
-      domainIds.map({ case (d1, d2) => Seq(d1, d2) }),
+      domainIds.map { case (d1, d2) => Seq(d1, d2) },
     )
   }
 
@@ -1438,13 +1434,13 @@ object RepairService {
         lfContractId: LfContractId,
         ledgerTime: Instant,
         contractSalt: Option[Salt],
-    )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] = {
+    )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] =
       for {
         template <- LedgerApiValueValidator.validateIdentifier(templateId).leftMap(_.getMessage)
 
         argsValue <- LedgerApiValueValidator
           .validateRecord(createArguments)
-          .leftMap(e => s"Failed to validate arguments: ${e}")
+          .leftMap(e => s"Failed to validate arguments: $e")
 
         argsVersionedValue = LfVersioned(
           protocol.DummyTransactionVersion, // Version is ignored by daml engine upon RepairService.addContract
@@ -1477,7 +1473,6 @@ object RepairService {
         ledgerCreateTime = LedgerCreateTime(time),
         contractSalt = contractSalt,
       )
-    }
 
     def contractInstanceToData(
         contract: SerializableContract
@@ -1500,7 +1495,7 @@ object RepairService {
         .lfValueToApiRecord(verbose = true, contractInstance.unversioned.arg)
         .bimap(
           e =>
-            s"Failed to convert contract instance to data due to issue with create-arguments: ${e}",
+            s"Failed to convert contract instance to data due to issue with create-arguments: $e",
           record => {
             val signatories = contract.metadata.signatories.map(_.toString)
             val stakeholders = contract.metadata.stakeholders.map(_.toString)

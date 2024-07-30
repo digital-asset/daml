@@ -62,7 +62,7 @@ class MessageRecorder(
     logger.debug("Stopping recording...")
     streamRef.getAndSet(None) match {
       case Some(stream) =>
-        blocking(synchronized { stream.close() })
+        blocking(synchronized(stream.close()))
       case None =>
         logger.info("Recorder has not been recording.")
     }
@@ -84,7 +84,7 @@ object MessageRecorder {
   def load[T <: Serializable](source: Path, logger: TracedLogger)(implicit
       classTag: ClassTag[T],
       traceContext: TraceContext,
-  ): List[T] = {
+  ): List[T] =
     ResourceUtil.withResource(new BufferedInputStream(new FileInputStream(source.toFile))) {
       rawStream =>
         ResourceUtil.withResource(new ObjectInputStream(rawStream) {
@@ -122,5 +122,4 @@ object MessageRecorder {
           builder.result()
         }
     }
-  }
 }

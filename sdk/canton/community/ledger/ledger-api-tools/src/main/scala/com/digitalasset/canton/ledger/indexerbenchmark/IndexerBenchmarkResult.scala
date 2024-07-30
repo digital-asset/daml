@@ -94,7 +94,7 @@ class IndexerBenchmarkResult(
        |--------------------------------------------------------------------------------
        |""".stripMargin
 
-  private[this] def histogramToString(histogram: Histogram): String = {
+  private[this] def histogramToString(histogram: Histogram): String =
     histogram match {
 
       case _: InMemoryHistogram =>
@@ -102,9 +102,8 @@ class IndexerBenchmarkResult(
 
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def timerToString(timer: Timer): String = {
+  private[this] def timerToString(timer: Timer): String =
     timer match {
       case NoOpTimer(_) => ""
       case _: InMemoryTimer =>
@@ -112,29 +111,25 @@ class IndexerBenchmarkResult(
 
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def timerMeanRate(timer: Timer): Double = {
+  private[this] def timerMeanRate(timer: Timer): Double =
     timer match {
       case NoOpTimer(_) => 0
       case timer: InMemoryTimer =>
         timer.data.values.size.toDouble / duration
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def counterState(counter: Counter): Long = {
+  private[this] def counterState(counter: Counter): Long =
     counter match {
       case NoOpCounter(_) => 0
       case InMemoryCounter(_, _) => counter.value
 
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private def recordedHistogramValuesToString(data: Seq[Long]) = {
+  private def recordedHistogramValuesToString(data: Seq[Long]) =
     s"[min: ${data.foldLeft(0L)(_.min(_))}, median: ${median(data)}, max: ${data.foldLeft(0L)(_.max(_))}"
-  }
 
   private def median(data: Seq[Long]) = {
     val sorted = data.sorted

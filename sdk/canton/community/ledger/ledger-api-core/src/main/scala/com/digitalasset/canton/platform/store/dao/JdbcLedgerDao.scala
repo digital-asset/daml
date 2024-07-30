@@ -166,7 +166,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
@@ -180,7 +180,6 @@ private class JdbcLedgerDao(
           )
       }
     }
-  }
 
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
@@ -516,11 +515,10 @@ private class JdbcLedgerDao(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
       readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
     )
-  }
 }
 
 private[platform] object JdbcLedgerDao {

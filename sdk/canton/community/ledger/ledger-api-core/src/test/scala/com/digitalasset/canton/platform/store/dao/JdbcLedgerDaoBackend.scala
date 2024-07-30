@@ -72,12 +72,11 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
   ): ResourceOwner[LedgerDao] = {
     val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
     implicit val traceContext: TraceContext = TraceContext.empty
-    val metrics = {
+    val metrics =
       new LedgerApiServerMetrics(
         new LedgerApiServerHistograms(MetricName("test"))(new HistogramInventory()),
         NoOpMetricsFactory,
       )
-    }
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType, loggerFactory)
     val dbConfig = DbConfig(

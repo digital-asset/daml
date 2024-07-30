@@ -78,7 +78,7 @@ trait IndexerStabilitySpec
           val connection = dataSource.getConnection()
 
           Iterator
-            .iterate(IterationState())(previousState => {
+            .iterate(IterationState()) { previousState =>
               // Assert that there is exactly one indexer running
               val activeIndexer = findActiveIndexer(indexers)
               logger.info(s"Indexer ${activeIndexer.readService.name} is running")
@@ -89,17 +89,17 @@ trait IndexerStabilitySpec
 
               // At this point, the indexer that was aborted by the previous iteration can be reset,
               // in order to keep the pool of competing indexers full.
-              previousState.abortedIndexer.foreach(idx => {
+              previousState.abortedIndexer.foreach { idx =>
                 idx.readService.reset()
                 logger.info(s"ReadService ${idx.readService.name} was reset")
-              })
+              }
 
               // Abort the indexer by terminating the ReadService stream
               activeIndexer.readService.abort(simulatedFailure())
               logger.info(s"ReadService ${activeIndexer.readService.name} was aborted")
 
               IterationState(Some(activeIndexer))
-            })
+            }
             .take(restartIterations + 1)
             .foreach(_ => ())
 

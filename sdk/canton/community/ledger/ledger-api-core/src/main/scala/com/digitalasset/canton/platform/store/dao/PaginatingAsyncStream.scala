@@ -41,7 +41,7 @@ private[platform] class PaginatingAsyncStream(
     */
   def streamFromLimitOffsetPagination[T](
       pageSize: Int
-  )(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] = {
+  )(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] =
     Source
       .unfoldAsync(Option(0L)) {
         case None => Future.successful(None)
@@ -53,7 +53,6 @@ private[platform] class PaginatingAsyncStream(
           }(directEc)
       }
       .flatMapConcat(Source(_))
-  }
 
   /** Concatenates the results of multiple asynchronous calls into
     * a single [[Source]], passing the last seen event's offset to the
@@ -75,7 +74,7 @@ private[platform] class PaginatingAsyncStream(
     */
   def streamFromSeekPagination[Off, T](startFromOffset: Off, getOffset: T => Off)(
       query: Off => Future[Vector[T]]
-  ): Source[T, NotUsed] = {
+  ): Source[T, NotUsed] =
     Source
       .unfoldAsync(Option(startFromOffset)) {
         case None =>
@@ -87,7 +86,6 @@ private[platform] class PaginatingAsyncStream(
           }(directEc)
       }
       .flatMapConcat(Source(_))
-  }
 
   def streamIdsFromSeekPagination(
       idPageSizing: IdPageSizing,
@@ -104,13 +102,13 @@ private[platform] class PaginatingAsyncStream(
     Source
       .unfoldAsync[IdPaginationState, Vector[Long]](initialState) { state =>
         fetchPage(state).map { ids =>
-          ids.lastOption.map(last => {
+          ids.lastOption.map { last =>
             val nextState = IdPaginationState(
               fromIdExclusive = last,
               pageSize = Math.min(state.pageSize * 4, idPageSizing.maxPageSize),
             )
             nextState -> ids
-          })
+          }
         }(directEc)
       }
       .buffer(idPageBufferSize, OverflowStrategy.backpressure)

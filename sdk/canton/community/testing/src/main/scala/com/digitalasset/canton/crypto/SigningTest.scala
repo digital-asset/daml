@@ -15,8 +15,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
   def signingProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       newCrypto: => FutureUnlessShutdown[Crypto],
-  ): Unit = {
-
+  ): Unit =
     forAll(supportedSigningKeySchemes) { signingKeyScheme =>
       s"Sign with $signingKeyScheme" should {
 
@@ -89,7 +88,5 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
 
       }
     }
-
-  }
 
 }

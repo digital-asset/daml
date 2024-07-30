@@ -103,10 +103,9 @@ object ParallelIndexerFactory {
             mainConnectionFactory = () => {
               val connection = dataSource.getConnection
               val directExecutor = new concurrent.Executor {
-                override def execute(command: Runnable): Unit = {
+                override def execute(command: Runnable): Unit =
                   // this will execute on the same thread which started the Executor.execute()
                   command.run()
-                }
               }
               // direct executor is beneficial in context of main connection and network timeout:
               // all socket/Connection closure will be happening on the thread which called the JDBC execute,
@@ -225,7 +224,7 @@ object ParallelIndexerFactory {
 
   def toIndexer(subscription: ResourceContext => Handle): Indexer =
     new Indexer {
-      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] = {
+      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] =
         Resource {
           Future {
             subscription(context)
@@ -236,6 +235,5 @@ object ParallelIndexerFactory {
             ()
           }
         }.map(_.completed)
-      }
     }
 }

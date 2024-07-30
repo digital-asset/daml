@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait SendTrackerStoreTest extends BeforeAndAfter {
   this: AsyncWordSpec with BaseTest =>
 
-  def sendTrackerStore(mk: () => SendTrackerStore): Unit = {
+  def sendTrackerStore(mk: () => SendTrackerStore): Unit =
     "pending sends" should {
       val (msgId1, msgId2, msgId3) =
         (MessageId.tryCreate("1"), MessageId.tryCreate("2"), MessageId.tryCreate("3"))
@@ -56,5 +56,4 @@ trait SendTrackerStoreTest extends BeforeAndAfter {
         } yield pendingSends shouldBe Map(msgId1 -> ts2)
       }
     }
-  }
 }

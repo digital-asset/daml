@@ -89,7 +89,7 @@ class GrpcPackageService(
             .asRuntimeException()
         )
 
-    val ret = {
+    val ret =
       for {
         packageId <- EitherT.fromEither[Future](packageIdE)
         _unit <- service
@@ -102,7 +102,6 @@ class GrpcPackageService(
       } yield {
         RemovePackageResponse(success = Some(Empty()))
       }
-    }
 
     EitherTUtil.toFuture(ret)
   }
@@ -140,7 +139,7 @@ class GrpcPackageService(
   override def removeDar(request: RemoveDarRequest): Future[RemoveDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val hashE = extractHash(request.darHash)
-    val ret = {
+    val ret =
       for {
         hash <- EitherT.fromEither[Future](hashE)
         _unit <- service
@@ -150,7 +149,6 @@ class GrpcPackageService(
       } yield {
         RemoveDarResponse(success = Some(Empty()))
       }
-    }
 
     EitherTUtil.toFuture(ret)
   }

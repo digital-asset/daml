@@ -36,9 +36,8 @@ object StorageDebug {
 
     val result: AtomicReference[Seq[Argument]] = new AtomicReference(Seq())
 
-    private def append(typ: String, value: Any): Unit = {
+    private def append(typ: String, value: Any): Unit =
       result.updateAndGet(x => x :+ Argument(x.size, typ, value.toString)).discard
-    }
 
     override def executeQuery(): ResultSet = ???
     override def executeUpdate(): Int = ???

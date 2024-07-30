@@ -106,8 +106,8 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
       packageId: PackageId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     darPackages
-      .mapValuesInPlace({ case (_hash, packages) => packages - packageId })
-      .filterInPlace({ case (_hash, packages) => packages.nonEmpty })
+      .mapValuesInPlace { case (_hash, packages) => packages - packageId }
+      .filterInPlace { case (_hash, packages) => packages.nonEmpty }
       .discard
 
     pkgData.remove(packageId).discard

@@ -20,13 +20,12 @@ trait NamedLoggerFactory {
   val name: String
 
   /** Yields the name in a form that is suitable as thread name. */
-  lazy val threadName: String = {
+  lazy val threadName: String =
     if (properties.isEmpty) {
       "canton"
     } else {
       properties.values.mkString("-").replaceAll("[^A-Za-z0-9_-]", "_")
     }
-  }
 
   /** Key-value map enabling structured logging, e.g. in ledger api server. */
   val properties: ListMap[String, String]

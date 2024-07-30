@@ -47,7 +47,7 @@ object AmmoniteConsoleConfig extends LazyLogging {
     }
   }
 
-  private def ensureTmpFilesCanBeCreated(): Unit = {
+  private def ensureTmpFilesCanBeCreated(): Unit =
     try {
       val f = File.createTempFile("dummy", "test")
       val _ = f.delete()
@@ -58,7 +58,6 @@ object AmmoniteConsoleConfig extends LazyLogging {
           e,
         )
     }
-  }
 
   private[console] def create(
       config: AmmoniteConsoleConfig,

@@ -67,9 +67,8 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
   protected val stageResult = new AtomicReference[Option[StageResult]](None)
 
   /** can be used to track closeables created with this class that should be cleaned up after this stage */
-  protected def addCloseable[C <: AutoCloseable](item: C): Unit = {
+  protected def addCloseable[C <: AutoCloseable](item: C): Unit =
     closeables.updateAndGet(_ :+ item).discard
-  }
 
   /** indicates the type of external input the stage might be waiting for */
   def waitingFor: Option[WaitingForExternalInput] = None
@@ -88,7 +87,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     */
   protected def attemptAndStore()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] = {
+  ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
     bootstrap.queue.executeEUS(
       stageResult.get() match {
         case Some(previous) => EitherT.rightT(Some(previous))
@@ -98,7 +97,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
               (for {
                 result <- attempt()
                   .leftMap { err =>
-                    logger.error(s"Startup of ${description} failed with $err")
+                    logger.error(s"Startup of $description failed with $err")
                     bootstrap.abortThisNodeOnStartupFailure()
                     err
                   }
@@ -111,21 +110,20 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
       },
       description,
     )
-  }
 
   /** iterative start handler which will attempt to start the stages until
     * we are either up and running or awaiting some init action by the user
     */
   def start()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     if (stageResult.get().isDefined) {
-      logger.error(s"Duplicate init at ${description}")
+      logger.error(s"Duplicate init at $description")
     }
     logger.debug(s"Attempting startup stage: $description")
     for {
       result <- attemptAndStore()
       _ <- result match {
         case None =>
-          logger.info(s"Startup succeeded up to stage ${description}, waiting for external input")
+          logger.info(s"Startup succeeded up to stage $description, waiting for external input")
           EitherT.rightT[FutureUnlessShutdown, String](())
         case Some(stage) =>
           logger.debug(s"Succeeded startup stage: $description")
@@ -139,7 +137,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
               case scala.util.Success(UnlessShutdown.Outcome(Right(_))) =>
               // do nothing on right success
               case scala.util.Success(UnlessShutdown.Outcome(Left(err))) =>
-                logger.info(s"Closing due to error ${err}")
+                logger.info(s"Closing due to error $err")
                 closeOnFailure()
               case scala.util.Success(AbortedDueToShutdown) =>
               // should be okay as if the child is shutdown, then the parent will be shutdown soon too
@@ -184,7 +182,7 @@ abstract class BootstrapStageWithStorage[
   /** if a passive node hits a manual init step, it will return "start" is succeeded
     * and wait in the background for the active node to finish the startup sequence
     */
-  protected def toBackgroundForPassiveNode()(implicit traceContext: TraceContext): Unit = {
+  protected def toBackgroundForPassiveNode()(implicit traceContext: TraceContext): Unit =
     if (!backgroundStarted.getAndSet(true)) {
       logger.debug(s"As passive instance, I await $description or becoming active")
       // retry here as long as we don't get a result or we get a serious failure
@@ -199,7 +197,7 @@ abstract class BootstrapStageWithStorage[
               retry.Forever - 1,
               initialDelay = 10.millis,
               maxDelay = 5.seconds,
-              s"waitForInit-${description}",
+              s"waitForInit-$description",
             )
             // on shutdown, the retry loop will return the last value so if
             // we get None back, we know that the retry loop was aborted due to a shutdown
@@ -217,13 +215,12 @@ abstract class BootstrapStageWithStorage[
           case None => // was aborted due to shutdown, so we just pass
             EitherT.rightT[FutureUnlessShutdown, String](())
         }.onShutdown {
-          logger.debug(s"Initialization of ${description} aborted due to shutdown")
+          logger.debug(s"Initialization of $description aborted due to shutdown")
           Right(())
         },
         s"Background startup failed at $description",
       )
     }
-  }
 
   /** test whether the stage is completed already through a previous init. if so, return result */
   protected def stageCompleted(implicit
@@ -261,7 +258,7 @@ abstract class BootstrapStageWithStorage[
           .flatMap[String, Option[StageResult]] {
             case Some(result) =>
               logger.info(
-                s"Stage ${description} completed in the background. Continuing with the initialization"
+                s"Stage $description completed in the background. Continuing with the initialization"
               )
               buildNextStage(result).map { nextStage =>
                 stageResult.set(Some(nextStage))
@@ -286,7 +283,7 @@ abstract class BootstrapStageWithStorage[
     bootstrap.queue
       .executeEUS(
         if (stageResult.get().nonEmpty) {
-          EitherT.leftT[FutureUnlessShutdown, StageResult](s"Already initialised ${description}")
+          EitherT.leftT[FutureUnlessShutdown, StageResult](s"Already initialised $description")
         } else
           {
             for {
@@ -296,7 +293,7 @@ abstract class BootstrapStageWithStorage[
               _ <- EitherT.cond[FutureUnlessShutdown](
                 current.isEmpty,
                 (),
-                s"Node is already initialised with ${current}",
+                s"Node is already initialised with $current",
               )
               _ <- EitherT.cond[FutureUnlessShutdown](storage.isActive, (), "Node is passive")
               item <- performUnlessClosingEitherUSF(s"complete-grab-result-$description")(
@@ -347,7 +344,7 @@ abstract class BootstrapStageWithStorage[
                   }
                   .value
                   .recover { case _: PassiveInstanceException =>
-                    logger.info(s"Stage ${description} failed as node became passive")
+                    logger.info(s"Stage $description failed as node became passive")
                     // if we became passive during auto-complete stage, we complete the
                     // start procedure and move the waiting to the back
                     UnlessShutdown.Outcome(Right(None))
@@ -363,7 +360,7 @@ abstract class BootstrapStageWithStorage[
 
   override def start()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     super.start().map { res =>
       // if start did not complete, move start
       if (!storage.isActive && next.isEmpty) {
@@ -371,7 +368,6 @@ abstract class BootstrapStageWithStorage[
       }
       res
     }
-  }
 }
 
 object BootstrapStage {

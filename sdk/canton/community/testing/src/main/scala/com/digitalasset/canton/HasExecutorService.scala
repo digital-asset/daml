@@ -47,12 +47,11 @@ trait HasExecutorServiceGeneric extends NamedLogging {
     }
   }
 
-  private def createScheduler(): ScheduledExecutorService = {
+  private def createScheduler(): ScheduledExecutorService =
     Threading.singleThreadScheduledExecutor(
       loggerFactory.threadName + "-test-execution-context-monitor",
       noTracingLogger,
     )
-  }
 
   private def createExecutor(
       scheduler: ScheduledExecutorService

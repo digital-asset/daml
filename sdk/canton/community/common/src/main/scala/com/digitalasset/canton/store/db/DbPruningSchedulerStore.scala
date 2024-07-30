@@ -30,7 +30,7 @@ final class DbPruningSchedulerStore(
 
   override def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     storage.update_(
       storage.profile match {
         case _: Profile.Postgres =>
@@ -51,7 +51,6 @@ final class DbPruningSchedulerStore(
       },
       functionFullName,
     )
-  }
 
   override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
     storage.update_(
@@ -61,7 +60,7 @@ final class DbPruningSchedulerStore(
 
   override def getSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[PruningSchedule]] = {
+  ): Future[Option[PruningSchedule]] =
     storage
       .query(
         sql"""select cron, max_duration, retention
@@ -79,7 +78,6 @@ final class DbPruningSchedulerStore(
           retention,
         )
       })
-  }
 
   override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
     EitherT {
@@ -121,6 +119,6 @@ final class DbPruningSchedulerStore(
     Either.cond(
       rowCount > 0,
       (),
-      s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead.",
+      s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead.",
     )
 }

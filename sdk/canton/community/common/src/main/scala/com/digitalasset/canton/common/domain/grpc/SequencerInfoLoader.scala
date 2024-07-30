@@ -81,7 +81,7 @@ class SequencerInfoLoader(
     Future,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
-  ] = {
+  ] =
     for {
       bootstrapInfo <- client
         .getDomainClientBootstrapInfo(domainAlias)
@@ -93,7 +93,6 @@ class SequencerInfoLoader(
         .getDomainParameters(domainAlias.unwrap)
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(domainAlias))
     } yield (bootstrapInfo, domainParameters)
-  }
 
   private def getBootstrapInfoDomainParametersWithRetry(
       domainAlias: DomainAlias,
@@ -180,7 +179,7 @@ class SequencerInfoLoader(
         }
     } yield {
       logger.info(
-        s"Version handshake with sequencer ${sequencerAlias} and domain using protocol version ${success.serverProtocolVersion} succeeded."
+        s"Version handshake with sequencer $sequencerAlias and domain using protocol version ${success.serverProtocolVersion} succeeded."
       )
       ()
     }
@@ -294,7 +293,7 @@ class SequencerInfoLoader(
       getInfo: SequencerConnection => Future[LoadSequencerEndpointInformationResult]
   )(implicit traceContext: TraceContext): Future[Seq[LoadSequencerEndpointInformationResult]] = {
     logger.debug(
-      s"Loading sequencer info entries with ${connections.size} connections, parallelism ${parallelism.unwrap}, threshold ${maybeThreshold}"
+      s"Loading sequencer info entries with ${connections.size} connections, parallelism ${parallelism.unwrap}, threshold $maybeThreshold"
     )
     val promise = Promise[Seq[LoadSequencerEndpointInformationResult]]()
     val connectionsSize = connections.size
@@ -313,7 +312,7 @@ class SequencerInfoLoader(
     @nowarn("msg=match may not be exhaustive")
     def loadSequencerInfoAsync(connection: SequencerConnection): Unit = {
       logger.debug(
-        s"About to load sequencer ${connection.sequencerAlias} info in domain ${domainAlias}"
+        s"About to load sequencer ${connection.sequencerAlias} info in domain $domainAlias"
       )
       // Note that we tested using HasFlushFuture.addToFlush, but the complexity and risk of delaying shutdown
       // wasn't worth the questionable benefit of tracking "dangling threads" without ownership of the netty channel.
@@ -329,7 +328,7 @@ class SequencerInfoLoader(
               // Perform accounting to decide how to proceed.
               case (_, resultsSoFar, maybeNext) =>
                 logger.debug(
-                  s"Loaded sequencer ${connection.sequencerAlias} info in domain ${domainAlias}"
+                  s"Loaded sequencer ${connection.sequencerAlias} info in domain $domainAlias"
                 )
                 if (!promise.isCompleted) {
                   if (
@@ -343,7 +342,7 @@ class SequencerInfoLoader(
                     )
                   ) {
                     logger.debug(
-                      s"Loaded sufficiently many sequencer info entries (${resultsSoFar.size}) in domain ${domainAlias}"
+                      s"Loaded sufficiently many sequencer info entries (${resultsSoFar.size}) in domain $domainAlias"
                     )
                     promise.trySuccess(resultsSoFar.reverse).discard
                   } else {
@@ -357,20 +356,20 @@ class SequencerInfoLoader(
             if (!promise.isCompleted) {
               LoggerUtil.logThrowableAtLevel(
                 Level.ERROR,
-                s"Exception loading sequencer ${connection.sequencerAlias} info in domain ${domainAlias}",
+                s"Exception loading sequencer ${connection.sequencerAlias} info in domain $domainAlias",
                 t,
               )
               promise.tryFailure(t).discard
             } else {
               // Minimize log noise distraction on behalf of "dangling" futures.
               logger.info(
-                s"Ignoring exception loading sequencer ${connection.sequencerAlias} info in domain ${domainAlias} after promise completion ${t.getMessage}"
+                s"Ignoring exception loading sequencer ${connection.sequencerAlias} info in domain $domainAlias after promise completion ${t.getMessage}"
               )
             }
             Failure(t)
         },
         failureMessage =
-          s"error on load sequencer ${connection.sequencerAlias} info in domain ${domainAlias}",
+          s"error on load sequencer ${connection.sequencerAlias} info in domain $domainAlias",
         level = if (promise.isCompleted) Level.INFO else Level.ERROR,
       )
     }
@@ -490,7 +489,7 @@ object SequencerInfoLoader {
             expectedDomainId.forall(_ == valid.domainClientBootstrapInfo.domainId),
             (),
             SequencerInfoLoaderError.InconsistentConnectivity(
-              show"Domain-id ${valid.domainClientBootstrapInfo.domainId} does not match expected ${expectedDomainId}"
+              show"Domain-id ${valid.domainClientBootstrapInfo.domainId} does not match expected $expectedDomainId"
             ),
           )
           // check that we don't have the same sequencer-id reported by different aliases
@@ -509,7 +508,7 @@ object SequencerInfoLoader {
               case (sequencerId, alias)
                   if alias == valid.connection.sequencerAlias && sequencerId != valid.domainClientBootstrapInfo.sequencerId =>
                 SequencerInfoLoaderError.InconsistentConnectivity(
-                  show"sequencer-id mismatch ${valid.domainClientBootstrapInfo.sequencerId} vs previously observed ${sequencerId}"
+                  show"sequencer-id mismatch ${valid.domainClientBootstrapInfo.sequencerId} vs previously observed $sequencerId"
                 )
             }
             .toLeft(())

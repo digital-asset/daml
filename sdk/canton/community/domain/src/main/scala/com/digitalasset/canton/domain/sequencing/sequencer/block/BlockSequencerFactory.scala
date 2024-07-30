@@ -22,6 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   Sequencer,
   SequencerHealthConfig,
   SequencerInitialState,
+  SequencerSnapshot,
 }
 import com.digitalasset.canton.domain.sequencing.traffic.store.{
   TrafficConsumedStore,
@@ -107,6 +108,7 @@ abstract class BlockSequencerFactory(
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
       domainLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -150,7 +152,7 @@ abstract class BlockSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
-  ): SequencerRateLimitManager = {
+  ): SequencerRateLimitManager =
     new EnterpriseSequencerRateLimitManager(
       trafficPurchasedManager,
       trafficConsumedStore,
@@ -162,7 +164,6 @@ abstract class BlockSequencerFactory(
       trafficConfig,
       eventCostCalculator = new EventCostCalculator(loggerFactory),
     )
-  }
 
   override final def create(
       domainId: DomainId,
@@ -173,6 +174,7 @@ abstract class BlockSequencerFactory(
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
+      sequencerSnapshot: Option[SequencerSnapshot] = None,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -251,6 +253,7 @@ abstract class BlockSequencerFactory(
         rateLimitManager,
         orderingTimeFixMode,
         initialBlockHeight,
+        sequencerSnapshot,
         domainLoggerFactory,
         runtimeReady,
       )
@@ -260,9 +263,8 @@ abstract class BlockSequencerFactory(
     }
   }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(store)(logger)
-  }
 }
 
 object BlockSequencerFactory {

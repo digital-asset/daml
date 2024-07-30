@@ -70,7 +70,7 @@ class CommandSubmitterWithRetry(
     */
   def abortIfClosing[R](name: String, futureSupervisor: FutureSupervisor)(
       future: => Future[R]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[R] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[R] =
     if (isClosing) FutureUnlessShutdown.abortedDueToShutdown
     else {
       implicit val ec: ExecutionContext = directEc
@@ -82,16 +82,15 @@ class CommandSubmitterWithRetry(
       promise.completeWith(FutureUnlessShutdown.outcomeF(future))
       promise.futureUS.thereafter(_ => cancelShutdownTask(taskId))
     }
-  }
 
   private def submitCommandsInternal(commands: Commands, timeout: FiniteDuration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[CommandResult] = {
     val commandId = commands.commandId
     val deadline: CantonTimestamp = clock.now.plus(timeout.toJava)
-    def go(): FutureUnlessShutdown[CommandResult] = {
+    def go(): FutureUnlessShutdown[CommandResult] =
       abortIfClosing("submit-with-retry", futureSupervisor) {
-        logger.debug(s"Submitting command=${commandId} to command service")
+        logger.debug(s"Submitting command=$commandId to command service")
         commandServiceClient
           .submitAndWaitForUpdateId(commands, timeout = Some(timeout))
       }
@@ -103,7 +102,7 @@ class CommandSubmitterWithRetry(
                   clock.now.plus(retryAfter.toJava).plus(DEFAULT_MINIMUM_DEADLINE.toJava)
                 if (nextAttempt < deadline) {
                   logger.info(
-                    s"Command with id = $commandId failed with a retryable error ${status}. Retrying after ${LoggerUtil
+                    s"Command with id = $commandId failed with a retryable error $status. Retrying after ${LoggerUtil
                         .roundDurationForHumans(retryAfter)}"
                   )
                   DelayUtil
@@ -111,14 +110,14 @@ class CommandSubmitterWithRetry(
                     .flatMap(_ => go())
                 } else {
                   logger.info(
-                    s"Command with id = $commandId failed after reaching the deadline ${deadline}. Failure is ${status}."
+                    s"Command with id = $commandId failed after reaching the deadline $deadline. Failure is $status."
                   )
                   FutureUnlessShutdown.pure(CommandResult.TimeoutReached(commandId, status))
                 }
               }
               .getOrElse {
                 logger.info(
-                  s"Command with id = $commandId failed non-retryable with ${status}. Giving up."
+                  s"Command with id = $commandId failed non-retryable with $status. Giving up."
                 )
                 if (status.code == com.google.rpc.Code.DEADLINE_EXCEEDED.getNumber) {
                   FutureUnlessShutdown.pure(CommandResult.TimeoutReached(commandId, status))
@@ -129,7 +128,6 @@ class CommandSubmitterWithRetry(
           case Right(result) =>
             FutureUnlessShutdown.pure(CommandResult.Success(result.updateId))
         }
-    }
     Context.current().fork().call(() => go())
   }
 

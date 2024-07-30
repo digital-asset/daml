@@ -345,7 +345,7 @@ class InMemoryMultiDomainEventLog(
       eventIds: Seq[TimestampedEvent.EventId]
   )(implicit traceContext: TraceContext): Future[
     Map[TimestampedEvent.EventId, (GlobalOffset, TimestampedEvent, CantonTimestamp)]
-  ] = {
+  ] =
     eventIds
       .parTraverseFilter { eventId =>
         byEventId(namedLoggingContext)(eventId).flatMap { case (eventLogId, localOffset) =>
@@ -358,7 +358,6 @@ class InMemoryMultiDomainEventLog(
         }.value
       }
       .map(_.toMap)
-  }
 
   override def lastLocalOffsetBeforeOrAt(
       eventLogId: EventLogId,
@@ -377,24 +376,22 @@ class InMemoryMultiDomainEventLog(
   override def lastLocalOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
     if (upToInclusive.isEmpty) {
       // In this case, we don't need to inspect the events
       Future.successful(entriesRef.get().lastLocalOffsets.get(eventLogId))
     } else
       lastLocalOffsetBeforeOrAt[LocalOffset](eventLogId, upToInclusive, None)
-  }
 
   override def lastRequestOffset(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] = {
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
     if (upToInclusive.isEmpty) {
       // In this case, we don't need to inspect the events
       Future.successful(entriesRef.get().lastRequestOffsets.get(eventLogId))
     } else
       lastLocalOffsetBeforeOrAt[RequestOffset](eventLogId, upToInclusive, None)
-  }
 
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset: ClassTag](
       eventLogId: EventLogId,
@@ -493,7 +490,7 @@ class InMemoryMultiDomainEventLog(
 
   override def lastGlobalOffset(
       upToInclusive: Option[GlobalOffset] = None
-  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] = {
+  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] =
     upToInclusive match {
       case Some(upToInclusive) =>
         OptionT.fromOption(
@@ -507,7 +504,6 @@ class InMemoryMultiDomainEventLog(
 
       case None => OptionT.fromOption(entriesRef.get().lastOffset)
     }
-  }
 
   override def publicationTimeLowerBound: CantonTimestamp =
     entriesRef.get().referencesByOffset.lastOption.fold(CantonTimestamp.MinValue) {

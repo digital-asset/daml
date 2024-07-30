@@ -164,7 +164,7 @@ class StreamAuthorizationComponentSpec
       ).toEither.swap.toOption
     }
 
-    def changeUserRights = {
+    def changeUserRights =
       userManagementStore
         .revokeRights(
           id = Ref.UserId.assertFromString(userId),
@@ -173,7 +173,6 @@ class StreamAuthorizationComponentSpec
         )(LoggingContextWithTrace.ForTesting)
         .futureValue
         .isRight shouldBe true
-    }
 
     def expireUserClaims =
       nowRef.getAndUpdate(x => x.plusSeconds(20))

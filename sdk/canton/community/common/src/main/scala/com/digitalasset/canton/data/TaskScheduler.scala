@@ -344,7 +344,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       traceContext: TraceContext
   ): Unit = {
     // drain the sequencerCounterQueue and record the latest observed timestamp
-    @tailrec def pollAll(): Unit = {
+    @tailrec def pollAll(): Unit =
       sequencerCounterQueue.poll() match {
         case None => ()
         case Some((sc, observedTime)) =>
@@ -360,7 +360,6 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
           }
           pollAll()
       }
-    }
     pollAll()
 
     val _ = performUnlessClosing(functionFullName) {

@@ -267,7 +267,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         }
         lastBucket = Some(bucket)
       }
-      def removeFromBucket(): Unit = { lastBucket = None }
+      def removeFromBucket(): Unit = lastBucket = None
       def getBucket: Option[ops.Bucket] = lastBucket
 
       /** [[scala.None$]] as long as the [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceSignal.Completed]]
@@ -447,11 +447,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       checkInvariantIfEnabled(s"$qualifiedNameOfCurrentFunc end")
     }
 
-    private[this] def stopAllActiveSources(): Unit = {
+    private[this] def stopAllActiveSources(): Unit =
       orderedSources.foreach { case (id, source) =>
         if (source.isActive) stopActiveSource(id, source)
       }
-    }
 
     override def preStart(): Unit = {
       checkInvariantIfEnabled("preStart")
@@ -738,7 +737,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     }
 
     private[this] def completeStageIfDone(): Unit =
-      upstreamCompleted.foreach { cause => completeStage(cause, force = false) }
+      upstreamCompleted.foreach(cause => completeStage(cause, force = false))
 
     private[this] def completeStage(cause: Option[Throwable], force: Boolean): Unit = {
       lazy val outstanding = orderedSources.map { case (id, source) =>
@@ -780,7 +779,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     ): Unit =
       toPull.foreach { case BucketElement(id, _, _) => pullIfNotCompleted(id) }
 
-    private[this] def pullIfNotCompleted(id: OrderedSourceId): Unit = {
+    private[this] def pullIfNotCompleted(id: OrderedSourceId): Unit =
       orderedSources.get(id).foreach { source =>
         source.getCompletion match {
           case None => pullIgnoringClosed(source.inlet)
@@ -798,9 +797,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             }
         }
       }
-    }
 
-    private[this] def pullIgnoringClosed(inlet: SubSinkInlet[A]): Unit = {
+    private[this] def pullIgnoringClosed(inlet: SubSinkInlet[A]): Unit =
       // Use exception handling instead of checking .isClosed
       // because it is unclear whether closing can happen concurrently.
       try {
@@ -810,7 +808,6 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         // If the ordered source has already been closed, then there has been or will be a Completed callback
         // that produces the ActiveSourceTerminated output if necessary and remove the source
       }
-    }
 
     private[this] def createActiveSource(name: Name, config: Config): M = {
       val id = nextOrderedSourceId
@@ -896,7 +893,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       implicit val prettyBucket: Pretty[ops.Bucket] = ops.prettyBucket
       // Must only be called from the main graph stage logic and not asynchronously!
 
-      def sourcesInBucketsConsistent(): Unit = {
+      def sourcesInBucketsConsistent(): Unit =
         buckets.foreach { case (bucket, elems) =>
           elems.foreach { elem =>
             val source = orderedSources.getOrElse(
@@ -913,7 +910,6 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             )
           }
         }
-      }
 
       def uniqueBucketedSources(): Unit = {
         val namesInMoreThanOneBucket =
@@ -948,7 +944,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         }
       }
 
-      def lastBucketComplete(): Unit = {
+      def lastBucketComplete(): Unit =
         buckets.foreach { case (bucket, elems) =>
           elems.foreach { elem =>
             val lastBucket = elem.source.getBucket
@@ -958,24 +954,21 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             )
           }
         }
-      }
 
-      def bucketsBelowThreshold(): Unit = {
+      def bucketsBelowThreshold(): Unit =
         buckets.foreach { case (bucket, elems) =>
           ErrorUtil.requireState(
             elems.sizeIs < currentThreshold,
             s"[$context] Bucket $bucket has more (${elems.size}) elements than the current threshold $currentThreshold",
           )
         }
-      }
 
-      def orderedSourceInvariant(): Unit = {
+      def orderedSourceInvariant(): Unit =
         orderedSources.foreach { case (id, source) =>
           source.checkInvariant(s"$context/source ${source.name} (id $id)")
         }
-      }
 
-      def lastBucketQueuedForEmissionInvariant(): Unit = {
+      def lastBucketQueuedForEmissionInvariant(): Unit =
         lastBucketQueuedForEmission.foreach { case OutputElement(elems) =>
           val buckets = elems.values.map(ops.bucketOf).toSeq
           ErrorUtil.requireState(
@@ -990,7 +983,6 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
             s"[$context] Last bucket queued for emission with offset $offset must at most be the lower bound at $lowerBoundNextOffsetExclusive",
           )
         }
-      }
 
       def activeUnbucketedSourceCountInvariant(): Unit = {
         val activeUnbucketedSources = orderedSources.count { case (_, source) =>

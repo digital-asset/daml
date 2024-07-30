@@ -113,13 +113,12 @@ class InMemoryIdentityProviderConfigStore(
       IdentityProviderConfigExists(id),
     )
 
-  private def tooManyIdentityProviderConfigs(): Result[Unit] = {
+  private def tooManyIdentityProviderConfigs(): Result[Unit] =
     Either.cond(
       state.size + 1 <= maxIdentityProviderConfigs,
       (),
       TooManyIdentityProviderConfigs(),
     )
-  }
 
   private def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
     state.get(id).toRight(IdentityProviderConfigNotFound(id))

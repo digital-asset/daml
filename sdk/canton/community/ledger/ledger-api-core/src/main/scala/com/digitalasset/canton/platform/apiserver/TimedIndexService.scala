@@ -167,12 +167,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     Timed.future(
       metrics.services.index.getTransactionMetering,
       delegate.getMeteringReportData(from, to, applicationId),
     )
-  }
 
   override def lookupContractState(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace

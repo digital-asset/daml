@@ -385,26 +385,24 @@ class DbAcsCommitmentStore(
 
     markSafeQueue
       .execute(
-        {
-          for {
-            /*
+        for {
+          /*
           That could be wrong if a period is marked as outstanding between the point where we
           fetch the approximate timestamp of the topology client and the query for the sorted
           reconciliation intervals.
           Such a period would be kept as outstanding even if it contains no tick. On the other
           hand, only commitment periods around restarts could be "empty" (not contain any tick).
-             */
-            sortedReconciliationIntervals <-
-              sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
-            _ <- storage.queryAndUpdate(
-              dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
-                TransactionIsolation.Serializable
-              ),
-              operationName =
-                s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
-            )
-          } yield ()
-        },
+           */
+          sortedReconciliationIntervals <-
+            sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+          _ <- storage.queryAndUpdate(
+            dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
+              TransactionIsolation.Serializable
+            ),
+            operationName =
+              s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
+          )
+        } yield (),
         "Run mark period safe DB query",
       )
       .onShutdown(
@@ -432,18 +430,17 @@ class DbAcsCommitmentStore(
 
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestampSecond]] = {
+  ): Future[Option[CantonTimestampSecond]] =
     storage.query(
       sql"select ts from par_last_computed_acs_commitments where domain_id = $domainId"
         .as[CantonTimestampSecond]
         .headOption,
       functionFullName,
     )
-  }
 
   override def noOutstandingCommitments(beforeOrAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = {
+  ): Future[Option[CantonTimestamp]] =
     for {
       computed <- lastComputedAndSent
       adjustedTsOpt = computed.map(_.forgetRefinement.min(beforeOrAt))
@@ -461,7 +458,6 @@ class DbAcsCommitmentStore(
         outstanding <- outstandingOpt
       } yield AcsCommitmentStore.latestCleanPeriod(ts, outstanding)
     }
-  }
 
   override def searchComputedBetween(
       start: CantonTimestamp,
@@ -513,13 +509,12 @@ class DbAcsCommitmentStore(
   override val queue: DbCommitmentQueue =
     new DbCommitmentQueue(storage, domainId, protocolVersion, timeouts, loggerFactory)
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       runningCommitments,
       queue,
       markSafeQueue,
     )(logger)
-  }
 }
 
 class DbIncrementalCommitmentStore(
@@ -541,7 +536,7 @@ class DbIncrementalCommitmentStore(
 
   override def get()(implicit
       traceContext: TraceContext
-  ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] = {
+  ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
     for {
       res <- storage.query(
         (for {
@@ -566,7 +561,6 @@ class DbIncrementalCommitmentStore(
         }.toMap
       }
     }
-  }
 
   override def watermark(implicit traceContext: TraceContext): Future[RecordTime] = {
     val query =
@@ -583,7 +577,7 @@ class DbIncrementalCommitmentStore(
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    def partySetHash(parties: SortedSet[LfPartyId]): String68 = {
+    def partySetHash(parties: SortedSet[LfPartyId]): String68 =
       Hash
         .digest(
           HashPurpose.Stakeholders,
@@ -591,7 +585,6 @@ class DbIncrementalCommitmentStore(
           HashAlgorithm.Sha256,
         )
         .toLengthLimitedHexString
-    }
     def deleteCommitments(stakeholders: List[SortedSet[LfPartyId]]): DbAction.All[Unit] = {
       val deleteStatement =
         "delete from par_commitment_snapshot where domain_id = ? and stakeholders_hash = ?"
@@ -647,7 +640,7 @@ class DbIncrementalCommitmentStore(
       )(setParams)
     }
 
-    def insertRt(rt: RecordTime): DbAction.WriteOnly[Int] = {
+    def insertRt(rt: RecordTime): DbAction.WriteOnly[Int] =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
           sqlu"""merge into par_commitment_snapshot_time (domain_id, ts, tie_breaker) values ($domainId, ${rt.timestamp}, ${rt.tieBreaker})"""
@@ -664,7 +657,6 @@ class DbIncrementalCommitmentStore(
                   insert (domain_id, ts, tie_breaker) values ($domainId, ${rt.timestamp}, ${rt.tieBreaker})
                   """
       }
-    }
 
     val updateList = updates.toList
     val deleteList = deletes.toList
@@ -723,7 +715,7 @@ class DbCommitmentQueue(
     */
   override def peekThrough(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[List[AcsCommitment]] = {
+  ): Future[List[AcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
@@ -733,7 +725,6 @@ class DbCommitmentQueue(
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
       .map(_.toList)
-  }
 
   /** Returns all commitments whose period ends at or after the given timestamp.
     *
@@ -741,7 +732,7 @@ class DbCommitmentQueue(
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
@@ -750,14 +741,13 @@ class DbCommitmentQueue(
           .as[AcsCommitment],
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
-  }
 
   def peekOverlapsForCounterParticipant(
       period: CommitmentPeriod,
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]] = {
+  ): Future[Seq[AcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
@@ -768,15 +758,13 @@ class DbCommitmentQueue(
           .as[AcsCommitment],
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
-  }
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"delete from par_commitment_queue where domain_id = $domainId and to_inclusive <= $timestamp",
       operationName = "delete queued commitments",
     )
-  }
 }

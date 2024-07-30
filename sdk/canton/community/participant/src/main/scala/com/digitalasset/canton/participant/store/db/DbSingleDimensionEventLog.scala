@@ -54,7 +54,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
 
   override def insertsUnlessEventIdClash(
       events: Seq[TimestampedEvent]
-  )(implicit traceContext: TraceContext): Future[Seq[Either[TimestampedEvent, Unit]]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[Either[TimestampedEvent, Unit]]] =
     idempotentInserts(events).flatMap { insertResult =>
       insertResult.parTraverse {
         case right @ Right(()) => Future.successful(right)
@@ -67,11 +67,10 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           }
       }
     }
-  }
 
   private def idempotentInserts(
       events: Seq[TimestampedEvent]
-  )(implicit traceContext: TraceContext): Future[List[Either[TimestampedEvent, Unit]]] = {
+  )(implicit traceContext: TraceContext): Future[List[Either[TimestampedEvent, Unit]]] =
     for {
       rowCounts <- rawInserts(events)
       _ = ErrorUtil.requireState(
@@ -98,7 +97,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
                 ErrorUtil.internalError(
                   new IllegalArgumentException(
                     show"""Unable to overwrite an existing event. Aborting.
-                            |Existing event: ${existingEvent}
+                            |Existing event: $existingEvent
 
                             |New event: $event""".stripMargin
                   )
@@ -106,7 +105,6 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           }
       }
     } yield checkResults
-  }
 
   private def rawInserts(
       events: Seq[TimestampedEvent]
@@ -121,25 +119,42 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     }
 
     eventsWithAssociatedDomainIdF.flatMap { eventsWithAssociatedDomainId =>
-      {
-        val dbio = storage.profile match {
-          case _: DbStorage.Profile.Oracle =>
-            val query =
-              """merge into par_event_log e
+      val dbio = storage.profile match {
+        case _: DbStorage.Profile.Oracle =>
+          val query =
+            """merge into par_event_log e
                  using dual on ( (e.event_id = ?) or (e.log_id = ? and e.local_offset_effective_time = ? and e.local_offset_discriminator = ? and e.local_offset_tie_breaker = ?))
                  when not matched then
                  insert (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
-            DbStorage.bulkOperation(
-              query,
-              eventsWithAssociatedDomainId,
-              storage.profile,
-            ) { pp => eventWithDomain =>
+          DbStorage.bulkOperation(
+            query,
+            eventsWithAssociatedDomainId,
+            storage.profile,
+          ) { pp => eventWithDomain =>
+            val (event, associatedDomainIdO) = eventWithDomain
+
+            pp >> event.eventId
+            pp >> log_id
+            pp >> event.localOffset
+            pp >> log_id
+            pp >> event.localOffset
+            pp >> event.timestamp
+            pp >> event.requestSequencerCounter
+            pp >> event.eventId
+            pp >> associatedDomainIdO.map(_.index)
+            pp >> SerializableLedgerSyncEvent(event.event, releaseProtocolVersion.v)
+            pp >> SerializableTraceContext(event.traceContext)
+          }
+        case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
+          val query =
+            """insert into par_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
+               values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               on conflict do nothing"""
+          DbStorage.bulkOperation(query, eventsWithAssociatedDomainId, storage.profile) {
+            pp => eventWithDomain =>
               val (event, associatedDomainIdO) = eventWithDomain
 
-              pp >> event.eventId
-              pp >> log_id
-              pp >> event.localOffset
               pp >> log_id
               pp >> event.localOffset
               pp >> event.timestamp
@@ -148,28 +163,9 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
               pp >> associatedDomainIdO.map(_.index)
               pp >> SerializableLedgerSyncEvent(event.event, releaseProtocolVersion.v)
               pp >> SerializableTraceContext(event.traceContext)
-            }
-          case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-            val query =
-              """insert into par_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
-               values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-               on conflict do nothing"""
-            DbStorage.bulkOperation(query, eventsWithAssociatedDomainId, storage.profile) {
-              pp => eventWithDomain =>
-                val (event, associatedDomainIdO) = eventWithDomain
-
-                pp >> log_id
-                pp >> event.localOffset
-                pp >> event.timestamp
-                pp >> event.requestSequencerCounter
-                pp >> event.eventId
-                pp >> associatedDomainIdO.map(_.index)
-                pp >> SerializableLedgerSyncEvent(event.event, releaseProtocolVersion.v)
-                pp >> SerializableTraceContext(event.traceContext)
-            }
-        }
-        storage.queryAndUpdate(dbio, functionFullName)
+          }
       }
+      storage.queryAndUpdate(dbio, functionFullName)
     }
   }
 
@@ -217,19 +213,16 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
       limit: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LocalOffset, TimestampedEvent]] = {
-    {
-      DbSingleDimensionEventLog.lookupEventRange(
-        storage = storage,
-        eventLogId = id,
-        fromExclusive = fromExclusive,
-        toInclusive = toInclusive,
-        fromTimestampInclusive = fromTimestampInclusive,
-        toTimestampInclusive = toTimestampInclusive,
-        limit = limit,
-      )
-    }
-  }
+  ): Future[SortedMap[LocalOffset, TimestampedEvent]] =
+    DbSingleDimensionEventLog.lookupEventRange(
+      storage = storage,
+      eventLogId = id,
+      fromExclusive = fromExclusive,
+      toInclusive = toInclusive,
+      fromTimestampInclusive = fromTimestampInclusive,
+      toTimestampInclusive = toTimestampInclusive,
+      limit = limit,
+    )
 
   override def eventAt(
       offset: LocalOffset
@@ -253,7 +246,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
       )
   }
 
-  override def lastOffset(implicit traceContext: TraceContext): OptionT[Future, LocalOffset] = {
+  override def lastOffset(implicit traceContext: TraceContext): OptionT[Future, LocalOffset] =
     storage.querySingle(
       sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker from par_event_log where log_id = $log_id
               order by local_offset_effective_time desc, local_offset_discriminator desc, local_offset_tie_breaker desc #${storage
@@ -262,11 +255,10 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         .headOption,
       functionFullName,
     )
-  }
 
   override def eventById(
       eventId: EventId
-  )(implicit traceContext: TraceContext): OptionT[Future, TimestampedEvent] = {
+  )(implicit traceContext: TraceContext): OptionT[Future, TimestampedEvent] =
     storage
       .querySingle(
         sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
@@ -276,7 +268,6 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           .headOption,
         functionFullName,
       )
-  }
 
   override def existsBetween(
       timestampInclusive: CantonTimestamp,
@@ -384,7 +375,7 @@ object DbSingleDimensionEventLog {
           sql""" order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc #${storage
               .limit(limit.getOrElse(Int.MaxValue))}""")
           .as[TimestampedEvent]
-          .map(_.map { event => event.localOffset -> event }),
+          .map(_.map(event => event.localOffset -> event)),
         functionFullName,
       )
     } yield {

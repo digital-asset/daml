@@ -145,7 +145,7 @@ class PackageOpsImpl(
       action: Seq[LfPackageId] => Seq[LfPackageId]
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] = {
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
     // TODO(#14069) this vetting extension might fail on concurrent requests
 
     for {
@@ -194,5 +194,4 @@ class PackageOpsImpl(
         )
       }
     } yield newVettedPackagesState != currentPackages
-  }
 }

@@ -28,13 +28,12 @@ final case class TrafficReceipt(
       param("base traffic remainder", _.baseTrafficRemainder),
     )
 
-  def toProtoV30: TrafficReceiptP = {
+  def toProtoV30: TrafficReceiptP =
     TrafficReceiptP(
       consumedCost = consumedCost.value,
       extraTrafficConsumed = extraTrafficConsumed.value,
       baseTrafficRemainder = baseTrafficRemainder.value,
     )
-  }
 }
 
 object TrafficReceipt {

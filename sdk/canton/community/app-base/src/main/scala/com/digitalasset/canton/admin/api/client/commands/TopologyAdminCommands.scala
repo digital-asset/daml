@@ -711,7 +711,7 @@ object TopologyAdminCommands {
         store: String,
         forceChanges: ForceFlags,
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
-      override def createRequest(): Either[String, AddTransactionsRequest] = {
+      override def createRequest(): Either[String, AddTransactionsRequest] =
         Right(
           AddTransactionsRequest(
             transactions.map(_.toProtoV30),
@@ -719,7 +719,6 @@ object TopologyAdminCommands {
             store,
           )
         )
-      }
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
           request: AddTransactionsRequest,
@@ -735,14 +734,13 @@ object TopologyAdminCommands {
           ImportTopologySnapshotResponse,
           Unit,
         ] {
-      override def createRequest(): Either[String, ImportTopologySnapshotRequest] = {
+      override def createRequest(): Either[String, ImportTopologySnapshotRequest] =
         Right(
           ImportTopologySnapshotRequest(
             topologySnapshot,
             store,
           )
         )
-      }
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
           request: ImportTopologySnapshotRequest,
@@ -758,11 +756,10 @@ object TopologyAdminCommands {
     ) extends BaseWriteCommand[SignTransactionsRequest, SignTransactionsResponse, Seq[
           GenericSignedTopologyTransaction
         ]] {
-      override def createRequest(): Either[String, SignTransactionsRequest] = {
+      override def createRequest(): Either[String, SignTransactionsRequest] =
         Right(
           SignTransactionsRequest(transactions.map(_.toProtoV30), signedBy.map(_.toProtoPrimitive))
         )
-      }
 
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
@@ -925,14 +922,13 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: v30.GetIdResponse
-      ): Either[String, UniqueIdentifier] = {
+      ): Either[String, UniqueIdentifier] =
         if (response.uniqueIdentifier.nonEmpty)
           UniqueIdentifier.fromProtoPrimitive_(response.uniqueIdentifier).leftMap(_.message)
         else
           Left(
             s"Node is not initialized and therefore does not have an Id assigned yet."
           )
-      }
     }
   }
 }

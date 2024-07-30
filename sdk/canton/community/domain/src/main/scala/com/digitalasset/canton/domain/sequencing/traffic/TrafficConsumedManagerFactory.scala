@@ -23,12 +23,11 @@ object DefaultTrafficConsumedManagerFactory extends TrafficConsumedManagerFactor
       lastConsumed: TrafficConsumed,
       loggerFactory: NamedLoggerFactory,
       metrics: TrafficConsumptionMetrics,
-  ): TrafficConsumedManager = {
+  ): TrafficConsumedManager =
     new TrafficConsumedManager(
       member,
       lastConsumed,
       loggerFactory,
       metrics,
     )
-  }
 }

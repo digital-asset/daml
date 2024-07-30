@@ -200,12 +200,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
 
     def pullFromQueue(
         queue: SinkQueueWithCancel[OrdinarySerializedEvent]
-    ): Future[Option[OrdinarySerializedEvent]] = {
+    ): Future[Option[OrdinarySerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
         queue.pull(),
         ignoreWarningsFromLackOfTopologyUpdates,
       )
-    }
 
     def waitFor(duration: FiniteDuration): Future[Unit] = {
       val promise = Promise[Unit]()

@@ -48,7 +48,7 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[Future, TransactionRoutingError, TransactionData] =
     for {
       contractsDomainData <-
         ContractsDomainData
@@ -68,7 +68,6 @@ private[routing] object TransactionData {
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainIdO,
     )
-  }
 
   def create(
       submitterInfo: SubmitterInfo,
@@ -80,7 +79,7 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[Future, TransactionRoutingError, TransactionData] =
     for {
       submitters <- EitherT.fromEither[Future](
         submitterInfo.actAs
@@ -101,5 +100,4 @@ private[routing] object TransactionData {
         prescribedDomainO,
       )
     } yield transactionData
-  }
 }

@@ -39,9 +39,8 @@ final class DropRepeated[T] extends GraphStage[FlowShape[T, T]] {
       setHandler(
         out,
         new OutHandler {
-          override def onPull(): Unit = {
+          override def onPull(): Unit =
             pull(in)
-          }
         },
       )
     }

@@ -324,7 +324,7 @@ class ConfirmationRequestAndResponseProcessorTest
             super.informeesAndConfirmationParamsByViewPosition.head
 
           override def informeesAndConfirmationParamsByViewPosition
-              : Map[ViewPosition, ViewConfirmationParameters] = {
+              : Map[ViewPosition, ViewConfirmationParameters] =
             super.informeesAndConfirmationParamsByViewPosition map {
               case (key, ViewConfirmationParameters(informees, quorums)) =>
                 (
@@ -335,7 +335,6 @@ class ConfirmationRequestAndResponseProcessorTest
                   ),
                 )
             }
-          }
         }
       val requestTimestamp = CantonTimestamp.Epoch.plusSeconds(120)
       for {
@@ -1418,12 +1417,11 @@ class ConfirmationRequestAndResponseProcessorTest
               Some(requestId.unwrap),
               Recipients.cc(mediatorGroupRecipient),
             )
-            .failOnShutdown("Unexpected shutdown."), {
-            _.shouldBeCantonError(
-              MediatorError.InvalidMessage,
-              _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
-            )
-          },
+            .failOnShutdown("Unexpected shutdown."),
+          _.shouldBeCantonError(
+            MediatorError.InvalidMessage,
+            _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
+          ),
         )
       } yield {
         succeed
@@ -1436,7 +1434,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val requestIdTs = CantonTimestamp.Epoch
       val requestId = RequestId(requestIdTs)
 
-      def checkWrongTimestampOfSigningKeyError(logEntry: LogEntry): Assertion = {
+      def checkWrongTimestampOfSigningKeyError(logEntry: LogEntry): Assertion =
         logEntry.shouldBeCantonError(
           MediatorError.MalformedMessage,
           message =>
@@ -1444,7 +1442,6 @@ class ConfirmationRequestAndResponseProcessorTest
               "Discarding confirmation response because the topology timestamp is not set to the request id"
             ) and include(s"$requestId")),
         )
-      }
 
       val ts1 = CantonTimestamp.Epoch.plusMillis(1L)
       for {

@@ -57,7 +57,7 @@ object MeteringAggregator {
         _ <- ResourceOwner.forTimer(() => new Timer()).map { timer =>
           timer.scheduleAtFixedRate(
             new TimerTask {
-              override def run(): Unit = {
+              override def run(): Unit =
                 Try {
                   Await.ready(aggregator.run(), maxTaskDuration)
                 } match {
@@ -67,7 +67,6 @@ object MeteringAggregator {
                       TraceContext.empty
                     )
                 }
-              }
             },
             period.toMillis,
             period.toMillis,
@@ -150,12 +149,12 @@ class MeteringAggregator(
       }
     }
 
-    future.onComplete({
+    future.onComplete {
       case Success(None) => logger.debug("No transaction metering aggregation required")
       case Success(Some(lme)) =>
         logger.info(s"Aggregating transaction metering completed up to $lme")
       case Failure(e) => logger.error("Failed to aggregate transaction metering", e)
-    })(directEc)
+    }(directEc)
 
     future.map(_ => ())(directEc)
   }

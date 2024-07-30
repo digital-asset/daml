@@ -238,7 +238,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   override def onlyForTestingNumberOfAcceptedTransactionsFor(
       domainId: DomainId
-  )(connection: Connection): Int = {
+  )(connection: Connection): Int =
     SQL"""SELECT internal_id
           FROM lapi_string_interning
           WHERE external_string = ${"d|" + domainId.toProtoPrimitive}
@@ -250,7 +250,6 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         WHERE domain_id = $internedDomainId
        """.asSingle(int("count"))(connection))
       .getOrElse(0)
-  }
 
   /**  ONLY FOR TESTING
     *  This is causing wiping of all LAPI event data.

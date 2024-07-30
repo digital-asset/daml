@@ -102,24 +102,22 @@ class TrafficStateController(
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): Unit = FutureUtil.doNotAwaitUnlessShutdown(
-    {
-      for {
-        topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
-        snapshot = topology.ipsSnapshot
-        trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
-      } yield trafficControlO.foreach { params =>
-        val updated = trafficConsumedManager.updateAt(sequencingTimestamp, params, logger)
+    for {
+      topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
+      snapshot = topology.ipsSnapshot
+      trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
+    } yield trafficControlO.foreach { params =>
+      val updated = trafficConsumedManager.updateAt(sequencingTimestamp, params, logger)
 
-        if (updated.sequencingTimestamp != sequencingTimestamp)
-          logger.debug(
-            "Skipped traffic update because the current state is more recent than the sequenced event." +
-              s"Event timestamp: $sequencingTimestamp. Current state: $updated"
-          )
-        else
-          logger.debug(
-            s"Updated traffic state at timestamp: $sequencingTimestamp without consuming traffic. Current state: $updated"
-          )
-      }
+      if (updated.sequencingTimestamp != sequencingTimestamp)
+        logger.debug(
+          "Skipped traffic update because the current state is more recent than the sequenced event." +
+            s"Event timestamp: $sequencingTimestamp. Current state: $updated"
+        )
+      else
+        logger.debug(
+          s"Updated traffic state at timestamp: $sequencingTimestamp without consuming traffic. Current state: $updated"
+        )
     },
     s"Failed to update traffic consumed state at $sequencingTimestamp",
   )

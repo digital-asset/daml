@@ -295,7 +295,7 @@ class SyncDomainMigration(
       domainId: DomainId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] =
     performUnlessClosingEitherU("pruneSelectedDeactivatedDomainStores") {
       logger.info(
         s"About to prune deactivated sync domain $domainId sequenced event store'"
@@ -310,7 +310,6 @@ class SyncDomainMigration(
           )
         }
     }
-  }
 
   private def updateDomainStatus(
       alias: DomainAlias,

@@ -30,7 +30,7 @@ object OpenTelemetryViews extends LazyLogging {
       histogramInventory: HistogramInventory,
       histogramFilter: MetricsInfoFilter,
       histogramConfigs: Seq[HistogramDefinition],
-  ): SdkMeterProviderBuilder = {
+  ): SdkMeterProviderBuilder =
     histogramConfigs match {
       // Add global support for exponential histograms when the only custom histogram definition is an exponential config with a catch all
       // this is done to ensure that all histograms use the same view, even histograms that aren't defined by us and thus aren't part of the inventory
@@ -96,7 +96,7 @@ object OpenTelemetryViews extends LazyLogging {
                 .groupBy(_.viewName.getOrElse(item.name.toString))
                 .toSeq
                 .flatMap { case (_, allMatchingDefinitions) =>
-                  allMatchingDefinitions.headOption.map { first => (item, first) }
+                  allMatchingDefinitions.headOption.map(first => (item, first))
                 }
               if (instrumentConfigs.nonEmpty) instrumentConfigs
               else
@@ -120,7 +120,6 @@ object OpenTelemetryViews extends LazyLogging {
             }
         }
     }
-  }
 
   private def histogramSelectorByName(stringWithWildcards: String) = InstrumentSelector
     .builder()

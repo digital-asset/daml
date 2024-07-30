@@ -63,7 +63,7 @@ class DbIndexedStringStore(
     storage.update_(query, functionFullName)
   }
 
-  override def getForIndex(dbTyp: IndexedStringType, idx: Int): Future[Option[String300]] = {
+  override def getForIndex(dbTyp: IndexedStringType, idx: Int): Future[Option[String300]] =
     storage
       .query(
         sql"select string from common_static_strings where id = $idx and source = ${dbTyp.source}"
@@ -71,5 +71,4 @@ class DbIndexedStringStore(
         functionFullName,
       )
       .map(_.headOption)
-  }
 }

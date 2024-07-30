@@ -27,12 +27,11 @@ sealed abstract class SequencerDeliverErrorCode(id: String, category: ErrorCateg
 ) extends ErrorCode(id, category) {
   require(category.grpcCode.isDefined, "gPRC code is required for the correct matching in unapply")
 
-  def apply(message: String): SequencerDeliverError = {
+  def apply(message: String): SequencerDeliverError =
     new TransactionErrorImpl(
       cause = message,
       definiteAnswer = true,
     ) with SequencerDeliverError
-  }
 
   /** Match the GRPC status on the ErrorCode and return the message string on success
     */
@@ -160,9 +159,8 @@ object SequencerErrors extends SequencerErrorGroup {
         id = "SEQUENCER_UNKNOWN_RECIPIENTS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    def apply(unknownRecipients: Seq[Member]): SequencerDeliverError = {
+    def apply(unknownRecipients: Seq[Member]): SequencerDeliverError =
       apply(s"Unknown recipients: ${unknownRecipients.toList.take(1000).mkString(", ")}")
-    }
   }
 
   @Explanation(
@@ -226,6 +224,6 @@ object SequencerErrors extends SequencerErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     def apply(ts: CantonTimestamp, sc: SequencerCounter): SequencerDeliverError =
-      apply(s"Sequencer signing key not available at ${ts} and ${sc}")
+      apply(s"Sequencer signing key not available at $ts and $sc")
   }
 }

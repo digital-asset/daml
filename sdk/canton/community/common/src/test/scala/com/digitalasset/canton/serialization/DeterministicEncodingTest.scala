@@ -157,7 +157,7 @@ class DeterministicEncodingTest extends AnyWordSpec with BaseTest {
     }
     "working on sequences" should {
       "obtain original sequence" in {
-        Seq(Seq(1), Seq(), Seq(1, 2, 3, 4, 5)).foreach(tst => {
+        Seq(Seq(1), Seq(), Seq(1, 2, 3, 4, 5)).foreach { tst =>
           val res = DeterministicEncoding.decodeSeqWith(
             DeterministicEncoding.encodeSeqWith(tst)(DeterministicEncoding.encodeInt)
           )(DeterministicEncoding.decodeInt)
@@ -166,7 +166,7 @@ class DeterministicEncodingTest extends AnyWordSpec with BaseTest {
             seq shouldBe tst
             assertResult(0)(rest.size)
           }
-        })
+        }
       }
     }
 

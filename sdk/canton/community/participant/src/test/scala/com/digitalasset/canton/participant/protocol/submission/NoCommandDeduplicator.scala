@@ -32,7 +32,7 @@ class NoCommandDeduplicator extends CommandDeduplicator {
       deduplicationPeriod: DeduplicationPeriod,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] = {
+  ): EitherT[Future, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] =
     deduplicationPeriod match {
       case offset: DeduplicationPeriod.DeduplicationOffset =>
         EitherT(Future.successful(Either.right(offset)))
@@ -40,5 +40,4 @@ class NoCommandDeduplicator extends CommandDeduplicator {
         val offset = UpstreamOffsetConvert.fromGlobalOffset(MultiDomainEventLog.ledgerFirstOffset)
         EitherT(Future.successful(Either.right(DeduplicationPeriod.DeduplicationOffset(offset))))
     }
-  }
 }

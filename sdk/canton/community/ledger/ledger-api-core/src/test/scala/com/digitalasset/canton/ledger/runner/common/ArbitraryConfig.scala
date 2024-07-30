@@ -118,7 +118,7 @@ object ArbitraryConfig {
     cacheExpiryAfterWrite = cacheExpiryAfterWrite
   )
 
-  def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {
+  def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] =
     for {
       default <- Gen.option(Gen.posNum[Long])
       expiresAt <- Gen.option(Gen.posNum[Long])
@@ -130,7 +130,6 @@ object ArbitraryConfig {
       issuedAt = issuedAt,
       notBefore = notBefore,
     )
-  }
 
   val commandServiceConfig = for {
     maxCommandsInFlight <- Gen.chooseNum(Int.MinValue, Int.MaxValue)

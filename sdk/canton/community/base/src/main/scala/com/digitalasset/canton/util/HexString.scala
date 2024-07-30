@@ -48,7 +48,6 @@ object HexString {
       .map(_.toArray)
   }
 
-  def parseToByteString(s: String): Option[ByteString] = {
+  def parseToByteString(s: String): Option[ByteString] =
     parse(s).map(ByteString.copyFrom)
-  }
 }

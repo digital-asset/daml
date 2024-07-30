@@ -92,7 +92,7 @@ object RecipientsTree {
   def fromProtoV30(
       treeProto: v30.RecipientsTree,
       supportGroupAddressing: Boolean,
-  ): ParsingResult[RecipientsTree] = {
+  ): ParsingResult[RecipientsTree] =
     for {
       members <- treeProto.recipients.traverse(str =>
         if (supportGroupAddressing)
@@ -113,6 +113,5 @@ object RecipientsTree {
       recipientsNonEmpty.toSet,
       childTrees,
     )
-  }
 
 }

@@ -95,7 +95,7 @@ object SequencerConnectClient {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContextExecutor
-  ): EitherT[Future, Error, SequencerConnectClient] = {
+  ): EitherT[Future, Error, SequencerConnectClient] =
     for {
       client <- sequencerConnection match {
         case connection: GrpcSequencerConnection =>
@@ -112,7 +112,6 @@ object SequencerConnectClient {
           )
       }
     } yield client
-  }
 
   final case class DomainClientBootstrapInfo(domainId: DomainId, sequencerId: SequencerId)
 }

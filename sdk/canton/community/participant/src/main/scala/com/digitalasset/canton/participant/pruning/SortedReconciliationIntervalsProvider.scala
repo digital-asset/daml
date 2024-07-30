@@ -75,7 +75,7 @@ class SortedReconciliationIntervalsProvider(
     */
   private def checkIsTick(
       ts: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       sortedReconciliationIntervals <- reconciliationIntervals(ts)
       isTick = sortedReconciliationIntervals.isAtTick(ts)
@@ -89,7 +89,6 @@ class SortedReconciliationIntervalsProvider(
           )
       }
     }
-  }
 
   /** Computes a list of commitment periods between `fromExclusive` to `toInclusive`.
     * The caller should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
@@ -99,8 +98,7 @@ class SortedReconciliationIntervalsProvider(
   private[pruning] def computeReconciliationIntervalsCovering(
       fromExclusive: CantonTimestamp,
       toInclusive: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[List[CommitmentPeriod]] = {
-
+  )(implicit traceContext: TraceContext): Future[List[CommitmentPeriod]] =
     for {
       _ <- checkIsTick(fromExclusive)
       _ <- checkIsTick(toInclusive)
@@ -135,5 +133,4 @@ class SortedReconciliationIntervalsProvider(
             prevIntervals :+ lastInterval
           }
     } yield res
-  }
 }

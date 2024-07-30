@@ -20,7 +20,7 @@ class LogReporter(logAsInfo: Boolean, val loggerFactory: NamedLoggerFactory)
 
   override def `export`(metrics: util.Collection[MetricData]): CompletableResultCode = {
     MetricValue.allFromMetricData(metrics.asScala).foreach { case (value, metadata) =>
-      val str = s"${metadata.getName}: ${value}"
+      val str = s"${metadata.getName}: $value"
       if (logAsInfo)
         noTracingLogger.info(str)
       else noTracingLogger.debug(str)

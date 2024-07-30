@@ -250,14 +250,13 @@ class ResilientSequencerSubscription[HandlerError](
     *
     * @return The future completes after the old subscription has been closed.
     */
-  def resubscribeOnTransportChange()(implicit traceContext: TraceContext): Future[Unit] = {
+  def resubscribeOnTransportChange()(implicit traceContext: TraceContext): Future[Unit] =
     nextSubscriptionRef.get() match {
       case None => Future.unit
       case Some(subscription) =>
         subscription.complete(SubscriptionCloseReason.TransportChange)
         subscription.closeReason.void
     }
-  }
 
   override private[canton] def complete(
       reason: SubscriptionCloseReason[HandlerError]
@@ -294,10 +293,9 @@ class ResilientSequencerSubscription[HandlerError](
           nextSubscriptionRef.get().foreach(closeSubscription),
         ),
         SyncCloseable(
-          "close-reason", {
-            // ensure that it is always completed even if there is no running subscription
-            closeReasonPromise.tryComplete(Success(SubscriptionCloseReason.Closed)).discard[Boolean]
-          },
+          "close-reason",
+          // ensure that it is always completed even if there is no running subscription
+          closeReasonPromise.tryComplete(Success(SubscriptionCloseReason.Closed)).discard[Boolean],
         ),
       )
   }
@@ -316,7 +314,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       maxRetryDelay: FiniteDuration,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): ResilientSequencerSubscription[E] = {
+  )(implicit executionContext: ExecutionContext): ResilientSequencerSubscription[E] =
     new ResilientSequencerSubscription[E](
       sequencerId,
       startingFrom,
@@ -330,7 +328,6 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       timeouts,
       loggerFactory,
     )
-  }
 
   /** Creates a simpler handler subscription function for the underlying class */
   private def createSubscription[E](

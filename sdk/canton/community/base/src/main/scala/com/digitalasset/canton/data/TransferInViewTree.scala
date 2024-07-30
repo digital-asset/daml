@@ -398,7 +398,7 @@ object TransferInView
         transferOutResultEventP: ByteString,
         creatingTransactionIdP: ByteString,
         sourceProtocolVersion: SourceProtocolVersion,
-    ): ParsingResult[CommonData] = {
+    ): ParsingResult[CommonData] =
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
         // TransferOutResultEvent deserialization
@@ -419,7 +419,6 @@ object TransferInView
         transferOutResultEvent,
         sourceProtocolVersion,
       )
-    }
   }
 }
 

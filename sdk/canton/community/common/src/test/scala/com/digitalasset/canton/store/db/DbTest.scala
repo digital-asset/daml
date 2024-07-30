@@ -61,7 +61,7 @@ trait DbTest
     super.beforeAll()
   }
 
-  override def afterAll(): Unit = {
+  override def afterAll(): Unit =
     try {
       // Non-standard order.
       // First delete test data.
@@ -79,17 +79,15 @@ trait DbTest
         e.printStackTrace()
         throw e
     }
-  }
 
   override def beforeEach(): Unit = {
     cleanup()
     super.beforeEach()
   }
 
-  private def cleanup(): Unit = {
+  private def cleanup(): Unit =
     // Use the underlying storage for clean-up operations, so we don't run clean-ups twice
     Await.result(cleanDb(storage.underlying), 10.seconds)
-  }
 }
 
 /** Run db test against h2 */

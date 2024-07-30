@@ -26,9 +26,8 @@ final class MeteringReportServiceAuthorization(
 
   override def getMeteringReport(
       request: GetMeteringReportRequest
-  ): Future[GetMeteringReportResponse] = {
+  ): Future[GetMeteringReportResponse] =
     authorizer.requireAdminClaims(service.getMeteringReport)(request)
-  }
 
   override def bindService(): ServerServiceDefinition =
     MeteringReportServiceGrpc.bindService(this, executionContext)

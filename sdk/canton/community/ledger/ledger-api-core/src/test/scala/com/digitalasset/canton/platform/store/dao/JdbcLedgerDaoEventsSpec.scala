@@ -11,9 +11,8 @@ import org.scalatest.{Inside, LoneElement, OptionValues}
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  private def toOption(protoString: String): Option[String] = {
+  private def toOption(protoString: String): Option[String] =
     if (protoString.nonEmpty) Some(protoString) else None
-  }
 
   private def eventsReader = ledgerDao.eventsReader
 

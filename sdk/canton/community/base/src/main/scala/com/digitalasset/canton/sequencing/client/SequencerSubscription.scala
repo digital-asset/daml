@@ -90,9 +90,8 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
   // We don't want to throw here when closing the subscription fails (e.g in case of timeout)
   // If we threw we could short circuit the rest of the cleaning up of the gRPC stream and end up with
   // a stalled stream
-  override def onCloseFailure(e: Throwable): Unit = {
+  override def onCloseFailure(e: Throwable): Unit =
     logger.warn("Failed to close sequencer subscription", e)(TraceContext.empty)
-  }
 }
 
 object SequencerSubscriptionError extends SequencerSubscriptionErrorGroup {

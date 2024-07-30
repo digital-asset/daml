@@ -50,13 +50,12 @@ final case class CommunitySequencerNodeConfig(
 
   override val nodeTypeName: String = "sequencer"
 
-  override def withDefaults(ports: DefaultPorts): CommunitySequencerNodeConfig = {
+  override def withDefaults(ports: DefaultPorts): CommunitySequencerNodeConfig =
     this
       .focus(_.publicApi.internalPort)
       .modify(ports.sequencerPublicApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
       .modify(ports.sequencerAdminApiPort.setDefaultPort)
-  }
 }
 
 /** SequencerNodeInitConfig supports auto-init

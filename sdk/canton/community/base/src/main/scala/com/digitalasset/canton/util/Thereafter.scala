@@ -124,7 +124,7 @@ object Thereafter {
     override def thereafter[A](
         f: Future[A]
     )(body: Try[A] => Unit): Future[A] =
-      f.transform { result => TryThereafter.thereafter(result)(body) }
+      f.transform(result => TryThereafter.thereafter(result)(body))
 
     override def maybeContent[A](content: Try[A]): Option[A] = content.toOption
   }
@@ -209,10 +209,10 @@ object ThereafterAsync {
   class FutureThereafterAsync(implicit ec: ExecutionContext)
       extends Thereafter.FutureThereafter
       with ThereafterAsync[Future] {
-    override def thereafterF[A](f: Future[A])(body: Try[A] => Future[Unit]): Future[A] = {
+    override def thereafterF[A](f: Future[A])(body: Try[A] => Future[Unit]): Future[A] =
       f.transformWith {
         case result @ Success(success) =>
-          body(result).map { (_: Unit) => success }
+          body(result).map((_: Unit) => success)
         case result @ Failure(resultEx) =>
           Future.fromTry(Try(body(result))).flatten.transform {
             case Success(_) => result
@@ -221,7 +221,6 @@ object ThereafterAsync {
               result
           }
       }
-    }
   }
   implicit def futureThereafterAsync(implicit
       ec: ExecutionContext

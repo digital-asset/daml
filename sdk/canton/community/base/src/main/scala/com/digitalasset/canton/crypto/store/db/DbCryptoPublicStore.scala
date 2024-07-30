@@ -61,7 +61,7 @@ class DbCryptoPublicStore(
       name: Option[KeyName],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdateUnlessShutdown(
       IdempotentInsert.insertVerifyingConflicts(
         storage,
@@ -74,7 +74,6 @@ class DbCryptoPublicStore(
       ),
       functionFullName,
     )
-  }
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -123,11 +122,10 @@ class DbCryptoPublicStore(
 
   override private[crypto] def deleteKey(
       keyId: Fingerprint
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage
       .updateUnlessShutdown_(
         sqlu"delete from common_crypto_public_keys where key_id = $keyId",
         functionFullName,
       )
-  }
 }

@@ -19,9 +19,8 @@ private[oracle] final case class OracleStringArray[FROM](
       preparedStatement: PreparedStatement,
       index: Int,
       value: String,
-  ): Unit = {
+  ): Unit =
     preparedStatement.setObject(index, value)
-  }
 }
 
 private[oracle] final case class OracleIntArray[FROM](
@@ -32,9 +31,8 @@ private[oracle] final case class OracleIntArray[FROM](
       preparedStatement: PreparedStatement,
       index: Int,
       value: String,
-  ): Unit = {
+  ): Unit =
     preparedStatement.setObject(index, value)
-  }
 }
 
 private[oracle] final case class OracleIntArrayOptional[FROM](
@@ -46,7 +44,6 @@ private[oracle] final case class OracleIntArrayOptional[FROM](
       preparedStatement: PreparedStatement,
       index: Int,
       value: String,
-  ): Unit = {
+  ): Unit =
     preparedStatement.setObject(index, value)
-  }
 }

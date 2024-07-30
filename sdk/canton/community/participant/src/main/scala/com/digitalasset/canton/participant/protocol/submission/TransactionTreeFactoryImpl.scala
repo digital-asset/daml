@@ -262,7 +262,7 @@ class TransactionTreeFactoryImpl(
       .flatMap { preloaded =>
         def fromPreloaded(
             cid: LfContractId
-        ): EitherT[Future, ContractLookupError, SerializableContract] = {
+        ): EitherT[Future, ContractLookupError, SerializableContract] =
           preloaded.get(cid) match {
             case Some(value) => EitherT.fromEither(value)
             case None =>
@@ -271,7 +271,6 @@ class TransactionTreeFactoryImpl(
               logger.warn(s"Prefetch missed $cid")
               contractOfId(cid)
           }
-        }
         // Creating the views sequentially
         MonadUtil.sequentialTraverse(
           decompositions.zip(MerkleSeq.indicesFromSeq(decompositions.size))
@@ -558,7 +557,7 @@ class TransactionTreeFactoryImpl(
     def go(
         decompositions: List[TransactionViewDecomposition],
         resolved: Set[(LfPackageName, LfPackageId)],
-    ): Set[(LfPackageName, LfPackageId)] = {
+    ): Set[(LfPackageName, LfPackageId)] =
       decompositions match {
         case Nil =>
           resolved
@@ -567,7 +566,6 @@ class TransactionTreeFactoryImpl(
         case (v: NewView) :: others =>
           go(v.tailNodes.toList ::: others, resolved ++ nodePref(v.lfNode))
       }
-    }
 
     val preferences = go(List(decomposition), Set.empty)
     MapsUtil
@@ -646,7 +644,7 @@ class TransactionTreeFactoryImpl(
     def resolutionFor(
         key: LfGlobalKey,
         keyInput: KeyInput,
-    ): Either[MissingContractKeyLookupError, LfVersioned[SerializableKeyResolution]] = {
+    ): Either[MissingContractKeyLookupError, LfVersioned[SerializableKeyResolution]] =
       keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
         case (lfVersion, maintainers) =>
           val resolution = keyInput match {
@@ -655,7 +653,6 @@ class TransactionTreeFactoryImpl(
           }
           LfVersioned(lfVersion, resolution)
       }
-    }
 
     for {
       viewKeyResolutionSeq <- viewKeyInputs.toSeq
@@ -711,9 +708,9 @@ class TransactionTreeFactoryImpl(
     val createdInSubviews = createdInSubviewsSeq.toSet
     val createdInSameViewOrSubviews = createdInSubviewsSeq ++ created.map(_.contract.contractId)
 
-    val usedCore = SortedSet.from(coreOtherNodes.flatMap({ case (node, _) =>
+    val usedCore = SortedSet.from(coreOtherNodes.flatMap { case (node, _) =>
       LfTransactionUtil.usedContractId(node)
-    }))
+    })
     val coreInputs = usedCore -- createdInSameViewOrSubviews
     val createdInSubviewArchivedInCore = consumedInCore intersect createdInSubviews
 
@@ -725,7 +722,7 @@ class TransactionTreeFactoryImpl(
         case Some(info) =>
           EitherT.pure(InputContract(info, cons))
         case None =>
-          contractOfId(contractId).map { c => InputContract(c, cons) }
+          contractOfId(contractId).map(c => InputContract(c, cons))
       }
     }
 
@@ -952,9 +949,8 @@ object TransactionTreeFactoryImpl {
 
     def suffixedNodes(): Map[LfNodeId, LfActionNode] = suffixedNodesBuilder.result()
 
-    def addSuffixedNode(nodeId: LfNodeId, suffixedNode: LfActionNode): Unit = {
+    def addSuffixedNode(nodeId: LfNodeId, suffixedNode: LfActionNode): Unit =
       suffixedNodesBuilder += nodeId -> suffixedNode
-    }
 
     private val unicumOfCreatedContractMap: mutable.Map[LfHash, Unicum] = mutable.Map.empty
 

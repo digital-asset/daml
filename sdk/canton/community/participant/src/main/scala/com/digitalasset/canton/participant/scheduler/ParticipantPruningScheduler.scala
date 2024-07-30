@@ -48,17 +48,16 @@ object ParticipantPruningSchedule {
       participantSchedule.pruneInternallyOnly,
     )
 
-  def fromPruningSchedule(schedule: PruningSchedule): ParticipantPruningSchedule = {
+  def fromPruningSchedule(schedule: PruningSchedule): ParticipantPruningSchedule =
     // By default pruning-internally-only is disabled as "incomplete pruning" of a canton
     // participant needs to be done deliberately in other not to run out of storage space.
     ParticipantPruningSchedule(schedule, pruneInternallyOnly = false)
-  }
 }
 
 trait SchedulersWithParticipantPruning extends Schedulers {
   def getPruningScheduler(
       loggerFactory: NamedLoggerFactory
-  )(implicit traceContext: TraceContext): Option[ParticipantPruningScheduler] = {
+  )(implicit traceContext: TraceContext): Option[ParticipantPruningScheduler] =
     get("pruning") match {
       case Some(ps: ParticipantPruningScheduler) => Some(ps)
       case Some(_) =>
@@ -68,7 +67,6 @@ trait SchedulersWithParticipantPruning extends Schedulers {
         None
       case _ => None
     }
-  }
 
   def setPruningProcessor(pruningProcessor: PruningProcessor): Unit
 }

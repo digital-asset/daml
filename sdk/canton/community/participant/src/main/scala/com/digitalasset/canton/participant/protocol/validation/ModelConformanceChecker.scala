@@ -200,7 +200,7 @@ class ModelConformanceChecker(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, StoredContract]] = {
+  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, StoredContract]] =
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, InputContract(contract, _)) =>
@@ -215,21 +215,19 @@ class ModelConformanceChecker(
       }
       .map(_.toMap)
       .mapK(FutureUnlessShutdown.outcomeK)
-  }
 
   private def buildPackageNameMap(
       packageIds: Set[PackageId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[PackageName, PackageId]] = {
-
+  ): EitherT[FutureUnlessShutdown, Error, Map[PackageName, PackageId]] =
     EitherT(for {
       resolvedE <- packageIds.toSeq.parTraverse(pId =>
         packageResolver(pId)(traceContext)
-          .map({
+          .map {
             case None => Left(pId)
             case Some(ast) => Right((pId, ast.metadata.name))
-          })
+          }
       )
     } yield {
       for {
@@ -238,13 +236,12 @@ class ModelConformanceChecker(
           case (unresolved, _) =>
             Left(PackageNotFound(Map(participantId -> unresolved.toSet)): Error)
         }
-        resolvedNameBindings = resolved.map({ case (pId, name) => name -> pId })
+        resolvedNameBindings = resolved.map { case (pId, name) => name -> pId }
         nameBindings <- MapsUtil.toNonConflictingMap(resolvedNameBindings) leftMap { conflicts =>
           ConflictingNameBindings(Map(participantId -> conflicts))
         }
       } yield nameBindings
     }).mapK(FutureUnlessShutdown.outcomeK)
-  }
 
   private def checkView(
       view: TransactionView,
@@ -389,8 +386,7 @@ object ModelConformanceChecker {
       participantId: ParticipantId,
       packageResolver: PackageResolver,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): ModelConformanceChecker = {
-
+  )(implicit executionContext: ExecutionContext): ModelConformanceChecker =
     new ModelConformanceChecker(
       damlE,
       validateSerializedContract(damlE),
@@ -400,7 +396,6 @@ object ModelConformanceChecker {
       packageResolver,
       loggerFactory,
     )
-  }
 
   private[validation] sealed trait ContractValidationFailure
   private[validation] final case class DAMLeFailure(error: DAMLe.ReinterpretationError)

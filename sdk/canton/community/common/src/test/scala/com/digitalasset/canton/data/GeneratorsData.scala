@@ -301,7 +301,7 @@ final class GeneratorsData(
           val key = contract.contract.metadata.maybeKeyWithMaintainersVersioned.value
           Gen
             .zip(key, AssignedKey(contract.contractId))
-            .map({ case (LfVersioned(v, k), r) => (k.globalKey, LfVersioned(v, r)) })
+            .map { case (LfVersioned(v, k), r) => (k.globalKey, LfVersioned(v, r)) }
       })
       freeResolvedKeys <- Gen.listOf(
         Gen

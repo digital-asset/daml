@@ -113,13 +113,11 @@ object Salt {
     } yield salt
 
   /** Derives a salt from a `seed` salt and an `index`. */
-  def deriveSalt(seed: SaltSeed, index: Int, hmacOps: HmacOps): Either[SaltError, Salt] = {
+  def deriveSalt(seed: SaltSeed, index: Int, hmacOps: HmacOps): Either[SaltError, Salt] =
     deriveSalt(seed, DeterministicEncoding.encodeInt(index), hmacOps)
-  }
 
-  def tryDeriveSalt(seed: SaltSeed, index: Int, hmacOps: HmacOps): Salt = {
+  def tryDeriveSalt(seed: SaltSeed, index: Int, hmacOps: HmacOps): Salt =
     deriveSalt(seed, index, hmacOps).valueOr(err => throw new IllegalStateException(err.toString))
-  }
 
   /** Derives a salt from a `seed` salt and `bytes` using an HMAC as a pseudo-random function. */
   def deriveSalt(seed: SaltSeed, bytes: ByteString, hmacOps: HmacOps): Either[SaltError, Salt] =

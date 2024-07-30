@@ -46,14 +46,12 @@ final class RateLimitingInterceptor(
   private def serviceOverloaded(
       fullMethodName: String,
       isStream: Boolean,
-  ): LimitResult = {
+  ): LimitResult =
     if (doNonLimit.contains(fullMethodName)) {
       UnderLimit
     } else {
       checks.traverse(fullMethodName, isStream)
     }
-
-  }
 
 }
 
@@ -64,7 +62,7 @@ object RateLimitingInterceptor {
       metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       additionalChecks: List[LimitResultCheck] = List.empty,
-  ): RateLimitingInterceptor = {
+  ): RateLimitingInterceptor =
     apply(
       loggerFactory = loggerFactory,
       metrics = metrics,
@@ -73,7 +71,6 @@ object RateLimitingInterceptor {
       memoryMxBean = ManagementFactory.getMemoryMXBean,
       additionalChecks = additionalChecks,
     )
-  }
 
   def apply(
       loggerFactory: NamedLoggerFactory,

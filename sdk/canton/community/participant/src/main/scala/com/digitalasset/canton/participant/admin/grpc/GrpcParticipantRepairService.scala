@@ -75,7 +75,7 @@ object GrpcParticipantRepairService {
     private def validateRequest(
         request: ExportAcsRequest,
         allProtocolVersions: Map[DomainId, ProtocolVersion],
-    ): Either[String, ValidExportAcsRequest] = {
+    ): Either[String, ValidExportAcsRequest] =
       for {
         parties <- request.parties.traverse(party =>
           UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf).leftMap(_.message)
@@ -94,7 +94,6 @@ object GrpcParticipantRepairService {
         force = request.force,
         partiesOffboarding = request.partiesOffboarding,
       )
-    }
 
     def apply(request: ExportAcsRequest, allProtocolVersions: Map[DomainId, ProtocolVersion])(
         implicit elc: ErrorLoggingContext
@@ -164,7 +163,7 @@ final class GrpcParticipantRepairService(
 
   /** purge contracts
     */
-  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] = {
+  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val res: Either[RepairServiceError, Unit] = for {
         cids <- request.contractIds
@@ -189,7 +188,6 @@ final class GrpcParticipantRepairService(
         _ => Future.successful(PurgeContractsResponse()),
       )
     }
-  }
 
   /** originates from download above
     */
@@ -368,7 +366,7 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] = {
+  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       // ensure here we don't process migration requests concurrently
       if (!domainMigrationInProgress.getAndSet(true)) {
@@ -411,7 +409,6 @@ final class GrpcParticipantRepairService(
             .asRuntimeException()
         )
     }
-  }
 
   /* Purge specified deactivated sync-domain and selectively prune domain stores.
    */

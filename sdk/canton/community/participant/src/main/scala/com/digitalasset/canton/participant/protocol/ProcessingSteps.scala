@@ -640,9 +640,8 @@ object ProcessingSteps {
         arg: PendingRequestData
     ): Some[
       (RequestCounter, SequencerCounter, MediatorGroupRecipient, FutureUnlessShutdown[Boolean])
-    ] = {
+    ] =
       Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejectedF))
-    }
   }
 
   /** For better type safety, this is either a [[CleanReplayData]] or an `A`. */

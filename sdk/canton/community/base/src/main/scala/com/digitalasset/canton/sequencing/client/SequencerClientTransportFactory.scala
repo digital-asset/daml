@@ -25,11 +25,10 @@ trait SequencerClientTransportFactory {
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
       traceContext: TraceContext,
-  ): NonEmpty[Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko]] = {
+  ): NonEmpty[Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko]] =
     sequencerConnections.connections.map { conn =>
       conn.sequencerAlias -> makeTransport(conn, member, requestSigner)
     }.toMap
-  }
 
   def makeTransport(
       connection: SequencerConnection,

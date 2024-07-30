@@ -201,8 +201,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
     }
   }
 
-  private def newUpdateMetrics = {
+  private def newUpdateMetrics =
     new IndexedUpdatesMetrics(MetricName("test"), InMemoryMetricsFactory)
-  }
 
 }

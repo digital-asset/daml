@@ -227,14 +227,14 @@ class InMemoryStateUpdaterSpec
           2 -> 3,
           3 -> 5,
         ),
-      ).map({ case (offset, domainTimesRaw) =>
+      ).map { case (offset, domainTimesRaw) =>
         OffsetCheckpoint(
           offset = Offset.fromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map({ case (d, t) =>
+          domainTimes = domainTimesRaw.map { case (d, t) =>
             DomainId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
-          }),
+          },
         )
-      })
+      }
 
     val input = createInputSeq(
       offsetsAndTicks,

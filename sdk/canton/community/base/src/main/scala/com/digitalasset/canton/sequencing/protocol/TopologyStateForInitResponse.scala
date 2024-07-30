@@ -26,9 +26,8 @@ object TopologyStateForInitResponse {
   ): ParsingResult[TopologyStateForInitResponse] = {
     val v30.DownloadTopologyStateForInitResponse(
       topologyTransactionsP
-    ) = {
+    ) =
       responseP
-    }
     for {
       topologyTransactions <- ProtoConverter.parseRequired(
         StoredTopologyTransactions.fromProtoV30,

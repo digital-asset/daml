@@ -24,9 +24,8 @@ class InitializationTimeBenchmark extends BenchmarkState {
   private val loggerFactory = NamedLoggerFactory.root
 
   @Setup(Level.Invocation)
-  def setupIteration(): Unit = {
+  def setupIteration(): Unit =
     interning = new StringInterningView(loggerFactory)
-  }
 
   @Benchmark
   @BenchmarkMode(Array(Mode.AverageTime))
@@ -34,11 +33,10 @@ class InitializationTimeBenchmark extends BenchmarkState {
   @Fork(value = 5)
   @Warmup(iterations = 5)
   @Measurement(iterations = 5)
-  def run(): Unit = {
+  def run(): Unit =
     Await.result(
       interning
         .update(stringCount)(BenchmarkState.loadStringInterningEntries(entries)),
       perfTestTimeout,
     )
-  }
 }

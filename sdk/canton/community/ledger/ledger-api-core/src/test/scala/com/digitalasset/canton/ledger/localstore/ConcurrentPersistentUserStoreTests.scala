@@ -43,13 +43,11 @@ trait ConcurrentPersistentUserStoreTests extends ConcurrentChangeControlTests {
 
   private[localstore] override def fetchResourceVersion(
       id: ResourceId
-  )(connection: Connection): Long = {
+  )(connection: Connection): Long =
     UserManagementStorageBackendImpl.getUser(id)(connection).value.payload.resourceVersion
-  }
 
-  private[localstore] override def getResourceVersion(resource: DbResource): Long = {
+  private[localstore] override def getResourceVersion(resource: DbResource): Long =
     resource.payload.resourceVersion
-  }
 
   private[localstore] override def getId(resource: DbResource): ResourceId = resource.payload.id
 

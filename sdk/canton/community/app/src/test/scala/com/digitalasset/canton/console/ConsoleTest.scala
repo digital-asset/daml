@@ -290,9 +290,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
 
     "participants.local help shows help from both InstanceExtensions and ParticipantExtensions" in new TestEnvironment {
       testConsoleOutput.assertConsoleOutput(
-        {
-          runOrFail("participants.local help")
-        },
+        runOrFail("participants.local help"),
         { helpText =>
           helpText should include("start") // from instance extensions
           helpText should include("stop")

@@ -121,12 +121,11 @@ class DecentralizedNamespaceAuthorizationGraphTest
       graph: AuthorizationCheck,
       requireRoot: Boolean,
       valid: Boolean,
-  )(keys: SigningPublicKey*) = {
+  )(keys: SigningPublicKey*) =
     graph.existsAuthorizedKeyIn(
       keys.map(_.fingerprint).toSet,
       requireRoot = requireRoot,
     ) shouldBe valid
-  }
 
   "authorization graph for a decentralized namespace" when {
 

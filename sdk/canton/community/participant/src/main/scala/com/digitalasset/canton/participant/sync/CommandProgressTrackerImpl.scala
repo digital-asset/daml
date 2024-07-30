@@ -80,7 +80,7 @@ class CommandProgressTrackerImpl(
           )
       }.discard
 
-    private def processSyncErr(err: com.google.rpc.status.Status): Unit = {
+    private def processSyncErr(err: com.google.rpc.status.Status): Unit =
       // remove from pending
       lock.synchronized(pending.remove(key)).foreach { cur =>
         if (config.maxFailed.value > 0) {
@@ -88,7 +88,6 @@ class CommandProgressTrackerImpl(
           addToCollection(cur.ref.get(), failed, config.maxFailed.value)
         }
       }
-    }
 
     def failedSync(err: StatusRuntimeException): Unit = {
       val tmp =
@@ -141,7 +140,7 @@ class CommandProgressTrackerImpl(
           templateId: TypeConName,
           coid: String,
           keyOpt: Option[GlobalKeyWithMaintainers],
-      ): Contract = {
+      ): Contract =
         Contract(
           templateId = Some(
             Identifier(
@@ -154,7 +153,6 @@ class CommandProgressTrackerImpl(
           contractKey =
             keyOpt.flatMap(x => LfEngineToApi.lfValueToApiValue(verbose = false, x.value).toOption),
         )
-      }
       def leaf(leafOnlyAction: LeafOnlyAction, stats: Stats): Stats =
         leafOnlyAction match {
           case c: Node.Create =>
@@ -210,11 +208,10 @@ class CommandProgressTrackerImpl(
       commandIdPrefix: String,
       limit: Int,
       collection: => Iterable[CommandStatus],
-  ): Seq[CommandStatus] = {
+  ): Seq[CommandStatus] =
     lock.synchronized {
       collection.filter(_.completion.commandId.startsWith(commandIdPrefix)).take(limit).toSeq
     }
-  }
 
   override def findCommandStatus(
       commandIdPrefix: String,
@@ -283,27 +280,25 @@ class CommandProgressTrackerImpl(
       applicationId: String,
       actAs: Seq[String],
       submissionId: Option[String],
-  ): CommandResultHandle = {
+  ): CommandResultHandle =
     lock.synchronized {
       pending.getOrElse(
         (commandId, applicationId, actAs.toSet, submissionId),
         CommandResultHandle.NoOp,
       )
     }
-  }
 
   private def addToCollection(
       commandStatus: CommandStatus,
       collection: mutable.ArrayDeque[CommandStatus],
       maxSize: Int,
-  ): Unit = {
+  ): Unit =
     lock.synchronized {
       collection.prepend(commandStatus)
       if (collection.size > maxSize) {
         collection.removeLast().discard
       }
     }
-  }
 
   override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit =
     update.value match {

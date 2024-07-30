@@ -158,7 +158,7 @@ object AuthServiceJWT {
       targetScope: Option[String],
       privileged: Boolean,
       loggerFactory: NamedLoggerFactory,
-  ): AuthServiceJWTBase = {
+  ): AuthServiceJWTBase =
     (privileged, targetScope) match {
       case (true, Some(scope)) =>
         new AuthServicePrivilegedJWT(verifier, scope, loggerFactory)
@@ -169,5 +169,4 @@ object AuthServiceJWT {
       case (false, _) =>
         new AuthServiceJWT(verifier, targetAudience, targetScope, loggerFactory)
     }
-  }
 }

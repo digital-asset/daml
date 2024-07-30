@@ -67,7 +67,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     def authorizedPartiesOfSender(
         viewKey: VKEY,
         declaredConfirmingParties: Set[LfPartyId],
-    ): OptionT[Future, Set[LfPartyId]] = {
+    ): OptionT[Future, Set[LfPartyId]] =
       localVerdict match {
         case malformed: LocalReject if malformed.isMalformed =>
           malformed.logWithContext(
@@ -124,7 +124,6 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               }
           } yield confirmingParties
       }
-    }
 
     for {
       _ <- OptionT.fromOption[Future](

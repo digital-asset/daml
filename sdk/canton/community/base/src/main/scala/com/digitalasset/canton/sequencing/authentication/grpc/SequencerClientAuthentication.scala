@@ -115,16 +115,14 @@ private[grpc] class SequencerClientTokenAuthentication(
         method: MethodDescriptor[ReqT, RespT],
         callOptions: CallOptions,
         next: Channel,
-    ): ClientCall[ReqT, RespT] = {
+    ): ClientCall[ReqT, RespT] =
       new ReauthorizeClientCall(next.newCall(method, callOptions))
-    }
 
     private class ReauthorizeClientCall[ReqT, RespT](call: ClientCall[ReqT, RespT])
         extends SimpleForwardingClientCall[ReqT, RespT](call) {
 
-      override def start(responseListener: ClientCall.Listener[RespT], headers: Metadata): Unit = {
+      override def start(responseListener: ClientCall.Listener[RespT], headers: Metadata): Unit =
         super.start(new ReauthorizeClientCallListener(responseListener), headers)
-      }
 
       private class ReauthorizeClientCallListener(responseListener: ClientCall.Listener[RespT])
           extends SimpleForwardingClientCallListener[RespT](responseListener) {

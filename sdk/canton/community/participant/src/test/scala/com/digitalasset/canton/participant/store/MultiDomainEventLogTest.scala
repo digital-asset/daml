@@ -347,13 +347,12 @@ trait MultiDomainEventLogTest
 
     def publishEvents(
         events: Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])]
-    ): Unit = {
+    ): Unit =
       MonadUtil
         .sequentialTraverse_(events) { case (id, event, reference) =>
           eventLog.publish(PublicationData(id, event, reference))
         }
         .futureValue
-    }
 
     def expectPublication(
         events: Seq[(EventLogId, TimestampedEvent, Option[InFlightReference])]

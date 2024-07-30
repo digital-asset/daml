@@ -90,9 +90,8 @@ private[transfer] class TransferInProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.TransferIn
   override val requestType = ProcessingSteps.RequestType.TransferIn
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions = {
+  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
     state.pendingTransferInSubmissions
-  }
 
   private val transferInValidation = new TransferInValidation(
     domainId,
@@ -242,14 +241,13 @@ private[transfer] class TransferInProcessingSteps(
       pendingSubmissionMap: PendingSubmissions,
       submissionParam: SubmissionParam,
       submissionId: PendingSubmissionId,
-  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] = {
+  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
       Some(submissionParam.transferId),
       submissionParam.submitterLf,
       submissionId,
     )
-  }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],

@@ -291,13 +291,12 @@ class WellFormedTransactionMergeTest
 
   private def merge(
       transactions: WithRollbackScope[WellFormedTransaction[WithSuffixes]]*
-  ) = {
+  ) =
     valueOrFail(
       WellFormedTransaction.merge(
         NonEmpty.from(transactions).valueOrFail("Cannot merge empty list of transactions")
       )
     )("unexpectedly failed to merge").unwrap
-  }
 
   private def create[T](
       cid: LfContractId,

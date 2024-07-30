@@ -24,7 +24,7 @@ object UrlValidator {
     override def message: String = "Invalid host"
   }
 
-  def validate(url: String): Either[InvalidUrl, URI] = {
+  def validate(url: String): Either[InvalidUrl, URI] =
     Try(new URI(url)).toEither
       .leftMap(InvalidFormat(url, _))
       .flatMap { url =>
@@ -34,6 +34,5 @@ object UrlValidator {
         else
           Right(url)
       }
-  }
 
 }

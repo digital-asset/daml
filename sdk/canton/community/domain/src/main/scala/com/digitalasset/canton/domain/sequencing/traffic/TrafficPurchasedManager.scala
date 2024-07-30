@@ -97,7 +97,7 @@ class TrafficPurchasedManager(
   /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's not already set.
     * Call before using the manager.
     */
-  def initialize(implicit tc: TraceContext) = {
+  def initialize(implicit tc: TraceContext) =
     store.getInitialTimestamp.map {
       case Some(initialTs) =>
         logger.debug(s"Initializing manager with $initialTs from store")
@@ -110,7 +110,6 @@ class TrafficPurchasedManager(
       case _ =>
         logger.debug("No initial timestamp found in traffic purchased entry store")
     }
-  }
 
   /** Timestamp of the last update made to the manager
     */
@@ -121,9 +120,8 @@ class TrafficPurchasedManager(
     */
   def tick(
       timestamp: CantonTimestamp
-  )(implicit tc: TraceContext): Unit = {
+  )(implicit tc: TraceContext): Unit =
     updateAndCompletePendingUpdates(timestamp)
-  }
 
   /** Add a new traffic purchased entry to the store and the cache.
     * TrafficPurchased with a serial less or equal to the most recent one will be ignored.
@@ -173,9 +171,9 @@ class TrafficPurchasedManager(
       .flatMap {
         // Only insert in the store if the last balance in the cache is indeed the new one - this allows to reuse whatever
         // checks the cache logic above performed
-        case balances if balances.trafficPurchasedMap.lastOption.forall({ case (_, cachedBalance) =>
+        case balances if balances.trafficPurchasedMap.lastOption.forall { case (_, cachedBalance) =>
               cachedBalance == balance
-            }) =>
+            } =>
           store
             .store(balance)
             .map(_ => balances)
@@ -202,20 +200,18 @@ class TrafficPurchasedManager(
   private def balanceValidAt(
       balances: SortedMap[CantonTimestamp, TrafficPurchased],
       timestamp: CantonTimestamp,
-  ): Option[TrafficPurchased] = {
+  ): Option[TrafficPurchased] =
     // maxBefore is exclusive with the upper bound, therefore we consider balances effective
     // at the timestamp immediately following the sequencing timestamp
     balances.maxBefore(timestamp).map(_._2)
-  }
 
   /** Get the balance valid at the given timestamp from the provided seq
     */
   private def balanceValidAt(
       balances: Seq[TrafficPurchased],
       timestamp: CantonTimestamp,
-  ): Option[TrafficPurchased] = {
+  ): Option[TrafficPurchased] =
     balanceValidAt(SortedMap.from(balances.map(b => b.sequencingTimestamp -> b)), timestamp)
-  }
 
   /** Return the balance at a given timestamp, going to the DB if necessary.
     * If the balance cannot be found in the DB despite having at least one balance persisted,
@@ -223,7 +219,7 @@ class TrafficPurchasedManager(
     */
   private def getBalanceAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TrafficPurchasedManagerError, Option[TrafficPurchased]] = {
+  ): EitherT[FutureUnlessShutdown, TrafficPurchasedManagerError, Option[TrafficPurchased]] =
     EitherT
       .liftF[Future, TrafficPurchasedManagerError, TrafficPurchasedForMember](
         trafficPurchased.get(member)
@@ -264,7 +260,6 @@ class TrafficPurchasedManager(
           }
       }
       .mapK(FutureUnlessShutdown.outcomeK)
-  }
 
   /** Update [[lastUpdatedAt]], and complete pending updates for which we now have the valid balance.
     * @param timestamp timestamp of the last update
@@ -295,22 +290,20 @@ class TrafficPurchasedManager(
 
   private def dequeueUntil(timestamp: CantonTimestamp): List[PendingBalanceUpdate] = {
     @tailrec
-    def go(acc: List[PendingBalanceUpdate]): List[PendingBalanceUpdate] = {
+    def go(acc: List[PendingBalanceUpdate]): List[PendingBalanceUpdate] =
       if (pendingBalanceUpdates.headOption.exists(_.lastSeen <= timestamp))
         go(pendingBalanceUpdates.dequeue() +: acc)
       else
         acc
-    }
     go(List.empty)
   }
 
   /** Return the latest known balance for the given member.
     */
-  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficPurchased]] = {
+  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficPurchased]] =
     FutureUnlessShutdown.outcomeF(
       trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
     )
-  }
 
   /** Return the traffic purchased entry valid at the given timestamp for the given member.
     * TrafficPurchased are cached in this class, according to the cache size defined in trafficConfig.
@@ -377,7 +370,7 @@ class TrafficPurchasedManager(
       traceContext: TraceContext
   ): Option[
     PromiseUnlessShutdown[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]]
-  ] = {
+  ] =
     blocking {
       pendingBalanceUpdates.synchronized {
         // We need to check again here (specifically inside the synchronized block on pendingBalanceUpdates) if we haven't received an update between the beginning of the function and now.
@@ -404,7 +397,6 @@ class TrafficPurchasedManager(
         }
       }
     }
-  }
 
   /** Prune traffic purchased for members such as it can be queried for timestamps as old as "timestamp"
     */
@@ -413,9 +405,8 @@ class TrafficPurchasedManager(
     store.pruneBelowExclusive(upToExclusive)
   }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     autoPruningPromise.getAndSet(None).foreach(_.shutdown())
-  }
 }
 
 object TrafficPurchasedManager {

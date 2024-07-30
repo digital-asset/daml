@@ -67,7 +67,7 @@ object UpstreamOffsetConvert {
       absoluteOffset <- Either.cond(
         offset.value.isAbsolute,
         offset.getAbsolute,
-        show"offset must be an absolute offset, but received ${offset}",
+        show"offset must be an absolute offset, but received $offset",
       )
       ledgerSyncOffset <- toLedgerSyncOffset(absoluteOffset)
     } yield ledgerSyncOffset

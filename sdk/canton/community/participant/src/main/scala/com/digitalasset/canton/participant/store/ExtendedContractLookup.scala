@@ -34,16 +34,13 @@ class ExtendedContractLookup(
 
   override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, String] = {
-
+  ): OptionT[Future, String] =
     lookup(coid).transform {
       case Some(storedContract: StoredContract) =>
         authenticator.verifyMetadata(storedContract.contract, metadata).left.toOption
       case None =>
         Some(s"Failed to find contract $coid")
     }
-
-  }
 
   override def lookup(
       id: LfContractId

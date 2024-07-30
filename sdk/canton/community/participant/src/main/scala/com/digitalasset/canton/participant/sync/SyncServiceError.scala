@@ -143,7 +143,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
     final case class Error(errors: Seq[LoadSequencerEndpointInformationResult.NotValid])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The provided sequencer connections are inconsistent: ${errors}."
+          cause = s"The provided sequencer connections are inconsistent: $errors."
         )
         with SyncServiceError
   }
@@ -350,7 +350,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
     final case class CleanHeadAwaitFailed(domain: DomainAlias, ts: CantonTimestamp, err: String)(
         implicit val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Failed to await for clean-head at ${ts}: $err"
+          cause = s"Failed to await for clean-head at $ts: $err"
         )
         with SyncServiceError
   }

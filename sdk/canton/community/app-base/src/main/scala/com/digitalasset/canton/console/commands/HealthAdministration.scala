@@ -137,14 +137,13 @@ class HealthAdministration[S <: data.NodeStatus.Status](
   def wait_for_running(): Unit = waitFor(is_running())
 
   @Help.Summary("Wait for the node to be initialized")
-  def wait_for_initialized(): Unit = {
+  def wait_for_initialized(): Unit =
     waitFor(initializedCache.updateAndGet {
       case false =>
         // in case the node is not reachable, we return false instead of throwing an error in order to keep retrying
         falseIfUnreachable(initializedCommand)
       case x => x
     })
-  }
 
   @Help.Summary("Wait for the node to be ready for setting the node's id")
   def wait_for_ready_for_id(): Unit = waitFor(is_ready_for_id())
@@ -153,12 +152,11 @@ class HealthAdministration[S <: data.NodeStatus.Status](
   @Help.Summary("Wait for the node to be ready for initialization")
   def wait_for_ready_for_initialization(): Unit = waitFor(is_ready_for_initialization())
 
-  protected def waitFor(condition: => Boolean): Unit = {
+  protected def waitFor(condition: => Boolean): Unit =
     // all calls here are potentially unbounded. we do not know how long it takes
     // for a node to start or for a node to become initialised. so we use the unbounded
     // timeout
     utils.retry_until_true(timeout = consoleEnvironment.commandTimeouts.unbounded)(condition)
-  }
 
   @Help.Summary("Change the log level of the process")
   @Help.Description(

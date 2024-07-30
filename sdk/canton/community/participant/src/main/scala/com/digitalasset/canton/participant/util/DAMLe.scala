@@ -251,7 +251,7 @@ class DAMLe(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReinterpretationError, LfNodeCreate] = {
+  ): EitherT[Future, ReinterpretationError, LfNodeCreate] =
     LoggingContextUtil.createLoggingContext(loggerFactory) { implicit loggingContext =>
       val result = engine.reinterpret(
         submitters = submitters,
@@ -280,7 +280,6 @@ class DAMLe(
         create <- EitherT.pure[Future, ReinterpretationError](singleCreate)
       } yield create
     }
-  }
 
   def contractWithMetadata(
       contractInstance: LfContractInst,
@@ -352,7 +351,7 @@ class DAMLe(
       @tailrec
       def iterateOverInterrupts(
           continue: () => Result[A]
-      ): Either[EngineAborted, Result[A]] = {
+      ): Either[EngineAborted, Result[A]] =
         continue() match {
           case ResultInterruption(continue) =>
             getEngineAbortStatus().reasonO match {
@@ -364,7 +363,6 @@ class DAMLe(
 
           case otherResult => Right(otherResult)
         }
-      }
 
       result match {
         case ResultNeedPackage(packageId, resume) =>

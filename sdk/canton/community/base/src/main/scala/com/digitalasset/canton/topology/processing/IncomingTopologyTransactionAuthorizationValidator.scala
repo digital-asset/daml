@@ -229,7 +229,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
   ): Option[Either[
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
-  ]] = {
+  ]] =
     toValidate
       .selectMapping[NamespaceDelegation]
       .filter(NamespaceDelegation.isRootCertificate)
@@ -249,8 +249,6 @@ class IncomingTopologyTransactionAuthorizationValidator(
           )
         result
       }
-
-  }
 
   private def processIdentifierDelegation(
       tx: AuthorizedIdentifierDelegation

@@ -87,9 +87,8 @@ class TransferOutProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.TransferOut
   override val requestType: RequestType = ProcessingSteps.RequestType.TransferOut
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions = {
+  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
     state.pendingTransferOutSubmissions
-  }
 
   override def requestKind: String = "TransferOut"
 
@@ -242,14 +241,13 @@ class TransferOutProcessingSteps(
       pendingSubmissionMap: PendingSubmissions,
       submissionParam: SubmissionParam,
       pendingSubmissionId: PendingSubmissionId,
-  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] = {
+  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
       None,
       submissionParam.submittingParty,
       pendingSubmissionId,
     )
-  }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],
@@ -280,7 +278,7 @@ class TransferOutProcessingSteps(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
     FullTransferOutTree
-  ]] = {
+  ]] =
     EncryptedViewMessage
       .decryptFor(
         staticDomainParameters,
@@ -294,7 +292,6 @@ class TransferOutProcessingSteps(
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
-  }
 
   override def computeActivenessSet(
       parsedRequest: ParsedTransferRequest[FullTransferOutTree]
@@ -579,7 +576,7 @@ class TransferOutProcessingSteps(
     def rejected(
         reason: TransactionRejection
     ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
-      _ <- ifThenET(transferringParticipant) { deleteTransfer(targetDomain, requestId) }
+      _ <- ifThenET(transferringParticipant)(deleteTransfer(targetDomain, requestId))
 
       eventO <- EitherT.fromEither[Future](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -662,7 +659,7 @@ class TransferOutProcessingSteps(
       isTransferringParticipant: Boolean,
       transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
-  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] = {
+  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] =
     for {
       updateId <- EitherT
         .fromEither[Future](rootHash.asLedgerTransactionId)
@@ -695,7 +692,6 @@ class TransferOutProcessingSteps(
       hostedStakeholders = hostedStakeholders,
       transferCounter = transferCounter,
     )
-  }
 
   private[this] def triggerTransferInWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData

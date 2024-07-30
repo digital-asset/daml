@@ -40,10 +40,8 @@ object SequencerPublicCommands {
 
     override def handleResponse(
         response: proto.SequencerConnect.GetDomainIdResponse
-    ): Either[String, DomainId] = {
-
+    ): Either[String, DomainId] =
       DomainId.fromProtoPrimitive(response.domainId, "domain_id").leftMap(_.message)
-    }
   }
 
   final case object GetStaticDomainParameters
@@ -62,14 +60,12 @@ object SequencerPublicCommands {
 
     override def handleResponse(
         response: proto.SequencerConnect.GetDomainParametersResponse
-    ): Either[String, ConsoleStaticDomainParameters] = {
-
+    ): Either[String, ConsoleStaticDomainParameters] =
       response.parameters match {
         case Parameters.Empty => Left("Domain parameters should not be empty")
         case Parameters.ParametersV1(value) =>
           ConsoleStaticDomainParameters.fromProtoV30(value).leftMap(_.message)
       }
-    }
   }
 
 }

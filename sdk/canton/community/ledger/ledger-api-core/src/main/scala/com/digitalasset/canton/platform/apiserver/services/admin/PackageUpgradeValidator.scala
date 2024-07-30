@@ -149,7 +149,7 @@ class PackageUpgradeValidator(
       optOldPkg2: Option[Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] = {
+  ): EitherT[Future, DamlError, Unit] =
     LoggingContextWithTrace
       .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
         implicit loggingContext =>
@@ -179,7 +179,6 @@ class PackageUpgradeValidator(
               }
           }
       }
-  }
 
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,

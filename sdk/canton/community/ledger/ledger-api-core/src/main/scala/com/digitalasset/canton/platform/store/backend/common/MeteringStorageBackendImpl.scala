@@ -37,7 +37,7 @@ import java.sql.Connection
 
 private[backend] object MeteringStorageBackendImpl {
 
-  val participantMeteringParser: RowParser[ParticipantMetering] = {
+  val participantMeteringParser: RowParser[ParticipantMetering] =
     (
       applicationId("application_id") ~
         timestampFromMicros("from_timestamp") ~
@@ -58,19 +58,16 @@ private[backend] object MeteringStorageBackendImpl {
           ledgerOffset,
         )
     }
-  }
 
   /**  Evaluate to the passed condition if the option is non-empty or return true otherwise
     */
-  def ifSet[A](o: Option[A], expr: A => CompositeSql): CompositeSql = {
+  def ifSet[A](o: Option[A], expr: A => CompositeSql): CompositeSql =
     o.fold(cSQL"1=1")(expr)
-  }
 
   /**  Evaluate to the passed condition if the offset > `beforeBegin` or return true otherwise
     */
-  def ifBegun(offset: Offset, expr: Offset => CompositeSql): CompositeSql = {
+  def ifBegun(offset: Offset, expr: Offset => CompositeSql): CompositeSql =
     if (offset == Offset.beforeBegin) cSQL"1=1" else expr(offset)
-  }
 
 }
 
@@ -119,8 +116,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       from: Offset,
       to: Option[Time.Timestamp],
       appId: Option[String],
-  )(connection: Connection): Map[ApplicationId, Long] = {
-
+  )(connection: Connection): Map[ApplicationId, Long] =
     SQL"""
       select
         application_id,
@@ -134,8 +130,6 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       .asVectorOf(applicationCountParser)(connection)
       .toMap
 
-  }
-
   /** @param from - Include rows whose aggregation period starts on or after this date
     * @param to - If specified include rows whose aggregation period ends on or before this date
     * @param appId - If specified only return rows for this application
@@ -144,8 +138,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       from: Time.Timestamp,
       to: Option[Time.Timestamp],
       appId: Option[String],
-  )(connection: Connection): Map[ApplicationId, Long] = {
-
+  )(connection: Connection): Map[ApplicationId, Long] =
     SQL"""
       select
         application_id,
@@ -158,8 +151,6 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
     """
       .asVectorOf(applicationCountParser)(connection)
       .toMap
-
-  }
 
 }
 private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStorageWriteBackend {
@@ -177,8 +168,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
 
   def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
       connection: Connection
-  ): Option[Offset] = {
-
+  ): Option[Offset] =
     SQL"""
       select max(ledger_offset)
       from lapi_transaction_metering
@@ -186,12 +176,10 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       and metering_timestamp < $to
     """
       .as(offset(1).?.single)(connection)
-  }
 
   def selectTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
-  ): Map[ApplicationId, Int] = {
-
+  ): Map[ApplicationId, Int] =
     SQL"""
       select
         application_id,
@@ -204,12 +192,9 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       .asVectorOf(applicationCountParser)(connection)
       .toMap
 
-  }
-
   def deleteTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
-  ): Unit = {
-
+  ): Unit =
     discard(
       SQL"""
       delete from lapi_transaction_metering
@@ -218,12 +203,10 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     """
         .execute()(connection)
     )
-  }
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(
       connection: Connection
-  ): Unit = {
-
+  ): Unit =
     metering.foreach { participantMetering =>
       import participantMetering.*
       SQL"""
@@ -232,9 +215,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       """.execute()(connection).discard
     }
 
-  }
-
-  def allParticipantMetering()(connection: Connection): Vector[ParticipantMetering] = {
+  def allParticipantMetering()(connection: Connection): Vector[ParticipantMetering] =
     SQL"""
       select
         application_id,
@@ -245,6 +226,5 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       from lapi_participant_metering
     """
       .asVectorOf(participantMeteringParser)(connection)
-  }
 
 }

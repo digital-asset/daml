@@ -94,7 +94,7 @@ object SequencerTestUtils extends BaseTest {
       messageId: MessageId = MessageId.tryCreate("mock-deliver"),
       sequencerError: SequencerDeliverError = SubmissionRequestRefused("mock-submission-refused"),
       trafficReceipt: Option[TrafficReceipt] = None,
-  ): DeliverError = {
+  ): DeliverError =
     DeliverError.create(
       SequencerCounter(sc),
       timestamp,
@@ -104,6 +104,5 @@ object SequencerTestUtils extends BaseTest {
       BaseTest.testedProtocolVersion,
       trafficReceipt,
     )
-  }
 
 }

@@ -89,16 +89,14 @@ trait UserManagementStore { self: NamedLogging =>
   final def getUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
-  ): Future[Result[User]] = {
+  ): Future[Result[User]] =
     getUserInfo(id, identityProviderId).map(_.map(_.user))
-  }
 
   final def listUserRights(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
-  ): Future[Result[Set[UserRight]]] = {
+  ): Future[Result[Set[UserRight]]] =
     getUserInfo(id, identityProviderId).map(_.map(_.rights))
-  }
 
   def createExtraAdminUser(rawUserId: String)(implicit
       loggingContext: LoggingContextWithTrace,

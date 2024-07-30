@@ -222,7 +222,7 @@ object GrpcSequencerConnectionService {
     implicit val closeContext = CloseContext(flagCloseable)
     val alias = DomainAlias.tryCreate("domain")
 
-    def tryNewConfig: EitherT[Future, String, SequencerAggregatedInfo] = {
+    def tryNewConfig: EitherT[Future, String, SequencerAggregatedInfo] =
       EitherT
         .right(loadConfig)
         .flatMap {
@@ -235,12 +235,11 @@ object GrpcSequencerConnectionService {
                 sequencerConnectionValidation = SequencerConnectionValidation.Active,
               )
               .leftMap { e =>
-                errorLoggingContext.logger.warn(s"Waiting for valid sequencer connection ${e}")
+                errorLoggingContext.logger.warn(s"Waiting for valid sequencer connection $e")
                 e.toString
               }
           case None => EitherT.leftT("No sequencer connection config")
         }
-    }
     import scala.concurrent.duration.*
     EitherT(
       retry

@@ -64,13 +64,12 @@ object GrpcStreamingUtils {
     val ref = new AtomicReference[Option[Resp]](None)
 
     val responseObserver = new StreamObserver[Resp] {
-      override def onNext(value: Resp): Unit = {
+      override def onNext(value: Resp): Unit =
         ref.set(Some(value))
-      }
 
       override def onError(t: Throwable): Unit = requestComplete.failure(t)
 
-      override def onCompleted(): Unit = {
+      override def onCompleted(): Unit =
         ref.get() match {
           case Some(response) => requestComplete.success(response)
           case None =>
@@ -81,7 +80,6 @@ object GrpcStreamingUtils {
             )
         }
 
-      }
     }
     val requestObserver = load(responseObserver)
 
@@ -155,7 +153,7 @@ object GrpcStreamingUtils {
       inputStream: InputStream,
       chunkSize: Int,
       fromByteString: FromByteString[T],
-  ) = {
+  ) =
     inputStream.autoClosed { s =>
       Iterator
         .continually(s.readNBytes(chunkSize))
@@ -167,12 +165,11 @@ object GrpcStreamingUtils {
           responseObserver.onNext(fromByteString.toT(chunk))
         }
     }
-  }
 
   private def finishStream[T](
       context: Context.CancellableContext,
       responseObserver: StreamObserver[T],
-  )(f: Future[Unit], timeout: Duration): Unit = {
+  )(f: Future[Unit], timeout: Duration): Unit =
     Try(Await.result(f, timeout)) match {
       case Failure(exception) =>
         responseObserver.onError(exception)
@@ -185,7 +182,6 @@ object GrpcStreamingUtils {
           ()
         }
     }
-  }
 }
 
 // Define a type class for converting ByteString to the generic type T

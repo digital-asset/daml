@@ -48,13 +48,12 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
     e.recipients.allRecipients
   }.toSet
 
-  lazy val allMediatorRecipients: Set[Recipient] = {
+  lazy val allMediatorRecipients: Set[Recipient] =
     allRecipients.collect {
       case r @ MemberRecipient(_: MediatorId) => r
       case r: MediatorGroupRecipient => r
       case AllMembersOfDomain => AllMembersOfDomain
     }
-  }
 
   private[protocol] def toProtoV30: v30.CompressedBatch = {
     val batch = v30.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV30))
@@ -136,7 +135,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
       algorithm: v30.CompressedBatch.CompressionAlgorithm,
       compressed: ByteString,
       maxRequestSize: Option[NonNegativeInt],
-  ): ParsingResult[ByteString] = {
+  ): ParsingResult[ByteString] =
     algorithm match {
       case v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED =>
         Right(compressed)
@@ -146,7 +145,6 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
           .leftMap(_.toProtoDeserializationError)
       case _ => Left(FieldNotSet("CompressedBatch.Algorithm"))
     }
-  }
 
   /** Constructs a batch with no envelopes */
   def empty[Env <: Envelope[_]](protocolVersion: ProtocolVersion): Batch[Env] =

@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait RandomTest {
   this: AsyncWordSpec & BaseTest & HasExecutionContext =>
 
-  def randomnessProvider(providerF: => FutureUnlessShutdown[RandomOps]): Unit = {
+  def randomnessProvider(providerF: => FutureUnlessShutdown[RandomOps]): Unit =
     "provide randomness" should {
       "generate fresh randomness" in {
 
@@ -22,5 +22,4 @@ trait RandomTest {
         }
       }.failOnShutdown
     }
-  }
 }

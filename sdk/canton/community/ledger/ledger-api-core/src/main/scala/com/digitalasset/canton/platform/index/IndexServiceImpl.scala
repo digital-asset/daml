@@ -387,7 +387,7 @@ private[index] class IndexServiceImpl(
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
@@ -398,7 +398,6 @@ private[index] class IndexServiceImpl(
         case (_, PartyLedgerEntry.AllocationAccepted(subId, _, details)) =>
           PartyEntry.AllocationAccepted(subId, details)
       }
-  }
 
   override def prune(
       pruneUpToInclusive: Offset,
@@ -605,7 +604,7 @@ object IndexServiceImpl {
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Offset,
       ledgerEnd: Offset,
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] = {
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     if (activeAt > ledgerEnd) {
       Left(
         RequestValidationErrors.OffsetAfterLedgerEnd
@@ -619,7 +618,6 @@ object IndexServiceImpl {
     } else {
       Right(())
     }
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(

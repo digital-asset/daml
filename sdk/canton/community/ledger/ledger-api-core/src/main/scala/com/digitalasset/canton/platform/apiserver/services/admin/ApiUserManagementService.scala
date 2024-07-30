@@ -75,7 +75,7 @@ private[apiserver] final class ApiUserManagementService(
   override def bindService(): ServerServiceDefinition =
     proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] = {
+  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withSubmissionId(loggerFactory, telemetry) { implicit loggingContext =>
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
       // Retrieving the authenticated user context from the thread-local context
@@ -134,8 +134,7 @@ private[apiserver] final class ApiUserManagementService(
         } yield CreateUserResponse(Some(toProtoUser(createdUser)))
       }
     }
-  }
-  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
+  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] =
     withSubmissionId(loggerFactory, telemetry) { implicit loggingContext =>
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
       val authorizedUserContextF: Future[AuthenticatedUserContext] =
@@ -208,11 +207,10 @@ private[apiserver] final class ApiUserManagementService(
         } yield resp
       }
     }
-  }
 
   private def resolveAuthenticatedUserContext(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Future[AuthenticatedUserContext] = {
+  ): Future[AuthenticatedUserContext] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold(
@@ -235,7 +233,6 @@ private[apiserver] final class ApiUserManagementService(
             )
         },
       )
-  }
 
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
@@ -632,7 +629,7 @@ object ApiUserManagementService {
 
   def decodeUserIdFromPageToken(pageToken: String)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[Ref.UserId]] = {
+  ): Either[StatusRuntimeException, Option[Ref.UserId]] =
     if (pageToken.isEmpty) {
       Right(None)
     } else {
@@ -653,13 +650,11 @@ object ApiUserManagementService {
         userId
       }
     }
-  }
 
   private def invalidPageToken(implicit
       errorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException = {
+  ): StatusRuntimeException =
     RequestValidationErrors.InvalidArgument
       .Reject("Invalid page token")
       .asGrpcError
-  }
 }

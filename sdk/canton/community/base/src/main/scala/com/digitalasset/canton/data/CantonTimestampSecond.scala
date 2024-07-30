@@ -59,20 +59,18 @@ object CantonTimestampSecond {
   def max(
       timestamp: CantonTimestampSecond,
       timestamps: CantonTimestampSecond*
-  ): CantonTimestampSecond = {
+  ): CantonTimestampSecond =
     timestamps.foldLeft(timestamp) { case (a, b) =>
       if (a > b) a else b
     }
-  }
 
   def min(
       timestamp: CantonTimestampSecond,
       timestamps: CantonTimestampSecond*
-  ): CantonTimestampSecond = {
+  ): CantonTimestampSecond =
     timestamps.foldLeft(timestamp) { case (a, b) =>
       if (a < b) a else b
     }
-  }
 
   def Epoch = CantonTimestampSecond(LfTimestamp.Epoch)
 
@@ -81,7 +79,7 @@ object CantonTimestampSecond {
   def fromProtoTimestamp(
       ts: ProtoTimestamp,
       field: String,
-  ): ParsingResult[CantonTimestampSecond] = {
+  ): ParsingResult[CantonTimestampSecond] =
     for {
       instant <- ProtoConverter.InstantConverter.fromProtoPrimitive(ts)
       ts <- CantonTimestampSecond
@@ -89,16 +87,14 @@ object CantonTimestampSecond {
         .left
         .map(ProtoDeserializationError.InvariantViolation(field, _))
     } yield ts
-  }
 
-  def fromProtoPrimitive(field: String, ts: Long): ParsingResult[CantonTimestampSecond] = {
+  def fromProtoPrimitive(field: String, ts: Long): ParsingResult[CantonTimestampSecond] =
     for {
       timestamp <- CantonTimestamp.fromProtoPrimitive(ts)
       seconds <- CantonTimestampSecond
         .fromCantonTimestamp(timestamp)
         .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
     } yield seconds
-  }
 
   def ofEpochSecond(seconds: Long): CantonTimestampSecond =
     CantonTimestampSecond(LfTimestamp.assertFromLong(micros = seconds * 1000 * 1000))

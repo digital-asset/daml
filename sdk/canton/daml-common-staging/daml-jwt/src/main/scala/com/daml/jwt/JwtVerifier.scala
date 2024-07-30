@@ -18,13 +18,12 @@ abstract class JwtVerifierBase {
 
 class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVerifierBase {
 
-  def verify(jwt: Jwt): Error \/ DecodedJwt[String] = {
+  def verify(jwt: Jwt): Error \/ DecodedJwt[String] =
     // The auth0 library verification already fails if the token has expired,
     // but we still need to do manual expiration checks in ongoing streams
     \/.attempt(verifier.verify(jwt.value))(e => Error(Symbol("verify"), e.getMessage))
       .map(a => DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
-  }
 
   private def base64Decode(jwt: DecodedJwt[String]): Error \/ DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
@@ -59,7 +58,7 @@ object ECDSAVerifier extends Leeway {
       path: String,
       algorithmPublicKey: ECPublicKey => Algorithm,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-  ): Error \/ JwtVerifier = {
+  ): Error \/ JwtVerifier =
     for {
       key <- \/.fromEither(
         KeyUtils
@@ -69,7 +68,6 @@ object ECDSAVerifier extends Leeway {
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verifier <- ECDSAVerifier(algorithmPublicKey(key), jwtTimestampLeeway)
     } yield verifier
-  }
 }
 
 // RSA256 validator factory
@@ -111,7 +109,7 @@ object RSA256Verifier extends Leeway {
   def fromCrtFile(
       path: String,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-  ): Error \/ JwtVerifier = {
+  ): Error \/ JwtVerifier =
     for {
       rsaKey <- \/.fromEither(
         KeyUtils
@@ -121,5 +119,4 @@ object RSA256Verifier extends Leeway {
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verifier <- RSA256Verifier.apply(rsaKey, jwtTimestampLeeway)
     } yield verifier
-  }
 }

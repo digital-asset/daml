@@ -56,7 +56,7 @@ object EncryptedViewMessageFactory {
     ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, B] =
       EitherT.fromEither[FutureUnlessShutdown](value)
 
-    def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] = {
+    def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] =
       for {
         informeeParticipants <- cryptoSnapshot.ipsSnapshot
           .activeParticipantsOfAll(informeeParties)
@@ -65,7 +65,6 @@ object EncryptedViewMessageFactory {
           cryptoSnapshot.ipsSnapshot.partiesWithGroupAddressing(informeeParties)
         )
       } yield RecipientsInfo(informeeParticipants = informeeParticipants)
-    }
 
     def generateAndEncryptSessionKeyRandomness(
         recipients: NonEmpty[Set[ParticipantId]]

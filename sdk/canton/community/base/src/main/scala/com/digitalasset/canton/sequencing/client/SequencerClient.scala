@@ -365,7 +365,7 @@ abstract class SequencerClientImpl(
           callback(result)
         }
 
-        def trackSend: EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+        def trackSend: EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
           sendTracker
             .track(
               messageId,
@@ -376,7 +376,6 @@ abstract class SequencerClientImpl(
               // we're already tracking this message id
               SendAsyncClientError.DuplicateMessageId
             }
-        }
 
         def peekAtSendResult(): Option[UnlessShutdown[SendResult]] =
           sendResultPromise.future.value.map(_.valueOr { ex =>
@@ -424,7 +423,7 @@ abstract class SequencerClientImpl(
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     EitherTUtil
       .timed(metrics.submissions.sends) {
         // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
@@ -460,7 +459,6 @@ abstract class SequencerClientImpl(
         logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
         FutureUnlessShutdown.outcomeF(sendTracker.cancelPendingSend(messageId).map(_ => err))
       }
-  }
 
   /** Send the `signedRequest` to the `firstSequencer` via `firstTransport`.
     * If `firstPatienceO` is defined, continue sending the request to more sequencers until
@@ -503,7 +501,7 @@ abstract class SequencerClientImpl(
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     sequencerCounterTrackerStore.preheadSequencerCounter.flatMap { cleanPrehead =>
       val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
         _.timestamp
@@ -521,7 +519,6 @@ abstract class SequencerClientImpl(
         PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
       )
     }
-  }
 
   /** Create a subscription for sequenced events for this member,
     * starting after the last event in the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`.
@@ -585,12 +582,11 @@ abstract class SequencerClientImpl(
 
   override def downloadTopologyStateForInit()(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, GenericStoredTopologyTransactions] = {
+  ): EitherT[Future, String, GenericStoredTopologyTransactions] =
     // TODO(i12076): Download topology state from one of the sequencers based on the health
     sequencersTransportState.transport
       .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
       .map(_.topologyTransactions.value)
-  }
 
   protected val periodicAcknowledgementsRef =
     new AtomicReference[Option[PeriodicAcknowledgements]](None)
@@ -1208,7 +1204,7 @@ class RichSequencerClientImpl(
     ).discard
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
       SyncCloseable("sequencer-aggregator", sequencerAggregator.close()),
       SyncCloseable("sequencer-send-tracker", sendTracker.close()),
@@ -1224,7 +1220,6 @@ class RichSequencerClientImpl(
       SyncCloseable("sequencer-client-recorder", recorderO.foreach(_.close())),
       SyncCloseable("deferred-subscription-health", deferredSubscriptionHealth.close()),
     )
-  }
 
   /** Returns a future that completes after asynchronous processing has completed for all events
     * whose synchronous processing has been completed prior to this call. May complete earlier if event processing
@@ -1361,7 +1356,7 @@ class SequencerClientImplPekko[E: Pretty](
           .fold(CantonTimestamp.MinValue)(_.timestamp)
           .immediateSuccessor
         _ = logger.info(
-          s"Processing events from the SequencedEventStore from ${replayStartTimeInclusive} on"
+          s"Processing events from the SequencedEventStore from $replayStartTimeInclusive on"
         )
 
         replayEvents <- FutureUnlessShutdown.outcomeF(
@@ -1607,7 +1602,7 @@ class SequencerClientImplPekko[E: Pretty](
         batchesOrError
       }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     subscriptionHandle.get.toList.flatMap { handle =>
       import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
 
@@ -1625,7 +1620,6 @@ class SequencerClientImplPekko[E: Pretty](
         ),
       )
     }
-  }
 }
 
 object SequencerClientImplPekko {
@@ -1683,11 +1677,10 @@ object SequencerClient {
     def expectedSequencers: NonEmpty[Set[SequencerId]] =
       sequencerToTransportMap.map(_._2.sequencerId).toSet
 
-    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer[E]]] = {
+    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer[E]]] =
       sequencerToTransportMap.map { case (_, transport) =>
         transport.sequencerId -> transport
       }.toMap
-    }
 
     def transports: Set[SequencerClientTransport] =
       sequencerToTransportMap.values.map(_.clientTransport).toSet

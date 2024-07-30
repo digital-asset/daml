@@ -21,7 +21,7 @@ object SeqUtil {
     val output = Seq.newBuilder[A]
     output.sizeHint(outputSize)
 
-    @tailrec def go(lowerBound: Int, remainingElems: IndexedSeq[A]): Unit = {
+    @tailrec def go(lowerBound: Int, remainingElems: IndexedSeq[A]): Unit =
       if (lowerBound >= outputSize) ()
       else {
         val index = random.nextInt(xs.size - lowerBound)
@@ -31,7 +31,6 @@ object SeqUtil {
           remainingElems.updated(lowerBound + index, remainingElems(lowerBound))
         go(lowerBound + 1, newRemainingElems)
       }
-    }
     go(0, xs)
     output.result()
   }

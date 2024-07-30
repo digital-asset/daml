@@ -69,15 +69,14 @@ abstract class TopologyTransactionProcessorTest
       store: TopologyStore[TopologyStoreId],
       timestamp: CantonTimestamp,
       isProposal: Boolean = false,
-  ): List[TopologyMapping] = {
+  ): List[TopologyMapping] =
     fetchTx(store, timestamp, isProposal).toTopologyState
-  }
 
   private def fetchTx(
       store: TopologyStore[TopologyStoreId],
       timestamp: CantonTimestamp,
       isProposal: Boolean = false,
-  ): GenericStoredTopologyTransactions = {
+  ): GenericStoredTopologyTransactions =
     store
       .findPositiveTransactions(
         asOf = timestamp,
@@ -88,7 +87,6 @@ abstract class TopologyTransactionProcessorTest
         None,
       )
       .futureValue
-  }
 
   private def process(
       proc: TopologyTransactionProcessor,
@@ -117,9 +115,8 @@ abstract class TopologyTransactionProcessorTest
   private def validate(
       observed: Seq[TopologyMapping],
       expected: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  ) = {
+  ) =
     observed.toSet shouldBe expected.map(_.mapping).toSet
-  }
 
   object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
   import Factory.*
@@ -431,7 +428,7 @@ abstract class TopologyTransactionProcessorTest
 
       def createDnd(
           owners: Namespace*
-      )(key: SigningPublicKey, serial: PositiveInt, isProposal: Boolean) = {
+      )(key: SigningPublicKey, serial: PositiveInt, isProposal: Boolean) =
         mkAddMultiKey(
           DecentralizedNamespaceDefinition
             .create(
@@ -444,7 +441,6 @@ abstract class TopologyTransactionProcessorTest
           serial = serial,
           isProposal = isProposal,
         )
-      }
 
       val dnd = createDnd(ns1)(key1, serial = PositiveInt.one, isProposal = false)
       val dnd_add_ns2_k2 = createDnd(ns1, ns2)(key2, serial = PositiveInt.two, isProposal = true)

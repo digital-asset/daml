@@ -938,14 +938,13 @@ abstract class EventStorageBackendTemplate(
     }
 
     if (pruneAllDivulgedContracts) {
-      val pruneAfterClause = {
+      val pruneAfterClause =
         // We need to distinguish between the two cases since lexicographical comparison
         // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
         participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
           case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
           case None => cSQL""
         }
-      }
 
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""

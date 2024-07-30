@@ -58,7 +58,7 @@ class SerializableContractAuthenticatorImpl(
     allowForUnauthenticatedContractIds: Boolean,
 ) extends SerializableContractAuthenticator {
 
-  def authenticate(contract: SerializableContract): Either[String, Unit] = {
+  def authenticate(contract: SerializableContract): Either[String, Unit] =
     authenticate(
       contract.contractId,
       contract.contractSalt,
@@ -66,12 +66,11 @@ class SerializableContractAuthenticatorImpl(
       contract.metadata,
       contract.rawContractInstance,
     )
-  }
 
   def verifyMetadata(
       contract: SerializableContract,
       metadata: ContractMetadata,
-  ): Either[String, Unit] = {
+  ): Either[String, Unit] =
     authenticate(
       contract.contractId,
       contract.contractSalt,
@@ -79,7 +78,6 @@ class SerializableContractAuthenticatorImpl(
       metadata,
       contract.rawContractInstance,
     )
-  }
 
   def authenticate(
       contractId: LfContractId,

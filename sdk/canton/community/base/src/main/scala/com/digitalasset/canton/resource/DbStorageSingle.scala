@@ -110,7 +110,7 @@ class DbStorageSingle private (
 
   private def checkConnectivity(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     Future(blocking(try {
       // FIXME(i11240): if db is backed by a connection pool, this can fail even if the db is healthy, because the pool is busy executing long-running queries
       val connection =
@@ -131,7 +131,6 @@ class DbStorageSingle private (
       if (changed)
         logger.info(s"Changed db storage instance to ${if (active) "active" else "passive"}.")
     }
-  }
 
 }
 

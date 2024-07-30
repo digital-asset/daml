@@ -84,9 +84,8 @@ object OrderingRequest
       sequencerId: SequencerId,
       content: A,
       protocolVersion: ProtocolVersion,
-  ): OrderingRequest[A] = {
+  ): OrderingRequest[A] =
     OrderingRequest(sequencerId, content)(protocolVersionRepresentativeFor(protocolVersion), None)
-  }
 
   def fromProtoV30(
       orderingRequestP: v30.OrderingRequest

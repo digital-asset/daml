@@ -133,12 +133,11 @@ class SimpleExecutionQueue(
     */
   def queued: Seq[String] = {
     @tailrec
-    def go(cell: TaskCell, descriptions: List[String]): List[String] = {
+    def go(cell: TaskCell, descriptions: List[String]): List[String] =
       cell.predecessor match {
         case None => s"${cell.description} (completed)" :: descriptions
         case Some(predCell) => go(predCell, cell.description :: descriptions)
       }
-    }
     go(queueHead.get(), List.empty[String])
   }
 
@@ -148,7 +147,7 @@ class SimpleExecutionQueue(
 
   private def forceShutdownTasks(): Unit = {
     @tailrec
-    def go(cell: TaskCell, nextTaskAfterRunningOne: Option[TaskCell]): Option[TaskCell] = {
+    def go(cell: TaskCell, nextTaskAfterRunningOne: Option[TaskCell]): Option[TaskCell] =
       // If the predecessor of the cell is completed, then it is the running task, in which case we stop the recursion.
       // Indeed the predecessor of the running task is only set to None when the task has completed, so we need to
       // access the predecessor and check if it's done. There is a potential race because by the time we reach the supposed
@@ -166,7 +165,6 @@ class SimpleExecutionQueue(
           case _ => None
         }
       }
-    }
 
     // Find the first task queued after the currently running one and shut it down, this will trigger a cascade and
     // `AbortDueToShutdown` all subsequent tasks
@@ -239,7 +237,7 @@ object SimpleExecutionQueue {
 
       def runTask(
           propagatedException: Option[Throwable]
-      ): FutureUnlessShutdown[(Option[Throwable], A)] = {
+      ): FutureUnlessShutdown[(Option[Throwable], A)] =
         if (logTaskTiming && loggingContext.logger.underlying.isDebugEnabled) {
           val startTime = System.nanoTime()
           val waitingDelay = Duration.fromNanos(startTime - taskCreationTime)
@@ -262,7 +260,6 @@ object SimpleExecutionQueue {
         } else {
           execution.map(a => (propagatedException, a))(directExecutionContext)
         }
-      }
 
       val chained = pred.future.transformWith {
         case Success(UnlessShutdown.Outcome(_result)) =>
@@ -300,7 +297,7 @@ object SimpleExecutionQueue {
       val completed = {
         implicit val ec: ExecutionContext = directExecutionContext
         // Cut the predecessor as we're now done.
-        chained.thereafter { _ => predecessorCell.set(None) }
+        chained.thereafter(_ => predecessorCell.set(None))
       }
       val propagatedException = completed.flatMap { case (earlierExceptionO, _) =>
         earlierExceptionO.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.failed)

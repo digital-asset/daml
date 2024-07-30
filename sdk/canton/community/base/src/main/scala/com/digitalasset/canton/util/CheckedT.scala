@@ -99,9 +99,8 @@ final case class CheckedT[F[_], A, N, R](value: F[Checked[A, N, R]]) {
 
   def abortSubflatMap[AA, NN >: N, RR >: R](
       f: A => Checked[AA, NN, RR]
-  )(implicit F: Functor[F]): CheckedT[F, AA, NN, RR] = {
+  )(implicit F: Functor[F]): CheckedT[F, AA, NN, RR] =
     CheckedT(F.map(value)(_.abortFlatMap(f)))
-  }
 
   /** Merges aborts with nonaborts, using the given `default` result if no result is contained. */
   def toResult[NN, A1 >: A <: NN, N1 >: N <: NN](default: => R)(implicit

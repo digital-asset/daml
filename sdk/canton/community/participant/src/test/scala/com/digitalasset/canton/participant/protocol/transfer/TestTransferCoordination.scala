@@ -68,13 +68,12 @@ private[transfer] object TestTransferCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[TransferProcessingSteps.UnknownDomain, Future[Unit]] = {
+      ): Either[TransferProcessingSteps.UnknownDomain, Future[Unit]] =
         awaitTimestampOverride match {
           case None =>
             super.awaitTransferOutTimestamp(sourceDomain, staticDomainParameters, timestamp)
           case Some(overridden) => Right(overridden.getOrElse(Future.unit))
         }
-      }
 
       override def awaitTimestamp(
           domainId: DomainId,
@@ -96,12 +95,11 @@ private[transfer] object TestTransferCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, TransferProcessorError, DomainSnapshotSyncCryptoApi] = {
+      ): EitherT[Future, TransferProcessorError, DomainSnapshotSyncCryptoApi] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(domain, staticDomainParameters, timestamp)
           case Some(cs) => EitherT.pure[Future, TransferProcessorError](cs)
         }
-      }
     }
   }
 

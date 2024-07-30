@@ -66,7 +66,7 @@ class InMemorySequencerBlockStore(
   override def setInitialState(
       initial: BlockEphemeralState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       _ <-
         sequencerStore
@@ -92,7 +92,6 @@ class InMemorySequencerBlockStore(
       initialState.set(initial)
       checkBlockInvariantIfEnabled(initial.latestBlock.height)
     }
-  }
 
   override def getInitialState(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     Future.successful(initialState.get())

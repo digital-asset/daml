@@ -38,7 +38,7 @@ object CantonContractIdVersion {
     } yield versionedContractId
   }
 
-  def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
+  def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV10)
     } else {
@@ -48,7 +48,6 @@ object CantonContractIdVersion {
             |""".stripMargin.replaceAll("\r|\n", "")
       )
     }
-  }
 }
 
 sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)

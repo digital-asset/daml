@@ -29,9 +29,8 @@ object MeteringReportKey {
     *  - Get the `ClassLoader` associated with that class
     *  - Use the `getResource` classloader method.
     */
-  def assertReadSystemResourceAsKey(keyUrl: URL): Key = {
+  def assertReadSystemResourceAsKey(keyUrl: URL): Key =
     assertParseKey(keyUrl.openStream().readAllBytes())
-  }
 
   def assertParseKey(bytes: Array[Byte]): Key = {
     val json = new String(bytes, StandardCharsets.UTF_8)

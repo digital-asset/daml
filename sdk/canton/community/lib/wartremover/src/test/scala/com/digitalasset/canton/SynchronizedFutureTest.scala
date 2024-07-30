@@ -17,21 +17,21 @@ class SynchronizedFutureTest extends AnyWordSpec with Matchers {
 
   def assertIsErrorSynchronized(result: WartTestTraverser.Result): Assertion = {
     result.errors.length shouldBe 1
-    result.errors.foreach { _ should include(SynchronizedFuture.messageSynchronized) }
+    result.errors.foreach(_ should include(SynchronizedFuture.messageSynchronized))
     succeed
   }
 
   "SynchronizedFuture" should {
     "detect qualified synchronized statements" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        this.synchronized { Future.unit }
+        this.synchronized(Future.unit)
       }
       assertIsErrorSynchronized(result)
     }
 
     "work without qualifier" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { Future.unit }
+        synchronized(Future.unit)
       }
       assertIsErrorSynchronized(result)
     }
@@ -49,14 +49,14 @@ class SynchronizedFutureTest extends AnyWordSpec with Matchers {
 
     "detect nested synchronized statements in the receiver" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        { synchronized { Future.unit } }.synchronized { 23 }
+        { synchronized(Future.unit) }.synchronized(23)
       }
       assertIsErrorSynchronized(result)
     }
 
     "allow non-future types in synchronized blocks" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { 42 }
+        synchronized(42)
       }
       result.errors.length shouldBe 0
     }
@@ -72,28 +72,28 @@ class SynchronizedFutureTest extends AnyWordSpec with Matchers {
 
     "detects futures wrapped in an EitherT" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { EitherT(Future.successful(Either.right(()))) }
+        synchronized(EitherT(Future.successful(Either.right(()))))
       }
       assertIsErrorSynchronized(result)
     }
 
     "detects futures wrapped in an OptionT" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { OptionT(Future.successful(Option(()))) }
+        synchronized(OptionT(Future.successful(Option(()))))
       }
       assertIsErrorSynchronized(result)
     }
 
     "detects futures that are deeply wrapped" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { OptionT(EitherT(Future.successful(Either.right(Option(()))))) }
+        synchronized(OptionT(EitherT(Future.successful(Either.right(Option(()))))))
       }
       assertIsErrorSynchronized(result)
     }
 
     "detect future-like types" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized { new LooksLikeAFuture() }
+        synchronized(new LooksLikeAFuture())
       }
       assertIsErrorSynchronized(result)
     }
