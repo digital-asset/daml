@@ -5,6 +5,11 @@
 module DA.Daml.LF.Ast.Alpha
     ( alphaType
     , alphaExpr
+    , alphaType'
+    , initialAlphaEnv
+    , alphaTypeCon
+    , bindTypeVar
+    , AlphaEnv(..)
     ) where
 
 import qualified Data.Map.Strict as Map
@@ -27,6 +32,7 @@ data AlphaEnv = AlphaEnv
   , boundExprVarsRhs :: !(Map.Map ExprVarName Int)
     -- ^ Maps bound expr variables from the right-hand-side to
     -- the depth of the binder which introduced them.
+  , tconEquivalence :: !(Qualified TypeConName -> Qualified TypeConName -> Bool)
   }
 
 onList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
@@ -77,7 +83,7 @@ alphaType' env = \case
         TVar x2 -> alphaTypeVar env x1 x2
         _ -> False
     TCon c1 -> \case
-        TCon c2 -> alphaTypeCon c1 c2
+        TCon c2 -> tconEquivalence env c1 c2
         _ -> False
     TApp t1a t1b -> \case
         TApp t2a t2b -> alphaType' env t1a t2a && alphaType' env t1b t2b
@@ -475,6 +481,7 @@ initialAlphaEnv = AlphaEnv
     , boundTypeVarsRhs = Map.empty
     , boundExprVarsLhs = Map.empty
     , boundExprVarsRhs = Map.empty
+    , tconEquivalence = alphaTypeCon
     }
 
 alphaType :: Type -> Type -> Bool
