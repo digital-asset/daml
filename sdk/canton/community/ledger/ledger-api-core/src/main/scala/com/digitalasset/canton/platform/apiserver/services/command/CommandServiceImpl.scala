@@ -80,7 +80,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
         SubmitAndWaitForUpdateIdResponse.of(
           updateId = response.completion.updateId,
-          completionOffset = response.checkpoint.map(_.offset).getOrElse(""),
+          completionOffset = response.completion.offset,
         )
       }
     }

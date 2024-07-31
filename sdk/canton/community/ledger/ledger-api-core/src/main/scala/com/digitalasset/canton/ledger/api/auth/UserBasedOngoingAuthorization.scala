@@ -4,7 +4,11 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.ledger.error.groups.AuthorizationChecksErrors
+import com.digitalasset.canton.auth.{
+  AuthorizationChecksErrors,
+  ClaimSet,
+  OngoingAuthorizationFactory,
+}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -21,7 +25,7 @@ import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, blocking}
 
-private[auth] final class OngoingAuthorizationObserver[A](
+private[auth] final class UserBasedOngoingAuthorization[A](
     observer: ServerCallStreamObserver[A],
     originalClaims: ClaimSet.Claims,
     nowF: () => Instant,
@@ -174,7 +178,35 @@ private[auth] final class OngoingAuthorizationObserver[A](
   })
 }
 
-private[auth] object OngoingAuthorizationObserver {
+object UserBasedOngoingAuthorization {
+
+  final case class Factory(
+      now: () => Instant,
+      userManagementStore: UserManagementStore,
+      userRightsCheckIntervalInSeconds: Int,
+      pekkoScheduler: Scheduler,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      tokenExpiryGracePeriodForStreams: Option[Duration] = None,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ) extends OngoingAuthorizationFactory {
+    def apply[A](
+        observer: ServerCallStreamObserver[A],
+        claims: ClaimSet.Claims,
+    ): ServerCallStreamObserver[A] = UserBasedOngoingAuthorization(
+      observer = observer,
+      originalClaims = claims,
+      nowF = now,
+      userManagementStore = userManagementStore,
+      userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+      pekkoScheduler = pekkoScheduler,
+      jwtTimestampLeeway = jwtTimestampLeeway,
+      tokenExpiryGracePeriodForStreams = tokenExpiryGracePeriodForStreams,
+      loggerFactory = loggerFactory,
+    )
+  }
 
   /** @param userRightsCheckIntervalInSeconds - determines the interval at which to check whether user rights state has changed.
     *                                          Also, double of this value serves as timeout value for subsequent user rights state checks.
@@ -208,7 +240,7 @@ private[auth] object OngoingAuthorizationObserver {
     } else {
       None
     }
-    new OngoingAuthorizationObserver(
+    new UserBasedOngoingAuthorization(
       observer = observer,
       originalClaims = originalClaims,
       nowF = nowF,

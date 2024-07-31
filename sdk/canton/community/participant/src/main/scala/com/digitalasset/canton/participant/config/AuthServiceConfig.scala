@@ -12,8 +12,8 @@ import com.daml.jwt.{
   JwtVerifier,
   RSA256Verifier,
 }
+import com.digitalasset.canton.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.digitalasset.canton.config.CantonRequireTypes.*
-import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 sealed trait AuthServiceConfig {

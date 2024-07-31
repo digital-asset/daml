@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.auth
+package com.digitalasset.canton.auth
 
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
@@ -30,8 +30,8 @@ import java.util.concurrent.CompletionStage
   */
 trait AuthService {
 
-  /** Return empty [[com.digitalasset.canton.ledger.api.auth.ClaimSet.Unauthenticated]] to reject requests with a UNAUTHENTICATED error status.
-    * Return [[com.digitalasset.canton.ledger.api.auth.ClaimSet.Claims]] with only a single [[com.digitalasset.canton.ledger.api.auth.ClaimPublic]] claim to reject all non-public requests with a PERMISSION_DENIED status.
+  /** Return empty [[com.digitalasset.canton.auth.ClaimSet.Unauthenticated]] to reject requests with a UNAUTHENTICATED error status.
+    * Return [[com.digitalasset.canton.auth.ClaimSet.Claims]] with only a single [[com.digitalasset.canton.auth.ClaimPublic]] claim to reject all non-public requests with a PERMISSION_DENIED status.
     * Return a failed future to reject requests with an INTERNAL error status.
     */
   def decodeMetadata(headers: io.grpc.Metadata)(implicit

@@ -15,10 +15,13 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.ClaimSet.Claims
+import com.digitalasset.canton.auth.{
+  AuthorizationChecksErrors,
+  AuthorizationInterceptor,
+  ClaimAdmin,
+}
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
-import com.digitalasset.canton.ledger.api.auth.ClaimAdmin
-import com.digitalasset.canton.ledger.api.auth.ClaimSet.Claims
-import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
@@ -68,7 +71,6 @@ private[apiserver] final class ApiUserManagementService(
   import ApiUserManagementService.*
   import FieldValidator.*
   import ValueValidator.*
-  import UserManagementStore.handleResult
 
   override def close(): Unit = ()
 
@@ -657,4 +659,52 @@ object ApiUserManagementService {
     RequestValidationErrors.InvalidArgument
       .Reject("Invalid page token")
       .asGrpcError
+
+  def handleResult[T](operation: String)(
+      result: UserManagementStore.Result[T]
+  )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
+    result match {
+      case Left(UserManagementStore.PermissionDenied(id)) =>
+        Future.failed(
+          AuthorizationChecksErrors.PermissionDenied
+            .Reject(s"User $id belongs to another Identity Provider")
+            .asGrpcError
+        )
+      case Left(UserManagementStore.UserNotFound(id)) =>
+        Future.failed(
+          UserManagementServiceErrors.UserNotFound
+            .Reject(operation, id)
+            .asGrpcError
+        )
+
+      case Left(UserManagementStore.UserExists(id)) =>
+        Future.failed(
+          UserManagementServiceErrors.UserAlreadyExists
+            .Reject(operation, id)
+            .asGrpcError
+        )
+
+      case Left(UserManagementStore.TooManyUserRights(id)) =>
+        Future.failed(
+          UserManagementServiceErrors.TooManyUserRights
+            .Reject(operation, id: String)
+            .asGrpcError
+        )
+      case Left(e: UserManagementStore.ConcurrentUserUpdate) =>
+        Future.failed(
+          UserManagementServiceErrors.ConcurrentUserUpdateDetected
+            .Reject(userId = e.userId)
+            .asGrpcError
+        )
+
+      case Left(e: UserManagementStore.MaxAnnotationsSizeExceeded) =>
+        Future.failed(
+          UserManagementServiceErrors.MaxUserAnnotationsSizeExceeded
+            .Reject(userId = e.userId)
+            .asGrpcError
+        )
+
+      case scala.util.Right(t) =>
+        Future.successful(t)
+    }
 }

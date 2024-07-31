@@ -778,11 +778,8 @@ class SequencerNodeBootstrap(
   ): EitherT[Future, String, DynamicDomainGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
-      maxRequestSize <- EitherTUtil
-        .fromFuture(
-          domainParamsLookup.getApproximate(),
-          error => s"Unable to retrieve the domain parameters: ${error.getMessage}",
-        )
+      maxRequestSize <- EitherT
+        .right(domainParamsLookup.getApproximate())
         .map(paramsO =>
           paramsO.map(_.maxRequestSize).getOrElse(MaxRequestSize(NonNegativeInt.maxValue))
         )

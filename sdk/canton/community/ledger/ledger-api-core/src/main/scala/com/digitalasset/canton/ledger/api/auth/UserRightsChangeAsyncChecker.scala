@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.canton.auth.ClaimSet
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
@@ -47,11 +49,12 @@ private[auth] final class UserRightsChangeAsyncChecker(
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
       pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay) { () =>
+        val idpId = IdentityProviderId.fromOptionalLedgerString(identityProviderId)
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {
-            userRightsResult <- userManagementStore.listUserRights(userId, identityProviderId)
-            userResult <- userManagementStore.getUser(userId, identityProviderId)
+            userRightsResult <- userManagementStore.listUserRights(userId, idpId)
+            userResult <- userManagementStore.getUser(userId, idpId)
           } yield {
             for {
               userRights <- userRightsResult
@@ -63,7 +66,8 @@ private[auth] final class UserRightsChangeAsyncChecker(
             case Failure(_) | Success(Left(_)) =>
               userClaimsMismatchCallback()
             case Success(Right((user, userRights))) =>
-              val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
+              val updatedClaims =
+                UserBasedAuthorizationInterceptor.convertUserRightsToClaims(userRights)
               if (updatedClaims.toSet != originalClaims.claims.toSet || user.isDeactivated) {
                 userClaimsMismatchCallback()
               }

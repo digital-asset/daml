@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates
+  ~ Copyright 2024 Digital Asset (Switzerland) GmbH and/or its affiliates
   ~
   ~ SPDX-License-Identifier: Apache-2.0
   -->
@@ -123,7 +123,14 @@
 
         <!-- # TODO(#13519): Suppress error in JSON API integration tests and remove this exception -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor</logger>
+            <logger>com.digitalasset.canton.auth.AuthorizationInterceptor</logger>
+            <maxLevel>INFO</maxLevel>
+            <contains>Could not resolve is_deactivated status for user </contains>
+            <testing>true</testing>
+        </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Could not resolve is_deactivated status for user </contains>
             <testing>true</testing>
@@ -222,7 +229,7 @@
              SecuredApisIntegrationTest: PERMISSION_DENIED(7,0): Claims do not authorize to act as party
         -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.Authorizer</logger>
+            <logger>com.digitalasset.canton.auth.Authorizer</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
@@ -231,7 +238,7 @@
              PERMISSION_DENIED(7,0): Claims were valid until 2023-04-27T11:47:43Z, current time is 2023-04-27T11:47:44.532146Z
         -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.OngoingAuthorizationObserver</logger>
+            <logger>com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
@@ -476,6 +483,76 @@
         <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard2ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard3ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard4ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard5ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard0ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard1ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard2ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard3ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard4ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:ProtocolContinuityShard5ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:MajorUpgradeIntegrationTest</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>

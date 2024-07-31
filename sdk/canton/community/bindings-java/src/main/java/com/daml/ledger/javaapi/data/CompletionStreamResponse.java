@@ -7,63 +7,64 @@ import com.daml.ledger.api.v2.CommandCompletionServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class CompletionStreamResponse {
 
-  @NonNull private final Checkpoint checkpoint;
+  @NonNull private final Optional<Completion> completion;
 
-  @NonNull private final Completion completion;
-
-  @NonNull private final String domainId;
+  @NonNull private final Optional<OffsetCheckpoint> offsetCheckpoint;
 
   public CompletionStreamResponse(
-      @NonNull Checkpoint checkpoint, @NonNull Completion completion, @NonNull String domainId) {
-    this.checkpoint = checkpoint;
+      @NonNull Optional<Completion> completion,
+      @NonNull Optional<OffsetCheckpoint> offsetCheckpoint) {
     this.completion = completion;
-    this.domainId = domainId;
+    this.offsetCheckpoint = offsetCheckpoint;
+  }
+
+  public CompletionStreamResponse(@NonNull Completion completion) {
+    this(Optional.of(completion), Optional.empty());
+  }
+
+  public CompletionStreamResponse(@NonNull OffsetCheckpoint offsetCheckpoint) {
+    this(Optional.empty(), Optional.of(offsetCheckpoint));
   }
 
   @NonNull
-  public Checkpoint getCheckpoint() {
-    return checkpoint;
-  }
-
-  @NonNull
-  public Completion getCompletion() {
+  public Optional<Completion> getCompletion() {
     return completion;
   }
 
   @NonNull
-  public String getDomainId() {
-    return domainId;
+  public Optional<OffsetCheckpoint> getOffsetCheckpoint() {
+    return offsetCheckpoint;
   }
 
   public static CompletionStreamResponse fromProto(
       CommandCompletionServiceOuterClass.CompletionStreamResponse response) {
     return new CompletionStreamResponse(
-        Checkpoint.fromProto(response.getCheckpoint()),
-        Completion.fromProto(response.getCompletion()),
-        response.getDomainId());
+        response.hasCompletion()
+            ? Optional.of(Completion.fromProto(response.getCompletion()))
+            : Optional.empty(),
+        response.hasOffsetCheckpoint()
+            ? Optional.of(OffsetCheckpoint.fromProto(response.getOffsetCheckpoint()))
+            : Optional.empty());
   }
 
   public CommandCompletionServiceOuterClass.CompletionStreamResponse toProto() {
-    return CommandCompletionServiceOuterClass.CompletionStreamResponse.newBuilder()
-        .setCheckpoint(checkpoint.toProto())
-        .setCompletion(completion.toProto())
-        .setDomainId(domainId)
-        .build();
+    var builder = CommandCompletionServiceOuterClass.CompletionStreamResponse.newBuilder();
+    completion.ifPresent(c -> builder.setCompletion(c.toProto()));
+    offsetCheckpoint.ifPresent(c -> builder.setOffsetCheckpoint(c.toProto()));
+    return builder.build();
   }
 
   @Override
   public String toString() {
     return "CompletionStreamResponse{"
-        + "checkpoint="
-        + checkpoint
-        + ", completion="
+        + "completion="
         + completion
-        + ", domainId='"
-        + domainId
-        + '\''
+        + ", offsetCheckpoint="
+        + offsetCheckpoint
         + '}';
   }
 
@@ -72,14 +73,13 @@ public final class CompletionStreamResponse {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     CompletionStreamResponse that = (CompletionStreamResponse) o;
-    return Objects.equals(checkpoint, that.checkpoint)
-        && Objects.equals(completion, that.completion)
-        && Objects.equals(domainId, that.domainId);
+    return Objects.equals(completion, that.completion)
+        && Objects.equals(offsetCheckpoint, that.offsetCheckpoint);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(checkpoint, completion, domainId);
+    return Objects.hash(completion, offsetCheckpoint);
   }
 }

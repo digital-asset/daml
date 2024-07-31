@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -924,11 +922,9 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $source with domain id $sourceDomainId"
       )
-      _ <- migrationService
-        .pruneSelectedDeactivatedDomainStores(sourceDomainId)
-        .leftMap[SyncServiceError](
-          SyncServiceError.SyncServiceMigrationError(source, target.domain, _)
-        )
+      _ <- EitherT.right(
+        migrationService.pruneSelectedDeactivatedDomainStores(sourceDomainId)
+      )
     } yield ()
 
   /* Verify that specified domain has inactive status and selectively prune sync domain stores.
@@ -955,10 +951,9 @@ class CantonSyncService(
       _ = logger.info(
         s"Purging deactivated domain with alias $domain with domain id $domainId"
       )
-      _ <- migrationService
-        .pruneSelectedDeactivatedDomainStores(domainId)
-        .leftMap(err => PruningServiceError.InternalServerError.Error(err.cause))
-        .leftWiden[CantonError]
+      _ <- EitherT.right(
+        migrationService.pruneSelectedDeactivatedDomainStores(domainId)
+      )
     } yield ()
 
   /** Reconnect to all configured domains that have autoStart = true */
@@ -1099,14 +1094,8 @@ class CantonSyncService(
   private def startDomain(alias: DomainAlias, syncDomain: SyncDomain)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
-    EitherTUtil
-      .fromFuture(
-        syncDomain.startFUS(),
-        t => SyncServiceError.SyncServiceInternalError.Failure(alias, t),
-      )
-      .subflatMap[SyncServiceError, Unit](
-        _.leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
-      )
+    EitherT(syncDomain.startFUS())
+      .leftMap(error => SyncServiceError.SyncServiceStartupError.InitError(alias, error))
       .onShutdown(
         Left(
           SyncServiceError.SyncServiceStartupError

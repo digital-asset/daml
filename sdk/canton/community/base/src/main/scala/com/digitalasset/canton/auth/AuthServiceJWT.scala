@@ -1,11 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.auth
+package com.digitalasset.canton.auth
 
-import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifierBase}
-import com.digitalasset.canton.ledger.api.auth.AuthService.AUTHORIZATION_KEY
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  Error,
+  JwtFromBearerHeader,
+  JwtVerifierBase,
+  StandardJWTPayload,
+}
+import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
@@ -15,7 +21,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.util.Try
 
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
-  * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
+  * The token is expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
   */
 abstract class AuthServiceJWTBase(
     verifier: JwtVerifierBase,
@@ -120,7 +126,7 @@ class AuthServiceJWT(
   protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
-        identityProviderId = IdentityProviderId.Default,
+        identityProviderId = None,
         participantId = payload.participantId,
         userId = payload.userId,
         expiration = payload.exp,
@@ -142,7 +148,7 @@ class AuthServicePrivilegedJWT(
     case payload: StandardJWTPayload =>
       ClaimSet.Claims(
         claims = ClaimSet.Claims.Wildcard.claims,
-        identityProviderId = IdentityProviderId.Default,
+        identityProviderId = None,
         participantId = payload.participantId,
         applicationId = Option.when(payload.userId.nonEmpty)(payload.userId),
         expiration = payload.exp,

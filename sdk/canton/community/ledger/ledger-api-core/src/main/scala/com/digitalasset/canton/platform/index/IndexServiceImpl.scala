@@ -272,10 +272,19 @@ private[index] class IndexServiceImpl(
         dispatcher()
           .startingAt(
             beginOpt,
-            RangeSource(
-              commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)
+            RangeSource((startExclusive, endInclusive) =>
+              commandCompletionsReader
+                .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+                .via(rangeDecorator(startExclusive, endInclusive))
             ),
             None,
+          )
+          .via(
+            checkpointFlow(
+              cond = true,
+              fetchOffsetCheckpoint = fetchOffsetCheckpoint,
+              responseFromCheckpoint = completionsResponse,
+            )
           )
           .mapError(shutdownError)
           .map(_._2)
@@ -875,5 +884,10 @@ object IndexServiceImpl {
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdateTreesResponse =
     GetUpdateTreesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
+
+  private def completionsResponse(
+      offsetCheckpoint: OffsetCheckpoint
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
 }

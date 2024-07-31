@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
+import "com/daml/ledger/api/v2/offset_checkpoint.proto";
 import "com/daml/ledger/api/v2/trace_context.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
@@ -77,4 +78,16 @@ message Completion {
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
   com.daml.ledger.api.v2.TraceContext trace_context = 9;
+
+  // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
+  // Required
+  string offset = 10;
+
+  // The sequencing domain along with its record time.
+  // The domain-id provided, in case of
+  //   - successful/failed transactions: identifies the sequencing domain of the transaction
+  //   - for successful/failed unassign commands: identifies the source domain
+  //   - for successful/failed assign commands: identifies the target domain
+  // Required
+  DomainTime domain_time = 11;
 }

@@ -743,7 +743,7 @@ object DbSequencerStateManagerStore {
 
     override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter.storage(
-        ReleaseProtocolVersion(ProtocolVersion.v31),
+        ReleaseProtocolVersion(ProtocolVersion.v32),
         v30.AggregatedSignaturesOfSender,
       )(
         supportedProtoVersion(_)(fromProtoV30),

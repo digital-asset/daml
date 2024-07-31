@@ -74,6 +74,7 @@ da_scala_library(
     deps = [
         ":bindings-rxjava",
         "//canton:bindings-java",
+        "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
@@ -115,6 +116,7 @@ da_scala_test_suite(
         ":bindings-java-tests-lib",
         ":bindings-rxjava",
         "//canton:bindings-java",
+        "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",

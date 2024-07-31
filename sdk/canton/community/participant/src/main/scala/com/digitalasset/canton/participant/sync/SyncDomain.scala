@@ -88,7 +88,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.daml.lf.engine.Engine
 import io.opentelemetry.api.trace.Tracer
@@ -630,13 +630,12 @@ class SyncDomain(
         domainHandle.topologyClient
           .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
           .map(isActive =>
-            if (isActive) Right(())
-            else
-              Left(
-                ParticipantDidNotBecomeActive(
-                  s"Participant did not become active after ${timeouts.verifyActive.duration}"
-                )
-              )
+            EitherUtil.condUnitE(
+              isActive,
+              ParticipantDidNotBecomeActive(
+                s"Participant did not become active after ${timeouts.verifyActive.duration}"
+              ),
+            )
           )
       )
 

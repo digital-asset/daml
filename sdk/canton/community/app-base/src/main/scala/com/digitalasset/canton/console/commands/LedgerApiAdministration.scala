@@ -6,11 +6,10 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
-import com.daml.jwt.{Jwt, JwtDecoder}
+import com.daml.jwt.{AuthServiceJWTCodec, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
@@ -42,7 +41,6 @@ import com.daml.ledger.javaapi as javab
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedContractEntry,
@@ -68,7 +66,6 @@ import com.digitalasset.canton.console.{
   RemoteParticipantReference,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
@@ -718,9 +715,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyId = submitter,
             atLeastNumCompletions = 1,
             beginOffset = ledgerEndBefore,
-            filter = _.completion.commandId == commandId,
+            filter = _.commandId == commandId,
           )(0)
-          .completion
           .updateId
         participants.foreach { case (participant, (queryingParty, from)) =>
           discard(waitForUpdateId(participant, from, queryingParty, completionUpdateId, timeout))
@@ -1293,8 +1289,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
           beginOffset: String,
           applicationId: String = applicationId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-          filter: CompletionWrapper => Boolean = _ => true,
-      ): Seq[CompletionWrapper] =
+          filter: Completion => Boolean = _ => true,
+      ): Seq[Completion] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.CommandCompletionService.CompletionRequest(
@@ -1302,34 +1298,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
               beginOffset,
               atLeastNumCompletions,
               timeout.asJavaApproximation,
-              applicationId,
-            )(filter, consoleEnvironment.environment.scheduler)
-          )
-        })
-
-      @Help.Summary(
-        "Lists command completions following the specified offset along with the checkpoints included in the completions",
-        FeatureFlag.Testing,
-      )
-      @Help.Description(
-        """If the participant has been pruned via `pruning.prune` and if `offset` is lower than
-          |the pruning offset, this command fails with a `NOT_FOUND` error."""
-      )
-      def list_with_checkpoint(
-          partyId: PartyId,
-          atLeastNumCompletions: Int,
-          beginExclusive: String,
-          applicationId: String = applicationId,
-          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-          filter: Completion => Boolean = _ => true,
-      ): Seq[(Completion, Option[Checkpoint])] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandCompletionService.CompletionCheckpointRequest(
-              partyId.toLf,
-              beginExclusive,
-              atLeastNumCompletions,
-              timeout,
               applicationId,
             )(filter, consoleEnvironment.environment.scheduler)
           )
@@ -1345,7 +1313,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |this command fails with a `NOT_FOUND` error."""
       )
       def subscribe(
-          observer: StreamObserver[CompletionWrapper],
+          observer: StreamObserver[Completion],
           parties: Seq[PartyId],
           beginOffset: String = "",
           applicationId: String = applicationId,

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
-import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}

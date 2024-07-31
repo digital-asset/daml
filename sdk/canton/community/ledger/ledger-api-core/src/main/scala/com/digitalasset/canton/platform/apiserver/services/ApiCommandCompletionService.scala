@@ -86,7 +86,7 @@ final class ApiCommandCompletionService(
                   logger.enrichedDebugStream(
                     "Responding with completions.",
                     response =>
-                      response.completion match {
+                      response.completionResponse.completion match {
                         case Some(completion) =>
                           LoggingEntries(
                             "commandId" -> completion.commandId,

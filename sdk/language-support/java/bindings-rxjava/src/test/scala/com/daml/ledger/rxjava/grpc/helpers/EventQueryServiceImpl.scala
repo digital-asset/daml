@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
-import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceAuthorization
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v2.event_query_service.{

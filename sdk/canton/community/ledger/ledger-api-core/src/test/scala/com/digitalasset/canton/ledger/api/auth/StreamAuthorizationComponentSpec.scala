@@ -10,8 +10,15 @@ import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.{UpdateService, U
 import com.daml.ledger.api.v2.update_service.*
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.auth.{
+  AuthorizationInterceptor,
+  Authorizer,
+  Claim,
+  ClaimPublic,
+  ClaimReadAsParty,
+  ClaimSet,
+}
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
@@ -46,7 +53,7 @@ class StreamAuthorizationComponentSpec
     with Matchers
     with PekkoBeforeAndAfterAll {
 
-  private val OngoingAuthorizationObserverLoggerName = "OngoingAuthorizationObserver"
+  private val OngoingAuthorizationObserverLoggerName = "UserBasedOngoingAuthorization"
 
   private implicit val ec: ExecutionContextExecutor = materializer.executionContext
 
@@ -190,7 +197,7 @@ class StreamAuthorizationComponentSpec
       participantId = Some(participantId),
       applicationId = Some(userId),
       expiration = Some(nowRef.get().plusSeconds(10)),
-      identityProviderId = IdentityProviderId.Default,
+      identityProviderId = None,
       resolvedFromUser = true,
     )
     val authorizationClaimSetFixtureInterceptor = new ServerInterceptor {
@@ -222,10 +229,15 @@ class StreamAuthorizationComponentSpec
     val authorizer = new Authorizer(
       now = () => nowRef.get(),
       participantId = participantId,
-      userManagementStore = userManagementStore,
-      ec = ec,
-      userRightsCheckIntervalInSeconds = 1,
-      pekkoScheduler = system.scheduler,
+      ongoingAuthorizationFactory = UserBasedOngoingAuthorization.Factory(
+        now = () => nowRef.get(),
+        userManagementStore = userManagementStore,
+        userRightsCheckIntervalInSeconds = 1,
+        pekkoScheduler = system.scheduler,
+        jwtTimestampLeeway = None,
+        tokenExpiryGracePeriodForStreams = None,
+        loggerFactory = loggerFactory,
+      )(ec, traceContext),
       jwtTimestampLeeway = None,
       telemetry = NoOpTelemetry,
       loggerFactory = loggerFactory,

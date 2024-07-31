@@ -641,7 +641,7 @@ private[events] object TransactionLogUpdatesConversions {
         updateId = reassignmentAccepted.updateId,
         commandId = reassignmentAccepted.completionDetails
           .filter(details => stringRequestingParties.fold(true)(details.submitters.exists))
-          .flatMap(_.completionStreamResponse.completion)
+          .flatMap(_.completionStreamResponse.completionResponse.completion)
           .map(_.commandId)
           .getOrElse(""),
         workflowId = reassignmentAccepted.workflowId,

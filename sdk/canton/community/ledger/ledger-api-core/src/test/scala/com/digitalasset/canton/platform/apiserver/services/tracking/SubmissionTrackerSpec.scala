@@ -46,38 +46,46 @@ class SubmissionTrackerSpec
       // Completion with mismatching submissionId
       completionWithMismatchingSubmissionId = completionOk.copy(submissionId = "wrongSubmissionId")
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion =
-          Some(completionWithMismatchingSubmissionId)
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(
+            completionWithMismatchingSubmissionId
+          )
         ) -> submitters
       )
 
       // Completion with mismatching commandId
       completionWithMismatchingCommandId = completionOk.copy(commandId = "wrongCommandId")
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion =
-          Some(completionWithMismatchingCommandId)
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingCommandId)
         ) -> submitters
       )
 
       // Completion with mismatching applicationId
       completionWithMismatchingAppId = completionOk.copy(applicationId = "wrongAppId")
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion = Some(completionWithMismatchingAppId)) -> submitters
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingAppId)
+        ) -> submitters
       )
 
       // Completion with mismatching actAs
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion = Some(completionOk)) -> (submitters + "another_party")
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(completionOk)
+        ) -> (submitters + "another_party")
       )
 
       // Matching completion
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion = Some(completionOk)) -> submitters
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(completionOk)
+        ) -> submitters
       )
 
       trackedSubmission <- trackedSubmissionF
     } yield {
-      trackedSubmission shouldBe CompletionResponse(None, completionOk)
+      trackedSubmission shouldBe CompletionResponse(completionOk)
     }
   }
 
@@ -103,8 +111,8 @@ class SubmissionTrackerSpec
       // Complete the submission with a failed completion
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(
-          completion = Some(completionFailed),
-          checkpoint = None,
+          completionResponse =
+            CompletionStreamResponse.CompletionResponse.Completion(completionFailed)
         ) -> submitters
       )
 
@@ -154,7 +162,9 @@ class SubmissionTrackerSpec
 
       // Complete the first submission to ensure clean pending map at the end
       _ = submissionTracker.onCompletion(
-        CompletionStreamResponse(completion = Some(completionOk), checkpoint = None) -> submitters
+        CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(completionOk)
+        ) -> submitters
       )
       _ <- firstSubmissionF
     } yield inside(actualException) { case actualStatusRuntimeException: StatusRuntimeException =>
@@ -271,8 +281,9 @@ class SubmissionTrackerSpec
         // Complete the submission with completion response
         _ = submissionTracker.onCompletion(
           CompletionStreamResponse(
-            completion = Some(completionOk.copy(status = None)),
-            checkpoint = None,
+            completionResponse = CompletionStreamResponse.CompletionResponse.Completion(
+              completionOk.copy(status = None)
+            )
           ) -> submitters
         )
 
@@ -340,8 +351,10 @@ class SubmissionTrackerSpec
         () =>
           Future {
             submissionTracker.onCompletion(
-              CompletionStreamResponse(completion =
-                Some(completionOk.copy(commandId = key.commandId))
+              CompletionStreamResponse(completionResponse =
+                CompletionStreamResponse.CompletionResponse.Completion(
+                  completionOk.copy(commandId = key.commandId)
+                )
               ) -> submitters
             )
           }

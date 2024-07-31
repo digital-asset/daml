@@ -658,6 +658,8 @@ object Generators {
         ),
       )
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+      offset <- Arbitrary.arbString.arbitrary
+      domainTime <- domainTimeGen
     } yield Completion
       .newBuilder()
       .setCommandId(commandId)
@@ -668,18 +670,20 @@ object Generators {
       .setSubmissionId(submissionId)
       .pipe(deduplication)
       .setTraceContext(traceContext)
+      .setOffset(offset)
+      .setDomainTime(domainTime)
       .build()
   }
 
-  def checkpointGen: Gen[v2.CheckpointOuterClass.Checkpoint] = {
-    import v2.CheckpointOuterClass.Checkpoint
+  def domainTimeGen: Gen[v2.OffsetCheckpointOuterClass.DomainTime] = {
+    import v2.OffsetCheckpointOuterClass.DomainTime
     for {
+      domainId <- Arbitrary.arbString.arbitrary
       recordTime <- instantGen
-      offset <- Arbitrary.arbString.arbitrary
-    } yield Checkpoint
+    } yield DomainTime
       .newBuilder()
+      .setDomainId(domainId)
       .setRecordTime(Utils.instantToProto(recordTime))
-      .setOffset(offset)
       .build()
   }
 
@@ -687,14 +691,15 @@ object Generators {
       : Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamResponse] = {
     import v2.CommandCompletionServiceOuterClass.CompletionStreamResponse as Response
     for {
-      checkpoint <- checkpointGen
-      completion <- completionGen
-      domainId <- Arbitrary.arbString.arbitrary
+      response <- Gen.oneOf(
+        completionGen.map(completion => (b: Response.Builder) => b.setCompletion(completion)),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
+        ),
+      )
     } yield Response
       .newBuilder()
-      .setCheckpoint(checkpoint)
-      .setCompletion(completion)
-      .setDomainId(domainId)
+      .pipe(response)
       .build()
   }
 
@@ -848,6 +853,18 @@ object Generators {
     }
   }
 
+  def offsetCheckpointGen: Gen[v2.OffsetCheckpointOuterClass.OffsetCheckpoint] = {
+    import v2.OffsetCheckpointOuterClass.OffsetCheckpoint
+    for {
+      offset <- Arbitrary.arbString.arbitrary
+      domainTimes <- Gen.listOf(domainTimeGen)
+    } yield OffsetCheckpoint
+      .newBuilder()
+      .setOffset(offset)
+      .addAllDomainTimes(domainTimes.asJava)
+      .build()
+  }
+
   def getUpdatesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesResponse] = {
     import v2.UpdateServiceOuterClass.GetUpdatesResponse as Response
     for {
@@ -855,6 +872,9 @@ object Generators {
         transactionGen.map(transaction => (b: Response.Builder) => b.setTransaction(transaction)),
         reassignmentGen.map(reassingment =>
           (b: Response.Builder) => b.setReassignment(reassingment)
+        ),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
       )
     } yield Response
@@ -872,6 +892,9 @@ object Generators {
         ),
         reassignmentGen.map(reassingment =>
           (b: Response.Builder) => b.setReassignment(reassingment)
+        ),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
       )
     } yield Response

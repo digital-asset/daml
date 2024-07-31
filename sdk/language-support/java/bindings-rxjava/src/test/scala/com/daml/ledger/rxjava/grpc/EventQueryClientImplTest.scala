@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.rxjava.grpc.helpers.TestConfiguration
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.rxjava._

@@ -4,10 +4,10 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.google.rpc.status.Status
 import org.scalatest.OptionValues
@@ -15,6 +15,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 class CommandCompletionClientImplTest
     extends AnyFlatSpec
@@ -31,12 +32,12 @@ class CommandCompletionClientImplTest
 
   it should "return a stream with all the completions" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)), "1")
-    val completion2 = Completion("cid2", Option(new Status(1)))
+    val completion1 = Completion("cid1", Option(new Status(0)), "1", offset = offset1)
+    val completion2 = Completion("cid2", Option(new Status(1)), offset = offset2)
 
     val completionResponses = List(
-      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1)),
-      CompletionStreamResponse(Some(Checkpoint(offset = offset2)), Some(completion2)),
+      CompletionStreamResponse(CompletionResponse.Completion(completion1)),
+      CompletionStreamResponse(CompletionResponse.Completion(completion2)),
     )
     ledgerServices.withCommandCompletionClient(
       completionResponses
@@ -50,13 +51,13 @@ class CommandCompletionClientImplTest
 
       val receivedCompletion1 = completions.next()
       val receivedCompletion2 = completions.next()
-      receivedCompletion1.getCheckpoint.getOffset shouldBe offset1
-      receivedCompletion1.getCompletion.getCommandId shouldBe completion1.commandId
-      receivedCompletion1.getCompletion.getStatus.getCode shouldBe completion1.getStatus.code
-      receivedCompletion1.getCompletion.getUpdateId shouldBe completion1.updateId
-      receivedCompletion2.getCheckpoint.getOffset shouldBe offset2
-      receivedCompletion2.getCompletion.getCommandId shouldBe completion2.commandId
-      receivedCompletion2.getCompletion.getStatus.getCode shouldBe completion2.getStatus.code
+      receivedCompletion1.getCompletion.toScala.value.getOffset shouldBe offset1
+      receivedCompletion1.getCompletion.toScala.value.getCommandId shouldBe completion1.commandId
+      receivedCompletion1.getCompletion.toScala.value.getStatus.getCode shouldBe completion1.getStatus.code
+      receivedCompletion1.getCompletion.toScala.value.getUpdateId shouldBe completion1.updateId
+      receivedCompletion2.getCompletion.toScala.value.getOffset shouldBe offset2
+      receivedCompletion2.getCompletion.toScala.value.getCommandId shouldBe completion2.commandId
+      receivedCompletion2.getCompletion.toScala.value.getStatus.getCode shouldBe completion2.getStatus.code
     }
   }
 
@@ -64,9 +65,9 @@ class CommandCompletionClientImplTest
 
   it should "send the request with the correct arguments" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)))
+    val completion1 = Completion("cid1", Option(new Status(0)), offset = offset1)
     val completionResponse =
-      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1))
+      CompletionStreamResponse(CompletionResponse.Completion(completion1))
     val parties = List("Alice")
     ledgerServices.withCommandCompletionClient(
       List(completionResponse)
@@ -84,9 +85,9 @@ class CommandCompletionClientImplTest
   behavior of "Authorization"
 
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
-    val completion1 = Completion("cid1", Option(new Status(0)))
+    val completion1 = Completion("cid1", Option(new Status(0)), offset = offset1)
     val completionResponse =
-      CompletionStreamResponse(Some(Checkpoint(offset = offset1)), Some(completion1))
+      CompletionStreamResponse(CompletionResponse.Completion(completion1))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
       mockedAuthService,

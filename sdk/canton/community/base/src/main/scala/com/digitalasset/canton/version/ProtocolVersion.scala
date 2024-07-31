@@ -232,10 +232,11 @@ object ProtocolVersion {
       ProtocolVersion(5),
       ProtocolVersion(6),
       ProtocolVersion(30),
+      ProtocolVersion(31),
     )
 
   val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =
-    NonEmpty.mk(List, ProtocolVersion.v31, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v32, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
     parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
@@ -257,11 +258,11 @@ object ProtocolVersion {
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
     ProtocolVersion.createAlpha(Int.MaxValue)
 
-  lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
-    ProtocolVersion.createAlpha(31)
+  lazy val v32: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    ProtocolVersion.createAlpha(32)
 
   // Minimum stable protocol version introduced
-  lazy val minimum: ProtocolVersion = v31
+  lazy val minimum: ProtocolVersion = v32
 
   private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
     pv.map(parseUnchecked)

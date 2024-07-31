@@ -89,13 +89,13 @@ package domain {
 
     def apply(identityProviderId: String): IdentityProviderId =
       Some(identityProviderId).filter(_.nonEmpty) match {
-        case Some(id) => Id(Ref.LedgerString.assertFromString(id))
+        case Some(id) => Id.assertFromString(id)
         case None => Default
       }
 
     def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
       Some(identityProviderId).filter(_.nonEmpty) match {
-        case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
+        case Some(id) => Id.fromString(id)
         case None => Right(Default)
       }
 
@@ -103,6 +103,12 @@ package domain {
       identityProviderId match {
         case None => IdentityProviderId.Default
         case Some(id) => id
+      }
+
+    def fromOptionalLedgerString(identityProviderId: Option[Ref.LedgerString]): IdentityProviderId =
+      identityProviderId match {
+        case None => IdentityProviderId.Default
+        case Some(id) => IdentityProviderId.Id(id)
       }
   }
 

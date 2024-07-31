@@ -18,7 +18,7 @@ object CantonContractIdVersion {
   def fromProtocolVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v31) Right(AuthenticatedContractIdVersionV10)
+    if (protocolVersion >= ProtocolVersion.v32) Right(AuthenticatedContractIdVersionV10)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
   def ensureCantonContractId(

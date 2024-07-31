@@ -41,7 +41,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     } yield {
       offsetOf(response) shouldBe offset
 
-      val completion = response.completion.toList.head
+      val completion = response.completionResponse.completion.toList.head
 
       completion.updateId shouldBe tx.transactionId
       completion.commandId shouldBe tx.commandId.value
@@ -82,9 +82,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
         )
         .runWith(Sink.head)
     } yield {
-      response1.completion.toList.head.commandId shouldBe tx.commandId.value
-      response2.completion.toList.head.commandId shouldBe tx.commandId.value
-      response3.completion.toList.head.commandId shouldBe tx.commandId.value
+      response1.completionResponse.completion.toList.head.commandId shouldBe tx.commandId.value
+      response2.completionResponse.completion.toList.head.commandId shouldBe tx.commandId.value
+      response3.completionResponse.completion.toList.head.commandId shouldBe tx.commandId.value
     }
   }
 
@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     } yield {
       offsetOf(response) shouldBe offset
 
-      val completion = response.completion.toList.head
+      val completion = response.completionResponse.completion.toList.head
 
       completion.updateId shouldBe empty
       completion.commandId shouldBe expectedCmdId
@@ -133,9 +133,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
         .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, parties + "UNRELATED")
         .runWith(Sink.head)
     } yield {
-      response1.completion.toList.head.commandId shouldBe expectedCmdId
-      response2.completion.toList.head.commandId shouldBe expectedCmdId
-      response3.completion.toList.head.commandId shouldBe expectedCmdId
+      response1.completionResponse.completion.toList.head.commandId shouldBe expectedCmdId
+      response2.completionResponse.completion.toList.head.commandId shouldBe expectedCmdId
+      response3.completionResponse.completion.toList.head.commandId shouldBe expectedCmdId
     }
   }
 
@@ -287,6 +287,8 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetOf(response: CompletionStreamResponse): Offset =
-    ApiOffset.assertFromString(response.checkpoint.get.offset)
+    ApiOffset.assertFromString(
+      response.completionResponse.completion.get.offset
+    )
 
 }

@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.crypto.RandomOps
-import com.digitalasset.canton.ledger.api.auth.AuthService.AUTHORIZATION_KEY
-import com.digitalasset.canton.ledger.api.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import io.grpc.Metadata
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
+import AuthService.AUTHORIZATION_KEY
 
 final case class CantonAdminToken(secret: String)
 object CantonAdminToken {

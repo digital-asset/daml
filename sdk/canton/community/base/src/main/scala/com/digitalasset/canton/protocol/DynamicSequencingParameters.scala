@@ -54,7 +54,7 @@ object DynamicSequencingParameters
   override val supportedProtoVersions
       : canton.protocol.DynamicSequencingParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
         v30.DynamicSequencingParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),

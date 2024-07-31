@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.daml.ledger.api.v2.offset_checkpoint.OffsetCheckpoint.DomainTime
+import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
 import com.daml.ledger.api.v2.offset_checkpoint as v2
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
