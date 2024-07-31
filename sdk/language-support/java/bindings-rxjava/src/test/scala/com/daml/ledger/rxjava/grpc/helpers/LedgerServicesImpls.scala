@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.auth.Authorizer
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{

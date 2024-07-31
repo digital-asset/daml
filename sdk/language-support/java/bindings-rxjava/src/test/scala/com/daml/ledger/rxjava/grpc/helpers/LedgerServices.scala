@@ -12,16 +12,13 @@ import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
+import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
+import com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization
 import com.digitalasset.canton.ledger.api.auth.interceptor.{
-  AuthorizationInterceptor,
   IdentityProviderAwareAuthService,
+  UserBasedAuthorizationInterceptor,
 }
-import com.digitalasset.canton.ledger.api.auth.{
-  AuthService,
-  AuthServiceWildcard,
-  Authorizer,
-  ClaimSet,
-}
+import com.digitalasset.canton.tracing.TraceContext
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{
@@ -61,10 +58,14 @@ final class LedgerServices(val name: String) {
     new Authorizer(
       now = () => Clock.systemUTC().instant(),
       participantId = participantId,
-      userManagementStore = new InMemoryUserManagementStore(createAdmin = false, loggerFactory),
-      ec = executionContext,
-      userRightsCheckIntervalInSeconds = 1,
-      pekkoScheduler = pekkoSystem.scheduler,
+      ongoingAuthorizationFactory = UserBasedOngoingAuthorization.Factory(
+        now = () => Clock.systemUTC().instant(),
+        userManagementStore = new InMemoryUserManagementStore(createAdmin = false, loggerFactory),
+        userRightsCheckIntervalInSeconds = 1,
+        pekkoScheduler = pekkoSystem.scheduler,
+        jwtTimestampLeeway = None,
+        loggerFactory = loggerFactory,
+      )(executionContext, TraceContext.empty),
       jwtTimestampLeeway = None,
       telemetry = NoOpTelemetry,
       loggerFactory = loggerFactory,
@@ -114,7 +115,7 @@ final class LedgerServices(val name: String) {
       authService: AuthService,
       services: Seq[ServerServiceDefinition],
   ): Server = {
-    val authorizationInterceptor = AuthorizationInterceptor(
+    val authorizationInterceptor = new UserBasedAuthorizationInterceptor(
       authService,
       Some(new InMemoryUserManagementStore(false, loggerFactory)),
       new IDPAuthService,

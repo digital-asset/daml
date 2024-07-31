@@ -8,7 +8,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
-import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,

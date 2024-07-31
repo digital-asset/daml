@@ -5,10 +5,14 @@ package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.DecodedJwt
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  DecodedJwt,
+  JwtSigner,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.auth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
@@ -282,18 +286,18 @@ object CantonRunner {
       authSecret: Option[String] = None,
       targetScope: Option[String] = None,
   ): Option[String] = authSecret.map { secret =>
-    val payload = auth.StandardJWTPayload(
+    val payload = StandardJWTPayload(
       issuer = None,
       userId = userId,
       participantId = None,
       exp = None,
-      format = auth.StandardJWTTokenFormat.Scope,
+      format = StandardJWTTokenFormat.Scope,
       audiences = List.empty,
       scope = Some(targetScope.getOrElse("daml_ledger_api")),
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt =
-      DecodedJwt[String](header, auth.AuthServiceJWTCodec.writePayload(payload).compactPrint)
+      DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).compactPrint)
     JwtSigner.HMAC256.sign(jwt, secret).toEither match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)

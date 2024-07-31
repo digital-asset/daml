@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.TimeServiceAuthorization
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v2.testing.time_service.{

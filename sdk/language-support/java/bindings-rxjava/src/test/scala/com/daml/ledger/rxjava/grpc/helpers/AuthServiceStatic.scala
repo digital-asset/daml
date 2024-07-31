@@ -5,8 +5,8 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-import com.digitalasset.canton.ledger.api.auth.AuthService.AUTHORIZATION_KEY
-import com.digitalasset.canton.ledger.api.auth.{AuthService, ClaimSet}
+import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
+import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
 
