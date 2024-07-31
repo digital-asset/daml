@@ -862,7 +862,17 @@ object Generators {
       .newBuilder()
       .setOffset(offset)
       .addAllDomainTimes(domainTimes.asJava)
-      .build()
+
+      endInclusiveO match {
+        case Some(endInclusive) =>
+          partialBuilder
+            .setEndInclusive(endInclusive)
+            .build()
+        case None =>
+          partialBuilder
+            .build()
+      }
+    }
   }
 
   def getUpdatesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesResponse] = {

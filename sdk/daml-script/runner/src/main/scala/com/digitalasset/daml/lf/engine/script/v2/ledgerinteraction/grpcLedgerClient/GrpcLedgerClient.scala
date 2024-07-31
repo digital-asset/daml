@@ -137,7 +137,7 @@ class GrpcLedgerClient(
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
     val acsResponse =
-      grpcClient.v2.stateService
+      grpcClient.stateService
         .getActiveContracts(filter, verbose = false)
         .map(_._1)
     acsResponse.map(activeContracts =>
@@ -210,7 +210,7 @@ class GrpcLedgerClient(
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
     val acsResponse =
-      grpcClient.v2.stateService
+      grpcClient.stateService
         .getActiveContracts(filter, verbose = false)
         .map(_._1)
     acsResponse.map(activeContracts =>
@@ -324,7 +324,7 @@ class GrpcLedgerClient(
         disclosedContracts = ledgerDisclosures,
         packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
       )
-      eResp <- grpcClient.v2.commandService
+      eResp <- grpcClient.commandService
         .submitAndWaitForTransactionTree(apiCommands)
 
       result <- eResp match {

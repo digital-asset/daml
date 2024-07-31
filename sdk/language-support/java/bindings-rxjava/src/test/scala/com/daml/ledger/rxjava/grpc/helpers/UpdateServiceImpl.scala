@@ -6,17 +6,11 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.api.v2.trace_context.TraceContext
-import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.{LedgerItem, participantOffsetOrdering}
+import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.{
-  PARTICIPANT_BOUNDARY_BEGIN,
-  PARTICIPANT_BOUNDARY_END,
-  Unrecognized,
-}
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.daml.ledger.api.v2.update_service._
@@ -45,14 +39,11 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
   ): Unit = {
     lastUpdatesRequest.set(request)
 
-    if (
-      request.endInclusive
-        .exists(end => participantOffsetOrdering.gt(request.getBeginExclusive, end))
-    ) {
+    if (request.beginExclusive > request.endInclusive) {
       val metadata = new Metadata()
       metadata.put(
         Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
-        s"BEGIN should be strictly smaller than END. Found BEGIN '${request.getBeginExclusive}' and END '${request.getEndInclusive}'",
+        s"BEGIN should be strictly smaller than END. Found BEGIN '${request.beginExclusive}' and END '${request.endInclusive}'",
       )
       responseObserver.onError(Status.INVALID_ARGUMENT.asRuntimeException(metadata))
     } else {
@@ -152,35 +143,4 @@ object UpdateServiceImpl {
     val authImpl = new UpdateServiceAuthorization(impl, authorizer)
     (UpdateServiceGrpc.bindService(authImpl, ec), impl)
   }
-
-  val participantOffsetOrdering: Ordering[ParticipantOffset] =
-    (x: ParticipantOffset, y: ParticipantOffset) => {
-      if (x.equals(y)) 0
-      else {
-        x.getAbsolute match {
-          case "" =>
-            x.getBoundary match {
-              case PARTICIPANT_BOUNDARY_BEGIN => -1
-              case PARTICIPANT_BOUNDARY_END => 1
-              case Unrecognized(value) =>
-                throw new RuntimeException(
-                  s"Found boundary that is neither BEGIN or END (value: $value)"
-                )
-            }
-          case xAbs =>
-            y.getAbsolute match {
-              case "" =>
-                y.getBoundary match {
-                  case PARTICIPANT_BOUNDARY_BEGIN => 1
-                  case PARTICIPANT_BOUNDARY_END => -1
-                  case Unrecognized(value) =>
-                    throw new RuntimeException(
-                      s"Found boundary that is neither BEGIN or END (value: $value)"
-                    )
-                }
-              case yAbs => xAbs.compareTo(yAbs)
-            }
-        }
-      }
-    }
 }

@@ -19,7 +19,7 @@ trait RunnerMainTestBaseCanton extends CantonFixture with RunnerMainTestBase {
     implicit val ec: ExecutionContext = ExecutionContext.global
     for {
       client <- defaultLedgerClient()
-      res <- client.v2.packageService.listPackages()
+      res <- client.packageService.listPackages()
       lf = DarParser.assertReadArchiveFromFile(dar.toFile)
     } yield res.packageIds.contains(lf.main.getHash)
   }
