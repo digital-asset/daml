@@ -68,7 +68,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       event.foreach(e =>
         e.value match {
           case response: MediatorEvent.Response =>
-            logger.info(show"Phase 5: Received responses for request=${timestamp}: ${response}")(
+            logger.info(show"Phase 5: Received responses for request=$timestamp: $response")(
               e.traceContext
             )
           case _ => ()
@@ -139,14 +139,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
   private[mediator] def handleTimeouts(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     mediatorState
       .pendingTimedoutRequest(timestamp) match {
       case Nil => FutureUnlessShutdown.unit
       case nonEmptyTimeouts =>
         nonEmptyTimeouts.map(handleTimeout(_, timestamp)).sequence_
     }
-  }
 
   @VisibleForTesting
   private[mediator] def handleTimeout(
@@ -210,7 +209,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       request: MediatorConfirmationRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     withSpan("ConfirmationRequestAndResponseProcessor.processRequest") {
       val timeout = requestId.unwrap.plus(confirmationResponseTimeout.unwrap)
       implicit traceContext =>
@@ -280,7 +279,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             }
           } yield ()
     }
-  }
 
   /** Validate a mediator confirmation request
     *
@@ -384,7 +382,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorGroupRecipient] = {
 
-    def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] = {
+    def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] =
       Some(
         MediatorVerdict.MediatorReject(
           MediatorError.MalformedMessage
@@ -394,7 +392,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             .reported()
         )
       )
-    }
 
     for {
       mediatorGroupO <- EitherT.right(
@@ -662,8 +659,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
   private def validateMinimumThreshold(
       requestId: RequestId,
       request: MediatorConfirmationRequest,
-  )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] = {
-
+  )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] =
     request.informeesAndConfirmationParamsByViewPosition.toSeq
       .traverse_ { case (viewPosition, ViewConfirmationParameters(_, quorums)) =>
         val minimumThreshold = NonNegativeInt.one
@@ -678,7 +674,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           ),
         )
       }
-  }
 
   private def validateAuthorizedConfirmingParties(
       requestId: RequestId,
@@ -686,7 +681,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       snapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
+  ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] =
     request.informeesAndConfirmationParamsByViewPosition.toList
       .parTraverse_ { case (viewPosition, viewConfirmationParameters) =>
         // sorting parties to get deterministic error messages
@@ -744,7 +739,6 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           )
         } yield ()
       }
-  }
 
   def processResponse(
       ts: CantonTimestamp,
@@ -832,7 +826,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             } else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response with wrong recipients ${recipients}, expected ${responseAggregation.request.mediator}"
+                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response with wrong recipients $recipients, expected ${responseAggregation.request.mediator}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]

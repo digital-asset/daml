@@ -65,14 +65,13 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
     CompletableResultCode.ofSuccess()
   }
 
-  private def tryOrStop(res: => Unit): Unit = {
+  private def tryOrStop(res: => Unit): Unit =
     Try(res) match {
       case Success(_) =>
       case Failure(exception) =>
         logger.warn("Failed to write metrics to csv file. Turning myself off", exception)
         running.set(false)
     }
-  }
 
   private def writeRow(ts: CantonTimestamp, value: MetricValue, data: MetricData): Unit = if (
     running.get()
@@ -90,7 +89,7 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
         name, {
           val file = new File(config.directory, name)
           logger.info(
-            s"Creating new csv file ${file} for metric using keys=${knownKeys} from attributes=${value.attributes.keys}"
+            s"Creating new csv file $file for metric using keys=$knownKeys from attributes=${value.attributes.keys}"
           )
           file.getParentFile.mkdirs()
           val writer = new FileWriter(file, true)

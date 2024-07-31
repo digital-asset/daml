@@ -40,13 +40,11 @@ trait ConcurrentPersistentPartyRecordStoreTests extends ConcurrentChangeControlT
 
   private[localstore] override def fetchResourceVersion(
       id: ResourceId
-  )(connection: Connection): Long = {
+  )(connection: Connection): Long =
     PartyRecordStorageBackendImpl.getPartyRecord(id)(connection).value.payload.resourceVersion
-  }
 
-  private[localstore] override def getResourceVersion(resource: DbResource): Long = {
+  private[localstore] override def getResourceVersion(resource: DbResource): Long =
     resource.payload.resourceVersion
-  }
 
   private[localstore] override def getId(resource: DbResource): ResourceId = resource.payload.party
 

@@ -74,7 +74,7 @@ private[mediator] class MediatorState(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     responseAggregation.asFinalized(protocolVersion) match {
       case None =>
         val requestId = responseAggregation.requestId
@@ -88,7 +88,6 @@ private[mediator] class MediatorState(
         FutureUnlessShutdown.unit
       case Some(finalizedResponse) => add(finalizedResponse)
     }
-  }
 
   def add(
       finalizedResponse: FinalizedResponse
@@ -101,7 +100,7 @@ private[mediator] class MediatorState(
   def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[FutureUnlessShutdown, ResponseAggregator] = {
+  ): OptionT[FutureUnlessShutdown, ResponseAggregator] =
     Option(pendingRequests.get(requestId))
       .orElse(finishedRequests.getIfPresent(requestId)) match {
       case Some(cp) => OptionT.some[FutureUnlessShutdown](cp)
@@ -111,7 +110,6 @@ private[mediator] class MediatorState(
           result
         }
     }
-  }
 
   /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches `currentVersion`.
     * You can only use this to update non-finalized aggregations
@@ -128,7 +126,7 @@ private[mediator] class MediatorState(
 
     val requestId = oldValue.requestId
 
-    def storeFinalized(finalizedResponse: FinalizedResponse): FutureUnlessShutdown[Unit] = {
+    def storeFinalized(finalizedResponse: FinalizedResponse): FutureUnlessShutdown[Unit] =
       finalizedResponseStore.store(finalizedResponse) map { _ =>
         // keep the request around for a while to avoid a database lookup under contention
         finishedRequests.put(requestId, finalizedResponse).discard
@@ -136,7 +134,6 @@ private[mediator] class MediatorState(
           updateNumRequests(-1)
         }
       }
-    }
 
     for {
       // I'm not really sure about these validations or errors...

@@ -29,7 +29,7 @@ class ServerRunner[E <: Environment](
 
   def run(environment: E): Unit =
     try {
-      def start(): Unit = {
+      def start(): Unit =
         environment
           .startAll() match {
           case Right(_) => logger.info("Canton started")
@@ -38,7 +38,6 @@ class ServerRunner[E <: Environment](
             // give up as we couldn't start everything successfully
             sys.exit(1)
         }
-      }
 
       def startWithBootstrap(script: CantonScript): Unit =
         ConsoleScriptRunner.run(environment, script, logger = logger) match {
@@ -103,7 +102,7 @@ private class CopyOutputWriter(parent: OutputStream, logger: TracedLogger)
     if (b == '\n') {
       // strip the ansi color commands from the string
       val output = buf.toString.replaceAll("\u001B\\[[;\\d]*m", "")
-      logger.info(s"Console stderr output: ${output}")
+      logger.info(s"Console stderr output: $output")
       buf.getBuffer.setLength(0)
     } else {
       buf.write(b)

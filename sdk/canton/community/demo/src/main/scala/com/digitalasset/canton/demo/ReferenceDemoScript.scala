@@ -72,9 +72,9 @@ class ReferenceDemoScript(
 
   val maxImage: Int = 28
 
-  private val readyToSubscribeM = new AtomicReference[Map[String, ParticipantOffset]](Map())
+  private val readyToSubscribeM = new AtomicReference[Map[String, String]](Map())
 
-  override def subscriptions(): Map[String, ParticipantOffset] = readyToSubscribeM.get()
+  override def subscriptions(): Map[String, String] = readyToSubscribeM.get()
 
   def imagePath: String = s"file:$rootPath/images/"
 
@@ -109,9 +109,8 @@ class ReferenceDemoScript(
   }
 
   private val partyIdCache = mutable.LinkedHashMap[String, (PartyId, ParticipantReference)]()
-  private def partyId(name: String): PartyId = {
+  private def partyId(name: String): PartyId =
     partyIdCache.getOrElse(name, sys.error(s"Failed to lookup party $name"))._1
-  }
 
   private def darFile(dar: String): String =
     darPath.map(path => s"$path/$dar.dar").getOrElse(s"$rootPath/dars/$dar.dar")
@@ -200,7 +199,7 @@ class ReferenceDemoScript(
     participant.domains.reconnect(name).discard
   }
 
-  private val pruningOffset = new AtomicReference[Option[(ParticipantOffset, Instant)]](None)
+  private val pruningOffset = new AtomicReference[Option[(String, Instant)]](None)
   val steps = TraceContext.withNewTraceContext { implicit traceContext =>
     List[Step](
       Noop, // pres page nr = page * 2 - 1
@@ -224,7 +223,7 @@ class ReferenceDemoScript(
             partyIdCache.put(name, (pid, participant)).discard
             readyToSubscribeM
               .updateAndGet(cur => cur + (name -> ParticipantTab.LedgerBegin))
-              .discard[Map[String, ParticipantOffset]]
+              .discard[Map[String, String]]
           }
 
         },
@@ -392,9 +391,8 @@ class ReferenceDemoScript(
           // Force the time proofs to be updated after topology transactions
           // TODO(i13200) The following line can be removed once the ticket is closed
           participant3.testing.fetch_domain_times()
-          val withdraw = {
+          val withdraw =
             insuranceLookup(M.bank.Cash.COMPANION).id.exerciseSplit(15).commands
-          }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), withdraw, optTimeout = syncTimeout)
             .discard[TransactionTree]
@@ -404,11 +402,10 @@ class ReferenceDemoScript(
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
           // settle claim (will invoke auto-transfer to the banking domain)
-          val settleClaim = {
+          val settleClaim =
             insuranceLookup(M.healthinsurance.Claim.COMPANION).id
               .exerciseAcceptAndSettleClaim(findCashCid.id)
               .commands
-          }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), settleClaim, optTimeout = syncTimeout)
             .discard[TransactionTree]
@@ -432,7 +429,7 @@ class ReferenceDemoScript(
           }
           // now, remember the offset to prune at
           val participantOffset =
-            participant5.ledger_api.state.endOffset()
+            participant5.ledger_api.state.end()
           // Trigger advancement of the clean head, so the previous contracts become safe to prune
           if (editionSupportsPruning) {
             participant5.health
@@ -474,7 +471,7 @@ class ReferenceDemoScript(
                 // give the ACS commitment processor some time to catchup
                 Threading.sleep(5.seconds.toMillis)
                 logger.info(s"Pruning ledger up to offset $offset inclusively")
-                participant5.pruning.prune(offset)
+                participant5.pruning.prune(ParticipantOffset.defaultInstance.withAbsolute(offset))
                 logger.info(s"Pruned ledger up to offset $offset inclusively.")
                 offset
               }
@@ -484,7 +481,7 @@ class ReferenceDemoScript(
                 participant5.ledger_api.updates
                   .flat(Set(registry), completeAfter = 5, beginOffset = prunedOffset)
               // ensure we don't see any transactions
-              require(transactions.isEmpty, s"transactions should be empty but was ${transactions}")
+              require(transactions.isEmpty, s"transactions should be empty but was $transactions")
             }
           }
           // ensure registry tab resubscribes after the pruning offset
@@ -510,13 +507,13 @@ class ReferenceDemoScript(
             }
           }
           val filename = darFile("ai-analysis")
-          val allF = Seq(participant5, participant1, participant6).map(participant => {
+          val allF = Seq(participant5, participant1, participant6).map { participant =>
             Future {
               blocking {
                 participant.dars.upload(filename)
               }
             }
-          }) :+ Future {
+          } :+ Future {
             blocking {}
           } :+ registerDomainF
           // once all dars are uploaded and we've connected the domain, register the party (as we can flush everything there ...)
@@ -531,7 +528,7 @@ class ReferenceDemoScript(
                 }
               }
             )
-          execute(Seq(sf.map(_ => {
+          execute(Seq(sf.map { _ =>
             val offer = new ME.aianalysis.OfferAnalysis(
               registry,
               alice,
@@ -540,7 +537,7 @@ class ReferenceDemoScript(
             participant5.ledger_api.javaapi.commands
               .submit(Seq(registry), offer, optTimeout = syncTimeout)
               .discard[TransactionTree]
-          }))).discard
+          })).discard
         },
       ),
       Action(
@@ -607,7 +604,7 @@ object ReferenceDemoScript {
     def getSequencer(str: String): SequencerReference =
       consoleEnvironment.sequencers.all
         .find(_.name == str)
-        .getOrElse(sys.error(s"can not find domain named ${str}"))
+        .getOrElse(sys.error(s"can not find domain named $str"))
 
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")

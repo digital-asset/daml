@@ -136,14 +136,13 @@ object UserManagementClient {
 
   private def fromProtoMetadata(
       metadata: com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
-  ): domain.ObjectMeta = {
+  ): domain.ObjectMeta =
     domain.ObjectMeta(
       // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
       resourceVersionO =
         Option.when(metadata.resourceVersion.nonEmpty)(metadata.resourceVersion).map(_.toLong),
       annotations = metadata.annotations,
     )
-  }
 
   private def toProtoUser(user: User): proto.User =
     proto.User(

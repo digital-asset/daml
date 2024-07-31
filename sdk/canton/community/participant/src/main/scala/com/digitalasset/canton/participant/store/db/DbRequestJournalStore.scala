@@ -186,7 +186,7 @@ class DbRequestJournalStore(
 
   override def firstRequestWithCommitTimeAfter(commitTimeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[RequestData]] = {
+  ): Future[Option[RequestData]] =
     storage.profile match {
       case _: Profile.Postgres =>
         for {
@@ -225,8 +225,6 @@ class DbRequestJournalStore(
           functionFullName,
         )
     }
-
-  }
 
   override def replace(
       rc: RequestCounter,
@@ -342,7 +340,7 @@ class DbRequestJournalStore(
 
   override def size(start: CantonTimestamp, end: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): Future[Int] = {
+  ): Future[Int] =
     storage
       .query(
         {
@@ -356,7 +354,6 @@ class DbRequestJournalStore(
         functionFullName,
       )
       .map(_.size)
-  }
 
   override def deleteSince(
       fromInclusive: RequestCounter

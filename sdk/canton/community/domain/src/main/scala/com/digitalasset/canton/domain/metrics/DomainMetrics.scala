@@ -243,7 +243,7 @@ object SequencerMetrics {
         logger: TracedLogger,
         warnOnUnexpected: Boolean = true,
     )(implicit traceContext: TraceContext): MetricsContext = {
-      val messageType = {
+      val messageType =
         // by looking at the recipient lists and the sender, we'll figure out what type of message we've been getting
         (sender, participants, mediators, sequencers, broadcast) match {
           case (ParticipantId(_), false, true, false, false) =>
@@ -273,7 +273,6 @@ object SequencerMetrics {
               logger.warn(s"Unexpected message from $sender to " + recipients.mkString(","))
             "send-unexpected"
         }
-      }
       MetricsContext(
         "sender" -> sender.toString,
         "type" -> messageType,
@@ -286,7 +285,7 @@ object SequencerMetrics {
       sender: Member,
       logger: TracedLogger,
       warnOnUnexpected: Boolean = true,
-  )(implicit traceContext: TraceContext): MetricsContext = {
+  )(implicit traceContext: TraceContext): MetricsContext =
     allRecipients
       .foldLeft(RecipientStats()) {
         case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
@@ -298,7 +297,6 @@ object SequencerMetrics {
         case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
       }
       .metricsContext(sender, logger, warnOnUnexpected)
-  }
 }
 
 class MediatorHistograms(val parent: MetricName)(implicit

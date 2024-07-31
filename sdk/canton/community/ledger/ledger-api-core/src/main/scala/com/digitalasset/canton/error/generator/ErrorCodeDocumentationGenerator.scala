@@ -8,7 +8,7 @@ import org.reflections.Reflections
 
 import scala.jdk.CollectionConverters.*
 import scala.reflect.runtime.universe.*
-import scala.reflect.runtime.{universe as ru}
+import scala.reflect.runtime.universe as ru
 
 /** Utility that indexes all error code implementations.
   */
@@ -175,7 +175,7 @@ object ErrorCodeDocumentationGenerator {
           explanation.set(Explanation(parseAnnotationValue(annotation.tree)), ExplanationTypeName)
         case otherAnnotationTypeName =>
           throw new IllegalArgumentException(
-            s"Unexpected annotation of type: ${otherAnnotationTypeName}"
+            s"Unexpected annotation of type: $otherAnnotationTypeName"
           )
       }
     }
@@ -191,13 +191,13 @@ object ErrorCodeDocumentationGenerator {
       .asScala
       .view
       .filter(_.getDeclaredFields.exists(_.getName == "MODULE$"))
-      .map { clazz => clazz.getDeclaredField("MODULE$").get(clazz).asInstanceOf[T] }
+      .map(clazz => clazz.getDeclaredField("MODULE$").get(clazz).asInstanceOf[T])
       .toSeq
 
   private def simpleClassName(any: Any): String =
     any.getClass.getSimpleName.replace("$", "")
 
-  private def parseAnnotationValue(tree: ru.Tree): String = {
+  private def parseAnnotationValue(tree: ru.Tree): String =
     tree.children.drop(1) match {
       case ru.Literal(ru.Constant(text: String)) :: Nil => text.stripMargin
       case other =>
@@ -205,7 +205,6 @@ object ErrorCodeDocumentationGenerator {
           s"Failed to process description (description needs to be a constant-string. e.g. don't apply stripMargin). Unexpected tree: $other"
         )
     }
-  }
 
   private def getAnnotationTypeName(annotation: ru.Annotation): String =
     annotation.tree.tpe.toString
@@ -220,9 +219,8 @@ object ErrorCodeDocumentationGenerator {
       this.v = Some(v)
     }
 
-    def get: Option[T] = {
+    def get: Option[T] =
       this.v
-    }
   }
 
 }

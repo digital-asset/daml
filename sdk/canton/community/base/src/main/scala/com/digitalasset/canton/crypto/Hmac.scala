@@ -75,13 +75,12 @@ object Hmac {
   private[crypto] def create(
       hmac: ByteString,
       algorithm: HmacAlgorithm,
-  ): Either[HmacError, Hmac] = {
+  ): Either[HmacError, Hmac] =
     Either.cond(
       hmac.size() == algorithm.hashAlgorithm.length,
       new Hmac(hmac, algorithm),
       InvalidHmacLength(hmac.size(), algorithm.hashAlgorithm.length),
     )
-  }
 
   def fromProtoV30(hmacP: v30.Hmac): ParsingResult[Hmac] =
     for {

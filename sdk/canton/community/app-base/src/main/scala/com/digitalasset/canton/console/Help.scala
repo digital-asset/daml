@@ -96,11 +96,10 @@ object Help {
     forMethod(getItems(instance, scope = scope), methodName)
 
   def forMethod(items: Seq[Item], methodName: String): String = {
-    def expand(item: Item): Seq[(String, Item)] = {
+    def expand(item: Item): Seq[(String, Item)] =
       (item.name, item) +: item.subItems.flatMap(expand).map { case (mn, itm) =>
         (item.name + "." + mn, itm)
       }
-    }
     val expanded = items.flatMap(expand)
     val matching = expanded.filter { case (itemName, _) => itemName == methodName }
     if (matching.nonEmpty) {
@@ -249,9 +248,9 @@ object Help {
           case (lft, rght) => lft.mkString(".") < rght.mkString(".")
         }
       }
-      .map({ case (tobj @ Topic(topic), h) =>
+      .map { case (tobj @ Topic(topic), h) =>
         (if (topic.nonEmpty) underline(tobj.toString) else "") + h
-      })
+      }
       .mkString(System.lineSeparator + System.lineSeparator)
     if (grouped.nonEmpty) {
       topLevel + System.lineSeparator + System.lineSeparator + underline("Command Groups") + grouped
@@ -261,7 +260,7 @@ object Help {
 
   private def memberDescription(
       member: ru.Symbol
-  ): Option[(Summary, Description, Topic, Option[String])] = {
+  ): Option[(Summary, Description, Topic, Option[String])] =
     (
       member.annotations.map(fromAnnotation(_, summaryParser)).collect { case Some(s) => s },
       member.annotations.map(fromAnnotation(_, descriptionParser)).collect { case Some(s) => s },
@@ -279,7 +278,6 @@ object Help {
           )
         )
     }
-  }
 
   /** The following definitions (fromAnnotation and Xparser) are quite nasty.
     * They hackily reconstruct the Scala values from annotations, which contain ASTs.
@@ -289,11 +287,10 @@ object Help {
   private def fromAnnotation[T: ru.TypeTag](
       annotation: ru.Annotation,
       parser: ru.Tree => T,
-  ): Option[T] = {
+  ): Option[T] =
     if (annotation.tree.tpe.typeSymbol == ru.typeOf[T].typeSymbol) {
       Some(parser(annotation.tree))
     } else None
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def grabStringTag(tree: ru.Tree): String =
@@ -320,7 +317,7 @@ object Help {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def descriptionParser(tree: ru.Tree): Description = {
+  private def descriptionParser(tree: ru.Tree): Description =
     try {
       Description(grabStringTag(tree).stripMargin)
     } catch {
@@ -331,7 +328,6 @@ object Help {
         )
         throw x
     }
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def tagParser(tree: ru.Tree): Topic = {

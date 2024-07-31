@@ -42,15 +42,13 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Seq[TrafficConsumed]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[TrafficConsumed]] =
     Future.successful(this.trafficConsumedMap.get(member).toList.flatten)
-  }
 
   override def lookupLast(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] = {
+  ): Future[Option[TrafficConsumed]] =
     Future.successful(this.trafficConsumedMap.get(member).toList.flatten.lastOption)
-  }
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

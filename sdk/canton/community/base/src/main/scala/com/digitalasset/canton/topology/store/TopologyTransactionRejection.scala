@@ -53,11 +53,10 @@ object TopologyTransactionRejection {
       loginAfter: Option[CantonTimestamp],
   ) extends TopologyTransactionRejection {
     override def asString: String =
-      s"Participant ${participant} onboarding rejected as restrictions ${restriction} are in place."
+      s"Participant $participant onboarding rejected as restrictions $restriction are in place."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
-    }
   }
 
   final case class NoCorrespondingActiveTxToRevoke(mapping: TopologyMapping)
@@ -98,7 +97,7 @@ object TopologyTransactionRejection {
       TopologyManagerError.InvalidDomain.Failure(domain)
   }
   final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
-    override def asString: String = show"Duplicate transaction from ${old}"
+    override def asString: String = show"Duplicate transaction from $old"
     override def pretty: Pretty[Duplicate] = prettyOfClass(param("old", _.old))
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.DuplicateTransaction.ExistsAt(old)

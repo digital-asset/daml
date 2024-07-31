@@ -36,14 +36,13 @@ final case class SetTrafficPurchasedMessage private (
   @transient override protected lazy val companionObj: SetTrafficPurchasedMessage.type =
     SetTrafficPurchasedMessage
 
-  def toProtoV30: v30.SetTrafficPurchasedMessage = {
+  def toProtoV30: v30.SetTrafficPurchasedMessage =
     v30.SetTrafficPurchasedMessage(
       member = member.toProtoPrimitive,
       serial = serial.value,
       totalTrafficPurchased = totalTrafficPurchased.value,
       domainId = domainId.toProtoPrimitive,
     )
-  }
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -91,7 +90,7 @@ object SetTrafficPurchasedMessage
 
   def fromProtoV30(
       proto: v30.SetTrafficPurchasedMessage
-  )(bytes: ByteString): ParsingResult[SetTrafficPurchasedMessage] = {
+  )(bytes: ByteString): ParsingResult[SetTrafficPurchasedMessage] =
     for {
       member <- Member.fromProtoPrimitive(proto.member, "member")
       serial <- ProtoConverter.parsePositiveInt("serial", proto.serial)
@@ -110,7 +109,6 @@ object SetTrafficPurchasedMessage
       rpv,
       Some(bytes),
     )
-  }
 
   implicit val setTrafficPurchasedCast: SignedMessageContentCast[SetTrafficPurchasedMessage] =
     SignedMessageContentCast.create[SetTrafficPurchasedMessage](

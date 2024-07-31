@@ -69,10 +69,9 @@ class TransferInProcessor(
     ) {
   override protected def metricsContextForSubmissionParam(
       submissionParam: TransferInProcessingSteps.SubmissionParam
-  ): MetricsContext = {
+  ): MetricsContext =
     MetricsContext(
       "application-id" -> submissionParam.submitterMetadata.applicationId,
       "type" -> "transfer-in",
     )
-  }
 }

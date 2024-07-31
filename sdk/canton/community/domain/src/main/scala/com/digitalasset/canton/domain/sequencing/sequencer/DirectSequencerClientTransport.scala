@@ -79,19 +79,18 @@ class DirectSequencerClientTransport(
   ): EitherT[FutureUnlessShutdown, String, Boolean] =
     sequencer
       .acknowledgeSigned(request)
-      .map { _ => true }
+      .map(_ => true)
       .mapK(FutureUnlessShutdown.outcomeK)
 
   override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = {
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
     sequencer
       .getTrafficStateAt(request.member, request.timestamp)
       .map { trafficStateO =>
         GetTrafficStateForMemberResponse(trafficStateO, protocolVersion)
       }
       .leftMap(_.toString)
-  }
 
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext
@@ -115,7 +114,7 @@ class DirectSequencerClientTransport(
               case Right(event) => handler(event)
               case Left(error) =>
                 ErrorUtil.invalidState(
-                  s"Direct transport subscriptions must not trigger subscription errors such as ${error}"
+                  s"Direct transport subscriptions must not trigger subscription errors such as $error"
                 )
             },
           )

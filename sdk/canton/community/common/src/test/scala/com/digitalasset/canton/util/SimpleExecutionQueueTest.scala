@@ -44,7 +44,7 @@ class SimpleExecutionQueueTest
   /*
   Fail a task and captures the warning coming from subsequent tasks that will not be run.
    */
-  private def failTask(task: MockTask, notRunTasks: Seq[String]): Unit = {
+  private def failTask(task: MockTask, notRunTasks: Seq[String]): Unit =
     loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.ERROR))(
       task.fail(),
       LogEntry.assertLogSeq(
@@ -57,7 +57,6 @@ class SimpleExecutionQueueTest
         Seq.empty,
       ),
     )
-  }
 
   private def simpleExecutionQueueTests(
       mk: () => SimpleExecutionQueue

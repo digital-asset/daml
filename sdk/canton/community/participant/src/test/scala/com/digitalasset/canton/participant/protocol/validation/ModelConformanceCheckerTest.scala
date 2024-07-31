@@ -88,7 +88,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       ledgerTime shouldEqual factory.ledgerTime
       submissionTime shouldEqual factory.submissionTime
 
-      val (_, (reinterpretedTx, metadata, keyResolver), _) = {
+      val (_, (reinterpretedTx, metadata, keyResolver), _) =
         // The code below assumes that for reinterpretedSubtransactions the combination
         // of command and root-seed wil be unique. In the examples used to date this is
         // the case. A limitation of this approach is that only one LookupByKey transaction
@@ -97,7 +97,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           viewTree.viewParticipantData.rootAction.command == command &&
           md.seeds.get(tx.roots(0)) == rootSeed
         }.value
-      }
 
       EitherT.rightT((reinterpretedTx, metadata, keyResolver, usedPackages))
     }
@@ -133,7 +132,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       (viewTree, resolvers)
     })
 
-  val transactionTreeFactory: TransactionTreeFactoryImpl = {
+  val transactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submittingParticipant,
       factory.domainId,
@@ -141,7 +140,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       factory.cryptoOps,
       loggerFactory,
     )
-  }
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
     override def authenticate(contract: SerializableContract): Either[String, Unit] = Right(())
@@ -458,9 +456,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     import cats.syntax.either.*
     override def packageDependencies(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       result.toEitherT
-    }
   }
 
 }

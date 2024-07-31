@@ -10,13 +10,11 @@ class SerializableTraceContextTest extends BaseTestWordSpec with BeforeAndAfterE
 
   var testTelemetrySetup: TestTelemetrySetup = _
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   "SerializableTraceContext" can {
     // If the trace has no fields set and `tc.toProtoV0.toByteArray` is used, the trace context will serialize to an

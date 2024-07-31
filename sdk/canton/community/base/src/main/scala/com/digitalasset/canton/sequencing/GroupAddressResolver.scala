@@ -19,7 +19,7 @@ object GroupAddressResolver {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Map[GroupRecipient, Set[Member]]] = {
+  ): Future[Map[GroupRecipient, Set[Member]]] =
     if (groupRecipients.isEmpty) Future.successful(Map.empty)
     else
       for {
@@ -76,7 +76,6 @@ object GroupAddressResolver {
             Future.successful(Map.empty[GroupRecipient, Set[Member]])
         }
       } yield participantsOfParty ++ mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
-  }
 
   def asGroupRecipientsToMembers(
       groups: Seq[MediatorGroup]
@@ -90,11 +89,10 @@ object GroupAddressResolver {
 
   def asGroupRecipientsToMembers(
       mapping: Map[LfPartyId, Set[ParticipantId]]
-  ): Map[GroupRecipient, Set[Member]] = {
+  ): Map[GroupRecipient, Set[Member]] =
     mapping.map[GroupRecipient, Set[Member]] { case (party, participants) =>
       ParticipantsOfParty(
         PartyId.tryFromLfParty(party)
       ) -> participants.toSet[Member]
     }
-  }
 }

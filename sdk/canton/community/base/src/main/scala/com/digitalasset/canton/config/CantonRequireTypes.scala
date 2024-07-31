@@ -35,23 +35,20 @@ object CantonRequireTypes {
     private[this] def apply(str: String): NonEmptyString =
       throw new UnsupportedOperationException("Use create or tryCreate methods")
 
-    def create(str: String): Either[InvariantViolation, NonEmptyString] = {
+    def create(str: String): Either[InvariantViolation, NonEmptyString] =
       Either.cond(
         str.nonEmpty,
         new NonEmptyString(str),
         InvariantViolation(s"Unable to create a NonEmptyString as the empty string $str was given."),
       )
-    }
 
-    def tryCreate(str: String): NonEmptyString = {
+    def tryCreate(str: String): NonEmptyString =
       new NonEmptyString(str)
-    }
 
-    lazy implicit val nonEmptyStringReader: ConfigReader[NonEmptyString] = {
+    lazy implicit val nonEmptyStringReader: ConfigReader[NonEmptyString] =
       ConfigReader.fromString[NonEmptyString] { str =>
         Either.cond(str.nonEmpty, new NonEmptyString(str), EmptyString(str))
       }
-    }
 
     final case class EmptyString(str: String) extends FailureReason {
       override def description: String =
@@ -162,9 +159,8 @@ object CantonRequireTypes {
 
     val defaultMaxLength = 255
 
-    def tryCreate(str: String, maxLength: Int, name: Option[String] = None): LengthLimitedString = {
+    def tryCreate(str: String, maxLength: Int, name: Option[String] = None): LengthLimitedString =
       new LengthLimitedStringVar(str, maxLength)(name)
-    }
 
     def getUuid: String36 = String36.tryCreate(UUID.randomUUID().toString)
 
@@ -172,13 +168,12 @@ object CantonRequireTypes {
         str: String,
         maxLength: Int,
         name: Option[String] = None,
-    ): Either[String, LengthLimitedString] = {
+    ): Either[String, LengthLimitedString] =
       Either.cond(
         str.length <= maxLength,
         new LengthLimitedStringVar(str, maxLength)(name),
         errorMsg(str, maxLength, name),
       )
-    }
 
     // Should be used rarely - most of the time SetParameter[String255] etc.
     // (defined through LengthLimitedStringCompanion) should be used
@@ -438,7 +433,7 @@ object CantonRequireTypes {
     implicit val getResultOptLengthLimitedString: GetResult[Option[A]] =
       GetResult(r => r.nextStringOption().map(tryCreate(_)))
 
-    implicit val lengthLimitedStringReader: ConfigReader[A] = {
+    implicit val lengthLimitedStringReader: ConfigReader[A] =
       ConfigReader.fromString[A] { str =>
         Either.cond(
           str.nonEmpty && str.length <= maxLength,
@@ -446,7 +441,6 @@ object CantonRequireTypes {
           InvalidLengthString(str),
         )
       }
-    }
 
     implicit val lengthLimitedStringWriter: ConfigWriter[A] = ConfigWriter.toString(_.unwrap)
   }

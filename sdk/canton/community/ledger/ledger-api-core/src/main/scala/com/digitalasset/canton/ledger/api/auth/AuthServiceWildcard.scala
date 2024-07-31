@@ -12,7 +12,6 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 object AuthServiceWildcard extends AuthService {
   override def decodeMetadata(
       headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] = {
+  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] =
     CompletableFuture.completedFuture(ClaimSet.Claims.Wildcard)
-  }
 }

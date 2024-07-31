@@ -90,7 +90,7 @@ private[dao] final class TransactionsReader(
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     flatTransactionPointwiseReader.lookupTransactionById(
       transactionId = transactionId,
       requestingParties = requestingParties,
@@ -99,14 +99,13 @@ private[dao] final class TransactionsReader(
         templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
       ),
     )
-  }
 
   override def lookupTransactionTreeById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] = {
+  ): Future[Option[GetTransactionTreeResponse]] =
     treeTransactionPointwiseReader.lookupTransactionById(
       transactionId = transactionId,
       requestingParties = requestingParties,
@@ -115,7 +114,6 @@ private[dao] final class TransactionsReader(
         templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
       ),
     )
-  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -260,7 +258,7 @@ private[dao] object TransactionsReader {
       source: Source[A, Mat]
   )(by: A => K): Source[Vector[A], Mat] =
     source
-      .statefulMapConcat(() => {
+      .statefulMapConcat { () =>
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var previousSegmentKey: Option[K] = None
         entry => {
@@ -269,7 +267,7 @@ private[dao] object TransactionsReader {
           previousSegmentKey = Some(keyForEntry)
           List(entryWithSplit)
         }
-      })
+      }
       .splitWhen(_._2)
       .map(_._1)
       .fold(Vector.empty[A])(_ :+ _)

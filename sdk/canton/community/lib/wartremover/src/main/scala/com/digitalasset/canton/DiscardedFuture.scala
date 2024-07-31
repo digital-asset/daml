@@ -59,7 +59,7 @@ object DiscardedFuture extends WartTraverser {
     // because `BaseTest` extends `MockitoSugar` and we'd therefore have to do some virtual method resolution.
     // As a result, we ignore all statements of the above form verify(...).someMethod(...)(...)
     @tailrec
-    def isMockitoVerify(statement: Tree): Boolean = {
+    def isMockitoVerify(statement: Tree): Boolean =
       statement match {
         // Match on verify(...).someMethod
         case Select(
@@ -73,10 +73,9 @@ object DiscardedFuture extends WartTraverser {
         case TypeApply(maybeVerifyCall, tyargs) => isMockitoVerify(maybeVerifyCall)
         case _ => false
       }
-    }
 
     new u.Traverser {
-      def checkForDiscardedFutures(statements: List[Tree]): Unit = {
+      def checkForDiscardedFutures(statements: List[Tree]): Unit =
         statements.foreach {
           case Block((statements0, _)) =>
             checkForDiscardedFutures(statements0)
@@ -86,7 +85,6 @@ object DiscardedFuture extends WartTraverser {
               error(u)(statement.pos, message)
             }
         }
-      }
 
       def isSubtypeOfIterableOnce(typ: Type): Boolean =
         typ.typeConstructor
@@ -94,7 +92,7 @@ object DiscardedFuture extends WartTraverser {
           .typeConstructor
           .typeSymbol == iterableOnceOpsTypeSymbol
 
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
@@ -116,7 +114,6 @@ object DiscardedFuture extends WartTraverser {
 
           case _ => super.traverse(tree)
         }
-      }
     }
   }
 }

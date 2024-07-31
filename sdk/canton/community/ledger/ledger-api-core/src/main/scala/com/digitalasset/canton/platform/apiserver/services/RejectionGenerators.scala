@@ -66,7 +66,7 @@ object RejectionGenerators {
         err: com.digitalasset.daml.lf.interpretation.Error,
         renderedMessage: String,
         detailMessage: Option[String],
-    ): DamlError = {
+    ): DamlError =
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
       err match {
@@ -134,7 +134,6 @@ object RejectionGenerators {
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)
       }
-    }
 
     def processInterpretationError(
         err: LfError.Interpretation.Error,

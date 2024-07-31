@@ -39,10 +39,10 @@ object BinaryFileUtil {
       case e: IOException =>
         val f = new java.io.File(inputFile)
         if (!f.exists())
-          Left(s"No such file [${inputFile}].")
+          Left(s"No such file [$inputFile].")
         else
           Left(
-            s"File exists but cannot be read [${inputFile}]. ${ErrorUtil.messageWithStacktrace(e)}"
+            s"File exists but cannot be read [$inputFile]. ${ErrorUtil.messageWithStacktrace(e)}"
           )
     } finally {
       bis.foreach(_.close())
@@ -50,6 +50,6 @@ object BinaryFileUtil {
   }
 
   def tryReadByteStringFromFile(inputFile: String): ByteString = readByteStringFromFile(inputFile)
-    .fold(err => throw new IllegalArgumentException(s"Can not load ${inputFile}: $err"), identity)
+    .fold(err => throw new IllegalArgumentException(s"Can not load $inputFile: $err"), identity)
 
 }

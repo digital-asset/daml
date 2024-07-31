@@ -32,7 +32,7 @@ private[routing] class DomainSelectorFactory(
       transactionData: TransactionData
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainSelector] = {
+  ): EitherT[Future, TransactionRoutingError, DomainSelector] =
     for {
       admissibleDomains <- admissibleDomains.forParties(
         submitters = transactionData.submitters,
@@ -46,7 +46,6 @@ private[routing] class DomainSelectorFactory(
       domainStateProvider,
       loggerFactory,
     )
-  }
 }
 
 /** Selects the best domain for routing.
@@ -110,7 +109,7 @@ private[routing] class DomainSelector(
     */
   def forSingleDomain(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, DomainRank] = {
+  ): EitherT[Future, TransactionRoutingError, DomainRank] =
     for {
       inputContractsDomainIdO <- chooseDomainOfInputContracts
 
@@ -143,7 +142,6 @@ private[routing] class DomainSelector(
           }
       }
     } yield DomainRank(Map.empty, priorityOfDomain(domainId), domainId)
-  }
 
   private def filterDomains(
       admissibleDomains: NonEmpty[Set[DomainId]]
@@ -223,8 +221,7 @@ private[routing] class DomainSelector(
     */
   private def validatePrescribedDomain(domainId: DomainId, transactionVersion: TransactionVersion)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, Unit] = {
-
+  ): EitherT[Future, TransactionRoutingError, Unit] =
     for {
       domainState <- EitherT.fromEither[Future](
         domainStateProvider.getTopologySnapshotAndPVFor(domainId)
@@ -256,7 +253,6 @@ private[routing] class DomainSelector(
         }
 
     } yield ()
-  }
 
   private def pickDomainIdAndComputeTransfers(
       contracts: Seq[ContractData],

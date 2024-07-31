@@ -135,9 +135,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       Help.Item("$participant", None, Summary(""), Description(""), Topic(Seq()), subItems)
     }
 
-    lazy val filteredHelpItems = {
+    lazy val filteredHelpItems =
       helpItems.filter(x => scope.contains(x.summary.flag))
-    }
 
     lazy val all = filteredHelpItems :+ participantHelperItems
 
@@ -208,9 +207,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   lazy val grpcDomainCommandRunner: ConsoleGrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.SequencerPublicApi)
 
-  def runE[E, A](result: => Either[E, A]): A = {
+  def runE[E, A](result: => Either[E, A]): A =
     run(ConsoleCommandResult.fromEither(result.leftMap(_.toString)))
-  }
 
   /** Run a console command.
     */
@@ -253,7 +251,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       case err: GenericCommandError =>
         val errMsg = findInvocationSite() match {
           case Some((funcName, site)) =>
-            err.cause + s"\n  Command ${funcName} invoked from ${site}"
+            err.cause + s"\n  Command $funcName invoked from $site"
           case None => err.cause
         }
         logger.error(errMsg)
@@ -283,9 +281,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   /** Print help for items in the top level scope.
     */
-  def help(): Unit = {
+  def help(): Unit =
     consoleOutput.info(Help.format(featureSetReference.get().filteredHelpItems*))
-  }
 
   /** Print detailed help for a top-level item in the top level scope.
     */
@@ -357,7 +354,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     InstanceReference,
     InstanceReference,
     LocalInstanceReference,
-  ] = {
+  ] =
     NodeReferences(
       mergeLocalInstances(
         participants.local,
@@ -370,10 +367,9 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         mediators.remote,
       ),
     )
-  }
 
   protected def helpText(typeName: String, name: String) =
-    s"Manage $typeName '${name}'; type '${name} help' or '${name} help" + "(\"<methodName>\")' for more help"
+    s"Manage $typeName '$name'; type '$name help' or '$name help" + "(\"<methodName>\")' for more help"
 
   protected val topicNodeReferences = "Node References"
   protected val topicGenericNodeReferences = "Generic Node References"
@@ -483,14 +479,13 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     */
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       grpcAdminCommandRunner,
       grpcLedgerCommandRunner,
       grpcDomainCommandRunner,
       environment,
     )(logger)
-  }
 
   def closeChannels(): Unit = {
     grpcAdminCommandRunner.closeChannels()

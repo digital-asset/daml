@@ -366,7 +366,7 @@ private[store] object StorageBackendTestValues {
     externalString = external,
   )
 
-  def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
+  def dtoTransactionId(dto: DbDto): Ref.TransactionId =
     dto match {
       case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.transaction_id)
       case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.transaction_id)
@@ -374,9 +374,8 @@ private[store] object StorageBackendTestValues {
       case e: DbDto.EventUnassign => Ref.TransactionId.assertFromString(e.update_id)
       case _ => sys.error(s"$dto does not have a transaction id")
     }
-  }
 
-  def dtoEventSeqId(dto: DbDto): Long = {
+  def dtoEventSeqId(dto: DbDto): Long =
     dto match {
       case e: DbDto.EventCreate => e.event_sequential_id
       case e: DbDto.EventExercise => e.event_sequential_id
@@ -384,9 +383,8 @@ private[store] object StorageBackendTestValues {
       case e: DbDto.EventUnassign => e.event_sequential_id
       case _ => sys.error(s"$dto does not have a event sequential id")
     }
-  }
 
-  def dtoOffset(dto: DbDto): String = {
+  def dtoOffset(dto: DbDto): String =
     dto match {
       case e: DbDto.EventCreate =>
         e.event_offset
@@ -396,16 +394,14 @@ private[store] object StorageBackendTestValues {
       case e: DbDto.EventUnassign => e.event_offset
       case _ => sys.error(s"$dto does not have a offset id")
     }
-  }
 
-  def dtoApplicationId(dto: DbDto): Ref.ApplicationId = {
+  def dtoApplicationId(dto: DbDto): Ref.ApplicationId =
     dto match {
       case e: DbDto.EventCreate => Ref.ApplicationId.assertFromString(e.application_id.get)
       case e: DbDto.EventExercise => Ref.ApplicationId.assertFromString(e.application_id.get)
       case e: DbDto.CommandCompletion => Ref.ApplicationId.assertFromString(e.application_id)
       case _ => sys.error(s"$dto does not have an application id")
     }
-  }
 
   def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(
     transaction_id = dtoTransactionId(dbDto),

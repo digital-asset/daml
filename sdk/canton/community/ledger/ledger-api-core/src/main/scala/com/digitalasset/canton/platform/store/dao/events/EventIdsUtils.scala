@@ -16,7 +16,7 @@ object EventIdsUtils {
   @tailrec
   protected[events] def mergeSort[T: Ordering](
       sources: Vector[Source[T, NotUsed]]
-  ): Source[T, NotUsed] = {
+  ): Source[T, NotUsed] =
     sources match {
       case Vector(first, second, _*) =>
         mergeSort(
@@ -27,7 +27,6 @@ object EventIdsUtils {
       case Vector(head) => head
       case _ => Source.empty
     }
-  }
 
   @SuppressWarnings(
     Array(

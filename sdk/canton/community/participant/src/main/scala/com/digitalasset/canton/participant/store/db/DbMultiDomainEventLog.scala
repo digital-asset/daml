@@ -408,19 +408,16 @@ class DbMultiDomainEventLog private[db] (
 
   override def prune(
       upToInclusive: GlobalOffset
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    {
-      storage
-        .update_(
-          sqlu"delete from par_linearized_event_log where global_offset <= $upToInclusive",
-          functionFullName,
-        )
-    }
-  }
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    storage
+      .update_(
+        sqlu"delete from par_linearized_event_log where global_offset <= $upToInclusive",
+        functionFullName,
+      )
 
   override def subscribe(startInclusive: Option[GlobalOffset])(implicit
       traceContext: TraceContext
-  ): Source[(GlobalOffset, Traced[LedgerSyncEvent]), NotUsed] = {
+  ): Source[(GlobalOffset, Traced[LedgerSyncEvent]), NotUsed] =
     dispatcher
       .startingAt(
         // start index is exclusive
@@ -450,11 +447,10 @@ class DbMultiDomainEventLog private[db] (
         // by construction, the offset is positive
         GlobalOffset.tryFromLong(offset.unwrap) -> event
       }
-  }
 
   override def lookupEventRange(upToInclusive: Option[GlobalOffset], limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): Future[Seq[(GlobalOffset, TimestampedEvent)]] = {
+  ): Future[Seq[(GlobalOffset, TimestampedEvent)]] =
     storage
       .query(
         sql"""select global_offset, el.local_offset_effective_time, el.local_offset_discriminator, el.local_offset_tie_breaker, request_sequencer_counter, el.event_id, content, trace_context
@@ -465,7 +461,6 @@ class DbMultiDomainEventLog private[db] (
           .as[(GlobalOffset, TimestampedEvent)],
         functionFullName,
       )
-  }
 
   override def lookupByEventIds(
       eventIds: Seq[TimestampedEvent.EventId]
@@ -606,7 +601,7 @@ class DbMultiDomainEventLog private[db] (
 
   override def locateOffset(
       deltaFromBeginning: Long
-  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] = {
+  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] =
     // The following query performs a table scan which can in theory become a problem if deltaFromBeginning is large.
     // We cannot simply perform a lookup as big/serial columns can have gaps.
     // However as we are planning to prune in batches, deltaFromBeginning will be limited by the batch size and be
@@ -618,11 +613,10 @@ class DbMultiDomainEventLog private[db] (
         .headOption,
       functionFullName,
     )
-  }
 
   override def locatePruningTimestamp(
       skip: NonNegativeInt
-  )(implicit traceContext: TraceContext): OptionT[Future, CantonTimestamp] = {
+  )(implicit traceContext: TraceContext): OptionT[Future, CantonTimestamp] =
     storage.querySingle(
       sql"select publication_time from par_linearized_event_log order by global_offset #${storage
           .limit(1, skip.value.toLong)}"
@@ -630,11 +624,10 @@ class DbMultiDomainEventLog private[db] (
         .headOption,
       functionFullName,
     )
-  }
 
   override def lookupOffset(globalOffset: GlobalOffset)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, (EventLogId, LocalOffset, CantonTimestamp)] = {
+  ): OptionT[Future, (EventLogId, LocalOffset, CantonTimestamp)] =
     storage
       .querySingle(
         sql"select log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time from par_linearized_event_log where global_offset = $globalOffset"
@@ -647,11 +640,10 @@ class DbMultiDomainEventLog private[db] (
           (x, offset, ts)
         }
       }
-  }
 
   override def globalOffsetFor(eventLogId: EventLogId, localOffset: LocalOffset)(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, CantonTimestamp)]] = {
+  ): Future[Option[(GlobalOffset, CantonTimestamp)]] =
     storage.query(
       sql"""
       select lel.global_offset, lel.publication_time
@@ -661,7 +653,6 @@ class DbMultiDomainEventLog private[db] (
       """.as[(GlobalOffset, CantonTimestamp)].headOption,
       functionFullName,
     )
-  }
 
   override def getOffsetByTimeUpTo(
       upToInclusive: CantonTimestamp
@@ -844,22 +835,20 @@ object DbMultiDomainEventLog {
     import storage.api.*
 
     storage.query(
-      {
-        for {
-          /*
+      for {
+        /*
            We want the maximum local offset.
            Since global offset increases monotonically with the local offset on a given log, we sort by global offset.
-           */
-          rows <-
-            sql"""select log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
+         */
+        rows <-
+          sql"""select log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
                  from par_linearized_event_log
                  where global_offset in (select max(global_offset) from par_linearized_event_log group by log_id)"""
-              .as[(Int, LocalOffset)]
-        } yield {
-          val result = new TrieMap[Int, LocalOffset]()
-          result ++= rows
-          result
-        }
+            .as[(Int, LocalOffset)]
+      } yield {
+        val result = new TrieMap[Int, LocalOffset]()
+        result ++= rows
+        result
       },
       functionFullName,
     )

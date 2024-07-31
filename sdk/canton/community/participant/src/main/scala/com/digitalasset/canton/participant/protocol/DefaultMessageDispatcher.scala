@@ -131,7 +131,7 @@ class DefaultMessageDispatcher(
 
   private def processOrdinary(
       signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     signedEventE.event.content match {
       case deliver @ Deliver(sc, ts, _, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
         logTimeProof(sc, ts)
@@ -158,13 +158,12 @@ class DefaultMessageDispatcher(
 
       case error @ DeliverError(sc, ts, _, msgId, status, _) =>
         logDeliveryError(sc, ts, msgId, status)
-        logger.debug(s"Received a deliver error at ${sc} / ${ts}")
+        logger.debug(s"Received a deliver error at $sc / $ts")
         for {
           _unit <- observeDeliverError(error)
           _unit <- tickTrackers(sc, ts, triggerAcsChangePublication = false)
         } yield ()
     }
-  }
 
   private def tickTrackers(
       sc: SequencerCounter,

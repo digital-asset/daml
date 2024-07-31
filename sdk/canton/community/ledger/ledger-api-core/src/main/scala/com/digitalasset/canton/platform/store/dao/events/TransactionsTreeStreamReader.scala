@@ -151,7 +151,7 @@ class TransactionsTreeStreamReader(
         target: EventIdSourceForInformees,
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         metric: DatabaseMetrics,
-    ): Source[Long, NotUsed] = {
+    ): Source[Long, NotUsed] =
       paginatingAsyncStream.streamIdsFromSeekPagination(
         idPageSizing = idPageSizing,
         idPageBufferSize = maxPagesPerIdPagesBuffer,
@@ -174,7 +174,6 @@ class TransactionsTreeStreamReader(
           }
         }
       )
-    }
 
     def fetchPayloads(
         ids: Source[Iterable[Long], NotUsed],
@@ -337,24 +336,22 @@ class TransactionsTreeStreamReader(
   private def mergeSortAndBatch(
       maxOutputBatchSize: Int,
       maxOutputBatchCount: Int,
-  )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[Iterable[Long], NotUsed] = {
+  )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[Iterable[Long], NotUsed] =
     EventIdsUtils
       .sortAndDeduplicateIds(sourcesOfIds)
       .batchN(
         maxBatchSize = maxOutputBatchSize,
         maxBatchCount = maxOutputBatchCount,
       )
-  }
 
   private def deserializeLfValues(
       rawEvents: Vector[EventStorageBackend.Entry[Raw.TreeEvent]],
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit lc: LoggingContextWithTrace): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] = {
+  )(implicit lc: LoggingContextWithTrace): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] =
     Timed.future(
       future =
         Future.traverse(rawEvents)(deserializeEntry(eventProjectionProperties, lfValueTranslation)),
       timer = dbMetrics.treeTxStream.translationTimer,
     )
-  }
 
 }

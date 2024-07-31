@@ -49,9 +49,8 @@ private[backend] trait StorageBackendTestsPartyRecord
       internalId
     }
 
-    override def fetchResourceVersion(): Long = {
+    override def fetchResourceVersion(): Long =
       executeSql(tested.getPartyRecord(partyRecord.party)).value.payload.resourceVersion
-    }
   }
 
   override def resourceVersionTableName: String = "lapi_party_records"

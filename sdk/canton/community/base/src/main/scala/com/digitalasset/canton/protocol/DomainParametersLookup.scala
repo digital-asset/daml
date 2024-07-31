@@ -87,7 +87,7 @@ object DomainParametersLookup {
       topologyClient: DomainTopologyClient,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DynamicDomainParametersLookup[SequencerDomainParameters] = {
+  )(implicit ec: ExecutionContext): DynamicDomainParametersLookup[SequencerDomainParameters] =
     new DynamicDomainParametersLookup(
       params =>
         SequencerDomainParameters(
@@ -99,7 +99,6 @@ object DomainParametersLookup {
       futureSupervisor,
       loggerFactory,
     )
-  }
 
   final case class SequencerDomainParameters(
       confirmationRequestsMaxRate: NonNegativeInt,

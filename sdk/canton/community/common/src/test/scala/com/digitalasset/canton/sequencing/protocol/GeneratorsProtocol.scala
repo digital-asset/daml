@@ -128,14 +128,13 @@ final class GeneratorsProtocol(
 
   private val sequencerDeliverErrorCodeArb: Arbitrary[SequencerDeliverErrorCode] = genArbitrary
 
-  private implicit val sequencerDeliverErrorArb: Arbitrary[SequencerDeliverError] = {
+  private implicit val sequencerDeliverErrorArb: Arbitrary[SequencerDeliverError] =
     Arbitrary(
       for {
         code <- sequencerDeliverErrorCodeArb.arbitrary
         message <- Arbitrary.arbitrary[String]
       } yield code.apply(message)
     )
-  }
 
   private implicit val deliverErrorArb: Arbitrary[DeliverError] = Arbitrary(
     for {

@@ -134,7 +134,7 @@ object ContractLoader {
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
-  ): ResourceOwner[ContractLoader] = {
+  ): ResourceOwner[ContractLoader] =
     ResourceOwner
       .forReleasable(() =>
         new PekkoStreamParallelBatchedLoader[
@@ -221,7 +221,6 @@ object ContractLoader {
             loader.load(key)
         }
       )
-  }
 
   val dummyLoader = new ContractLoader {
     override def load(key: (ContractId, Offset))(implicit

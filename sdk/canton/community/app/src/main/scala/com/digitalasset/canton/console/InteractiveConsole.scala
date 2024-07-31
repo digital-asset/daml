@@ -47,7 +47,7 @@ object InteractiveConsole extends NoTracing {
     // (such as all, help, participant1, etc.), which are made available only here
     // so we can't run Main.runScript or so as the "result" of the script are lost then
     // in the REPL.
-    def startup(replArgs: IndexedSeq[Bind[_]]): (Res[Any], Seq[(Watchable, Long)]) = {
+    def startup(replArgs: IndexedSeq[Bind[_]]): (Res[Any], Seq[(Watchable, Long)]) =
       options.instantiateRepl(replArgs) match {
         case Left(missingPredefInfo) => missingPredefInfo
         case Right(repl) =>
@@ -59,7 +59,7 @@ object InteractiveConsole extends NoTracing {
             warmupThread.setDaemon(true)
             warmupThread.start()
             // load and run bootstrap script
-            val initRes = bootstrapScript.map(fname => {
+            val initRes = bootstrapScript.map { fname =>
               // all we do is to write interp.load.module(...) into the console and let it interpret it
               // the lines here are stolen from Repl.warmup()
               logger.info(s"Running startup script $fname")
@@ -96,7 +96,7 @@ object InteractiveConsole extends NoTracing {
               }
               // if we run this with currentLine = 0, it will break the console output
               repl.interp.processLine(loadModuleCode, stmts, 10000000, silent = true, () => ())
-            })
+            }
 
             // now run the repl or exit if the bootstrap script failed
             initRes match {
@@ -111,12 +111,11 @@ object InteractiveConsole extends NoTracing {
                 logger.debug("Ammonite exception thrown is", x)
                 (a, repl.interp.watchedValues.toSeq)
               case Some(x) =>
-                logger.error(s"Running bootstrap script failed with ${x}")
+                logger.error(s"Running bootstrap script failed with $x")
                 (x, repl.interp.watchedValues.toSeq)
             }
           }
       }
-    }
 
     consoleEnvironment.bindings match {
       case Left(exception) =>
@@ -133,7 +132,7 @@ object InteractiveConsole extends NoTracing {
             false
           case Res.Failure(err) =>
             System.err.println(err)
-            logger.debug(s"Execution of interactive script returned failure ${err}")
+            logger.debug(s"Execution of interactive script returned failure $err")
             false
           case _ =>
             true
@@ -156,7 +155,7 @@ object InteractiveConsole extends NoTracing {
     val stream: InputStream = Option(getClass.getClassLoader.getResourceAsStream("repl/banner.txt"))
       .getOrElse(sys.error("banner resource not found"))
 
-    withResource(stream) { Source.fromInputStream(_).mkString }
+    withResource(stream)(Source.fromInputStream(_).mkString)
   }
 
 }

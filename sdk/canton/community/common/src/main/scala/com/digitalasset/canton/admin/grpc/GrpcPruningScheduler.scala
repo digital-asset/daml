@@ -132,7 +132,7 @@ trait GrpcPruningScheduler {
         Failure(
           Status.UNAVAILABLE
             .withDescription(
-              s"Command ${commandName} sent to passive replica: cannot modify the pruning schedule. Try to submit the command to another replica."
+              s"Command $commandName sent to passive replica: cannot modify the pruning schedule. Try to submit the command to another replica."
             )
             .asRuntimeException()
         )

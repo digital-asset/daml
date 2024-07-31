@@ -140,7 +140,7 @@ private[console] object ParticipantCommands {
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
-    ): DomainConnectionConfig = {
+    ): DomainConnectionConfig =
       DomainConnectionConfig(
         domainAlias,
         SequencerConnections.tryMany(
@@ -157,7 +157,6 @@ private[console] object ParticipantCommands {
         maxRetryDelay,
         DomainTimeTrackerConfig(),
       )
-    }
 
     def to_config(
         domainAlias: DomainAlias,
@@ -173,7 +172,7 @@ private[console] object ParticipantCommands {
       // architecture-handbook-entry-begin: OnboardParticipantToConfig
       val certificates = OptionUtil.emptyStringAsNone(certificatesPath).map { path =>
         BinaryFileUtil.readByteStringFromFile(path) match {
-          case Left(err) => throw new IllegalArgumentException(s"failed to load ${path}: ${err}")
+          case Left(err) => throw new IllegalArgumentException(s"failed to load $path: $err")
           case Right(bs) => bs
         }
       }
@@ -203,11 +202,10 @@ private[console] object ParticipantCommands {
           .RegisterDomain(config, handshakeOnly = handshakeOnly, validation)
       )
 
-    def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) = {
+    def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) =
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity.ConnectDomain(domainAlias, retry)
       )
-    }
 
     def list_connected(runner: AdminCommandRunner) =
       runner.adminCommand(
@@ -256,14 +254,13 @@ class ParticipantTestingGroup(
       domainId: Option[DomainId] = None,
       workflowId: String = "",
       id: String = "",
-  ): Duration = {
+  ): Duration =
     consoleEnvironment.runE(
       maybe_bong(targets, validators, timeout, levels, domainId, workflowId, id)
         .toRight(
           s"Unable to bong $targets with $levels levels within ${LoggerUtil.roundDurationForHumans(timeout.duration)}"
         )
     )
-  }
 
   @Help.Summary("Like bong, but returns None in case of failure.", FeatureFlag.Testing)
   def maybe_bong(
@@ -468,7 +465,7 @@ class LocalParticipantTestingGroup(
     """The state inspection methods can fatally and permanently corrupt the state of a participant.
       |The API is subject to change in any way."""
   )
-  def state_inspection: SyncStateInspection = check(FeatureFlag.Testing) { stateInspection }
+  def state_inspection: SyncStateInspection = check(FeatureFlag.Testing)(stateInspection)
 
   private def stateInspection: SyncStateInspection = access(node => node.sync.stateInspection)
 
@@ -517,7 +514,7 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] =
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
         ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
@@ -530,7 +527,6 @@ class ParticipantPruningAdministrationGroup(
           )
         )
     }
-  }
 
   @Help.Summary(
     "Prune only internal ledger state up to the specified offset inclusively.",
@@ -656,7 +652,7 @@ class LocalCommitmentsAdministrationGroup(
       start: Instant,
       end: Instant,
       counterParticipant: Option[ParticipantId] = None,
-  ): Iterable[SignedProtocolMessage[AcsCommitment]] = {
+  ): Iterable[SignedProtocolMessage[AcsCommitment]] =
     access(node =>
       node.sync.stateInspection
         .findReceivedCommitments(
@@ -666,7 +662,6 @@ class LocalCommitmentsAdministrationGroup(
           counterParticipant,
         )
     )
-  }
 
   @Help.Summary("Lookup ACS commitments locally computed as part of the reconciliation protocol")
   def computed(
@@ -815,7 +810,7 @@ class LocalCommitmentsAdministrationGroup(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
       startingAt: Either[Instant, ParticipantOffset],
-  ): Map[ParticipantId, Seq[DomainId]] = {
+  ): Map[ParticipantId, Seq[DomainId]] =
     consoleEnvironment.run(
       runner.adminCommand(
         SetNoWaitCommitmentsFrom(
@@ -825,7 +820,6 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
-  }
 
   // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
@@ -841,7 +835,7 @@ class LocalCommitmentsAdministrationGroup(
   def set_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
-  ): Map[ParticipantId, Seq[DomainId]] = {
+  ): Map[ParticipantId, Seq[DomainId]] =
     consoleEnvironment.run(
       runner.adminCommand(
         SetWaitCommitmentsFrom(
@@ -850,7 +844,6 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
-  }
 
   // TODO(#18453) R6: The code below should be sufficient.
   @Help.Summary(
@@ -897,7 +890,7 @@ class LocalCommitmentsAdministrationGroup(
         |participant is behind""")
   def set_config_for_slow_counter_participants(
       configs: Seq[SlowCounterParticipantDomainConfig]
-  ): Unit = {
+  ): Unit =
     consoleEnvironment.run(
       runner.adminCommand(
         SetConfigForSlowCounterParticipants(
@@ -905,7 +898,6 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
-  }
 
   // TODO(#10436) R7
   def add_config_for_slow_counter_participants(
@@ -948,7 +940,7 @@ class LocalCommitmentsAdministrationGroup(
       reconciliation intervals that participant is behind""")
   def get_config_for_slow_counter_participants(
       domains: Seq[DomainId]
-  ): Seq[SlowCounterParticipantDomainConfig] = {
+  ): Seq[SlowCounterParticipantDomainConfig] =
     consoleEnvironment.run(
       runner.adminCommand(
         GetConfigForSlowCounterParticipants(
@@ -956,7 +948,6 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
-  }
 
   case class SlowCounterParticipantInfo(
       domains: Seq[DomainId],
@@ -989,7 +980,7 @@ class LocalCommitmentsAdministrationGroup(
       counterParticipants: Seq[ParticipantId],
       domains: Seq[DomainId],
       threshold: Option[NonNegativeInt],
-  ): Seq[CounterParticipantInfo] = {
+  ): Seq[CounterParticipantInfo] =
     consoleEnvironment.run(
       runner.adminCommand(
         GetIntervalsBehindForCounterParticipants(
@@ -999,7 +990,6 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
-  }
 }
 
 class ParticipantReplicationAdministrationGroup(
@@ -1011,13 +1001,12 @@ class ParticipantReplicationAdministrationGroup(
   @Help.Description(
     "Trigger a graceful fail-over from this active replica to another passive replica. Returns true if another replica became active."
   )
-  def set_passive(): Boolean = {
+  def set_passive(): Boolean =
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.Replication.SetPassiveCommand()
       )
     }
-  }
 
 }
 
@@ -1228,11 +1217,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |removes the package. The force flag can be used to disable the checks, but do not use the force flag unless
         |you're certain you know what you're doing. """
     )
-    def remove(packageId: String, force: Boolean = false): Unit = {
+    def remove(packageId: String, force: Boolean = false): Unit =
       check(FeatureFlag.Preview)(consoleEnvironment.run {
         adminCommand(ParticipantAdminCommands.Package.RemovePackage(packageId, force))
       })
-    }
 
     @Help.Summary(
       "Ensure that all vetting transactions issued by this participant have been observed by all configured participants"
@@ -1274,11 +1262,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   object domains extends Helpful {
 
     @Help.Summary("Returns the id of the given domain alias")
-    def id_of(domainAlias: DomainAlias): DomainId = {
+    def id_of(domainAlias: DomainAlias): DomainId =
       consoleEnvironment.run {
         adminCommand(ParticipantAdminCommands.DomainConnectivity.GetDomainId(domainAlias))
       }
-    }
 
     @Help.Summary(
       "Test whether a participant is connected to and permissioned on a domain."
@@ -1288,15 +1275,14 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |Yields false, if the domain is configured in the Canton configuration and
         |the participant is not active from the perspective of the domain."""
     )
-    def active(domainAlias: DomainAlias): Boolean = {
-      list_connected().exists(r => {
+    def active(domainAlias: DomainAlias): Boolean =
+      list_connected().exists { r =>
         // TODO(#14053): Filter out participants that are not permissioned on the domain. The TODO is because the daml 2.x
         //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermission?
         r.domainAlias == domainAlias &&
         r.healthy &&
         participantIsActiveOnDomain(r.domainId, id)
-      })
-    }
+      }
 
     @Help.Summary(
       "Test whether a participant is connected to a domain"
@@ -1667,11 +1653,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("Disconnect this participant from all connected domains")
-    def disconnect_all(): Unit = {
+    def disconnect_all(): Unit =
       list_connected().foreach { connected =>
         disconnect(connected.domainAlias)
       }
-    }
 
     @Help.Summary("Disconnect this participant from the given local domain")
     def disconnect_local(domain: DomainAlias): Unit = consoleEnvironment.run {
@@ -1701,7 +1686,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         domain: DomainAlias,
         modifier: DomainConnectionConfig => DomainConnectionConfig,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
-    ): Unit = {
+    ): Unit =
       consoleEnvironment.runE {
         for {
           configured <- adminCommand(
@@ -1710,7 +1695,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           cfg <- configured
             .map(_._1)
             .find(_.domain == domain)
-            .toRight(s"No such domain ${domain} configured")
+            .toRight(s"No such domain $domain configured")
           newConfig = modifier(cfg)
           _ <-
             if (newConfig.domain == cfg.domain) Right(())
@@ -1723,7 +1708,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ).toEither
         } yield ()
       }
-    }
   }
 
   @Help.Summary("Functionality for managing resources")
@@ -1762,7 +1746,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |In the community edition, the server uses fixed limits that cannot be changed."""
     )
     def set_resource_limits(limits: ResourceLimits): Unit =
-      consoleEnvironment.run { adminCommand(SetResourceLimits(limits)) }
+      consoleEnvironment.run(adminCommand(SetResourceLimits(limits)))
 
     @Help.Summary("Get the resource limits of the participant.")
     def resource_limits(): ResourceLimits = consoleEnvironment.run {
@@ -1816,7 +1800,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
     consoleEnvironment.runE(
       adminApiRes.leftMap { reason =>
         s"Unable to ping $participantId within ${LoggerUtil
-            .roundDurationForHumans(timeout.duration)}: ${reason}"
+            .roundDurationForHumans(timeout.duration)}: $reason"
       }
     )
 

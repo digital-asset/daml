@@ -28,11 +28,9 @@ final case class OffsetCheckpoint(offset: Offset, domainTimes: Map[DomainId, Tim
   lazy val toApi: v2.OffsetCheckpoint =
     v2.OffsetCheckpoint(
       offset = offset.toApiString,
-      domainTimes = domainTimes
-        .map({ case (domain, t) =>
-          DomainTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
-        })
-        .toSeq,
+      domainTimes = domainTimes.map { case (domain, t) =>
+        DomainTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
+      }.toSeq,
     )
 
 }

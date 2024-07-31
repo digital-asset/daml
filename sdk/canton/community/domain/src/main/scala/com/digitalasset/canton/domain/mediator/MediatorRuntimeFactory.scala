@@ -62,9 +62,8 @@ trait MediatorRuntime extends FlagCloseable {
     _ <- domainOutbox.startup()
   } yield ()
 
-  override protected def onClosed(): Unit = {
+  override protected def onClosed(): Unit =
     Lifecycle.close(domainOutbox, mediator)(logger)
-  }
 }
 
 private[mediator] class CommunityMediatorRuntime(

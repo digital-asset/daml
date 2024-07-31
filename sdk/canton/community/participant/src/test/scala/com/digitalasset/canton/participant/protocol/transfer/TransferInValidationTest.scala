@@ -55,7 +55,7 @@ class TransferInValidationTest
 
   private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       participant,
@@ -64,7 +64,6 @@ class TransferInValidationTest
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
-  }
 
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)

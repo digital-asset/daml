@@ -252,7 +252,7 @@ private[participant] class ConflictDetector(
     */
   def checkActivenessAndLock(
       rc: RequestCounter
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ActivenessResult] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ActivenessResult] =
     runSequentially(s"activeness check for request $rc") {
       checkActivenessAndLockUnguarded(rc)
     }.map(_.valueOr(ErrorUtil.internalError))(executionContext)
@@ -281,7 +281,6 @@ private[participant] class ConflictDetector(
           )
         }
       }(executionContext)
-  }
 
   private def checkActivenessAndLockUnguarded(
       rc: RequestCounter
@@ -584,7 +583,7 @@ private[participant] class ConflictDetector(
       description: String
   )(x: => A)(implicit traceContext: TraceContext): FutureUnlessShutdown[A] = {
     implicit val ec: ExecutionContext = executionContext
-    executionQueue.execute(Future { x }, description)
+    executionQueue.execute(Future(x), description)
   }
 
   /** Checks the class invariant if invariant checking is enabled.

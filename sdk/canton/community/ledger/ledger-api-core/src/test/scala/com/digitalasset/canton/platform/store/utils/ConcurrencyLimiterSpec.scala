@@ -117,7 +117,7 @@ object ConcurrencyLimiterSpec extends Assertions {
 
     Future
       .sequence(results)
-      .map(xs => {
+      .map { xs =>
         val actualParallelism = xs.max + 1
         expectedParallelism.foreach(expected =>
           assert(
@@ -126,6 +126,6 @@ object ConcurrencyLimiterSpec extends Assertions {
           )
         )
         succeed
-      })
+      }
   }
 }

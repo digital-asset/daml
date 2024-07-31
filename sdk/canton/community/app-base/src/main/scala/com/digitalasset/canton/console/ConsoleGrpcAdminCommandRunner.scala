@@ -118,7 +118,7 @@ class GrpcAdminCommandRunner(
       val (awaitTimeout, commandET) = runCommandAsync(instanceName, command, clientConfig, token)
       val apiResult =
         awaitTimeout.await(
-          s"Running on ${instanceName} command ${command} against ${clientConfig}"
+          s"Running on $instanceName command $command against $clientConfig"
         )(
           commandET.value
         )
@@ -143,9 +143,8 @@ class GrpcAdminCommandRunner(
       )
     })
 
-  override def close(): Unit = {
+  override def close(): Unit =
     closeChannels()
-  }
 
   def closeChannels(): Unit = {
     channels.values.foreach(_.close())

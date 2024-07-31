@@ -29,7 +29,7 @@ class InMemoryOffsetsLookupImpl(
   )(fromExclusive: Option[LocalOffset], upToInclusive: Option[LocalOffset])(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Seq[LocalOffset]] = {
+  ): Future[Seq[LocalOffset]] =
     for {
       events <- allEventLogs(id).lookupEventRange(
         fromExclusive,
@@ -39,7 +39,6 @@ class InMemoryOffsetsLookupImpl(
         None,
       )
     } yield events.keySet.toSeq
-  }
 
   private def allEventLogs: Map[EventLogId, SingleDimensionEventLog[EventLogId]] =
     syncDomainPersistentStates.getAll.map { case (_, state) =>

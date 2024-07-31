@@ -25,7 +25,7 @@ object TryFailed extends WartTraverser {
     val failedMethodName = TermName("failed")
 
     new Traverser {
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           case t if hasWartAnnotation(u)(t) => // Ignore trees marked by SuppressWarnings
           case Select(receiver, methodName)
@@ -36,7 +36,6 @@ object TryFailed extends WartTraverser {
           case _ =>
             super.traverse(tree)
         }
-      }
     }
 
   }

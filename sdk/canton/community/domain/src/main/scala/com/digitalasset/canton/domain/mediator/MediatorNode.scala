@@ -143,11 +143,10 @@ final case class CommunityMediatorNodeConfig(
 
   override def replicationEnabled: Boolean = false
 
-  override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeConfig = {
+  override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeConfig =
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
-  }
 }
 
 class MediatorNodeBootstrap(
@@ -297,7 +296,7 @@ class MediatorNodeBootstrap(
 
     override def initialize(request: InitializeMediatorRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponse] = {
+    ): EitherT[FutureUnlessShutdown, String, InitializeMediatorResponse] =
       if (isInitialized) {
         logger.info(
           "Received a request to initialize an already initialized mediator. Skipping initialization!"
@@ -334,7 +333,6 @@ class MediatorNodeBootstrap(
           } yield (sequencerAggregatedInfo.staticDomainParameters, request.domainId)
         }.map(_ => InitializeMediatorResponse())
       }
-    }
 
   }
 
@@ -476,7 +474,7 @@ class MediatorNodeBootstrap(
     }
   }
 
-  private def createSequencerInfoLoader() = {
+  private def createSequencerInfoLoader() =
     new SequencerInfoLoader(
       timeouts = timeouts,
       traceContextPropagation = parameters.tracing.propagation,
@@ -491,7 +489,6 @@ class MediatorNodeBootstrap(
       dontWarnOnDeprecatedPV = parameterConfig.dontWarnOnDeprecatedPV,
       loggerFactory = loggerFactory,
     )
-  }
 
   private def mkMediatorRuntime(
       mediatorId: MediatorId,
@@ -693,7 +690,7 @@ class MediatorNodeBootstrap(
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
       healthService: DependenciesHealthService,
-  ): BootstrapStageOrLeaf[MediatorNode] = {
+  ): BootstrapStageOrLeaf[MediatorNode] =
     new WaitForMediatorToDomainInit(
       storage,
       crypto,
@@ -701,11 +698,9 @@ class MediatorNodeBootstrap(
       authorizedTopologyManager,
       healthService,
     )
-  }
 
-  override protected def onClosed(): Unit = {
+  override protected def onClosed(): Unit =
     super.onClosed()
-  }
 
 }
 

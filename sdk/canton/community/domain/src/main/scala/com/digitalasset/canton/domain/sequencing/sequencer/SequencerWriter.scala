@@ -160,7 +160,7 @@ class SequencerWriter(
 
   private case class RunningWriter(flow: RunningSequencerWriterFlow, store: SequencerWriterStore) {
 
-    def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] = {
+    def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
       for {
         watermark <- EitherTUtil
           .fromFuture(
@@ -185,7 +185,6 @@ class SequencerWriter(
           Some(s"writer: $watermarkStatus"),
         )
       }
-    }
 
     /** Ensures that all resources for the writer flow are halted and cleaned up.
       * The store should not be used after calling this operation (the HA implementation will close its exclusive storage instance).
@@ -220,7 +219,7 @@ class SequencerWriter(
 
   private[sequencer] def healthStatus(implicit
       traceContext: TraceContext
-  ): Future[SequencerHealthStatus] = {
+  ): Future[SequencerHealthStatus] =
     runningWriterRef.get() match {
       case Some(runningWriter) => runningWriter.healthStatus
       case None =>
@@ -228,7 +227,6 @@ class SequencerWriter(
           SequencerHealthStatus(isActive = false, Some("sequencer writer not running"))
         )
     }
-  }
 
   private def sequencerQueues: Option[SequencerWriterQueues] =
     runningWriterRef.get().map(_.flow.queues)
@@ -402,7 +400,7 @@ class SequencerWriter(
 
   private def startWriter(
       store: SequencerWriterStore
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     // if these actions fail we want to ensure that the store is closed
     try {
       val writerFlow = createWriterFlow(store, traceContext)
@@ -415,7 +413,6 @@ class SequencerWriter(
         store.close()
         throw ex
     }
-  }
 
   private def setupWriterRecovery(doneF: Future[Unit]): Unit =
     doneF.onComplete { result =>

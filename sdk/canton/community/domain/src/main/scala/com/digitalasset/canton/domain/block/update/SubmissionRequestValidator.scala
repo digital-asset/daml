@@ -412,7 +412,7 @@ private[update] final class SubmissionRequestValidator(
             )
           )
         _ <- groups.parTraverse { group =>
-          val nonRegisteredF = {
+          val nonRegisteredF =
             if (unifiedSequencer) {
               (group.active ++ group.passive).forgetNE.parTraverseFilter { member =>
                 memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
@@ -424,7 +424,6 @@ private[update] final class SubmissionRequestValidator(
                 (group.active ++ group.passive).filterNot(isMemberRegistered(state))
               )
             }
-          }
 
           EitherT(
             nonRegisteredF.map { nonRegistered =>
@@ -560,7 +559,7 @@ private[update] final class SubmissionRequestValidator(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] =
     // group addresses checks are covered separately later on
     for {
       unknownRecipients <-
@@ -591,7 +590,6 @@ private[update] final class SubmissionRequestValidator(
         ),
       )
     } yield res
-  }
 
   private def checkSignatureOnSubmissionRequest(
       signedSubmissionRequest: SignedContent[SubmissionRequest],
@@ -959,7 +957,7 @@ private[update] final class SubmissionRequestValidator(
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
       sequencerError: SequencerDeliverError,
-  )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
+  )(implicit traceContext: TraceContext): SubmissionRequestOutcome =
     SubmissionRequestValidator.invalidSubmissionRequest(
       state,
       submissionRequest,
@@ -970,7 +968,6 @@ private[update] final class SubmissionRequestValidator(
       protocolVersion,
       unifiedSequencer,
     )
-  }
 
   // Off-boarded sequencers may still receive blocks (e.g., BFT sequencers still contribute to ordering for a while
   //  after being deactivated in the Canton topology, specifically until the underlying consensus algorithm
@@ -1001,9 +998,8 @@ private[update] object SubmissionRequestValidator {
     implicit val accumulatedTrafficCostMonoid: Monoid[TrafficConsumption] =
       new Monoid[TrafficConsumption] {
         override def empty: TrafficConsumption = TrafficConsumption(false)
-        override def combine(x: TrafficConsumption, y: TrafficConsumption): TrafficConsumption = {
+        override def combine(x: TrafficConsumption, y: TrafficConsumption): TrafficConsumption =
           TrafficConsumption(x.consume || y.consume)
-        }
       }
   }
 
@@ -1050,9 +1046,8 @@ private[update] object SubmissionRequestValidator {
     def updateTrafficReceipt(
         sender: Member,
         trafficReceipt: Option[TrafficReceipt],
-    ): SubmissionRequestValidationResult = {
+    ): SubmissionRequestValidationResult =
       copy(outcome = outcome.updateTrafficReceipt(sender, trafficReceipt))
-    }
   }
 
   private def isMemberRegistered(state: BlockUpdateEphemeralState)(member: Member): Boolean =

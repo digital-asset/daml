@@ -45,7 +45,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[messages] def traverse[F[_], MM <: SignedProtocolMessageContent](
       f: M => F[MM]
-  )(implicit F: Functor[F]): F[TypedSignedProtocolMessageContent[MM]] = {
+  )(implicit F: Functor[F]): F[TypedSignedProtocolMessageContent[MM]] =
     F.map(f(content)) { newContent =>
       if (newContent eq content) this.asInstanceOf[TypedSignedProtocolMessageContent[MM]]
       else
@@ -54,7 +54,6 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
           deserializedFrom,
         )
     }
-  }
 }
 
 object TypedSignedProtocolMessageContent

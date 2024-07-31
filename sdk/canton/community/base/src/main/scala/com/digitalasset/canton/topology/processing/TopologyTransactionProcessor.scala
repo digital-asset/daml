@@ -95,7 +95,7 @@ class TopologyTransactionProcessor(
   )
 
   /** assumption: subscribers don't do heavy lifting */
-  final def subscribe(listener: TopologyTransactionProcessingSubscriber): Unit = {
+  final def subscribe(listener: TopologyTransactionProcessingSubscriber): Unit =
     listeners
       .getAndUpdate(oldListeners =>
         // we add the new listener to the pile, and then re-sort the list into groups by execution order
@@ -106,7 +106,6 @@ class TopologyTransactionProcessor(
           .map { case (_, groupListeners) => groupListeners }
       )
       .discard
-  }
 
   private def initialise(
       start: SubscriptionStart,
@@ -195,7 +194,7 @@ class TopologyTransactionProcessor(
       potentialChanges: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(
-      s"Updating listener heads to ${effective} and ${approximate}. Potential changes: ${potentialChanges}"
+      s"Updating listener heads to $effective and $approximate. Potential changes: $potentialChanges"
     )
     listeners.get().flatten.foreach(_.updateHead(effective, approximate, potentialChanges))
   }
@@ -228,7 +227,7 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): HandlerResult = {
     def computeEffectiveTime(
         updates: List[TopologyTransactionsBroadcast]
-    ): FutureUnlessShutdown[EffectiveTime] = {
+    ): FutureUnlessShutdown[EffectiveTime] =
       if (updates.nonEmpty) {
         val effectiveTimeF =
           futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
@@ -247,12 +246,11 @@ class TopologyTransactionProcessor(
           timeAdjuster.adjustTimestampForTick(sequencedTime)
         )
       }
-    }
 
     for {
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
-        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter ${sc} at ${sequencedTime}",
+        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
       )
       // compute effective time
       effectiveTime <- computeEffectiveTime(updates)
@@ -260,12 +258,10 @@ class TopologyTransactionProcessor(
       // the rest, we'll run asynchronously, but sequential
       val scheduledF =
         serializer.executeUS(
-          {
-            if (updates.nonEmpty) {
-              process(sequencedTime, effectiveTime, sc, updates)
-            } else {
-              tickleListeners(sequencedTime, effectiveTime)
-            }
+          if (updates.nonEmpty) {
+            process(sequencedTime, effectiveTime, sc, updates)
+          } else {
+            tickleListeners(sequencedTime, effectiveTime)
           },
           "processing topology transactions",
         )
@@ -276,14 +272,13 @@ class TopologyTransactionProcessor(
   private def tickleListeners(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     this.performUnlessClosingF(functionFullName) {
       Future {
         val approximate = ApproximateTime(sequencedTimestamp.value)
         listenersUpdateHead(effectiveTimestamp, approximate, potentialChanges = false)
       }
     }
-  }
 
   def createHandler(domainId: DomainId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
@@ -292,7 +287,7 @@ class TopologyTransactionProcessor(
 
       override def apply(
           tracedBatch: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
-      ): HandlerResult = {
+      ): HandlerResult =
         MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
           _.withTraceContext { implicit traceContext =>
             {
@@ -321,7 +316,6 @@ class TopologyTransactionProcessor(
             }
           }
         }
-      }
 
       override def subscriptionStartsAt(
           start: SubscriptionStart,
@@ -374,12 +368,11 @@ class TopologyTransactionProcessor(
 
   }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       timeAdjuster,
       serializer,
     )(logger)
-  }
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext(implicit traceContext =>
@@ -411,10 +404,10 @@ class TopologyTransactionProcessor(
   /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
   private def extractTopologyUpdatesWithValidRecipients(
       envelopes: List[DefaultOpenEnvelope]
-  ): (List[DefaultOpenEnvelope], List[TopologyTransactionsBroadcast]) = {
+  ): (List[DefaultOpenEnvelope], List[TopologyTransactionsBroadcast]) =
     envelopes
       .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcast])
-      .partitionMap(env => {
+      .partitionMap { env =>
         Either.cond(
           // it's important that we only check that AllMembersOfDomain is existent and not the only recipient.
           // Otherwise an attacker could add a node as bcc recipient, which only that node would see and subsequently
@@ -423,8 +416,7 @@ class TopologyTransactionProcessor(
           env.protocolMessage,
           env,
         )
-      })
-  }
+      }
 
   private[processing] def process(
       sequencingTimestamp: SequencedTime,
@@ -470,9 +462,9 @@ class TopologyTransactionProcessor(
         case tx if tx.rejectionReason.isEmpty && !tx.transaction.isProposal => tx.transaction
       }
       _ <- performUnlessClosingUSF("notify-topology-transaction-observers")(
-        MonadUtil.sequentialTraverse_(listeners.get())(listenerGroup => {
+        MonadUtil.sequentialTraverse_(listeners.get()) { listenerGroup =>
           logger.debug(
-            s"Notifying listener group (${listenerGroup.head1.executionOrder}) of ${sequencingTimestamp}, ${effectiveTimestamp} and SC ${sc}"
+            s"Notifying listener group (${listenerGroup.head1.executionOrder}) of $sequencingTimestamp, $effectiveTimestamp and SC $sc"
           )
           listenerGroup.forgetNE.parTraverse_(
             _.observed(
@@ -482,7 +474,7 @@ class TopologyTransactionProcessor(
               validTransactions,
             )
           )
-        })
+        }
       )
 
       // TODO(#15089): do not notify the terminate processing for replayed events.
@@ -508,7 +500,7 @@ class TopologyTransactionProcessor(
         )
         .foreach { previous =>
           logger.info(
-            s"Updated topology change delay from=${previous} to ${mapping.parameters.topologyChangeDelay}"
+            s"Updated topology change delay from=$previous to ${mapping.parameters.topologyChangeDelay}"
           )
         }
       timeAdjuster.effectiveTimeProcessed(effectiveTimestamp)

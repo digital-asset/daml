@@ -30,11 +30,10 @@ trait HkdfTest {
         prkS: String,
         okmS: String,
     ): TestCase = {
-      def parse(input: String, desc: String): ByteString = {
+      def parse(input: String, desc: String): ByteString =
         HexString
           .parseToByteString(input.stripMargin.filter(_ != '\n'))
           .valueOrFail(s"Invalid $desc string: $input")
-      }
 
       val ikm = parse(ikmS, "input key material")
       val salt = parse(saltS, "salt")
@@ -97,7 +96,7 @@ trait HkdfTest {
     ),
   )
 
-  def hkdfProvider(providerF: => FutureUnlessShutdown[HkdfOps with RandomOps]): Unit = {
+  def hkdfProvider(providerF: => FutureUnlessShutdown[HkdfOps with RandomOps]): Unit =
     "derive keys using HMAC" should {
       "pass golden tests from RFC 5869 for extract-and-expand" in {
         val algo = HmacAlgorithm.HmacSha256
@@ -118,5 +117,4 @@ trait HkdfTest {
         }
       }.failOnShutdown
     }
-  }
 }

@@ -124,7 +124,7 @@ private[platform] object InMemoryStateUpdaterFlow {
         Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
           .map(_._1)
           .mapConcat(identity)
-          .map({ case (off, tracedUpdate) => (off, tracedUpdate.value) })
+          .map { case (off, tracedUpdate) => (off, tracedUpdate.value) }
           .map(Some(_))
 
       val updateCheckpointState: Flow[Option[(Offset, Update)], OffsetCheckpoint, NotUsed] =

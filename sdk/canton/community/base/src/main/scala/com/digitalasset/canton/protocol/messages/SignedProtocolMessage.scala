@@ -93,22 +93,20 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 
   override def domainId: DomainId = message.domainId
 
-  protected def toProtoV30: v30.SignedProtocolMessage = {
+  protected def toProtoV30: v30.SignedProtocolMessage =
     v30.SignedProtocolMessage(
       signature = signatures.map(_.toProtoV30),
       typedSignedProtocolMessageContent = typedMessage.toByteString,
     )
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[SignedProtocolMessage] def traverse[F[_], MM <: SignedProtocolMessageContent](
       f: M => F[MM]
-  )(implicit F: Functor[F]): F[SignedProtocolMessage[MM]] = {
+  )(implicit F: Functor[F]): F[SignedProtocolMessage[MM]] =
     F.map(typedMessage.traverse(f)) { newTypedMessage =>
       if (newTypedMessage eq typedMessage) this.asInstanceOf[SignedProtocolMessage[MM]]
       else this.copy(typedMessage = newTypedMessage)
     }
-  }
 
   override def pretty: Pretty[this.type] =
     prettyOfClass(unnamedParam(_.message), param("signatures", _.signatures))

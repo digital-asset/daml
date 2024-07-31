@@ -15,9 +15,8 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
 
   private lazy val computations = new PartyToParticipantComputations(loggerFactory)
 
-  private def participantIdFor(idx: Int) = {
+  private def participantIdFor(idx: Int) =
     ParticipantId(UniqueIdentifier.tryCreate(s"participant$idx", s"participant$idx-identity"))
-  }
 
   private val p1 = participantIdFor(1)
   private val p2 = participantIdFor(2)

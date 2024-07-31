@@ -39,7 +39,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
       verbose: Boolean = false,
       validAtOffset: Option[String] = None,
       token: Option[String] = None,
-  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, Future[String]] = {
+  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, Future[String]] =
     ClientAdapter
       .serverStreaming(
         GetActiveContractsRequest(
@@ -52,7 +52,6 @@ class StateServiceClient(service: StateServiceStub)(implicit
       .viaMat(StateServiceClient.extractOffset)(
         Keep.right
       )
-  }
 
   /** Returns the resulting active contract set */
   def getActiveContracts(

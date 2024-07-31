@@ -28,7 +28,7 @@ private[routing] class ContractsTransfer(
   def transfer(
       domainRankTarget: DomainRank,
       submitterInfo: SubmitterInfo,
-  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
     if (domainRankTarget.transfers.nonEmpty) {
       logger.info(
         s"Automatic transaction transfer into domain ${domainRankTarget.domainId}"
@@ -51,7 +51,6 @@ private[routing] class ContractsTransfer(
     } else {
       EitherT.pure[Future, TransactionRoutingError](())
     }
-  }
 
   private def perform(
       sourceDomain: SourceDomainId,
@@ -98,7 +97,7 @@ private[routing] class ContractsTransfer(
           submitterMetadata,
           outResult.transferId,
         )
-        .leftMap[String](err => s"Transfer in failed with error ${err}")
+        .leftMap[String](err => s"Transfer in failed with error $err")
         .flatMap { s =>
           EitherT(s.map(Right(_)).onShutdown(Left("Application is shutting down")))
         }

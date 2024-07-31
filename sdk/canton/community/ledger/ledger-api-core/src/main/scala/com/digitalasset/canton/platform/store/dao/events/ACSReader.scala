@@ -109,11 +109,11 @@ class ACSReader(
       activeAt,
       eventProjectionProperties,
     )
-      .wireTap(getActiveContractsResponse => {
+      .wireTap { getActiveContractsResponse =>
         val event =
           tracing.Event("contract", Map((SpanAttribute.Offset, getActiveContractsResponse.offset)))
         Spans.addEventToSpan(event, span)
-      })
+      }
       .watchTermination()(endSpanOnTermination(span))
   }
 
@@ -383,7 +383,7 @@ class ACSReader(
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] = {
+    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
@@ -405,7 +405,6 @@ class ACSReader(
                 result
             }
         )
-    }
 
     def fetchCreatedEventsForUnassignedBatch(batch: Seq[RawUnassignEvent]): Future[
       Seq[(RawUnassignEvent, Either[RawCreatedEvent, EventStorageBackend.Entry[Raw.FlatEvent]])]

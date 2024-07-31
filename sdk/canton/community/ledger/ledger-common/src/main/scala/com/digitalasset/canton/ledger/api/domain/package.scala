@@ -80,13 +80,11 @@ package domain {
     }
 
     object Id {
-      def fromString(id: String): Either[String, IdentityProviderId.Id] = {
+      def fromString(id: String): Either[String, IdentityProviderId.Id] =
         Ref.LedgerString.fromString(id).map(Id.apply)
-      }
 
-      def assertFromString(id: String): Id = {
+      def assertFromString(id: String): Id =
         Id(Ref.LedgerString.assertFromString(id))
-      }
     }
 
     def apply(identityProviderId: String): IdentityProviderId =
@@ -138,7 +136,7 @@ package domain {
     // Note: this should be replaced by pretty printing once the ledger-api server packages move
     //  into their proper place
     override def toString: String =
-      s"User(id=${id}, primaryParty=${primaryParty}, isDeactivated=$isDeactivated, metadata=${metadata.toString
+      s"User(id=$id, primaryParty=$primaryParty, isDeactivated=$isDeactivated, metadata=${metadata.toString
           .take(512)}, identityProviderId=${identityProviderId.toRequestString})"
   }
 

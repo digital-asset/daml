@@ -275,9 +275,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetPartiesResponse
-      ): Either[String, PartyDetails] = {
+      ): Either[String, PartyDetails] =
         response.partyDetails.headOption.toRight("PARTY_NOT_FOUND")
-      }
     }
 
     final case class UpdateIdp(
@@ -402,9 +401,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetCommandStatusResponse
-      ): Either[String, Seq[CommandStatus]] = {
+      ): Either[String, Seq[CommandStatus]] =
         response.commandStatus.traverse(CommandStatus.fromProto).leftMap(_.message)
-      }
     }
   }
 
@@ -460,14 +458,13 @@ object LedgerApiCommands {
       def participantAdmin: Boolean
       def readAsAnyParty: Boolean
 
-      protected def getRights: Seq[UserRight] = {
+      protected def getRights: Seq[UserRight] =
         actAs.toSeq.map(x => UserRight().withCanActAs(UserRight.CanActAs(x))) ++
           readAs.toSeq.map(x => UserRight().withCanReadAs(UserRight.CanReadAs(x))) ++
           (if (participantAdmin) Seq(UserRight().withParticipantAdmin(UserRight.ParticipantAdmin()))
            else Seq()) ++
           (if (readAsAnyParty) Seq(UserRight().withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
            else Seq())
-      }
     }
 
     final case class Create(
@@ -1040,9 +1037,9 @@ object LedgerApiCommands {
         extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
         with SubscribeBase[GetUpdatesRequest, Resp, Res] {
 
-      def beginExclusive: ParticipantOffset
+      def beginExclusive: String
 
-      def endInclusive: Option[ParticipantOffset]
+      def endInclusive: String
 
       def filter: TransactionFilter
 
@@ -1050,7 +1047,7 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = Some(beginExclusive),
+          beginExclusive = beginExclusive,
           endInclusive = endInclusive,
           verbose = verbose,
           filter = Some(filter),
@@ -1060,8 +1057,8 @@ object LedgerApiCommands {
 
     final case class SubscribeTrees(
         override val observer: StreamObserver[UpdateTreeWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1083,8 +1080,8 @@ object LedgerApiCommands {
 
     final case class SubscribeFlat(
         override val observer: StreamObserver[UpdateWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1118,7 +1115,7 @@ object LedgerApiCommands {
       override def submitRequest(
           service: UpdateServiceStub,
           request: GetTransactionByIdRequest,
-      ): Future[GetTransactionTreeResponse] = {
+      ): Future[GetTransactionTreeResponse] =
         // The Ledger API will throw an error if it can't find a transaction by ID.
         // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
         // an error and change it to a None
@@ -1126,7 +1123,6 @@ object LedgerApiCommands {
           case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
             GetTransactionTreeResponse(None)
         }
-      }
 
       override def handleResponse(
           response: GetTransactionTreeResponse
@@ -1224,9 +1220,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitRequest,
-      ): Future[SubmitResponse] = {
+      ): Future[SubmitResponse] =
         service.submit(request)
-      }
 
       override def handleResponse(response: SubmitResponse): Either[String, Unit] = Right(())
     }
@@ -1265,9 +1260,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitReassignmentRequest,
-      ): Future[SubmitReassignmentResponse] = {
+      ): Future[SubmitReassignmentResponse] =
         service.submitReassignment(request)
-      }
 
       override def handleResponse(response: SubmitReassignmentResponse): Either[String, Unit] =
         Right(())
@@ -1307,9 +1301,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitReassignmentRequest,
-      ): Future[SubmitReassignmentResponse] = {
+      ): Future[SubmitReassignmentResponse] =
         service.submitReassignment(request)
-      }
 
       override def handleResponse(response: SubmitReassignmentResponse): Either[String, Unit] =
         Right(())
@@ -1689,9 +1682,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: TimeServiceStub,
           request: GetTimeRequest,
-      ): Future[GetTimeResponse] = {
+      ): Future[GetTimeResponse] =
         service.getTime(request)
-      }
 
       /** Create the request from configured options
         */

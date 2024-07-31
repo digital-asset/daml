@@ -234,7 +234,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
 
   private def cleanup(rootHash: RootHash, requestId: RequestId)(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     pendingRequests
       .updateWith(rootHash) {
         case Some(RequestList(_, reqMap)) if reqMap.size == 1 =>
@@ -265,7 +265,6 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
           ErrorUtil.internalError(new InternalError(s"Unknown rootHash: $rootHash"))
       }
       .discard
-  }
 
   override def cancelRegistration(rootHash: RootHash, requestId: RequestId)(implicit
       traceContext: TraceContext
@@ -320,14 +319,13 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
     )
   }
 
-  private def shutdown(): Unit = {
+  private def shutdown(): Unit =
     pendingRequests.values.foreach { case RequestList(_, reqMap) =>
       reqMap.values.foreach { case Entry(_, nextPUS, resultPUS) =>
         nextPUS.shutdown()
         resultPUS.shutdown()
       }
     }
-  }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(SyncCloseable("submission-tracker-promises", shutdown()))

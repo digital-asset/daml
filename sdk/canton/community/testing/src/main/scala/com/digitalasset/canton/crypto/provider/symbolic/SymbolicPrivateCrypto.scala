@@ -33,9 +33,8 @@ class SymbolicPrivateCrypto(
   override val defaultEncryptionKeySpec: EncryptionKeySpec = EncryptionKeySpec.EcP256
 
   @VisibleForTesting
-  def setRandomKeysFlag(newValue: Boolean): Unit = {
+  def setRandomKeysFlag(newValue: Boolean): Unit =
     randomKeys.set(newValue)
-  }
 
   private def genKeyPair[K](keypair: (ByteString, ByteString) => K): K = {
     val key = if (randomKeys.get()) {

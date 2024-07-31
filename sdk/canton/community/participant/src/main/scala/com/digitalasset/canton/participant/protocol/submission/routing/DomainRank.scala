@@ -47,7 +47,7 @@ private[routing] class DomainRankComputation(
     val targetSnapshotET =
       EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(targetDomain))
 
-    val transfers: EitherT[Future, TransactionRoutingError, Chain[SingleTransfer]] = {
+    val transfers: EitherT[Future, TransactionRoutingError, Chain[SingleTransfer]] =
       Chain.fromSeq(contracts).parFlatTraverse { c =>
         val contractDomain = c.domain
 
@@ -69,7 +69,6 @@ private[routing] class DomainRankComputation(
           } yield Chain(c.id -> (submitter, contractDomain))
         }
       }
-    }
 
     transfers.map(transfers =>
       DomainRank(
@@ -97,7 +96,7 @@ private[routing] class DomainRankComputation(
     def go(
         submitters: List[LfPartyId],
         errAccum: List[String] = List.empty,
-    ): EitherT[Future, String, LfPartyId] = {
+    ): EitherT[Future, String, LfPartyId] =
       submitters match {
         case Nil =>
           EitherT.leftT(
@@ -129,7 +128,6 @@ private[routing] class DomainRankComputation(
               _ => EitherT.rightT(submitter),
             )
       }
-    }
 
     go(submitters.intersect(contractStakeholders).toList).leftMap(errors =>
       AutomaticTransferForTransactionFailure.Failed(errors)

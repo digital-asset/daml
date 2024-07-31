@@ -35,7 +35,7 @@ class WatchdogService(
     Threading.singleThreadScheduledExecutor("WatchdogService", noTracingLogger)
 
   private val checkAndKillTask = new Runnable {
-    override def run(): Unit = {
+    override def run(): Unit =
       performUnlessClosing("WatchdogService-checkAndKillTask") {
         if (!checkIsAlive) {
           logger.underlying.error(
@@ -58,7 +58,6 @@ class WatchdogService(
       }(TraceContext.empty).onShutdown {
         logger.underlying.info("Watchdog service is shutting down.")
       }
-    }
   }
 
   private val checkAndKillFuture: ScheduledFuture[?] = scheduler.scheduleAtFixedRate(
@@ -69,10 +68,8 @@ class WatchdogService(
   )
   logger.underlying.info(s"Watchdog service started with check interval $checkInterval")
 
-  override def onClosed(): Unit = {
-
+  override def onClosed(): Unit =
     scheduler.shutdownNow(): Unit
-  }
 }
 
 object WatchdogService {

@@ -75,9 +75,8 @@ trait AbstractSequencerPruningStatus {
     *
     * @param timestampForNoMembers The timestamp to return if there are no unignored members
     */
-  def safePruningTimestampFor(timestampForNoMembers: CantonTimestamp): CantonTimestamp = {
+  def safePruningTimestampFor(timestampForNoMembers: CantonTimestamp): CantonTimestamp =
     earliestMemberSafePruningTimestamp.getOrElse(timestampForNoMembers)
-  }
 }
 
 private[canton] final case class InternalSequencerPruningStatus(
@@ -125,7 +124,7 @@ private[canton] object InternalSequencerPruningStatus {
   def apply(
       lowerBound: CantonTimestamp,
       members: Set[SequencerMemberStatus],
-  ): InternalSequencerPruningStatus = {
+  ): InternalSequencerPruningStatus =
     InternalSequencerPruningStatus(
       lowerBound,
       members.view
@@ -133,7 +132,6 @@ private[canton] object InternalSequencerPruningStatus {
         .toMap,
       members.view.filterNot(_.enabled).map(_.member).toSet,
     )
-  }
 }
 
 /** Pruning status of a Sequencer.

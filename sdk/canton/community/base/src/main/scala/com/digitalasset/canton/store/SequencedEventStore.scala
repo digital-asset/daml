@@ -230,7 +230,7 @@ object SequencedEventStore {
     )(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): WithOpeningErrors[IgnoredSequencedEvent[DefaultOpenEnvelope]] = {
+    ): WithOpeningErrors[IgnoredSequencedEvent[DefaultOpenEnvelope]] =
       event.underlying match {
         case Some(signedEvent) =>
           SignedContent
@@ -239,7 +239,6 @@ object SequencedEventStore {
         case None =>
           NoOpeningErrors(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
       }
-    }
   }
 
   /** Encapsulates an event received by the sequencer.
@@ -279,11 +278,10 @@ object SequencedEventStore {
     def openEnvelopes(event: OrdinarySequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): WithOpeningErrors[OrdinarySequencedEvent[DefaultOpenEnvelope]] = {
+    ): WithOpeningErrors[OrdinarySequencedEvent[DefaultOpenEnvelope]] =
       SignedContent
         .openEnvelopes(event.signedEvent)(protocolVersion, hashOps)
         .map(evt => event.copy(signedEvent = evt)(event.traceContext))
-    }
   }
 
   object PossiblyIgnoredSequencedEvent {

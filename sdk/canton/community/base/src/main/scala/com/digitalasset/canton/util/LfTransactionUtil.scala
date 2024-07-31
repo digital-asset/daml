@@ -57,7 +57,7 @@ object LfTransactionUtil {
   private[this] def suffixForDiscriminator(
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
-  )(discriminator: LfHash): Bytes = {
+  )(discriminator: LfHash): Bytes =
     /* If we can't find the discriminator we leave it unchanged,
      * because this could refer to an input contract of the transaction.
      * The well-formedness checks ensure that unsuffixed discriminators of created contracts are fresh,
@@ -65,25 +65,22 @@ object LfTransactionUtil {
      * even though the map from discriminators to unicum is built up in post-order of the nodes.
      */
     unicumOfDiscriminator(discriminator).fold(Bytes.Empty)(_.toContractIdSuffix(cantonContractId))
-  }
 
   def suffixContractInst(
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
-  )(contractInst: LfContractInst): Either[String, LfContractInst] = {
+  )(contractInst: LfContractInst): Either[String, LfContractInst] =
     contractInst.unversioned
       .suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
       .map(unversionedContractInst => // traverse being added in daml-lf
         contractInst.map(_ => unversionedContractInst)
       )
-  }
 
   def suffixNode(
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
-  )(node: LfActionNode): Either[String, LfActionNode] = {
+  )(node: LfActionNode): Either[String, LfActionNode] =
     node.suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
-  }
 
   /** Monadic visit to all nodes of the transaction in execution order.
     * Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
@@ -96,8 +93,7 @@ object LfTransactionUtil {
       leaf: (LfNodeId, LfLeafOnlyActionNode, A) => F[A]
   )(exerciseEnd: (LfNodeId, LfNodeExercises, A) => F[A])(
       rollbackBegin: (LfNodeId, LfNodeRollback, A) => F[A]
-  )(rollbackEnd: (LfNodeId, LfNodeRollback, A) => F[A])(implicit F: Monad[F]): F[A] = {
-
+  )(rollbackEnd: (LfNodeId, LfNodeRollback, A) => F[A])(implicit F: Monad[F]): F[A] =
     F.tailRecM(FrontStack.from(tx.roots.map(_ -> false)) -> initial) {
       case (FrontStack(), x) => F.pure(Right(x))
       case (FrontStackCons((nodeId, upwards), toVisit), x) =>
@@ -117,7 +113,6 @@ object LfTransactionUtil {
               )
         }
     }
-  }
 
   /** Given internally consistent transactions, compute their consumed contract ids. */
   def consumedContractIds(
@@ -186,14 +181,13 @@ object LfTransactionUtil {
     *
     * @throws java.lang.UnsupportedOperationException if `node` is a rollback.
     */
-  def lightWeight(node: LfActionNode): LfActionNode = {
+  def lightWeight(node: LfActionNode): LfActionNode =
     node match {
       case n: LfNodeCreate => n
       case n: LfNodeFetch => n
       case n: LfNodeExercises => n.copy(children = ImmArray.empty)
       case n: LfNodeLookupByKey => n
     }
-  }
 
   def metadataFromExercise(node: LfNodeExercises): ContractMetadata =
     ContractMetadata.tryCreate(node.signatories, node.stakeholders, node.versionedKeyOpt)

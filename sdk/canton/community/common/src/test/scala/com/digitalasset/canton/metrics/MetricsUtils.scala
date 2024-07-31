@@ -16,7 +16,7 @@ trait MetricsUtils { this: BaseTest =>
   def getMetricValues[TargetType <: MetricValue](name: String)(implicit
       M: ClassTag[TargetType],
       onDemandMetricsReader: OnDemandMetricsReader,
-  ): Seq[TargetType] = {
+  ): Seq[TargetType] =
     MetricValue
       .fromMetricData(
         onDemandMetricsReader
@@ -27,38 +27,33 @@ trait MetricsUtils { this: BaseTest =>
       .flatMap { metricData =>
         metricData.select[TargetType]
       }
-  }
 
   def assertInContext(name: String, key: String, value: String)(implicit
       onDemandMetricsReader: OnDemandMetricsReader
-  ): Assertion = {
+  ): Assertion =
     clue(s"metric $name has value $value for key $key in context") {
       getMetricValues[MetricValue.LongPoint](name).headOption
         .flatMap(_.attributes.get(key)) shouldBe Some(value)
     }
-  }
 
   def assertSenderIsInContext(name: String, sender: Member)(implicit
       onDemandMetricsReader: OnDemandMetricsReader
-  ): Assertion = {
+  ): Assertion =
     assertInContext(name, "sender", sender.toString)
-  }
 
   def assertLongValue(name: String, expected: Long)(implicit
       onDemandMetricsReader: OnDemandMetricsReader
-  ): Assertion = {
+  ): Assertion =
     clue(s"metric $name has value $expected") {
       getMetricValues[MetricValue.LongPoint](name).loneElement.value shouldBe expected
     }
-  }
 
   def assertNoValue(name: String)(implicit
       onDemandMetricsReader: OnDemandMetricsReader
-  ): Assertion = {
+  ): Assertion =
     clue(s"metric $name has no value") {
       onDemandMetricsReader
         .read()
         .exists(_.getName.contains(name)) shouldBe false
     }
-  }
 }

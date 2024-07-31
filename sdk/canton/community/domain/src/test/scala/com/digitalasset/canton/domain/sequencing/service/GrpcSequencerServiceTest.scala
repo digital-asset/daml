@@ -261,9 +261,8 @@ class GrpcSequencerServiceTest
 
     def send(request: SubmissionRequest)(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncVersionedResponse]] = {
+    ): Future[ParsingResult[SendAsyncVersionedResponse]] =
       sendProto(signedSubmissionReq(request).toByteString)
-    }
 
     def sendAndCheckSucceed(request: SubmissionRequest)(implicit
         env: Environment
@@ -391,9 +390,8 @@ class GrpcSequencerServiceTest
     }
 
     "reject on confirmation rate excess" in { implicit env =>
-      def expectSuccess(): Future[Assertion] = {
+      def expectSuccess(): Future[Assertion] =
         sendAndCheckSucceed(defaultConfirmationRequest)
-      }
 
       def expectOneSuccessOneOverloaded(): Future[Assertion] = {
         val result1F = send(defaultConfirmationRequest)

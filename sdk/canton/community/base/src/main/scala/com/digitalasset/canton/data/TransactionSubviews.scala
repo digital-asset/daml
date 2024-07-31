@@ -50,7 +50,7 @@ final case class TransactionSubviews private[data] (
 
   def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
-  ): TransactionSubviews = {
+  ): TransactionSubviews =
     viewPos.position match {
       case (head: MerkleSeqIndexFromRoot) +: tail =>
         TransactionSubviews(
@@ -61,14 +61,12 @@ final case class TransactionSubviews private[data] (
         )
       case other => throw new UnsupportedOperationException(s"Invalid path: $other")
     }
-  }
 
   lazy val unblindedElements: Seq[TransactionView] = unblindedElementsWithIndex.map(_._1)
 
   /** Apply `f` to all the unblinded contained subviews */
-  def mapUnblinded(f: TransactionView => TransactionView): TransactionSubviews = {
+  def mapUnblinded(f: TransactionView => TransactionView): TransactionSubviews =
     TransactionSubviews(subviews.mapM(f))
-  }
 
   def pretty: Pretty[TransactionSubviews.this.type] = prettyOfClass(
     unnamedParam(_.subviews)
@@ -78,13 +76,12 @@ final case class TransactionSubviews private[data] (
     *
     * @throws java.lang.IllegalStateException if applied to a [[TransactionSubviews]] with blinded elements
     */
-  lazy val trySubviewHashes: Seq[ViewHash] = {
+  lazy val trySubviewHashes: Seq[ViewHash] =
     if (blindedElements.isEmpty) unblindedElements.map(_.viewHash)
     else
       throw new IllegalStateException(
         "Attempting to get subviewHashes from a TransactionSubviews with blinded elements"
       )
-  }
 
   /** Assert that all contained subviews are unblinded
     *

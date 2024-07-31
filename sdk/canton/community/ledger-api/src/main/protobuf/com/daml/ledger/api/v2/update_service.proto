@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/offset_checkpoint.proto";
-import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
@@ -57,12 +56,12 @@ message GetUpdatesRequest {
   // Beginning of the requested ledger section.
   // The response will only contain transactions whose offset is strictly greater than this.
   // Required
-  ParticipantOffset begin_exclusive = 1;
+  string begin_exclusive = 1;
 
   // End of the requested ledger section.
   // The response will only contain transactions whose offset is less than or equal to this.
-  // Optional, if not set, the stream will not terminate.
-  ParticipantOffset end_inclusive = 2;
+  // Optional, if empty, the stream will not terminate.
+  string end_inclusive = 2;
 
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.

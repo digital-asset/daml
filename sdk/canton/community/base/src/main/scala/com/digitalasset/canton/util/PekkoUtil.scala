@@ -124,7 +124,7 @@ object PekkoUtil extends HasLoggerName {
   def remember[A, Mat](
       graph: FlowOps[A, Mat],
       memory: NonNegativeInt,
-  ): graph.Repr[NonEmpty[Seq[A]]] = {
+  ): graph.Repr[NonEmpty[Seq[A]]] =
     // Prepend window many None to the given source
     // so that sliding starts emitting upon the first element received
     graph
@@ -140,7 +140,6 @@ object PekkoUtil extends HasLoggerName {
         // because then the source completed before emitting any elements
         NonEmpty.from(elems)
       }
-  }
 
   /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
     * every subsequent element. Unlike [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
@@ -231,13 +230,12 @@ object PekkoUtil extends HasLoggerName {
     */
   def mapAsyncAndDrainUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
-  )(implicit loggingContext: NamedLoggingContext): graph.Repr[B] = {
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[B] =
     mapAsyncUS(graph, parallelism)(f)
       // Important to use `collect` instead of `takeWhile` here
       // so that the return source completes only after all `source`'s elements have been consumed.
       // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
       .collect { case Outcome(x) => x }
-  }
 
   /** Lifts [[statefulMapAsyncUS]] over a context. */
   def statefulMapAsyncContextualizedUS[Out, Mat, S, T, Context[_], C](
@@ -290,13 +288,12 @@ object PekkoUtil extends HasLoggerName {
 
   def statefulMapAsyncUSAndDrain[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
       f: (S, Out) => FutureUnlessShutdown[(S, T)]
-  )(implicit loggingContext: NamedLoggingContext): graph.Repr[T] = {
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[T] =
     statefulMapAsyncUS(graph, initial)(f)
       // Important to use `collect` instead of `takeWhile` here
       // so that the return source completes only after all `source`'s elements have been consumed.
       // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
       .collect { case Outcome(x) => x }
-  }
 
   /** Combines two kill switches into one */
   class CombinedKillSwitch(private val killSwitch1: KillSwitch, private val killSwitch2: KillSwitch)
@@ -575,31 +572,29 @@ object PekkoUtil extends HasLoggerName {
     */
   def withUniqueKillSwitch[A, Mat, Mat2](
       graph: FlowOpsMat[A, Mat]
-  )(mat: (Mat, UniqueKillSwitch) => Mat2): graph.ReprMat[WithKillSwitch[A], Mat2] = {
+  )(mat: (Mat, UniqueKillSwitch) => Mat2): graph.ReprMat[WithKillSwitch[A], Mat2] =
     withMaterializedValueMat(new AtomicReference[UniqueKillSwitch])(graph)(Keep.both)
       .viaMat(KillSwitches.single) { case ((m, ref), killSwitch) =>
         ref.set(killSwitch)
         mat(m, killSwitch)
       }
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
-  }
 
   def injectKillSwitch[A, Mat](
       graph: FlowOpsMat[A, Mat]
-  )(killSwitch: Mat => KillSwitch): graph.ReprMat[WithKillSwitch[A], Mat] = {
+  )(killSwitch: Mat => KillSwitch): graph.ReprMat[WithKillSwitch[A], Mat] =
     withMaterializedValueMat(new AtomicReference[KillSwitch])(graph)(Keep.both)
       .mapMaterializedValue { case (mat, ref) =>
         ref.set(killSwitch(mat))
         mat
       }
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
-  }
 
   /** Drops the first `count` many elements from the `graph` that satisfy the `condition`.
     * Keeps all elements that do not satisfy the `condition`.
     */
   def dropIf[A, Mat](graph: FlowOps[A, Mat], count: Int, condition: A => Boolean): graph.Repr[A] =
-    graph.statefulMapConcat(() => {
+    graph.statefulMapConcat { () =>
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var remaining = count
       elem =>
@@ -607,7 +602,7 @@ object PekkoUtil extends HasLoggerName {
           remaining -= 1
           Seq.empty
         } else Seq(elem)
-    })
+    }
 
   private[util] def withMaterializedValueMat[M, A, Mat, Mat2](create: => M)(
       graph: FlowOpsMat[A, Mat]
@@ -722,7 +717,7 @@ object PekkoUtil extends HasLoggerName {
       graph: FlowOps[WithKillSwitch[A], Mat],
       condition: A => Boolean,
   ): graph.Repr[WithKillSwitch[A]] =
-    graph.statefulMapConcat(() => {
+    graph.statefulMapConcat { () =>
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var draining = false
       elem => {
@@ -735,7 +730,7 @@ object PekkoUtil extends HasLoggerName {
           Iterable.single(elem)
         }
       }
-    })
+    }
 
   val noOpKillSwitch = new KillSwitch {
     override def shutdown(): Unit = ()
@@ -1290,12 +1285,11 @@ object PekkoUtil extends HasLoggerName {
       }
     }
 
-    override def done: Future[Done] = {
+    override def done: Future[Done] =
       // it is possible that the delegate signals done earlier than completing the last offer Future (for example the failure case for pekko SourceQueue), but it is alright not waiting for those Future-s as
       // - might not ever complete (for example the failure case for pekko SourceQueue)
       // - this is not observable: decoupled from the observable RecoveryFutureQueue.offer completely
       delegate.done
-    }
 
     private def offerCompleted(result: Try[Done]): Unit = blockingSynchronized {
       offerInProgress = false

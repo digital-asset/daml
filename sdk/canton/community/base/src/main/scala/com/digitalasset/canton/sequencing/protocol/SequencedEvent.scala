@@ -253,7 +253,7 @@ sealed abstract case class DeliverError private[sequencing] (
 object DeliverError {
 
   implicit val prettyStatus: Pretty[Status] = new Pretty[Status] {
-    override def treeOf(t: Status): Tree = {
+    override def treeOf(t: Status): Tree =
       Apply(
         "Status",
         Seq(
@@ -261,7 +261,6 @@ object DeliverError {
           KeyValue("Message", Literal(t.message)),
         ).iterator,
       )
-    }
   }
 
   def create(
@@ -272,7 +271,7 @@ object DeliverError {
       sequencerError: SequencerDeliverError,
       protocolVersion: ProtocolVersion,
       trafficReceipt: Option[TrafficReceipt],
-  ): DeliverError = {
+  ): DeliverError =
     new DeliverError(
       counter,
       timestamp,
@@ -284,7 +283,6 @@ object DeliverError {
       SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
       None,
     ) {}
-  }
 
   def create(
       counter: SequencerCounter,

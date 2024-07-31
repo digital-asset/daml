@@ -13,7 +13,7 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
   def pgConfig(url: String = "jdbc:postgresql://0.0.0.0:0/dbName") =
     Postgres(ConfigFactory.parseString(s"""
                                           |{
-                                          |  url = "${url}"
+                                          |  url = "$url"
                                           |  user = "user"
                                           |  password = "pass"
                                           |  driver = org.postgresql.Driver

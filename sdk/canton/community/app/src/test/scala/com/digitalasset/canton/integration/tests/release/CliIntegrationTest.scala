@@ -198,11 +198,10 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     "log number of threads at info level" in { processLogger =>
       Process("rm -f log/canton.log", Some(new java.io.File(cantonDir))) !
 
-      val basicCommand = {
+      val basicCommand =
         // user-manual-entry-begin: SetNumThreads
         "bin/canton -Dscala.concurrent.context.numThreads=12 --config examples/01-simple-topology/simple-topology.conf"
-        // user-manual-entry-end: SetNumThreads
-      }
+      // user-manual-entry-end: SetNumThreads
       val cmd = basicCommand + " --no-tty"
 
       val inputStream = new ByteArrayInputStream("exit\n".getBytes)
@@ -211,13 +210,12 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
 
       val logLines = (File(cantonDir) / "log" / "canton.log").lines()
 
-      val expectedLine = {
+      val expectedLine =
         // user-manual-entry-begin: LogNumThreads
         "INFO  c.d.c.e.EnterpriseEnvironment - Deriving 12 as number of threads from '-Dscala.concurrent.context.numThreads'."
-        // user-manual-entry-end: LogNumThreads
-      }
+      // user-manual-entry-end: LogNumThreads
 
-      forAtLeast(1, logLines) { _ should endWith(expectedLine) }
+      forAtLeast(1, logLines)(_ should endWith(expectedLine))
 
       checkOutput(processLogger)
     }
@@ -267,7 +265,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
           logFileName: String,
       )(
           extraOutputAssertion: String => Assertion = _ => succeed
-      )(processLogger: FixtureParam): Unit = {
+      )(processLogger: FixtureParam): Unit =
         File.usingTemporaryFile(prefix = "script-", suffix = ".sc") { scriptFile =>
           scriptFile.appendLine(scriptFirstLine)
 
@@ -306,7 +304,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
           expectedErrorLines.foreach(expectedLine => out should include(expectedLine))
           extraOutputAssertion(out)
         }
-      }
 
       "script (run) does not compile" in {
         test(

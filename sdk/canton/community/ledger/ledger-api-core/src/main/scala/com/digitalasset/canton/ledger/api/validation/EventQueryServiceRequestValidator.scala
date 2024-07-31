@@ -24,7 +24,7 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
       req: GetEventsByContractIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[event.GetEventsByContractIdRequest] = {
+  ): Result[event.GetEventsByContractIdRequest] =
     for {
       contractId <- requireContractId(req.contractId, "contract_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -32,7 +32,6 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
     } yield {
       event.GetEventsByContractIdRequest(contractId, parties)
     }
-  }
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
 //  def validateEventsByContractKey(

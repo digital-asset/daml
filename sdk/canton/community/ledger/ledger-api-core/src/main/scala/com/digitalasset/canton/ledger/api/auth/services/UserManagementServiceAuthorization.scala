@@ -41,13 +41,12 @@ final class UserManagementServiceAuthorization(
   private def containsParticipantAdmin(rights: Seq[Right]): Boolean =
     rights.contains(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())))
 
-  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] = {
+  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId[CreateUserRequest, CreateUserResponse](
       identityProviderIdL = Lens.unit[CreateUserRequest].user.identityProviderId,
       mustBeParticipantAdmin = containsParticipantAdmin(request.rights),
       call = service.createUser,
     )(request)
-  }
 
   override def getUser(request: GetUserRequest): Future[GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
@@ -134,13 +133,12 @@ final class UserManagementServiceAuthorization(
 
   override def updateUserIdentityProviderId(
       request: UpdateUserIdentityProviderIdRequest
-  ): Future[UpdateUserIdentityProviderIdResponse] = {
+  ): Future[UpdateUserIdentityProviderIdResponse] =
     authorizer.requireAdminClaims(
       call = service.updateUserIdentityProviderId
     )(
       request
     )
-  }
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)

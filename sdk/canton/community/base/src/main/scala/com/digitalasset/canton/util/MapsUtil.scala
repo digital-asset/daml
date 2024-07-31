@@ -22,11 +22,10 @@ object MapsUtil {
     *            rather than the other way around)
     * @param small the likely smaller of the maps.
     */
-  def mergeMapsOfSets[K, V](big: Map[K, Set[V]], small: Map[K, Set[V]]): Map[K, Set[V]] = {
+  def mergeMapsOfSets[K, V](big: Map[K, Set[V]], small: Map[K, Set[V]]): Map[K, Set[V]] =
     small.foldLeft(big) { case (acc, (k, v)) =>
       acc.updated(k, acc.getOrElse(k, Set()).union(v))
     }
-  }
 
   /** Atomically modifies the given map at the given key.
     * `notFound` may be evaluated even if the key is present at the atomic update;
@@ -152,7 +151,7 @@ object MapsUtil {
     */
   def groupByMultipleM[M[_], K, K2, V](
       m: Map[K, V]
-  )(f: K => M[Set[K2]])(implicit M: cats.Monad[M]): M[Map[K2, Set[V]]] = {
+  )(f: K => M[Set[K2]])(implicit M: cats.Monad[M]): M[Map[K2, Set[V]]] =
     m.toList.foldM(Map.empty[K2, Set[V]]) { case (m, (k, v)) =>
       M.map(f(k)) {
         _.toList.foldLeft(m) { (m_, k2) =>
@@ -161,7 +160,6 @@ object MapsUtil {
         }
       }
     }
-  }
 
   /** Updates the key of the current map if present.
     * The update function `f` may be evaluated multiple times.
@@ -208,14 +206,13 @@ object MapsUtil {
 
   def extendMapWith[K, V](m: mutable.Map[K, V], extendWith: IterableOnce[(K, V)])(
       merge: (V, V) => V
-  ): Unit = {
+  ): Unit =
     extendWith.iterator.foreach { case (k, v) =>
       m.updateWith(k) {
         case None => Some(v)
         case Some(mv) => Some(merge(mv, v))
       }.discard[Option[V]]
     }
-  }
 
   def extendedMapWith[K, V](m: Map[K, V], extendWith: IterableOnce[(K, V)])(
       merge: (V, V) => V
@@ -250,7 +247,7 @@ object MapsUtil {
     if (map.size == set.size) {
       Right(map)
     } else {
-      Left(set.groupBy(_._1).collect({ case (k, v) if v.size > 1 => (k, v.map(_._2)) }))
+      Left(set.groupBy(_._1).collect { case (k, v) if v.size > 1 => (k, v.map(_._2)) })
     }
   }
 

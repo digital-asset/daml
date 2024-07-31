@@ -73,17 +73,16 @@ class FetchLatestEventsFlowTest
         sink: Sink[Event, Mat2],
     ): (Mat1, Mat2) =
       PekkoUtil.runSupervised(
-        logger.error("LatestEventsFlowTest failed", _), {
-          source
-            .via(
-              FetchLatestEventsFlow[Event, State](
-                initialState,
-                lookupEvents,
-                (_, events) => events.isEmpty,
-              )
+        logger.error("LatestEventsFlowTest failed", _),
+        source
+          .via(
+            FetchLatestEventsFlow[Event, State](
+              initialState,
+              lookupEvents,
+              (_, events) => events.isEmpty,
             )
-            .toMat(sink)(Keep.both)
-        },
+          )
+          .toMat(sink)(Keep.both),
       )
 
     def create[Mat1](source: Source[ReadSignal, Mat1]): (Mat1, SinkQueueWithCancel[Event]) =

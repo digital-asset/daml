@@ -243,7 +243,7 @@ class TransactionViewDecompositionTest
 
   private def toWellFormedUnsuffixedTransaction(
       tx: LfVersionedTransaction
-  ): WellFormedTransaction[WithoutSuffixes] = {
+  ): WellFormedTransaction[WithoutSuffixes] =
     WellFormedTransaction
       .normalizeAndCheck(
         tx,
@@ -255,7 +255,6 @@ class TransactionViewDecompositionTest
         WithoutSuffixes,
       )
       .value
-  }
 
 }
 
@@ -277,7 +276,7 @@ object RollbackDecomposition {
     */
   def rollbackDecomposition(
       decompositions: Seq[TransactionViewDecomposition]
-  ): List[RollbackDecomposition] = {
+  ): List[RollbackDecomposition] =
     decompositions
       .map[RollbackDecomposition] {
         case view: NewView =>
@@ -290,7 +289,6 @@ object RollbackDecomposition {
           RbSameTree(view.rbContext.enterRollback.rollbackScope.toList)
       }
       .toList
-  }
 
   def rbScope(rollbackScope: RollbackSibling*): RollbackScope = rollbackScope.toList
 

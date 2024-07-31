@@ -35,7 +35,7 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
 
   override protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.wrap {
       TrieMapUtil
         .insertIfAbsent(
@@ -50,7 +50,6 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
           )
         }
     }
-  }
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -64,7 +63,7 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
 
   override protected def writeEncryptionKey(key: EncryptionPublicKey, name: Option[KeyName])(
       implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.wrap {
       TrieMapUtil
         .insertIfAbsent(
@@ -79,7 +78,6 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
           )
         }
     }
-  }
 
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext

@@ -81,11 +81,10 @@ object DAMLeTestInstance {
           getEngineAbortStatus: GetEngineAbortStatus,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, ReinterpretationError, ContractMetadata] = {
+      ): EitherT[Future, ReinterpretationError, ContractMetadata] =
         EitherT.pure[Future, ReinterpretationError](
           ContractMetadata.tryCreate(signatories, stakeholders, None)
         )
-      }
     }
 
   }

@@ -20,7 +20,7 @@ object SafeSimpleString {
 
   val delimiter = "::"
 
-  def fromProtoPrimitive(str: String): Either[String, String] = {
+  def fromProtoPrimitive(str: String): Either[String, String] =
     for {
       _ <- LfPartyId.fromString(str)
       opt <- Either.cond(
@@ -29,7 +29,6 @@ object SafeSimpleString {
         s"String contains reserved delimiter `$delimiter`.",
       )
     } yield opt
-  }
 
 }
 
@@ -100,7 +99,7 @@ object UniqueIdentifier {
   val delimiter = "::"
 
   /** verifies that the string conforms to the lf standard and does not contain the delimiter */
-  def verifyValidString(str: String): Either[String, String] = {
+  def verifyValidString(str: String): Either[String, String] =
     for {
       // use LfPartyId to verify that the string matches the lf specification
       _ <- LfPartyId.fromString(str)
@@ -110,7 +109,6 @@ object UniqueIdentifier {
         s"String contains reserved delimiter `$delimiter`.",
       )
     } yield opt
-  }
 
   private def validIdentifier(id: String): Either[String, String185] =
     verifyValidString(id).flatMap(String185.create(_))

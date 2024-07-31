@@ -129,11 +129,10 @@ final case class InFlightAggregation private (
     InFlightAggregation.tryCreate(aggregatedSenders, maxSequencingTimestamp, rule)
 
   /** @throws java.lang.IllegalStateException if the class invariant does not hold */
-  def checkInvariant()(implicit loggingContext: NamedLoggingContext): Unit = {
+  def checkInvariant()(implicit loggingContext: NamedLoggingContext): Unit =
     InFlightAggregation
       .checkInvariant(aggregatedSenders, maxSequencingTimestamp, rule)
       .valueOr(err => ErrorUtil.invalidState(err))
-  }
 }
 
 object InFlightAggregation {

@@ -486,14 +486,13 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   override def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
       tc: TraceContext
-  ): Future[Boolean] = {
+  ): Future[Boolean] =
     lookupMember(member)
       .map { regMemberO =>
         val registered = regMemberO.exists(_.registeredFrom <= time)
         logger.trace(s"Checked if member $member is registered at time $time: $registered")
         registered
       }
-  }
 
   /** Save a series of payloads to the store.
     * Is up to the caller to determine a reasonable batch size and no batching is done within the store.
@@ -750,11 +749,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             .minByOption(_.safePruningTimestamp)
             .map(_.member)
             .fold("No enabled member")(memberMostBehind =>
-              s"The sequencer client member most behind is ${memberMostBehind}"
+              s"The sequencer client member most behind is $memberMostBehind"
             )
         } else ""
       _ = logger.info(
-        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. ${additionalCheckpointInfo}"
+        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. $additionalCheckpointInfo"
       )
       _ <- EitherT.right(updateLowerBound(adjustedTimestamp))
       description <- EitherT.right(performPruning(adjustedTimestamp))

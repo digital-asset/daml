@@ -132,13 +132,12 @@ final case class CommunityParticipantConfig(
   def toRemoteConfig: RemoteParticipantConfig =
     RemoteParticipantConfig(clientAdminApi, clientLedgerApi)
 
-  override def withDefaults(ports: DefaultPorts): CommunityParticipantConfig = {
+  override def withDefaults(ports: DefaultPorts): CommunityParticipantConfig =
     this
       .focus(_.ledgerApi.internalPort)
       .modify(ports.ledgerApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
       .modify(ports.participantAdminApiPort.setDefaultPort)
-  }
 }
 
 /** Configuration to connect the console to a participant running remotely.
@@ -298,7 +297,7 @@ object LedgerApiServerConfig {
         Seq[TlsVersion.TlsVersion](TlsVersion.V1, TlsVersion.V1_1, TlsVersion.V1_2, TlsVersion.V1_3)
           .find(_.version == v)
           .getOrElse(
-            throw new IllegalArgumentException(s"Unknown TLS protocol version ${v}")
+            throw new IllegalArgumentException(s"Unknown TLS protocol version $v")
           )
       },
     )
@@ -406,13 +405,12 @@ final case class JournalPruningConfig(
     initialInterval: config.NonNegativeFiniteDuration = JournalPruningConfig.DefaultInitialInterval,
     maxBuckets: PositiveInt = JournalPruningConfig.DefaultMaxBuckets,
 ) {
-  def toInternal: PrunableByTimeParameters = {
+  def toInternal: PrunableByTimeParameters =
     PrunableByTimeParameters(
       targetBatchSize,
       initialInterval = initialInterval.toInternal,
       maxBuckets = maxBuckets,
     )
-  }
 }
 
 object JournalPruningConfig {

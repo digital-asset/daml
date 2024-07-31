@@ -18,7 +18,7 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
   override def makeUpdateObject(
       partyRecord: PartyDetails,
       updateTrie: UpdatePathsTrie,
-  ): Result[PartyDetailsUpdate] = {
+  ): Result[PartyDetailsUpdate] =
     for {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, partyRecord.metadata.annotations)
       isLocalUpdate <- resolveIsLocalUpdate(updateTrie, partyRecord.isLocal)
@@ -35,7 +35,6 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
         ),
       )
     }
-  }
 
   def resolveDisplayNameUpdate(
       updateTrie: UpdatePathsTrie,

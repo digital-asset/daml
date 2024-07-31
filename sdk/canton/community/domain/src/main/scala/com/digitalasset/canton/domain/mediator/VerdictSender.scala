@@ -213,7 +213,7 @@ private[mediator] class DefaultVerdictSender(
             .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
         val recipients =
           NonEmpty
-            .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
+            .from(recipientSeq.map((r: Recipient) => NonEmpty(Set, r).toSet))
             .map(Recipients.recipientGroups)
             .getOrElse(
               // Should never happen as the topology (same snapshot) is checked in

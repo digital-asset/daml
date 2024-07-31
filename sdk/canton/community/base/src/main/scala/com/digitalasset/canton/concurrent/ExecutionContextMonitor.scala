@@ -47,7 +47,7 @@ class ExecutionContextMonitor(
   def monitor(ec: ExecutionContextIdlenessExecutorService): Unit = {
     logger.debug(s"Monitoring ${ec.name}")
     val runnable = new Runnable {
-      override def run(): Unit = {
+      override def run(): Unit =
         if (!isClosing) {
           // if we are still scheduled, complain!
           val started = scheduled.getAndUpdate {
@@ -77,14 +77,12 @@ class ExecutionContextMonitor(
               )
           }
         }
-      }
     }
     schedule(runnable)
   }
 
-  private def emit(message: => String): Unit = {
+  private def emit(message: => String): Unit =
     logger.warn(message)
-  }
 
   private def reportIssue(
       ec: ExecutionContextIdlenessExecutorService,
@@ -97,11 +95,11 @@ class ExecutionContextMonitor(
       val deltaTs = LoggerUtil.roundDurationForHumans(Duration(delta, TimeUnit.MILLISECONDS))
       if (current > 0) {
         emit(
-          s"Task runner ${ec.name} is still stuck or overloaded for ${deltaTs}. (queue-size=${ec.queueSize}).\n$ec"
+          s"Task runner ${ec.name} is still stuck or overloaded for $deltaTs. (queue-size=${ec.queueSize}).\n$ec"
         )
       } else {
         emit(
-          s"Task runner ${ec.name} is stuck or overloaded for ${deltaTs}. (queue-size=${ec.queueSize}).\n$ec"
+          s"Task runner ${ec.name} is stuck or overloaded for $deltaTs. (queue-size=${ec.queueSize}).\n$ec"
         )
       }
       val traces = StackTraceUtil.formatStackTrace(_.getName.startsWith(ec.name))

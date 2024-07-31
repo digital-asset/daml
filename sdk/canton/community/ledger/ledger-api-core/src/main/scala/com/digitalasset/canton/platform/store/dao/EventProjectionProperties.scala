@@ -33,7 +33,7 @@ final case class EventProjectionProperties(
       Set.empty
     ), // TODO(#19364) fuse with the templateWildcardWitnesses into a templateWildcard Projection and potentially include it into the following Map
 ) {
-  def render(witnesses: Set[String], templateId: Identifier): Projection = {
+  def render(witnesses: Set[String], templateId: Identifier): Projection =
     (witnesses.iterator.map(Some(_))
       ++ Iterator(None)) // for the party-wildcard template specific projections)
       .flatMap(witnessTemplateProjections.get(_).iterator)
@@ -47,7 +47,6 @@ final case class EventProjectionProperties(
             .fold(witnesses.nonEmpty)(parties => witnesses.exists(parties)),
         )
       )(_ append _)
-  }
 }
 
 object EventProjectionProperties {

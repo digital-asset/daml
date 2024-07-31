@@ -137,11 +137,10 @@ trait ConcurrentChangeControlTests extends PersistentStoreSpecBase with Matchers
     }
   }
 
-  private def inTransaction[T](thunk: Connection => T): Future[T] = {
+  private def inTransaction[T](thunk: Connection => T): Future[T] =
     dbSupport.dbDispatcher
       .executeSql(DatabaseMetrics.ForTesting("concurrent change control"))(thunk)(
         LoggingContextWithTrace.ForTesting
       )
-  }
 
 }

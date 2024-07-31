@@ -27,13 +27,12 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   @Help.Summary(
     "Download sequencer snapshot at given point in time to bootstrap another sequencer"
   )
-  def snapshot(timestamp: CantonTimestamp): SequencerSnapshot = {
+  def snapshot(timestamp: CantonTimestamp): SequencerSnapshot =
     // TODO(#14074) add something like "snapshot for sequencer-id", rather than timestamp based
     //      we still need to keep the timestamp based such that we can provide recovery for corrupted sequencers
     consoleEnvironment.run {
       runner.adminCommand(EnterpriseSequencerAdminCommands.Snapshot(timestamp))
     }
-  }
 
   @Help.Summary(
     "Download the onboarding state at a given point in time to bootstrap another sequencer"
@@ -41,7 +40,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   def onboarding_state_at_timestamp(
       timestamp: CantonTimestamp,
       timeout: NonNegativeDuration = timeouts.unbounded,
-  ): ByteString = {
+  ): ByteString =
     consoleEnvironment.run {
       val responseObserver =
         new ByteStringStreamObserver[OnboardingStateResponse](_.onboardingStateForSequencer)
@@ -56,7 +55,6 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
 
       processResult(call, responseObserver.resultBytes, timeout, "Downloading onboarding state")
     }
-  }
 
   @Help.Summary(
     "Download the onboarding state for a given sequencer"
@@ -64,7 +62,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   def onboarding_state_for_sequencer(
       sequencerId: SequencerId,
       timeout: NonNegativeDuration = timeouts.unbounded,
-  ): ByteString = {
+  ): ByteString =
     consoleEnvironment.run {
       val responseObserver =
         new ByteStringStreamObserver[OnboardingStateResponse](_.onboardingStateForSequencer)
@@ -78,7 +76,6 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
         )
       processResult(call, responseObserver.resultBytes, timeout, "Downloading onboarding state")
     }
-  }
 
   @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +

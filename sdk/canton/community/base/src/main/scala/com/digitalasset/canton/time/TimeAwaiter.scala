@@ -53,9 +53,8 @@ trait TimeAwaiter {
 
   protected def awaitKnownTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]] = {
+  )(implicit traceContext: TraceContext): Option[Future[Unit]] =
     awaitKnownTimestampGen(timestamp, new General()).map(_.promise.future)
-  }
 
   protected def awaitKnownTimestampUS(
       timestamp: CantonTimestamp

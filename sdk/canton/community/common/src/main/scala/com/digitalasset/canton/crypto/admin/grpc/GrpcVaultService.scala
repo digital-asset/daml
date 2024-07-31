@@ -350,7 +350,7 @@ class GrpcVaultService(
           )
         )
         _ <- crypto.cryptoPublicStore.storePublicKey(keyPair.publicKey, validatedName)
-        _ = logger.info(s"Uploading key ${validatedName}")
+        _ = logger.info(s"Uploading key $validatedName")
         _ <- cryptoPrivateStore
           .storePrivateKey(keyPair.privateKey, validatedName)
           .valueOr(err => throw CryptoPrivateStoreError.ErrorCode.Wrap(err).asGrpcError)

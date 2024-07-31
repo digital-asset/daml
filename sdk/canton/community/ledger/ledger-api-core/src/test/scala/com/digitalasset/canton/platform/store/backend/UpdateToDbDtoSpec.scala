@@ -1768,7 +1768,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   }
 
-  private def updateToDtos(update: Update) = {
+  private def updateToDtos(update: Update) =
     UpdateToDbDto(
       someParticipantId,
       valueSerialization,
@@ -1779,7 +1779,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     )(
       someOffset
     )(Traced[Update](update)).toList
-  }
 }
 
 object UpdateToDbDtoSpec {

@@ -8,7 +8,7 @@ import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 
 private[platform] object TransactionConversion {
 
-  private def permanent(events: Seq[Event]): Set[String] = {
+  private def permanent(events: Seq[Event]): Set[String] =
     events.foldLeft(Set.empty[String]) { (contractIds, event) =>
       if (event.isCreated || !contractIds.contains(event.contractId)) {
         contractIds + event.contractId
@@ -16,7 +16,6 @@ private[platform] object TransactionConversion {
         contractIds - event.contractId
       }
     }
-  }
 
   // `events` must be in creation order
   private[platform] def removeTransient(events: Seq[Event]): Seq[Event] = {

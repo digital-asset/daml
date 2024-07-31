@@ -201,16 +201,15 @@ abstract class CantonNodeBootstrapImpl[
 
   private val adminApiConfig = config.adminApi
 
-  private def status: Future[NodeStatus[NodeStatus.Status]] = {
+  private def status: Future[NodeStatus[NodeStatus.Status]] =
     getNode
       .map(_.status.map(NodeStatus.Success(_)))
       .getOrElse(
         Future.successful(NodeStatus.NotInitialized(isActive, waitingFor))
       )
-  }
 
   private def waitingFor: Option[WaitingForExternalInput] = {
-    def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] = {
+    def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] =
       stage.next match {
         case Some(s: BootstrapStage[_, _]) => nextStage(s)
         case Some(_: RunningNode[_]) => None
@@ -219,18 +218,16 @@ abstract class CantonNodeBootstrapImpl[
         case Some(_) => None
         case None => Some(stage)
       }
-    }
     nextStage(startupStage).flatMap(_.waitingFor)
   }
 
-  protected def registerHealthGauge(): Unit = {
+  protected def registerHealthGauge(): Unit =
     arguments.metrics.healthMetrics
       .registerHealthGauge(
         name.toProtoPrimitive,
         () => getNode.map(_.status.map(_.active)).getOrElse(Future(false)),
       )
       .discard // we still want to report the health even if the node is closed
-  }
 
   // The admin-API services
   logger.info(s"Starting admin-api services on $adminApiConfig")
@@ -351,12 +348,11 @@ abstract class CantonNodeBootstrapImpl[
   protected val bootstrapStageCallback = new BootstrapStage.Callback {
     override def loggerFactory: NamedLoggerFactory = CantonNodeBootstrapImpl.this.loggerFactory
     override def timeouts: ProcessingTimeout = CantonNodeBootstrapImpl.this.timeouts
-    override def abortThisNodeOnStartupFailure(): Unit = {
+    override def abortThisNodeOnStartupFailure(): Unit =
       // TODO(#14048) bubble this up into env ensuring that the node is properly deregistered from env if we fail during
       //   async startup. (node should be removed from running nodes)
       //   we can't call node.close() here as this thing is executed within a performUnlessClosing, so we'd deadlock
       FatalError.exitOnFatalError(s"startup of node $name failed", logger)
-    }
     override val queue: SimpleExecutionQueue = initQueue
     override def ec: ExecutionContext = CantonNodeBootstrapImpl.this.executionContext
   }
@@ -370,7 +366,7 @@ abstract class CantonNodeBootstrapImpl[
     ) {
       override protected def attempt()(implicit
           traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, String, Option[SetupCrypto]] = {
+      ): EitherT[FutureUnlessShutdown, String, Option[SetupCrypto]] =
         EitherT(
           FutureUnlessShutdown.lift(
             arguments.storageFactory
@@ -391,12 +387,11 @@ abstract class CantonNodeBootstrapImpl[
           val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)
           addCloseable(livenessService)
-          val (healthReporter, grpcHealthServer, httpHealthServer) = {
+          val (healthReporter, grpcHealthServer, httpHealthServer) =
             mkHealthComponents(healthService, livenessService)
-          }
           arguments.parameterConfig.watchdog
             .filter(_.enabled)
-            .foreach(watchdogConfig => {
+            .foreach { watchdogConfig =>
               val watchdog = WatchdogService.SysExitOnNotServing(
                 watchdogConfig.checkInterval,
                 watchdogConfig.killDelay,
@@ -405,13 +400,12 @@ abstract class CantonNodeBootstrapImpl[
                 bootstrap.timeouts,
               )
               addCloseable(watchdog)
-            })
+            }
           grpcHealthServer.foreach(addCloseable)
           httpHealthServer.foreach(addCloseable)
           addCloseable(storage)
           Some(new SetupCrypto(storage, healthReporter, healthService))
         }
-      }
     }
 
   private class SetupCrypto(
@@ -426,7 +420,7 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def attempt()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
+    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] =
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
       performUnlessClosingEitherUSF("create-crypto")(
@@ -457,7 +451,6 @@ abstract class CantonNodeBootstrapImpl[
             Some(new SetupNodeId(storage, crypto, healthReporter, healthService))
           }
       )
-    }
   }
 
   private class SetupNodeId(
@@ -524,7 +517,7 @@ abstract class CantonNodeBootstrapImpl[
       )
 
     override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] = {
+        : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] =
       for {
         // create namespace key
         namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(s"$name-namespace")
@@ -542,7 +535,6 @@ abstract class CantonNodeBootstrapImpl[
           .right[String](initializationStore.setUid(uid))
           .mapK(FutureUnlessShutdown.outcomeK)
       } yield Option(uid)
-    }
 
     override def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
         traceContext: TraceContext
@@ -697,7 +689,7 @@ abstract class CantonNodeBootstrapImpl[
     }
 
     override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[Unit]] = {
+        : EitherT[FutureUnlessShutdown, String, Option[Unit]] =
       for {
         namespaceKey <- crypto.cryptoPublicStore
           .signingKey(nodeId.fingerprint)
@@ -737,7 +729,6 @@ abstract class CantonNodeBootstrapImpl[
           ProtocolVersion.latest,
         )
       } yield Some(())
-    }
 
     private def authorizeStateUpdate(
         keys: Seq[Fingerprint],
@@ -745,7 +736,7 @@ abstract class CantonNodeBootstrapImpl[
         protocolVersion: ProtocolVersion,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    ): EitherT[FutureUnlessShutdown, String, Unit] =
       topologyManager
         .proposeAndAuthorize(
           TopologyChangeOp.Replace,
@@ -758,7 +749,6 @@ abstract class CantonNodeBootstrapImpl[
         // TODO(#14048) error handling
         .leftMap(_.toString)
         .map(_ => ())
-    }
 
   }
 
@@ -826,7 +816,7 @@ object CantonNodeBootstrapImpl {
         Boolean,
       ],
       fingerprint: Fingerprint,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] = {
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] =
     findPubKeyIdByFingerprint(fingerprint)
       .toRight(s"$typ key with fingerprint $fingerprint does not exist")
       .flatMap { keyWithFingerprint =>
@@ -842,7 +832,6 @@ object CantonNodeBootstrapImpl {
             case Left(err) => Left(err)
           }
       }
-  }
 
   private def getOrCreateKey[P <: PublicKey](
       typ: String,

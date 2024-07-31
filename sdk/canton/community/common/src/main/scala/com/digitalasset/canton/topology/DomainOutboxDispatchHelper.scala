@@ -58,11 +58,10 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
 
   protected def onlyApplicable(
       transactions: Seq[GenericSignedTopologyTransaction]
-  ): Future[Seq[GenericSignedTopologyTransaction]] = {
+  ): Future[Seq[GenericSignedTopologyTransaction]] =
     Future.successful(
       transactions.filter(x => x.mapping.restrictedToDomain.forall(_ == domainId))
     )
-  }
 
   protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =
     response == TopologyTransactionsBroadcast.State.Failed
@@ -83,7 +82,7 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
     GenericSignedTopologyTransaction
-  ]] = {
+  ]] =
     transactions
       .parTraverse { tx =>
         if (tx.transaction.isEquivalentTo(protocolVersion)) {
@@ -107,7 +106,6 @@ trait StoreBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
             }
         }
       }
-  }
 
 }
 
@@ -119,7 +117,7 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
     GenericSignedTopologyTransaction
-  ]] = {
+  ]] =
     transactions
       .parTraverse { tx =>
         if (tx.transaction.isEquivalentTo(protocolVersion)) {
@@ -130,7 +128,6 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
             .asVersion(tx, protocolVersion)(crypto)
         }
       }
-  }
 }
 
 trait DomainOutboxDispatch extends NamedLogging with FlagCloseable {

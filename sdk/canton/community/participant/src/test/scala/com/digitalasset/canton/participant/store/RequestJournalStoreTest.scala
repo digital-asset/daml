@@ -221,7 +221,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       }
     }
 
-    def setupPruning(store: RequestJournalStore): Future[Unit] = {
+    def setupPruning(store: RequestJournalStore): Future[Unit] =
       for {
         _ <- store.insert(RequestData.clean(rc, CantonTimestamp.ofEpochSecond(1), commitTime))
         _ <- store.insert(RequestData.clean(rc + 1, CantonTimestamp.ofEpochSecond(2), commitTime))
@@ -229,7 +229,6 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         _ <- store.insert(RequestData(rc + 4, Pending, CantonTimestamp.ofEpochSecond(5)))
         _ <- store.advancePreheadCleanTo(CursorPrehead(rc + 2L, CantonTimestamp.ofEpochSecond(3)))
       } yield ()
-    }
 
     "prune when given a sensible timestamp" in {
       val store = mk()

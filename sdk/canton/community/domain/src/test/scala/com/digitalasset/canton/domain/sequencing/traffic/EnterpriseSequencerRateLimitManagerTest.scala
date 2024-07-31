@@ -182,7 +182,7 @@ class EnterpriseSequencerRateLimitManagerTest
       ),
       submissionTimestamp: Option[CantonTimestamp] = Some(senderTs),
       lastKnownSequencedEvent: CantonTimestamp = sequencerTs,
-  )(implicit f: Env) = {
+  )(implicit f: Env) =
     f.rlm
       .validateRequestAtSubmissionTime(
         defaultSubmissionRequest.copy(submissionCost = cost),
@@ -192,16 +192,14 @@ class EnterpriseSequencerRateLimitManagerTest
       )
       .value
       .failOnShutdown
-  }
 
-  private def mkEnvelope(content: String): ClosedEnvelope = {
+  private def mkEnvelope(content: String): ClosedEnvelope =
     ClosedEnvelope.create(
       ByteString.copyFromUtf8(content),
       Recipients.cc(DefaultTestIdentities.participant1),
       Seq.empty,
       testedProtocolVersion,
     )
-  }
 
   private def mkBatch(content: String) = Batch(List(mkEnvelope(content)), testedProtocolVersion)
 
@@ -245,7 +243,7 @@ class EnterpriseSequencerRateLimitManagerTest
       .failOnShutdown
   }
 
-  private def purchaseTraffic(implicit f: Env) = {
+  private def purchaseTraffic(implicit f: Env) =
     f.balanceManager.addTrafficPurchased(
       TrafficPurchased(
         sender,
@@ -254,7 +252,6 @@ class EnterpriseSequencerRateLimitManagerTest
         sequencerTs.immediatePredecessor,
       )
     )
-  }
 
   private def returnIncorrectCostFromSender(
       cost: NonNegativeLong = incorrectSubmissionCostNN

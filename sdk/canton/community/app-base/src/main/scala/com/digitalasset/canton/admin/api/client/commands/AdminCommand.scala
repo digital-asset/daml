@@ -109,18 +109,16 @@ object GrpcAdminCommand {
             })
           }
 
-          override def onError(t: Throwable): Unit = {
+          override def onError(t: Throwable): Unit =
             t match {
               case GrpcErrorStatus(status) if status.getCode == Status.CANCELLED.getCode =>
                 success()
               case _ =>
                 val _ = promise.tryFailure(t)
             }
-          }
 
-          override def onCompleted(): Unit = {
+          override def onCompleted(): Unit =
             success()
-          }
         },
       )
     )

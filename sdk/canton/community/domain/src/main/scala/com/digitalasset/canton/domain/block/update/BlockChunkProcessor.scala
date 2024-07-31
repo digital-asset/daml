@@ -432,7 +432,7 @@ private[update] final class BlockChunkProcessor(
       }
       .map(
         _.groupBy { case (member, _) => member }
-          .mapFilter { tssForMember => tssForMember.map { case (_, ts) => ts }.minOption }
+          .mapFilter(tssForMember => tssForMember.map { case (_, ts) => ts }.minOption)
       )
 
   private def processAcknowledgements(

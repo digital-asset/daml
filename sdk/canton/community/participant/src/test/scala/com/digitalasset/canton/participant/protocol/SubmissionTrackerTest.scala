@@ -60,11 +60,10 @@ class SubmissionTrackerTest
       participantId,
       requestId.unwrap.plusSeconds(maxSeqTimeOffset),
     )
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     submissionTrackerStore.clear()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     whenCompleted {
       // Avoid flakes by checking the condition only if the test suite has not been aborted
       case Success(true) =>
@@ -72,13 +71,12 @@ class SubmissionTrackerTest
         submissionTracker match {
           case st: SubmissionTrackerImpl =>
             // Use `eventually()` to account for pending futures not yet completed
-            eventually() { st.internalSize shouldBe 0 }
+            eventually()(st.internalSize shouldBe 0)
           case _ => fail("Unexpected SubmissionTracker instance")
         }
 
       case _ =>
     }
-  }
 
   "submission tracker" should {
     "successfully process a normal request" in {
@@ -219,7 +217,7 @@ class SubmissionTrackerTest
             registeredRequestIds += (index -> reqId)
             f
           }
-        }.thereafter { _ => allRequestsRegistered.set(true) }
+        }.thereafter(_ => allRequestsRegistered.set(true))
 
         @tailrec
         def processRegisteredRequests(): Unit =

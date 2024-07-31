@@ -93,7 +93,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
     .map(_.sequenced.value)
     .maxOption
 
-  def asSnapshotAtMaxEffectiveTime: StoredTopologyTransactions[Op, M] = {
+  def asSnapshotAtMaxEffectiveTime: StoredTopologyTransactions[Op, M] =
     result
       .map(_.validFrom.value)
       .maxOption
@@ -107,9 +107,8 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         })
       }
       .getOrElse(this) // this case is triggered by `result` being empty
-  }
 
-  def retainAuthorizedHistoryAndEffectiveProposals: StoredTopologyTransactions[Op, M] = {
+  def retainAuthorizedHistoryAndEffectiveProposals: StoredTopologyTransactions[Op, M] =
     // only retain transactions that are:
     filter(tx =>
       // * fully authorized
@@ -117,7 +116,6 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
         // * proposals that are still effective
         tx.validUntil.isEmpty
     )
-  }
 }
 
 object StoredTopologyTransactions
@@ -143,7 +141,7 @@ object StoredTopologyTransactions
   ): ParsingResult[GenericStoredTopologyTransactions] = {
     def parseItem(
         item: v30.TopologyTransactions.Item
-    ): ParsingResult[GenericStoredTopologyTransaction] = {
+    ): ParsingResult[GenericStoredTopologyTransaction] =
       for {
         sequenced <- ProtoConverter.parseRequired(
           SequencedTime.fromProtoPrimitive,
@@ -163,7 +161,6 @@ object StoredTopologyTransactions
         validUntil,
         transaction,
       )
-    }
     value.items
       .traverse(parseItem)
       .map(StoredTopologyTransactions(_))
@@ -217,14 +214,13 @@ object SignedTopologyTransactions {
       .collect { case (k, Some(v)) => k -> v }
       .toMap
 
-    val (compacted, _) = {
+    val (compacted, _) =
       txs.foldLeft((Vector.empty[GenericSignedTopologyTransaction], byHash)) {
         case ((result, byHash), tx) =>
           val newResult = byHash.get(tx.hash).map(result :+ _).getOrElse(result)
           val txHashRemoved = byHash.removed(tx.hash)
           (newResult, txHashRemoved)
       }
-    }
     compacted
   }
 }

@@ -71,7 +71,7 @@ class MemberAuthenticationService(
     */
   def generateNonce(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] = {
+  ): EitherT[Future, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] =
     for {
       _ <- EitherT.right(waitForInitialized)
       snapshot = cryptoApi.ips.currentSnapshotApproximation
@@ -90,9 +90,8 @@ class MemberAuthenticationService(
       scheduleExpirations(storedNonce.expireAt)
       (nonce, fingerprints)
     }
-  }
 
-  private def waitForInitialized(implicit traceContext: TraceContext): Future[Unit] = {
+  private def waitForInitialized(implicit traceContext: TraceContext): Future[Unit] =
     // avoid logging if we're already done
     if (isTopologyInitialized.isCompleted) isTopologyInitialized
     else {
@@ -102,7 +101,6 @@ class MemberAuthenticationService(
         logger.debug(s"Topology has been initialized")
       }
     }
-  }
 
   private def handlePassiveInstanceException[A](
       future: Future[A]
@@ -216,14 +214,13 @@ class MemberAuthenticationService(
 
   protected def isMemberActive(check: TopologySnapshot => Future[Boolean])(implicit
       traceContext: TraceContext
-  ): Future[Boolean] = {
+  ): Future[Boolean] =
     cryptoApi.snapshot(cryptoApi.topologyKnownUntilTimestamp).flatMap { snapshot =>
       // we are a bit more conservative here. a member needs to be active NOW and the head state (i.e. effective in the future)
       Seq(snapshot.ipsSnapshot, cryptoApi.currentSnapshotApproximation.ipsSnapshot)
         .parTraverse(check(_))
         .map(_.forall(identity))
     }
-  }
 
   protected def isParticipantActive(participant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -238,7 +235,7 @@ class MemberAuthenticationService(
   )(memberId: T)(implicit traceContext: TraceContext): Unit = {
     val invalidateF = isActiveCheck(memberId).flatMap { isActive =>
       if (!isActive) {
-        logger.debug(s"Expiring all auth-tokens of ${memberId}")
+        logger.debug(s"Expiring all auth-tokens of $memberId")
         tokenCache
           // first, remove all auth tokens
           .invalidateAllTokensForMember(memberId)
@@ -264,14 +261,13 @@ object MemberAuthenticationService {
       scale: Double,
       min: Double,
       max: Double,
-  ): Double = {
+  ): Double =
     Iterator
       .continually {
         -math.log(scala.util.Random.nextDouble()) * scale
       }
       .filter(d => d >= min && d <= max)
       .next()
-  }
 }
 
 class MemberAuthenticationServiceImpl(
@@ -318,7 +314,7 @@ class MemberAuthenticationServiceImpl(
             ) =>
           val participant = cert.participantId
           logger.info(
-            s"Domain trust certificate of ${participant} was removed, forcefully disconnecting the participant."
+            s"Domain trust certificate of $participant was removed, forcefully disconnecting the participant."
           )
           invalidateAndExpire(isParticipantActive)(participant)
         case TopologyTransaction(
@@ -328,7 +324,7 @@ class MemberAuthenticationServiceImpl(
             ) if cert.loginAfter.exists(_ > clock.now) =>
           val participant = cert.participantId
           logger.info(
-            s"${participant} is disabled until ${cert.loginAfter}. Removing any token and booting the participant"
+            s"$participant is disabled until ${cert.loginAfter}. Removing any token and booting the participant"
           )
           invalidateAndExpire(isParticipantActive)(participant)
         case _ =>

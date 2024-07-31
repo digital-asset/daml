@@ -95,7 +95,7 @@ object DeterministicEncoding {
 
     // Returns a tuple of output varint and index to last consumed byte
     @tailrec
-    def decodeUVarIntBytes(output: Long, index: Int, shift: Int): Either[String, (Long, Int)] = {
+    def decodeUVarIntBytes(output: Long, index: Int, shift: Int): Either[String, (Long, Int)] =
       if (index >= bytes.size)
         Left("Input bytes already consumed")
       // Only consume maximum of 9 bytes according to spec
@@ -111,7 +111,6 @@ object DeterministicEncoding {
           Right((out, index))
         }
       }
-    }
 
     decodeUVarIntBytes(0, 0, 0).bimap(
       err => DefaultDeserializationError(s"Failed to decode unsigned var-int: $err"),
@@ -206,26 +205,24 @@ object DeterministicEncoding {
     */
   def decodeInstant(
       bytes: ByteString
-  ): Either[DeserializationError, (Instant, ByteString)] = {
+  ): Either[DeserializationError, (Instant, ByteString)] =
     for {
       longAndBytes <- decodeLong(bytes)
       (long, bytes) = longAndBytes
       intAndBytes <- decodeInt(bytes)
       (int, bytes) = intAndBytes
     } yield (Instant.ofEpochSecond(long, int.toLong), bytes)
-  }
 
   /** Encode an [[LfPartyId]] into a [[com.google.protobuf.ByteString]], using the underlying string */
   def encodeParty(party: LfPartyId): ByteString =
     encodeString(party)
 
   /** Encode an [[scala.Option]] into a tagged [[com.google.protobuf.ByteString]], using the given `encode` function. */
-  def encodeOptionWith[A](option: Option[A])(encode: A => ByteString): ByteString = {
+  def encodeOptionWith[A](option: Option[A])(encode: A => ByteString): ByteString =
     option match {
       case None => encodeByte(0)
       case Some(x) => encodeByte(1).concat(encode(x))
     }
-  }
 
   /** Encode a [[scala.Seq]] into a [[com.google.protobuf.ByteString]] using the given encoding function,
     *  prefixing it with the length of the [[scala.Seq]]
@@ -244,7 +241,7 @@ object DeterministicEncoding {
         col: Seq[A],
         num: Int,
         bytes: ByteString,
-    ): Either[DeserializationError, (Seq[A], ByteString)] = {
+    ): Either[DeserializationError, (Seq[A], ByteString)] =
       if (num == 0) {
         Right((col, bytes))
       } else {
@@ -252,7 +249,6 @@ object DeterministicEncoding {
           iterate(col :+ elem, num - 1, rest)
         }
       }
-    }
     for {
       lengthAndRest <- DeterministicEncoding.decodeInt(bytes)
       (len, rest) = lengthAndRest

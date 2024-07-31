@@ -172,7 +172,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
         args: List[
           (SequencerAlias, Endpoint, Either[SequencerInfoLoaderError, DomainClientBootstrapInfo])
         ]
-    ): Either[SequencerInfoLoaderError, SequencerInfoLoader.SequencerAggregatedInfo] = {
+    ): Either[SequencerInfoLoaderError, SequencerInfoLoader.SequencerAggregatedInfo] =
       SequencerInfoLoader.aggregateBootstrapInfo(
         logger,
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
@@ -180,7 +180,6 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
         SequencerConnectionValidation.All,
         None,
       )(mapArgs(args))
-    }
 
     "accept if everything is fine" in {
       aggregate(
@@ -330,7 +329,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
               NonEmpty.mk(Seq, endpoint1),
               transportSecurity = false,
               None,
-              SequencerAlias.tryCreate(s"sequencer${i}"),
+              SequencerAlias.tryCreate(s"sequencer$i"),
             )
           )
       )

@@ -16,14 +16,11 @@ final class GeneratorsData(
 ) {
   import generatorsProtocol.*
 
-  implicit val activeContractArb: Arbitrary[ActiveContract] = {
-
+  implicit val activeContractArb: Arbitrary[ActiveContract] =
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       transferCounter <- transferCounterGen
     } yield ActiveContract.create(domainId, contract, transferCounter)(protocolVersion))
-
-  }
 
 }

@@ -81,7 +81,7 @@ class PartyStorageBackendTemplate(
       endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
+  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] =
     SQL"""select * from lapi_party_entries
       where ${queryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
@@ -93,7 +93,6 @@ class PartyStorageBackendTemplate(
       fetch next $pageSize rows only
       """
       .asVectorOf(partyEntryParser)(connection)
-  }
 
   private val partyDetailsParser: RowParser[IndexerPartyDetails] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean

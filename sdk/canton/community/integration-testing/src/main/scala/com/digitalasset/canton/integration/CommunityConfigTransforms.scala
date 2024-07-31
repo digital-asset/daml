@@ -96,7 +96,7 @@ object CommunityConfigTransforms {
         .focus(_.mediators)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
-  def uniqueH2DatabaseNames: CommunityConfigTransform = {
+  def uniqueH2DatabaseNames: CommunityConfigTransform =
     updateAllSequencerConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     } compose updateAllMediatorConfigs { case (nodeName, cfg) =>
@@ -104,7 +104,6 @@ object CommunityConfigTransforms {
     } compose updateAllParticipantConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     }
-  }
 
   def setNonStandardConfig(enable: Boolean): CommunityConfigTransform =
     _.focus(_.parameters.nonStandardConfig).replace(enable)

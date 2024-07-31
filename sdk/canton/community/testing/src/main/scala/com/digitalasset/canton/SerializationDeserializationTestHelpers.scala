@@ -46,33 +46,30 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   ], DeserializedValueClass <: HasRepresentativeProtocolVersion](
       companion: HasProtocolVersionedWrapperWithoutContextCompanion[T, DeserializedValueClass],
       protocolVersion: ProtocolVersion,
-  )(implicit arb: Arbitrary[T]): Assertion = {
+  )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(protocolVersion),
     )
-  }
 
   protected def testMemoizedProtocolVersioned[T <: HasProtocolVersionedWrapper[T]](
       companion: HasMemoizedProtocolVersionedWrapperCompanion[T],
       protocolVersion: ProtocolVersion,
-  )(implicit arb: Arbitrary[T]): Assertion = {
+  )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(protocolVersion),
     )
-  }
   protected def testMemoizedProtocolVersioned2[T <: HasProtocolVersionedWrapper[
     T
   ], U <: HasProtocolVersionedWrapper[?]](
       companion: HasMemoizedProtocolVersionedWrapperCompanion2[T, U],
       protocolVersion: ProtocolVersion,
-  )(implicit arb: Arbitrary[T]): Assertion = {
+  )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(protocolVersion),
     )
-  }
 
   protected def testMemoizedProtocolVersionedWithCtx[T <: HasProtocolVersionedWrapper[T], Context](
       companion: HasMemoizedProtocolVersionedWithContextCompanion[T, Context],

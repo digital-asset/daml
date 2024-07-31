@@ -105,13 +105,12 @@ class TopologyAdministrationGroup(
   private val idCache =
     new AtomicReference[Option[UniqueIdentifier]](None)
 
-  private[console] def clearCache(): Unit = {
+  private[console] def clearCache(): Unit =
     idCache.set(None)
-  }
 
   private[console] def idHelper[T](
       apply: UniqueIdentifier => T
-  ): T = {
+  ): T =
     apply(idCache.get() match {
       case Some(v) => v
       case None =>
@@ -121,11 +120,10 @@ class TopologyAdministrationGroup(
         idCache.set(Some(r))
         r
     })
-  }
 
   private[console] def maybeIdHelper[T](
       apply: UniqueIdentifier => T
-  ): Option[T] = {
+  ): Option[T] =
     (idCache.get() match {
       case Some(v) => Some(v)
       case None =>
@@ -138,7 +136,6 @@ class TopologyAdministrationGroup(
           })
         }
     }).map(apply)
-  }
 
   @Help.Summary("Topology synchronisation helpers", FeatureFlag.Preview)
   @Help.Group("Synchronisation Helpers")
@@ -162,7 +159,7 @@ class TopologyAdministrationGroup(
     ): Unit =
       ConsoleMacros.utils.retry_until_true(timeout)(
         is_idle(),
-        s"topology queue status never became idle ${topologyQueueStatus} after ${timeout}",
+        s"topology queue status never became idle $topologyQueueStatus after $timeout",
       )
 
     /** run a topology change command synchronized and wait until the node becomes idle again */
@@ -216,8 +213,7 @@ class TopologyAdministrationGroup(
     @Help.Description(
       "The node's identity is defined by topology transactions of type NamespaceDelegation and OwnerToKeyMapping."
     )
-    def identity_transactions()
-        : Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
+    def identity_transactions(): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] =
       instance.topology.transactions
         .list(
           filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
@@ -225,7 +221,6 @@ class TopologyAdministrationGroup(
         )
         .result
         .map(_.transaction)
-    }
 
     @Help.Summary("Serializes node's topology identity transactions to a file")
     @Help.Description(
@@ -242,12 +237,11 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Loads topology transactions from a file into the specified topology store")
     @Help.Description("The file must contain data serialized by TopologyTransactions.")
-    def import_topology_snapshot_from(file: String, store: String): Unit = {
+    def import_topology_snapshot_from(file: String, store: String): Unit =
       BinaryFileUtil.readByteStringFromFile(file).map(import_topology_snapshot(_, store)).valueOr {
         err =>
           throw new IllegalArgumentException(s"import_topology_snapshot failed: $err")
       }
-    }
     def import_topology_snapshot(topologyTransactions: ByteString, store: String): Unit =
       consoleEnvironment.run {
         adminCommand(
@@ -396,7 +390,7 @@ class TopologyAdministrationGroup(
         filterDomainStore: String = "",
         timestamp: Option[CantonTimestamp] = None,
         timeout: NonNegativeDuration = timeouts.unbounded,
-    ): ByteString = {
+    ): ByteString =
       consoleEnvironment.run {
         val responseObserver = new ByteStringStreamObserver[GenesisStateResponse](_.chunk)
 
@@ -412,8 +406,6 @@ class TopologyAdministrationGroup(
 
         processResult(call, responseObserver.resultBytes, timeout, "Downloading the genesis state")
       }
-
-    }
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
     @Help.Description(
@@ -490,7 +482,7 @@ class TopologyAdministrationGroup(
 
       val thisNodeRootKey = Some(instance.id.fingerprint)
 
-      def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) = {
+      def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) =
         instance.topology.transactions
           .findLatestByMappingHash[M](
             hash,
@@ -498,7 +490,6 @@ class TopologyAdministrationGroup(
             includeProposals = true,
           )
           .map(_.transaction)
-      }
 
       // create and sign the initial domain parameters
       val domainParameterState =
@@ -517,7 +508,7 @@ class TopologyAdministrationGroup(
             )
           )
 
-      val mediatorState = {
+      val mediatorState =
         latest[MediatorDomainState](MediatorDomainState.uniqueKey(domainId, NonNegativeInt.zero))
           .getOrElse(
             instance.topology.mediators.propose(
@@ -529,9 +520,8 @@ class TopologyAdministrationGroup(
               store = Some(AuthorizedStore.filterName),
             )
           )
-      }
 
-      val sequencerState = {
+      val sequencerState =
         latest[SequencerDomainState](SequencerDomainState.uniqueKey(domainId))
           .getOrElse(
             instance.topology.sequencers.propose(
@@ -542,7 +532,6 @@ class TopologyAdministrationGroup(
               store = Some(AuthorizedStore.filterName),
             )
           )
-      }
 
       Seq(domainParameterState, sequencerState, mediatorState)
     }
@@ -660,16 +649,14 @@ class TopologyAdministrationGroup(
     def join(
         decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.fingerprint),
-    ): GenericSignedTopologyTransaction = {
+    ): GenericSignedTopologyTransaction =
       ???
-    }
 
     def leave(
         decentralizedNamespace: Fingerprint,
         owner: Option[Fingerprint] = Some(instance.id.fingerprint),
-    ): ByteString = {
+    ): ByteString =
       ByteString.EMPTY
-    }
   }
 
   @Help.Summary("Manage namespace delegations")
@@ -760,7 +747,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] =
       list(
         store,
         filterNamespace = namespace.toProtoPrimitive,
@@ -789,7 +776,6 @@ class TopologyAdministrationGroup(
                 .map(_.item)}"
           )
       }
-    }
 
     def list(
         filterStore: String = "",
@@ -1222,7 +1208,7 @@ class TopologyAdministrationGroup(
   @Help.Group("Party to participant mappings")
   object party_to_participant_mappings extends Helpful {
 
-    private def findCurrent(party: PartyId, store: String) = {
+    private def findCurrent(party: PartyId, store: String) =
       TopologyStoreId(store) match {
         case TopologyStoreId.DomainStore(domainId, _) =>
           expectAtMostOneResult(
@@ -1243,7 +1229,6 @@ class TopologyAdministrationGroup(
             )
           )
       }
-    }
 
     @Help.Summary("Change party to participant mapping")
     @Help.Description("""Change the association of a party to hosting participants.
@@ -1719,10 +1704,9 @@ class TopologyAdministrationGroup(
       """Active means that the participant has been granted at least observation rights on the domain
          |and that the participant has registered a domain trust certificate"""
     )
-    def active(domainId: DomainId, participantId: ParticipantId): Boolean = {
+    def active(domainId: DomainId, participantId: ParticipantId): Boolean =
       // TODO(#14048) Should we check the other side (domain accepts participant)?
       domain_trust_certificates.active(domainId, participantId)
-    }
   }
 
   @Help.Summary("Manage party hosting limits")
@@ -1765,7 +1749,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-    ): SignedTopologyTransaction[TopologyChangeOp, PartyHostingLimits] = {
+    ): SignedTopologyTransaction[TopologyChangeOp, PartyHostingLimits] =
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
           PartyHostingLimits(domainId, partyId),
@@ -1776,7 +1760,6 @@ class TopologyAdministrationGroup(
           mustFullyAuthorize = mustFullyAuthorize,
         )
       )
-    }
   }
 
   @Help.Summary("Manage package vettings")
@@ -2543,7 +2526,7 @@ class TopologyAdministrationGroup(
         domainId: DomainId,
         newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
-    ): Unit = {
+    ): Unit =
       TraceContext.withNewTraceContext { implicit tc =>
         if (!force) {
           securely_set_ledger_time_record_time_tolerance(
@@ -2561,7 +2544,6 @@ class TopologyAdministrationGroup(
           )
         }
       }
-    }
 
     private def securely_set_ledger_time_record_time_tolerance(
         domainId: DomainId,

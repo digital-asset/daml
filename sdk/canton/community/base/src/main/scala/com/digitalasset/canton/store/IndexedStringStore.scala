@@ -52,24 +52,22 @@ abstract class IndexedStringFromDb[A <: IndexedString[B], B] {
 
   def fromDbIndexOT(context: String, indexedStringStore: IndexedStringStore)(
       index: Int
-  )(implicit ec: ExecutionContext, loggingContext: ErrorLoggingContext): OptionT[Future, A] = {
+  )(implicit ec: ExecutionContext, loggingContext: ErrorLoggingContext): OptionT[Future, A] =
     fromDbIndexET(indexedStringStore)(index).leftMap { err =>
       loggingContext.logger.error(
-        s"Corrupt log id: ${index} for ${dbTyp} within context $context: $err"
+        s"Corrupt log id: $index for $dbTyp within context $context: $err"
       )(loggingContext.traceContext)
     }.toOption
-  }
 
   def fromDbIndexET(
       indexedStringStore: IndexedStringStore
-  )(index: Int)(implicit ec: ExecutionContext): EitherT[Future, String, A] = {
+  )(index: Int)(implicit ec: ExecutionContext): EitherT[Future, String, A] =
     EitherT(indexedStringStore.getForIndex(dbTyp, index).map { strO =>
       for {
         str <- strO.toRight("No entry for given index")
         parsed <- fromString(str, index)
       } yield parsed
     })
-  }
 }
 
 final case class IndexedDomain private (domainId: DomainId, index: Int)
@@ -90,20 +88,18 @@ object IndexedDomain extends IndexedStringFromDb[IndexedDomain, DomainId] {
 
   override protected def dbTyp: IndexedStringType = IndexedStringType.domainId
 
-  override protected def buildIndexed(item: DomainId, index: Int): IndexedDomain = {
+  override protected def buildIndexed(item: DomainId, index: Int): IndexedDomain =
     // save, because buildIndexed is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     checked(tryCreate(item, index))
-  }
 
   override protected def asString(item: DomainId): String300 =
     item.toLengthLimitedString.asString300
 
-  override protected def fromString(str: String300, index: Int): Either[String, IndexedDomain] = {
+  override protected def fromString(str: String300, index: Int): Either[String, IndexedDomain] =
     // save, because fromString is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     DomainId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
-  }
 }
 
 final case class IndexedStringType private (source: Int, description: String)

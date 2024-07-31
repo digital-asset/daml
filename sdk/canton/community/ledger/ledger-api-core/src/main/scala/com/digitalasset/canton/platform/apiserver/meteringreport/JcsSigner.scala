@@ -41,28 +41,25 @@ object JcsSigner {
   def sign(
       report: ParticipantReport,
       key: Key,
-  ): Either[Error, ParticipantReport] = {
+  ): Either[Error, ParticipantReport] =
     generateCheck(report: ParticipantReport, key: Key).map(check =>
       report.copy(check = Some(check))
     )
-  }
 
   private def generateCheck(
       report: ParticipantReport,
       key: Key,
-  ): Either[Error, Check] = {
+  ): Either[Error, Check] =
     for {
       jcs <- Jcs.serialize(report.copy(check = None).toJson)
       digest <- HmacSha256.compute(key, jcs.getBytes(StandardCharsets.UTF_8)).left.map(_.getMessage)
     } yield Check(key.scheme, toBase64(digest))
-  }
 
-  def verify(json: String, keyLookup: Scheme => Option[Key]): VerificationStatus = {
+  def verify(json: String, keyLookup: Scheme => Option[Key]): VerificationStatus =
     Try(json.parseJson.convertTo[ParticipantReport]) match {
       case Success(report) => verify(report, keyLookup)
       case Failure(e) => InvalidJson(e.getMessage)
     }
-  }
 
   def verify(report: ParticipantReport, keyLookup: Scheme => Option[Key]): VerificationStatus = {
     val result: Either[VerificationStatus, VerificationStatus] = for {

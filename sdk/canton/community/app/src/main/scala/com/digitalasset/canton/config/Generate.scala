@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import better.files.{File as BFile}
+import better.files.File as BFile
 import com.digitalasset.canton.cli.Command
 import com.digitalasset.canton.environment.Environment
 import pureconfig.ConfigWriter
@@ -13,9 +13,9 @@ object Generate {
   private def write[A](name: String, prefix: String, config: A)(implicit
       configWriter: ConfigWriter[A]
   ): Unit = {
-    val _ = BFile(s"remote-${name}.conf")
+    val _ = BFile(s"remote-$name.conf")
       .write(
-        s"canton.remote-${prefix}.${name} {" + System.lineSeparator() + configWriter
+        s"canton.remote-$prefix.$name {" + System.lineSeparator() + configWriter
           .to(config)
           .render(CantonConfig.defaultConfigRenderer) + System.lineSeparator() + "}" + System
           .lineSeparator()

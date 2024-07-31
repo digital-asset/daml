@@ -11,7 +11,7 @@ import java.sql.Connection
 
 object PostgresResetStorageBackend extends ResetStorageBackend {
 
-  override def resetAll(connection: Connection): Unit = {
+  override def resetAll(connection: Connection): Unit =
     SQL"""
       delete from lapi_parameters cascade;
       delete from lapi_ledger_end_domain_index cascade;
@@ -43,5 +43,4 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
     """
       .execute()(connection)
       .discard
-  }
 }

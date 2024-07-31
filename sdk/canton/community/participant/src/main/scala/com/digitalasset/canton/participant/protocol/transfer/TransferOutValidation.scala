@@ -65,7 +65,7 @@ private[transfer] final case class TransferOutValidation(
 
   private def checkTemplateId()(implicit
       executionContext: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     EitherT.cond[FutureUnlessShutdown](
       expectedTemplateId == request.templateId,
       (),
@@ -74,7 +74,6 @@ private[transfer] final case class TransferOutValidation(
         expectedTemplateId = expectedTemplateId,
       ),
     )
-  }
 }
 
 private[transfer] object TransferOutValidation {

@@ -27,7 +27,7 @@ object RequireBlocking extends WartTraverser {
     val threadFullName = "java.lang.Thread"
 
     new Traverser {
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
@@ -57,7 +57,6 @@ object RequireBlocking extends WartTraverser {
           case _ =>
             super.traverse(tree)
         }
-      }
     }
   }
 }

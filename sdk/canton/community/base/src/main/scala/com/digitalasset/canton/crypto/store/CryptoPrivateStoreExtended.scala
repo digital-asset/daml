@@ -75,13 +75,12 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   def storePrivateKey(key: PrivateKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     (key: @unchecked) match {
       case signingPrivateKey: SigningPrivateKey => storeSigningKey(signingPrivateKey, name)
       case encryptionPrivateKey: EncryptionPrivateKey =>
         storeDecryptionKey(encryptionPrivateKey, name)
     }
-  }
 
   def exportPrivateKey(keyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -191,7 +190,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   private[crypto] def decryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[EncryptionPrivateKey]] = {
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[EncryptionPrivateKey]] =
     retrieveAndUpdateCache(
       decryptionKeyMap,
       keyFingerprint =>
@@ -201,7 +200,6 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           (privateKey, name) => EncryptionPrivateKeyWithName(privateKey, name),
         )(keyFingerprint),
     )(encryptionKeyId)
-  }
 
   private[crypto] def storeDecryptionKey(
       key: EncryptionPrivateKey,

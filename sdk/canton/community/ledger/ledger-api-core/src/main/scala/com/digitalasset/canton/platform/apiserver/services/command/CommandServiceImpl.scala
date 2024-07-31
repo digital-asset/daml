@@ -183,7 +183,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       loggingContextWithTrace: LoggingContextWithTrace,
   )(
       submitWithContext: (ContextualizedErrorLogger, TraceContext) => Future[T]
-  ): Future[T] = {
+  ): Future[T] =
     LoggingContextWithTrace.withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
@@ -200,7 +200,6 @@ private[apiserver] final class CommandServiceImpl private[services] (
         loggingContext.traceContext,
       )
     }(loggingContextWithTrace)
-  }
 }
 
 private[apiserver] object CommandServiceImpl {

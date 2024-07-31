@@ -255,9 +255,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       "Register `AutoCloseable` object to be shutdown if Canton is shut down",
       FeatureFlag.Testing,
     )
-    def auto_close(closeable: AutoCloseable)(implicit environment: ConsoleEnvironment): Unit = {
+    def auto_close(closeable: AutoCloseable)(implicit environment: ConsoleEnvironment): Unit =
       environment.environment.addUserCloseable(closeable)
-    }
 
     @Help.Summary("Convert contract data to a contract instance.")
     @Help.Description(
@@ -563,7 +562,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     def exercise(choice: String, arguments: Map[String, Any], event: CreatedEvent): Command = {
       def getOrThrow(desc: String, opt: Option[String]): String =
         opt.getOrElse(
-          throw new IllegalArgumentException(s"Corrupt created event ${event} without ${desc}")
+          throw new IllegalArgumentException(s"Corrupt created event $event without $desc")
         )
       exercise(
         getOrThrow(
@@ -586,9 +585,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     @Help.Summary("Dynamically change log level (TRACE, DEBUG, INFO, WARN, ERROR, OFF, null)")
-    def set_level(loggerName: String = "com.digitalasset.canton", level: String): Unit = {
+    def set_level(loggerName: String = "com.digitalasset.canton", level: String): Unit =
       NodeLoggingUtil.setLevel(loggerName, level)
-    }
 
     @Help.Summary("Determine current logging level")
     def get_level(loggerName: String = "com.digitalasset.canton"): Option[Level] =
@@ -602,12 +600,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       }
 
     @Help.Summary("Returns log events for an error with the same trace-id")
-    def last_error_trace(traceId: String): Seq[String] = {
+    def last_error_trace(traceId: String): Seq[String] =
       NodeLoggingUtil.lastErrorTrace(traceId).getOrElse {
         logger.error(s"No events found for last error trace-id $traceId")
         throw new CommandFailure()
       }
-    }
   }
 
   @Help.Summary("Configure behaviour of console")
@@ -636,14 +633,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       env.setCommandTimeout(newTimeout)
 
     // this command is intentionally not documented as part of the help system
-    def disable_features(flag: FeatureFlag)(implicit env: ConsoleEnvironment): Unit = {
+    def disable_features(flag: FeatureFlag)(implicit env: ConsoleEnvironment): Unit =
       env.updateFeatureSet(flag, include = false)
-    }
 
     // this command is intentionally not documented as part of the help system
-    def enable_features(flag: FeatureFlag)(implicit env: ConsoleEnvironment): Unit = {
+    def enable_features(flag: FeatureFlag)(implicit env: ConsoleEnvironment): Unit =
       env.updateFeatureSet(flag, include = true)
-    }
   }
 
   @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full domains")
@@ -750,7 +745,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     )(domainId: DomainId): Either[String, Option[DomainId]] = {
       def isNotInitializedOrSuccessWithDomain(
           instance: InstanceReference
-      ): Either[String, Boolean /* isInitializedWithDomain */ ] = {
+      ): Either[String, Boolean /* isInitializedWithDomain */ ] =
         instance.health.status match {
           case nonFailure if nonFailure.isActive.contains(false) =>
             Left(s"${instance.id.member} is currently not active")
@@ -777,7 +772,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             // Unexpected status response. All cases should be covered by the patterns above
             Left(s"Unexpected status: $otherwise")
         }
-      }
 
       val alreadyFullyInitialized =
         (sequencers ++ mediators).forgetNE.toSeq.traverse(isNotInitializedOrSuccessWithDomain(_))
@@ -1044,7 +1038,7 @@ object DebuggingHelpers extends LazyLogging {
     ) = {
       val delta = lft.diff(rght)
       delta.foreach { key =>
-        logger.info(s"${explain} ${key} ${payload.getOrElse(key, sys.error("should be there"))}")
+        logger.info(s"$explain $key ${payload.getOrElse(key, sys.error("should be there"))}")
       }
     }
 

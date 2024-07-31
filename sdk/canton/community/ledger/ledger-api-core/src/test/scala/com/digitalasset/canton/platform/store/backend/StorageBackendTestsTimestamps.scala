@@ -42,9 +42,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
     val events2 = executeSql(withDefaultTimeZone("GMT-1")(events))
     val events3 = executeSql(withDefaultTimeZone("GMT+1")(events))
 
-    withClue("UTC") { events1.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
-    withClue("GMT-1") { events2.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
-    withClue("GMT+1") { events3.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
+    withClue("UTC")(events1.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
+    withClue("GMT-1")(events2.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
+    withClue("GMT+1")(events3.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
   }
 
   // Some JDBC operations depend on the JVM default time zone.

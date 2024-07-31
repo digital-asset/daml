@@ -71,7 +71,7 @@ class EventCostCalculator(override val loggerFactory: NamedLoggerFactory) extend
       costMultiplier: PositiveInt,
       groupToMembers: Map[GroupRecipient, Set[Member]],
       protocolVersion: ProtocolVersion,
-  )(implicit traceContext: TraceContext): EventCostDetails = {
+  )(implicit traceContext: TraceContext): EventCostDetails =
     // If changing the cost computation, make sure to tie it to a protocol version
     // For now there's only one version of cost computation
     if (protocolVersion >= ProtocolVersion.v31) {
@@ -88,7 +88,6 @@ class EventCostCalculator(override val loggerFactory: NamedLoggerFactory) extend
         s"Traffic control is not supported for protocol version $protocolVersion"
       )
     }
-  }
 
   @VisibleForTesting
   protected def payloadSize(envelope: ClosedEnvelope): Int = envelope.bytes.size()

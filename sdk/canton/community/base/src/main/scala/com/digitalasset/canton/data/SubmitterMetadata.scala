@@ -115,7 +115,7 @@ object SubmitterMetadata
       salt: Salt,
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
-  ): Either[String, SubmitterMetadata] = {
+  ): Either[String, SubmitterMetadata] =
     NonEmpty.from(submitterActAs.toSet).toRight("The actAs set must not be empty.").map {
       actAsNes =>
         SubmitterMetadata(
@@ -131,7 +131,6 @@ object SubmitterMetadata
           protocolVersion,
         )
     }
-  }
 
   private def fromProtoV30(hashOps: HashOps, metaDataP: v30.SubmitterMetadata)(
       bytes: ByteString

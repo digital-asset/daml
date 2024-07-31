@@ -141,14 +141,13 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
       serverStatus: Status,
       serverTrailers: Metadata = new Metadata(),
       clientCause: Throwable = null,
-  ): Assertion = {
+  ): Assertion =
     inside(clientCompletion.failed.futureValue) { case sre: StatusRuntimeException =>
       sre.getStatus.getCode shouldBe serverStatus.getCode
       sre.getStatus.getDescription shouldBe serverStatus.getDescription
       sre.getCause shouldBe clientCause
       sre.getTrailers shouldEqual serverTrailers
     }
-  }
 
   val requestTraceContext: TraceContext = TraceContext.withNewTraceContext(tc => tc)
 
@@ -431,7 +430,7 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             val receivedRequestP = Promise[Unit]()
             val sendResponseP = Promise[Unit]()
 
-            when(service.hello(Request)).thenAnswer[Hello.Request](_ => {
+            when(service.hello(Request)).thenAnswer[Hello.Request] { _ =>
               receivedRequestP.success(())
               sendResponseP.future.map(_ =>
                 afterCancelAction match {
@@ -439,17 +438,17 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
                   case response: Hello.Response => response
                 }
               )
-            })
+            }
 
             val context = Context.current().withCancellation()
-            context.run(() => {
+            context.run { () =>
               val requestF = client.hello(Request)
 
               receivedRequestP.future.futureValue
               context.cancel(Exception)
 
               assertClientFailure(requestF, ClientCancelsStatus, clientCause = Exception)
-            })
+            }
 
             assertRequestLogged
             capturingLogger.assertNextMessageIs(createExpectedLogMessage("cancelled"), INFO)
@@ -692,14 +691,14 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             }
 
             val context = Context.current().withCancellation()
-            context.run(() => {
+            context.run { () =>
               receivedRequestP.future.onComplete(_ => context.cancel(Exception))
               callStreamedServiceAndCheckClientFailure(
                 ClientCancelsStatus,
                 clientCause = Exception,
                 checkResponses = false, // Some responses may get discarded due to cancellation.
               )
-            })
+            }
 
             assertRequestAndResponsesLogged
             capturingLogger.assertNextMessageIs(createExpectedLogMessage("cancelled"), INFO)

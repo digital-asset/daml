@@ -92,11 +92,10 @@ class ApiRequestLogger(
       logThrowable(delegate.onComplete())(createLogMessage, requestTraceContext)
     }
 
-    override def onReady(): Unit = {
+    override def onReady(): Unit =
       // This call is "just a suggestion" according to the docs and turns out to be quite flaky, even in simple scenarios.
       // Not logging therefore.
       logThrowable(delegate.onReady())(createLogMessage, requestTraceContext)
-    }
   }
 
   /** Intercepts events sent by the server.
@@ -152,7 +151,7 @@ class ApiRequestLoggerBase(
 
   protected def logThrowable(
       within: => Unit
-  )(createLogMessage: String => String, traceContext: TraceContext): Unit = {
+  )(createLogMessage: String => String, traceContext: TraceContext): Unit =
     try {
       within
     } catch {
@@ -170,7 +169,6 @@ class ApiRequestLoggerBase(
             throw t
         }
     }
-  }
 
   protected def logStatusOnClose(
       status: Status,
@@ -208,11 +206,10 @@ class ApiRequestLoggerBase(
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product"))
-  protected def cutMessage(message: Any): String = {
+  protected def cutMessage(message: Any): String =
     if (config.messagePayloads) {
       printer.printAdHoc(message)
     } else ""
-  }
 
   protected def stringOfTrailers(trailers: Metadata): String =
     if (!config.messagePayloads || trailers == null || trailers.keys().isEmpty) {
@@ -228,7 +225,7 @@ class ApiRequestLoggerBase(
       metadata.toString.limit(config.maxMetadataSize).toString
     }
 
-  protected def enhance(status: Status): Status = {
+  protected def enhance(status: Status): Status =
     if (status.getDescription == null && status.getCause != null) {
       // Copy the exception message to the status in order to transmit it to the client.
       // If you consider this a security risk:
@@ -239,7 +236,6 @@ class ApiRequestLoggerBase(
     } else {
       status
     }
-  }
 
   protected def inferRequestTraceContext: TraceContext = {
     val grpcTraceContext = TraceContextGrpc.fromGrpcContext

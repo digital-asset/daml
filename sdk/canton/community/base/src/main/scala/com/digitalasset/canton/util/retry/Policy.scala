@@ -191,7 +191,7 @@ abstract class RetryWithDelay(
             case outcome if performUnlessClosing.isClosing =>
               val str = outcome match {
                 case Failure(exception) => s"exception: ${exception.getMessage}"
-                case util.Success(value) => s"success with predicate=false: ${value}"
+                case util.Success(value) => s"success with predicate=false: $value"
               }
               logger.info(
                 s"Giving up on retrying the operation '$operationName' due to shutdown. Last attempt was $lastErrorKind with $str"
@@ -357,10 +357,9 @@ object RetryWithDelay {
 
     /** @throws java.lang.Throwable Rethrows the exception if [[outcome]] is a [[scala.util.Failure]] */
     @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-    def toUnlessShutdown: UnlessShutdown[A] = {
+    def toUnlessShutdown: UnlessShutdown[A] =
       if (termination == RetryTermination.Shutdown) AbortedDueToShutdown
       else Outcome(outcome.get)
-    }
   }
   private sealed trait RetryTermination extends Product with Serializable
   private[RetryWithDelay] object RetryTermination {

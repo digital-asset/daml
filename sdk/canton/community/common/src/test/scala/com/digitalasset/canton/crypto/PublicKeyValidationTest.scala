@@ -13,7 +13,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   private def modifyPublicKey(
       publicKey: PublicKey,
       newFormat: CryptoKeyFormat,
-  ): PublicKey = {
+  ): PublicKey =
     publicKey match {
       case EncryptionPublicKey(_format, key, scheme) =>
         new EncryptionPublicKey(newFormat, key, scheme)
@@ -21,15 +21,13 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         new SigningPublicKey(newFormat, key, scheme)
       case _ => fail(s"unsupported key type")
     }
-  }
 
   private def keyValidationTest[K <: PublicKey](
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       name: String,
       newCrypto: => Future[Crypto],
       newPublicKey: Crypto => Future[PublicKey],
-  ): Unit = {
-
+  ): Unit =
     // change format
     forAll(supportedCryptoKeyFormats) { format =>
       s"Validate $name public key with $format" in {
@@ -51,8 +49,6 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       }
     }
 
-  }
-
   /** Test public key validation
     */
   def publicKeyValidationProvider(
@@ -60,8 +56,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
-  ): Unit = {
-
+  ): Unit =
     "Validate public keys" should {
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
         keyValidationTest[SigningPublicKey](
@@ -81,7 +76,5 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         )
       }
     }
-
-  }
 
 }

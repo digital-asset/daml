@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.util
 
 import com.daml.ledger.api.v2.value.Value
-import com.digitalasset.daml.lf.data.Time.{Timestamp as LfTimestamp}
-import com.google.protobuf.timestamp.{Timestamp as ProtoTimestamp}
+import com.digitalasset.daml.lf.data.Time.Timestamp as LfTimestamp
+import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -20,7 +20,7 @@ object TimestampConversion {
     Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(deltaMicros))
   }
 
-  def instantToMicros(t: Instant): Value.Sum.Timestamp = {
+  def instantToMicros(t: Instant): Value.Sum.Timestamp =
     if (t.getNano % 1000 != 0)
       throw new IllegalArgumentException(
         s"Conversion of Instant $t to microsecond granularity would result in loss of precision."
@@ -31,28 +31,22 @@ object TimestampConversion {
           .toMicros(t.getNano.toLong)
       )
 
-  }
-
-  def roundInstantToMicros(t: Instant): Value.Sum.Timestamp = {
+  def roundInstantToMicros(t: Instant): Value.Sum.Timestamp =
     instantToMicros(roundToMicros(t, ConversionMode.HalfUp))
-  }
 
-  def toInstant(protoTimestamp: ProtoTimestamp): Instant = {
+  def toInstant(protoTimestamp: ProtoTimestamp): Instant =
     Instant.ofEpochSecond(protoTimestamp.seconds, protoTimestamp.nanos.toLong)
-  }
 
-  def fromInstant(instant: Instant): ProtoTimestamp = {
+  def fromInstant(instant: Instant): ProtoTimestamp =
     new ProtoTimestamp().withSeconds(instant.getEpochSecond).withNanos(instant.getNano)
-  }
 
   def toLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): LfTimestamp = {
     val instant = roundToMicros(toInstant(protoTimestamp), mode)
     LfTimestamp.assertFromInstant(instant)
   }
 
-  def fromLf(timestamp: LfTimestamp): ProtoTimestamp = {
+  def fromLf(timestamp: LfTimestamp): ProtoTimestamp =
     fromInstant(timestamp.toInstant)
-  }
 
   private def roundToMicros(t: Instant, mode: ConversionMode): Instant = {
     val fractionNanos = t.getNano % 1000L

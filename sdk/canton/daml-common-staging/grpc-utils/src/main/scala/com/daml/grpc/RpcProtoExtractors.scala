@@ -8,14 +8,12 @@ import com.google.rpc
 object RpcProtoExtractors {
 
   object Exception {
-    def unapply(exception: Exception): Option[rpc.Status] = {
+    def unapply(exception: Exception): Option[rpc.Status] =
       Option(io.grpc.protobuf.StatusProto.fromThrowable(exception))
-    }
   }
 
   object Status {
-    def unapply(status: com.google.rpc.Status): Option[com.google.rpc.Code] = {
+    def unapply(status: com.google.rpc.Status): Option[com.google.rpc.Code] =
       Some(com.google.rpc.Code.forNumber(status.getCode))
-    }
   }
 }

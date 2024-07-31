@@ -96,7 +96,7 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
   private def createDbMultiDomainEventLog(
       storage: DbStorage,
       clock: Clock,
-  ): Future[DbMultiDomainEventLog] = {
+  ): Future[DbMultiDomainEventLog] =
     DbMultiDomainEventLog.apply(
       storage,
       clock,
@@ -107,7 +107,6 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
       maxBatchSize = PositiveInt.tryCreate(3),
       participantEventLogId = participantEventLogId,
     )
-  }
 
   "DbMultiDomainEventLog" should {
     behave like multiDomainEventLog { clock =>

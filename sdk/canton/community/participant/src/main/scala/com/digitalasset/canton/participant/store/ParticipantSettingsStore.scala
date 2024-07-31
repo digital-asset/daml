@@ -70,7 +70,7 @@ object ParticipantSettingsStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
-  ): ParticipantSettingsStore = {
+  ): ParticipantSettingsStore =
     storage match {
       case _: MemoryStorage => new InMemoryParticipantSettingsStore(loggerFactory)
       case storage: DbStorage =>
@@ -82,7 +82,6 @@ object ParticipantSettingsStore {
           loggerFactory,
         )
     }
-  }
 
   final case class Settings(
       resourceLimits: ResourceLimits = ResourceLimits.default,

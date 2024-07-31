@@ -147,7 +147,7 @@ class SequencerNodeBootstrap(
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
-  ): BootstrapStageOrLeaf[SequencerNode] = {
+  ): BootstrapStageOrLeaf[SequencerNode] =
     new WaitForSequencerToDomainInit(
       storage,
       crypto,
@@ -156,7 +156,6 @@ class SequencerNodeBootstrap(
       healthReporter,
       healthService,
     )
-  }
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
   private val topologyClient = new SingleUseCell[DomainTopologyClient]()
@@ -183,12 +182,8 @@ class SequencerNodeBootstrap(
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
-  ) extends BootstrapStageWithStorage[
-        SequencerNode,
-        StartupNode,
-        (StaticDomainParameters, SequencerFactory, DomainTopologyManager),
-      ](
-        "wait-for-sequencer-to-domain-init",
+  ) extends BootstrapStageWithStorage[SequencerNode, StartupNode, StageResult](
+        description = "wait-for-sequencer-to-domain-init",
         bootstrapStageCallback,
         storage,
         config.init.autoInit,
@@ -243,7 +238,7 @@ class SequencerNodeBootstrap(
     /** if node is not initialized, create a dynamic domain server such that we can serve a health end-point until
       * we are initialised
       */
-    private def initSequencerNodeServer(): Unit = {
+    private def initSequencerNodeServer(): Unit =
       if (nonInitializedSequencerNodeServer.get().isEmpty) {
         // the sequential initialisation queue ensures that this is thread safe
         nonInitializedSequencerNodeServer
@@ -258,21 +253,18 @@ class SequencerNodeBootstrap(
           )
           .discard
       }
-    }
 
     private val domainConfigurationStore =
       SequencerDomainConfigurationStore(storage, timeouts, loggerFactory)
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): Future[Option[
-      (StaticDomainParameters, SequencerFactory, DomainTopologyManager)
-    ]] = {
+    ): Future[Option[StageResult]] =
       domainConfigurationStore.fetchConfiguration.toOption
         .map {
           case Some(existing) =>
             Some(
-              (
+              StageResult(
                 existing.domainParameters,
                 mkFactory(existing.domainParameters.protocolVersion),
                 new DomainTopologyManager(
@@ -287,6 +279,7 @@ class SequencerNodeBootstrap(
                   futureSupervisor,
                   loggerFactory,
                 ),
+                sequencerSnapshot = None,
               )
             )
           case None =>
@@ -296,7 +289,6 @@ class SequencerNodeBootstrap(
         }
         .value
         .map(_.flatten)
-    }
 
     private def createDomainTopologyStore(domainId: DomainId): TopologyStore[DomainStore] = {
       val store =
@@ -306,16 +298,11 @@ class SequencerNodeBootstrap(
     }
 
     override protected def buildNextStage(
-        result: (
-            StaticDomainParameters,
-            SequencerFactory,
-            DomainTopologyManager,
-        )
-    ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
-      val (domainParameters, sequencerFactory, domainTopologyMgr) = result
+        result: StageResult
+    ): EitherT[FutureUnlessShutdown, String, StartupNode] =
       for {
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-          domainTopologyManager.putIfAbsent(domainTopologyMgr).isEmpty,
+          domainTopologyManager.putIfAbsent(result.domainTopologyManager).isEmpty,
           "Unexpected state during initialization: domain topology manager shouldn't have been set before",
         )
       } yield {
@@ -323,28 +310,27 @@ class SequencerNodeBootstrap(
           storage,
           crypto,
           sequencerId,
-          sequencerFactory,
-          domainParameters,
+          result.sequencerFactory,
+          result.staticDomainParameters,
           manager,
-          domainTopologyMgr,
+          result.domainTopologyManager,
           nonInitializedSequencerNodeServer.getAndSet(None),
+          result.sequencerSnapshot,
           healthReporter,
           healthService,
         )
       }
-    }
 
     override def waitingFor: Option[WaitingForExternalInput] =
       Some(WaitingForInitialization)
 
-    override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
-      (StaticDomainParameters, SequencerFactory, DomainTopologyManager)
-    ]] =
+    override protected def autoCompleteStage()
+        : EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
       EitherT.rightT(None) // this stage doesn't have auto-init
 
     override def initialize(request: InitializeSequencerRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponse] = {
+    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponse] =
       if (isInitialized) {
         logger.info(
           "Received a request to initialize an already initialized sequencer. Skipping initialization!"
@@ -423,12 +409,16 @@ class SequencerNodeBootstrap(
               )
               .leftMap(e => s"Unable to save parameters: ${e.toString}")
               .mapK(FutureUnlessShutdown.outcomeK)
-          } yield (request.domainParameters, sequencerFactory, topologyManager)
+          } yield StageResult(
+            request.domainParameters,
+            sequencerFactory,
+            topologyManager,
+            request.sequencerSnapshot,
+          )
         }.map { _ =>
           InitializeSequencerResponse(replicated = config.sequencer.supportsReplicas)
         }
       }
-    }
   }
 
   private class StartupNode(
@@ -440,6 +430,7 @@ class SequencerNodeBootstrap(
       authorizedTopologyManager: AuthorizedTopologyManager,
       domainTopologyManager: DomainTopologyManager,
       preinitializedServer: Option[DynamicDomainGrpcServer],
+      sequencerSnapshot: Option[SequencerSnapshot],
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ) extends BootstrapStage[SequencerNode, RunningNode[SequencerNode]](
@@ -586,6 +577,7 @@ class SequencerNodeBootstrap(
               futureSupervisor,
               config.trafficConfig,
               runtimeReadyPromise.futureUS,
+              sequencerSnapshot,
             )
           )
           domainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
@@ -723,6 +715,13 @@ class SequencerNodeBootstrap(
     }
   }
 
+  private case class StageResult(
+      staticDomainParameters: StaticDomainParameters,
+      sequencerFactory: SequencerFactory,
+      domainTopologyManager: DomainTopologyManager,
+      sequencerSnapshot: Option[SequencerSnapshot],
+  )
+
   // Deferred health component for the sequencer health, created during initialization
   private lazy val sequencerHealth = new MutableHealthQuasiComponent[Sequencer](
     loggerFactory,
@@ -759,7 +758,7 @@ class SequencerNodeBootstrap(
   private def makeDynamicDomainServer(
       maxRequestSize: MaxRequestSize,
       grpcHealthReporter: GrpcHealthReporter,
-  ) = {
+  ) =
     new DynamicDomainGrpcServer(
       loggerFactory,
       maxRequestSize,
@@ -770,7 +769,6 @@ class SequencerNodeBootstrap(
       grpcHealthReporter,
       sequencerPublicApiHealthService,
     )
-  }
 
   private def createSequencerServer(
       runtime: SequencerRuntime,
@@ -815,7 +813,7 @@ class SequencerNode(
 
   override def isActive = true
 
-  override def status: Future[SequencerNodeStatus] = {
+  override def status: Future[SequencerNodeStatus] =
     for {
       healthStatus <- sequencer.health
       activeMembers <- sequencer.fetchActiveMembers()
@@ -834,7 +832,6 @@ class SequencerNode(
       admin = sequencer.adminStatus,
       healthData,
     )
-  }
 
   override def close(): Unit =
     Lifecycle.close(

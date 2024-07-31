@@ -252,9 +252,8 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
             lastState: Int,
             lastEmittedElement: Option[Int],
             lastFailure: Option[Throwable],
-        ): Option[(FiniteDuration, Int)] = {
+        ): Option[(FiniteDuration, Int)] =
           Option.when(lastEmittedElement.forall(_ < 10))((delay, lastState + 3))
-        }
       }
 
       val stream = PekkoUtil
@@ -1951,10 +1950,9 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
   "FutureQueuePullProxy" should {
 
     val iterations = {
-      def recursionThrows(i: Int, limit: Int): Int = {
+      def recursionThrows(i: Int, limit: Int): Int =
         if (i > limit) i
         else recursionThrows(i + 1, limit) + 1
-      }
       val atomicInteger = new AtomicInteger(10)
       Future(try {
         Iterator

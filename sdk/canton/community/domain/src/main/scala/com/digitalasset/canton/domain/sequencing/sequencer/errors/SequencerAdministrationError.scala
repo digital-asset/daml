@@ -28,7 +28,7 @@ object SequencerAdministrationError extends SequencerErrorGroup {
       ) {
     final case class Error(sequencerMember: Member)
         extends BaseCantonError.Impl(
-          cause = s"Sequencer ${sequencerMember} cannot disable its local sequencer subscription"
+          cause = s"Sequencer $sequencerMember cannot disable its local sequencer subscription"
         )
         with SequencerAdministrationError
   }

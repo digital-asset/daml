@@ -61,24 +61,22 @@ class InMemoryPartyRecordStore(
       party: Party
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[Option[PartyRecord]]] = {
+  ): Future[Result[Option[PartyRecord]]] =
     withState(
       state.get(party) match {
         case Some(info) => Right(Some(toPartyRecord(info)))
         case None => Right(None)
       }
     )
-  }
 
   override def createPartyRecord(
       partyRecord: PartyRecord
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[PartyRecord]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[PartyRecord]] =
     withState(withoutPartyRecord(partyRecord.party) {
       for {
         info <- doCreatePartyRecord(partyRecord)
       } yield toPartyRecord(info)
     })
-  }
 
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
@@ -126,7 +124,7 @@ class InMemoryPartyRecordStore(
       ledgerPartyIsLocal: Boolean,
       sourceIdp: IdentityProviderId,
       targetIdp: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[PartyRecord]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[PartyRecord]] =
     withState {
       state.get(party) match {
         case Some(info) =>
@@ -158,7 +156,6 @@ class InMemoryPartyRecordStore(
           }
       }
     }
-  }
 
   private def doUpdatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
@@ -201,7 +198,7 @@ class InMemoryPartyRecordStore(
 
   private def doCreatePartyRecord(
       partyRecord: PartyRecord
-  ): Result[PartyRecordInfo] = {
+  ): Result[PartyRecordInfo] =
     for {
       _ <- validateAnnotationsSize(partyRecord.metadata.annotations, partyRecord.party)
     } yield {
@@ -214,7 +211,6 @@ class InMemoryPartyRecordStore(
       state.update(partyRecord.party, info)
       info
     }
-  }
 
   private def withState[T](t: => T): Future[T] =
     blocking(
@@ -237,31 +233,28 @@ class InMemoryPartyRecordStore(
   private def validateAnnotationsSize(
       annotations: Map[String, String],
       party: Ref.Party,
-  ): Result[Unit] = {
+  ): Result[Unit] =
     if (!ResourceAnnotationValidator.isWithinMaxAnnotationsByteSize(annotations)) {
       Left(MaxAnnotationsSizeExceeded(party))
     } else {
       Right(())
     }
-  }
 
   override def filterExistingParties(parties: Set[Party], identityProviderId: IdentityProviderId)(
       implicit loggingContext: LoggingContextWithTrace
-  ): Future[Set[Party]] = {
+  ): Future[Set[Party]] =
     withState {
       parties.map(party => (party, state.get(party))).collect {
         case (party, Some(record)) if record.identityProviderId == identityProviderId => party
       }
     }
-  }
 
   override def filterExistingParties(parties: Set[Party])(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Set[Party]] = {
+  ): Future[Set[Party]] =
     withState {
       parties.map(party => (party, state.get(party))).collect { case (party, Some(_)) =>
         party
       }
     }
-  }
 }

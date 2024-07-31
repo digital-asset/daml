@@ -300,45 +300,42 @@ class TransactionConfirmationRequestFactoryTest
           .value
 
         val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] = {
-          {
-            // simulates session key cache
-            val keySeedSession = privateKeysetCache.getOrElseUpdate(
-              NonEmpty
-                .from(participants)
-                .getOrElse(fail("View without active participants of informees")),
-              cryptoPureApi
-                .computeHkdf(
-                  cryptoPureApi.generateSecureRandomness(keySeed.unwrap.size()).unwrap,
-                  viewEncryptionScheme.keySizeInBytes,
-                  HkdfInfo.SessionKey,
-                )
-                .valueOrFail("error generating randomness for session key"),
-            )
-            val sessionKey = cryptoPureApi
-              .createSymmetricKey(keySeedSession, viewEncryptionScheme)
-              .valueOrFail("failed to create session key from randomness")
-            val encryptedRandomness = cryptoPureApi
-              .encryptWith(keySeed, sessionKey, testedProtocolVersion)
-              .valueOrFail(
-                "could not encrypt view randomness with session key"
+          // simulates session key cache
+          val keySeedSession = privateKeysetCache.getOrElseUpdate(
+            NonEmpty
+              .from(participants)
+              .getOrElse(fail("View without active participants of informees")),
+            cryptoPureApi
+              .computeHkdf(
+                cryptoPureApi.generateSecureRandomness(keySeed.unwrap.size()).unwrap,
+                viewEncryptionScheme.keySizeInBytes,
+                HkdfInfo.SessionKey,
               )
-
-            val randomnessMapNE = NonEmpty
-              .from(randomnessMap(keySeedSession, participants, cryptoPureApi).values.toSeq)
-              .valueOrFail("session key randomness map is empty")
-
-            EncryptedViewMessage(
-              signature,
-              tree.viewHash,
-              encryptedRandomness,
-              randomnessMapNE,
-              encryptedView,
-              transactionFactory.domainId,
-              SymmetricKeyScheme.Aes128Gcm,
-              testedProtocolVersion,
+              .valueOrFail("error generating randomness for session key"),
+          )
+          val sessionKey = cryptoPureApi
+            .createSymmetricKey(keySeedSession, viewEncryptionScheme)
+            .valueOrFail("failed to create session key from randomness")
+          val encryptedRandomness = cryptoPureApi
+            .encryptWith(keySeed, sessionKey, testedProtocolVersion)
+            .valueOrFail(
+              "could not encrypt view randomness with session key"
             )
-          }
 
+          val randomnessMapNE = NonEmpty
+            .from(randomnessMap(keySeedSession, participants, cryptoPureApi).values.toSeq)
+            .valueOrFail("session key randomness map is empty")
+
+          EncryptedViewMessage(
+            signature,
+            tree.viewHash,
+            encryptedRandomness,
+            randomnessMapNE,
+            encryptedView,
+            transactionFactory.domainId,
+            SymmetricKeyScheme.Aes128Gcm,
+            testedProtocolVersion,
+          )
         }
 
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
@@ -589,7 +586,7 @@ class TransactionConfirmationRequestFactoryTest
     }
 
     "participants" when {
-      def runNoKeyTest(name: String, availableKeys: Set[KeyPurpose]): Unit = {
+      def runNoKeyTest(name: String, availableKeys: Set[KeyPurpose]): Unit =
         name must {
           "be rejected" in {
             val noKeyCryptoSnapshot =
@@ -633,7 +630,6 @@ class TransactionConfirmationRequestFactoryTest
 
           }
         }
-      }
 
       runNoKeyTest("they have no public keys", availableKeys = Set.empty)
       runNoKeyTest("they have no public signing keys", availableKeys = Set(KeyPurpose.Encryption))

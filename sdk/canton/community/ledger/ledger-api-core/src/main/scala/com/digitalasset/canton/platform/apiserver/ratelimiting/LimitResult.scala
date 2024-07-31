@@ -24,13 +24,12 @@ object LimitResult {
   implicit class LimitResultCheckOps(checks: List[LimitResultCheck]) {
     def traverse(fullMethodName: String, isStream: Boolean): LimitResult = {
       @tailrec
-      def loop(todo: List[LimitResultCheck], result: LimitResult): LimitResult = {
+      def loop(todo: List[LimitResultCheck], result: LimitResult): LimitResult =
         todo match {
           case Nil => result
           case _ if result != UnderLimit => result
           case head :: tail => loop(tail, head(fullMethodName, isStream))
         }
-      }
       loop(checks, UnderLimit)
     }
   }

@@ -35,8 +35,8 @@ class ThrottleFilterEvaluator extends EvaluatorFilter[ILoggingEvent] {
   //    <expiryPeriod>10000</expiryPeriod>
   //    <maxLoggedOverPeriod>5</maxLoggedOverPeriod>
   //  </filter>
-  def setExpiryPeriod(newValue: Long): Unit = { expiryPeriod.set(newValue) }
-  def setMaxLoggedOverPeriod(newValue: Long): Unit = { maxLoggedOverPeriod.set(newValue) }
+  def setExpiryPeriod(newValue: Long): Unit = expiryPeriod.set(newValue)
+  def setMaxLoggedOverPeriod(newValue: Long): Unit = maxLoggedOverPeriod.set(newValue)
 
   private val mine: EventEvaluatorBase[ILoggingEvent] = new EventEvaluatorBase[ILoggingEvent]() {
 
@@ -53,7 +53,7 @@ class ThrottleFilterEvaluator extends EvaluatorFilter[ILoggingEvent] {
       // However, the errors introduced will be minor. As this filter is intended to improve user experience in a
       // noisy console, the potential for small errors should not be a big problem.
 
-      messageCache.filterInPlace({ case (_, expiryTime) => expiryTime > now })
+      messageCache.filterInPlace { case (_, expiryTime) => expiryTime > now }
 
       if (messageCache.size >= maxLoggedOverPeriod.get()) {
         // Drop the message, as the permitted log rate has been exceeded

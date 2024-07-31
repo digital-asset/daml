@@ -27,7 +27,7 @@ trait IdlenessExecutorServiceTest extends BaseTest { this: AnyWordSpec =>
       val promise = Promise[Unit]()
       val future = for {
         _ <- promise.future
-        _ <- Future { busyWait(waitMillis) }
+        _ <- Future(busyWait(waitMillis))
       } yield ()
       promise.completeWith(Future {
         busyWait(waitMillis)

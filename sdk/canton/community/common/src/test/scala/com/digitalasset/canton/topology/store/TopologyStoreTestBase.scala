@@ -30,7 +30,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       add: Seq[GenericSignedTopologyTransaction] = Seq.empty,
       removeMapping: Map[MappingHash, PositiveInt] = Map.empty,
       removeTxs: Set[TxHash] = Set.empty,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     store.update(
       SequencedTime(ts),
       EffectiveTime(ts),
@@ -38,7 +38,6 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       removeTxs,
       add.map(ValidatedTopologyTransaction(_)),
     )
-  }
 
   protected def inspect(
       store: TopologyStore[TopologyStoreId],

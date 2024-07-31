@@ -10,9 +10,8 @@ import org.scalatest.wordspec.AsyncWordSpecLike
 trait SequencerCounterTrackerStoreTest extends CursorPreheadStoreTest {
   this: AsyncWordSpecLike with BaseTest with HasCloseContext =>
 
-  def sequencerCounterTrackerStore(mk: () => SequencerCounterTrackerStore): Unit = {
+  def sequencerCounterTrackerStore(mk: () => SequencerCounterTrackerStore): Unit =
     "sequencer counter tracker store" should {
       behave like cursorPreheadStore(() => mk().cursorStore, SequencerCounter.apply)
     }
-  }
 }

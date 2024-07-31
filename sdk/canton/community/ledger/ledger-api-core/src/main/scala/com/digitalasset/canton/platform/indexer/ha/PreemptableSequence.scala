@@ -191,7 +191,7 @@ object PreemptableSequence {
       override def handle: Handle = resultHandle
     }
 
-    def release: Future[Unit] = {
+    def release: Future[Unit] =
       blocking(synchronized {
         releaseStack match {
           case Nil => None
@@ -203,7 +203,6 @@ object PreemptableSequence {
         case None => Future.unit
         case Some((x, xs)) => x().transformWith(_ => release)
       }
-    }
 
     sequence(helper).transformWith(fResult => release.transform(_ => fResult)).onComplete {
       case Success(_) =>

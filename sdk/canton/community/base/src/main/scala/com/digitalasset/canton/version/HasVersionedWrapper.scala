@@ -44,12 +44,11 @@ trait HasVersionedWrapper[ValueClass] extends HasVersionedToByteString {
       }
       .getOrElse(serializeToHighestVersion)
 
-  private def serializeToHighestVersion: VersionedMessage[ValueClass] = {
+  private def serializeToHighestVersion: VersionedMessage[ValueClass] =
     VersionedMessage(
       companionObj.supportedProtoVersions.higherConverter.serializer(self),
       companionObj.supportedProtoVersions.higherProtoVersion.v,
     )
-  }
 
   /** Yields a byte string representation of the corresponding `UntypedVersionedMessage` wrapper of this instance.
     */
@@ -199,12 +198,11 @@ trait HasVersionedMessageCompanion[ValueClass]
 
   def readFromTrustedFile(
       inputFile: String
-  ): Either[String, ValueClass] = {
+  ): Either[String, ValueClass] =
     for {
       bs <- BinaryFileUtil.readByteStringFromFile(inputFile)
       value <- fromTrustedByteString(bs).leftMap(_.toString)
     } yield value
-  }
 
   def tryReadFromTrustedFile(inputFile: String): ValueClass =
     readFromTrustedFile(inputFile).valueOr(err =>

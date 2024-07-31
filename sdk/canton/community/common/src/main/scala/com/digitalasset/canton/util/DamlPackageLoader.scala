@@ -21,7 +21,7 @@ object DamlPackageLoader {
 
   def getPackagesFromDarFiles(
       filenames: Seq[String]
-  ): Either[LoadError, Map[Ref.PackageId, Ast.Package]] = {
+  ): Either[LoadError, Map[Ref.PackageId, Ast.Package]] =
     filenames
       .traverse { filename =>
         DarDecoder
@@ -29,7 +29,6 @@ object DamlPackageLoader {
           .bimap(t => LoadError(t.toString), _.all.toMap)
       }
       .map(_.foldLeft(Map.empty[Ref.PackageId, Ast.Package])(_ ++ _))
-  }
 
   def getPackagesFromInputStream(
       name: String,

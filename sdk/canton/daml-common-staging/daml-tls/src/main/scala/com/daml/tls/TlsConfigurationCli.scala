@@ -28,7 +28,7 @@ object TlsConfigurationCli {
     opt[String]("crt")
       .optional()
       .text(
-        s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
+        s"TLS: The crt file to be used as the cert chain.\n$colSpacer" +
           s"Required for client authentication."
       )
       .validate(validatePath(_, "The file specified via --crt does not exist"))

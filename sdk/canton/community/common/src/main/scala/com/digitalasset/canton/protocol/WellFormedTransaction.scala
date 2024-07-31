@@ -233,7 +233,7 @@ object WellFormedTransaction {
             Either.cond(
               referenceRbScope.startsWith(createdScope),
               (),
-              s"Contract ${refId} created in rollback scope ${createdScope
+              s"Contract $refId created in rollback scope ${createdScope
                   .mkString(".")} referenced outside of visible rollback scope ${referenceRbScope.mkString(".")}",
             )
           )
@@ -491,9 +491,8 @@ object WellFormedTransaction {
       lfTransaction: LfVersionedTransaction,
       metadata: TransactionMetadata,
       state: S,
-  ): Either[String, WellFormedTransaction[S]] = {
+  ): Either[String, WellFormedTransaction[S]] =
     check(lfTransaction, metadata, state)
-  }
 
   sealed trait InvalidInput
   object InvalidInput extends {
@@ -508,13 +507,12 @@ object WellFormedTransaction {
     */
   def sanityCheckInputs(
       tx: LfVersionedTransaction
-  ): Either[InvalidInput, Unit] = {
+  ): Either[InvalidInput, Unit] =
     for {
       _ <- checkPartyNames(tx).toEitherMergeNonaborts.leftMap(err =>
         InvalidInput.InvalidParty(err.head)
       )
     } yield ()
-  }
 
   /** Creates a [[WellFormedTransaction]], with the fields `optLocation` set to [[scala.None$]]
     * (because these fields are not preserved on serialization/deserialization).
@@ -526,11 +524,10 @@ object WellFormedTransaction {
       lfTransaction: LfVersionedTransaction,
       metadata: TransactionMetadata,
       state: S,
-  ): WellFormedTransaction[S] = {
+  ): WellFormedTransaction[S] =
     normalizeAndCheck(lfTransaction, metadata, state)
       .leftMap(err => throw new IllegalArgumentException(err))
       .merge
-  }
 
   /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary.
     * All transactions must have the same version.

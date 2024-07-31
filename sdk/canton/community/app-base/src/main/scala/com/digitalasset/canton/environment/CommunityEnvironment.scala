@@ -67,9 +67,8 @@ class CommunityEnvironment(
 
   def createHealthDumpGenerator(
       commandRunner: GrpcAdminCommandRunner
-  ): HealthDumpGenerator[CommunityCantonStatus] = {
+  ): HealthDumpGenerator[CommunityCantonStatus] =
     new CommunityHealthDumpGenerator(this, commandRunner)
-  }
 
   override protected def createSequencer(
       name: String,

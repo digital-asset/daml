@@ -74,7 +74,7 @@ object MediatorGroupDeltaComputations {
       _ <- Either.cond(
         activeMediatorsInProposal.size >= threshold.value,
         (),
-        s"mediator group threshold ${threshold} larger than active mediator size ${activeMediatorsInProposal.size}",
+        s"mediator group threshold $threshold larger than active mediator size ${activeMediatorsInProposal.size}",
       )
     } yield ()
   }

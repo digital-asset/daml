@@ -102,7 +102,7 @@ object CommitSet {
       consumedInputsOfHostedParties: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       createdContracts: Map[LfContractId, SerializableContract],
-  )(implicit loggingContext: ErrorLoggingContext): CommitSet = {
+  )(implicit loggingContext: ErrorLoggingContext): CommitSet =
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {
         case (cid, hostedStakeholders) =>
@@ -132,5 +132,4 @@ object CommitSet {
       // TODO(i12904) Handle this case gracefully
       throw new RuntimeException(s"Request $requestId with failed activeness check is approved.")
     }
-  }
 }

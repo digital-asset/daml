@@ -30,7 +30,7 @@ object GrpcSubscriptionErrorRetryPolicy {
   private[transports] def logAndDetermineRetry(
       grpcError: GrpcError,
       receivedItems: Boolean,
-  )(implicit loggingContext: ErrorLoggingContext): Boolean = {
+  )(implicit loggingContext: ErrorLoggingContext): Boolean =
     grpcError match {
       case _: GrpcError.GrpcServiceUnavailable =>
         val causes = Seq(grpcError.status.getDescription) ++ GrpcError.collectCauses(
@@ -80,5 +80,4 @@ object GrpcSubscriptionErrorRetryPolicy {
         loggingContext.info("Not reconnecting.")
         false
     }
-  }
 }

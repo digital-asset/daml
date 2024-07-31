@@ -173,7 +173,7 @@ class RecipientsValidator[I](
     )
 
     val allInformees = inputs
-      .flatMap { viewOfInput(_).informees }
+      .flatMap(viewOfInput(_).informees)
       .distinct
       .toList
 

@@ -568,7 +568,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       participantDomainLimits: ParticipantDomainLimits,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
-  ): DynamicDomainParameters = {
+  ): DynamicDomainParameters =
     DynamicDomainParameters(
       confirmationResponseTimeout,
       mediatorReactionTimeout,
@@ -584,7 +584,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       acsCommitmentsCatchUpConfigParameter,
       participantDomainLimits,
     )(representativeProtocolVersion)
-  }
 
   /** Default dynamic domain parameters for non-static clocks */
   def defaultValues(protocolVersion: ProtocolVersion): DynamicDomainParameters =

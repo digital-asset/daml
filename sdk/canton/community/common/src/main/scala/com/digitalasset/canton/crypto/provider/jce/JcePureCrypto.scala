@@ -122,7 +122,7 @@ class JcePureCrypto(
   ): Either[E, JPublicKey] = {
     val keyFormat = publicKey.format
 
-    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] = {
+    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] =
       for {
         // convert key to java key
         jPublicKey <- JceJavaKeyConverter
@@ -131,7 +131,6 @@ class JcePureCrypto(
             KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
           )
       } yield jPublicKey
-    }
 
     def getFromCacheOrDeserializeKey: Either[E, JPublicKey] =
       javaPublicKeyCache
@@ -401,7 +400,7 @@ class JcePureCrypto(
   private def encryptWithEciesP256HmacSha256Aes128Gcm[M <: HasVersionedToByteString](
       message: ByteString,
       publicKey: EncryptionPublicKey,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] = {
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
       javaPublicKey <- parseAndGetPublicKey(
         publicKey,
@@ -439,7 +438,6 @@ class JcePureCrypto(
         publicKey.fingerprint,
       )
     } yield encrypted
-  }
 
   private def encryptWithEciesP256HmacSha256Aes128Cbc[M <: HasVersionedToByteString](
       message: ByteString,
@@ -539,7 +537,7 @@ class JcePureCrypto(
       bytes: ByteString,
       publicKey: EncryptionPublicKey,
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] = {
+  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     CryptoKeyValidation
       .selectEncryptionAlgorithmSpec(
         publicKey.keySpec,
@@ -567,7 +565,6 @@ class JcePureCrypto(
             JceSecureRandom.random.get(),
           )
       }
-  }
 
   override def encryptWithVersion[M <: HasVersionedToByteString](
       message: M,
@@ -891,7 +888,7 @@ class JcePureCrypto(
       symmetricKeyScheme: SymmetricKeyScheme,
       pbkdfScheme: PbkdfScheme,
       saltO: Option[SecureRandomness],
-  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] = {
+  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] =
     pbkdfScheme match {
       case mode: PbkdfScheme.Argon2idMode1.type =>
         val salt = saltO.getOrElse(generateSecureRandomness(pbkdfScheme.defaultSaltLengthInBytes))
@@ -922,5 +919,4 @@ class JcePureCrypto(
           ),
         )
     }
-  }
 }

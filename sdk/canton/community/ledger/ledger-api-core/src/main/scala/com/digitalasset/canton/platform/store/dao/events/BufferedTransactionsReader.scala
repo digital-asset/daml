@@ -62,7 +62,7 @@ private[events] class BufferedTransactionsReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+  ): Source[(Offset, GetUpdatesResponse), NotUsed] =
     bufferedFlatTransactionsReader
       .stream(
         startExclusive = startExclusive,
@@ -84,7 +84,6 @@ private[events] class BufferedTransactionsReader(
             executionContext,
           ),
       )
-  }
 
   override def getTransactionTrees(
       startExclusive: Offset,

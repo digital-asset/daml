@@ -46,14 +46,13 @@ final case class CommonMetadata private (
 
   @transient override protected lazy val companionObj: CommonMetadata.type = CommonMetadata
 
-  private def toProtoV30: v30.CommonMetadata = {
+  private def toProtoV30: v30.CommonMetadata =
     v30.CommonMetadata(
       domainId = domainId.toProtoPrimitive,
       salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       mediatorGroup = mediator.group.value,
     )
-  }
 }
 
 object CommonMetadata

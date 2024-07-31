@@ -39,11 +39,10 @@ class BftSenderTest extends FixtureAnyWordSpec with BaseTest with HasExecutionCo
     def performRequest: EitherT[FutureUnlessShutdown, String, Int] = result
   }
 
-  private def checkNotCompleted[E, A](result: EitherT[FutureUnlessShutdown, E, A]) = {
+  private def checkNotCompleted[E, A](result: EitherT[FutureUnlessShutdown, E, A]) =
     always(1.second) {
       result.value.isCompleted shouldBe false
     }
-  }
 
   private def mkRequest(threshold: PositiveInt)(implicit env: Env) = {
     import env.*

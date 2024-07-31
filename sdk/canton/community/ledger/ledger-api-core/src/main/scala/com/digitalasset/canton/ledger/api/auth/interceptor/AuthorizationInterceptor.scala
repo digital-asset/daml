@@ -233,9 +233,8 @@ object AuthorizationInterceptor {
       Success(claimSet)
   }
 
-  def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {
+  def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] =
     userRights.view.map(userRightToClaim).toList.prepended(ClaimPublic)
-  }
 
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))

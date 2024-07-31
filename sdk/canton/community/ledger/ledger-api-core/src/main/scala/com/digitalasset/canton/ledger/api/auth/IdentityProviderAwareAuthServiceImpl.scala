@@ -57,7 +57,7 @@ class IdentityProviderAwareAuthServiceImpl(
       token: String,
       issuer: Option[String],
       keyId: Option[String],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] =
     issuer match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(issuer) =>
@@ -76,7 +76,6 @@ class IdentityProviderAwareAuthServiceImpl(
           jwtPayload <- parsePayload(payload)
         } yield toAuthenticatedUser(jwtPayload, identityProviderConfig.identityProviderId)
     }
-  }
 
   private def checkAudience(
       payload: AuthServiceJWTPayload,

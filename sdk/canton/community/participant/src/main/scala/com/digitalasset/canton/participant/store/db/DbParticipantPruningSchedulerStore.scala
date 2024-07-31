@@ -48,7 +48,7 @@ final class DbParticipantPruningSchedulerStore(
                   """
         case _: Profile.H2 =>
           sqlu"""merge into par_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
-                     values (${singleRowLockValue}, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
+                     values ($singleRowLockValue, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                   """
         case _: Profile.Oracle =>
           sqlu"""merge into par_pruning_schedules pps
@@ -72,16 +72,15 @@ final class DbParticipantPruningSchedulerStore(
     )
   }
 
-  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = {
+  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"""delete from par_pruning_schedules""",
       functionFullName,
     )
-  }
 
   override def getParticipantSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]] = {
+  ): Future[Option[ParticipantPruningSchedule]] =
     storage
       .query(
         sql"""select cron, max_duration, retention, prune_internally_only from par_pruning_schedules"""
@@ -101,7 +100,6 @@ final class DbParticipantPruningSchedulerStore(
           pruneInternallyOnly,
         )
       })
-  }
 
   override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
     EitherT {
@@ -143,6 +141,6 @@ final class DbParticipantPruningSchedulerStore(
     Either.cond(
       rowCount > 0,
       (),
-      s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule or set_participant_schedule instead.",
+      s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule or set_participant_schedule instead.",
     )
 }

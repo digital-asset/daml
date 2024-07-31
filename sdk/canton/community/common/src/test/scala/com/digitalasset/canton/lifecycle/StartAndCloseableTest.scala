@@ -50,22 +50,20 @@ class StartAndCloseableTest extends AnyWordSpec with BaseTest with HasExecutionC
       }
     }
 
-    def closeF(): Future[Unit] = {
+    def closeF(): Future[Unit] =
       Future {
         blocking {
           close()
         }
       }
-    }
 
     override protected def startAsync()(implicit
         initializationTraceContext: TraceContext
-    ): FutureUnlessShutdown[Unit] = {
+    ): FutureUnlessShutdown[Unit] =
       FutureUnlessShutdown.outcomeF {
         startInvocations.incrementAndGet()
         started.future
       }
-    }
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
       Seq(
         AsyncCloseable(

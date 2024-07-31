@@ -50,9 +50,8 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
       traceContext: TraceContext
   ): Future[Seq[
     TrafficPurchased
-  ]] = {
+  ]] =
     Future.successful(this.trafficPurchaseds.get(member).toList.flatMap(_.toList).sorted)
-  }
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

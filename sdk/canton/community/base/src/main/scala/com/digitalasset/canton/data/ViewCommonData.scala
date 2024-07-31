@@ -176,7 +176,7 @@ final case class ViewConfirmationParameters private (
     param("quorums", _.quorums),
   )
 
-  lazy val confirmers: Set[LfPartyId] = quorums.flatMap { _.confirmers.keys }.toSet
+  lazy val confirmers: Set[LfPartyId] = quorums.flatMap(_.confirmers.keys).toSet
 }
 
 object ViewConfirmationParameters {

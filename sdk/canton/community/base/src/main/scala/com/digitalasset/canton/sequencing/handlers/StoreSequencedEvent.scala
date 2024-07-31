@@ -54,7 +54,7 @@ class StoreSequencedEvent(
 
   private def storeBatch(
       tracedEvents: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]
-  ): Future[Unit] = {
+  ): Future[Unit] =
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
       val wrongDomainEvents = events.filter(_.signedEvent.content.domainId != domainId)
       ErrorUtil.requireArgument(
@@ -69,7 +69,6 @@ class StoreSequencedEvent(
       // `SequencedEventStore` as the beginning of the resubscription even if that event is not known to be clean.
       store.store(events)
     }
-  }
 }
 
 object StoreSequencedEvent {

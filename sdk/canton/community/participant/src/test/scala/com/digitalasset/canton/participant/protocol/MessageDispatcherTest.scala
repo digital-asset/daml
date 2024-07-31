@@ -528,7 +528,7 @@ trait MessageDispatcherTest {
     ): Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]] =
       Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))))
 
-    def handle(sut: Fixture, event: RawProtocolEvent)(checks: => Assertion): Future[Assertion] = {
+    def handle(sut: Fixture, event: RawProtocolEvent)(checks: => Assertion): Future[Assertion] =
       for {
         _ <- sut.messageDispatcher
           .handleAll(signAndTrace(event))
@@ -537,7 +537,6 @@ trait MessageDispatcherTest {
       } yield {
         checks
       }
-    }
 
     "handling a deliver event" should {
       "call the transaction processor after having informed the identity processor and tick the request tracker" in {

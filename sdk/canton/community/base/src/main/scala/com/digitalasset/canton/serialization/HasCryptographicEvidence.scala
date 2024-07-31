@@ -65,12 +65,11 @@ trait ProtocolVersionedMemoizedEvidence
     */
   protected[this] def toByteStringUnmemoized: ByteString
 
-  final override lazy val getCryptographicEvidence: ByteString = {
+  final override lazy val getCryptographicEvidence: ByteString =
     deserializedFrom match {
       case Some(bytes) => bytes
       case None => toByteStringUnmemoized
     }
-  }
 }
 
 /** Thrown by [[MemoizedEvidenceWithFailure]] classes during object construction if the serialization fails.
@@ -112,7 +111,7 @@ trait MemoizedEvidenceWithFailure[SerializationError] extends HasCryptographicEv
   protected[this] def toByteStringChecked: Either[SerializationError, ByteString]
 
   @throws[SerializationCheckFailed[SerializationError]]
-  final override val getCryptographicEvidence: ByteString = {
+  final override val getCryptographicEvidence: ByteString =
     deserializedFrom match {
       case Some(bytes) => bytes
       case None =>
@@ -121,7 +120,6 @@ trait MemoizedEvidenceWithFailure[SerializationError] extends HasCryptographicEv
           case Right(bytes) => bytes
         }
     }
-  }
 }
 
 /** Wraps a [[com.google.protobuf.ByteString]] so that it is its own cryptographic evidence. */

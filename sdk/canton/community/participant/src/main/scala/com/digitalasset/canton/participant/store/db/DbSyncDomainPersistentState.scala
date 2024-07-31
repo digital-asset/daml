@@ -158,7 +158,7 @@ class DbSyncDomainPersistentState(
     loggerFactory = loggerFactory,
   )
 
-  override def close(): Unit = {
+  override def close(): Unit =
     Lifecycle.close(
       topologyStore,
       topologyManager,
@@ -173,7 +173,6 @@ class DbSyncDomainPersistentState(
       sequencerCounterTrackerStore,
       sendTrackerStore,
     )(logger)
-  }
 
   override def isMemory: Boolean = false
 }

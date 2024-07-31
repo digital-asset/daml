@@ -133,7 +133,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
     val call1 = clue("get token1") {
       tokenManager.getToken
     }
-    clue("succeed with token1") { obtainMock.succeed(token1) }
+    clue("succeed with token1")(obtainMock.succeed(token1))
 
     for {
       // wait for token to succeed
@@ -206,24 +206,20 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
       )
     }
 
-    def resetNextResult(): Unit = {
+    def resetNextResult(): Unit =
       nextResult.set(
         new PromiseUnlessShutdown[Either[Status, AuthenticationToken]]("test", futureSupervisor)
       )
-    }
 
-    def succeed(token: AuthenticationToken): Unit = {
+    def succeed(token: AuthenticationToken): Unit =
       nextResult.get().success(UnlessShutdown.Outcome(Right(token)))
-    }
 
-    def error(message: String): Unit = {
+    def error(message: String): Unit =
       nextResult
         .get()
         .success(UnlessShutdown.Outcome(Left(Status.PERMISSION_DENIED.withDescription(message))))
-    }
 
-    def fail(throwable: Throwable): Unit = {
+    def fail(throwable: Throwable): Unit =
       nextResult.get().failure(throwable)
-    }
   }
 }

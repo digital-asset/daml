@@ -262,7 +262,7 @@ class DbSequencerStateManagerStore(
           member -> OrdinarySequencedEvent(deserializeEvent(bytes))(eventTraceContext.unwrap)
         }
         .groupBy(_._1)
-        .fmap { eventsForMember => NonEmptyUtil.fromUnsafe(eventsForMember.map(_._2)) }
+        .fmap(eventsForMember => NonEmptyUtil.fromUnsafe(eventsForMember.map(_._2)))
     }
   }
 
@@ -280,9 +280,8 @@ class DbSequencerStateManagerStore(
 
   override def addMember(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     storage.queryAndUpdate(addMemberDBIO(member, addedAt), functionFullName)
-  }
 
   def addMemberDBIO(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -302,9 +301,8 @@ class DbSequencerStateManagerStore(
 
   override def addEvents(
       events: Map[Member, OrdinarySerializedEvent]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     storage.queryAndUpdate(addEventsDBIO(events), functionFullName)
-  }
 
   def bulkInsertEventsDBIO(
       events: Seq[Map[Member, OrdinarySerializedEvent]]
@@ -380,13 +378,12 @@ class DbSequencerStateManagerStore(
       "events should all be for the same timestamp",
     )
 
-    def insertBuilder(member: Member, storedEvent: StoredEvent) = {
+    def insertBuilder(member: Member, storedEvent: StoredEvent) =
       sql"""seq_state_manager_events (member, counter, ts, content, trace_context)
               values (
                 $member, ${storedEvent.counter}, ${storedEvent.timestamp}, ${storedEvent.content},
                 ${SerializableTraceContext(storedEvent.traceContext)}
           )"""
-    }
 
     val inserts = events.fmap(StoredEvent.create).map { case (member, storedEvent) =>
       insertVerifyingConflicts(
@@ -514,7 +511,7 @@ class DbSequencerStateManagerStore(
           // If we ever support onboarding the exact same sequencer multiple times, we may
           // want to also update the value, but until/unless that happens prize safety higher.
           sqlu"""insert into seq_state_manager_lower_bound (ts, ts_initial_topology)
-                 values ($eventsReadableStartingAt, ${maybeOnboardingTopologyTimestamp})"""
+                 values ($eventsReadableStartingAt, $maybeOnboardingTopologyTimestamp)"""
         )(_ => sqlu"update seq_state_manager_lower_bound set ts = $eventsReadableStartingAt")
       )
     } yield ()).value.transactionally
@@ -539,7 +536,7 @@ class DbSequencerStateManagerStore(
 
   private def toMemberStatusSet(
       members: Vector[(Member, CantonTimestamp, Boolean, Option[CantonTimestamp])]
-  ): Set[SequencerMemberStatus] = {
+  ): Set[SequencerMemberStatus] =
     members.view.map { case (member, addedAt, enabled, acknowledgedAt) =>
       SequencerMemberStatus(
         member,
@@ -548,7 +545,6 @@ class DbSequencerStateManagerStore(
         enabled = enabled,
       )
     }.toSet
-  }
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -678,7 +674,7 @@ class DbSequencerStateManagerStore(
 
   private def minCounters(implicit
       traceContext: TraceContext
-  ): Future[Map[Member, SequencerCounter]] = {
+  ): Future[Map[Member, SequencerCounter]] =
     (storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
         storage.query(
@@ -709,7 +705,6 @@ class DbSequencerStateManagerStore(
     }).map(_.toMap.filter { case (_, sequencerCounter) =>
       sequencerCounter > SequencerCounter.Genesis
     }) // filter out cases that did not get affected by pruning
-  }
 
   override def getInitialTopologySnapshotTimestamp(implicit
       traceContext: TraceContext

@@ -130,9 +130,8 @@ object EnterpriseSequencerAdminCommands {
         v30.SnapshotResponse,
         SequencerSnapshot,
       ] {
-    override def createRequest(): Either[String, v30.SnapshotRequest] = {
+    override def createRequest(): Either[String, v30.SnapshotRequest] =
       Right(v30.SnapshotRequest(Some(timestamp.toProtoTimestamp)))
-    }
 
     override def submitRequest(
         service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
@@ -167,7 +166,7 @@ object EnterpriseSequencerAdminCommands {
         CancellableContext,
         CancellableContext,
       ] {
-    override def createRequest(): Either[String, v30.OnboardingStateRequest] = {
+    override def createRequest(): Either[String, v30.OnboardingStateRequest] =
       Right(
         v30.OnboardingStateRequest(request =
           sequencerOrTimestamp.fold[v30.OnboardingStateRequest.Request](
@@ -177,7 +176,6 @@ object EnterpriseSequencerAdminCommands {
           )
         )
       )
-    }
 
     override def submitRequest(
         service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,

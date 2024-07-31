@@ -28,14 +28,14 @@ abstract class ValueValidator {
     recordFields
       .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
         Right(BackStack.empty)
-      )((acc, rf) => {
+      ) { (acc, rf) =>
         for {
           fields <- acc
           v <- requirePresence(rf.value, "value")
           value <- validateValue(v)
           label <- if (rf.label.isEmpty) Right(None) else requireIdentifier(rf.label).map(Some(_))
         } yield fields :+ label -> value
-      })
+      }
       .map(_.toImmArray)
 
   def validateRecord(rec: api.Record)(implicit

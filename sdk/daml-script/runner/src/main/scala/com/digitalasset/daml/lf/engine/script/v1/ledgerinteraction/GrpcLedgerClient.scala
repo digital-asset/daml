@@ -107,7 +107,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
     val acsResponse =
-      grpcClient.v2.stateService
+      grpcClient.stateService
         .getActiveContracts(filter, verbose = false)
         .map(_._1)
     acsResponse.map(activeContracts =>
@@ -163,7 +163,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
     val acsResponse =
-      grpcClient.v2.stateService
+      grpcClient.stateService
         .getActiveContracts(filter, verbose = false)
         .map(_._1)
     acsResponse.map(activeContracts =>
@@ -278,7 +278,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       applicationId = applicationId.getOrElse(""),
       commandId = UUID.randomUUID.toString,
     )
-    val transactionTreeF = grpcClient.v2.commandService
+    val transactionTreeF = grpcClient.commandService
       .submitAndWaitForTransactionTree(apiCommands)
       .flatMap {
         case Right(tree) => Future.successful(Right(tree))
@@ -334,7 +334,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
         applicationId = applicationId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
       )
-      resp <- grpcClient.v2.commandService
+      resp <- grpcClient.commandService
         .submitAndWaitForTransactionTree(apiCommands)
         .flatMap {
           case Right(tree) => Future.successful(tree)

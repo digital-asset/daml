@@ -29,9 +29,8 @@ class SymbolicPureCrypto extends CryptoPureApi {
   private val signatureCounter = new AtomicInteger
 
   @VisibleForTesting
-  def setRandomnessFlag(newValue: Boolean): Unit = {
+  def setRandomnessFlag(newValue: Boolean): Unit =
     neverRandomizeAsymmetricEncryption.set(newValue)
-  }
 
   // iv to pre-append to the asymmetric ciphertext
   private val ivForAsymmetricEncryptInBytes = 16

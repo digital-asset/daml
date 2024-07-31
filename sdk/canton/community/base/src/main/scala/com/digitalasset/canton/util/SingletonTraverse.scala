@@ -87,11 +87,10 @@ object SingletonTraverse {
 
     override def traverseSingleton[H[_], A, B](fga: F[G[A]])(f: (Context, A) => H[B])(implicit
         H: Applicative[H]
-    ): H[F[G[B]]] = {
+    ): H[F[G[B]]] =
       F.traverseSingleton(fga) { (contextF, ga) =>
-        G.traverseSingleton(ga) { (contextG, x) => f(combineContext(contextF, contextG), x) }
+        G.traverseSingleton(ga)((contextG, x) => f(combineContext(contextF, contextG), x))
       }
-    }
 
     override def map[A, B](fga: F[G[A]])(f: A => B): F[G[B]] =
       F.map(fga)(ga => G.map(ga)(f))

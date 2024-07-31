@@ -93,13 +93,12 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
       """If ignoreFailures is set to true (default), the reconnect all will succeed even if some domains are offline.
           | The participants will continue attempting to establish a domain connection."""
     )
-    def reconnect_all(ignoreFailures: Boolean = true): Unit = {
+    def reconnect_all(ignoreFailures: Boolean = true): Unit =
       ConsoleCommandResult
         .runAll(participants)(
           ParticipantCommands.domains.reconnect_all(_, ignoreFailures = ignoreFailures)
         )
         .discard
-    }
 
     @Help.Summary("Disconnect from all connected domains")
     def disconnect_all(): Unit =

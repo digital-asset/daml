@@ -47,8 +47,8 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   private Flowable<Transaction> getTransactions(
-      ParticipantOffset begin,
-      ParticipantOffset end,
+      String begin,
+      String end,
       TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
@@ -59,69 +59,34 @@ public final class UpdateClientImpl implements UpdateClient {
 
   @Override
   public Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose) {
+      String begin, String end, TransactionFilter filter, boolean verbose) {
     return getTransactions(begin, end, filter, verbose, Optional.empty());
   }
 
   @Override
   public Flowable<Transaction> getTransactions(
-      ParticipantOffset begin,
-      ParticipantOffset end,
-      TransactionFilter filter,
-      boolean verbose,
-      String accessToken) {
+      String begin, String end, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
   private Flowable<Transaction> getTransactions(
-      ParticipantOffset begin,
-      TransactionFilter filter,
-      boolean verbose,
-      Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequest(
-                begin, ParticipantOffset.ParticipantEnd.getInstance(), filter, verbose)
-            .toProto();
-    return extractTransactions(request, accessToken);
-  }
-
-  @Override
-  public Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose) {
-    return getTransactions(begin, filter, verbose, Optional.empty());
-  }
-
-  @Override
-  public Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
-    return getTransactions(begin, filter, verbose, Optional.of(accessToken));
-  }
-
-  private Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffset begin,
+      String begin,
+      String end,
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
     TransactionFilter filter = contractFilter.transactionFilter(Optional.of(parties));
-    return getTransactions(begin, filter, verbose, accessToken);
+    return getTransactions(begin, end, filter, verbose, accessToken);
   }
 
   public Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      String accessToken) {
-    return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
-  }
-
-  public Flowable<Transaction> getTransactions(
-      ContractFilter<?> contractFilter,
-      ParticipantOffset begin,
+      String begin,
+      String end,
       Set<String> parties,
       boolean verbose) {
-    return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
+    return getTransactions(contractFilter, begin, end, parties, verbose, Optional.empty());
   }
 
   private Flowable<TransactionTree> extractTransactionTrees(
@@ -136,32 +101,8 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   private Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin,
-      TransactionFilter filter,
-      boolean verbose,
-      Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequest(
-                begin, ParticipantOffset.ParticipantEnd.getInstance(), filter, verbose)
-            .toProto();
-    return extractTransactionTrees(request, accessToken);
-  }
-
-  @Override
-  public Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose) {
-    return getTransactionsTrees(begin, filter, verbose, Optional.empty());
-  }
-
-  @Override
-  public Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
-    return getTransactionsTrees(begin, filter, verbose, Optional.of(accessToken));
-  }
-
-  private Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin,
-      ParticipantOffset end,
+      String begin,
+      String end,
       TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
@@ -172,17 +113,13 @@ public final class UpdateClientImpl implements UpdateClient {
 
   @Override
   public Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose) {
+      String begin, String end, TransactionFilter filter, boolean verbose) {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.empty());
   }
 
   @Override
   public Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin,
-      ParticipantOffset end,
-      TransactionFilter filter,
-      boolean verbose,
-      String accessToken) {
+      String begin, String end, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.of(accessToken));
   }
 

@@ -50,16 +50,14 @@ public class IouMain {
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
-    AtomicReference<ParticipantOffset> acsOffset =
-        new AtomicReference<>(ParticipantOffset.ParticipantBegin.getInstance());
+    AtomicReference<String> acsOffset = new AtomicReference<>("");
 
     client
         .getStateClient()
         .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
             response -> {
-              response.offset.ifPresent(
-                  offset -> acsOffset.set(new ParticipantOffset.Absolute(offset)));
+              response.offset.ifPresent(offset -> acsOffset.set(offset));
               response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
@@ -68,11 +66,17 @@ public class IouMain {
                   });
             });
 
+    String ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
+
     Disposable ignore =
         client
             .getTransactionsClient()
             .getTransactions(
-                Iou.contractFilter(), acsOffset.get(), Collections.singleton(party), true)
+                Iou.contractFilter(),
+                acsOffset.get(),
+                ledgerEnd,
+                Collections.singleton(party),
+                true)
             .forEach(
                 t -> {
                   for (Event event : t.getEvents()) {

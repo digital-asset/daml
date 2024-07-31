@@ -28,17 +28,15 @@ final case class AuthorizationChain(
   def addIdentifierDelegation(aid: AuthorizedIdentifierDelegation): AuthorizationChain =
     copy(identifierDelegation = identifierDelegation :+ aid)
 
-  def merge(other: AuthorizationChain): AuthorizationChain = {
+  def merge(other: AuthorizationChain): AuthorizationChain =
     AuthorizationChain(
       mergeUnique(this.identifierDelegation, other.identifierDelegation),
       mergeUnique(this.namespaceDelegations, other.namespaceDelegations),
       mergeUnique(this.decentralizedNamespaceDefinitions, other.decentralizedNamespaceDefinitions),
     )
-  }
 
-  private def mergeUnique[T](left: Seq[T], right: Seq[T]): Seq[T] = {
+  private def mergeUnique[T](left: Seq[T], right: Seq[T]): Seq[T] =
     mutable.LinkedHashSet.from(left).addAll(right).toSeq
-  }
 
 }
 

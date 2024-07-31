@@ -40,7 +40,7 @@ trait PartyMetadataStore extends AutoCloseable {
 
   final def insertOrUpdatePartyMetadata(metadata: PartyMetadata)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     insertOrUpdatePartyMetadata(
       partyId = metadata.partyId,
       participantId = metadata.participantId,
@@ -48,7 +48,6 @@ trait PartyMetadataStore extends AutoCloseable {
       effectiveTimestamp = metadata.effectiveTimestamp,
       submissionId = metadata.submissionId,
     )
-  }
 
   def insertOrUpdatePartyMetadata(
       partyId: PartyId,
