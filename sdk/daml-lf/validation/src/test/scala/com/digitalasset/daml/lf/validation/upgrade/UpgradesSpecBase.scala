@@ -121,6 +121,8 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+
     s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",

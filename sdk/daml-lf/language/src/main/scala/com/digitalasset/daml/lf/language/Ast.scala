@@ -1283,7 +1283,6 @@ object Ast {
         metadata: PackageMetadata,
     ): GenPackage[E] = {
       val isUtilityPackage =
-        metadata.name == "daml-prim" || metadata.name == "daml-stdlib" ||
           modules.values.forall(mod =>
             mod.templates.isEmpty &&
               mod.interfaces.isEmpty &&
