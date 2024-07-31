@@ -128,7 +128,7 @@ class InMemoryActiveContractStore(
   /** Returns the latest [[ActiveContractStore.ContractState]] if any */
   private def latestState(
       changes: ChangeJournal
-  )(implicit traceContext: TraceContext): Future[Option[ContractState]] = {
+  )(implicit traceContext: TraceContext): Future[Option[ContractState]] =
     changes.headOption.traverse { case (change, detail) =>
       val statusF = detail match {
         case ActivenessChangeDetail.Create => Future.successful(Active)
@@ -146,7 +146,6 @@ class InMemoryActiveContractStore(
 
       statusF.map(ContractState(_, change.toc))
     }
-  }
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -179,7 +178,7 @@ class InMemoryActiveContractStore(
       contractIds
         .to(LazyList)
         .mapFilter(contractId =>
-          table.get(contractId).flatMap(_.activeBy(timestamp)).map { ts => contractId -> ts }
+          table.get(contractId).flatMap(_.activeBy(timestamp)).map(ts => contractId -> ts)
         )
         .toMap
     }
@@ -355,7 +354,7 @@ class InMemoryActiveContractStore(
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
-  ): Future[Option[(LfContractId)]] = {
+  ): Future[Option[(LfContractId)]] =
     for {
       contracts <- contractStore.find(
         filterId = None,
@@ -370,7 +369,6 @@ class InMemoryActiveContractStore(
         cid
       }
     }
-  }
 }
 
 object InMemoryActiveContractStore {
@@ -569,7 +567,7 @@ object InMemoryActiveContractStore {
           Option.when(change.isActivation)((change.toc.rc))
         }
 
-    def prune(beforeAndIncluding: CantonTimestamp): Option[ContractStatus] = {
+    def prune(beforeAndIncluding: CantonTimestamp): Option[ContractStatus] =
       changes.keys
         .filter(change => !change.isActivation && change.toc.timestamp <= beforeAndIncluding)
         .lastOption match {
@@ -584,8 +582,6 @@ object InMemoryActiveContractStore {
           // Skipping changes without deactivations mimics behavior of db-based ACS store
           Some(this)
       }
-
-    }
 
     /** Returns a contract status that has all changes removed whose request counter is at least `criterion`. */
     def deleteSince(criterion: RequestCounter): ContractStatus = {

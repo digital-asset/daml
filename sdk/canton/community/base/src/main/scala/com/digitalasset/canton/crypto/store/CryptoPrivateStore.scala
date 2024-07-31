@@ -107,10 +107,6 @@ object CryptoPrivateStore {
 sealed trait CryptoPrivateStoreError extends Product with Serializable with PrettyPrinting
 object CryptoPrivateStoreError {
 
-  final case class FailedToListKeys(reason: String) extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToListKeys] = prettyOfClass(unnamedParam(_.reason.unquoted))
-  }
-
   final case class FailedToGetWrapperKeyId(reason: String) extends CryptoPrivateStoreError {
     override def pretty: Pretty[FailedToGetWrapperKeyId] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
@@ -145,12 +141,6 @@ object CryptoPrivateStoreError {
   final case class FailedToDeleteKey(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
     override def pretty: Pretty[FailedToDeleteKey] =
-      prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
-  }
-
-  final case class FailedToReplaceKeys(keyId: Seq[Fingerprint], reason: String)
-      extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToReplaceKeys] =
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 

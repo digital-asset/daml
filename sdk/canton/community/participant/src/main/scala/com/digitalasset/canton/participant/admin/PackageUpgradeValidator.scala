@@ -71,7 +71,7 @@ class PackageUpgradeValidator(
             } yield res
           case None =>
             logger.debug(
-              s"Package metadata is not defined for ${pkgId}. Skipping upgrade validation."
+              s"Package metadata is not defined for $pkgId. Skipping upgrade validation."
             )
             go(packageMap, rest)
         }
@@ -197,7 +197,7 @@ class PackageUpgradeValidator(
       optOldPkg2: Option[Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] = {
+  ): EitherT[Future, DamlError, Unit] =
     LoggingContextWithTrace.withEnrichedLoggingContext(
       "upgradeTypecheckPhase" -> OfString(phase.toString)
     ) { implicit loggingContext =>
@@ -222,7 +222,6 @@ class PackageUpgradeValidator(
           }
       }
     }
-  }
 
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,

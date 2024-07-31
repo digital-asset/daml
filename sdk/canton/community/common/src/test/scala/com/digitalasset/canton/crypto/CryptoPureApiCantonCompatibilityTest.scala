@@ -24,7 +24,7 @@ class CryptoPureApiCantonCompatibilityTest extends AnyWordSpec with BaseTest {
         Hash.digest(TestHash.testHashPurpose, ByteString.copyFromUtf8(longString), algorithm)
       val maxHashSize = 46
 
-      s"produce binary hashes of length less than ${maxHashSize} bytes" in {
+      s"produce binary hashes of length less than $maxHashSize bytes" in {
         hash.getCryptographicEvidence.size() should be <= maxHashSize
       }
 

@@ -72,7 +72,7 @@ private[apiserver] object ApiLedgerConfigurationService {
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
       executionContext: ExecutionContext,
-  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
+  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new GrpcLedgerConfigurationService(
       service = new ApiLedgerConfigurationService(configurationService, telemetry, loggerFactory),
       ledgerId = ledgerId,
@@ -82,5 +82,4 @@ private[apiserver] object ApiLedgerConfigurationService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, executionContext)
     }
-  }
 }

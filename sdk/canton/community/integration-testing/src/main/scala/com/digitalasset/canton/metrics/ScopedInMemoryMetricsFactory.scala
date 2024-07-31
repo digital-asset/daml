@@ -11,9 +11,8 @@ class ScopedInMemoryMetricsFactory {
 
   private val factories = TrieMap[MetricsContext, InMemoryMetricsFactory]()
 
-  def forContext(metricsContext: MetricsContext): InMemoryMetricsFactory = {
+  def forContext(metricsContext: MetricsContext): InMemoryMetricsFactory =
     factories.getOrElseUpdate(metricsContext, new InMemoryMetricsFactory)
-  }
 
   def findSingle(condition: MetricsContext => Boolean): InMemoryMetricsFactory = {
     val filteredFactories = factories.toMap.view.filter { case (context, _) =>

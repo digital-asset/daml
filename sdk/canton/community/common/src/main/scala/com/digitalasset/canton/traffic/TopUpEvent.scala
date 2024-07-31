@@ -14,11 +14,9 @@ object TopUpEvent {
   implicit val ordering: Ordering[TopUpEvent] = {
     // Order first by timestamp then by serial number to differentiate if necessary
     (x: TopUpEvent, y: TopUpEvent) =>
-      {
-        x.validFromInclusive compare y.validFromInclusive match {
-          case 0 => x.serial compare y.serial
-          case c => c
-        }
+      x.validFromInclusive compare y.validFromInclusive match {
+        case 0 => x.serial compare y.serial
+        case c => c
       }
   }
 
@@ -37,7 +35,7 @@ object TopUpEvent {
 
   def fromProtoV0(
       topUp: TopUpEventP
-  ): Either[ProtoDeserializationError, TopUpEvent] = {
+  ): Either[ProtoDeserializationError, TopUpEvent] =
     for {
       limit <- ProtoConverter.parsePositiveLong(topUp.extraTrafficLimit)
       serial <- ProtoConverter.parsePositiveInt(topUp.serial)
@@ -51,7 +49,6 @@ object TopUpEvent {
       validFrom,
       serial,
     )
-  }
 }
 
 final case class TopUpEvent(
@@ -59,11 +56,10 @@ final case class TopUpEvent(
     validFromInclusive: CantonTimestamp,
     serial: PositiveInt,
 ) {
-  def toProtoV0: TopUpEventP = {
+  def toProtoV0: TopUpEventP =
     TopUpEventP(
       Some(validFromInclusive.toProtoPrimitive),
       serial = serial.value,
       extraTrafficLimit = limit.value,
     )
-  }
 }

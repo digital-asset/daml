@@ -138,7 +138,7 @@ class CommandServiceImplSpec
         .withDeadline(Deadline.after(0L, TimeUnit.NANOSECONDS), scheduledExecutor())
 
       deadline
-        .call(() => {
+        .call { () =>
           service
             .submitAndWaitForTransactionId(
               SubmitAndWaitRequest.of(Some(commands.copy(submissionId = submissionId)))
@@ -157,8 +157,8 @@ class CommandServiceImplSpec
                 status.getMessage should fullyMatch regex s"REQUEST_DEADLINE_EXCEEDED\\(3,submissi\\)\\: The gRPC deadline for request with commandId=$commandId and submissionId=$submissionId has expired by .* The request will not be processed further\\."
               })
             }
-        })
-        .thereafter { _ => deadline.close() }
+        }
+        .thereafter(_ => deadline.close())
     }
 
     "time out if the tracker times out" in withTestContext { testContext =>

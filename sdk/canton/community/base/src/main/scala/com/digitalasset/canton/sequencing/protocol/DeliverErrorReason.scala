@@ -54,19 +54,17 @@ object DeliverErrorReason {
         Right(DeliverErrorReason.BatchRefused(message))
     }
 
-  private def getCauseFromMessage(message: String): Either[Unit, String] = {
+  private def getCauseFromMessage(message: String): Either[Unit, String] =
     if (message.contains(":")) {
       Right(message.split(": ", 2)(1))
     } else {
       Left(())
     }
-  }
   private[protocol] def tryFromStatus(status: Status): DeliverErrorReason = {
-    def throwOnError() = {
+    def throwOnError() =
       throw new IllegalArgumentException(
         s"The message of status $status doesn't follow the expected structure `ERROR_CODE(<category>, <trace-id>): <message>`. DeliverErrorReason only supports ${SequencerErrors.SubmissionRequestMalformed.id} and ${SequencerErrors.SubmissionRequestRefused.id} error codes and statuses generated from them."
       )
-    }
 
     status match {
       case SequencerErrors.SubmissionRequestRefused(message) =>
@@ -82,7 +80,7 @@ object DeliverErrorReason {
 
   private[protocol] def mkStatus(
       deliverErrorReason: v0.DeliverErrorReason.Reason
-  ): ParsingResult[Status] = {
+  ): ParsingResult[Status] =
     deliverErrorReason match {
       case v0.DeliverErrorReason.Reason.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("DeliverErrorReason.reason"))
@@ -91,5 +89,4 @@ object DeliverErrorReason {
       case v0.DeliverErrorReason.Reason.BatchRefused(message) =>
         Right(SequencerErrors.SubmissionRequestRefused(message).rpcStatusWithoutLoggingContext())
     }
-  }
 }

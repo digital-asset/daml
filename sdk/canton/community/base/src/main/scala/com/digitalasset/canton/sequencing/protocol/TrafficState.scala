@@ -24,7 +24,7 @@ final case class TrafficState(
   def update(
       newExtraTrafficLimit: NonNegativeLong,
       timestamp: CantonTimestamp,
-  ): Either[RequireTypes.InvariantViolation, TrafficState] = {
+  ): Either[RequireTypes.InvariantViolation, TrafficState] =
     NonNegativeLong.create(newExtraTrafficLimit.value - extraTrafficConsumed.value).map {
       newRemainder =>
         this.copy(
@@ -32,7 +32,6 @@ final case class TrafficState(
           extraTrafficRemainder = newRemainder,
         )
     }
-  }
 
   def toSequencedEventTrafficState: SequencedEventTrafficState = SequencedEventTrafficState(
     extraTrafficRemainder = extraTrafficRemainder,
@@ -49,7 +48,7 @@ object TrafficState {
     pp >> v.timestamp
   }
 
-  implicit val getResultTrafficState: GetResult[Option[TrafficState]] = {
+  implicit val getResultTrafficState: GetResult[Option[TrafficState]] =
     GetResult
       .createGetTuple4(
         nonNegativeLongOptionGetResult,
@@ -58,7 +57,6 @@ object TrafficState {
         CantonTimestamp.getResultOptionTimestamp,
       )
       .andThen(_.mapN(TrafficState.apply))
-  }
 
   def empty(timestamp: CantonTimestamp): TrafficState = TrafficState(
     NonNegativeLong.zero,

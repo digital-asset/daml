@@ -297,12 +297,12 @@ private[platform] object InMemoryStateUpdater {
 
   private def convertToKeyEvents(
       tx: TransactionLogUpdate
-  ): Vector[(GlobalKey, TransactionLogUpdate.Event)] = {
+  ): Vector[(GlobalKey, TransactionLogUpdate.Event)] =
     // TODO(i15443) if we want to keep this caching, we should re-visit it to support re-assignments
     tx match {
       case tx: TransactionLogUpdate.TransactionAccepted =>
         tx.events.iterator
-          .collect({
+          .collect {
             case create: TransactionLogUpdate.CreatedEvent =>
               create.contractKey.map { ck =>
                 val globalKey =
@@ -325,12 +325,11 @@ private[platform] object InMemoryStateUpdater {
               }
             case _ => None
 
-          })
+          }
           .flatten
           .toVector
       case _ => Vector.empty
     }
-  }
 
   private def convertTransactionAccepted(
       offset: Offset,

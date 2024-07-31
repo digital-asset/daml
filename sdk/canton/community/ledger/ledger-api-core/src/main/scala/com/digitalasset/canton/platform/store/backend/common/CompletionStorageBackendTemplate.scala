@@ -87,7 +87,7 @@ class CompletionStorageBackendTemplate(
 
   private val sharedColumns: RowParser[
     Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Option[Int] ~ TraceContext
-  ] = {
+  ] =
     array[Int]("submitters") ~
       offset("completion_offset") ~
       timestampFromMicros("record_time") ~
@@ -96,7 +96,6 @@ class CompletionStorageBackendTemplate(
       str("submission_id").? ~
       int("domain_id").? ~
       traceContextOption("trace_context")(noTracingLogger)
-  }
 
   private val acceptedCommandSharedColumns: RowParser[
     Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Option[
@@ -193,12 +192,11 @@ class CompletionStorageBackendTemplate(
 
   override def pruneCompletions(
       pruneUpToInclusive: Offset
-  )(connection: Connection, traceContext: TraceContext): Unit = {
+  )(connection: Connection, traceContext: TraceContext): Unit =
     pruneWithLogging(queryDescription = "Command completions pruning") {
       import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, traceContext)
-  }
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,

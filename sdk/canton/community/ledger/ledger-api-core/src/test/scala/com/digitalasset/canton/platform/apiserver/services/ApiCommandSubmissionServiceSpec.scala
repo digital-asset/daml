@@ -42,12 +42,10 @@ class ApiCommandSubmissionServiceSpec
   private val generatedSubmissionId = "generated-submission-id"
 
   var testTelemetrySetup: TestTelemetrySetup = _
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   import ApiCommandSubmissionServiceSpec.*
   "ApiCommandSubmissionService" should {

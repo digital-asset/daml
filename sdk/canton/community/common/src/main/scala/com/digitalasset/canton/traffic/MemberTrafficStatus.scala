@@ -17,7 +17,7 @@ final case class MemberTrafficStatus(
     trafficState: SequencedEventTrafficState,
     currentAndFutureTopUps: List[TopUpEvent],
 ) {
-  def toProtoV0: MemberTrafficStatusP = {
+  def toProtoV0: MemberTrafficStatusP =
     MemberTrafficStatusP(
       member.toProtoPrimitive,
       trafficState.extraTrafficLimit.map(_.value),
@@ -25,13 +25,12 @@ final case class MemberTrafficStatus(
       currentAndFutureTopUps.map(_.toProtoV0),
       Some(timestamp.toProtoPrimitive),
     )
-  }
 }
 
 object MemberTrafficStatus {
   def fromProtoV0(
       trafficStatusP: MemberTrafficStatusP
-  ): Either[ProtoDeserializationError, MemberTrafficStatus] = {
+  ): Either[ProtoDeserializationError, MemberTrafficStatus] =
     for {
       member <- Member.fromProtoPrimitive(
         trafficStatusP.member,
@@ -61,5 +60,4 @@ object MemberTrafficStatus {
       ),
       topUps,
     )
-  }
 }

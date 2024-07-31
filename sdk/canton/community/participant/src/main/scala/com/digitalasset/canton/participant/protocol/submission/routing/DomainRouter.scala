@@ -88,8 +88,7 @@ class DomainRouter(
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] = {
-
+  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
     for {
       // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
       _ <- EitherT.fromEither[Future](
@@ -178,7 +177,6 @@ class DomainRouter(
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
       )
     } yield transactionSubmittedF
-  }
 
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
@@ -214,13 +212,12 @@ class DomainRouter(
   private def isMultiDomainTx(
       inputDomains: Set[DomainId],
       informees: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
+  )(implicit traceContext: TraceContext): Future[Boolean] =
     if (inputDomains.sizeCompare(2) >= 0) Future.successful(true)
     else
       inputDomains.toList
         .parTraverse(allInformeesOnDomain(informees)(_))
         .map(!_.forall(identity))
-  }
 
   private def checkValidityOfMultiDomain(
       transactionData: TransactionData
@@ -329,11 +326,10 @@ object DomainRouter {
   private def recoveredDomainOfAlias(
       connectedDomains: ConnectedDomainsLookup,
       domainAliasManager: DomainAliasManager,
-  )(domainAlias: DomainAlias): Option[DomainId] = {
+  )(domainAlias: DomainAlias): Option[DomainId] =
     domainAliasManager
       .domainIdForAlias(domainAlias)
       .filter(domainId => connectedDomains.get(domainId).exists(_.ready))
-  }
 
   private def priorityOfDomain(
       domainConnectionConfigStore: DomainConnectionConfigStore,

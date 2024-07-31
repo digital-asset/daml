@@ -92,7 +92,7 @@ object KeyOwner {
     // The first three letters of the string identify the type of member
     val (typ, uidS) = keyOwner.splitAt(3)
 
-    def mapToType(code: KeyOwnerCode, uid: UniqueIdentifier): Either[String, KeyOwner] = {
+    def mapToType(code: KeyOwnerCode, uid: UniqueIdentifier): Either[String, KeyOwner] =
       code match {
         case MediatorId.Code => Right(MediatorId(uid))
         case DomainTopologyManagerId.Code => Right(DomainTopologyManagerId(uid))
@@ -100,7 +100,6 @@ object KeyOwner {
         case SequencerId.Code => Right(SequencerId(uid))
         case UnauthenticatedMemberId.Code => Right(UnauthenticatedMemberId(uid))
       }
-    }
 
     // expecting COD::<uid>
     val dlen = SafeSimpleString.delimiter.length
@@ -167,7 +166,7 @@ object Member {
     implicit val setParameterMember: SetParameter[Member] = (v: Member, pp) =>
       pp >> v.toLengthLimitedString
 
-    implicit val getResultMember: GetResult[Member] = GetResult(r => {
+    implicit val getResultMember: GetResult[Member] = GetResult { r =>
       KeyOwner
         .fromProtoPrimitive_(r.nextString())
         .fold(
@@ -177,7 +176,7 @@ object Member {
             case _ => throw new DbDeserializationException("Unknown type of member")
           },
         )
-    })
+    }
   }
 }
 
@@ -277,9 +276,8 @@ object ParticipantId {
     * used in testing
     */
   @VisibleForTesting
-  def apply(addr: String): ParticipantId = {
+  def apply(addr: String): ParticipantId =
     ParticipantId(UniqueIdentifier.tryCreate(addr, "default"))
-  }
 
   implicit val ordering: Ordering[ParticipantId] = Ordering.by(_.uid.toProtoPrimitive)
 

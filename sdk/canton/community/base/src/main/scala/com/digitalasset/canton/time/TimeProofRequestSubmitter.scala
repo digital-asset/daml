@@ -89,38 +89,36 @@ private[time] class TimeProofRequestSubmitterImpl(
         } else Future.successful(Right(()))
       }.onShutdown(Right(()))
 
-    def eventuallySendRequest(): Unit = {
+    def eventuallySendRequest(): Unit =
       performUnlessClosing("unless closing, sendRequestIfPending") {
         addToFlushAndLogError(
           s"sendRequestIfPending scheduled ${config.maxSequencingDelay} after ${clock.now}"
         ) {
-          {
-            import Success.either
-            val retrySendTimeRequest = Backoff(
-              logger,
-              this,
-              retry.Forever,
-              config.initialRetryDelay.underlying,
-              config.maxRetryDelay.underlying,
-              "request current time",
-            )
+          import Success.either
+          val retrySendTimeRequest = Backoff(
+            logger,
+            this,
+            retry.Forever,
+            config.initialRetryDelay.underlying,
+            config.maxRetryDelay.underlying,
+            "request current time",
+          )
 
-            retrySendTimeRequest(mkRequest(), AllExnRetryable) map { _ =>
-              // if we still care about the outcome (we could have witnessed a recent time while sending the request),
-              // then schedule retrying a new request.
-              // this will short circuit if a new timestamp is not needed at that point.
-              if (stillPending) {
-                // intentionally don't wait for future
-                FutureUtil.doNotAwait(
-                  clock
-                    .scheduleAfter(
-                      _ => eventuallySendRequest(),
-                      config.maxSequencingDelay.asJava,
-                    )
-                    .onShutdown(()),
-                  "requesting current domain time",
-                )
-              }
+          retrySendTimeRequest(mkRequest(), AllExnRetryable) map { _ =>
+            // if we still care about the outcome (we could have witnessed a recent time while sending the request),
+            // then schedule retrying a new request.
+            // this will short circuit if a new timestamp is not needed at that point.
+            if (stillPending) {
+              // intentionally don't wait for future
+              FutureUtil.doNotAwait(
+                clock
+                  .scheduleAfter(
+                    _ => eventuallySendRequest(),
+                    config.maxSequencingDelay.asJava,
+                  )
+                  .onShutdown(()),
+                "requesting current domain time",
+              )
             }
           }
         }
@@ -128,7 +126,6 @@ private[time] class TimeProofRequestSubmitterImpl(
         // using instead of discard to highlight that this change goes with reducing activity during shutdown
         ()
       )
-    }
 
     // initial kick off
     eventuallySendRequest()

@@ -58,8 +58,7 @@ private[apiserver] final class ApiPackageService private (
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
   }
 
-  override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] = {
-
+  override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withEnrichedLoggingContext(telemetry)(
       logging.packageId(request.packageId)
     ) { implicit loggingContext =>
@@ -83,7 +82,6 @@ private[apiserver] final class ApiPackageService private (
           .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
     }
-  }
 
   override def getPackageStatus(
       request: GetPackageStatusRequest

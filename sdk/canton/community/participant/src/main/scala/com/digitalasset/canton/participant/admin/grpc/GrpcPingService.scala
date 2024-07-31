@@ -39,11 +39,11 @@ class GrpcPingService(service: PingService)(implicit ec: ExecutionContext, trace
             id,
           )
 
-      result.map({
+      result.map {
         case PingService.Success(millis, responder) =>
           PingResponse(PingResponse.Response.Success(PingSuccess(millis.toMillis, responder)))
         case PingService.Failure =>
           PingResponse(PingResponse.Response.Failure(PingFailure()))
-      })
+      }
     }
 }

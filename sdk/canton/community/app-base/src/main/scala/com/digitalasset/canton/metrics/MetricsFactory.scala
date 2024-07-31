@@ -155,7 +155,7 @@ final case class MetricsFactory(
     nested
   }
 
-  def forParticipant(name: String): ParticipantMetrics = {
+  def forParticipant(name: String): ParticipantMetrics =
     participants.getOrElseUpdate(
       name, {
         val metricName = deduplicateName(name, "participant", participants)
@@ -173,11 +173,10 @@ final case class MetricsFactory(
         )
       },
     )
-  }
 
   def forEnv: EnvMetrics = envMetrics
 
-  def forDomain(name: String): DomainMetrics = {
+  def forDomain(name: String): DomainMetrics =
     domains.getOrElseUpdate(
       name, {
         val metricName = deduplicateName(name, "domain", domains)
@@ -193,9 +192,8 @@ final case class MetricsFactory(
         )
       },
     )
-  }
 
-  def forSequencer(name: String): SequencerMetrics = {
+  def forSequencer(name: String): SequencerMetrics =
     sequencers.getOrElseUpdate(
       name, {
         val metricName = deduplicateName(name, "sequencer", sequencers)
@@ -213,9 +211,8 @@ final case class MetricsFactory(
         )
       },
     )
-  }
 
-  def forMediator(name: String): MediatorNodeMetrics = {
+  def forMediator(name: String): MediatorNodeMetrics =
     mediators.getOrElseUpdate(
       name, {
         val metricName = deduplicateName(name, "mediator", mediators)
@@ -230,7 +227,6 @@ final case class MetricsFactory(
         )
       },
     )
-  }
 
   /** de-duplicate name if there is someone using the same name for another type of node (not sure that will ever happen)
     */
@@ -243,7 +239,7 @@ final case class MetricsFactory(
       s"$nodeType-$name"
     else name
 
-  private def createLabeledMetricsFactory(extraContext: MetricsContext) = {
+  private def createLabeledMetricsFactory(extraContext: MetricsContext) =
     factoryType match {
       case MetricsFactoryType.InMemory(provider) =>
         provider(extraContext)
@@ -255,17 +251,15 @@ final case class MetricsFactory(
           ).merge(extraContext),
         )
     }
-  }
 
   private def createUnlabeledMetricsFactory(
       extraContext: MetricsContext,
       registry: MetricRegistry,
-  ) = {
+  ) =
     factoryType match {
       case MetricsFactoryType.InMemory(builder) => builder(extraContext)
       case MetricsFactoryType.External => new CantonDropwizardMetricsFactory(registry)
     }
-  }
 
   /** returns the documented metrics by possibly creating fake participants / domains */
   def metricsDoc(): (Seq[MetricDoc.Item], Seq[MetricDoc.Item]) = {
@@ -320,7 +314,7 @@ object MetricsFactory extends LazyLogging {
   private def registerReporter(
       config: MetricsConfig,
       registry: metrics.MetricRegistry,
-  ): Seq[metrics.Reporter] = {
+  ): Seq[metrics.Reporter] =
     config.reporters.map {
 
       case reporterConfig @ JMX(_filters) =>
@@ -360,7 +354,6 @@ object MetricsFactory extends LazyLogging {
         val reporter = new Reporters.Prometheus(hostname, port)
         reporter
     }
-  }
 }
 
 class HealthMetrics(prefix: MetricName, registry: metrics.MetricRegistry)

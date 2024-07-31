@@ -73,12 +73,11 @@ trait TransferStore extends TransferLookup {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
     for {
       preparedOffsets <- EitherT.fromEither[FutureUnlessShutdown](mergeTransferOffsets(events))
       _ <- addTransfersOffsets(preparedOffsets)
     } yield ()
-  }
 
   /** Marks the transfer as completed, i.e., a transfer-in request was committed.
     * If the transfer has already been completed then a [[TransferStore.TransferAlreadyCompleted]] is reported, and the
@@ -205,7 +204,7 @@ object TransferStore {
 
     def mergeWith(
         other: TransferEntry
-    ): Checked[TransferDataAlreadyExists, TransferAlreadyCompleted, TransferEntry] = {
+    ): Checked[TransferDataAlreadyExists, TransferAlreadyCompleted, TransferEntry] =
       for {
         mergedData <- Checked.fromEither(
           transferData
@@ -234,7 +233,6 @@ object TransferStore {
       } yield
         if ((mergedData eq transferData) && (mergedToc eq timeOfCompletion)) this
         else TransferEntry(mergedData, mergedToc)
-    }
 
     private[store] def addTransferOutResult(
         transferOutResult: DeliveredTransferOutResult
@@ -265,10 +263,8 @@ object TransferStore {
 
     def complete(
         timeOfChange: TimeOfChange
-    ): Checked[TransferDataAlreadyExists, TransferAlreadyCompleted, TransferEntry] = {
-
+    ): Checked[TransferDataAlreadyExists, TransferAlreadyCompleted, TransferEntry] =
       mergeWith(TransferEntry(transferData, Some(timeOfChange)))
-    }
 
     def clearCompletion: TransferEntry = TransferEntry(transferData, None)
   }

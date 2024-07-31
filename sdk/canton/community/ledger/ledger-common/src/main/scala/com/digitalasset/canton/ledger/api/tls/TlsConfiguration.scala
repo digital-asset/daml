@@ -31,7 +31,7 @@ final case class TlsConfiguration(
   private val logger = LoggerFactory.getLogger(getClass)
 
   /** If enabled and all required fields are present, it returns an SslContext suitable for client usage */
-  def client(enabledProtocols: Seq[TlsVersion] = Seq.empty): Option[SslContext] = {
+  def client(enabledProtocols: Seq[TlsVersion] = Seq.empty): Option[SslContext] =
     if (enabled) {
       val enabledProtocolsNames =
         if (enabledProtocols.isEmpty)
@@ -51,7 +51,6 @@ final case class TlsConfiguration(
       logTlsProtocolsAndCipherSuites(sslContext, isServer = false)
       Some(sslContext)
     } else None
-  }
 
   /** If enabled and all required fields are present, it returns an SslContext suitable for server usage
     *
@@ -98,7 +97,7 @@ final case class TlsConfiguration(
       keyCertChain: InputStream,
       key: InputStream,
       protocols: lang.Iterable[String],
-  ) = {
+  ) =
     GrpcSslContexts
       .forServer(
         keyCertChain,
@@ -109,7 +108,6 @@ final case class TlsConfiguration(
       .protocols(protocols)
       .sslProvider(SslContext.defaultServerProvider())
       .build()
-  }
 
   private[tls] def logTlsProtocolsAndCipherSuites(
       sslContext: SslContext,
@@ -148,24 +146,23 @@ final case class TlsConfiguration(
   private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
     protocols.filter(_ != ProtocolDisabler.sslV2Protocol)
 
-  private[tls] def filterSupportedProtocols(tlsInfo: TlsInfo): java.lang.Iterable[String] = {
+  private[tls] def filterSupportedProtocols(tlsInfo: TlsInfo): java.lang.Iterable[String] =
     minimumServerProtocolVersion match {
       case None => null
       case Some(tlsVersion) =>
         val versions = tlsVersion match {
           case V1 | V1_1 =>
-            throw new IllegalArgumentException(s"Unsupported TLS version: ${tlsVersion}")
+            throw new IllegalArgumentException(s"Unsupported TLS version: $tlsVersion")
           case V1_2 => Seq[TlsVersion](V1_2, V1_3)
           case V1_3 => Seq(V1_3)
           case _ =>
-            throw new IllegalStateException(s"Could not recognize TLS version: |${tlsVersion}|!")
+            throw new IllegalStateException(s"Could not recognize TLS version: |$tlsVersion|!")
         }
         versions
           .map(_.version)
           .filter(tlsInfo.supportedProtocols.contains(_))
           .asJava
     }
-  }
 
   private[tls] def keyInputStreamOrFail: InputStream = {
     val keyFileOrFail = privateKeyFile.getOrElse(

@@ -22,12 +22,11 @@ final case class DirectExecutionContext(logger: Logger)
 
   override def execute(runnable: Runnable): Unit = submitSyncBatched(runnable)
 
-  override def reportFailure(cause: Throwable): Unit = {
+  override def reportFailure(cause: Throwable): Unit =
     reporter(cause)
-    // Do not rethrow cause.
-    // If this method throws an exception, the exception would ultimately be reported by a different EC,
-    // but this leads to a messy repetition of error messages in the log file.
-  }
+  // Do not rethrow cause.
+  // If this method throws an exception, the exception would ultimately be reported by a different EC,
+  // but this leads to a messy repetition of error messages in the log file.
 }
 object DirectExecutionContext {
   def apply(tracedLogger: TracedLogger): DirectExecutionContext =

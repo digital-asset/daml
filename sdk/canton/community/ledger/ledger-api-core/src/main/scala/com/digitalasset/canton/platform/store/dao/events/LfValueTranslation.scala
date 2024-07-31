@@ -145,14 +145,13 @@ final class LfValueTranslation(
       )
     )
 
-  private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] = {
+  private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] =
     e.versionedKey.map(k =>
       ValueSerializer.serializeValue(
         value = k.map(_.value),
         errorContext = cantSerialize(attribute = "key", forContract = e.targetCoid),
       )
     )
-  }
 
   private def serializeExerciseArgOrThrow(e: Exercise): Array[Byte] =
     ValueSerializer.serializeValue(
@@ -192,7 +191,7 @@ final class LfValueTranslation(
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-  ): Future[V] = {
+  ): Future[V] =
     result match {
       case LfEngine.ResultDone(r) => Future.successful(r)
       case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
@@ -207,7 +206,6 @@ final class LfValueTranslation(
       case result =>
         Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
     }
-  }
 
   def toApiValue(
       value: LfValue,

@@ -34,7 +34,7 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
     else if (this.patch != that.patch) this.patch compare that.patch
     else suffixComparison(this.optSuffix, that.optSuffix)
 
-  def suffixComparison(maybeSuffix1: Option[String], maybeSuffix2: Option[String]): Int = {
+  def suffixComparison(maybeSuffix1: Option[String], maybeSuffix2: Option[String]): Int =
     (maybeSuffix1, maybeSuffix2) match {
       case (None, None) => 0
       case (None, Some(_)) => 1
@@ -42,7 +42,6 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
       case (Some(suffix1), Some(suffix2)) =>
         suffixComparisonInternal(suffix1.split("\\.").toSeq, suffix2.split("\\.").toSeq)
     }
-  }
 
   private def suffixComparisonInternal(suffixes1: Seq[String], suffixes2: Seq[String]): Int = {
     // partially adapted (and generalised) from gist.github.com/huntc/35f6cec0a47ce7ef62c0 (Apache 2 license)
@@ -67,7 +66,7 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
         suffix2: Option[String],
         tail1: Seq[String],
         tail2: Seq[String],
-    ): Int = {
+    ): Int =
       (suffix1, suffix2) match {
         case (None, None) => 0
         // if we have a suffix (else we would have terminated earlier), then more suffixes are better
@@ -78,7 +77,6 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
           if (res != 0) res
           else go(tail1.headOption, tail2.headOption, tail1.drop(1), tail2.drop(1))
       }
-    }
 
     go(suffixes1.headOption, suffixes2.headOption, suffixes1.drop(1), suffixes2.drop(1))
   }

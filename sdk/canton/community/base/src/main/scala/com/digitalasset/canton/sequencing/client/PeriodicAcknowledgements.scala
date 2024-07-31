@@ -66,12 +66,11 @@ class PeriodicAcknowledgements(
       }
     }
 
-  private def scheduleNextUpdate(): Unit = {
+  private def scheduleNextUpdate(): Unit =
     clock
       .scheduleAfter(_ => update(), interval.toJava)
       .map(_ => scheduleNextUpdate())
       .discard[FutureUnlessShutdown[Unit]]
-  }
 
   @VisibleForTesting
   def flush(): Future[Unit] = doFlush()

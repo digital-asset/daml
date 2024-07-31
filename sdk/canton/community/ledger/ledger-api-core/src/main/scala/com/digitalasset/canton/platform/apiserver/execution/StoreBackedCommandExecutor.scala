@@ -362,8 +362,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts).flatMap(
-            result => {
+          checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
+            .flatMap { result =>
               resolveStep(
                 Tracked.value(
                   metrics.daml.execution.engineRunning,
@@ -371,7 +371,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
-          )
       }
 
     resolveStep(result).andThen { case _ =>

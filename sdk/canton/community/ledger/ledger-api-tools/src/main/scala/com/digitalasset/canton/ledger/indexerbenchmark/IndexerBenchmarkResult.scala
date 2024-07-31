@@ -97,7 +97,7 @@ class IndexerBenchmarkResult(
        |--------------------------------------------------------------------------------
        |""".stripMargin
 
-  private[this] def histogramToString(histogram: Histogram): String = {
+  private[this] def histogramToString(histogram: Histogram): String =
     histogram match {
       case DropwizardHistogram(_, metric) =>
         val data = metric.getSnapshot
@@ -114,9 +114,8 @@ class IndexerBenchmarkResult(
           )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def timerToString(timer: Timer): String = {
+  private[this] def timerToString(timer: Timer): String =
     timer match {
       case DropwizardTimer(_, metric) =>
         val data = metric.getSnapshot
@@ -134,9 +133,8 @@ class IndexerBenchmarkResult(
           )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def timerMeanRate(timer: Timer): Double = {
+  private[this] def timerMeanRate(timer: Timer): Double =
     timer match {
       case DropwizardTimer(_, metric) =>
         metric.getMeanRate
@@ -153,9 +151,8 @@ class IndexerBenchmarkResult(
           )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private[this] def counterState(counter: Counter): Long = {
+  private[this] def counterState(counter: Counter): Long =
     counter match {
       case DropwizardCounter(_, metric) =>
         metric.getCount
@@ -171,15 +168,12 @@ class IndexerBenchmarkResult(
           )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
 
-  private def dropwizardSnapshotToString(data: Snapshot) = {
+  private def dropwizardSnapshotToString(data: Snapshot) =
     s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
-  }
 
-  private def recordedHistogramValuesToString(data: Seq[Long]) = {
+  private def recordedHistogramValuesToString(data: Seq[Long]) =
     s"[min: ${data.foldLeft(0L)(_.min(_))}, median: ${median(data)}, max: ${data.foldLeft(0L)(_.max(_))}"
-  }
 
   private def median(data: Seq[Long]) = {
     val sorted = data.sorted

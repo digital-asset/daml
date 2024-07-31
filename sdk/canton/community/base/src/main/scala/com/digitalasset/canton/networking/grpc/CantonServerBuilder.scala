@@ -87,13 +87,12 @@ object CantonServerBuilder {
           this
         }
 
-        override def close(): Unit = {
+        override def close(): Unit =
           for (_ <- 0 until registry.getServices.size()) {
             registry
               .removeService(registry.getServices.get(registry.getServices.size() - 1))
               .discard[Boolean]
           }
-        }
       }
 
     override def addService(service: BindableService, withLogging: Boolean): CantonServerBuilder = {
@@ -120,7 +119,7 @@ object CantonServerBuilder {
   def configureKeepAlive(
       keepAlive: Option[KeepAliveServerConfig],
       builder: NettyServerBuilder,
-  ): NettyServerBuilder = {
+  ): NettyServerBuilder =
     keepAlive.fold(builder) { opt =>
       val time = opt.time.unwrap.toMillis
       val timeout = opt.timeout.unwrap.toMillis
@@ -133,7 +132,6 @@ object CantonServerBuilder {
           TimeUnit.MILLISECONDS,
         ) // gracefully allowing a bit more aggressive keep alives from clients
     }
-  }
 
   /** Create a GRPC server build using conventions from our configuration.
     * @param config server configuration
@@ -189,7 +187,7 @@ object CantonServerBuilder {
     // TODO(#7086): secrets service support not yet implemented for canton admin services
     config.secretsUrl.foreach { url =>
       throw new IllegalArgumentException(
-        s"Canton admin services do not yet support 'Secrets Service' ${url}."
+        s"Canton admin services do not yet support 'Secrets Service' $url."
       )
     }
 

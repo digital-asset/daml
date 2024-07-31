@@ -43,13 +43,12 @@ class TestConsoleOutput(override val loggerFactory: NamedLoggerFactory)
     ret
   }
 
-  override def info(message: String): Unit = {
+  override def info(message: String): Unit =
     if (recording.get())
       messageQueue.add(message)
     else
       // Please use recordMessages if you see this error in tests.
       logger.error(s"Unexpected console output: $message")
-  }
 
   /** Executes a piece of code, records the console output created by that code and checks whether the sequence
     * of emitted messages meets a sequence of assertions.

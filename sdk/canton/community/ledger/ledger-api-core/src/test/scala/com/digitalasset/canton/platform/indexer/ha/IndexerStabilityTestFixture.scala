@@ -54,14 +54,13 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
       lockIdSeed: Int,
       materializer: Materializer,
   ): ResourceOwner[Indexers] = new ResourceOwner[Indexers] {
-    override def acquire()(implicit context: ResourceContext): Resource[Indexers] = {
+    override def acquire()(implicit context: ResourceContext): Resource[Indexers] =
       createIndexers(
         updatesPerSecond = updatesPerSecond,
         indexerCount = indexerCount,
         jdbcUrl = jdbcUrl,
         lockIdSeed = lockIdSeed,
       )(context, materializer)
-    }
   }
 
   private def createIndexers(

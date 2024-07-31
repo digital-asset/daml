@@ -238,7 +238,7 @@ private[store] object StorageBackendTestValues {
       divulgee: String = "divulgee",
       commandId: String = UUID.randomUUID().toString,
       domainId: Option[String] = None,
-  ): DbDto.EventDivulgence = {
+  ): DbDto.EventDivulgence =
     DbDto.EventDivulgence(
       event_offset = offset.map(_.toHexString),
       command_id = Some(commandId),
@@ -254,7 +254,6 @@ private[store] object StorageBackendTestValues {
       event_sequential_id = eventSequentialId,
       domain_id = domainId,
     )
-  }
 
   def dtoAssign(
       offset: Offset,
@@ -399,15 +398,14 @@ private[store] object StorageBackendTestValues {
     externalString = external,
   )
 
-  def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
+  def dtoTransactionId(dto: DbDto): Ref.TransactionId =
     dto match {
       case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.transaction_id.get)
       case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.transaction_id.get)
       case _ => sys.error(s"$dto does not have a transaction id")
     }
-  }
 
-  def dtoApplicationId(dto: DbDto): Ref.ApplicationId = {
+  def dtoApplicationId(dto: DbDto): Ref.ApplicationId =
     dto match {
       case e: DbDto.EventCreate => Ref.ApplicationId.assertFromString(e.application_id.get)
       case e: DbDto.EventExercise => Ref.ApplicationId.assertFromString(e.application_id.get)
@@ -415,5 +413,4 @@ private[store] object StorageBackendTestValues {
       case e: DbDto.CommandCompletion => Ref.ApplicationId.assertFromString(e.application_id)
       case _ => sys.error(s"$dto does not have an application id")
     }
-  }
 }

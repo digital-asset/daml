@@ -21,20 +21,16 @@ object TransactionSource {
   def trees(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionTreesResponse]) => Unit,
       request: GetTransactionsRequest,
-  )(implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] = {
-
+  )(implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] =
     ClientAdapter
       .serverStreaming(request, stub)
       .mapConcat(batch => ImmutableIterable(batch.transactions))
-  }
 
   def flat(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionsResponse]) => Unit,
       request: GetTransactionsRequest,
-  )(implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] = {
-
+  )(implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] =
     ClientAdapter
       .serverStreaming(request, stub)
       .mapConcat(batch => ImmutableIterable(batch.transactions))
-  }
 }

@@ -709,7 +709,7 @@ private[apiserver] object ApiPartyManagementService {
 
   def decodePartyFromPageToken(pageToken: String)(implicit
       loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[Ref.Party]] = {
+  ): Either[StatusRuntimeException, Option[Ref.Party]] =
     if (pageToken.isEmpty) {
       Right(None)
     } else {
@@ -730,7 +730,6 @@ private[apiserver] object ApiPartyManagementService {
         party
       }
     }
-  }
 
   private def invalidPageToken(details: String)(implicit
       errorLogger: ContextualizedErrorLogger

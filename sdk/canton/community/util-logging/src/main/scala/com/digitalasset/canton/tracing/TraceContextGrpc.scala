@@ -5,7 +5,7 @@ package com.digitalasset.canton.tracing
 
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 import io.grpc.*
-import io.grpc.{Context as GrpcContext}
+import io.grpc.Context as GrpcContext
 
 /** Support for propagating TraceContext values across GRPC boundaries.
   * Includes:

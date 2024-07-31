@@ -499,7 +499,7 @@ object TransferOutView
         targetDomainP: String,
         targetTimeProofP: Option[com.digitalasset.canton.time.v0.TimeProof],
         targetProtocolVersion: ProtocolVersion,
-    ): ParsingResult[ParsedDataV0V1] = {
+    ): ParsingResult[ParsedDataV0V1] =
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
         submitter <- ProtoConverter.parseLfPartyId(submitterP)
@@ -517,7 +517,6 @@ object TransferOutView
         TargetProtocolVersion(targetProtocolVersion),
         targetTimeProof,
       )
-    }
   }
 
   val supportedProtoVersions = SupportedProtoVersions(

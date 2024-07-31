@@ -45,7 +45,7 @@ private[participant] class JournalGarbageCollector(
       traceContext: TraceContext
   ): Unit = flush(traceContext)
 
-  override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingF(functionFullName) {
       for {
         safeToPruneTsO <-
@@ -61,12 +61,11 @@ private[participant] class JournalGarbageCollector(
         _ <- safeToPruneTsO.fold(Future.unit)(prune(_))
       } yield ()
     }
-  }
 
   private def prune(pruneTs: CantonTimestampSecond)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    logger.debug(s"Starting periodic background pruning of journals up to ${pruneTs}")
+    logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
     val acsDescription = s"Periodic ACS prune at $pruneTs:"
     // Clean unused entries from the ACS
     val acsF = performUnlessClosingF(acsDescription)(
@@ -122,11 +121,10 @@ private[pruning] object JournalGarbageCollector {
 
     private[pruning] def flush(
         traceContext: TraceContext
-    ): Unit = {
+    ): Unit =
       // set request flag and kick off pruning if flag was not already set
       if (!state.getAndUpdate(_.copy(requested = true)).requested)
         doFlush()(traceContext)
-    }
 
     /** Temporarily turn off journal pruning (in order to download an ACS)
       *
@@ -147,7 +145,7 @@ private[pruning] object JournalGarbageCollector {
       }
     }
 
-    private def doFlush()(implicit traceContext: TraceContext): Unit = {
+    private def doFlush()(implicit traceContext: TraceContext): Unit =
       // if we are not closing and not running, then we can start a new prune
       if (!isClosing) {
         val currentState = state.getAndUpdate {
@@ -169,7 +167,6 @@ private[pruning] object JournalGarbageCollector {
           FutureUtil.doNotAwait(runningF, "Periodic background journal pruning failed")
         }
       }
-    }
 
   }
 }

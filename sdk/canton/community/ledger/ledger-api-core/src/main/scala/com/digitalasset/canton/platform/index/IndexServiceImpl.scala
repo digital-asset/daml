@@ -504,7 +504,7 @@ private[index] class IndexServiceImpl(
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
@@ -515,7 +515,6 @@ private[index] class IndexServiceImpl(
         case (_, PartyLedgerEntry.AllocationAccepted(subId, _, details)) =>
           PartyEntry.AllocationAccepted(subId, details)
       }
-  }
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace
@@ -553,7 +552,7 @@ private[index] class IndexServiceImpl(
     */
   override def getLedgerConfiguration()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[LedgerConfiguration, NotUsed] = {
+  ): Source[LedgerConfiguration, NotUsed] =
     Source
       .future(lookupConfiguration())
       .flatMapConcat { optResult =>
@@ -568,7 +567,6 @@ private[index] class IndexServiceImpl(
           .concat(configStream)
           .map(cfg => LedgerConfiguration(cfg.maxDeduplicationDuration))
       }
-  }
 
   /** Retrieve configuration entries. */
   override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(implicit
@@ -784,7 +782,7 @@ object IndexServiceImpl {
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Offset,
       ledgerEnd: Offset,
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] = {
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     if (activeAt > ledgerEnd) {
       Left(
         RequestValidationErrors.OffsetAfterLedgerEnd
@@ -798,7 +796,6 @@ object IndexServiceImpl {
     } else {
       Right(())
     }
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[platform] def memoizedTransactionFilterProjection(
@@ -903,7 +900,7 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       transactionFilter: domain.TransactionFilter,
-  ): Map[Identifier, Set[Party]] = {
+  ): Map[Identifier, Set[Party]] =
     transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Set[Party]]) {
       case (acc, (party, Filters(Some(inclusiveFilters)))) =>
         templateIds(metadata, inclusiveFilters).foldLeft(acc) { case (acc, templateId) =>
@@ -912,11 +909,10 @@ object IndexServiceImpl {
         }
       case (acc, _) => acc
     }
-  }
 
   private[index] def wildcardFilter(
       transactionFilter: domain.TransactionFilter
-  ): Set[Party] = {
+  ): Set[Party] =
     transactionFilter.filtersByParty.view.collect {
       case (party, Filters(None)) =>
         party
@@ -924,7 +920,6 @@ object IndexServiceImpl {
           if templateIds.isEmpty && interfaceFilters.isEmpty =>
         party
     }.toSet
-  }
 
   private[index] final case class Enhancer[Response](
       offsetGetter: () => Option[Offset],

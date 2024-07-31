@@ -110,9 +110,8 @@ object TraceContext {
     traceParent
   ).toTraceContext
 
-  def withOpenTelemetryContext[A](context: OpenTelemetryContext)(fn: TraceContext => A): A = {
+  def withOpenTelemetryContext[A](context: OpenTelemetryContext)(fn: TraceContext => A): A =
     fn(TraceContext(context))
-  }
 
   /** Where we use batching operations create a separate trace-context but mention this in a debug log statement
     * linking it to the trace ids of the contained items. This will allow manual tracing via logs if ever needed.

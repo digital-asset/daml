@@ -201,13 +201,12 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
     override def packageDependencies(packages: List[PackageId])(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       packages match {
         case ExampleTransactionFactory.packageId :: Nil =>
           Right(Set(exampleDependency)).toEitherT[FutureUnlessShutdown]
         case _ => Right(Set.empty[PackageId]).toEitherT[FutureUnlessShutdown]
       }
-    }
   }
 
 }

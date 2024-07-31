@@ -44,7 +44,7 @@ final case class FinalizedResponse(
       _domainId,
     ) = response
 
-    def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): Future[Option[Nothing]] = {
+    def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): Future[Option[Nothing]] =
       (for {
         _ <- validateResponse(
           viewKeyO,
@@ -61,7 +61,6 @@ final case class FinalizedResponse(
         )
         None
       }).value.map(_.flatten)
-    }
 
     if (
       verdict.representativeProtocolVersion >=

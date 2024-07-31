@@ -46,7 +46,7 @@ object MediatorVerdict {
   }
 
   final case class MediatorReject(reason: MediatorError) extends MediatorVerdict {
-    override def toVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject = {
+    override def toVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject =
       if (protocolVersion >= Verdict.MediatorRejectV2.firstApplicableProtocolVersion) {
         val error = reason match {
           case timeout: Timeout.Reject => timeout
@@ -73,7 +73,6 @@ object MediatorVerdict {
             Verdict.MediatorRejectV0.tryCreate(codeP, cause)
         }
       }
-    }
 
     override def pretty: Pretty[MediatorReject] = prettyOfClass(
       param("reason", _.reason)

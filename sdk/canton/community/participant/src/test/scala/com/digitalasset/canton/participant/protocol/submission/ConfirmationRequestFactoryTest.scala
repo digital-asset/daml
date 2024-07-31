@@ -318,7 +318,7 @@ class ConfirmationRequestFactoryTest
           .futureValue
           .value
 
-        val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] = {
+        val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] =
           if (testedProtocolVersion >= ProtocolVersion.v6) {
             // simulates session key cache
             val keySeedSession = privateKeysetCache.getOrElseUpdate(
@@ -362,7 +362,6 @@ class ConfirmationRequestFactoryTest
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
             )(Some(RecipientsInfo(participants)))
-        }
 
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
     }

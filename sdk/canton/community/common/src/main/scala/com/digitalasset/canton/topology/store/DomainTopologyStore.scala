@@ -59,9 +59,8 @@ abstract class DomainTopologyStoreBase[
 
   def get(): Option[T] = store.get()
 
-  override def close(): Unit = {
+  override def close(): Unit =
     store.getAndSet(None).foreach(_.close())
-  }
 
 }
 

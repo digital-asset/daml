@@ -466,9 +466,8 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
 
   /** Evict unauthenticated member from the cache.
     */
-  final protected def evictFromCache(member: UnauthenticatedMemberId): Unit = {
+  final protected def evictFromCache(member: UnauthenticatedMemberId): Unit =
     memberCache.evict(member)
-  }
 
   /** Lookup an existing member id for the given member.
     * Will return a cached value if available.
@@ -699,11 +698,11 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
             .minByOption(_.safePruningTimestamp)
             .map(_.member)
             .fold("No enabled member")(memberMostBehind =>
-              s"The sequencer client member most behind is ${memberMostBehind}"
+              s"The sequencer client member most behind is $memberMostBehind"
             )
         } else ""
       _ = logger.info(
-        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. ${additionalCheckpointInfo}"
+        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. $additionalCheckpointInfo"
       )
       _ <- EitherT.right(updateLowerBound(adjustedTimestamp))
       description <- EitherT.right(performPruning(adjustedTimestamp))

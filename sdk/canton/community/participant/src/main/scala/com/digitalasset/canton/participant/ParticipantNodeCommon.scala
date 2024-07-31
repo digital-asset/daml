@@ -615,12 +615,11 @@ abstract class ParticipantNodeCommon(
   def reconnectDomainsIgnoreFailures()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (sync.isActive())
       sync.reconnectDomains(ignoreFailures = true).map(_ => ())
     else {
       logger.info("Not reconnecting to domains as instance is passive")
       EitherTUtil.unitUS
     }
-  }
 }

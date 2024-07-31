@@ -28,9 +28,8 @@ class SymbolicPureCrypto() extends CryptoPureApi {
   private val signatureCounter = new AtomicInteger
 
   @VisibleForTesting
-  def setRandomnessFlag(newValue: Boolean) = {
+  def setRandomnessFlag(newValue: Boolean) =
     neverRandomizeAsymmetricEncryption.set(newValue)
-  }
 
   // iv to pre-append to the asymmetric ciphertext
   private val ivForAsymmetricEncryptInBytes = 16
@@ -79,7 +78,7 @@ class SymbolicPureCrypto() extends CryptoPureApi {
         SignatureCheckError.InvalidSignature(
           signature,
           bytes,
-          s"Symbolic signature with ${signedContent} does not match payload $bytes",
+          s"Symbolic signature with $signedContent does not match payload $bytes",
         ),
       )
     } yield ()

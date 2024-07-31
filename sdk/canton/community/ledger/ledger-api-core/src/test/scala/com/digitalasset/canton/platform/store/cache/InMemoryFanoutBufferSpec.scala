@@ -237,19 +237,19 @@ class InMemoryFanoutBufferSpec
             Vector.empty,
             maxFetchSize = 1000,
           ) { buffer =>
-            (0 until 1000).foreach(idx => {
+            (0 until 1000).foreach { idx =>
               val updateOffset = offset(idx.toLong)
               buffer.push(updateOffset, Traced(txAccepted(idx.toLong, updateOffset)))
-            }) // fill buffer to max size
+            } // fill buffer to max size
 
             val pushExecutor, sliceExecutor =
               ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
             (0 until 1000).foreach { idx =>
-              val expected = ((idx + 901) to (1000 + idx)).map(idx => {
+              val expected = ((idx + 901) to (1000 + idx)).map { idx =>
                 val updateOffset = offset(idx.toLong)
                 updateOffset -> txAccepted(idx.toLong, updateOffset)
-              })
+              }
 
               implicit val ec: ExecutionContextExecutorService = pushExecutor
 

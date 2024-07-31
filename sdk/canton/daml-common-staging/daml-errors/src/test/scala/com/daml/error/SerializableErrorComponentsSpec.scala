@@ -159,7 +159,7 @@ class SerializableErrorComponentsSpec
   it should "truncate bigger entries more" in {
     val inputSize = 20
     // Input with entries sorted by increasing size
-    val input = (1 to inputSize).map { idx => s"k$idx".padTo(5 + idx * 2, 'a') -> cValue(idx * 2) }
+    val input = (1 to inputSize).map(idx => s"k$idx".padTo(5 + idx * 2, 'a') -> cValue(idx * 2))
     val requestedEntriesSize = input.map(v => v._1.length + v._2.length).sum
     val output =
       NonSecuritySensitiveErrorCodeComponents.truncateContext(

@@ -88,7 +88,7 @@ object ContractLookupAndVerification {
   /** An empty contract and key lookup interface that fails to find any contracts and keys when asked,
     * but allows any key to be asked
     */
-  def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractLookupAndVerification = {
+  def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractLookupAndVerification =
     new ContractLookupAndVerification with NamedLogging {
 
       val loggerFactory: NamedLoggerFactory = namedLoggerFactory
@@ -120,6 +120,5 @@ object ContractLookupAndVerification {
         OptionT.pure[Future]("Not expecting call to verifyMetadata")
 
     }
-  }
 
 }

@@ -16,11 +16,10 @@ class ForwardingStreamObserver[A, B](
 )(implicit loggingContext: ErrorLoggingContext)
     extends StreamObserver[A] {
 
-  override def onNext(value: A): Unit = {
+  override def onNext(value: A): Unit =
     extract(value).iterator.foreach { t =>
       ErrorUtil.withThrowableLogging(targetObserver.onNext(t), valueOnThrowable = Some(()))
     }
-  }
 
   override def onError(t: Throwable): Unit = targetObserver.onError(t)
 

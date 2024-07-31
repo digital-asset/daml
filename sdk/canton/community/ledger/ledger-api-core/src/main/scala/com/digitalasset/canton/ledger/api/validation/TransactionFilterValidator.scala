@@ -114,7 +114,7 @@ object TransactionFilterValidator {
 
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.InterfaceFilter] = {
+  ): Either[StatusRuntimeException, domain.InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
       validatedId <- validateIdentifier(interfaceId)
@@ -123,5 +123,4 @@ object TransactionFilterValidator {
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
-  }
 }

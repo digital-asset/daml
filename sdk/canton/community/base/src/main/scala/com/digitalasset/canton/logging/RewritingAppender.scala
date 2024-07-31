@@ -101,11 +101,10 @@ class RewritingAppender()
     override def getSequenceNumber: Long = event.getSequenceNumber
   }
 
-  def setTesting(isTesting: Boolean): Unit = {
+  def setTesting(isTesting: Boolean): Unit =
     this.testing.set(isTesting)
-  }
 
-  def setRewrite(rule: Rewrite): Unit = {
+  def setRewrite(rule: Rewrite): Unit =
     if (!rule.isTesting.get() || testing.get) {
       val _ = rules.updateAndGet { map =>
         val loggerName = rule.logger.get()
@@ -114,7 +113,6 @@ class RewritingAppender()
         map + (loggerName -> (current :+ myRule))
       }
     }
-  }
 
   override def append(event: ILoggingEvent): Unit = {
 

@@ -235,7 +235,7 @@ object SequencedEventStore {
     ): Either[
       Traced[EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]],
       IgnoredSequencedEvent[DefaultOpenEnvelope],
-    ] = {
+    ] =
       event.underlying match {
         case Some(signedEvent) =>
           SignedContent
@@ -246,7 +246,6 @@ object SequencedEventStore {
             )
         case None => Right(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
       }
-    }
   }
 
   /** Encapsulates an event received by the sequencer.

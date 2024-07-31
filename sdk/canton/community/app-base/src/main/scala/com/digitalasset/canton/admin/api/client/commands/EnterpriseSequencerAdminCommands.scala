@@ -122,9 +122,8 @@ object EnterpriseSequencerAdminCommands {
         v0.Snapshot.Response,
         SequencerSnapshot,
       ] {
-    override def createRequest(): Either[String, v0.Snapshot.Request] = {
+    override def createRequest(): Either[String, v0.Snapshot.Request] =
       Right(v0.Snapshot.Request(Some(timestamp.toProtoPrimitive)))
-    }
 
     override def submitRequest(
         service: v0.EnterpriseSequencerAdministrationServiceGrpc.EnterpriseSequencerAdministrationServiceStub,

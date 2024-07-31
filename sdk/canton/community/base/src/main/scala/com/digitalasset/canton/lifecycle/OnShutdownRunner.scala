@@ -35,9 +35,8 @@ trait OnShutdownRunner { this: AutoCloseable =>
     */
   def runOnShutdown_[T](
       task: RunOnShutdown
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     runOnShutdown(task).discard
-  }
 
   /** Same as [[runOnShutdown_]] but returns a token that allows you to remove the task explicitly from being run
     * using [[cancelShutdownTask]]
@@ -63,7 +62,7 @@ trait OnShutdownRunner { this: AutoCloseable =>
   def cancelShutdownTask(token: Long): Unit = onShutdownTasks.remove(token).discard
   def containsShutdownTask(token: Long): Boolean = onShutdownTasks.contains(token)
 
-  private def runOnShutdownTasks()(implicit traceContext: TraceContext): Unit = {
+  private def runOnShutdownTasks()(implicit traceContext: TraceContext): Unit =
     onShutdownTasks.toList.foreach { case (token, task) =>
       Try {
         onShutdownTasks
@@ -73,7 +72,6 @@ trait OnShutdownRunner { this: AutoCloseable =>
           .foreach(_.run())
       }.forFailed(t => logger.warn(s"Task ${task.name} failed on shutdown!", t))
     }
-  }
 
   @VisibleForTesting
   protected def runStateChanged(waitingState: Boolean = false): Unit = {} // used for unit testing

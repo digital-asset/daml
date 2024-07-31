@@ -144,7 +144,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
       tasks.zipWithIndex.foreach { case (task, index) =>
         assert(
           Await.ready(task.onShutdown(fail()), timeout.value).isCompleted,
-          s"task ${index} did not complete",
+          s"task $index did not complete",
         )
       }
     }
@@ -156,14 +156,13 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     "never run back in time" in {
 
       val tick = new TickTock.RandomSkew(10)
-      def check(last: Instant, runs: Int): Unit = {
+      def check(last: Instant, runs: Int): Unit =
         if (runs > 0) {
           val cur = tick.now
           assert(cur.isAfter(last) || cur == last)
           Threading.sleep(0, 1000)
           check(cur, runs - 1)
         }
-      }
       check(tick.now, 300)
     }
 
@@ -172,7 +171,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
       val tm = JClock.systemUTC()
 
       val notinsync = new AtomicInteger(0)
-      def check(runs: Int): Unit = {
+      def check(runs: Int): Unit =
         if (runs > 0) {
           val cur = tm.instant()
           val nw = tick.now
@@ -182,7 +181,6 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
           Threading.sleep(0, 100000)
           check(runs - 1)
         }
-      }
       check(100)
       assert(notinsync.get() > 0)
     }

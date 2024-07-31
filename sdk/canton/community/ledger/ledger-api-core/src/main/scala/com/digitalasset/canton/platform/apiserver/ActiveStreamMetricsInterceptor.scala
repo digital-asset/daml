@@ -44,11 +44,10 @@ final class ActiveStreamMetricsInterceptor(
     private val logger = LoggerFactory.getLogger(getClass)
     private val onTerminationCalled = new AtomicBoolean()
 
-    private def runOnClose(): Unit = {
+    private def runOnClose(): Unit =
       if (onTerminationCalled.compareAndSet(false, true)) {
         Try(runOnceOnTermination()).forFailed(logger.warn(s"Exception calling onClose method", _))
       }
-    }
 
     override def onCancel(): Unit = {
       runOnClose()

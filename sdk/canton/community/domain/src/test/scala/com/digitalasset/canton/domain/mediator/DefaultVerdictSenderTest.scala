@@ -167,16 +167,15 @@ class DefaultVerdictSenderTest
       loggerFactory,
     )
 
-    def sendApproval(): Future[Unit] = {
+    def sendApproval(): Future[Unit] =
       verdictSender.sendResult(
         requestId,
         informeeMessage,
         Verdict.Approve(testedProtocolVersion),
         decisionTime,
       )
-    }
 
-    def sendReject(): Future[Unit] = {
+    def sendReject(): Future[Unit] =
       verdictSender.sendReject(
         requestId,
         Some(informeeMessage),
@@ -186,7 +185,6 @@ class DefaultVerdictSenderTest
           .toVerdict(testedProtocolVersion),
         decisionTime,
       )
-    }
   }
 
 }

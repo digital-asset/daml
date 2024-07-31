@@ -372,9 +372,8 @@ final class ErrorInterceptorSpec
 
 object ErrorInterceptorSpec {
 
-  def server(tested: ErrorInterceptor, service: BindableService): ResourceOwner[Channel] = {
+  def server(tested: ErrorInterceptor, service: BindableService): ResourceOwner[Channel] =
     TestingServerInterceptors.channelOwner(tested, service)
-  }
 
   object FooMissingErrorCode
       extends ErrorCode(

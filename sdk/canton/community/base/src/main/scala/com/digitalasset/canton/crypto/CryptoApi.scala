@@ -85,10 +85,9 @@ class Crypto(
 
   setDependency("private-crypto", privateCrypto)
 
-  override protected def combineDependentStates: ComponentHealthState = {
+  override protected def combineDependentStates: ComponentHealthState =
     // Currently we only check the health of the private crypto API due to its implementation on an external KMS
     privateCrypto.getState
-  }
 
   override protected def initialHealthState: ComponentHealthState =
     ComponentHealthState.NotInitializedState

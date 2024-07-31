@@ -53,7 +53,7 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
         *   (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and [[io.grpc.Status#fromThrowable]]),
         * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
-      override def close(status: Status, trailers: Metadata): Unit = {
+      override def close(status: Status, trailers: Metadata): Unit =
         if (isUnsanitizedInternal(status) || status.getCode == Status.Code.UNKNOWN) {
           val recreatedException = status.asRuntimeException(trailers)
           val errorCodeException = LedgerApiErrors.InternalError
@@ -67,7 +67,6 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
         } else {
           LogOnUnhandledFailureInClose(logger, superClose(status, trailers))
         }
-      }
 
       /** This method serves as an accessor to the super.close() which facilitates its access from the outside of this class.
         * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
@@ -108,7 +107,7 @@ class ErrorListener[ReqT, RespT](
     * NOTE: We don't override other listener methods: onCancel, onComplete, onReady and onMessage;
     * as it seems overriding only onHalfClose is sufficient.
     */
-  override def onHalfClose(): Unit = {
+  override def onHalfClose(): Unit =
     try {
       super.onHalfClose()
     } catch {
@@ -127,12 +126,11 @@ class ErrorListener[ReqT, RespT](
           .asGrpcError
         LogOnUnhandledFailureInClose(logger, call.close(e.getStatus, e.getTrailers))
     }
-  }
 }
 
 private[error] object LogOnUnhandledFailureInClose {
 
-  def apply[T](logger: TracedLogger, close: => T): T = {
+  def apply[T](logger: TracedLogger, close: => T): T =
     // If close throws, we can't call ServerCall.close a second time
     // since it might have already been marked internally as closed.
     // In this situation, we can't do much about it except for notifying the participant operator.
@@ -151,5 +149,4 @@ private[error] object LogOnUnhandledFailureInClose {
           .discard
         throw e
     }
-  }
 }

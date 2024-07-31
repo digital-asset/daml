@@ -200,7 +200,7 @@ class ModelConformanceChecker(
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, StoredContract]] = {
+  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, StoredContract]] =
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, _ @InputContract(contract, _)) =>
@@ -215,21 +215,19 @@ class ModelConformanceChecker(
       }
       .map(_.toMap)
       .mapK(FutureUnlessShutdown.outcomeK)
-  }
 
   private def buildPackageNameMap(
       packageIds: Set[PackageId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[PackageName, PackageId]] = {
-
+  ): EitherT[FutureUnlessShutdown, Error, Map[PackageName, PackageId]] =
     EitherT(for {
       resolvedE <- packageIds.toSeq.parTraverse(pId =>
         packageResolver(pId)(traceContext)
-          .map({
+          .map {
             case None => Left(pId)
             case Some(ast) => Right((pId, ast.languageVersion, ast.metadata.map(_.name)))
-          })
+          }
       )
     } yield {
       for {
@@ -239,16 +237,15 @@ class ModelConformanceChecker(
             Left(PackageNotFound(Map(participantId -> unresolved.toSet)): Error)
         }
         resolvedNameBindings = resolved
-          .collect({
+          .collect {
             case (pId, lv, Some(name)) if lv >= LanguageVersion.Features.packageUpgrades =>
               name -> pId
-          })
+          }
         nameBindings <- MapsUtil.toNonConflictingMap(resolvedNameBindings) leftMap { conflicts =>
           ConflictingNameBindings(Map(participantId -> conflicts))
         }
       } yield nameBindings
     }).mapK(FutureUnlessShutdown.outcomeK)
-  }
 
   private def checkView(
       view: TransactionView,
@@ -395,12 +392,11 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       usedPackageIds: Set[PackageId],
-  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] =
     if (checkUsedPackages)
       checkPackageVetting(view, snapshot, usedPackageIds)
     else
       EitherT.pure(())
-  }
 
 }
 
@@ -455,9 +451,8 @@ object ModelConformanceChecker {
   private def noSerializedContractValidation(
       @unused contract: SerializableContract,
       @unused traceContext: TraceContext,
-  )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
+  )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] =
     EitherT.pure[Future, ContractValidationFailure](())
-  }
 
   private def validateSerializedContract(damlE: DAMLe)(
       contract: SerializableContract,

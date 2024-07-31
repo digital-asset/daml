@@ -229,9 +229,8 @@ class PekkoUtilTest extends StreamSpec with BaseTest {
             lastState: Int,
             lastEmittedElement: Option[Int],
             lastFailure: Option[Throwable],
-        ): Option[(FiniteDuration, Int)] = {
+        ): Option[(FiniteDuration, Int)] =
           Option.when(lastEmittedElement.forall(_ < 10))((delay, lastState + 3))
-        }
       }
 
       val stream = PekkoUtil

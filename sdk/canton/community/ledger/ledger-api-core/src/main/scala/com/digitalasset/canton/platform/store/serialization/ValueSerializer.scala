@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.serialization
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.google.protobuf.any.Any
-import com.google.protobuf.{Any as JavaAny}
+import com.google.protobuf.Any as JavaAny
 
 import java.io.InputStream
 

@@ -95,10 +95,10 @@ private object MutableCacheBackedContractStoreRaceTests {
           Iterator(eventCtor(offset(counter)))
         }
       }
-      .map(event => {
+      .map { event =>
         indexViewContractsReader.update(event)
         event
-      })
+      }
       .mapAsync(1)(
         // Validate the view's contents (test sanity-check)
         assertIndexState(indexViewContractsReader, _)(unboundedExecutionContext)

@@ -53,7 +53,7 @@ final case class ContractMetadata private (
   def maintainers: Set[LfPartyId] =
     maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.maintainers)
 
-  def toProtoV0: v0.SerializableContract.Metadata = {
+  def toProtoV0: v0.SerializableContract.Metadata =
     v0.SerializableContract.Metadata(
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
@@ -64,9 +64,8 @@ final case class ContractMetadata private (
       ),
       maintainers = maintainers.toSeq,
     )
-  }
 
-  def toProtoV1: v1.Metadata = {
+  def toProtoV1: v1.Metadata =
     v1.Metadata(
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
@@ -77,7 +76,6 @@ final case class ContractMetadata private (
       ),
       maintainers = maintainers.toSeq,
     )
-  }
 
   override def pretty: Pretty[ContractMetadata] = prettyOfClass(
     param("signatories", _.signatories),

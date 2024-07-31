@@ -57,7 +57,7 @@ object RootHashMessageRecipients {
       .toList
   }
 
-  def validateRecipientsOnParticipant(recipients: Recipients): Checked[Nothing, String, Unit] = {
+  def validateRecipientsOnParticipant(recipients: Recipients): Checked[Nothing, String, Unit] =
     // Since Canton 2.9, this check has been modified in-place for the already released protocol versions (up to pv 5).
 
     recipients.asSingleGroup match {
@@ -69,7 +69,6 @@ object RootHashMessageRecipients {
       case _ =>
         Checked.continue(s"The root hash message has more than one recipient group.\n$recipients")
     }
-  }
 
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],

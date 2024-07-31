@@ -324,7 +324,7 @@ abstract class ProtocolProcessor[
     // instead return a `SubmissionResult` so that the submission will be acknowledged over the ledger API.
     def unlessError[A](eitherT: EitherT[FutureUnlessShutdown, SubmissionTrackingData, A])(
         continuation: A => FutureUnlessShutdown[SubmissionResult]
-    ): FutureUnlessShutdown[SubmissionResult] = {
+    ): FutureUnlessShutdown[SubmissionResult] =
       eitherT.value.transformWith {
         case Success(UnlessShutdown.Outcome(Right(a))) => continuation(a)
         case Success(UnlessShutdown.Outcome(Left(newTrackingData))) =>
@@ -340,7 +340,6 @@ abstract class ProtocolProcessor[
           logger.error(s"Failed to submit submission", exception)
           FutureUnlessShutdown.pure(tracked.onFailure)
       }
-    }
 
     def afterRegistration(
         deduplicationResult: Either[DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset]
@@ -425,11 +424,10 @@ abstract class ProtocolProcessor[
     steps.SubmissionSendError,
     (SendResult, steps.SubmissionResultArgs),
   ] = {
-    def removePendingSubmission(): Unit = {
+    def removePendingSubmission(): Unit =
       steps
         .removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId)
         .discard[Option[steps.PendingSubmissionData]]
-    }
 
     for {
       // The pending submission must be registered before the request is sent, to avoid races
@@ -536,12 +534,11 @@ abstract class ProtocolProcessor[
         steps.RequestError,
         EitherT[FutureUnlessShutdown, steps.RequestError, Unit],
       ],
-  )(implicit traceContext: TraceContext): HandlerResult = {
+  )(implicit traceContext: TraceContext): HandlerResult =
     // We discard the lefts because they are logged by `logRequestWarnings`
     logRequestWarnings(ts, result)
       .map(innerAsync => AsyncResult(innerAsync.getOrElse(())))
       .getOrElse(AsyncResult.immediate)
-  }
 
   private[this] def logRequestWarnings(
       resultTimestamp: CantonTimestamp,
@@ -1036,7 +1033,7 @@ abstract class ProtocolProcessor[
         if (signedResponsesTo.nonEmpty) {
           val messageId = sequencerClient.generateMessageId
           logger.info(
-            s"Phase 4: Sending for request=${requestId.unwrap} with msgId=${messageId} ${val (approved, rejected) =
+            s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId ${val (approved, rejected) =
                 signedResponsesTo
                   .foldLeft((0, 0)) { case ((app, rej), (response, _)) =>
                     response.message.localVerdict match {
@@ -1044,7 +1041,7 @@ abstract class ProtocolProcessor[
                       case _: LocalReject => (app, rej + 1)
                     }
                   }
-              s"approved=${approved}, rejected=${rejected}" }"
+              s"approved=$approved, rejected=$rejected" }"
           )
           EitherT
             .liftF[Future, steps.RequestError, Unit](
@@ -1144,12 +1141,11 @@ abstract class ProtocolProcessor[
         steps.ResultError,
         EitherT[FutureUnlessShutdown, steps.ResultError, Unit],
       ],
-  )(implicit traceContext: TraceContext): HandlerResult = {
+  )(implicit traceContext: TraceContext): HandlerResult =
     // We discard the lefts because they are logged by `logResultWarnings`
     logResultWarnings(ts, result)
       .map(innerAsync => AsyncResult(innerAsync.getOrElse(())))
       .getOrElse(AsyncResult.immediate)
-  }
 
   override def processResult(
       signedResultBatchE: Either[
@@ -1709,7 +1705,7 @@ abstract class ProtocolProcessor[
         show"${steps.requestKind.unquoted} request at $requestId timed out without a transaction result message."
       )
 
-      def publishEvent(): EitherT[Future, steps.ResultError, Unit] = {
+      def publishEvent(): EitherT[Future, steps.ResultError, Unit] =
         for {
           maybeEvent <- EitherT.fromEither[Future](timeoutEvent)
           _ <- EitherT.liftF(
@@ -1726,7 +1722,6 @@ abstract class ProtocolProcessor[
             terminateRequest(requestCounter, sequencerCounter, requestTimestamp, decisionTime)
           )
         } yield ()
-      }
 
       for {
         pendingRequestDataOrReplayData <- EitherT.liftF(

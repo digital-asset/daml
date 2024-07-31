@@ -27,7 +27,7 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
       count: Int,
   ): Assertion = {
     result.errors.length shouldBe count
-    result.errors.foreach { _ should include(FutureTraverse.errorMessageFor(methodName)) }
+    result.errors.foreach(_ should include(FutureTraverse.errorMessageFor(methodName)))
     succeed
   }
 

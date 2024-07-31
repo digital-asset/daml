@@ -26,7 +26,7 @@ class GrpcInitializationService(
 )(implicit ec: ExecutionContext)
     extends InitializationServiceGrpc.InitializationService {
 
-  override def initId(request: InitIdRequest): Future[InitIdResponse] = {
+  override def initId(request: InitIdRequest): Future[InitIdResponse] =
     for {
       fp <- Fingerprint
         .fromProtoPrimitive(request.fingerprint)
@@ -62,7 +62,6 @@ class GrpcInitializationService(
           }
       }
     } yield result
-  }
 
   override def getId(request: Empty): Future[GetIdResponse] = {
     val id = bootstrap.getId

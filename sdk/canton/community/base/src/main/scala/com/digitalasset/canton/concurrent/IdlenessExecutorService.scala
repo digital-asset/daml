@@ -65,9 +65,8 @@ class ForkJoinIdlenessExecutorService(
 ) extends ExecutionContextIdlenessExecutorService(delegate, name) {
   override def reportFailure(cause: Throwable): Unit = reporter(cause)
 
-  override protected[concurrent] def awaitIdlenessOnce(timeout: FiniteDuration): Boolean = {
+  override protected[concurrent] def awaitIdlenessOnce(timeout: FiniteDuration): Boolean =
     pool.awaitQuiescence(timeout.toMillis, TimeUnit.MILLISECONDS)
-  }
 
   override def toString: String = s"ForkJoinIdlenessExecutorService-$name: $pool"
 
@@ -87,7 +86,7 @@ class ThreadPoolIdlenessExecutorService(
     val maxSleep = Math.max(timeout.toMillis >> 2, minSleep)
 
     @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
-    @tailrec def go(sleep: Long): Boolean = {
+    @tailrec def go(sleep: Long): Boolean =
       if (deadline.isOverdue())
         false
       else if (pool.getQueue.isEmpty && pool.getActiveCount == 0)
@@ -97,7 +96,6 @@ class ThreadPoolIdlenessExecutorService(
         Thread.sleep(sleep)
         go(Math.min(sleep * 2, maxSleep))
       }
-    }
 
     go(minSleep)
   }

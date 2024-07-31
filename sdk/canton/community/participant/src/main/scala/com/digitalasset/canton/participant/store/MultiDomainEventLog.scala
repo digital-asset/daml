@@ -152,7 +152,7 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       participantEventLogId: ParticipantEventLogId,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Map[DomainId, Option[LocalOffset]], Option[LocalOffset])] = {
+  ): Future[(Map[DomainId, Option[LocalOffset]], Option[LocalOffset])] =
     for {
       domainLogIds <- domainIds.parTraverse(IndexedDomain.indexed(indexedStringStore))
 
@@ -168,7 +168,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
         Some(upToInclusive),
       )
     } yield (domainOffsets.toMap, participantOffset)
-  }
 
   /** Returns the greatest local offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
     * such that the following holds:
@@ -263,8 +262,7 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
 
   def notifyOnPublishTransfer(
       events: Seq[(LedgerSyncEvent.TransferEvent, GlobalOffset)]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-
+  )(implicit traceContext: TraceContext): Future[Unit] =
     events.groupBy { case (event, _) => event.targetDomain }.toList.parTraverse_ {
       case (targetDomain, eventsForDomain) =>
         lazy val updates = eventsForDomain
@@ -298,7 +296,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
             )
           )
     }
-  }
 
   /** Returns a lower bound on the latest publication time of a published event.
     * All events published later will receive the same or higher publication time.
@@ -336,8 +333,7 @@ object MultiDomainEventLog {
       mat: Materializer,
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[MultiDomainEventLog] = {
-
+  ): Future[MultiDomainEventLog] =
     storage match {
       case _: MemoryStorage =>
         val mdel =
@@ -365,7 +361,6 @@ object MultiDomainEventLog {
           transferStoreFor = TransferStore.transferStoreFor(syncDomainPersistentStates),
         )
     }
-  }
 
   final case class PublicationData(
       eventLogId: EventLogId,

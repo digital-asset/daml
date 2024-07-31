@@ -105,12 +105,11 @@ sealed case class SignedProtocolMessage[+M <: SignedProtocolMessageContent] priv
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[SignedProtocolMessage] def traverse[F[_], MM <: SignedProtocolMessageContent](
       f: M => F[MM]
-  )(implicit F: Functor[F]): F[SignedProtocolMessage[MM]] = {
+  )(implicit F: Functor[F]): F[SignedProtocolMessage[MM]] =
     F.map(typedMessage.traverse(f)) { newTypedMessage =>
       if (newTypedMessage eq typedMessage) this.asInstanceOf[SignedProtocolMessage[MM]]
       else this.copy(typedMessage = newTypedMessage)
     }
-  }
 
   override def pretty: Pretty[this.type] =
     prettyOfClass(unnamedParam(_.message), param("signatures", _.signature))
@@ -205,7 +204,7 @@ object SignedProtocolMessage
       signedMessageP: v0.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val (_, expectedProtocolVersion) = context
-    import v0.SignedProtocolMessage.{SomeSignedProtocolMessage as Sm}
+    import v0.SignedProtocolMessage.SomeSignedProtocolMessage as Sm
     val v0.SignedProtocolMessage(maybeSignatureP, messageBytes) = signedMessageP
     for {
       message <- (messageBytes match {

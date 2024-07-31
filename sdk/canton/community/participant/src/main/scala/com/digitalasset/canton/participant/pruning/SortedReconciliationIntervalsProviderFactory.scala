@@ -44,7 +44,7 @@ class SortedReconciliationIntervalsProviderFactory(
       )
       topologyFactory <- syncDomainPersistentStateManager
         .topologyFactoryFor(domainId)
-        .toRight(s"Can not obtain topology factory for ${domainId}")
+        .toRight(s"Can not obtain topology factory for $domainId")
         .toEitherT[Future]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(

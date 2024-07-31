@@ -68,7 +68,7 @@ class ParticipantEventPublisher(
 
   private def publishInternal(
       event: LedgerSyncEvent
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       localOffset <- participantEventLog.value.nextLocalOffset()
       timestampedEvent = TimestampedEvent(
@@ -78,7 +78,7 @@ class ParticipantEventPublisher(
         EventId.fromLedgerSyncEvent(event),
       )
       _ = logger.debug(
-        s"Publishing event with local offset ${localOffset} at record time ${event.recordTime}: ${event.description}"
+        s"Publishing event with local offset $localOffset at record time ${event.recordTime}: ${event.description}"
       )
       _ <- participantEventLog.value.insert(timestampedEvent)
       publicationData = PublicationData(
@@ -88,7 +88,6 @@ class ParticipantEventPublisher(
       )
       _ <- multiDomainEventLog.value.publish(publicationData)
     } yield ()
-  }
 
   def publish(
       event: LedgerSyncEvent
@@ -160,7 +159,7 @@ class ParticipantEventPublisher(
 
   def publishTimeModelConfigNeededUpstreamOnlyIfFirst(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     executionQueue.execute(
       for {
         maybeFirstOffset <- multiDomainEventLog.value.locateOffset(1).value
@@ -183,7 +182,6 @@ class ParticipantEventPublisher(
       } yield (),
       "publish first TimeModel configuration",
     )
-  }
 
   override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
 

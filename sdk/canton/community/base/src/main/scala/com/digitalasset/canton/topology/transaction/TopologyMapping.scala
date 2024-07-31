@@ -320,7 +320,7 @@ object LegalIdentityClaimEvidence {
 
   def fromProtoOneOf(
       evidenceP: v0.LegalIdentityClaim.Evidence
-  ): ParsingResult[LegalIdentityClaimEvidence] = {
+  ): ParsingResult[LegalIdentityClaimEvidence] =
     evidenceP match {
       case v0.LegalIdentityClaim.Evidence.X509Cert(pem) =>
         X509CertificatePem
@@ -329,7 +329,6 @@ object LegalIdentityClaimEvidence {
           .leftMap(err => ProtoDeserializationError.OtherError(s"Failed to parse PEM: $err"))
       case v0.LegalIdentityClaim.Evidence.Empty => FieldNotSet("LegalIdentityClaim.evidence").asLeft
     }
-  }
 
 }
 
@@ -411,7 +410,7 @@ final case class ParticipantState(
 
   def toParticipantAttributes: ParticipantAttributes = ParticipantAttributes(permission, trustLevel)
 
-  def toProtoV0: v0.ParticipantState = {
+  def toProtoV0: v0.ParticipantState =
     v0.ParticipantState(
       side = side.toProtoEnum,
       domain = domain.toProtoPrimitive,
@@ -419,12 +418,10 @@ final case class ParticipantState(
       permission = permission.toProtoEnum,
       trustLevel = trustLevel.toProtoEnum,
     )
-  }
 
-  override def uniquePath(id: TopologyElementId): UniquePath = {
+  override def uniquePath(id: TopologyElementId): UniquePath =
     // TODO(i4933) include hash over content and include domain-id in the path
     UniquePathSignedTopologyTransaction(participant.uid, dbType, id)
-  }
 
   override def dbType: DomainTopologyTransactionType = ParticipantState.dbType
   override def requiredAuth: RequiredAuth = side.requiredAuth(domain.unwrap, participant.uid)
@@ -469,18 +466,16 @@ final case class MediatorDomainState(
 
   // architecture-handbook-entry-end: MediatorDomainState
 
-  def toProtoV0: v0.MediatorDomainState = {
+  def toProtoV0: v0.MediatorDomainState =
     v0.MediatorDomainState(
       side = side.toProtoEnum,
       domain = domain.toProtoPrimitive,
       mediator = mediator.uid.toProtoPrimitive,
     )
-  }
 
-  override def uniquePath(id: TopologyElementId): UniquePath = {
+  override def uniquePath(id: TopologyElementId): UniquePath =
     // TODO(i4933) include hash over content and include domain-id in the path
     UniquePathSignedTopologyTransaction(mediator.uid, dbType, id)
-  }
 
   override def secondaryUid: Option[UniqueIdentifier] =
     if (side != RequestSide.From) mediator.uid.some else None
@@ -645,31 +640,28 @@ object DomainParametersChange {
 
   private[transaction] def fromProtoV0(
       value: v0.DomainParametersChange
-  ): ParsingResult[DomainParametersChange] = {
+  ): ParsingResult[DomainParametersChange] =
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
       domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
       domainParameters <- DynamicDomainParameters.fromProtoV0(domainParametersP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
-  }
 
   private[transaction] def fromProtoV1(
       value: v1.DomainParametersChange
-  ): ParsingResult[DomainParametersChange] = {
+  ): ParsingResult[DomainParametersChange] =
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
       domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
       domainParameters <- DynamicDomainParameters.fromProtoV1(domainParametersP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
-  }
 
   private[transaction] def fromProtoV2(
       value: v2.DomainParametersChange
-  ): ParsingResult[DomainParametersChange] = {
+  ): ParsingResult[DomainParametersChange] =
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
       domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
       domainParameters <- DynamicDomainParameters.fromProtoV2(domainParametersP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
-  }
 }

@@ -51,9 +51,8 @@ trait TimeAwaiter {
 
   protected def currentKnownTime: CantonTimestamp
 
-  protected def awaitKnownTimestamp(timestamp: CantonTimestamp): Option[Future[Unit]] = {
+  protected def awaitKnownTimestamp(timestamp: CantonTimestamp): Option[Future[Unit]] =
     awaitKnownTimestampGen(timestamp, new General()).map(_.promise.future)
-  }
 
   protected def awaitKnownTimestampUS(
       timestamp: CantonTimestamp

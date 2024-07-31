@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.service.grpc
 
-import com.digitalasset.canton.domain.api.{v0 as apiProto}
+import com.digitalasset.canton.domain.api.v0 as apiProto
 import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.v0

@@ -108,7 +108,7 @@ final class TransferOutProcessingStepsTest
   private val templateId =
     LfTemplateId.assertFromString("transferoutprocessingstepstestpackage:template:id")
 
-  private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       LedgerApplicationId.assertFromString("tests"),
@@ -117,7 +117,6 @@ final class TransferOutProcessingStepsTest
       submissionId = None,
       workflowId = None,
     )
-  }
 
   private val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
 

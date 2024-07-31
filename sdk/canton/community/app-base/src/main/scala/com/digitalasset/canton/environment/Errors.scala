@@ -10,7 +10,7 @@ sealed trait StartupError extends Product with Serializable {
   /** Node name */
   val name: String
   def message: String
-  override def toString: String = s"${name}: $message"
+  override def toString: String = s"$name: $message"
 
 }
 
@@ -62,7 +62,7 @@ sealed trait ShutdownError {
   val name: String
   def message: String
 
-  override def toString: String = s"${name}: $message"
+  override def toString: String = s"$name: $message"
 }
 
 /** Configuration for the given name was not found in the CantonConfig

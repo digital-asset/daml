@@ -35,14 +35,13 @@ trait PersistentUserStoreTests
       loggerFactory = loggerFactory,
     )
 
-  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] = {
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] =
     new PersistentIdentityProviderConfigStore(dbSupport, Metrics.ForTesting, 10, loggerFactory)
       .createIdentityProviderConfig(identityProviderConfig)(loggingContext)
       .flatMap {
         case Left(error) => Future.failed(new Exception(error.toString))
         case Right(_) => Future.unit
       }
-  }
 
   override private[localstore] def testedResourceVersionBackend: ResourceVersionOps =
     UserManagementStorageBackendImpl
@@ -69,13 +68,11 @@ trait PersistentUserStoreTests
 
   private[localstore] override def fetchResourceVersion(
       id: ResourceId
-  )(connection: Connection): Long = {
+  )(connection: Connection): Long =
     UserManagementStorageBackendImpl.getUser(id)(connection).value.payload.resourceVersion
-  }
 
-  private[localstore] override def getResourceVersion(resource: DbResource): Long = {
+  private[localstore] override def getResourceVersion(resource: DbResource): Long =
     resource.payload.resourceVersion
-  }
 
   private[localstore] override def getId(resource: DbResource): ResourceId = resource.payload.id
 

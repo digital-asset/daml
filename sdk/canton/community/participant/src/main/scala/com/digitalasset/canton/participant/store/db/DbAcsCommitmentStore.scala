@@ -376,26 +376,24 @@ class DbAcsCommitmentStore(
 
     markSafeQueue
       .execute(
-        {
-          for {
-            /*
+        for {
+          /*
           That could be wrong if a period is marked as outstanding between the point where we
           fetch the approximate timestamp of the topology client and the query for the sorted
           reconciliation intervals.
           Such a period would be kept as outstanding even if it contains no tick. On the other
           hand, only commitment periods around restarts could be "empty" (not contain any tick).
-             */
-            sortedReconciliationIntervals <-
-              sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
-            _ <- storage.queryAndUpdate(
-              dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
-                TransactionIsolation.Serializable
-              ),
-              operationName =
-                s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
-            )
-          } yield ()
-        },
+           */
+          sortedReconciliationIntervals <-
+            sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+          _ <- storage.queryAndUpdate(
+            dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
+              TransactionIsolation.Serializable
+            ),
+            operationName =
+              s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
+          )
+        } yield (),
         "Run mark period safe DB query",
       )
       .onShutdown(
@@ -508,13 +506,12 @@ class DbAcsCommitmentStore(
   override val queue: DbCommitmentQueue =
     new DbCommitmentQueue(storage, domainId, protocolVersion, timeouts, loggerFactory)
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       runningCommitments,
       queue,
       markSafeQueue,
     )(logger)
-  }
 }
 
 class DbIncrementalCommitmentStore(
@@ -583,7 +580,7 @@ class DbIncrementalCommitmentStore(
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    def partySetHash(parties: SortedSet[LfPartyId]): String68 = {
+    def partySetHash(parties: SortedSet[LfPartyId]): String68 =
       Hash
         .digest(
           HashPurpose.Stakeholders,
@@ -591,7 +588,6 @@ class DbIncrementalCommitmentStore(
           HashAlgorithm.Sha256,
         )
         .toLengthLimitedHexString
-    }
     def deleteCommitments(stakeholders: List[SortedSet[LfPartyId]]): DbAction.All[Unit] = {
       val deleteStatement =
         "delete from commitment_snapshot where domain_id = ? and stakeholders_hash = ?"
@@ -647,7 +643,7 @@ class DbIncrementalCommitmentStore(
       )(setParams)
     }
 
-    def insertRt(rt: RecordTime): DbAction.WriteOnly[Int] = {
+    def insertRt(rt: RecordTime): DbAction.WriteOnly[Int] =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
           sqlu"""merge into commitment_snapshot_time (domain_id, ts, tie_breaker) values ($domainId, ${rt.timestamp}, ${rt.tieBreaker})"""
@@ -664,7 +660,6 @@ class DbIncrementalCommitmentStore(
                   insert (domain_id, ts, tie_breaker) values ($domainId, ${rt.timestamp}, ${rt.tieBreaker})
                   """
       }
-    }
 
     val updateList = updates.toList
     val deleteList = deletes.toList

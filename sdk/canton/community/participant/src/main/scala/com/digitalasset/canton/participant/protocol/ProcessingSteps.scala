@@ -608,8 +608,7 @@ object ProcessingSteps {
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, MediatorRef)] = {
+    ): Some[(RequestCounter, SequencerCounter, MediatorRef)] =
       Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator))
-    }
   }
 }

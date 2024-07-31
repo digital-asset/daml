@@ -119,7 +119,7 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   private def checkReplacements(
       toCheck: Seq[BulkUpdatePendingCheck[A, B]],
       queryBaseName: String,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] =
     NonEmpty.from(toCheck) match {
       case None => Future.unit
       case Some(toCheckNE) =>
@@ -137,7 +137,6 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
             }
         }
     }
-  }
 
   /** Type of data returned when checking what information the store contains for a given item. */
   protected type CheckData

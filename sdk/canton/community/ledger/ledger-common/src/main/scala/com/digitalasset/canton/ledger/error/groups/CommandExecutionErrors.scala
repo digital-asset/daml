@@ -33,11 +33,10 @@ import scala.concurrent.duration.DurationInt
   "Errors raised during the command execution phase of the command submission evaluation."
 )
 object CommandExecutionErrors extends CommandExecutionErrorGroup {
-  def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] = {
+  def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
     ValueCoder
       .encodeValue(CidEncoder, TransactionVersion.VDev, v)
       .map(bs => BaseEncoding.base64().encode(bs.toByteArray))
-  }
 
   def withEncodedValue(
       v: Value
@@ -69,7 +68,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The participant failed to determine the max ledger time for this command: ${reason}"
+            s"The participant failed to determine the max ledger time for this command: $reason"
         )
   }
 

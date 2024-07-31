@@ -28,7 +28,7 @@ object MediatorRef {
   def fromProtoPrimitive(
       recipient: String,
       fieldName: String,
-  ): ParsingResult[MediatorRef] = {
+  ): ParsingResult[MediatorRef] =
     Recipient.fromProtoPrimitive(recipient, fieldName).flatMap {
       case Recipient(mediatorId: MediatorId) => Right(MediatorRef(mediatorId))
       case _ =>
@@ -38,5 +38,4 @@ object MediatorRef {
           )
         )
     }
-  }
 }

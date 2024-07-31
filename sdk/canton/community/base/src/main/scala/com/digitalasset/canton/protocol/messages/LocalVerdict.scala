@@ -57,7 +57,7 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
   private[messages] def fromProtoV0(
       localVerdictP: v0.LocalVerdict
   ): ParsingResult[LocalVerdict] = {
-    import v0.LocalVerdict.{SomeLocalVerdict as Lv}
+    import v0.LocalVerdict.SomeLocalVerdict as Lv
 
     localVerdictP match {
       case v0.LocalVerdict(Lv.LocalApprove(empty.Empty(_))) =>
@@ -70,7 +70,7 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
   }
 
   private[messages] def fromProtoV1(localVerdictP: v1.LocalVerdict): ParsingResult[LocalVerdict] = {
-    import v1.LocalVerdict.{SomeLocalVerdict as Lv}
+    import v1.LocalVerdict.SomeLocalVerdict as Lv
 
     val v1.LocalVerdict(someLocalVerdictP) = localVerdictP
 
@@ -271,7 +271,7 @@ object LocalReject extends LocalRejectionGroup {
           Left(
             ValueDeserializationError(
               "reject",
-              s"Unknown local rejection error code ${code} with ${v.reason}",
+              s"Unknown local rejection error code $code with ${v.reason}",
             )
           )
       }

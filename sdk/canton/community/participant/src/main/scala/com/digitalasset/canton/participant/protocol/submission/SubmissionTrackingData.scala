@@ -120,14 +120,13 @@ final case class TransactionSubmissionTrackingData(
 
   override def updateOnNotSequenced(timestamp: CantonTimestamp, reason: Status)(implicit
       loggingContext: NamedLoggingContext
-  ): Option[UnsequencedSubmission] = {
+  ): Option[UnsequencedSubmission] =
     UnsequencedSubmission(
       timestamp,
       this.copy(rejectionCause = TransactionSubmissionTrackingData.CauseWithTemplate(reason))(
         representativeProtocolVersion
       ),
     ).some
-  }
 
   protected def toProtoV0: v0.SubmissionTrackingData = {
     val completionInfoP = SerializableCompletionInfo(completionInfo).toProtoV0

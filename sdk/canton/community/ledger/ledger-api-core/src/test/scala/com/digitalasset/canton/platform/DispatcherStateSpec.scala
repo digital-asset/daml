@@ -122,7 +122,7 @@ class DispatcherStateSpec
 
   private def assertNotRunning(dispatcherState: DispatcherState) =
     ErrorDetails.matches(
-      e = intercept[StatusRuntimeException] { dispatcherState.getDispatcher },
+      e = intercept[StatusRuntimeException](dispatcherState.getDispatcher),
       errorCode = CommonErrors.ServiceNotRunning,
     )
 

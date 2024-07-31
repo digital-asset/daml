@@ -37,7 +37,7 @@ class SequencerAggregatorTest
         timeouts,
         futureSupervisor,
       )
-    ) { env => withFixture(test.toNoArgTest(env)) }
+    )(env => withFixture(test.toNoArgTest(env)))
 
   "Single sequencer aggregator" should {
     "pass-through the event" in { fixture =>
@@ -190,12 +190,11 @@ class SequencerAggregatorTest
   private def assertDownstreamMessage(
       aggregator: SequencerAggregator,
       message: OrdinarySerializedEvent,
-  ): Assertion = {
+  ): Assertion =
     clue("Expected a single downstream message") {
       aggregator.eventQueue.size() shouldBe 1
       aggregator.eventQueue.take() shouldBe message
     }
-  }
 
   private def assertNoMessageDownstream(aggregator: SequencerAggregator): Assertion =
     clue("Expected no downstream messages") {
@@ -205,9 +204,8 @@ class SequencerAggregatorTest
   private def combinedMessage(
       aggregator: SequencerAggregator,
       events: OrdinarySerializedEvent*
-  ): OrdinarySerializedEvent = {
+  ): OrdinarySerializedEvent =
     aggregator
       .combine(NonEmptyUtil.fromUnsafe(events.toList))
       .value
-  }
 }

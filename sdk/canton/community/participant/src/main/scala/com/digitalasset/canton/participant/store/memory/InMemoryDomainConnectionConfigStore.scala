@@ -53,7 +53,7 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
   private def replaceInternal(
       alias: DomainAlias,
       modifier: StoredDomainConnectionConfig => StoredDomainConnectionConfig,
-  ): EitherT[Future, MissingConfigForAlias, Unit] = {
+  ): EitherT[Future, MissingConfigForAlias, Unit] =
     EitherT.fromEither[Future](
       configuredDomainMap.updateWith(alias)(_.map(modifier)) match {
         case Some(_) =>
@@ -62,7 +62,6 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
           Left(MissingConfigForAlias(alias))
       }
     )
-  }
 
   override def get(
       alias: DomainAlias

@@ -34,10 +34,9 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     super.beforeAll()
   }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     try super.afterAll()
     finally plugins.foreach(_.afterTests())
-  }
 
   /** Provide an environment for an individual test either by reusing an existing one or creating a new one
     * depending on the approach being used.
@@ -75,14 +74,13 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
   ): TCE = {
     val testConfig = initialConfig
     // note: beforeEnvironmentCreate may well have side-effects (e.g. starting databases or docker containers)
-    val pluginConfig = {
+    val pluginConfig =
       plugins.foldLeft(testConfig)((config, plugin) =>
         if (runPlugins(plugin))
           plugin.beforeEnvironmentCreated(config)
         else
           config
       )
-    }
     val finalConfig = configTransform(pluginConfig)
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
@@ -150,11 +148,10 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     }
   }
 
-  protected def destroyEnvironment(environment: TCE): Unit = {
+  protected def destroyEnvironment(environment: TCE): Unit =
     ConcurrentEnvironmentLimiter.destroy(getClass.getName, numPermits) {
       manualDestroyEnvironment(environment)
     }
-  }
 
   /** number of permits required by this test
     *

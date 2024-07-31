@@ -126,7 +126,7 @@ object IncompleteTransferData {
 
         case _ =>
           Left(
-            s"Expecting incomplete transfer at offset $queryOffset, found out=${transferOutGlobalOffset} and in=${transferInGlobalOffset}"
+            s"Expecting incomplete transfer at offset $queryOffset, found out=$transferOutGlobalOffset and in=$transferInGlobalOffset"
           )
       }
   }

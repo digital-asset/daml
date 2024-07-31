@@ -81,7 +81,7 @@ class TransactionTreeFactoryImplV3(
     def go(
         decompositions: List[TransactionViewDecomposition],
         resolved: Set[(LfPackageName, LfPackageId)],
-    ): Set[(LfPackageName, LfPackageId)] = {
+    ): Set[(LfPackageName, LfPackageId)] =
       decompositions match {
         case Nil =>
           resolved
@@ -90,7 +90,6 @@ class TransactionTreeFactoryImplV3(
         case (v: NewView) :: others =>
           go(v.tailNodes.toList ::: others, resolved ++ nodePref(v.lfNode))
       }
-    }
 
     if (supportsUpgrading(decomposition.lfNode.version)) {
       val preferences = go(List(decomposition), Set.empty)
@@ -467,7 +466,7 @@ class TransactionTreeFactoryImplV3(
     def resolutionFor(
         key: LfGlobalKey,
         keyInput: KeyInput,
-    ): Either[MissingContractKeyLookupError, SerializableKeyResolution] = {
+    ): Either[MissingContractKeyLookupError, SerializableKeyResolution] =
       keyVersionAndMaintainers.get(key).toRight(MissingContractKeyLookupError(key)).map {
         case (lfVersion, maintainers) =>
           val resolution = keyInput match {
@@ -476,7 +475,6 @@ class TransactionTreeFactoryImplV3(
           }
           resolution
       }
-    }
 
     for {
       viewKeyResolutionSeq <- viewKeyInputs.toSeq

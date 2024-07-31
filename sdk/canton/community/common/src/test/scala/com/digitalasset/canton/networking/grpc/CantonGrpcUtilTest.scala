@@ -202,9 +202,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         val requestF = loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          {
-            sendRequest().value
-          },
+          sendRequest().value,
           logEntries => {
             logEntries should not be empty
             val (unavailableEntries, giveUpEntry) = logEntries.splitAt(logEntries.size - 1)
@@ -233,9 +231,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         when(service.hello(request)).thenReturn(Future.successful(response))
 
         val requestF = loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          {
-            sendRequest(10000).value
-          },
+          sendRequest(10000).value,
           logEntries => {
             logEntries should not be empty
             forEvery(logEntries) { logEntry =>
@@ -260,9 +256,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         registry.removeService(helloServiceDefinition) shouldBe true
 
         val requestF = loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          {
-            sendRequest().value
-          },
+          sendRequest().value,
           logEntries => {
             logEntries should not be empty
             val (unavailableEntries, giveUpEntry) = logEntries.splitAt(logEntries.size - 1)
@@ -378,16 +372,14 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
 
         // Send the request
         val requestF = loggerFactory.assertLogs(
-          {
-            CantonGrpcUtil
-              .sendGrpcRequest(brokenClient, "serverName")(
-                _.hello(request),
-                "command",
-                Duration(2000, TimeUnit.MILLISECONDS),
-                logger,
-              )
-              .value
-          },
+          CantonGrpcUtil
+            .sendGrpcRequest(brokenClient, "serverName")(
+              _.hello(request),
+              "command",
+              Duration(2000, TimeUnit.MILLISECONDS),
+              logger,
+            )
+            .value,
           logEntry => {
             logEntry.errorMessage shouldBe
               """Request failed for serverName.

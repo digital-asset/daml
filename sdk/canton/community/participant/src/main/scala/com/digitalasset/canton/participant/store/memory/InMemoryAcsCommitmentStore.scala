@@ -61,7 +61,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       period: CommitmentPeriod,
       counterParticipant: ParticipantId,
       commitment: AcsCommitment.CommitmentType,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     blocking {
       computed.synchronized {
         val oldMap = computed.getOrElse(counterParticipant, Map.empty)
@@ -78,8 +78,6 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
         }
       }
     }
-
-  }
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -384,25 +382,23 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[AcsCommitment]] =
     syncF {
       queue.filter(_.period.toInclusive >= timestamp).toSeq
     }
-  }
 
   def peekOverlapsForCounterParticipant(
       period: CommitmentPeriod,
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]] = {
+  ): Future[Seq[AcsCommitment]] =
     syncF {
       queue
         .filter(_.period.overlaps(period))
         .filter(_.sender == counterParticipant)
         .toSeq
     }
-  }
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(
@@ -415,7 +411,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
 object InMemoryCommitmentQueue {
   def deleteWhile[A](q: mutable.PriorityQueue[A])(p: A => Boolean): Unit = {
     @tailrec
-    def go(): Unit = {
+    def go(): Unit =
       q.headOption match {
         case None => ()
         case Some(hd) =>
@@ -424,7 +420,6 @@ object InMemoryCommitmentQueue {
             go()
           } else ()
       }
-    }
     go()
   }
 }

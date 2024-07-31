@@ -148,7 +148,7 @@ class AuthenticationTokenManagerTest extends AsyncWordSpec with BaseTest {
     val call1 = clue("get token1") {
       tokenManager.getToken
     }
-    clue("succeed with token1") { obtainMock.succeed(token1) }
+    clue("succeed with token1")(obtainMock.succeed(token1))
 
     for {
       // wait for token to succeed
@@ -203,20 +203,16 @@ class AuthenticationTokenManagerTest extends AsyncWordSpec with BaseTest {
       )
     }
 
-    def resetNextResult(): Unit = {
+    def resetNextResult(): Unit =
       nextResult.set(Promise[Either[Status, AuthenticationToken]]())
-    }
 
-    def succeed(token: AuthenticationToken): Unit = {
+    def succeed(token: AuthenticationToken): Unit =
       nextResult.get().success(Right(token))
-    }
 
-    def error(message: String): Unit = {
+    def error(message: String): Unit =
       nextResult.get().success(Left(Status.PERMISSION_DENIED.withDescription(message)))
-    }
 
-    def fail(throwable: Throwable): Unit = {
+    def fail(throwable: Throwable): Unit =
       nextResult.get().failure(throwable)
-    }
   }
 }

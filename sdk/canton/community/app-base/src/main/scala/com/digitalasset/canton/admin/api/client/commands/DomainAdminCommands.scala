@@ -57,7 +57,7 @@ object DomainAdminCommands {
     override def submitRequest(
         service: adminproto.DomainServiceGrpc.DomainServiceStub,
         request: adminproto.GetDomainParameters.Request,
-    ): Future[adminproto.GetDomainParameters.Response] = {
+    ): Future[adminproto.GetDomainParameters.Response] =
       service
         .getDomainParametersVersioned(adminproto.GetDomainParameters.Request())
         .transformWith {
@@ -77,7 +77,6 @@ object DomainAdminCommands {
 
           case Success(value) => Future.successful(value)
         }
-    }
 
     override def handleResponse(
         response: adminproto.GetDomainParameters.Response

@@ -186,16 +186,15 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   private case object Acquire extends Op
   private case object Release extends Op
 
-  private def runOp(semaphore: Semaphore, name: String, op: Op): Unit = {
+  private def runOp(semaphore: Semaphore, name: String, op: Op): Unit =
     op match {
       case Acquire =>
         logger.debug(s"Acquiring $semaphore for $name")
-        blocking { semaphore.acquire() }
+        blocking(semaphore.acquire())
       case Release =>
         logger.debug(s"Releasing $semaphore for $name")
         semaphore.release()
     }
-  }
 
   // Put the two acquires at the end and the releases into the middle so that we detect sequential
   // processing even if it's done from right to left.
@@ -207,10 +206,10 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     val semaphore = new Semaphore(3)
     semaphore.acquire(3)
     val fl = mkF(semaphore)
-    always() { isCompleted(fl) shouldBe false }
+    always()(isCompleted(fl) shouldBe false)
     logger.debug("Releasing the deadlock")
     semaphore.release()
-    eventually() { isCompleted(fl) shouldBe true }
+    eventually()(isCompleted(fl) shouldBe true)
     semaphore.release(2)
     fl
   }
@@ -218,7 +217,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   private def deadlockTraverse(fOps: TraverseTest.FutureLikeOps): Unit = {
     import fOps.applicative
     val fl = checkDeadlock[fOps.F](semaphore =>
-      ops.traverse { op => fOps.mk(runOp(semaphore, s"traverse on ${fOps.name}", op)) }.void
+      ops.traverse(op => fOps.mk(runOp(semaphore, s"traverse on ${fOps.name}", op))).void
     )(fOps.isCompleted)
     fOps.await(fl)
   }
@@ -226,7 +225,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   private def deadlockTraverse_(fOps: TraverseTest.FutureLikeOps): Unit = {
     import fOps.applicative
     val fl = checkDeadlock[fOps.F](semaphore =>
-      ops.traverse_ { op => fOps.mk(runOp(semaphore, s"traverse_ on ${fOps.name}", op)) }
+      ops.traverse_(op => fOps.mk(runOp(semaphore, s"traverse_ on ${fOps.name}", op)))
     )(fOps.isCompleted)
     fOps.await(fl)
   }
@@ -245,7 +244,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     import fOps.parallel
     val semaphore = new Semaphore(2)
     semaphore.acquire(2)
-    val fl = ops.parTraverse { op => fOps.mk(runOp(semaphore, "parTraverse", op)) }
+    val fl = ops.parTraverse(op => fOps.mk(runOp(semaphore, "parTraverse", op)))
     fOps.await(fl) should have size ops.size.toLong
     semaphore.release(2)
   }
@@ -254,7 +253,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     import fOps.parallel
     val semaphore = new Semaphore(2)
     semaphore.acquire(2)
-    val fl = ops.parTraverse_ { op => fOps.mk(runOp(semaphore, "parTraverse_", op)) }
+    val fl = ops.parTraverse_(op => fOps.mk(runOp(semaphore, "parTraverse_", op)))
     fOps.await(fl)
     semaphore.release(2)
   }
@@ -263,7 +262,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     import fOps.parallel
     val semaphore = new Semaphore(2)
     semaphore.acquire(2)
-    val fl = ops.parFlatTraverse { op => fOps.mk(List(runOp(semaphore, "parFlatTraverse", op))) }
+    val fl = ops.parFlatTraverse(op => fOps.mk(List(runOp(semaphore, "parFlatTraverse", op))))
     fOps.await(fl) should have size ops.size.toLong
     semaphore.release(2)
   }

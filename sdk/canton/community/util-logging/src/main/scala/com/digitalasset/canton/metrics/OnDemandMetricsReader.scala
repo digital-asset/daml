@@ -40,9 +40,8 @@ class OpenTelemetryOnDemandMetricsReader(healthDumpMetricFrequency: FiniteDurati
   override def apply(producer: MetricProducer): MetricReader = {
     timer.schedule(
       new TimerTask {
-        override def run(): Unit = {
+        override def run(): Unit =
           lastRead.set(collectMetrics())
-        }
       },
       healthDumpMetricFrequency.toMillis,
       healthDumpMetricFrequency.toMillis,
@@ -61,11 +60,10 @@ class OpenTelemetryOnDemandMetricsReader(healthDumpMetricFrequency: FiniteDurati
     CompletableResultCode.ofSuccess()
   }
 
-  override def read(): (Seq[MetricData], Seq[MetricData]) = {
+  override def read(): (Seq[MetricData], Seq[MetricData]) =
     (lastRead.get(), collectMetrics())
-  }
 
-  private def collectMetrics(): Seq[MetricData] = {
+  private def collectMetrics(): Seq[MetricData] =
     optionalProducer
       .get()
       .map { producer =>
@@ -75,6 +73,5 @@ class OpenTelemetryOnDemandMetricsReader(healthDumpMetricFrequency: FiniteDurati
         logger.warn("Could not read metrics as the producer is not set.")
         Seq.empty
       }
-  }
 
 }

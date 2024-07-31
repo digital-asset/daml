@@ -335,7 +335,7 @@ class DbDamlPackageStore(
 
   override def removeDar(
       hash: Hash
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     writeQueue.execute(
       storage.update_(
         sqlu"""delete from dars where hash_hex = ${hash.toLengthLimitedHexString}""",
@@ -343,11 +343,9 @@ class DbDamlPackageStore(
       ),
       functionFullName,
     )
-  }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(writeQueue)(logger)
-  }
 
 }
 

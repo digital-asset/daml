@@ -99,7 +99,7 @@ class InMemoryContractKeyJournal(override protected val loggerFactory: NamedLogg
     obsolete.length
   }
 
-  private[this] def withLock[A](x: => A): A = blocking { lock.synchronized(x) }
+  private[this] def withLock[A](x: => A): A = blocking(lock.synchronized(x))
 
 }
 
@@ -119,7 +119,7 @@ object InMemoryContractKeyJournal {
         key: LfGlobalKey,
         status: Status,
         toc: TimeOfChange,
-    ): Either[ContractKeyJournalError, KeyStatus] = {
+    ): Either[ContractKeyJournalError, KeyStatus] =
       for {
         newChanges <- changes.get(toc) match {
           case None =>
@@ -132,7 +132,6 @@ object InMemoryContractKeyJournal {
             )
         }
       } yield KeyStatus(newChanges)
-    }
 
     def prune(beforeAndIncluding: CantonTimestamp): KeyStatus = {
       val later = changes.takeWhile { case (toc, _status) => toc.timestamp > beforeAndIncluding }

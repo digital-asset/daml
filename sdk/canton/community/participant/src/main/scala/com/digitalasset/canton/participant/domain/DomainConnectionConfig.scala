@@ -80,11 +80,10 @@ final case class DomainConnectionConfig(
     copy(sequencerConnections =
       sequencerConnections.addEndpoints(sequencerAlias, connection, additionalConnections: _*)
     )
-  def addConnection(connection: SequencerConnection): DomainConnectionConfig = {
+  def addConnection(connection: SequencerConnection): DomainConnectionConfig =
     copy(sequencerConnections =
       sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
     )
-  }
 
   def withCertificates(
       sequencerAlias: SequencerAlias,

@@ -9,7 +9,6 @@ import com.digitalasset.canton.connection.v30.{GetApiInfoRequest, GetApiInfoResp
 import scala.concurrent.Future
 
 class GrpcApiInfoService(name: String) extends ApiInfoService {
-  override def getApiInfo(request: GetApiInfoRequest): Future[GetApiInfoResponse] = {
+  override def getApiInfo(request: GetApiInfoRequest): Future[GetApiInfoResponse] =
     Future.successful(GetApiInfoResponse(name))
-  }
 }

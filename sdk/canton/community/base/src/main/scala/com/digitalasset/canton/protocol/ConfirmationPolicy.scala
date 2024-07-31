@@ -231,12 +231,11 @@ object ConfirmationPolicy {
     override protected def additionalWeightOfSubmittingAdminParty(
         confirmingParties: Set[ConfirmingParty],
         adminParty: LfPartyId,
-    ): NonNegativeInt = {
+    ): NonNegativeInt =
       // if the quorum only contains the admin submitting party then the additional weight is 0
       if (confirmingParties.size == 1 && confirmingParties.map(_.party).contains(adminParty))
         NonNegativeInt.zero
       else NonNegativeInt.tryCreate(confirmingParties.toSeq.map(_.weight.unwrap).sum + 1)
-    }
   }
 
   case object Signatory extends ConfirmationPolicy {

@@ -130,13 +130,12 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
         _ = logger.debug(s"Discovered existing state for $alias")
       } yield put(persistentState)
 
-      resultE.valueOr(error => logger.debug(s"No state for $alias discovered: ${error}"))
+      resultE.valueOr(error => logger.debug(s"No state for $alias discovered: $error"))
     }
   }
 
-  override def indexedDomainId(domainId: DomainId): Future[IndexedDomain] = {
+  override def indexedDomainId(domainId: DomainId): Future[IndexedDomain] =
     IndexedDomain.indexed(this.indexedStringStore)(domainId)
-  }
 
   override def lookupOrCreatePersistentState(
       domainAlias: DomainAlias,
@@ -188,7 +187,7 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
       alias: DomainAlias,
       parameterStore: DomainParameterStore,
       newParameters: StaticDomainParameters,
-  )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] =
     for {
       oldParametersO <- EitherT.liftF(parameterStore.lastParameters)
       _ <- oldParametersO match {
@@ -207,7 +206,6 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
           )
       }
     } yield ()
-  }
 
   private def checkUniqueContractKeys(
       domainAlias: DomainAlias,
@@ -325,7 +323,7 @@ class SyncDomainPersistentStateManagerOld(
       futureSupervisor,
     )
 
-  override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
+  override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] =
     get(domainId).map(state =>
       new TopologyComponentFactoryOld(
         participantId,
@@ -340,5 +338,4 @@ class SyncDomainPersistentStateManagerOld(
         loggerFactory,
       )
     )
-  }
 }

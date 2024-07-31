@@ -72,7 +72,7 @@ class SnapshotAuthorizationValidatorTest
       chainO: Option[AuthorizationChain],
       nsds: Seq[SignedTopologyTransaction[TopologyChangeOp]],
       ids: Seq[SignedTopologyTransaction[TopologyChangeOp]] = Seq.empty,
-  ): Assertion = {
+  ): Assertion =
     chainO.fold(fail("chain is empty!")) { chain =>
       chain.namespaceDelegations.map(_.transaction.transaction.element.mapping) shouldBe nsds.map(
         _.transaction.element.mapping
@@ -81,8 +81,6 @@ class SnapshotAuthorizationValidatorTest
         _.transaction.element.mapping
       )
     }
-
-  }
 
   "happy cases" should {
     import factory.*

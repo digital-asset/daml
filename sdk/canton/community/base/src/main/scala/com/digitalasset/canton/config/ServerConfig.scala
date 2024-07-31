@@ -225,7 +225,7 @@ sealed trait BaseTlsArguments {
       knownTlsVersions
         .find(_ == minVersion)
         .fold[Seq[String]](
-          throw new IllegalArgumentException(s"Unknown TLS protocol version ${minVersion}")
+          throw new IllegalArgumentException(s"Unknown TLS protocol version $minVersion")
         )(versionFound => knownTlsVersions.filter(_ >= versionFound))
     }
 }
@@ -302,10 +302,10 @@ object TlsServerConfig {
       "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
     )
     val logger = LoggerFactory.getLogger(TlsServerConfig.getClass)
-    val filtered = candidates.filter(x => {
+    val filtered = candidates.filter { x =>
       io.netty.handler.ssl.OpenSsl.availableOpenSslCipherSuites().contains(x) ||
       io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
-    })
+    }
     if (filtered.isEmpty) {
       val len = io.netty.handler.ssl.OpenSsl
         .availableOpenSslCipherSuites()

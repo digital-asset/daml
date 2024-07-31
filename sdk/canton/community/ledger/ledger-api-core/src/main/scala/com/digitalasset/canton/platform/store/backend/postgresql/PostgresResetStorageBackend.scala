@@ -11,7 +11,7 @@ import java.sql.Connection
 
 object PostgresResetStorageBackend extends ResetStorageBackend {
 
-  override def resetAll(connection: Connection): Unit = {
+  override def resetAll(connection: Connection): Unit =
     SQL"""
       delete from configuration_entries cascade;
       delete from packages cascade;
@@ -46,5 +46,4 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
     """
       .execute()(connection)
       .discard
-  }
 }

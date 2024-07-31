@@ -107,7 +107,7 @@ class DirectSequencerClientTransport(
               case Right(event) => handler(event)
               case Left(error) =>
                 ErrorUtil.invalidState(
-                  s"Direct transport subscriptions must not trigger subscription errors such as ${error}"
+                  s"Direct transport subscriptions must not trigger subscription errors such as $error"
                 )
             },
           )

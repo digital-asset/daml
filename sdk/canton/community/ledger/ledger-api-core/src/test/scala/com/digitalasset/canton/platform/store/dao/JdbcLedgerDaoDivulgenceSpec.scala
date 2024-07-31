@@ -161,7 +161,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       )
     }
 
-    val someVersionedContractInstance = {
+    val someVersionedContractInstance =
       Versioned(
         TransactionVersion.V14,
         ContractInstance(
@@ -170,7 +170,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           arg = someContractInstance.arg,
         ),
       )
-    }
 
     val t1 = Timestamp.now()
     val t2 = t1.addMicros(1000)

@@ -22,7 +22,7 @@ final case class FullTransactionViewTree private (tree: GenTransactionTree)
   private[data] override def findTheView(
       viewsWithIndex: Seq[(TransactionView, MerklePathElement)],
       viewPosition: ViewPosition = ViewPosition.root,
-  ): Either[String, (TransactionView, ViewPosition)] = {
+  ): Either[String, (TransactionView, ViewPosition)] =
     viewsWithIndex match {
       case Seq() =>
         Left("A transaction view tree must contain an unblinded view.")
@@ -37,7 +37,6 @@ final case class FullTransactionViewTree private (tree: GenTransactionTree)
           s"A transaction view tree must not contain several unblinded views: ${multipleViews.map(_._1)}"
         )
     }
-  }
 
   lazy val tryFlattenToParticipantViews: Seq[ParticipantTransactionView] =
     view.tryFlattenToParticipantViews

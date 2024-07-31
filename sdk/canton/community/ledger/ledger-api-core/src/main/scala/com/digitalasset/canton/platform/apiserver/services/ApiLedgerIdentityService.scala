@@ -61,7 +61,6 @@ private[apiserver] final class ApiLedgerIdentityService private (
 private[apiserver] object ApiLedgerIdentityService {
   def create(ledgerId: LedgerId, telemetry: Telemetry, loggerFactory: NamedLoggerFactory)(implicit
       executionContext: ExecutionContext
-  ): ApiLedgerIdentityService with BindableService = {
+  ): ApiLedgerIdentityService with BindableService =
     new ApiLedgerIdentityService(() => Future.successful(ledgerId), telemetry, loggerFactory)
-  }
 }

@@ -153,7 +153,7 @@ class ManagedNodes[
       val params = parametersFor(name)
       val startup = for {
         // start migration
-        _ <- EitherT(Future { checkMigration(name, config.storage, params) })
+        _ <- EitherT(Future(checkMigration(name, config.storage, params)))
         instance = {
           val instance = create(name, config)
           nodes.put(name, StartingUp(promise, instance)).discard
@@ -199,13 +199,12 @@ class ManagedNodes[
 
   private def configAndParams(
       name: InstanceName
-  ): Either[StartupError, (NodeConfig, CantonNodeParameters)] = {
+  ): Either[StartupError, (NodeConfig, CantonNodeParameters)] =
     for {
       config <- configs.get(name).toRight(ConfigurationNotFound(name): StartupError)
       _ <- checkNotRunning(name)
       params = parametersFor(name)
     } yield (config, params)
-  }
 
   override def migrateDatabase(name: InstanceName): Either[StartupError, Unit] = blocking(
     synchronized {
@@ -259,7 +258,7 @@ class ManagedNodes[
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, ShutdownError, Unit] = {
+  ): EitherT[Future, ShutdownError, Unit] =
     EitherT(stage match {
       // wait for the node to complete startup
       case PreparingDatabase(promise) => promise.future
@@ -280,7 +279,6 @@ class ManagedNodes[
         }
         Right(())
     }
-  }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     val runningInstances = nodes.toList
@@ -309,7 +307,7 @@ class ManagedNodes[
       import TraceContext.Implicits.Empty.*
       logger.info(s"Setting up database schemas for $name")
 
-      def errorMapping(err: DbMigrations.Error): StartupError = {
+      def errorMapping(err: DbMigrations.Error): StartupError =
         err match {
           case DbMigrations.PendingMigrationError(msg) => PendingDatabaseMigration(name, msg)
           case err: DbMigrations.FlywayError => FailedDatabaseMigration(name, err)
@@ -317,7 +315,6 @@ class ManagedNodes[
           case err: DbMigrations.DatabaseVersionError => FailedDatabaseVersionChecks(name, err)
           case err: DbMigrations.DatabaseConfigError => FailedDatabaseConfigChecks(name, err)
         }
-      }
       val retryConfig =
         if (storageConfig.parameters.failFastOnStartup) RetryConfig.failFast
         else RetryConfig.forever

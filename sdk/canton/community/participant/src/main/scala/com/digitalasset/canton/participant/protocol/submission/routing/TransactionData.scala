@@ -53,7 +53,7 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[Future, TransactionRoutingError, TransactionData] =
     for {
       prescribedDomainO <- EitherT.fromEither[Future](
         submitterDomainId
@@ -70,7 +70,6 @@ private[routing] object TransactionData {
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainO,
     )
-  }
 
   def create(
       submitterInfo: SubmitterInfo,
@@ -83,7 +82,7 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[Future, TransactionRoutingError, TransactionData] =
     for {
       submitters <- EitherT.fromEither[Future](
         submitterInfo.actAs
@@ -105,7 +104,6 @@ private[routing] object TransactionData {
         submitterDomainId,
       )
     } yield transactionData
-  }
 
   private[routing] def toDomainId(
       maybeWorkflowId: Option[LfWorkflowId],

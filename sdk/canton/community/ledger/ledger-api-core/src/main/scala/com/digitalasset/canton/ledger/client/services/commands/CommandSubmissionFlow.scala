@@ -20,7 +20,7 @@ object CommandSubmissionFlow {
       submit: SubmitRequest => Future[Empty],
       maxInFlight: Int,
       loggerFactory: NamedLoggerFactory,
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] =
     Flow[Ctx[Context, CommandSubmission]]
       .log("submission at client", _.value.commands.commandId)
       .mapAsyncUnordered(maxInFlight) { case Ctx(context, submission, telemetryContext) =>
@@ -38,5 +38,4 @@ object CommandSubmissionFlow {
               }(DirectExecutionContext(loggerFactory.getLogger(getClass)))
           }
       }
-  }
 }

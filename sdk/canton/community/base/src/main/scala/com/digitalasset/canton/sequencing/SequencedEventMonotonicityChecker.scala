@@ -36,7 +36,7 @@ class SequencedEventMonotonicityChecker(
     WithKillSwitch[OrdinarySerializedEvent],
     WithKillSwitch[OrdinarySerializedEvent],
     NotUsed,
-  ] = {
+  ] =
     Flow[WithKillSwitch[OrdinarySerializedEvent]]
       .statefulMap(() => initialState)(
         (state, eventAndKillSwitch) => eventAndKillSwitch.traverse(onNext(state, _)),
@@ -53,7 +53,6 @@ class SequencedEventMonotonicityChecker(
           case Drop => None
         }
       }
-  }
 
   /** [[com.digitalasset.canton.sequencing.ApplicationHandler]] version.
     * @throws com.digitalasset.canton.sequencing.SequencedEventMonotonicityChecker.MonotonicityFailureException

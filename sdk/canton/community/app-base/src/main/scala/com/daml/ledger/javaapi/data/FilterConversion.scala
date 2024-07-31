@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data
 
-import com.daml.ledger.api.v1.transaction_filter.{TransactionFilter as ScalaTransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter as ScalaTransactionFilter
 
 // TODO(i15321): hack to circumvent the package-private `toProto` method on `TransactionFilter`
 object FilterConversion {

@@ -181,7 +181,7 @@ class SequencersTransportState(
               transportStateBefore.subscription
                 .map(_.resilientSequencerSubscription.resubscribeOnTransportChange())
                 .getOrElse(Future.unit)
-                .thereafter { _ => transportStateBefore.transport.clientTransport.close() }
+                .thereafter(_ => transportStateBefore.transport.clientTransport.close())
             }
             .onShutdown(Future.unit)
         }
@@ -283,9 +283,8 @@ class SequencersTransportState(
     }
   }
 
-  override protected def onClosed(): Unit = {
+  override protected def onClosed(): Unit =
     closeAllSubscriptions()
-  }
 }
 
 final case class SequencerTransportState(

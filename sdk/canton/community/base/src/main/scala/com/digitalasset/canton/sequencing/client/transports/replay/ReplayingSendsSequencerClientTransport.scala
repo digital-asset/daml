@@ -285,7 +285,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private val lastDeliverRef: AtomicReference[Option[State]] = new AtomicReference(None)
     private val idleP = Promise[EventsReceivedReport]()
 
-    private def scheduleCheck(): Unit = {
+    private def scheduleCheck(): Unit =
       performUnlessClosing(functionFullName) {
         val elapsed = lastDeliverRef
           .get()
@@ -296,7 +296,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
         val _ = materializer.scheduleOnce(nextCheckDuration.toScala, () => checkIfIdle())
       }.onShutdown(())
-    }
 
     scheduleCheck() // kick off checks
 

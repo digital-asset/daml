@@ -52,7 +52,7 @@ class TransactionPointwiseQueries(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
       lastEventSequentialId = lastEventSequentialId,
@@ -70,13 +70,12 @@ class TransactionPointwiseQueries(
       requestingParties = requestingParties,
       filteringRowParser = rawFlatEventParser(_, stringInterning),
     )(connection)
-  }
 
   def fetchTreeTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
       lastEventSequentialId = lastEventSequentialId,
@@ -101,7 +100,6 @@ class TransactionPointwiseQueries(
       requestingParties = requestingParties,
       filteringRowParser = rawTreeEventParser(_, stringInterning),
     )(connection)
-  }
 
   case class SelectTable(tableName: String, selectColumns: String)
 

@@ -61,13 +61,12 @@ trait PostgresAround {
 
   }
 
-  protected def disconnectFromPostgresqlServer(): Unit = {
+  protected def disconnectFromPostgresqlServer(): Unit =
     ownedServerContainer.get().foreach { container =>
       logger.info(s"Stopping PostgreSQL Container...")
       container.close()
       logger.info(s"PostgreSQL Container stopped.")
     }
-  }
 
   protected def createNewRandomDatabase(): PostgresDatabase = {
     val database = executeAdminStatement(server.get()) { statement =>

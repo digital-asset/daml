@@ -313,7 +313,7 @@ class DbActiveContractStore(
 
   override def fetchStates(
       contractIds: Iterable[LfContractId]
-  )(implicit traceContext: TraceContext): Future[Map[LfContractId, ContractState]] = {
+  )(implicit traceContext: TraceContext): Future[Map[LfContractId, ContractState]] =
     storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
         // With H2, it is faster to do lookup contracts individually than to use a range query
@@ -322,9 +322,9 @@ class DbActiveContractStore(
           .parTraverseFilter { contractId =>
             storage
               .querySingle(fetchContractStateQuery(contractId), functionFullName)
-              .semiflatMap(storedContract => {
+              .semiflatMap { storedContract =>
                 storedContract.toContractState.map(res => (contractId -> res))
-              })
+              }
               .value
           }
           .map(_.toMap)
@@ -364,7 +364,6 @@ class DbActiveContractStore(
         }
 
     }
-  }
 
   override def packageUsage(
       pkg: PackageId,
@@ -422,7 +421,7 @@ class DbActiveContractStore(
           snapshotQuery(SnapshotQueryParameter.Ts(timestamp), None),
           functionFullName,
         )
-        .map { snapshot => SortedMap.from(snapshot) }
+        .map(snapshot => SortedMap.from(snapshot))
     }
 
   override def snapshot(rc: RequestCounter)(implicit
@@ -443,7 +442,7 @@ class DbActiveContractStore(
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, CantonTimestamp]] = {
+  ): Future[Map[LfContractId, CantonTimestamp]] =
     processingTime.event {
       if (contractIds.isEmpty) Future.successful(Map.empty)
       else
@@ -454,7 +453,6 @@ class DbActiveContractStore(
           )
           .map(_.toMap)
     }
-  }
 
   private[this] def snapshotQuery[T](
       p: SnapshotQueryParameter[T],
@@ -528,17 +526,17 @@ class DbActiveContractStore(
                   with deactivation_counter(contract_id, request_counter) as (
                     select contract_id, max(request_counter)
                     from active_contracts
-                    where domain_id = ${domainId}
+                    where domain_id = $domainId
                       and change = cast('deactivation' as change_type)
-                      and ts <= ${beforeAndIncluding}
+                      and ts <= $beforeAndIncluding
                     group by contract_id
                   )
                     select ac.contract_id, ac.ts, ac.request_counter, ac.change
                     from deactivation_counter dc
-                      join active_contracts ac on ac.domain_id = ${domainId} and ac.contract_id = dc.contract_id
+                      join active_contracts ac on ac.domain_id = $domainId and ac.contract_id = dc.contract_id
                     where ac.request_counter <= dc.request_counter"""
                     .as[(LfContractId, CantonTimestamp, RequestCounter, ChangeType)],
-                  s"${functionFullName}: Fetch ACS entries to be pruned",
+                  s"$functionFullName: Fetch ACS entries to be pruned",
                 )
               )
               totalEntriesPruned <-
@@ -560,7 +558,7 @@ class DbActiveContractStore(
                           }
                         }
                         .map(_.sum),
-                      s"${functionFullName}: Bulk-delete ACS entries",
+                      s"$functionFullName: Bulk-delete ACS entries",
                     )
                   }
                 )
@@ -572,16 +570,16 @@ class DbActiveContractStore(
             with deactivation_counter(contract_id, request_counter) as (
               select contract_id, max(request_counter)
               from active_contracts
-              where domain_id = ${domainId}
+              where domain_id = $domainId
               and change = ${ChangeType.Deactivation}
-              and ts <= ${beforeAndIncluding}
+              and ts <= $beforeAndIncluding
               group by contract_id
             )
 		    delete from active_contracts
             where (domain_id, contract_id, ts, request_counter, change) in (
 		      select ac.domain_id, ac.contract_id, ac.ts, ac.request_counter, ac.change
               from deactivation_counter dc
-              join active_contracts ac on ac.domain_id = ${domainId} and ac.contract_id = dc.contract_id
+              join active_contracts ac on ac.domain_id = $domainId and ac.contract_id = dc.contract_id
               where ac.request_counter <= dc.request_counter
             );
             """,
@@ -595,14 +593,14 @@ class DbActiveContractStore(
             with deactivation_counter(contract_id, request_counter) as (
                 select contract_id, max(request_counter)
                 from active_contracts
-                where domain_id = ${domainId}
+                where domain_id = $domainId
                 and change = 'deactivation'
-                and ts <= ${beforeAndIncluding}
+                and ts <= $beforeAndIncluding
                 group by contract_id
             )
             select ac.rowid
             from deactivation_counter dc
-            join active_contracts ac on ac.domain_id = ${domainId} and ac.contract_id = dc.contract_id
+            join active_contracts ac on ac.domain_id = $domainId and ac.contract_id = dc.contract_id
             where ac.request_counter <= dc.request_counter
             )""",
                 functionFullName,
@@ -686,14 +684,13 @@ class DbActiveContractStore(
 
   override private[participant] def contractCount(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): Future[Int] =
     storage.query(
       sql"select count(distinct contract_id) from active_contracts where ts <= $timestamp"
         .as[Int]
         .head,
       functionFullName,
     )
-  }
 
   private def checkActivationsDeactivationConsistency(
       contractId: LfContractId,

@@ -47,12 +47,11 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       timeToLive: FiniteDuration,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[AcceptedEntry] = {
+  ): Future[AcceptedEntry] =
     for {
       submissionResult <- strategy.submit(submissionId, input)
       entry <- toResult(submissionId, ledgerEndBeforeRequest, submissionResult, timeToLive)
     } yield entry
-  }
 
   private def toResult(
       submissionId: Ref.SubmissionId,
@@ -73,9 +72,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   )(implicit loggingContext: LoggingContextWithTrace) = {
     val isAccepted = new Accepted(strategy.accept(submissionId))
     val isRejected = new Rejected(strategy.reject(submissionId))
-    val contextualizedErrorLogger = {
+    val contextualizedErrorLogger =
       ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
-    }
     strategy
       .entries(ledgerEndBeforeRequest)
       .via(shutdownKillSwitch.flow)

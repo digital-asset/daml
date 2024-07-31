@@ -121,7 +121,7 @@ class DomainTopologyTransactionMessageValidatorTest
       )
     }
 
-    def append(ts: CantonTimestamp, txs: Seq[GenericSignedTopologyTransaction]): Unit = {
+    def append(ts: CantonTimestamp, txs: Seq[GenericSignedTopologyTransaction]): Unit =
       store
         .append(
           SequencedTime(ts),
@@ -129,7 +129,6 @@ class DomainTopologyTransactionMessageValidatorTest
           txs.map(ValidatedTopologyTransaction(_, None)),
         )
         .futureValue
-    }
 
     def build(ts: CantonTimestamp, txs: List[GenericSignedTopologyTransaction]) =
       DomainTopologyTransactionMessage
@@ -145,7 +144,7 @@ class DomainTopologyTransactionMessageValidatorTest
     def inject(
         ts: CantonTimestamp,
         message: DomainTopologyTransactionMessage,
-    ): List[SignedTopologyTransaction[TopologyChangeOp]] = {
+    ): List[SignedTopologyTransaction[TopologyChangeOp]] =
       validator
         .extractTopologyUpdatesAndValidateEnvelope(
           SequencedTime(ts),
@@ -157,31 +156,26 @@ class DomainTopologyTransactionMessageValidatorTest
         )
         .onShutdown(fail("test should not hit a shutdown"))
         .futureValue
-    }
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
     override protected def logger: TracedLogger =
       DomainTopologyTransactionMessageValidatorTest.this.logger
   }
 
-  override def withFixture(test: OneArgTest): Outcome = {
+  override def withFixture(test: OneArgTest): Outcome =
     withFixture(test.toNoArgTest(new Env()))
-  }
   protected def raiseAlarmBeyondV4(
       env: Env,
       ts: CantonTimestamp,
       msg: DomainTopologyTransactionMessage,
       assertion: (LogEntry => Assertion) = _.shouldBeCantonErrorCode(TopologyManagerAlarm),
-  ): Assertion = {
+  ): Assertion =
     loggerFactory.assertLogs(
-      {
-        env.inject(
-          ts,
-          msg,
-        ) should have length 0
-      },
+      env.inject(
+        ts,
+        msg,
+      ) should have length 0,
       assertion,
     )
-  }
 
   private lazy val ts1 = CantonTimestamp.Epoch
   private lazy val ts2 = CantonTimestamp.Epoch.plusMillis(100)

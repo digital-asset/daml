@@ -35,9 +35,8 @@ final case class CommitmentPeriod(
 ) extends PrettyPrinting {
   val toInclusive: CantonTimestampSecond = fromExclusive + periodLength
 
-  def overlaps(other: CommitmentPeriod): Boolean = {
+  def overlaps(other: CommitmentPeriod): Boolean =
     fromExclusive < other.toInclusive && toInclusive > other.fromExclusive
-  }
 
   override def pretty: Pretty[CommitmentPeriod] =
     prettyOfClass(
@@ -126,7 +125,7 @@ abstract sealed case class AcsCommitment private (
 
   override def signingTimestamp: CantonTimestamp = period.toInclusive.forgetRefinement
 
-  protected def toProtoV0: v0.AcsCommitment = {
+  protected def toProtoV0: v0.AcsCommitment =
     v0.AcsCommitment(
       domainId = domainId.toProtoPrimitive,
       sendingParticipant = sender.toProtoPrimitive,
@@ -135,7 +134,6 @@ abstract sealed case class AcsCommitment private (
       toInclusive = Some(period.toInclusive.toProtoPrimitive),
       commitment = AcsCommitment.commitmentTypeToProto(commitment),
     )
-  }
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -146,7 +144,7 @@ abstract sealed case class AcsCommitment private (
 
   override def hashPurpose: HashPurpose = HashPurpose.AcsCommitment
 
-  override lazy val pretty: Pretty[AcsCommitment] = {
+  override lazy val pretty: Pretty[AcsCommitment] =
     prettyOfClass(
       param("domainId", _.domainId),
       param("sender", _.sender),
@@ -154,7 +152,6 @@ abstract sealed case class AcsCommitment private (
       param("period", _.period),
       param("commitment", _.commitment),
     )
-  }
 }
 
 object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCommitment] {
@@ -191,7 +188,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
 
   private def fromProtoV0(protoMsg: v0.AcsCommitment)(
       bytes: ByteString
-  ): ParsingResult[AcsCommitment] = {
+  ): ParsingResult[AcsCommitment] =
     for {
       domainId <- DomainId.fromProtoPrimitive(protoMsg.domainId, "AcsCommitment.domainId")
       sender <- ParticipantId.fromProtoPrimitive(
@@ -225,7 +222,6 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       rpv,
       Some(bytes),
     ) {}
-  }
 
   implicit val acsCommitmentCast: SignedMessageContentCast[AcsCommitment] =
     SignedMessageContentCast.create[AcsCommitment]("AcsCommitment") {

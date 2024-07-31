@@ -30,7 +30,7 @@ class MessageRecorderTest extends BaseTestWordSpec with HasTempDirectory {
     }
 
     "catch type errors" in {
-      a[ClassCastException] shouldBe thrownBy { MessageRecorder.load[Data2](recordFile, logger) }
+      a[ClassCastException] shouldBe thrownBy(MessageRecorder.load[Data2](recordFile, logger))
     }
   }
 }

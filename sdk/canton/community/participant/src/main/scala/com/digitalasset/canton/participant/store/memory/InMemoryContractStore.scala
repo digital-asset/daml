@@ -51,9 +51,8 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
     )
     val flt3 = filterId.map(search(_, _.contractId.coid))
 
-    def conjunctiveFilter(sc: StoredContract): Boolean = {
+    def conjunctiveFilter(sc: StoredContract): Boolean =
       flt1.forall(_(sc)) && flt2.forall(_(sc)) && flt3.forall(_(sc))
-    }
     Future.successful(contracts.values.filter(conjunctiveFilter).take(limit).map(_.contract).toList)
   }
 

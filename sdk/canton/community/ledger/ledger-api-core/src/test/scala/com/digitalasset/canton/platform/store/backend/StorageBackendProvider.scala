@@ -126,12 +126,11 @@ object TestBackend {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterning = new MockStringInterning
 
-    def createTestMeteringBackend: TestMeteringBackend = {
+    def createTestMeteringBackend: TestMeteringBackend =
       TestMeteringBackend(
         read = storageBackendFactory.createMeteringStorageReadBackend(ledgerEndCache),
         write = storageBackendFactory.createMeteringStorageWriteBackend,
       )
-    }
 
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,

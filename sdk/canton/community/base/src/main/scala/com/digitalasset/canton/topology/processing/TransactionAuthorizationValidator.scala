@@ -89,11 +89,10 @@ trait TransactionAuthorizationValidator {
       graph: AuthorizationGraph,
       uid: UniqueIdentifier,
       authKey: Fingerprint,
-  ): Option[AuthorizedIdentifierDelegation] = {
+  ): Option[AuthorizedIdentifierDelegation] =
     getIdentifierDelegationsForUid(uid)
       .filter(_.mapping.target.fingerprint == authKey)
       .find(aid => graph.isValidAuthorizationKey(aid.signingKey, requireRoot = false))
-  }
 
   def isAuthorizedForUid(uid: UniqueIdentifier, authKey: Fingerprint): Boolean = {
     val graph = getAuthorizationGraphForNamespace(uid.namespace)
@@ -105,10 +104,9 @@ trait TransactionAuthorizationValidator {
 
   protected def getIdentifierDelegationsForUid(
       uid: UniqueIdentifier
-  ): Set[AuthorizedIdentifierDelegation] = {
+  ): Set[AuthorizedIdentifierDelegation] =
     identifierDelegationCache
       .getOrElse(uid, Set())
-  }
 
   protected def getAuthorizationGraphForNamespace(
       namespace: Namespace
@@ -143,7 +141,7 @@ trait TransactionAuthorizationValidator {
         .foreach { case (namespace, transactions) =>
           ErrorUtil.requireArgument(
             !namespaceCache.isDefinedAt(namespace),
-            s"graph shouldnt exist before loading ${namespaces} vs ${namespaceCache.keySet}",
+            s"graph shouldnt exist before loading $namespaces vs ${namespaceCache.keySet}",
           )
           val graph = new AuthorizationGraph(namespace, extraDebugInfo = false, loggerFactory)
           namespaceCache.put(namespace, graph).discard
@@ -165,7 +163,7 @@ trait TransactionAuthorizationValidator {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Set[UniqueIdentifier]] = {
+  ): Future[Set[UniqueIdentifier]] =
     store
       .findPositiveTransactions(
         asOf = timestamp,
@@ -188,7 +186,6 @@ trait TransactionAuthorizationValidator {
           else acc
         }
       }
-  }
 
   private def mergeLoadedIdentifierDelegation(item: AuthorizedIdentifierDelegation): Unit =
     updateIdentifierDelegationCache(item.mapping.identifier, _ + item)
@@ -220,16 +217,14 @@ object TransactionAuthorizationValidator {
     def addIdentifierDelegation(aid: AuthorizedIdentifierDelegation): AuthorizationChain =
       copy(identifierDelegation = identifierDelegation :+ aid)
 
-    def merge(other: AuthorizationChain): AuthorizationChain = {
+    def merge(other: AuthorizationChain): AuthorizationChain =
       AuthorizationChain(
         mergeUnique(this.identifierDelegation, other.identifierDelegation),
         mergeUnique(this.namespaceDelegations, other.namespaceDelegations),
       )
-    }
 
-    private def mergeUnique[T](left: Seq[T], right: Seq[T]): Seq[T] = {
+    private def mergeUnique[T](left: Seq[T], right: Seq[T]): Seq[T] =
       mutable.LinkedHashSet.from(left).addAll(right).toSeq
-    }
 
   }
 

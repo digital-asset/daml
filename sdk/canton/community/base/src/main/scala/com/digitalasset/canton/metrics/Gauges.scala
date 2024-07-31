@@ -95,13 +95,12 @@ class LoadGauge(interval: FiniteDuration, now: => Long = System.nanoTime) {
   }
 
   @tailrec
-  private def cleanup(tm: Long): Unit = {
+  private def cleanup(tm: Long): Unit =
     // keep on cleaning up
     if (measure.lengthCompare(1) > 0 && measure(1)._2 <= tm - intervalNanos) {
       measure.remove(0).discard
       cleanup(tm)
     }
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.IterableOps"))
   def getLoad: Double = {

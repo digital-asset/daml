@@ -189,13 +189,12 @@ object CryptoPublicStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
-  ): CryptoPublicStore = {
+  ): CryptoPublicStore =
     storage match {
       case _: MemoryStorage => new InMemoryCryptoPublicStore
       case dbStorage: DbStorage =>
         new DbCryptoPublicStore(dbStorage, releaseProtocolVersion, timeouts, loggerFactory)
     }
-  }
 }
 
 sealed trait CryptoPublicStoreError extends Product with Serializable with PrettyPrinting

@@ -21,7 +21,7 @@ object ErrorCodeUtils {
     */
   lazy val errorCodeCategoryRegexp: Regex = "(?s)^[0-9A-Z_]+\\(([0-9]+),[A-Za-z0-9]+\\).*".r
 
-  def errorCategoryFromString(str: String): Option[ErrorCategory] = {
+  def errorCategoryFromString(str: String): Option[ErrorCategory] =
     str match {
       case errorCodeCategoryRegexp(retryability, _*) =>
         Either
@@ -30,7 +30,6 @@ object ErrorCodeUtils {
           .flatMap(ErrorCategory.fromInt)
       case _ => None
     }
-  }
 
   def isError(str: String, errorCode: ErrorCode): Boolean =
     str.startsWith(errorCode.id)

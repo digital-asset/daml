@@ -157,8 +157,8 @@ object JdbcIndexer {
       updatingStringInterningView: UpdatingStringInterningView,
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
   ): Future[Unit] =
-    updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
-      (fromExclusive, toInclusive) => {
+    updatingStringInterningView.update(ledgerEnd.lastStringInterningId) {
+      (fromExclusive, toInclusive) =>
         implicit val loggingContext: LoggingContextWithTrace =
           LoggingContextWithTrace.empty
         dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
@@ -167,6 +167,5 @@ object JdbcIndexer {
             toInclusive,
           )
         }
-      }
-    )
+    }
 }

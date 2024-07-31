@@ -36,7 +36,7 @@ class CounterCapture(
         result foreach { _ =>
           val counter = event.counter
           currentValue.set(counter.v)
-          logger.trace(s"Captured sequencer counter ${counter}")
+          logger.trace(s"Captured sequencer counter $counter")
         }
         result
       }

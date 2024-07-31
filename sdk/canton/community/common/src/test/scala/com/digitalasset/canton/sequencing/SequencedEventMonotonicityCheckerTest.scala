@@ -41,7 +41,7 @@ class SequencedEventMonotonicityCheckerTest
         timeouts,
         futureSupervisor,
       )
-    ) { env => withFixture(test.toNoArgTest(env)) }
+    )(env => withFixture(test.toNoArgTest(env)))
 
   private def mkHandler(): CapturingApplicationHandler = new CapturingApplicationHandler
 

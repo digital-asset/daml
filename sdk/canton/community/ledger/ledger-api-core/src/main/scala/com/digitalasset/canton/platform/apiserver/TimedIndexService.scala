@@ -241,12 +241,11 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     Timed.future(
       metrics.daml.services.index.getTransactionMetering,
       delegate.getMeteringReportData(from, to, applicationId),
     )
-  }
 
   override def lookupContractStateWithoutDivulgence(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace

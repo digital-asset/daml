@@ -269,8 +269,7 @@ object SequencedEventValidator extends HasLoggerName {
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): EitherT[Future, SigningTimestampVerificationError, SyncCryptoApi] = {
-
+  ): EitherT[Future, SigningTimestampVerificationError, SyncCryptoApi] =
     validateSigningTimestampInternal(
       syncCryptoApi,
       signingTimestamp,
@@ -283,7 +282,6 @@ object SequencedEventValidator extends HasLoggerName {
       SyncCryptoClient.getSnapshotForTimestamp _,
       (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
     )
-  }
 
   def validateSigningTimestampUS(
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
@@ -297,7 +295,7 @@ object SequencedEventValidator extends HasLoggerName {
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
       closeContext: CloseContext,
-  ): EitherT[FutureUnlessShutdown, SigningTimestampVerificationError, SyncCryptoApi] = {
+  ): EitherT[FutureUnlessShutdown, SigningTimestampVerificationError, SyncCryptoApi] =
     validateSigningTimestampInternal(
       syncCryptoApi,
       signingTimestamp,
@@ -313,7 +311,6 @@ object SequencedEventValidator extends HasLoggerName {
           topology.findDynamicDomainParameters()(traceContext)
         )(executionContext, traceContext),
     )
-  }
 
   // Base version of validateSigningTimestamp abstracting over the effect type to allow for
   // a `Future` and `FutureUnlessShutdown` version. Once we migrate all usages to the US version, this abstraction
@@ -353,7 +350,7 @@ object SequencedEventValidator extends HasLoggerName {
 
     def validateWithSnapshot(
         snapshot: SyncCryptoApi
-    ): F[Either[SigningTimestampVerificationError, SyncCryptoApi]] = {
+    ): F[Either[SigningTimestampVerificationError, SyncCryptoApi]] =
       getDynamicDomainParameters(snapshot.ipsSnapshot, traceContext)
         .map { dynamicDomainParametersE =>
           for {
@@ -366,7 +363,6 @@ object SequencedEventValidator extends HasLoggerName {
             _ <- Either.cond(withinSigningTolerance, (), SigningTimestampTooOld(tolerance))
           } yield snapshot
         }
-    }
 
     if (signingTimestamp > sequencingTimestamp) {
       EitherT.leftT[F, SyncCryptoApi](SigningTimestampAfterSequencingTime)
@@ -649,7 +645,7 @@ class SequencedEventValidatorImpl(
     }
   }
 
-  private def checkNoTimestampOfSigningKey(event: OrdinarySerializedEvent): ValidationResult = {
+  private def checkNoTimestampOfSigningKey(event: OrdinarySerializedEvent): ValidationResult =
     event.signedEvent.timestampOfSigningKey.traverse_(tsOfSigningKey =>
       // Batches addressed to unauthenticated members must not specify a signing key timestamp.
       // As some sequencer implementations in some protocol versions set the timestampOfSigningKey field
@@ -661,7 +657,6 @@ class SequencedEventValidatorImpl(
         TimestampOfSigningKeyNotAllowed(event.timestamp, tsOfSigningKey),
       )
     )
-  }
 
   override def validatePekko[E: Pretty](
       subscription: SequencerSubscriptionPekko[E],

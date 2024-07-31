@@ -85,7 +85,7 @@ abstract class AbstractMessageProcessor(
       messages: Seq[(ProtocolMessage, Recipients)],
       messageId: Option[MessageId] =
         None, // use client.messageId. passed in here such that we can log it before sending
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     if (messages.isEmpty) Future.unit
     else {
       logger.trace(s"Request $rc: ProtocolProcessor scheduling the sending of responses")
@@ -112,7 +112,6 @@ abstract class AbstractMessageProcessor(
           logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
       }
     }
-  }
 
   /** Immediately moves the request to Confirmed and
     * register a timeout handler at the decision time with the request tracker
@@ -122,7 +121,7 @@ abstract class AbstractMessageProcessor(
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     crypto.ips
       .awaitSnapshotUS(timestamp)
       .flatMap(snapshot => FutureUnlessShutdown.outcomeF(snapshot.findDynamicDomainParameters()))
@@ -152,7 +151,6 @@ abstract class AbstractMessageProcessor(
           onTimeout,
         )
       }
-  }
 
   private def registerRequestWithTimeout(
       requestCounter: RequestCounter,

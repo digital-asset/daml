@@ -181,13 +181,12 @@ final case class CommunityDomainConfig(
     with CommunityLocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityDomainConfig] {
 
-  override def withDefaults(ports: DefaultPorts): CommunityDomainConfig = {
+  override def withDefaults(ports: DefaultPorts): CommunityDomainConfig =
     this
       .focus(_.publicApi.internalPort)
       .modify(ports.domainPublicApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
       .modify(ports.domainAdminApiPort.setDefaultPort)
-  }
 }
 
 /** Configuration parameters to connect to a domain running remotely

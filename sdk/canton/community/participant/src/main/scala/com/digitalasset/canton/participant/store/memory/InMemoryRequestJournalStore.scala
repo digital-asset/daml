@@ -118,7 +118,7 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
   override def deleteSince(fromInclusive: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    Future.successful { requestTable.filterInPlace((rc, _) => rc < fromInclusive) }
+    Future.successful(requestTable.filterInPlace((rc, _) => rc < fromInclusive))
 
   override def repairRequests(
       fromInclusive: RequestCounter

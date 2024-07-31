@@ -23,8 +23,7 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
           Fingerprint,
       ) => Either[JavaKeyConversionError, SigningPublicKey],
       convertToName: String,
-  ): Unit = {
-
+  ): Unit =
     s"Convert $name signing public key to Java and back to $convertToName" in {
       for {
         crypto <- newCrypto
@@ -45,7 +44,6 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         publicKey.fingerprint shouldEqual publicKey2.fingerprint
       }
     }
-  }
 
   private def javaEncryptionKeyConvertTest(
       name: String,
@@ -57,8 +55,7 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
           Fingerprint,
       ) => Either[JavaKeyConversionError, EncryptionPublicKey],
       convertToName: String,
-  ): Unit = {
-
+  ): Unit =
     s"Convert $name encryption public key to Java and back to $convertToName" in {
       for {
         crypto <- newCrypto
@@ -80,7 +77,6 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
         message shouldEqual message2
       }
     }
-  }
 
   /** Test conversion of keys from the providers' format to Java and back.
     *

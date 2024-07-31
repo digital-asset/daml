@@ -63,7 +63,7 @@ final class InMemoryParticipantPruningSchedulerStore(
           )
         )
         .toRight(
-          s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead."
+          s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead."
         )
         .map(_ => ())
     }

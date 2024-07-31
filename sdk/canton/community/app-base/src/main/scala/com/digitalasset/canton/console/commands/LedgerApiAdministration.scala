@@ -95,7 +95,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
   protected val name: String
 
   protected lazy val applicationId: String = token
-    .flatMap { encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption }
+    .flatMap(encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption)
     .flatMap(decodedToken => AuthServiceJWTCodec.readFromString(decodedToken.payload).toOption)
     .map {
       case s: StandardJWTPayload => s.userId
@@ -190,7 +190,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             new LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
           endOffset: Option[LedgerOffset] = None,
           verbose: Boolean = true,
-      ): AutoCloseable = {
+      ): AutoCloseable =
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -204,7 +204,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           }
         )
-      }
 
       @Help.Summary("Get flat transactions", FeatureFlag.Testing)
       @Help.Description(
@@ -270,7 +269,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             new LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
           endOffset: Option[LedgerOffset] = None,
           verbose: Boolean = true,
-      ): AutoCloseable = {
+      ): AutoCloseable =
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -284,7 +283,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           }
         )
-      }
 
       @Help.Summary("Starts measuring throughput at the transaction service", FeatureFlag.Testing)
       @Help.Description(
@@ -787,7 +785,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         }
       }
 
-      private def get(party: PartyId, identityProviderId: String = ""): ProtoPartyDetails = {
+      private def get(party: PartyId, identityProviderId: String = ""): ProtoPartyDetails =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.GetParty(
@@ -796,7 +794,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
-      }
 
     }
 
@@ -917,7 +914,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           beginOffset: LedgerOffset =
             new LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
           applicationId: String = applicationId,
-      ): AutoCloseable = {
+      ): AutoCloseable =
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -930,7 +927,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           }
         )
-      }
     }
 
     @Help.Summary("Retrieve the ledger configuration", FeatureFlag.Testing)
@@ -1012,7 +1008,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
 
       @Help.Summary("Delete an identity provider configuration", FeatureFlag.Testing)
       @Help.Description("""Delete an existing identity provider configuration""")
-      def delete(identityProviderId: String): Unit = {
+      def delete(identityProviderId: String): Unit =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Delete(
@@ -1020,7 +1016,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
-      }
 
       @Help.Summary("Get an identity provider configuration", FeatureFlag.Testing)
       @Help.Description("""Get identity provider configuration by id""")
@@ -1224,7 +1219,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         }
       }
 
-      private def doGet(id: String, identityProviderId: String): LedgerApiUser = {
+      private def doGet(id: String, identityProviderId: String): LedgerApiUser =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.Get(
@@ -1233,7 +1228,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
-      }
 
       @Help.Summary("Manage Ledger Api User Rights", FeatureFlag.Testing)
       @Help.Group("Ledger Api User Rights")
@@ -1786,7 +1780,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       at: Map[ParticipantReferenceCommon, PartyId],
       timeout: config.NonNegativeDuration,
   ): Unit = {
-    def scan() = {
+    def scan() =
       at.map { case (participant, party) =>
         (
           participant,
@@ -1794,7 +1788,6 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
           participant.ledger_api.transactions.by_id(Set(party), transactionId).isDefined,
         )
       }
-    }
     ConsoleMacros.utils.retry_until_true(timeout)(
       scan().forall(_._3), {
         val res = scan().map { case (participant, party, res) =>
@@ -1872,7 +1865,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       tx: Tx,
       txId: String,
       optTimeout: Option[config.NonNegativeDuration],
-  ): Tx = {
+  ): Tx =
     optTimeout match {
       case None => tx
       case Some(timeout) =>
@@ -1881,5 +1874,4 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
         awaitTransaction(txId, involved, timeout)
         tx
     }
-  }
 }

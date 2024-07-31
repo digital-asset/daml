@@ -22,14 +22,13 @@ private[commands] class GrpcByteChunksToFileObserver[
 ) extends StreamObserver[T] {
   private val os: FileOutputStream = inputFile.newFileOutputStream(append = false)
 
-  override def onNext(value: T): Unit = {
+  override def onNext(value: T): Unit =
     Try(os.write(value.chunk.toByteArray)) match {
       case Failure(exception) =>
         ResourceUtil.closeAndAddSuppressed(Some(exception), os)
         throw exception
       case Success(_) => // all good
     }
-  }
 
   override def onError(t: Throwable): Unit = {
     requestComplete.tryFailure(t).discard

@@ -78,7 +78,7 @@ class ReassignmentStreamReader(
         maxOutputBatchCount: Int,
         metric: DatabaseMetrics,
         idDbQuery: IdDbQuery,
-    ): Source[Iterable[Long], NotUsed] = {
+    ): Source[Iterable[Long], NotUsed] =
       decomposedFilters
         .map { filter =>
           paginatingAsyncStream.streamIdsFromSeekPagination(
@@ -110,7 +110,6 @@ class ReassignmentStreamReader(
             maxBatchCount = maxOutputBatchCount,
           )
         )
-    }
 
     def fetchPayloads[T](
         ids: Source[Iterable[Long], NotUsed],
@@ -184,7 +183,7 @@ class ReassignmentStreamReader(
       .map(response => ApiOffset.assertFromString(response.offset) -> response)
   }
 
-  private def toApiUnassigned(rawUnassignEvent: RawUnassignEvent): Future[Reassignment] = {
+  private def toApiUnassigned(rawUnassignEvent: RawUnassignEvent): Future[Reassignment] =
     Timed.future(
       future = Future {
         Reassignment(
@@ -199,11 +198,10 @@ class ReassignmentStreamReader(
       },
       timer = dbMetrics.reassignmentStream.translationTimer,
     )
-  }
 
   private def toApiAssigned(eventProjectionProperties: EventProjectionProperties)(
       rawAssignEvent: RawAssignEvent
-  )(implicit lc: LoggingContextWithTrace): Future[Reassignment] = {
+  )(implicit lc: LoggingContextWithTrace): Future[Reassignment] =
     Timed.future(
       future = Future.delegate(
         TransactionsReader
@@ -227,7 +225,6 @@ class ReassignmentStreamReader(
       ),
       timer = dbMetrics.reassignmentStream.translationTimer,
     )
-  }
 
 }
 

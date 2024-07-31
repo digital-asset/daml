@@ -96,7 +96,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
   private def findDuplicates(
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): Future[Seq[Option[EffectiveTime]]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[Option[EffectiveTime]]] =
     Future.sequence(
       transactions.map { tx =>
         // skip duplication check for non-adds
@@ -114,7 +114,6 @@ class IncomingTopologyTransactionAuthorizationValidator(
         }
       }
     )
-  }
 
   /** Validates the provided domain topology transactions and applies the certificates to the auth state
     *
@@ -137,7 +136,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
     val loadUidsF =
       loadIdentifierDelegationsCascading(timestamp, updateAggregation, updateAggregation.authChecks)
 
-    logger.debug(s"Update aggregation yielded ${updateAggregation}")
+    logger.debug(s"Update aggregation yielded $updateAggregation")
 
     for {
       _ <- loadGraphsF
@@ -200,13 +199,12 @@ class IncomingTopologyTransactionAuthorizationValidator(
       traceContext: TraceContext
   ): Future[Seq[Fingerprint]] = {
     @nowarn("msg=match may not be exhaustive")
-    def intersect(sets: Seq[Set[Fingerprint]]): Set[Fingerprint] = {
+    def intersect(sets: Seq[Set[Fingerprint]]): Set[Fingerprint] =
       sets match {
         case Seq() => Set()
         case Seq(one, rest @ _*) =>
           rest.foldLeft(one) { case (acc, elem) => acc.intersect(elem) }
       }
-    }
     val loadGF = loadAuthorizationGraphs(asOf, mapping.requiredAuth.namespaces._1.toSet)
     val loadIDF = loadIdentifierDelegations(asOf, Seq(), mapping.requiredAuth.uids.toSet)
     for {

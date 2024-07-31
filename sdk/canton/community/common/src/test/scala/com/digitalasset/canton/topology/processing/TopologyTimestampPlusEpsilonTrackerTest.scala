@@ -82,9 +82,8 @@ class TopologyTimestampPlusEpsilonTrackerTest
         .futureValue
     }
 
-    def initTracker(ts: CantonTimestamp): Unit = {
+    def initTracker(ts: CantonTimestamp): Unit =
       unwrap(TopologyTimestampPlusEpsilonTracker.initialize(tracker, store, ts)).futureValue
-    }
 
     def init(): Unit = {
       val myTs = ts.immediatePredecessor
@@ -100,9 +99,8 @@ class TopologyTimestampPlusEpsilonTrackerTest
 
   type FixtureParam = Fixture
 
-  override protected def withFixture(test: OneArgTest): Outcome = {
+  override protected def withFixture(test: OneArgTest): Outcome =
     test(new Fixture)
-  }
 
   private def unwrap[T](fut: FutureUnlessShutdown[T]): Future[T] =
     fut.onShutdown(fail("should not receive a shutdown"))

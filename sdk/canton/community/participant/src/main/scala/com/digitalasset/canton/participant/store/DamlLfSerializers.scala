@@ -63,7 +63,7 @@ private[store] object DamlLfSerializers {
 
   private def deserializeNode(
       proto: TransactionOuterClass.Node
-  ): Either[DecodeError, protocol.LfNode] = {
+  ): Either[DecodeError, protocol.LfNode] =
     for {
       version <- TransactionCoder.decodeVersion(proto.getVersion)
       idAndNode <- CantonOnly.decodeVersionedNode(
@@ -74,11 +74,10 @@ private[store] object DamlLfSerializers {
       )
       (_, node) = idAndNode
     } yield node
-  }
 
   def deserializeCreateNode(
       proto: TransactionOuterClass.Node
-  ): Either[DecodeError, protocol.LfNodeCreate] = {
+  ): Either[DecodeError, protocol.LfNodeCreate] =
     for {
       node <- deserializeNode(proto)
       createNode <- node match {
@@ -89,11 +88,10 @@ private[store] object DamlLfSerializers {
           )
       }
     } yield createNode
-  }
 
   def deserializeExerciseNode(
       proto: TransactionOuterClass.Node
-  ): Either[DecodeError, protocol.LfNodeExercises] = {
+  ): Either[DecodeError, protocol.LfNodeExercises] =
     for {
       node <- deserializeNode(proto)
       exerciseNode <- node match {
@@ -104,7 +102,6 @@ private[store] object DamlLfSerializers {
           )
       }
     } yield exerciseNode
-  }
 
   def serializeNode(
       node: LfActionNode

@@ -28,7 +28,7 @@ object FetchLatestEventsFlow {
     // if this assumptions are violated.
     val stateRef = new AtomicReference[State](initialState)
 
-    def fetchAllEventsUntilEmpty(): Source[Seq[Out], NotUsed] = {
+    def fetchAllEventsUntilEmpty(): Source[Seq[Out], NotUsed] =
       Source.unfoldAsync((stateRef.get(), false)) {
         case (_, true) => Future.successful(None)
         case (state, false) =>
@@ -42,7 +42,6 @@ object FetchLatestEventsFlow {
             Some(((newState, reachedHead), events))
           }
       }
-    }
 
     Flow[ReadSignal]
       .buffer(1, OverflowStrategy.dropHead)

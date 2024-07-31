@@ -62,7 +62,7 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
       "org.wartremover.warts.Null",
     )
   )
-  override def equals(that: Any): Boolean = {
+  override def equals(that: Any): Boolean =
     if (this eq that.asInstanceOf[Object]) true
     else if (!that.isInstanceOf[EncryptedView[_]]) false
     else {
@@ -70,7 +70,6 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
       val thisViewTree = this.viewTree
       if (thisViewTree eq null) other.viewTree eq null else thisViewTree == other.viewTree
     }
-  }
   override def hashCode(): Int = scala.runtime.ScalaRunTime._hashCode(this)
 
   /** Cast the type parameter to the given argument's [[com.digitalasset.canton.data.ViewType]]
@@ -208,12 +207,11 @@ sealed trait EncryptedViewMessage[+VT <: ViewType] extends UnsignedProtocolMessa
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def traverse[F[_], VT2 <: ViewType](
       f: EncryptedView[VT] => F[EncryptedView[VT2]]
-  )(implicit F: Functor[F]): F[EncryptedViewMessage[VT2]] = {
+  )(implicit F: Functor[F]): F[EncryptedViewMessage[VT2]] =
     F.map(f(encryptedView)) { newEncryptedView =>
       if (newEncryptedView eq encryptedView) this.asInstanceOf[EncryptedViewMessage[VT2]]
       else updateView(newEncryptedView)
     }
-  }
 
   override def pretty: Pretty[EncryptedViewMessage.this.type] = prettyOfClass(
     param("view hash", _.viewHash),
@@ -507,12 +505,11 @@ object EncryptedViewMessageV1 {
 
   private def serializeRandomnessEntry(
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]
-  ): v1.ParticipantRandomnessLookup = {
+  ): v1.ParticipantRandomnessLookup =
     v1.ParticipantRandomnessLookup(
       randomness = encryptedRandomness.ciphertext,
       fingerprint = encryptedRandomness.encryptedFor.toProtoPrimitive,
     )
-  }
 
   private def deserializeRandomnessEntry(
       randomnessLookup: v1.ParticipantRandomnessLookup
@@ -606,12 +603,11 @@ object EncryptedViewMessageV2 {
 
   private def serializeSessionKeyEntry(
       encryptedSessionKey: AsymmetricEncrypted[SecureRandomness]
-  ): v2.SessionKeyLookup = {
+  ): v2.SessionKeyLookup =
     v2.SessionKeyLookup(
       sessionKeyRandomness = encryptedSessionKey.ciphertext,
       fingerprint = encryptedSessionKey.encryptedFor.toProtoPrimitive,
     )
-  }
 
   private def deserializeSessionKeyEntry(
       sessionKeyLookup: v2.SessionKeyLookup
@@ -908,8 +904,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, EncryptedViewMessageError, VT#View] = {
-
+  ): EitherT[Future, EncryptedViewMessageError, VT#View] =
     // verify that the view symmetric encryption scheme is part of the required schemes
     if (
       !staticDomainParameters.requiredSymmetricKeySchemes
@@ -942,7 +937,6 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         )
       } yield decrypted
     }
-  }
 
   implicit val encryptedViewMessageCast
       : ProtocolMessageContentCast[EncryptedViewMessage[ViewType]] =

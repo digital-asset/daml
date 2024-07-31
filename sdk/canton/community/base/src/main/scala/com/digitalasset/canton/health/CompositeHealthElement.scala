@@ -46,11 +46,10 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
     })
   }
 
-  private def unregisterFromAll(): Unit = {
+  private def unregisterFromAll(): Unit =
     dependencies.foreachEntry((_, element) =>
       element.unregisterOnHealthChange(dependencyListener).discard[Boolean]
     )
-  }
 
   protected def getDependencies: Map[ID, HE] = dependencies.readOnlySnapshot().toMap
 

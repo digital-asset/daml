@@ -34,7 +34,7 @@ final class DbPruningSchedulerStore(
 
   override def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     processingTime
       .event {
         storage.update_(
@@ -58,7 +58,6 @@ final class DbPruningSchedulerStore(
           functionFullName,
         )
       }
-  }
 
   override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = processingTime
     .event {
@@ -139,6 +138,6 @@ final class DbPruningSchedulerStore(
     Either.cond(
       rowCount > 0,
       (),
-      s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead.",
+      s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead.",
     )
 }

@@ -48,12 +48,11 @@ class GrpcHealthServer(
 
   private val closeable = toCloseableServer(server, logger, "HealthServer")
 
-  def setStatus(serviceName: String, status: ServingStatus): Unit = {
+  def setStatus(serviceName: String, status: ServingStatus): Unit =
     healthManager.setStatus(
       serviceName,
       status,
     )
-  }
 
   override def onClosed(): Unit = {
     healthManager.enterTerminalState()

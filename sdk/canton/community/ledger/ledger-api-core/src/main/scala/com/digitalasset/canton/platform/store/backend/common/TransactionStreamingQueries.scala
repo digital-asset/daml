@@ -119,7 +119,7 @@ class TransactionStreamingQueries(
   def fetchEventPayloadsFlat(target: EventPayloadSourceForFlatTx)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] =
     target match {
       case EventPayloadSourceForFlatTx.Consuming =>
         fetchFlatEvents(
@@ -136,12 +136,11 @@ class TransactionStreamingQueries(
           allFilterParties = allFilterParties,
         )(connection)
     }
-  }
 
   def fetchEventPayloadsTree(target: EventPayloadSourceForTreeTx)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
     target match {
       case EventPayloadSourceForTreeTx.Consuming =>
         fetchTreeEvents(
@@ -168,7 +167,6 @@ class TransactionStreamingQueries(
           allFilterParties = allFilterParties,
         )(connection)
     }
-  }
 
   def fetchIdsOfCreateEventsForStakeholder(
       stakeholder: Ref.Party,
@@ -176,7 +174,7 @@ class TransactionStreamingQueries(
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
-  )(connection: Connection): Vector[Long] = {
+  )(connection: Connection): Vector[Long] =
     TransactionStreamingQueries.fetchEventIds(
       tableName = "pe_create_id_filter_stakeholder",
       witness = stakeholder,
@@ -186,7 +184,6 @@ class TransactionStreamingQueries(
       limit = limit,
       stringInterning = stringInterning,
     )(connection)
-  }
 
   private def fetchIdsOfConsumingEventsForStakeholder(
       stakeholder: Ref.Party,
@@ -194,7 +191,7 @@ class TransactionStreamingQueries(
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
-  )(connection: Connection): Vector[Long] = {
+  )(connection: Connection): Vector[Long] =
     TransactionStreamingQueries.fetchEventIds(
       tableName = "pe_consuming_id_filter_stakeholder",
       witness = stakeholder,
@@ -204,7 +201,6 @@ class TransactionStreamingQueries(
       limit = limit,
       stringInterning = stringInterning,
     )(connection)
-  }
 
   private def fetchFlatEvents(
       tableName: String,
@@ -273,7 +269,7 @@ object TransactionStreamingQueries {
       endInclusive: Long,
       limit: Int,
       stringInterning: StringInterning,
-  )(connection: Connection): Vector[Long] = {
+  )(connection: Connection): Vector[Long] =
     (
       stringInterning.party.tryInternalize(witness),
       templateIdO.map(stringInterning.templateId.tryInternalize),
@@ -308,6 +304,5 @@ object TransactionStreamingQueries {
        """
           .asVectorOf(long("event_sequential_id"))(connection)
     }
-  }
 
 }

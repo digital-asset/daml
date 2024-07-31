@@ -11,14 +11,12 @@ import org.scalatest.wordspec.AnyWordSpec
   */
 class ExampleTransactionFactoryTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  forEvery(ConfirmationPolicy.values)(policy => {
-
+  forEvery(ConfirmationPolicy.values) { policy =>
     s"With policy $policy" when {
 
       val factory = new ExampleTransactionFactory()(confirmationPolicy = policy)
 
-      forEvery(factory.standardHappyCases)(example => {
-
+      forEvery(factory.standardHappyCases) { example =>
         s"creating $example" can {
 
           "determine the informees" in {
@@ -111,7 +109,7 @@ class ExampleTransactionFactoryTest extends AnyWordSpec with BaseTest with HasEx
             }
           }
         }
-      })
+      }
     }
-  })
+  }
 }

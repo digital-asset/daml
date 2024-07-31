@@ -16,18 +16,16 @@ class LoadGaugeTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     val now = new AtomicLong(0)
     val gauge = new LoadGauge(1000.millis, now.get() * 1000000)
 
-    def run(ms: Long): Unit = {
+    def run(ms: Long): Unit =
       Await.result(
         gauge.event(Future[Unit] {
           advance(ms)
         }),
         1.seconds,
       )
-    }
 
-    def advance(ms: Long): Unit = {
+    def advance(ms: Long): Unit =
       now.updateAndGet(_ + ms)
-    }
 
   }
 

@@ -67,7 +67,7 @@ class SyncDomainEphemeralStateFactoryImpl(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[SyncDomainEphemeralState] = {
+  ): Future[SyncDomainEphemeralState] =
     for {
       startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
         persistentState.domainId,
@@ -94,7 +94,6 @@ class SyncDomainEphemeralStateFactoryImpl(
         clock,
       )
     }
-  }
 }
 
 object SyncDomainEphemeralStateFactory {
@@ -431,7 +430,7 @@ object SyncDomainEphemeralStateFactory {
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[CantonTimestamp] =
     // Crash recovery cleans up the stores before replay starts,
     // however we may have used some of the deleted information to determine the starting points for the replay.
     // So if a crash occurs during crash recovery, we may start again and come up with an earlier processing starting point.
@@ -456,7 +455,6 @@ object SyncDomainEphemeralStateFactory {
         _.fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
       }
     } yield requestReplayTs.min(preheadSequencerCounterTs)
-  }
 
   def cleanupPersistentState(
       persistentState: SyncDomainPersistentState,

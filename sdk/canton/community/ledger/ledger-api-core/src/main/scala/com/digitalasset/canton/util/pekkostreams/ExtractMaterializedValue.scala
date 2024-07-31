@@ -42,7 +42,7 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
             }
           }
 
-          private def setSimplerHandler(): Unit = {
+          private def setSimplerHandler(): Unit =
             setHandler(
               inlet,
               new InHandler {
@@ -50,7 +50,6 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
                   push(outlet, grab(inlet))
               },
             )
-          }
 
           override def onUpstreamFailure(ex: Throwable): Unit = {
             promise.tryFailure(ex).discard

@@ -71,10 +71,9 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def setSequencingInfo[B <: SubmissionSequencingInfo](
       newSequencingInfo: B
-  ): InFlightSubmission[B] = {
+  ): InFlightSubmission[B] =
     if (sequencingInfo eq newSequencingInfo) this.asInstanceOf[InFlightSubmission[B]]
     else this.copy(sequencingInfo = newSequencingInfo)
-  }
 
   private[participant] def associatedTimestamp: CantonTimestamp =
     (sequencingInfo: @unchecked) match {

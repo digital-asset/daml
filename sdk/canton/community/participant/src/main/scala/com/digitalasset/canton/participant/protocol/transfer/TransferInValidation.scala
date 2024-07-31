@@ -115,7 +115,7 @@ private[transfer] class TransferInValidation(
         for {
           _ready <- {
             logger.info(
-              s"Waiting for topology state at ${transferOutTimestamp} on transfer-out domain $sourceDomain ..."
+              s"Waiting for topology state at $transferOutTimestamp on transfer-out domain $sourceDomain ..."
             )
             EitherT(
               transferCoordination

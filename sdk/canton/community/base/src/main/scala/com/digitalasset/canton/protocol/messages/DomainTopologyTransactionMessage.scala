@@ -94,9 +94,8 @@ final case class DomainTopologyTransactionMessage private (
     DomainTopologyTransactionMessage
 
   @VisibleForTesting
-  def replaceSignatureForTesting(signature: Signature): DomainTopologyTransactionMessage = {
+  def replaceSignatureForTesting(signature: Signature): DomainTopologyTransactionMessage =
     copy(domainTopologyManagerSignature = signature)(representativeProtocolVersion)
-  }
 
 }
 

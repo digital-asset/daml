@@ -70,7 +70,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
 
     def readableLoggerName(maxLength: Int): Shown = {
       @tailrec
-      def go(result: String): String = {
+      def go(result: String): String =
         if (result.length <= maxLength) {
           result
         } else {
@@ -81,7 +81,6 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
             go(newResult)
           }
         }
-      }
 
       Shown(go(s))
     }

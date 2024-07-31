@@ -79,9 +79,9 @@ class WatermarkTracker[Mark: Pretty](
   // This data structure could probably be implemented without locks,
   // but it doesn't seem worth the effort for now.
   private val lock: AnyRef = new Object
-  private def withLock[A](body: => A): A = blocking { lock.synchronized(body) }
+  private def withLock[A](body: => A): A = blocking(lock.synchronized(body))
 
-  override def highWatermark: Mark = withLock { highWatermarkV }
+  override def highWatermark: Mark = withLock(highWatermarkV)
 
   /** Run a task `task` if `mark` > [[highWatermark]].
     *

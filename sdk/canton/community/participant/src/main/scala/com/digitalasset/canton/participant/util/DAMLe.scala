@@ -229,7 +229,7 @@ class DAMLe(
       submitters: Set[LfPartyId],
       command: LfCreateCommand,
       ledgerEffectiveTime: LedgerCreateTime,
-  )(implicit traceContext: TraceContext): EitherT[Future, Error, LfNodeCreate] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, LfNodeCreate] =
     LoggingContextUtil.createLoggingContext(loggerFactory) { implicit loggingContext =>
       val result = engine.reinterpret(
         submitters = submitters,
@@ -254,7 +254,6 @@ class DAMLe(
         create <- EitherT.pure[Future, Error](singleCreate)
       } yield create
     }
-  }
 
   def contractWithMetadata(contractInstance: LfContractInst, supersetOfSignatories: Set[LfPartyId])(
       implicit traceContext: TraceContext

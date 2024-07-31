@@ -86,7 +86,7 @@ class TopologyComponentFactoryOld(
   override def createTopologyClient(
       protocolVersion: ProtocolVersion,
       packageDependencies: PackageDependencyResolverUS,
-  )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit = {
+  )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
     new StoreBasedDomainTopologyClient(
       clock,
       domainId = domainId,
@@ -99,7 +99,6 @@ class TopologyComponentFactoryOld(
       loggerFactory,
       useStateTxs = false,
     )
-  }
 
   override def createCachingTopologyClient(
       protocolVersion: ProtocolVersion,

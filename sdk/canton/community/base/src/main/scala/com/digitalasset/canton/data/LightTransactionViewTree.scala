@@ -40,7 +40,7 @@ sealed abstract class LightTransactionViewTree private[data] (
   private[data] override def findTheView(
       viewsWithIndex: Seq[(TransactionView, MerklePathElement)],
       viewPosition: ViewPosition = ViewPosition.root,
-  ): Either[String, (TransactionView, ViewPosition)] = {
+  ): Either[String, (TransactionView, ViewPosition)] =
     viewsWithIndex match {
       case Seq() =>
         Left("A light transaction view tree must contain an unblinded view.")
@@ -57,7 +57,6 @@ sealed abstract class LightTransactionViewTree private[data] (
             s"${multipleViews.map(_._1)}"
         )
     }
-  }
 
   override def validated: Either[String, this.type] = for {
 

@@ -58,7 +58,7 @@ private[apiserver] final class CommandCompletionServiceImpl private (
       request: CompletionStreamRequest
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): Source[CompletionStreamResponse, NotUsed] = {
+  ): Source[CompletionStreamResponse, NotUsed] =
     Source.future(getLedgerEndImpl).flatMapConcat { ledgerEnd =>
       validator
         .validateCompletionStreamRequest(request, ledgerEnd)(
@@ -79,7 +79,6 @@ private[apiserver] final class CommandCompletionServiceImpl private (
           )(processCompletionStreamRequest(_)),
         )
     }
-  }
 
   private def processCompletionStreamRequest(implicit
       loggingContext: LoggingContextWithTrace

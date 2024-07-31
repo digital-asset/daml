@@ -136,7 +136,7 @@ object DomainParametersLookup {
       topologyClient: DomainTopologyClient,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DomainParametersLookup[PositiveSeconds] = {
+  )(implicit ec: ExecutionContext): DomainParametersLookup[PositiveSeconds] =
     if (
       staticDomainParameters.protocolVersion < ProtocolVersion.v4
     ) // TODO(#17313) - Reconsider removing if not needed
@@ -149,7 +149,6 @@ object DomainParametersLookup {
         futureSupervisor,
         loggerFactory,
       )
-  }
 
   def forSequencerDomainParameters(
       staticDomainParameters: StaticDomainParameters,
@@ -157,7 +156,7 @@ object DomainParametersLookup {
       topologyClient: DomainTopologyClient,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DomainParametersLookup[SequencerDomainParameters] = {
+  )(implicit ec: ExecutionContext): DomainParametersLookup[SequencerDomainParameters] =
     new DynamicDomainParametersLookup(
       params =>
         SequencerDomainParameters(
@@ -169,7 +168,6 @@ object DomainParametersLookup {
       futureSupervisor,
       loggerFactory,
     )
-  }
 
   final case class SequencerDomainParameters(
       maxRatePerParticipant: NonNegativeInt,

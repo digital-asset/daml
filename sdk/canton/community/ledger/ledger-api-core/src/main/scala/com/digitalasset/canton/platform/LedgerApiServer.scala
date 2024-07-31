@@ -27,7 +27,7 @@ object LedgerApiServer {
       maxEventsByContractKeyCacheSize: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
+  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] =
     for {
       inMemoryState <- InMemoryState.owner(
         commandProgressTracker = commandProgressTracker,
@@ -55,5 +55,4 @@ object LedgerApiServer {
         multiDomainEnabled = multiDomainEnabled,
       )
     } yield inMemoryState -> inMemoryStateUpdater
-  }
 }

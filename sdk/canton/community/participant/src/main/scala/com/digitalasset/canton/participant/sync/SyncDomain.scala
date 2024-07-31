@@ -356,7 +356,7 @@ class SyncDomain(
           )
         }
 
-    def lookupChangeMetadata(change: ActiveContractIdsChange): Future[AcsChange] = {
+    def lookupChangeMetadata(change: ActiveContractIdsChange): Future[AcsChange] =
       for {
         // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
@@ -393,7 +393,6 @@ class SyncDomain(
             .toMap,
         )
       }
-    }
 
     // pre-inform the ACS commitment processor about upcoming topology changes.
     // as we future date the topology changes, they happen at an effective time
@@ -417,7 +416,7 @@ class SyncDomain(
 
     def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] = {
+    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] =
       liftF(for {
         contractIdChanges <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive)
@@ -439,7 +438,6 @@ class SyncDomain(
         )
         changes
       })
-    }
 
     def initializeClientAtCleanHead(): Future[Unit] = {
       // generally, the topology client will be initialised by the topology processor. however,
@@ -622,7 +620,7 @@ class SyncDomain(
               tracedEvents: BoxedEnvelope[Lambda[
                 `+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]
               ], ClosedEnvelope]
-          ): HandlerResult = {
+          ): HandlerResult =
             tracedEvents.withTraceContext { traceContext => closedEvents =>
               val openEvents = closedEvents.map { event =>
                 val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
@@ -648,7 +646,6 @@ class SyncDomain(
 
               messageDispatcher.handleAll(Traced(openEvents)(traceContext))
             }
-          }
         }
       eventHandler = monitor(messageHandler)
 

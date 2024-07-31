@@ -128,7 +128,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
       algorithm: v0.CompressedBatch.CompressionAlgorithm,
       compressed: ByteString,
       maxRequestSize: Option[NonNegativeInt],
-  ): ParsingResult[ByteString] = {
+  ): ParsingResult[ByteString] =
     algorithm match {
       case v0.CompressedBatch.CompressionAlgorithm.None => Right(compressed)
       case v0.CompressedBatch.CompressionAlgorithm.Gzip =>
@@ -137,7 +137,6 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[_]], Batch[Cl
           .leftMap(_.toProtoDeserializationError)
       case _ => Left(FieldNotSet("CompressedBatch.Algorithm"))
     }
-  }
 
   /** Constructs a batch with no envelopes */
   def empty[Env <: Envelope[_]](protocolVersion: ProtocolVersion): Batch[Env] =

@@ -82,9 +82,8 @@ trait DbTopologyStoreTest extends TopologyStoreTest {
     def ts(ms: Long) = CantonTimestamp.Epoch.plusMillis(ms)
     def validated(
         txs: SignedTopologyTransaction[TopologyChangeOp]*
-    ): List[ValidatedTopologyTransaction] = {
+    ): List[ValidatedTopologyTransaction] =
       txs.toList.map(ValidatedTopologyTransaction(_, None))
-    }
     def append(
         sequenced: CantonTimestamp,
         effective: CantonTimestamp,
@@ -135,13 +134,12 @@ trait DbTopologyStoreTest extends TopologyStoreTest {
       // load transactions (triggers recomputation)
       txs <- store.headTransactions
     } yield {
-      def grabTs(tx: SignedTopologyTransaction[TopologyChangeOp]): CantonTimestamp = {
+      def grabTs(tx: SignedTopologyTransaction[TopologyChangeOp]): CantonTimestamp =
         txs.result
           .find(_.transaction == tx)
-          .valueOrFail(s"can not find transaction ${tx}")
+          .valueOrFail(s"can not find transaction $tx")
           .sequenced
           .value
-      }
       grabTs(ns1k1) shouldBe ts(0)
       grabTs(id1k1) shouldBe ts(10)
       grabTs(ns1k2) shouldBe ts(50)

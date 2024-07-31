@@ -40,11 +40,10 @@ class MediatorResponseTest extends AnyWordSpec with BaseTest with HasCryptograph
     testedProtocolVersion,
   )
 
-  def fromByteString(bytes: ByteString): MediatorResponse = {
+  def fromByteString(bytes: ByteString): MediatorResponse =
     MediatorResponse
       .fromByteString(testedProtocolVersion)(bytes)
       .valueOr(err => fail(err.toString))
-  }
 
   "ConfirmationResponse" should {
     behave like hasCryptographicEvidenceSerialization(response1, response2)

@@ -197,7 +197,7 @@ class DbRegisterTopologyTransactionResponseStore(
         storage,
         "register_topology_transaction_responses(request_id)",
         sql"""register_topology_transaction_responses(request_id, response, completed)
-                   values(${response.requestId},${response},${false})""",
+                   values(${response.requestId},$response,${false})""",
       ),
       functionFullName,
     )

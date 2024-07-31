@@ -137,7 +137,7 @@ object CantonNodeBootstrapCommon {
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
     keyIdO <- findPubKeyIdByFingerprint(fingerprint)
       .leftMap(err =>
-        s"Failure while looking for $typ fingerprint $fingerprint in public store: ${err}"
+        s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
       )
     pubKey <- keyIdO.fold(
       EitherT.leftT[Future, P](s"$typ key with fingerprint $fingerprint does not exist")
@@ -165,7 +165,7 @@ object CantonNodeBootstrapCommon {
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
     keyName <- EitherT.fromEither[Future](KeyName.create(name))
     keyIdO <- findPubKeyIdByName(keyName)
-      .leftMap(err => s"Failure while looking for $typ key $name in public store: ${err}")
+      .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

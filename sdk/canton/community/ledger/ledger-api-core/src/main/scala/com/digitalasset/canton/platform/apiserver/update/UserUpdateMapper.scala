@@ -17,7 +17,7 @@ object UserUpdateMapper extends UpdateMapperBase {
 
   override val fullResourceTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie
 
-  override def makeUpdateObject(user: User, updateTrie: UpdatePathsTrie): Result[UserUpdate] = {
+  override def makeUpdateObject(user: User, updateTrie: UpdatePathsTrie): Result[UserUpdate] =
     for {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, user.metadata.annotations)
       primaryPartyUpdate <- resolvePrimaryPartyUpdate(updateTrie, user.primaryParty)
@@ -34,7 +34,6 @@ object UserUpdateMapper extends UpdateMapperBase {
         ),
       )
     }
-  }
 
   def resolveAnnotationsUpdate(
       updateTrie: UpdatePathsTrie,

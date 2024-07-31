@@ -29,7 +29,7 @@ class InMemoryCryptoPublicStore(override implicit val ec: ExecutionContext)
 
   override protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] = {
+  ): EitherT[Future, CryptoPublicStoreError, Unit] =
     TrieMapUtil
       .insertIfAbsent(
         storedSigningKeyMap,
@@ -38,7 +38,6 @@ class InMemoryCryptoPublicStore(override implicit val ec: ExecutionContext)
         errorKeyDuplicate[SigningPublicKeyWithName] _,
       )
       .toEitherT
-  }
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -52,7 +51,7 @@ class InMemoryCryptoPublicStore(override implicit val ec: ExecutionContext)
 
   override protected def writeEncryptionKey(key: EncryptionPublicKey, name: Option[KeyName])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] = {
+  ): EitherT[Future, CryptoPublicStoreError, Unit] =
     TrieMapUtil
       .insertIfAbsent(
         storedEncryptionKeyMap,
@@ -61,7 +60,6 @@ class InMemoryCryptoPublicStore(override implicit val ec: ExecutionContext)
         errorKeyDuplicate[EncryptionPublicKeyWithName] _,
       )
       .toEitherT
-  }
 
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext

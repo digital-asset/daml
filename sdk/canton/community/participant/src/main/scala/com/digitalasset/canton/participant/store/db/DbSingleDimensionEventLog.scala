@@ -58,7 +58,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
 
   override def insertsUnlessEventIdClash(
       events: Seq[TimestampedEvent]
-  )(implicit traceContext: TraceContext): Future[Seq[Either[TimestampedEvent, Unit]]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[Either[TimestampedEvent, Unit]]] =
     idempotentInserts(events).flatMap { insertResult =>
       insertResult.parTraverse {
         case right @ Right(()) => Future.successful(right)
@@ -71,7 +71,6 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
           }
       }
     }
-  }
 
   private def idempotentInserts(
       events: Seq[TimestampedEvent]
@@ -103,7 +102,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
                   ErrorUtil.internalError(
                     new IllegalArgumentException(
                       show"""Unable to overwrite an existing event. Aborting.
-                            |Existing event: ${existingEvent}
+                            |Existing event: $existingEvent
 
                             |New event: $event""".stripMargin
                     )
@@ -217,8 +216,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
       limit: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LocalOffset, TimestampedEvent]] = {
-
+  ): Future[SortedMap[LocalOffset, TimestampedEvent]] =
     processingTime.event {
       DbSingleDimensionEventLog.lookupEventRange(
         storage = storage,
@@ -230,7 +228,6 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         limit = limit,
       )
     }
-  }
 
   override def eventAt(
       offset: LocalOffset
@@ -374,7 +371,7 @@ object DbSingleDimensionEventLog {
           sql""" order by local_offset asc #${storage
               .limit(limit.getOrElse(Int.MaxValue))}""")
           .as[TimestampedEvent]
-          .map(_.map { event => event.localOffset -> event }),
+          .map(_.map(event => event.localOffset -> event)),
         functionFullName,
       )
     } yield {

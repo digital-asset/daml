@@ -15,13 +15,11 @@ class TraceContextTest extends AnyWordSpec with Matchers with OptionValues with 
 
   var testTelemetrySetup: TestTelemetrySetup = _
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   private def spansAreEqual(span1: Span, span2: Span): Assertion = {
     val ctx1 = span1.getSpanContext

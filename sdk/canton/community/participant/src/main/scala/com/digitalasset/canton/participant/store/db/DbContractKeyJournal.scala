@@ -181,7 +181,7 @@ class DbContractKeyJournal(
 
   override def addKeyStateUpdates(updates: Map[LfGlobalKey, (Status, TimeOfChange)])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ContractKeyJournalError, Unit] = {
+  ): EitherT[Future, ContractKeyJournalError, Unit] =
     MonadUtil.batchedSequentialTraverse_(
       parallelism = batching.parallelism,
       chunkSize = batching.maxItemsInSqlClause,
@@ -256,7 +256,6 @@ class DbContractKeyJournal(
         EitherT(result)
       }
     }
-  }
 
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,

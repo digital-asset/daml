@@ -153,7 +153,7 @@ private[platform] trait StorageBackendTestsDBLock
 
   private def dbLockTestCase(
       numOfConnectionsNeeded: Int
-  )(test: List[Connection] => Assertion): Assertion = {
+  )(test: List[Connection] => Assertion): Assertion =
     if (dbLock.dbLockSupported) {
       // prepending with null so we can refer to connections 1 based in tests
       val connections = null :: List.fill(numOfConnectionsNeeded)(getConnection)
@@ -166,7 +166,6 @@ private[platform] trait StorageBackendTestsDBLock
       )
       succeed
     }
-  }
 }
 
 trait StorageBackendTestsDBLockForSuite

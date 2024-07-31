@@ -78,12 +78,10 @@ class DbInitializationStore(
 
   override def id(implicit traceContext: TraceContext): Future[Option[NodeId]] =
     storage.query(
-      {
-        for {
-          data <- idQuery
-        } yield data.headOption.map { case (identity, fingerprint) =>
-          NodeId(UniqueIdentifier(identity, Namespace(fingerprint)))
-        }
+      for {
+        data <- idQuery
+      } yield data.headOption.map { case (identity, fingerprint) =>
+        NodeId(UniqueIdentifier(identity, Namespace(fingerprint)))
       },
       functionFullName,
     )

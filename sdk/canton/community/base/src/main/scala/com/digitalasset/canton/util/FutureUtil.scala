@@ -38,7 +38,7 @@ object FutureUtil {
         if (closeContext.exists(_.context.isClosing) && level > Level.INFO) {
           LoggerUtil.logThrowableAtLevel(
             Level.INFO,
-            s"Logging the following failure on INFO instead of ${level} due to an ongoing shutdown: $failureMessage",
+            s"Logging the following failure on INFO instead of $level due to an ongoing shutdown: $failureMessage",
             err,
           )
         } else {
@@ -68,11 +68,10 @@ object FutureUtil {
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,
       closeContext: Option[CloseContext] = None,
-  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] = {
+  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] =
     FutureUnlessShutdown(
       logOnFailure(future.unwrap, failureMessage, onFailure, level, closeContext)
     )
-  }
 
   /** Discard `future` and log an error if it does not complete successfully.
     * This is useful to document that a `Future` is intentionally not being awaited upon.
@@ -95,9 +94,8 @@ object FutureUtil {
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,
       closeContext: Option[CloseContext] = None,
-  )(implicit loggingContext: ErrorLoggingContext): Unit = {
+  )(implicit loggingContext: ErrorLoggingContext): Unit =
     doNotAwait(future.unwrap, failureMessage, onFailure, level, closeContext)
-  }
 
   /** Variant of [[doNotAwait]] that also catches non-fatal errors thrown while constructing the future. */
   def catchAndDoNotAwait(
@@ -174,12 +172,11 @@ object FutureUtil {
       stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
       onTimeout: TimeoutException => Unit = _ => (),
   )(implicit loggingContext: ErrorLoggingContext): T = {
-    val warnAfterAdjusted = {
+    val warnAfterAdjusted =
       // if warnAfter is larger than timeout, make a sensible choice
       if (timeout.isFinite && warnAfter.isFinite && warnAfter > timeout) {
         timeout / 2
       } else warnAfter
-    }
 
     // Use Await.ready instead of Await.result to be able to tell the difference between the awaitable throwing a
     // TimeoutException and a TimeoutException being thrown because the awaitable is not ready.
@@ -275,7 +272,7 @@ object FutureUtil {
             val waitedReadable = LoggerUtil.roundDurationForHumans(waited)
             log(
               if (waited >= warnAfter) Level.INFO else Level.DEBUG,
-              s"Task $description still not completed after ${waitedReadable}. Continue waiting...",
+              s"Task $description still not completed after $waitedReadable. Continue waiting...",
             )
             val leftOver = timeout.minus(waited)
             retry(
@@ -291,7 +288,7 @@ object FutureUtil {
       } else {
         val stackTraces = StackTraceUtil.formatStackTrace(stackTraceFilter)
         val msg = s"Task $description did not complete within $timeout."
-        log(Level.WARN, s"${msg} Stack traces:\n${stackTraces}")
+        log(Level.WARN, s"$msg Stack traces:\n$stackTraces")
         Failure(new TimeoutException(msg))
       }
     }

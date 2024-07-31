@@ -36,7 +36,7 @@ class DbDomainParameterStore(
 
   def setParameters(
       newParameters: StaticDomainParameters
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     processingTime.event {
       // We do not check equality of the parameters on the serialized format in the DB query because serialization may
       // be different even though the parameters are the same
@@ -72,7 +72,6 @@ class DbDomainParameterStore(
           }
       }
     }
-  }
 
   def lastParameters(implicit
       traceContext: TraceContext

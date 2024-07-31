@@ -113,8 +113,7 @@ private[dao] sealed class ContractsReader(
   override def lookupActiveContractAndLoadArgument(
       readers: Set[Party],
       contractId: ContractId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
-
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] =
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
@@ -136,7 +135,6 @@ private[dao] sealed class ContractsReader(
           )
         }),
     )
-  }
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
   override def lookupActiveContractWithCachedArgument(
@@ -144,8 +142,7 @@ private[dao] sealed class ContractsReader(
       contractId: ContractId,
       packageName: Option[Ref.PackageName],
       createArgument: Value,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
-
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] =
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
@@ -162,7 +159,6 @@ private[dao] sealed class ContractsReader(
           )
         ),
     )
-  }
 }
 
 private[dao] object ContractsReader {
@@ -173,7 +169,7 @@ private[dao] object ContractsReader {
       metrics: Metrics,
       storageBackend: ContractStorageBackend,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): ContractsReader = {
+  )(implicit ec: ExecutionContext): ContractsReader =
     new ContractsReader(
       contractLoader = contractLoader,
       storageBackend = storageBackend,
@@ -181,29 +177,26 @@ private[dao] object ContractsReader {
       metrics = metrics,
       loggerFactory = loggerFactory,
     )
-  }
 
   private def decompress(
       data: Array[Byte],
       algorithm: Compression.Algorithm,
       timer: Timer,
-  ): InputStream = {
+  ): InputStream =
     Timed.value(
       timer,
       value = algorithm.decompress(new ByteArrayInputStream(data)),
     )
-  }
 
   private def deserializeValue(
       decompressed: InputStream,
       timer: Timer,
       errorContext: String,
-  ): VersionedValue = {
+  ): VersionedValue =
     Timed.value(
       timer,
       value = ValueSerializer.deserializeValue(decompressed, errorContext),
     )
-  }
 
   // The contracts table _does not_ store agreement texts as they are
   // unnecessary for interpretation and validation. The contracts returned

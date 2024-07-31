@@ -8,7 +8,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.{LfTimestamp, ProtoDeserializationError}
-import com.google.protobuf.timestamp.{Timestamp as ProtoTimestamp}
+import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.time.{Duration, Instant}
@@ -58,26 +58,24 @@ object CantonTimestampSecond {
   def max(
       timestamp: CantonTimestampSecond,
       timestamps: CantonTimestampSecond*
-  ): CantonTimestampSecond = {
+  ): CantonTimestampSecond =
     timestamps.foldLeft(timestamp) { case (a, b) =>
       if (a > b) a else b
     }
-  }
 
   def min(
       timestamp: CantonTimestampSecond,
       timestamps: CantonTimestampSecond*
-  ): CantonTimestampSecond = {
+  ): CantonTimestampSecond =
     timestamps.foldLeft(timestamp) { case (a, b) =>
       if (a < b) a else b
     }
-  }
 
   def Epoch = CantonTimestampSecond(LfTimestamp.Epoch)
 
   def MinValue = CantonTimestampSecond(LfTimestamp.MinValue)
 
-  def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[CantonTimestampSecond] = {
+  def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[CantonTimestampSecond] =
     for {
       instant <- ProtoConverter.InstantConverter.fromProtoPrimitive(ts)
       ts <- CantonTimestampSecond
@@ -85,7 +83,6 @@ object CantonTimestampSecond {
         .left
         .map(ProtoDeserializationError.InvariantViolation(_))
     } yield ts
-  }
 
   def ofEpochSecond(seconds: Long): CantonTimestampSecond =
     CantonTimestampSecond(LfTimestamp.assertFromLong(micros = seconds * 1000 * 1000))

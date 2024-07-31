@@ -26,7 +26,7 @@ object SeqUtil {
   def clusterBy[A, K](xs: Seq[A])(key: A => K): Seq[NonEmpty[Seq[A]]] = {
     val grouped = Seq.newBuilder[NonEmpty[Seq[A]]]
 
-    @tailrec def go(remaining: Seq[A]): Unit = {
+    @tailrec def go(remaining: Seq[A]): Unit =
       NonEmpty.from(remaining) match {
         case Some(remainingNE) =>
           val k = key(remainingNE.head1)
@@ -35,7 +35,6 @@ object SeqUtil {
           go(rest)
         case None => ()
       }
-    }
 
     go(xs)
     grouped.result()

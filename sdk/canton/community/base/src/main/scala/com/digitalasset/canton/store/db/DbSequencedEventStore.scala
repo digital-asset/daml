@@ -122,8 +122,7 @@ class DbSequencedEventStore(
 
   override def store(
       events: Seq[OrdinarySerializedEvent]
-  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] = {
-
+  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] =
     if (events.isEmpty) Future.unit
     else
       processingTime.event {
@@ -139,7 +138,6 @@ class DbSequencedEventStore(
           }
         }
       }
-  }
 
   private def bulkInsertQuery(
       events: Seq[PossiblyIgnoredSerializedEvent]

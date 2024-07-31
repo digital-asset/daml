@@ -884,11 +884,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         version: LfTransactionVersion,
         templateId: Option[LfTemplateId],
         protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
-    ): FetchActionDescription = {
+    ): FetchActionDescription =
       create(inputContractId, actors, byKey, version, templateId, protocolVersion).valueOr(err =>
         throw err
       )
-    }
 
     def create(
         inputContractId: LfContractId,

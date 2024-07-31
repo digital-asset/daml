@@ -22,10 +22,9 @@ class CommunityHealthDumpGenerator(
     deriveEncoder[CommunityCantonStatus]
   }
 
-  override def status(): CommunityCantonStatus = {
+  override def status(): CommunityCantonStatus =
     CommunityCantonStatus.getStatus(
       statusMap(environment.config.domainsByString, DomainStatus.fromProtoV0),
       statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV0),
     )
-  }
 }

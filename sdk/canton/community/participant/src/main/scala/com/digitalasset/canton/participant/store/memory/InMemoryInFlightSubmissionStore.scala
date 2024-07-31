@@ -145,7 +145,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
               submission
             else if (unsequenced.timeout < newSequencingInfo.timeout) {
               logger.warn(
-                show"Sequencing timeout for submission (change ID hash $changeIdHash, message Id $messageId on $submissionDomain) is at ${unsequenced.timeout} before ${newSequencingInfo.timeout}. Current data: ${unsequenced}"
+                show"Sequencing timeout for submission (change ID hash $changeIdHash, message Id $messageId on $submissionDomain) is at ${unsequenced.timeout} before ${newSequencingInfo.timeout}. Current data: $unsequenced"
               )
               submission
             } else {

@@ -63,9 +63,8 @@ trait InstanceReferenceCommon
   @Help.Description(
     "Some commands cache values on the client side. Use this command to explicitly clear the caches of these values."
   )
-  def clear_cache(): Unit = {
+  def clear_cache(): Unit =
     topology.clearCache()
-  }
 
   type Status <: NodeStatus.Status
 
@@ -157,11 +156,11 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
   private[console] def startCommand(): ConsoleCommandResult[Unit] =
     startInstance()
-      .toResult({
+      .toResult {
         case m: PendingDatabaseMigration =>
           s"${m.message} Please run `${m.name}.db.migrate` to apply pending migrations"
         case m => m.message
-      })
+      }
 
   private[console] def stopCommand(): ConsoleCommandResult[Unit] =
     try {
@@ -171,11 +170,10 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
     }
 
   protected def migrateInstanceDb(): Either[StartupError, _] = nodes.migrateDatabase(name)
-  protected def repairMigrationOfInstance(force: Boolean): Either[StartupError, Unit] = {
+  protected def repairMigrationOfInstance(force: Boolean): Either[StartupError, Unit] =
     Either
       .cond(force, (), DidntUseForceOnRepairMigration(name))
       .flatMap(_ => nodes.repairDatabaseMigration(name))
-  }
 
   protected def startInstance(): Either[StartupError, Unit] =
     nodes.startAndWait(name)
@@ -192,12 +190,11 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
   override protected[console] def adminCommand[Result](
       grpcCommand: GrpcAdminCommand[_, _, Result]
-  ): ConsoleCommandResult[Result] = {
+  ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
       consoleEnvironment.grpcAdminCommandRunner
         .runCommand(name, grpcCommand, config.clientAdminApi, None)
     )
-  }
 
 }
 
@@ -269,12 +266,11 @@ trait DomainReference
 
   override protected val loggerFactory: NamedLoggerFactory = NamedLoggerFactory("domain", name)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: DomainReference => x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
   @Help.Summary("Inspect configured parties")
   @Help.Group("Parties")
@@ -575,13 +571,12 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
   def config: RemoteParticipantConfig =
     consoleEnvironment.environment.config.remoteParticipantsByString(name)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: RemoteParticipantReference =>
         x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
 }
 
@@ -653,13 +648,12 @@ class LocalParticipantReference(
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: LocalParticipantReference =>
         x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
   override def runningNode: Option[CantonNodeBootstrap[ParticipantNode]] =
     consoleEnvironment.environment.participants.getRunning(name)
