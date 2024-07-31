@@ -140,6 +140,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       keyOpt = key,
       byKey = samBool1,
       version = version,
+      isInterfaceFetch = false,
     )
 
   private val someLookups: Seq[Node] =

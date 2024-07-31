@@ -432,7 +432,7 @@ sealed abstract class HasTxNodes {
     fold(Set.empty[Cid2]) {
       case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.LookupByKey(_, _, _, Some(coid), _))) =>
         acc + coid

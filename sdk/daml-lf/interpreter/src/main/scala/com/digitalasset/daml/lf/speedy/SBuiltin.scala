@@ -1254,6 +1254,7 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Only for interface fetches
   final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1265,6 +1266,7 @@ private[lf] object SBuiltin {
           templateId,
           Some(templateId),
           byKey = false,
+          isInterfaceFetch = true,
         )
       )
       Control.Expression(e)
@@ -1446,6 +1448,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       byKey: Boolean,
+      isInterfaceFetch: Boolean,
   ) extends UpdateBuiltin(2) {
 
     protected def executeUpdate(
@@ -1463,6 +1466,7 @@ private[lf] object SBuiltin {
             optLocation = machine.getLastLocation,
             byKey = byKey,
             version = version,
+            isInterfaceFetch = isInterfaceFetch,
           ) match {
             case Right(ptx) =>
               machine.ptx = ptx

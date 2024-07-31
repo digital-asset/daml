@@ -774,6 +774,7 @@ private[lf] final class Compiler(
       tmplId,
       optTargetTemplateId,
       byKey = mbKey.isDefined,
+      isInterfaceFetch = false,
     )(
       env.toSEVar(cidPos),
       mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
