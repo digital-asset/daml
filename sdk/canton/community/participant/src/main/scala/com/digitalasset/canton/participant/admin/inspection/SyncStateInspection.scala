@@ -113,8 +113,7 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounter)]] = {
-
+  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounter)]] =
     for {
       state <- EitherT.fromEither[Future](
         syncDomainPersistentStateManager
@@ -126,7 +125,6 @@ final class SyncStateInspection(
     } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounter)])(
       _.toMap
     )
-  }
 
   /** searches the pcs and returns the contract and activeness flag */
   def findContracts(
@@ -253,18 +251,17 @@ final class SyncStateInspection(
 
   def contractCountInAcs(domain: DomainAlias, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[Int]] = {
+  ): Future[Option[Int]] =
     getPersistentState(domain) match {
       case None => Future.successful(None)
       case Some(state) => state.activeContractStore.contractCount(timestamp).map(Some(_))
     }
-  }
 
   def requestJournalSize(
       domain: DomainAlias,
       start: CantonTimestamp = CantonTimestamp.Epoch,
       end: Option[CantonTimestamp] = None,
-  )(implicit traceContext: TraceContext): Option[Int] = {
+  )(implicit traceContext: TraceContext): Option[Int] =
     getPersistentState(domain).map { state =>
       timeouts.inspection.await(
         s"$functionFullName from $start to $end from the journal of domain $domain"
@@ -272,7 +269,6 @@ final class SyncStateInspection(
         state.requestJournalStore.size(start, end)
       )
     }
-  }
 
   def partyHasActiveContracts(partyId: PartyId)(implicit
       traceContext: TraceContext
@@ -410,11 +406,10 @@ final class SyncStateInspection(
       domain: DomainAlias,
   )(implicit
       traceContext: TraceContext
-  ): Either[String, Future[Unit]] = {
+  ): Either[String, Future[Unit]] =
     getPersistentState(domain)
       .map(state => state.requestJournalStore.overridePreheadCleanForTesting(newHead))
       .toRight(s"Unknown domain $domain")
-  }
 
   @deprecated(
     "usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer",
@@ -423,11 +418,10 @@ final class SyncStateInspection(
   def forceCleanSequencerCounterPrehead(
       newHead: Option[SequencerCounterCursorPrehead],
       domain: DomainAlias,
-  )(implicit traceContext: TraceContext): Either[String, Future[Unit]] = {
+  )(implicit traceContext: TraceContext): Either[String, Future[Unit]] =
     getPersistentState(domain)
       .map(state => state.sequencerCounterTrackerStore.rewindPreheadSequencerCounter(newHead))
       .toRight(s"Unknown domain $domain")
-  }
 
   def lookupCleanPrehead(domain: DomainAlias)(implicit
       traceContext: TraceContext

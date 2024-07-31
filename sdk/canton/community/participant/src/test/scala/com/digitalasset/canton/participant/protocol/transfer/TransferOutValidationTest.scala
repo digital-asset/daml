@@ -47,7 +47,7 @@ class TransferOutValidationTest
 
   private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       participant,
@@ -56,7 +56,6 @@ class TransferOutValidationTest
       DefaultDamlValues.lfApplicationId(),
       workflowId = None,
     )
-  }
 
   val contractId = ExampleTransactionFactory.suffixedId(10, 0)
 

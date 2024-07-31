@@ -72,7 +72,7 @@ object SynchronizedFuture extends WartTraverser {
 
     new Traverser {
 
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
@@ -88,7 +88,6 @@ object SynchronizedFuture extends WartTraverser {
           case _ =>
             super.traverse(tree)
         }
-      }
     }
   }
 }

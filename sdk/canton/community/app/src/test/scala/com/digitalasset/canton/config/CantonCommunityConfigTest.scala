@@ -274,9 +274,8 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     }
   }
 
-  private def loadFile(resourcePath: String): Either[CantonConfigError, CantonCommunityConfig] = {
+  private def loadFile(resourcePath: String): Either[CantonConfigError, CantonCommunityConfig] =
     loadFiles(Seq(resourcePath))
-  }
 
   private def loadFiles(
       resourcePaths: Seq[String]

@@ -125,12 +125,12 @@ final class CommandsValidator(
   ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
     commands.foldLeft[Either[StatusRuntimeException, Vector[ApiCommand]]](
       Right(Vector.empty[ApiCommand])
-    )((commandz, command) => {
+    ) { (commandz, command) =>
       for {
         validatedInnerCommands <- commandz
         validatedInnerCommand <- validateInnerCommand(command.command)
       } yield validatedInnerCommands :+ validatedInnerCommand
-    })
+    }
 
   // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
   def validateInnerCommand(
@@ -267,9 +267,8 @@ object CommandsValidator {
     */
   final case class Submitters[T](actAs: Set[T], readAs: Set[T])
 
-  def effectiveSubmitters(commands: Option[Commands]): Submitters[String] = {
+  def effectiveSubmitters(commands: Option[Commands]): Submitters[String] =
     commands.fold(noSubmitters)(effectiveSubmitters)
-  }
 
   def effectiveSubmitters(commands: Commands): Submitters[String] = {
     val actAs = commands.actAs.toSet

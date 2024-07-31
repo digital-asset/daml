@@ -147,7 +147,7 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
       participantEventLogId: ParticipantEventLogId,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Map[DomainId, (Option[LocalOffset], Option[RequestOffset])], Option[LocalOffset])] = {
+  ): Future[(Map[DomainId, (Option[LocalOffset], Option[RequestOffset])], Option[LocalOffset])] =
     for {
       domainLogIds <- domainIds.parTraverse(IndexedDomain.indexed(indexedStringStore))
 
@@ -179,7 +179,6 @@ trait MultiDomainEventLog extends AutoCloseable { this: NamedLogging =>
         Some(upToInclusive),
       )
     } yield (domainOffsets.toMap, participantOffset)
-  }
 
   /** Returns the greatest local offset of the [[SingleDimensionEventLog]] given by `eventLogId`, if any,
     * such that the following holds:
@@ -332,8 +331,7 @@ object MultiDomainEventLog {
       mat: Materializer,
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[MultiDomainEventLog] = {
-
+  ): Future[MultiDomainEventLog] =
     storage match {
       case _: MemoryStorage =>
         val mdel =
@@ -360,7 +358,6 @@ object MultiDomainEventLog {
           participantEventLogId = participantEventLog.id,
         )
     }
-  }
 
   final case class PublicationData(
       eventLogId: EventLogId,

@@ -27,7 +27,7 @@ trait DbTopologyStoreHelper {
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"delete from common_topology_transactions where store_id like ${discriminator} || '%'"
+        sqlu"delete from common_topology_transactions where store_id like $discriminator || '%'"
       ),
       operationName = s"${this.getClass}: Delete common_topology_transactions for $discriminator",
     )

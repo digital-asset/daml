@@ -61,43 +61,41 @@ class DbParticipantSettingsStore(
 
   override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     executionQueue.execute(
-      {
-        for {
-          settingsO <- storage.query(
-            sql"select max_infight_validation_requests, max_submission_rate, max_deduplication_duration, max_submission_burst_factor from par_settings"
-              .as[Settings]
-              .headOption,
-            functionFullName,
-          )
-          settings = settingsO.getOrElse(Settings())
+      for {
+        settingsO <- storage.query(
+          sql"select max_infight_validation_requests, max_submission_rate, max_deduplication_duration, max_submission_burst_factor from par_settings"
+            .as[Settings]
+            .headOption,
+          functionFullName,
+        )
+        settings = settingsO.getOrElse(Settings())
 
-          // Configure default resource limits for any participant without persistent settings.
-          // For participants with v2.3.0 or earlier, this will upgrade resource limits from "no limits" to the new default
-          _ <- settingsO match {
-            case None if storage.isActive =>
-              val ResourceLimits(
-                maxInflightValidationRequests,
-                maxSubmissionRate,
-                maxSubmissionBurstFactor,
-              ) = ResourceLimits.default
-              val query = storage.profile match {
-                case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-                  sqlu"""insert into par_settings(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
+        // Configure default resource limits for any participant without persistent settings.
+        // For participants with v2.3.0 or earlier, this will upgrade resource limits from "no limits" to the new default
+        _ <- settingsO match {
+          case None if storage.isActive =>
+            val ResourceLimits(
+              maxInflightValidationRequests,
+              maxSubmissionRate,
+              maxSubmissionBurstFactor,
+            ) = ResourceLimits.default
+            val query = storage.profile match {
+              case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
+                sqlu"""insert into par_settings(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
                            values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)
                            on conflict do nothing"""
 
-                case _: DbStorage.Profile.Oracle =>
-                  sqlu"""merge into par_settings using dual on (1 = 1)
+              case _: DbStorage.Profile.Oracle =>
+                sqlu"""merge into par_settings using dual on (1 = 1)
                            when not matched then
                              insert(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
                              values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)"""
-              }
-              storage.update_(query, functionFullName)
+            }
+            storage.update_(query, functionFullName)
 
-            case _ => Future.unit
-          }
-        } yield cache.set(Some(settings))
-      },
+          case _ => Future.unit
+        }
+      } yield cache.set(Some(settings)),
       functionFullName,
     )
 

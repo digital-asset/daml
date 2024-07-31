@@ -207,13 +207,12 @@ final class TransactionTreeFactoryImplTest
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
     override def packageDependencies(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       packageId match {
         case ExampleTransactionFactory.packageId =>
           Right(Set(exampleDependency)).toEitherT[FutureUnlessShutdown]
         case _ => Right(Set.empty[PackageId]).toEitherT[FutureUnlessShutdown]
       }
-    }
   }
 
   object MisconfiguredPackageDependencyResolver extends PackageDependencyResolverUS {
@@ -221,9 +220,8 @@ final class TransactionTreeFactoryImplTest
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
     override def packageDependencies(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       Left(packageId).toEitherT[FutureUnlessShutdown]
-    }
   }
 
 }

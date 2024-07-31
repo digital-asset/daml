@@ -83,7 +83,7 @@ class TrafficControlProcessor(
 
   def handle(
       tracedEvents: NonEmpty[Seq[Traced[SequencedEvent[DefaultOpenEnvelope]]]]
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     MonadUtil.sequentialTraverseMonoid(tracedEvents) { tracedEvent =>
       implicit val tracContext: TraceContext = tracedEvent.traceContext
 
@@ -109,13 +109,12 @@ class TrafficControlProcessor(
           FutureUnlessShutdown.unit
       }
     }
-  }
 
   private def notifyListenersOfTimestamp(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Unit = {
     logger.debug(s"Notifying listeners that timestamp $ts was observed")
-    listeners.get().foreach { _.observedTimestamp(ts) }
+    listeners.get().foreach(_.observedTimestamp(ts))
   }
 
   private def notifyListenersOfBalanceUpdate(
@@ -125,7 +124,7 @@ class TrafficControlProcessor(
       traceContext: TraceContext
   ): Future[Unit] = {
     logger.debug(s"Notifying listeners that balance update $update was observed")
-    listeners.get().parTraverse_ { _.trafficPurchasedUpdate(update, sequencingTimestamp) }
+    listeners.get().parTraverse_(_.trafficPurchasedUpdate(update, sequencingTimestamp))
   }
 
   def processSetTrafficPurchasedEnvelopes(

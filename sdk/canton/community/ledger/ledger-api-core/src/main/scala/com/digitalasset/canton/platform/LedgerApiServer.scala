@@ -30,7 +30,7 @@ object LedgerApiServer {
       stringInterningView: StringInterningView,
   )(implicit
       traceContext: TraceContext
-  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
+  ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] =
     for {
       inMemoryState <- InMemoryState.owner(
         commandProgressTracker = commandProgressTracker,
@@ -58,5 +58,4 @@ object LedgerApiServer {
         loggerFactory = loggerFactory,
       )
     } yield inMemoryState -> inMemoryStateUpdater
-  }
 }

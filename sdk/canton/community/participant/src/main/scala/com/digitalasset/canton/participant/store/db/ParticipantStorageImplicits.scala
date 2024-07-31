@@ -15,11 +15,10 @@ object ParticipantStorageImplicits {
   // which is currently permitted for storage operations as we have no practical alternative with the slick api
   private[db] implicit def getLedgerSyncEvent(implicit
       getResultByteArray: GetResult[Array[Byte]]
-  ): GetResult[LedgerSyncEvent] = {
+  ): GetResult[LedgerSyncEvent] =
     GetResult(r => bytesToEvent(r.<<[Array[Byte]]))
-  }
 
-  private def bytesToEvent(bytes: Array[Byte]): LedgerSyncEvent = {
+  private def bytesToEvent(bytes: Array[Byte]): LedgerSyncEvent =
     SerializableLedgerSyncEvent
       .fromTrustedByteArray(bytes)
       .fold(
@@ -29,7 +28,6 @@ object ParticipantStorageImplicits {
           ),
         _.event,
       )
-  }
 
   private[db] implicit def getTracedLedgerSyncEvent(implicit
       getResultByteArray: GetResult[Array[Byte]]

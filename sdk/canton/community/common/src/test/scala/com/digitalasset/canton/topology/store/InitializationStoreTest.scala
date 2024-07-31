@@ -18,7 +18,7 @@ trait InitializationStoreTest extends AsyncWordSpec with BaseTest {
 
   def myMigrationMode: MigrationMode
 
-  def initializationStore(mk: () => InitializationStore): Unit = {
+  def initializationStore(mk: () => InitializationStore): Unit =
     "when storing the unique identifier" should {
       "be able to set the value of the id" in {
         val store = mk()
@@ -49,11 +49,10 @@ trait InitializationStoreTest extends AsyncWordSpec with BaseTest {
               succeed
             }
           case MigrationMode.DevVersion =>
-            store.throwIfNotDev.map { _ shouldBe true }
+            store.throwIfNotDev.map(_ shouldBe true)
         }
       }
     }
-  }
 }
 
 trait DbInitializationStoreTest extends InitializationStoreTest {

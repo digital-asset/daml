@@ -56,9 +56,8 @@ object Generators {
 
   def valueFromRecord(
       record: v2.ValueOuterClass.Record
-  ): com.daml.ledger.api.v2.ValueOuterClass.Value = {
+  ): com.daml.ledger.api.v2.ValueOuterClass.Value =
     v2.ValueOuterClass.Value.newBuilder().setRecord(record).build()
-  }
 
   def identifierGen: Gen[v2.ValueOuterClass.Identifier] =
     for {
@@ -78,7 +77,7 @@ object Generators {
       tail <- Arbitrary.arbString.arbitrary
     } yield head +: tail
 
-  def recordFieldGen(withLabel: Boolean): Gen[v2.ValueOuterClass.RecordField] = {
+  def recordFieldGen(withLabel: Boolean): Gen[v2.ValueOuterClass.RecordField] =
     if (withLabel) {
       for {
         label <- recordLabelGen
@@ -87,7 +86,6 @@ object Generators {
     } else {
       valueGen.flatMap(v2.ValueOuterClass.RecordField.newBuilder().setValue(_).build())
     }
-  }
 
   def unitValueGen: Gen[v2.ValueOuterClass.Value] =
     Gen.const(v2.ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()).build())
@@ -419,7 +417,7 @@ object Generators {
       .setActiveAtOffset(activeAtOffset)
       .build()
 
-  def activeContractGen: Gen[v2.StateServiceOuterClass.ActiveContract] = {
+  def activeContractGen: Gen[v2.StateServiceOuterClass.ActiveContract] =
     for {
       createdEvent <- createdEventGen
       domainId <- Arbitrary.arbString.arbitrary
@@ -430,9 +428,8 @@ object Generators {
       .setDomainId(domainId)
       .setReassignmentCounter(reassignmentCounter)
       .build()
-  }
 
-  def unassignedEventGen: Gen[v2.ReassignmentOuterClass.UnassignedEvent] = {
+  def unassignedEventGen: Gen[v2.ReassignmentOuterClass.UnassignedEvent] =
     for {
       unassignId <- Arbitrary.arbString.arbitrary
       contractId <- contractIdValueGen.map(_.getContractId)
@@ -455,9 +452,8 @@ object Generators {
       .setAssignmentExclusivity(Utils.instantToProto(assignmentExclusivity))
       .addAllWitnessParties(witnessParties.asJava)
       .build()
-  }
 
-  def assignedEventGen: Gen[v2.ReassignmentOuterClass.AssignedEvent] = {
+  def assignedEventGen: Gen[v2.ReassignmentOuterClass.AssignedEvent] =
     for {
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary
@@ -474,9 +470,8 @@ object Generators {
       .setReassignmentCounter(reassignmentCounter)
       .setCreatedEvent(createdEvent)
       .build()
-  }
 
-  def incompleteUnassignedGen: Gen[v2.StateServiceOuterClass.IncompleteUnassigned] = {
+  def incompleteUnassignedGen: Gen[v2.StateServiceOuterClass.IncompleteUnassigned] =
     for {
       createdEvent <- createdEventGen
       unassignedEvent <- unassignedEventGen
@@ -485,16 +480,14 @@ object Generators {
       .setCreatedEvent(createdEvent)
       .setUnassignedEvent(unassignedEvent)
       .build()
-  }
 
-  def incompleteAssignedGen: Gen[v2.StateServiceOuterClass.IncompleteAssigned] = {
+  def incompleteAssignedGen: Gen[v2.StateServiceOuterClass.IncompleteAssigned] =
     for {
       assignedEvent <- assignedEventGen
     } yield v2.StateServiceOuterClass.IncompleteAssigned
       .newBuilder()
       .setAssignedEvent(assignedEvent)
       .build()
-  }
 
   def contractEntryBuilderGen: Gen[
     v2.StateServiceOuterClass.GetActiveContractsResponse.Builder => v2.StateServiceOuterClass.GetActiveContractsResponse.Builder
@@ -514,7 +507,7 @@ object Generators {
       Gen.const((b: v2.StateServiceOuterClass.GetActiveContractsResponse.Builder) => b),
     )
 
-  def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] = {
+  def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] =
     for {
       offset <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
@@ -525,19 +518,17 @@ object Generators {
       .setWorkflowId(workflowId)
       .pipe(entryGen)
       .build()
-  }
 
-  def getConnectedDomainsRequestGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsRequest] = {
+  def getConnectedDomainsRequestGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsRequest] =
     for {
       party <- Arbitrary.arbString.arbitrary
     } yield v2.StateServiceOuterClass.GetConnectedDomainsRequest
       .newBuilder()
       .setParty(party)
       .build()
-  }
 
   def connectedDomainGen
-      : Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain] = {
+      : Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain] =
     for {
       domainAlias <- Arbitrary.arbString.arbitrary
       domainId <- Arbitrary.arbString.arbitrary
@@ -552,19 +543,17 @@ object Generators {
       .setDomainId(domainId)
       .setPermission(permission)
       .build()
-  }
 
-  def getConnectedDomainsResponseGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse] = {
+  def getConnectedDomainsResponseGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse] =
     for {
       domains <- Gen.listOf(connectedDomainGen)
     } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse
       .newBuilder()
       .addAllConnectedDomains(domains.asJava)
       .build()
-  }
 
   def participantOffsetGen: Gen[v2.ParticipantOffsetOuterClass.ParticipantOffset] = {
-    import v2.ParticipantOffsetOuterClass.{ParticipantOffset as OffsetProto}
+    import v2.ParticipantOffsetOuterClass.ParticipantOffset as OffsetProto
     for {
       modifier <- Gen.oneOf(
         Arbitrary.arbString.arbitrary.map(absolute =>
@@ -583,17 +572,16 @@ object Generators {
       .build()
   }
 
-  def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] = {
+  def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] =
     for {
       offset <- Arbitrary.arbString.arbitrary
     } yield v2.StateServiceOuterClass.GetLedgerEndResponse
       .newBuilder()
       .setOffset(offset)
       .build()
-  }
 
   def getLatestPrunedOffsetsResponseGen
-      : Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] = {
+      : Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] =
     for {
       participantPruned <- Arbitrary.arbString.arbitrary
       allDivulgedPruned <- Arbitrary.arbString.arbitrary
@@ -602,9 +590,8 @@ object Generators {
       .setParticipantPrunedUpToInclusive(participantPruned)
       .setAllDivulgedContractsPrunedUpToInclusive(allDivulgedPruned)
       .build()
-  }
 
-  def createdGen: Gen[v2.EventQueryServiceOuterClass.Created] = {
+  def createdGen: Gen[v2.EventQueryServiceOuterClass.Created] =
     for {
       createdEvent <- createdEventGen
       domainId <- Arbitrary.arbString.arbitrary
@@ -613,9 +600,8 @@ object Generators {
       .setCreatedEvent(createdEvent)
       .setDomainId(domainId)
       .build()
-  }
 
-  def archivedGen: Gen[v2.EventQueryServiceOuterClass.Archived] = {
+  def archivedGen: Gen[v2.EventQueryServiceOuterClass.Archived] =
     for {
       archivedEvent <- archivedEventGen
       domainId <- Arbitrary.arbString.arbitrary
@@ -624,11 +610,10 @@ object Generators {
       .setArchivedEvent(archivedEvent)
       .setDomainId(domainId)
       .build()
-  }
 
   def getEventsByContractIdResponseGen
       : Gen[v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse] = {
-    import v2.EventQueryServiceOuterClass.{GetEventsByContractIdResponse as Response}
+    import v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse as Response
     for {
       optCreated <- Gen.option(createdGen)
       optArchived <- Gen.option(archivedGen)
@@ -641,7 +626,7 @@ object Generators {
 
   def completionStreamRequestGen
       : Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamRequest] = {
-    import v2.CommandCompletionServiceOuterClass.{CompletionStreamRequest as Request}
+    import v2.CommandCompletionServiceOuterClass.CompletionStreamRequest as Request
     for {
       applicationId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -673,6 +658,8 @@ object Generators {
         ),
       )
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+      offset <- Arbitrary.arbString.arbitrary
+      domainTime <- domainTimeGen
     } yield Completion
       .newBuilder()
       .setCommandId(commandId)
@@ -683,33 +670,36 @@ object Generators {
       .setSubmissionId(submissionId)
       .pipe(deduplication)
       .setTraceContext(traceContext)
+      .setOffset(offset)
+      .setDomainTime(domainTime)
       .build()
   }
 
-  def checkpointGen: Gen[v2.CheckpointOuterClass.Checkpoint] = {
-    import v2.CheckpointOuterClass.Checkpoint
+  def domainTimeGen: Gen[v2.OffsetCheckpointOuterClass.DomainTime] = {
+    import v2.OffsetCheckpointOuterClass.DomainTime
     for {
+      domainId <- Arbitrary.arbString.arbitrary
       recordTime <- instantGen
-      offset <- Arbitrary.arbString.arbitrary
-    } yield Checkpoint
+    } yield DomainTime
       .newBuilder()
+      .setDomainId(domainId)
       .setRecordTime(Utils.instantToProto(recordTime))
-      .setOffset(offset)
       .build()
   }
 
   def completionStreamResponseGen
       : Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamResponse] = {
-    import v2.CommandCompletionServiceOuterClass.{CompletionStreamResponse as Response}
+    import v2.CommandCompletionServiceOuterClass.CompletionStreamResponse as Response
     for {
-      checkpoint <- checkpointGen
-      completion <- completionGen
-      domainId <- Arbitrary.arbString.arbitrary
+      response <- Gen.oneOf(
+        completionGen.map(completion => (b: Response.Builder) => b.setCompletion(completion)),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
+        ),
+      )
     } yield Response
       .newBuilder()
-      .setCheckpoint(checkpoint)
-      .setCompletion(completion)
-      .setDomainId(domainId)
+      .pipe(response)
       .build()
   }
 
@@ -798,7 +788,7 @@ object Generators {
 
   def getTransactionByEventIdRequestGen
       : Gen[v2.UpdateServiceOuterClass.GetTransactionByEventIdRequest] = {
-    import v2.UpdateServiceOuterClass.{GetTransactionByEventIdRequest as Request}
+    import v2.UpdateServiceOuterClass.GetTransactionByEventIdRequest as Request
     for {
       eventId <- eventIdGen
       requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -810,7 +800,7 @@ object Generators {
   }
 
   def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
-    import v2.UpdateServiceOuterClass.{GetTransactionByIdRequest as Request}
+    import v2.UpdateServiceOuterClass.GetTransactionByIdRequest as Request
     for {
       updateId <- Arbitrary.arbString.arbitrary
       requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -838,28 +828,53 @@ object Generators {
     )
 
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
-    import v2.UpdateServiceOuterClass.{GetUpdatesRequest as Request}
+    import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
-      beginExclusive <- participantOffsetGen
-      endInclusive <- participantOffsetGen
+      beginExclusive <- Arbitrary.arbString.arbitrary
+      endInclusiveO <- Gen.option(Arbitrary.arbString.arbitrary)
       filter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
-    } yield Request
+    } yield {
+      val partialBuilder = Request
+        .newBuilder()
+        .setBeginExclusive(beginExclusive)
+        .setFilter(filter)
+        .setVerbose(verbose)
+
+      endInclusiveO match {
+        case Some(endInclusive) =>
+          partialBuilder
+            .setEndInclusive(endInclusive)
+            .build()
+        case None =>
+          partialBuilder
+            .build()
+      }
+    }
+  }
+
+  def offsetCheckpointGen: Gen[v2.OffsetCheckpointOuterClass.OffsetCheckpoint] = {
+    import v2.OffsetCheckpointOuterClass.OffsetCheckpoint
+    for {
+      offset <- Arbitrary.arbString.arbitrary
+      domainTimes <- Gen.listOf(domainTimeGen)
+    } yield OffsetCheckpoint
       .newBuilder()
-      .setBeginExclusive(beginExclusive)
-      .setEndInclusive(endInclusive)
-      .setFilter(filter)
-      .setVerbose(verbose)
+      .setOffset(offset)
+      .addAllDomainTimes(domainTimes.asJava)
       .build()
   }
 
   def getUpdatesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesResponse] = {
-    import v2.UpdateServiceOuterClass.{GetUpdatesResponse as Response}
+    import v2.UpdateServiceOuterClass.GetUpdatesResponse as Response
     for {
       update <- Gen.oneOf(
         transactionGen.map(transaction => (b: Response.Builder) => b.setTransaction(transaction)),
         reassignmentGen.map(reassingment =>
           (b: Response.Builder) => b.setReassignment(reassingment)
+        ),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
       )
     } yield Response
@@ -869,7 +884,7 @@ object Generators {
   }
 
   def getUpdateTreesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateTreesResponse] = {
-    import v2.UpdateServiceOuterClass.{GetUpdateTreesResponse as Response}
+    import v2.UpdateServiceOuterClass.GetUpdateTreesResponse as Response
     for {
       update <- Gen.oneOf(
         transactionTreeGen.map(transactionTree =>
@@ -877,6 +892,9 @@ object Generators {
         ),
         reassignmentGen.map(reassingment =>
           (b: Response.Builder) => b.setReassignment(reassingment)
+        ),
+        offsetCheckpointGen.map(checkpoint =>
+          (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
       )
     } yield Response
@@ -1054,7 +1072,7 @@ object Generators {
 
   def submitAndWaitForUpdateIdResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse] = {
-    import v2.CommandServiceOuterClass.{SubmitAndWaitForUpdateIdResponse as Response}
+    import v2.CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse as Response
     for {
       updateId <- Arbitrary.arbString.arbitrary
       completionOffset <- Arbitrary.arbString.arbitrary
@@ -1066,7 +1084,7 @@ object Generators {
   }
   def submitAndWaitForTransactionResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionResponse] = {
-    import v2.CommandServiceOuterClass.{SubmitAndWaitForTransactionResponse as Response}
+    import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionResponse as Response
     for {
       transaction <- transactionGen
       completionOffset <- Arbitrary.arbString.arbitrary
@@ -1078,7 +1096,7 @@ object Generators {
   }
   def submitAndWaitForTransactionTreeResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse] = {
-    import v2.CommandServiceOuterClass.{SubmitAndWaitForTransactionTreeResponse as Response}
+    import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response
     for {
       transaction <- transactionTreeGen
       completionOffset <- Arbitrary.arbString.arbitrary

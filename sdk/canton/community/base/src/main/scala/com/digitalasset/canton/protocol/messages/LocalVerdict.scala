@@ -46,7 +46,7 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
 
   override def supportedProtoVersions: messages.LocalVerdict.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.LocalVerdict)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.LocalVerdict)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )
@@ -108,13 +108,12 @@ final case class LocalReject(reason: com.google.rpc.status.Status, isMalformed: 
 
   override def logWithContext(
       extra: Map[String, String]
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
     // Log with level INFO, leave it to LocalRejectError to log the details.
     contextualizedErrorLogger.withContext(extra) {
       lazy val action = if (isMalformed) "malformed" else "rejected"
       contextualizedErrorLogger.info(show"Request is $action. $reason")
     }
-  }
 
   override private[messages] def toProtoV30: v30.LocalVerdict = {
     val codeP =

@@ -61,7 +61,7 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
       "org.wartremover.warts.Null",
     )
   )
-  override def equals(that: Any): Boolean = {
+  override def equals(that: Any): Boolean =
     if (this eq that.asInstanceOf[Object]) true
     else if (!that.isInstanceOf[EncryptedView[?]]) false
     else {
@@ -69,7 +69,6 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
       val thisViewTree = this.viewTree
       if (thisViewTree eq null) other.viewTree eq null else thisViewTree == other.viewTree
     }
-  }
   override def hashCode(): Int = scala.runtime.ScalaRunTime._hashCode(this)
 
   /** Cast the type parameter to the given argument's [[com.digitalasset.canton.data.ViewType]]
@@ -272,12 +271,11 @@ final case class EncryptedViewMessage[+VT <: ViewType](
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def traverse[F[_], VT2 <: ViewType](
       f: EncryptedView[VT] => F[EncryptedView[VT2]]
-  )(implicit F: Functor[F]): F[EncryptedViewMessage[VT2]] = {
+  )(implicit F: Functor[F]): F[EncryptedViewMessage[VT2]] =
     F.map(f(encryptedView)) { newEncryptedView =>
       if (newEncryptedView eq encryptedView) this.asInstanceOf[EncryptedViewMessage[VT2]]
       else updateView(newEncryptedView)
     }
-  }
 
   override def pretty: Pretty[EncryptedViewMessage.this.type] = prettyOfClass(
     param("view hash", _.viewHash),
@@ -289,7 +287,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
 object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewMessage[ViewType]] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.EncryptedViewMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
       _.toByteString,
     )
@@ -316,13 +314,12 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
   private def serializeSessionKeyEntry(
       encryptedSessionKey: AsymmetricEncrypted[SecureRandomness]
-  ): v30.SessionKeyLookup = {
+  ): v30.SessionKeyLookup =
     v30.SessionKeyLookup(
       sessionKeyRandomness = encryptedSessionKey.ciphertext,
       encryptionAlgorithmSpec = encryptedSessionKey.encryptionAlgorithmSpec.toProtoEnum,
       fingerprint = encryptedSessionKey.encryptedFor.toProtoPrimitive,
     )
-  }
 
   private def deserializeSessionKeyEntry(
       sessionKeyLookup: v30.SessionKeyLookup
@@ -554,8 +551,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] = {
-
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] =
     // verify that the view symmetric encryption scheme is part of the required schemes
     if (
       !staticDomainParameters.requiredSymmetricKeySchemes
@@ -588,7 +584,6 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         )
       } yield decrypted
     }
-  }
 
   implicit val encryptedViewMessageCast
       : ProtocolMessageContentCast[EncryptedViewMessage[ViewType]] =

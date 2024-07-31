@@ -103,12 +103,11 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
 
-  private def serializeToHighestVersion: VersionedMessage[ValueClass] = {
+  private def serializeToHighestVersion: VersionedMessage[ValueClass] =
     VersionedMessage(
       companionObj.supportedProtoVersions.higherConverter.serializer(self),
       companionObj.supportedProtoVersions.higherProtoVersion.v,
     )
-  }
 
   /** Will check that default value rules defined in `companionObj.defaultValues` hold.
     */
@@ -631,7 +630,7 @@ trait HasProtocolVersionedWrapperCompanion[
   private[version] def validateDeserialization(
       expectedProtocolVersion: ProtocolVersionValidation,
       deserializedRepresentativeProtocolVersion: ProtocolVersion,
-  ): ParsingResult[Unit] = {
+  ): ParsingResult[Unit] =
     expectedProtocolVersion match {
       case ProtocolVersionValidation.PV(pv) =>
         val expected = protocolVersionRepresentativeFor(pv).representative
@@ -643,16 +642,14 @@ trait HasProtocolVersionedWrapperCompanion[
       case ProtocolVersionValidation.NoValidation =>
         Right(())
     }
-  }
 
   private[version] def unexpectedProtoVersionError(
       expected: ProtocolVersion,
       found: ProtocolVersion,
-  ) = {
+  ) =
     OtherError(
       s"Error while deserializing a $name; expected representative protocol version $expected but found $found"
     )
-  }
 
 }
 
@@ -706,12 +703,11 @@ trait HasProtocolVersionedWrapperWithoutContextCompanion[
     */
   def readFromTrustedFile(
       inputFile: String
-  ): Either[String, DeserializedValueClass] = {
+  ): Either[String, DeserializedValueClass] =
     for {
       bs <- BinaryFileUtil.readByteStringFromFile(inputFile)
       value <- fromTrustedByteString(bs).leftMap(_.toString)
     } yield value
-  }
 
   /** Deserializes the data from the given file without validation.
     *
@@ -859,12 +855,11 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     */
   private[version] def readFromTrustedFile(context: Context)(
       inputFile: String
-  ): Either[String, DeserializedValueClass] = {
+  ): Either[String, DeserializedValueClass] =
     for {
       bs <- BinaryFileUtil.readByteStringFromFile(inputFile)
       value <- fromTrustedByteString(context)(bs).leftMap(_.toString)
     } yield value
-  }
 
   /** Deserializes the data from the given file without validation.
     *
@@ -1033,7 +1028,7 @@ trait HasProtocolVersionedCompanion2[
     */
   def parseDelimitedFromTrusted(
       input: InputStream
-  ): Option[ParsingResult[DeserializedValueClass]] = {
+  ): Option[ParsingResult[DeserializedValueClass]] =
     try {
       v1.UntypedVersionedMessage
         .parseDelimitedFrom(input)
@@ -1045,7 +1040,6 @@ trait HasProtocolVersionedCompanion2[
       case NonFatal(e) =>
         Some(Left(ProtoDeserializationError.OtherError(e.getMessage)))
     }
-  }
 
   implicit def hasVersionedWrapperGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]

@@ -3,7 +3,15 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.daml.jwt.{DecodedJwt, Jwt, JwtSigner, KeyUtils}
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  DecodedJwt,
+  Jwt,
+  JwtSigner,
+  KeyUtils,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import scalaz.syntax.show.*
 
@@ -53,7 +61,7 @@ object Main {
     }
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     parseConfig(args) match {
       case Some(Config(Some(GenerateJwks(Some(outputFile), publicKeys)))) =>
         // Load RSA keys. They ID of each key is its file name.
@@ -147,16 +155,14 @@ object Main {
       case None =>
         sys.exit(ErrorCodes.InvalidUsage)
     }
-  }
 
   private def handleGenerateTokensError(message: String)(details: String): Nothing = {
     Console.println(s"$message. Details: $details")
     sys.exit(ErrorCodes.GenerateTokensError)
   }
 
-  private def parseConfig(args: collection.Seq[String]): Option[Config] = {
+  private def parseConfig(args: collection.Seq[String]): Option[Config] =
     configParser.parse(args, Config())
-  }
 
   private val configParser = new scopt.OptionParser[Config]("ledger-api-auth") {
     cmd("generate-jwks")

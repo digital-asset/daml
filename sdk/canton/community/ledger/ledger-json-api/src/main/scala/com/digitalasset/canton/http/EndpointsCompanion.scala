@@ -8,12 +8,7 @@ import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
 import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
 import org.apache.pekko.util.ByteString
 import util.GrpcHttpErrorCodes.*
-import com.daml.jwt.{DecodedJwt, Jwt}
-import com.digitalasset.canton.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-  StandardJWTPayload,
-}
+import com.daml.jwt.{AuthServiceJWTCodec, AuthServiceJWTPayload, DecodedJwt, Jwt, StandardJWTPayload}
 import com.digitalasset.canton.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
 import com.daml.error.utils.ErrorDetails

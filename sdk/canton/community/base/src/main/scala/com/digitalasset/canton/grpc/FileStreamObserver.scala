@@ -20,14 +20,13 @@ class FileStreamObserver[T](
   private val requestComplete: Promise[Unit] = Promise[Unit]()
 
   def result: Future[Unit] = requestComplete.future
-  override def onNext(value: T): Unit = {
+  override def onNext(value: T): Unit =
     Try(os.write(converter(value).toByteArray)) match {
       case Failure(exception) =>
         ResourceUtil.closeAndAddSuppressed(Some(exception), os)
         throw exception
       case Success(_) => // all good
     }
-  }
 
   override def onError(t: Throwable): Unit = {
     requestComplete.tryFailure(t).discard

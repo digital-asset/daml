@@ -84,7 +84,7 @@ trait DbIndexedStringsStoreTest
       val store = mk()
       val uidsF = Future.sequence(
         (1 to 500)
-          .map(x => DomainId.tryFromString(s"id${x}::stinkynamespace"))
+          .map(x => DomainId.tryFromString(s"id$x::stinkynamespace"))
           .map(x =>
             d2idx(store, x).flatMap { idx =>
               idx2d(store, idx).map(res => (x, idx, res))

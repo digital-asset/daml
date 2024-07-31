@@ -129,9 +129,9 @@ trait PruningSchedulerStoreTest {
     _errorMatchesExpected <-
       if (
         err.equals(
-          s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead."
+          s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead."
         )
       ) Future.unit
-      else Future.failed(new RuntimeException(s"Wrong error message: ${err}"))
+      else Future.failed(new RuntimeException(s"Wrong error message: $err"))
   } yield ()
 }

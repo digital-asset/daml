@@ -198,7 +198,7 @@ class BlockSequencerStateManager(
   private def checkBlockHeight(
       initialHeight: Long
   ): Flow[BlockEvents, Traced[BlockEvents], NotUsed] =
-    Flow[BlockEvents].statefulMapConcat(() => {
+    Flow[BlockEvents].statefulMapConcat { () =>
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var currentBlockHeight = initialHeight
       blockEvents => {
@@ -237,7 +237,7 @@ class BlockSequencerStateManager(
           Seq(Traced(blockEvents))
         }
       }
-    })
+    }
 
   private def chunkBlock(
       bug: BlockUpdateGenerator
@@ -364,7 +364,7 @@ class BlockSequencerStateManager(
       traceContext: TraceContext
   ): CreateSubscription = {
     logger.debug(
-      s"Read events for member ${member} starting at ${startingAt}"
+      s"Read events for member $member starting at $startingAt"
     )
     def checkCounterIsSupported(
         member: Member,
@@ -591,7 +591,7 @@ class BlockSequencerStateManager(
 
   private def updateHeadState(prior: HeadState, next: HeadState)(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     if (!headState.compareAndSet(prior, next)) {
       // The write flow should not call this method concurrently so this situation should never happen.
       // If it does, this means that the ephemeral state has been updated since this update was generated,
@@ -599,31 +599,27 @@ class BlockSequencerStateManager(
       // throw exception to shutdown the sequencer write flow as we can not continue.
       ErrorUtil.internalError(new SequencerUnexpectedStateChange)
     }
-  }
 
   private def signalMemberCountersToDispatchers(
       newState: EphemeralState
-  ): Unit = {
+  ): Unit =
     dispatchers.toList.foreach { case (member, dispatcher) =>
       newState.headCounter(member).foreach { counter =>
         dispatcher.signalNewHead(counter + 1L)
       }
     }
-  }
 
-  private def resolveWaitingForMemberDisablement(newState: EphemeralState): Unit = {
+  private def resolveWaitingForMemberDisablement(newState: EphemeralState): Unit =
     // if any members that we're waiting to see disabled are now disabled members, complete those promises.
     memberDisablementPromises.keys
       .filter(newState.status.disabledMembers.contains)
       .foreach(resolveWaitingForMemberDisablement)
-  }
 
   private def resolveWaitingForMemberDisablement(disabledMember: Member): Unit =
     memberDisablementPromises.remove(disabledMember) foreach { promise => promise.success(()) }
 
-  private def resolveSequencerPruning(timestamp: CantonTimestamp): Unit = {
+  private def resolveSequencerPruning(timestamp: CantonTimestamp): Unit =
     sequencerPruningPromises.remove(timestamp) foreach { promise => promise.success(()) }
-  }
 
   /** Resolves all outstanding acknowledgements up to the given timestamp.
     * Unlike for resolutions of other requests, we resolve also all earlier acknowledgements,

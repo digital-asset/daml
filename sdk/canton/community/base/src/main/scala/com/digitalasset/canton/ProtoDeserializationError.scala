@@ -72,7 +72,7 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   final case class UnknownProtoVersion(version: ProtoVersion, protoMessage: String)
       extends ProtoDeserializationError {
     override def message =
-      s"Message ${protoMessage} has no versioning information corresponding to protobuf $version"
+      s"Message $protoMessage has no versioning information corresponding to protobuf $version"
   }
 
   /** Common Deserialization error code

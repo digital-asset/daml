@@ -170,7 +170,7 @@ private[mediator] object MediatorEventsProcessor {
       mediatorEventDeduplicator: MediatorEventDeduplicator,
       metrics: MediatorMetrics,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): MediatorEventsProcessor = {
+  )(implicit executionContext: ExecutionContext): MediatorEventsProcessor =
     new MediatorEventsProcessor(
       identityClientEventHandler,
       processor.handleRequestEvents,
@@ -178,5 +178,4 @@ private[mediator] object MediatorEventsProcessor {
       metrics,
       loggerFactory,
     )
-  }
 }

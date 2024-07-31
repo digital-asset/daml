@@ -26,9 +26,8 @@ object UpdatePathsTrie {
 
   def fromPaths(
       paths: Seq[List[String]]
-  )(implicit dummy: DummyImplicit): Result[UpdatePathsTrie] = {
+  )(implicit dummy: DummyImplicit): Result[UpdatePathsTrie] =
     fromPaths(paths.map(UpdatePath(_)))
-  }
 
   def fromPaths(paths: Seq[UpdatePath]): Result[UpdatePathsTrie] = {
     val builder: Result[Builder] = Right(Builder(exists = false))
@@ -41,12 +40,11 @@ object UpdatePathsTrie {
     buildResult.map(build)
   }
 
-  private def build(builder: Builder): UpdatePathsTrie = {
+  private def build(builder: Builder): UpdatePathsTrie =
     new UpdatePathsTrie(
       exists = builder.exists,
       nodes = SortedMap.from(builder.nodes.view.mapValues(build)),
     )
-  }
 
   private object Builder {
     def apply(
@@ -66,18 +64,17 @@ object UpdatePathsTrie {
 
     /** @param updatePath unique path to be inserted
       */
-    def insertUniquePath(updatePath: UpdatePath): Result[Unit] = {
+    def insertUniquePath(updatePath: UpdatePath): Result[Unit] =
       if (!doInsertUniquePath(updatePath.fieldPath)) {
         Left(UpdatePathError.DuplicatedFieldPath(updatePath.toRawString))
       } else Right(())
-    }
 
     /** @return true if successfully inserted the field path, false if the field path was already present in this trie
       */
     @tailrec
     private def doInsertUniquePath(
         fieldPath: List[String]
-    ): Boolean = {
+    ): Boolean =
       fieldPath match {
         case Nil =>
           if (this.exists) {
@@ -93,7 +90,6 @@ object UpdatePathsTrie {
           }
           nodes(key).doInsertUniquePath(subpath)
       }
-    }
 
   }
 }
@@ -115,18 +111,17 @@ private[update] final case class UpdatePathsTrie(
   /** @return true if 'path' matches some prefix of some field path
     */
   @tailrec
-  final def containsPrefix(path: List[String]): Boolean = {
+  final def containsPrefix(path: List[String]): Boolean =
     path match {
       case Nil => true
       case head :: rest if nodes.contains(head) => nodes(head).containsPrefix(rest)
       case _ => false
     }
-  }
 
   /** There is a match if this trie contains 'path' or if it contains a prefix of 'path'.
     * @return the match corresponding to the longest matched field path, none otherwise.
     */
-  def findMatch(path: List[String]): Option[MatchResult] = {
+  def findMatch(path: List[String]): Option[MatchResult] =
     if (pathExists(path)) {
       Some(MatchResult(isExact = true, matchedPath = UpdatePath(path)))
     } else {
@@ -138,17 +133,15 @@ private[update] final case class UpdatePathsTrie(
           MatchResult(isExact = false, matchedPath = UpdatePath(prefix))
         }
     }
-  }
 
   /** @return an update modifier of a matching field path, none if there is no matching field path
     */
   @tailrec
-  final private[update] def pathExists(path: List[String]): Boolean = {
+  final private[update] def pathExists(path: List[String]): Boolean =
     path match {
       case Nil => this.exists
       case head :: subpath if nodes.contains(head) => nodes(head).pathExists(subpath)
       case _ => false
     }
-  }
 
 }

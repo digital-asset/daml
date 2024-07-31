@@ -62,8 +62,7 @@ object LedgerBlockEvent extends HasLoggerName {
 
   def deserializeSignedOrderingRequest(
       protocolVersion: ProtocolVersion
-  )(submissionRequestBytes: ByteString): ParsingResult[SignedOrderingRequest] = {
-
+  )(submissionRequestBytes: ByteString): ParsingResult[SignedOrderingRequest] =
     // TODO(i10428) Prevent zip bombing when decompressing the request
     for {
       // This is the SignedContent signed by the submitting sequencer (so SignedContent[OrderingRequest[SignedContent[SubmissionRequest]]])
@@ -95,7 +94,6 @@ object LedgerBlockEvent extends HasLoggerName {
             )
         )
     } yield signedOrderingRequest
-  }
 
   private def deserializeSignedAcknowledgeRequest(protocolVersion: ProtocolVersion)(
       ackRequestBytes: ByteString

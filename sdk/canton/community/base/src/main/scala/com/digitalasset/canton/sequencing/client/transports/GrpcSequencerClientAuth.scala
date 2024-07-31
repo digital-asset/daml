@@ -72,12 +72,11 @@ class GrpcSequencerClientAuth(
     clientAuthentication(client)
   }
 
-  override protected def onClosed(): Unit = {
+  override protected def onClosed(): Unit =
     Lifecycle.close(
       tokenProvider +:
         channelPerEndpoint.toList.map { case (endpoint, channel) =>
           new CloseableChannel(channel, logger, s"grpc-client-auth-$endpoint")
         }: _*
     )(logger)
-  }
 }

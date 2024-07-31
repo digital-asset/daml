@@ -43,7 +43,7 @@ final case class TrafficConsumed(
   /** Compute the traffic state off of this traffic consumed and the provided optional traffic purchased.
     * The caller MUST guarantee that the TrafficPurchased is correct at this.sequencingTime.
     */
-  def toTrafficState(trafficPurchased: Option[TrafficPurchased]): TrafficState = {
+  def toTrafficState(trafficPurchased: Option[TrafficPurchased]): TrafficState =
     TrafficState(
       trafficPurchased.map(_.extraTrafficPurchased).getOrElse(NonNegativeLong.zero),
       extraTrafficConsumed,
@@ -54,7 +54,6 @@ final case class TrafficConsumed(
         .getOrElse(sequencingTimestamp),
       trafficPurchased.map(_.serial),
     )
-  }
 
   /** Compute the base traffic at a given timestamp according to the provided parameters.
     * Generally this method should be called with a timestamp that is more recent than sequencingTimestamp.
@@ -168,7 +167,7 @@ final case class TrafficConsumed(
       param("sequencingTimestamp", _.sequencingTimestamp),
     )
 
-  def toProtoV30: TrafficConsumedP = {
+  def toProtoV30: TrafficConsumedP =
     TrafficConsumedP(
       member = member.toProtoPrimitive,
       extraTrafficConsumed = extraTrafficConsumed.value,
@@ -176,7 +175,6 @@ final case class TrafficConsumed(
       sequencingTimestamp = sequencingTimestamp.toProtoPrimitive,
       lastConsumedCost = lastConsumedCost.value,
     )
-  }
 }
 
 object TrafficConsumed {

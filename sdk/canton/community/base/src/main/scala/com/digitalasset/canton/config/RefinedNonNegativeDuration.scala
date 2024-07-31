@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, StackTraceUtil}
@@ -54,11 +54,10 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 
   def *(d: Double): D = update(duration * d)
 
-  def retries(interval: Duration): Int = {
+  def retries(interval: Duration): Int =
     if (interval.isFinite && duration.isFinite)
       Math.max(0, duration.toMillis / Math.max(1, interval.toMillis)).toInt
     else Int.MaxValue
-  }
 
   /** Same as Await.result, but with this timeout */
   def await[F](
@@ -156,12 +155,11 @@ object RefinedNonNegativeDuration {
       stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
       onTimeout: TimeoutException => Unit = _ => (),
   )(implicit loggingContext: ErrorLoggingContext): T = {
-    val warnAfterAdjusted = {
+    val warnAfterAdjusted =
       // if warnAfter is larger than timeout, make a sensible choice
       if (timeout.isFinite && warnAfter.isFinite && warnAfter > timeout) {
         timeout / 2
       } else warnAfter
-    }
 
     // Use Await.ready instead of Await.result to be able to tell the difference between the awaitable throwing a
     // TimeoutException and a TimeoutException being thrown because the awaitable is not ready.
@@ -295,9 +293,9 @@ object NonNegativeDuration extends RefinedNonNegativeDurationCompanion[NonNegati
 
   def fromDuration(duration: Duration): Either[String, NonNegativeDuration] = duration match {
     case x: FiniteDuration =>
-      Either.cond(x.length >= 0, NonNegativeDuration(x), s"Duration ${x} is negative!")
+      Either.cond(x.length >= 0, NonNegativeDuration(x), s"Duration $x is negative!")
     case Duration.Inf => Right(NonNegativeDuration(Duration.Inf))
-    case x => Left(s"Duration ${x} is not a valid duration that can be used for timeouts.")
+    case x => Left(s"Duration $x is not a valid duration that can be used for timeouts.")
   }
 }
 
@@ -305,7 +303,7 @@ object NonNegativeDuration extends RefinedNonNegativeDurationCompanion[NonNegati
 final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
     extends RefinedNonNegativeDuration[NonNegativeFiniteDuration] {
 
-  require(underlying >= Duration.Zero, s"Duration ${duration} is negative")
+  require(underlying >= Duration.Zero, s"Duration $duration is negative")
 
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
@@ -369,7 +367,7 @@ object NonNegativeFiniteDuration
 final case class PositiveFiniteDuration(underlying: FiniteDuration)
     extends RefinedNonNegativeDuration[PositiveFiniteDuration] {
 
-  require(underlying > Duration.Zero, s"Duration ${duration} is not positive")
+  require(underlying > Duration.Zero, s"Duration $duration is not positive")
 
   def duration: Duration = underlying
   def asJava: JDuration = JDuration.ofNanos(duration.toNanos)
@@ -403,15 +401,13 @@ object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[Positi
       s"Cannot convert `$input` to a positive finite duration: $reason"
   }
 
-  private[canton] implicit val positiveFiniteDurationReader
-      : ConfigReader[PositiveFiniteDuration] = {
+  private[canton] implicit val positiveFiniteDurationReader: ConfigReader[PositiveFiniteDuration] =
     ConfigReader.fromString[PositiveFiniteDuration] { str =>
       (for {
         duration <- strToFiniteDuration(str)
         positiveFiniteDuration <- PositiveFiniteDuration.fromDuration(duration)
       } yield positiveFiniteDuration).leftMap(PositiveFiniteDurationError(str, _))
     }
-  }
 
   private[canton] implicit val positiveFiniteDurationWriter: ConfigWriter[PositiveFiniteDuration] =
     // avoid pretty printing by converting the underlying value to string
@@ -427,10 +423,10 @@ object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[Positi
 final case class PositiveDurationSeconds(underlying: FiniteDuration)
     extends RefinedNonNegativeDuration[PositiveDurationSeconds] {
 
-  require(underlying > Duration.Zero, s"Duration ${duration} is not positive")
+  require(underlying > Duration.Zero, s"Duration $duration is not positive")
   require(
     PositiveDurationSeconds.isRoundedToTheSecond(underlying),
-    s"Duration ${duration} is not rounded to the second",
+    s"Duration $duration is not rounded to the second",
   )
 
   def duration: Duration = underlying
@@ -467,7 +463,7 @@ object PositiveDurationSeconds
           _ <- Either.cond(
             isRoundedToTheSecond(x),
             (),
-            s"Duration ${duration} is not rounded to the second",
+            s"Duration $duration is not rounded to the second",
           )
         } yield PositiveDurationSeconds(x)
       case Duration.Inf => Left(s"Expecting finite duration but found Duration.Inf")

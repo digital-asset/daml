@@ -28,7 +28,7 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
       loggerFactory = loggerFactory,
     )
 
-  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] = {
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] =
     new PersistentIdentityProviderConfigStore(
       dbSupport,
       LedgerApiServerMetrics.ForTesting,
@@ -40,5 +40,4 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
         case Left(error) => Future.failed(new Exception(error.toString))
         case Right(_) => Future.unit
       }
-  }
 }

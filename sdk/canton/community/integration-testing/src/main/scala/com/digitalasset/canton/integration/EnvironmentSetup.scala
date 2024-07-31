@@ -35,10 +35,9 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     super.beforeAll()
   }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     try super.afterAll()
     finally plugins.foreach(_.afterTests())
-  }
 
   /** Provide an environment for an individual test either by reusing an existing one or creating a new one
     * depending on the approach being used.
@@ -76,14 +75,13 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
   ): TCE = {
     val testConfig = initialConfig
     // note: beforeEnvironmentCreate may well have side-effects (e.g. starting databases or docker containers)
-    val pluginConfig = {
+    val pluginConfig =
       plugins.foldLeft(testConfig)((config, plugin) =>
         if (runPlugins(plugin))
           plugin.beforeEnvironmentCreated(config)
         else
           config
       )
-    }
 
     // Once all the plugins and config transformation is done apply the defaults
     val finalConfig = configTransform(pluginConfig).withDefaults(new DefaultPorts())

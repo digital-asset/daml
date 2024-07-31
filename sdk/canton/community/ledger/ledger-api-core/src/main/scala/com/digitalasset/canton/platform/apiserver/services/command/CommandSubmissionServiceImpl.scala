@@ -107,7 +107,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
             case ApiCommand.Create(templateRef, _) =>
               s"create ${templateRef.qName}"
             case ApiCommand.Exercise(templateRef, _, choiceId, _) =>
-              s"exercise @${templateRef.qName} ${choiceId}"
+              s"exercise @${templateRef.qName} $choiceId"
             case ApiCommand.ExerciseByKey(templateRef, _, choiceId, _) =>
               s"exerciseByKey @${templateRef.qName} $choiceId"
             case ApiCommand.CreateAndExercise(templateRef, _, choiceId, _) =>
@@ -168,7 +168,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[state.SubmissionResult] = {
+  ): Future[state.SubmissionResult] =
     checkOverloaded(loggingContext.traceContext) match {
       case Some(submissionResult) => Future.successful(submissionResult)
       case None =>
@@ -182,7 +182,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
           )
         } yield submissionResult
     }
-  }
 
   private def submitTransactionWithDelay(
       transactionInfo: CommandExecutionResult

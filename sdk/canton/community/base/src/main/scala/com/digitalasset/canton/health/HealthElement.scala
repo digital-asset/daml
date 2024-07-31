@@ -165,7 +165,7 @@ trait HealthElement {
     if (dur > 1.second) logger.warn(s"Listener ${listener.name} took $durationStr to run")
   }
 
-  private def notifyListeners(implicit traceContext: TraceContext): Unit = {
+  private def notifyListeners(implicit traceContext: TraceContext): Unit =
     listeners.foreachEntry { (listener, _) =>
       logger.debug(s"Notifying listener ${listener.name} of health state change from $name")
       val start = System.nanoTime()
@@ -174,7 +174,6 @@ trait HealthElement {
       }
       logIfLongPokeTime(listener, start)
     }
-  }
 
   private def logStateChange(
       oldState: State,

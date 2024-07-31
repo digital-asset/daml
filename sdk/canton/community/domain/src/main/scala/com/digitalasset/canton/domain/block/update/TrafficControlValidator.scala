@@ -61,7 +61,7 @@ private[update] class TrafficControlValidator(
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
       sequencerError: SequencerDeliverError,
-  )(implicit traceContext: TraceContext): SubmissionRequestOutcome = {
+  )(implicit traceContext: TraceContext): SubmissionRequestOutcome =
     SubmissionRequestValidator.invalidSubmissionRequest(
       state,
       submissionRequest,
@@ -72,7 +72,6 @@ private[update] class TrafficControlValidator(
       protocolVersion,
       unifiedSequencer = unifiedSequencer,
     )
-  }
 
   def applyTrafficControl(
       submissionValidation: SequencedEventValidationF[SubmissionRequestValidationResult],
@@ -231,13 +230,12 @@ private[update] class TrafficControlValidator(
   private def recordTrafficSpentSuccessfully(
       receipt: Option[TrafficReceipt],
       metricsContext: MetricsContext,
-  ): Unit = {
+  ): Unit =
     receipt.map(_.consumedCost.value).foreach { cost =>
       metrics.trafficControl.trafficConsumption.trafficCostOfDeliveredSequencedEvent
         .mark(cost)(metricsContext)
       metrics.trafficControl.trafficConsumption.deliveredEventCounter.inc()(metricsContext)
     }
-  }
 
   // Record when traffic is deducted but results in a event that is not delivered
   private def recordTrafficWasted(

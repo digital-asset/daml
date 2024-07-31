@@ -83,13 +83,12 @@ class BlockMetrics(
   def updateAcknowledgementGauge(sender: String, value: Long): Unit =
     acknowledgments
       .getOrElseUpdate(
-        sender, {
-          Eval.later(
-            openTelemetryMetricsFactory.gauge(ackGaugeInfo, value)(
-              MetricsContext("sender" -> sender)
-            )
+        sender,
+        Eval.later(
+          openTelemetryMetricsFactory.gauge(ackGaugeInfo, value)(
+            MetricsContext("sender" -> sender)
           )
-        },
+        ),
       )
       .value
       .updateValue(value)

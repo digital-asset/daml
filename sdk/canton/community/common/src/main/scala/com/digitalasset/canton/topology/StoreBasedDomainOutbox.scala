@@ -79,7 +79,7 @@ class StoreBasedDomainOutbox(
 
   def awaitIdle(
       timeout: Duration
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     // first, we wait until the idle future is idle again
     // this is the case when we've updated the dispatching watermark such that
     // there are no more topology transactions to read
@@ -97,7 +97,6 @@ class StoreBasedDomainOutbox(
           awaitTransactionObserved(last, timeout)
         }
       }
-  }
 
   private case class Watermarks(
       queuedApprox: Int,
@@ -210,14 +209,13 @@ class StoreBasedDomainOutbox(
     } yield ()
   }
 
-  private def kickOffFlush(): Unit = {
+  private def kickOffFlush(): Unit =
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
       TraceContext.withNewTraceContext(implicit tc =>
         EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "domain outbox flusher")
       )
     }
-  }
 
   private def flush(initialize: Boolean = false)(implicit
       traceContext: TraceContext
@@ -304,7 +302,7 @@ class StoreBasedDomainOutbox(
       case (valid, ((item, idx), response)) =>
         if (!isExpectedState(response)) {
           logger.warn(
-            s"Topology transaction ${topologyTransaction(item)} got ${response}. Will not update watermark."
+            s"Topology transaction ${topologyTransaction(item)} got $response. Will not update watermark."
           )
           false
         } else valid
@@ -394,11 +392,10 @@ class DomainOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
   override def addedNewTransactions(
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     outboxRef.get.fold(FutureUnlessShutdown.unit)(
       _.newTransactionsAdded(timestamp, transactions.size)
     )
-  }
 
   def addObserver(ob: DomainOutbox)(implicit traceContext: TraceContext): Unit = {
     val previous = outboxRef.getAndSet(ob.some)
@@ -515,11 +512,10 @@ class DomainOutboxFactory(
       override def queueSize: Int =
         storeBasedDomainOutbox.queueSize + queueBasedDomainOutbox.queueSize
 
-      override protected def onClosed(): Unit = {
+      override protected def onClosed(): Unit =
         Lifecycle.close(storeBasedDomainOutbox, queueBasedDomainOutbox)(
           DomainOutboxFactory.this.logger
         )
-      }
 
       override protected def timeouts: ProcessingTimeout = DomainOutboxFactory.this.timeouts
 

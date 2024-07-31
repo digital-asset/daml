@@ -83,12 +83,12 @@ class GrpcPingService(service: PingService, val loggerFactory: NamedLoggerFactor
             r => Future.successful(Left(ProtoDeserializationFailure.Wrap(r))),
             _.map(Right(_)),
           )
-        ).map({
+        ).map {
           case PingService.Success(millis, responder) =>
             PingResponse(PingResponse.Response.Success(PingSuccess(millis.toMillis, responder)))
           case PingService.Failure(reason) =>
             PingResponse(PingResponse.Response.Failure(PingFailure(reason)))
-        })
+        }
       )
     }
 }

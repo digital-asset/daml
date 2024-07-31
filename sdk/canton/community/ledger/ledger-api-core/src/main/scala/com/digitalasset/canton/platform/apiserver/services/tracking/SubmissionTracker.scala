@@ -35,7 +35,7 @@ trait SubmissionTracker extends AutoCloseable {
       traceContext: TraceContext,
   ): Future[CompletionResponse]
 
-  /** [[com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.completion]] do not have `act_as` populated,
+  /** [[com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.completionResponse]] do not have `act_as` populated,
     * hence submitters are propagated separately.
     * TODO(#12658): Use only the completion response once completions.act_as is populated.
     */
@@ -113,9 +113,9 @@ object SubmissionTracker {
 
     override def onCompletion(completionResult: (CompletionStreamResponse, Submitters)): Unit = {
       val (completionStreamResponse, submitters) = completionResult
-      completionStreamResponse.completion.foreach { completion =>
+      completionStreamResponse.completionResponse.completion.foreach { completion =>
         attemptFinish(SubmissionKey.fromCompletion(completion, submitters))(
-          CompletionResponse.fromCompletion(_, completion, completionStreamResponse.checkpoint)
+          CompletionResponse.fromCompletion(_, completion)
         )
       }
     }

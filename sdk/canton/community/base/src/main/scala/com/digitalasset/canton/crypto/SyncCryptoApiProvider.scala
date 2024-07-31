@@ -173,19 +173,16 @@ object SyncCryptoClient {
     (timestamp, traceContext) => client.snapshotUS(timestamp)(traceContext),
     (description, timestamp, traceContext) =>
       client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
-    { (snapshot, traceContext) =>
-      {
-        closeContext.context.performUnlessClosingF(
-          "get-dynamic-domain-parameters"
-        ) {
-          snapshot
-            .findDynamicDomainParametersOrDefault(
-              protocolVersion = protocolVersion,
-              warnOnUsingDefault = false,
-            )(traceContext)
-        }(executionContext, traceContext)
-      }
-    },
+    (snapshot, traceContext) =>
+      closeContext.context.performUnlessClosingF(
+        "get-dynamic-domain-parameters"
+      ) {
+        snapshot
+          .findDynamicDomainParametersOrDefault(
+            protocolVersion = protocolVersion,
+            warnOnUsingDefault = false,
+          )(traceContext)
+      }(executionContext, traceContext),
   )
 
   /** Computes the snapshot for the desired timestamp, assuming that the last (relevant) update to the
@@ -203,7 +200,7 @@ object SyncCryptoClient {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): Future[SyncCryptoApi] = {
+  ): Future[SyncCryptoApi] =
     getSnapshotForTimestampInternal[Future](
       client,
       desiredTimestamp,
@@ -213,15 +210,13 @@ object SyncCryptoClient {
       (timestamp, traceContext) => client.snapshot(timestamp)(traceContext),
       (description, timestamp, traceContext) =>
         client.awaitSnapshotSupervised(description)(timestamp)(traceContext),
-      { (snapshot, traceContext) =>
+      (snapshot, traceContext) =>
         snapshot
           .findDynamicDomainParametersOrDefault(
             protocolVersion = protocolVersion,
             warnOnUsingDefault = false,
-          )(traceContext)
-      },
+          )(traceContext),
     )
-  }
 
   // Base version of getSnapshotForTimestamp abstracting over the effect type to allow for
   // a `Future` and `FutureUnlessShutdown` version. Once we migrate all usages to the US version, this abstraction
@@ -265,15 +260,15 @@ object SyncCryptoClient {
     ).flatMap { timestamp =>
       if (timestamp <= client.topologyKnownUntilTimestamp) {
         loggingContext.logger.debug(
-          s"Getting topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+          s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
         getSnapshot(timestamp, traceContext)
       } else {
         loggingContext.logger.debug(
-          s"Waiting for topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+          s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
         awaitSnapshotSupervised(
-          s"requesting topology snapshot at topology snapshot at $timestamp; desired=${desiredTimestamp}, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
+          s"requesting topology snapshot at topology snapshot at $timestamp; desired=$desiredTimestamp, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
           timestamp,
           traceContext,
         )
@@ -293,7 +288,7 @@ object SyncCryptoClient {
       loggingContext: ErrorLoggingContext,
       // executionContext: ExecutionContext,
       monad: Monad[F],
-  ): F[CantonTimestamp] = {
+  ): F[CantonTimestamp] =
     if (desiredTimestamp <= topologyKnownUntilTimestamp) {
       monad.pure(desiredTimestamp)
     } else {
@@ -301,7 +296,7 @@ object SyncCryptoClient {
         case None =>
           LoggerUtil.logAtLevel(
             if (warnIfApproximate) Level.WARN else Level.INFO,
-            s"Using approximate topology snapshot at ${currentApproximateTimestamp} for desired timestamp $desiredTimestamp",
+            s"Using approximate topology snapshot at $currentApproximateTimestamp for desired timestamp $desiredTimestamp",
           )
           monad.pure(currentApproximateTimestamp)
         case Some(previousTimestamp) =>
@@ -323,7 +318,6 @@ object SyncCryptoClient {
           }
       }
     }
-  }
 
 }
 
@@ -399,7 +393,7 @@ class DomainSyncCryptoClient(
       referenceTime: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] = {
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
     for {
       snapshot <- EitherT.right(ipsSnapshot(referenceTime)).mapK(FutureUnlessShutdown.outcomeK)
       signingKeys <- EitherT.right(snapshot.signingKeys(member)).mapK(FutureUnlessShutdown.outcomeK)
@@ -418,8 +412,6 @@ class DomainSyncCryptoClient(
         )
         .toEitherT[FutureUnlessShutdown]
     } yield kk.fingerprint
-
-  }
 
   override def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -563,27 +555,25 @@ class DomainSnapshotSyncCryptoApi(
       hash: Hash,
       signer: Member,
       signature: Signature,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- EitherT.fromEither[Future](
         verifySignature(hash, validKeys, signature, signer.toString)
       )
     } yield res
-  }
 
   override def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- signatures.forgetNE.parTraverse_ { signature =>
         EitherT.fromEither[Future](verifySignature(hash, validKeys, signature, signer.toString))
       }
     } yield res
-  }
 
   override def verifyMediatorSignatures(
       hash: Hash,
@@ -617,7 +607,7 @@ class DomainSnapshotSyncCryptoApi(
       threshold: PositiveInt,
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     for {
       validKeysWithMember <-
         EitherT.right(
@@ -666,7 +656,6 @@ class DomainSnapshotSyncCryptoApi(
         )
       }
     } yield ()
-  }
 
   override def verifySequencerSignatures(
       hash: Hash,

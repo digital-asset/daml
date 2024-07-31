@@ -99,9 +99,8 @@ class SyncDomainPersistentStateManager(
     }
   }
 
-  def indexedDomainId(domainId: DomainId): Future[IndexedDomain] = {
+  def indexedDomainId(domainId: DomainId): Future[IndexedDomain] =
     IndexedDomain.indexed(this.indexedStringStore)(domainId)
-  }
 
   /** Retrieves the [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]]
     * for the given domain if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] for the domain
@@ -144,7 +143,7 @@ class SyncDomainPersistentStateManager(
       alias: DomainAlias,
       parameterStore: DomainParameterStore,
       newParameters: StaticDomainParameters,
-  )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, DomainRegistryError, Unit] =
     for {
       oldParametersO <- EitherT.right(parameterStore.lastParameters)
       _ <- oldParametersO match {
@@ -161,7 +160,6 @@ class SyncDomainPersistentStateManager(
           )
       }
     } yield ()
-  }
 
   def protocolVersionFor(domainId: DomainId): Option[ProtocolVersion] =
     get(domainId).map(_.protocolVersion)
@@ -212,7 +210,7 @@ class SyncDomainPersistentStateManager(
       futureSupervisor,
     )
 
-  def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
+  def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] =
     get(domainId).map(state =>
       new TopologyComponentFactory(
         domainId,
@@ -227,14 +225,13 @@ class SyncDomainPersistentStateManager(
         loggerFactory.append("domainId", domainId.toString),
       )
     )
-  }
 
   def domainTopologyStateInitFor(
       domainId: DomainId,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] = {
+  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] =
     get(domainId) match {
       case None =>
         EitherT.leftT[Future, Option[DomainTopologyInitializationCallback]](
@@ -260,7 +257,6 @@ class SyncDomainPersistentStateManager(
         )
 
     }
-  }
 
   override def close(): Unit =
     Lifecycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)

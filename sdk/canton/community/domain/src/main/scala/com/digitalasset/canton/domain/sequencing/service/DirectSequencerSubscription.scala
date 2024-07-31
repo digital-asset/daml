@@ -43,7 +43,7 @@ private[service] class DirectSequencerSubscription[E](
     with NoTracing {
 
   protected val loggerFactory: NamedLoggerFactory =
-    baseLoggerFactory.append("member", show"${member}")
+    baseLoggerFactory.append("member", show"$member")
 
   private val externalCompletionRef: SingleUseCell[SubscriptionCloseReason[E]] =
     new SingleUseCell[SubscriptionCloseReason[E]]()
@@ -63,7 +63,7 @@ private[service] class DirectSequencerSubscription[E](
         }
       }
       .collect { case Left(err) =>
-        logger.info(s"DirectSequencerSubscription encountered close reason ${err}")
+        logger.info(s"DirectSequencerSubscription encountered close reason $err")
         err
       }
       .take(1)

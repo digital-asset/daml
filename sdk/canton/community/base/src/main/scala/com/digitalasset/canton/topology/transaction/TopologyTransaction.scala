@@ -137,7 +137,7 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     operation.select[TargetOp].map(_ => this.asInstanceOf[TopologyTransaction[TargetOp, M]])
 
   /** returns hash of the given transaction */
-  lazy val hash: TxHash = {
+  lazy val hash: TxHash =
     TxHash(
       Hash.digest(
         HashPurpose.TopologyTransactionSignature,
@@ -146,7 +146,6 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
         HashAlgorithm.Sha256,
       )
     )
-  }
 
   override def toByteStringUnmemoized: ByteString = super[HasProtocolVersionedWrapper].toByteString
 
@@ -158,11 +157,10 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 
   def asVersion(
       protocolVersion: ProtocolVersion
-  ): TopologyTransaction[Op, M] = {
+  ): TopologyTransaction[Op, M] =
     TopologyTransaction[Op, M](operation, serial, mapping)(
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
-  }
 
   /** Indicates how to pretty print this instance.
     * See `PrettyPrintingTest` for examples on how to implement this method.
@@ -191,7 +189,7 @@ object TopologyTransaction
 
   val supportedProtoVersions: transaction.TopologyTransaction.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.TopologyTransaction)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

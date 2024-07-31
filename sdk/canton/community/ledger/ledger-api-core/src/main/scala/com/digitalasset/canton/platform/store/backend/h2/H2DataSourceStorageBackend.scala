@@ -40,7 +40,7 @@ object H2DataSourceStorageBackend extends DataSourceStorageBackend {
       jdbcUrl: String
   ): (String, Option[String], Option[String]) = {
     def setKeyValueAndRemoveFromUrl(url: String, key: String): (String, Option[String]) = {
-      val regex = s".*(;(?i)${key}=([^;]*)).*".r
+      val regex = s".*(;(?i)$key=([^;]*)).*".r
       url match {
         case regex(keyAndValue, value) =>
           (url.replace(keyAndValue, ""), Some(value))

@@ -30,7 +30,7 @@ class DbSendTrackerStore_Unused(
 
   override def savePendingSend(messageId: MessageId, maxSequencingTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SavePendingSendError, Unit] = {
+  ): EitherT[Future, SavePendingSendError, Unit] =
     for {
       rowsUpdated <- EitherT.right(
         storage.update(
@@ -70,11 +70,10 @@ class DbSendTrackerStore_Unused(
           })
         }
     } yield ()
-  }
 
   override def fetchPendingSends(implicit
       traceContext: TraceContext
-  ): Future[Map[MessageId, CantonTimestamp]] = {
+  ): Future[Map[MessageId, CantonTimestamp]] =
     for {
       items <- storage.query(
         sql"select message_id, max_sequencing_time from sequencer_client_pending_sends where domain_id = $indexedDomain"
@@ -82,15 +81,13 @@ class DbSendTrackerStore_Unused(
         functionFullName,
       )
     } yield items.toMap
-  }
 
   override def removePendingSend(
       messageId: MessageId
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"delete from sequencer_client_pending_sends where domain_id = $indexedDomain and message_id = $messageId",
       functionFullName,
     )
-  }
 
 }

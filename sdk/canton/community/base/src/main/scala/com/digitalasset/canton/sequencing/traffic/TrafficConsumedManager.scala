@@ -57,11 +57,10 @@ class TrafficConsumedManager(
       cost: NonNegativeLong,
       timestamp: CantonTimestamp,
       trafficPurchasedO: Option[TrafficPurchased],
-  )(implicit traceContext: TraceContext): Either[NotEnoughTraffic, Unit] = {
+  )(implicit traceContext: TraceContext): Either[NotEnoughTraffic, Unit] =
     trafficConsumed
       .get()
       .canConsumeAt(params, cost, timestamp, trafficPurchasedO, logger)
-  }
 
   /** Update the traffic consumed state to the given timestamp, including updating base rate remainder,
     * ONLY if it's not already up to date.
@@ -70,13 +69,12 @@ class TrafficConsumedManager(
       implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ) = {
+  ) =
     updateAndGet {
       case trafficConsumed if trafficConsumed.sequencingTimestamp < timestamp =>
         trafficConsumed.updateTimestamp(timestamp, params, logger)
       case trafficConsumed => trafficConsumed
     }
-  }
 
   /** Consume the event cost at the given timestamp if enough traffic is available.
     * This MUST be called sequentially.
@@ -89,7 +87,7 @@ class TrafficConsumedManager(
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): Either[NotEnoughTraffic, TrafficConsumed] = {
+  ): Either[NotEnoughTraffic, TrafficConsumed] =
     canConsumeAt(
       params,
       eventCost,
@@ -108,7 +106,6 @@ class TrafficConsumedManager(
         logger.debug(s"Consumed ${eventCost.value} for $member at $timestamp: new state $newState")
         Right(newState)
     }
-  }
 
   // Single point of entry to update the traffic consumed
   // Update metrics as a side effect. f itself MUST NOT have side effects.

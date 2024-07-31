@@ -11,14 +11,14 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Type aliases used throughout the package */
 package object platform {
-  import com.digitalasset.daml.lf.value.{Value as lfval}
+  import com.digitalasset.daml.lf.value.Value as lfval
   private[platform] type ContractId = lfval.ContractId
   private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
   private[platform] type Contract = lfval.VersionedContractInstance
   private[platform] val Contract = lfval.VersionedContractInstance
 
-  import com.digitalasset.daml.lf.{transaction as lftx}
+  import com.digitalasset.daml.lf.transaction as lftx
   private[platform] type NodeId = lftx.NodeId
   private[platform] type Node = lftx.Node
   private[platform] type Create = lftx.Node.Create
@@ -26,7 +26,7 @@ package object platform {
   private[platform] type Key = lftx.GlobalKey
   private[platform] val Key = lftx.GlobalKey
 
-  import com.digitalasset.daml.lf.{data as lfdata}
+  import com.digitalasset.daml.lf.data as lfdata
   private[platform] type Party = lfdata.Ref.Party
   private[platform] val Party = lfdata.Ref.Party
   private[platform] type Identifier = lfdata.Ref.Identifier

@@ -228,7 +228,7 @@ class ResilientSequencerSubscriptionTest
           ] = {
             // Close the resilient sequencer subscription while it is creating the subscription
             // close will block waiting for the subscription request, so start in a future but defer waiting for its completion until after its resolved
-            closePromise.completeWith(Future { resilientSequencerSubscriptionRef.get().close() })
+            closePromise.completeWith(Future(resilientSequencerSubscriptionRef.get().close()))
             eventually() {
               resilientSequencerSubscriptionRef.get().isClosing shouldBe true
             }
@@ -489,9 +489,8 @@ trait ResilientSequencerSubscriptionTestUtils {
       mockResponse.subscribed.map(_ => mockResponse)
     }
 
-    def addClosed(reason: SubscriptionCloseReason[TestHandlerError]): MockedSubscriptions = {
+    def addClosed(reason: SubscriptionCloseReason[TestHandlerError]): MockedSubscriptions =
       add(new MockSubscriptionResponse(Some(reason)))
-    }
 
     def add(mockSubscriptionResponse: MockSubscriptionResponse): MockedSubscriptions = {
       subscriptions += mockSubscriptionResponse

@@ -62,8 +62,8 @@ private[platform] final case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
-        (fromExclusive, toInclusive) => {
+      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId) {
+        (fromExclusive, toInclusive) =>
           implicit val loggingContext: LoggingContextWithTrace =
             LoggingContextWithTrace.empty
           dbDispatcher.executeSql(metrics.index.db.loadStringInterningEntries) {
@@ -72,8 +72,7 @@ private[platform] final case class InitializeParallelIngestion(
               toInclusive,
             )
           }
-        }
-      )
+      }
       // post processing recovery should come after initializing string interning when the dependent storage backend operations are running
       postProcessingEndOffset <- dbDispatcher.executeSql(metrics.index.db.getPostProcessingEnd)(
         parameterStorageBackend.postProcessingEnd

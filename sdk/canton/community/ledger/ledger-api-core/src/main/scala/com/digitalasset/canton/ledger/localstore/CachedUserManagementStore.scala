@@ -47,9 +47,8 @@ class CachedUserManagementStore(
 
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[UserManagementStore.UserInfo]] = {
+  ): Future[Result[UserManagementStore.UserInfo]] =
     cache.get(CacheKey(id, identityProviderId))
-  }
 
   override def createUser(user: User, rights: Set[domain.UserRight])(implicit
       loggingContext: LoggingContextWithTrace
@@ -60,40 +59,36 @@ class CachedUserManagementStore(
 
   override def updateUser(
       userUpdate: UserUpdate
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
     delegate
       .updateUser(userUpdate)
       .andThen(invalidateOnSuccess(CacheKey(userUpdate.id, userUpdate.identityProviderId)))
-  }
 
   override def deleteUser(
       id: UserId,
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] =
     delegate
       .deleteUser(id, identityProviderId)
       .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
-  }
 
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
     delegate
       .grantRights(id, rights, identityProviderId)
       .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
-  }
 
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
     delegate
       .revokeRights(id, rights, identityProviderId)
       .andThen(invalidateOnSuccess(CacheKey(id, identityProviderId)))
-  }
 
   override def listUsers(
       fromExcl: Option[Ref.UserId],

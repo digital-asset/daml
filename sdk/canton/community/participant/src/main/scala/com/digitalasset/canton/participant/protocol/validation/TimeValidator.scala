@@ -22,7 +22,7 @@ object TimeValidator {
     val CommonData(_transactionId, ledgerTime, submissionTime) = commonData
 
     def log(msg: String): Unit = {
-      lazy val logMsg = s"Time validation has failed: ${msg}"
+      lazy val logMsg = s"Time validation has failed: $msg"
       if (amSubmitter) logger.warn(logMsg)
       else logger.info(logMsg)
     }

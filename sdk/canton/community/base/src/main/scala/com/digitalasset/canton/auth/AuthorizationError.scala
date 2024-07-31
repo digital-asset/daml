@@ -1,9 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.auth
-
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+package com.digitalasset.canton.auth
 
 import java.time.Instant
 
@@ -52,11 +50,10 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
 
-  final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId)
+  final case class InvalidIdentityProviderId(identityProviderId: String)
       extends AuthorizationError {
-    private val id = identityProviderId.toRequestString
     override val reason =
-      s"identity_provider_id from the request `$id` does not match the one provided in the authorization claims"
+      s"identity_provider_id from the request `$identityProviderId` does not match the one provided in the authorization claims"
   }
 
   final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError

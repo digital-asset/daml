@@ -221,9 +221,7 @@ class SuppressingLoggerTest extends AnyWordSpec with BaseTest with HasExecutionC
     "fail gracefully on unmatched unordered messages" in new LoggingTester {
       val ex: TestFailedException =
         the[TestFailedException] thrownBy loggerFactory.assertLogsUnordered(
-          {
-            logger.error("Second message")
-          },
+          logger.error("Second message"),
           _.errorMessage shouldBe "First message",
           _.errorMessage shouldBe "Second message",
         )
@@ -295,11 +293,10 @@ class SuppressingLoggerTest extends AnyWordSpec with BaseTest with HasExecutionC
     }
 
     "skip errors that are to be skipped" in new LoggingTester {
-      override def skipLogEntry(logEntry: LogEntry): Boolean = {
+      override def skipLogEntry(logEntry: LogEntry): Boolean =
         logEntry.level == slf4j.event.Level.ERROR &&
-        logEntry.loggerName.startsWith(classOf[SuppressingLogger].getName) &&
-        logEntry.message == "message"
-      }
+          logEntry.loggerName.startsWith(classOf[SuppressingLogger].getName) &&
+          logEntry.message == "message"
 
       loggerFactory.assertLogs(
         {

@@ -66,7 +66,7 @@ private[protocol] trait ConflictDetectionHelpers {
         new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
   )(
       entries: (TransferId, MediatorGroupRecipient)*
-  )(implicit traceContext: TraceContext): Future[TransferCache] = {
+  )(implicit traceContext: TraceContext): Future[TransferCache] =
     Future
       .traverse(entries) { case (transferId, sourceMediator) =>
         for {
@@ -82,7 +82,6 @@ private[protocol] trait ConflictDetectionHelpers {
         } yield result
       }
       .map(_ => new TransferCache(store, loggerFactory)(parallelExecutionContext))
-  }
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {
@@ -92,7 +91,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def insertEntriesAcs(
       acs: ActiveContractStore,
       entries: Seq[(LfContractId, TimeOfChange, ActiveContractStore.Status)],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] =
     Future
       .traverse(entries) {
         case (coid, toc, Active(_transferCounter)) =>
@@ -105,7 +104,6 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           acs.transferOutContract(coid, toc, targetDomain, transferCounter).value
       }
       .void
-  }
 
   def mkActivenessCheck[Key: Pretty](
       fresh: Set[Key] = Set.empty[Key],

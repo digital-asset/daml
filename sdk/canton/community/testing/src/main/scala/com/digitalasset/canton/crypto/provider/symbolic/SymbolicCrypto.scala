@@ -47,47 +47,42 @@ class SymbolicCrypto(
   )(fn: TraceContext => OptionT[FutureUnlessShutdown, A]): Option[A] =
     process(description)(fn(_).value)
 
-  private def process[A](description: String)(fn: TraceContext => FutureUnlessShutdown[A]): A = {
+  private def process[A](description: String)(fn: TraceContext => FutureUnlessShutdown[A]): A =
     TraceContext.withNewTraceContext { implicit traceContext =>
       timeouts.default.await(description) {
         fn(traceContext)
           .onShutdown(sys.error("aborted due to shutdown"))
       }
     }
-  }
 
-  def getOrGenerateSymbolicSigningKey(name: String): SigningPublicKey = {
+  def getOrGenerateSymbolicSigningKey(name: String): SigningPublicKey =
     processO("get or generate symbolic signing key") { implicit traceContext =>
       cryptoPublicStore
         .findSigningKeyIdByName(KeyName.tryCreate(name))
     }.getOrElse(generateSymbolicSigningKey(Some(name)))
-  }
 
-  def getOrGenerateSymbolicEncryptionKey(name: String): EncryptionPublicKey = {
+  def getOrGenerateSymbolicEncryptionKey(name: String): EncryptionPublicKey =
     processO("get or generate symbolic encryption key") { implicit traceContext =>
       cryptoPublicStore
         .findEncryptionKeyIdByName(KeyName.tryCreate(name))
     }.getOrElse(generateSymbolicEncryptionKey(Some(name)))
-  }
 
   /** Generates a new symbolic signing keypair and stores the public key in the public store */
   def generateSymbolicSigningKey(
       name: Option[String] = None
-  ): SigningPublicKey = {
+  ): SigningPublicKey =
     processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       generateSigningKey(SigningKeyScheme.Ed25519, name.map(KeyName.tryCreate))
     }
-  }
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */
-  def newSymbolicSigningKeyPair(): SigningKeyPair = {
+  def newSymbolicSigningKeyPair(): SigningKeyPair =
     processE("generate symbolic signing keypair") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       privateCrypto
         .generateSigningKeypair(SigningKeyScheme.Ed25519)
     }
-  }
 
   def generateSymbolicEncryptionKey(
       name: Option[String] = None
@@ -100,22 +95,20 @@ class SymbolicCrypto(
       )
     }
 
-  def newSymbolicEncryptionKeyPair(): EncryptionKeyPair = {
+  def newSymbolicEncryptionKeyPair(): EncryptionKeyPair =
     processE("generate symbolic encryption keypair") { implicit traceContext =>
       // We don't care about the encryption key specification in symbolic crypto
       privateCrypto
         .generateEncryptionKeypair(privateCrypto.defaultEncryptionKeySpec)
     }
-  }
 
   def sign(hash: Hash, signingKeyId: Fingerprint): Signature =
     processE("symbolic signing") { implicit traceContext =>
       privateCrypto.sign(hash, signingKeyId)
     }
 
-  def setRandomKeysFlag(newValue: Boolean): Unit = {
+  def setRandomKeysFlag(newValue: Boolean): Unit =
     privateCrypto.setRandomKeysFlag(newValue)
-  }
 }
 
 object SymbolicCrypto {

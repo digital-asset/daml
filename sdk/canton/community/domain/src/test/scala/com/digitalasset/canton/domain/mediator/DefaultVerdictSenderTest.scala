@@ -201,7 +201,7 @@ class DefaultVerdictSenderTest
     val initialDomainParameters = TestDomainParameters.defaultDynamic
 
     val domainSyncCryptoApi: DomainSyncCryptoClient =
-      if (testedProtocolVersion >= ProtocolVersion.v31) {
+      if (testedProtocolVersion >= ProtocolVersion.v32) {
         val topology = TestingTopology(
           Set(domainId),
           Map(
@@ -265,7 +265,7 @@ class DefaultVerdictSenderTest
       loggerFactory,
     )
 
-    def sendApproval(): Future[Unit] = {
+    def sendApproval(): Future[Unit] =
       verdictSender
         .sendResult(
           requestId,
@@ -274,9 +274,8 @@ class DefaultVerdictSenderTest
           decisionTime,
         )
         .onShutdown(fail())
-    }
 
-    def sendReject(): Future[Unit] = {
+    def sendReject(): Future[Unit] =
       verdictSender
         .sendReject(
           requestId,
@@ -288,7 +287,6 @@ class DefaultVerdictSenderTest
           decisionTime,
         )
         .failOnShutdown
-    }
   }
 
 }

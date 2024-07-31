@@ -115,7 +115,7 @@ private[dao] object ContractsReader {
       metrics: LedgerApiServerMetrics,
       storageBackend: ContractStorageBackend,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): ContractsReader = {
+  )(implicit ec: ExecutionContext): ContractsReader =
     new ContractsReader(
       contractLoader = contractLoader,
       storageBackend = storageBackend,
@@ -123,29 +123,26 @@ private[dao] object ContractsReader {
       metrics = metrics,
       loggerFactory = loggerFactory,
     )
-  }
 
   private def decompress(
       data: Array[Byte],
       algorithm: Compression.Algorithm,
       timer: Timer,
-  ): InputStream = {
+  ): InputStream =
     Timed.value(
       timer,
       value = algorithm.decompress(new ByteArrayInputStream(data)),
     )
-  }
 
   private def deserializeValue(
       decompressed: InputStream,
       timer: Timer,
       errorContext: String,
-  ): VersionedValue = {
+  ): VersionedValue =
     Timed.value(
       timer,
       value = ValueSerializer.deserializeValue(decompressed, errorContext),
     )
-  }
 
   // The contracts table _does not_ store agreement texts as they are
   // unnecessary for interpretation and validation. The contracts returned

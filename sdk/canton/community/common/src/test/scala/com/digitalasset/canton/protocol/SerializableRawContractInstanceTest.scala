@@ -47,9 +47,9 @@ class SerializableRawContractInstanceTest
         ),
       )
 
-    scenarios.forEvery({ case (name, coinst1, coinst2) =>
+    scenarios.forEvery { case (name, coinst1, coinst2) =>
       name should { behave like hasCryptographicEvidenceSerialization(coinst1, coinst2) }
-    })
+    }
 
     "for a non-serializable instance" should {
       val nonSerializableContractInst = ExampleTransactionFactory.veryDeepContractInstance

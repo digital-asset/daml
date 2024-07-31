@@ -686,7 +686,7 @@ class DbSequencerStore(
       _ = {
         if (updatedWatermark.online || updatedWatermark.timestamp != ts) {
           logger.debug(
-            s"Watermark was not reset to $ts as it is already set to an earlier date, kept ${updatedWatermark}"
+            s"Watermark was not reset to $ts as it is already set to an earlier date, kept $updatedWatermark"
           )
         }
       }
@@ -781,13 +781,11 @@ class DbSequencerStore(
 
   override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      {
-        profile match {
-          case _: H2 | _: Postgres =>
-            sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
-          case _: Oracle =>
-            sqlu"update sequencer_watermarks set sequencer_online = 0 where node_index = $instanceIndex"
-        }
+      profile match {
+        case _: H2 | _: Postgres =>
+          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
+        case _: Oracle =>
+          sqlu"update sequencer_watermarks set sequencer_online = 0 where node_index = $instanceIndex"
       },
       functionFullName,
     )
@@ -973,7 +971,7 @@ class DbSequencerStore(
 
   def checkpointsAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Map[Member, CounterCheckpoint]] = {
+  )(implicit traceContext: TraceContext): Future[Map[Member, CounterCheckpoint]] =
     for {
       sequencerIdO <- lookupMember(sequencerMember).map(_.map(_.memberId))
       query = for {
@@ -1003,7 +1001,6 @@ class DbSequencerStore(
       result <- storage
         .query(query.transactionally, functionFullName)
     } yield result
-  }
 
   private def memberCheckpointsQuery(
       timestamp: CantonTimestamp,
@@ -1052,7 +1049,7 @@ class DbSequencerStore(
       timestamp: CantonTimestamp,
       safeWatermark: CantonTimestamp,
       sequencerId: SequencerMemberId,
-  ) = {
+  ) =
     // in order to compute the latest sequencer event for each member at a timestamp, we find the latest event ts
     // for an event addressed both to the sequencer and that member
     sql"""
@@ -1075,7 +1072,6 @@ class DbSequencerStore(
           )
         group by (sequencer_members.member, events.ts)
         """.as[(Member, CantonTimestamp)].map(_.toMap)
-  }
 
   override def deleteEventsPastWatermark(
       instanceIndex: Int
@@ -1090,13 +1086,11 @@ class DbSequencerStore(
       watermark = watermarkO.getOrElse(CantonTimestamp.MinValue)
       // TODO(#18401): Also cleanup payloads (beyond the payload to event margin)
       eventsRemoved <- storage.update(
-        {
-          sqlu"""
+        sqlu"""
             delete from sequencer_events
             where node_index = $instanceIndex
                 and ts > $watermark
-           """
-        },
+           """,
         functionFullName,
       )
     } yield {
@@ -1112,8 +1106,7 @@ class DbSequencerStore(
   )(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
-  ): EitherT[Future, SaveCounterCheckpointError, Unit] = {
-
+  ): EitherT[Future, SaveCounterCheckpointError, Unit] =
     EitherT {
       val CounterCheckpoint(counter, ts, latestSequencerEventTimestamp) = checkpoint
       CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
@@ -1169,7 +1162,6 @@ class DbSequencerStore(
           )
       }
     }
-  }
 
   override def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(
       implicit traceContext: TraceContext
@@ -1242,7 +1234,7 @@ class DbSequencerStore(
 
   override def saveLowerBound(
       ts: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SaveLowerBoundError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SaveLowerBoundError, Unit] =
     EitherT(
       storage.queryAndUpdate(
         (for {
@@ -1263,13 +1255,11 @@ class DbSequencerStore(
         "saveLowerBound",
       )
     )
-  }
 
   override protected[store] def adjustPruningTimestampForCounterCheckpoints(
       timestamp: CantonTimestamp,
       disabledMembers: Seq[SequencerMemberId],
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
-
+  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
     // query the lowest suitable timestamp for each member.
     // it would probably be better to do the ignore and aggregation in sql
     // however this way we don't have to deal with generating a `not in (..)` for
@@ -1296,7 +1286,6 @@ class DbSequencerStore(
       })
       // just take the lowest
       .map(_.minimumOption)
-  }
 
   override protected[store] def pruneEvents(
       timestamp: CantonTimestamp
@@ -1340,7 +1329,7 @@ class DbSequencerStore(
 
   override def status(
       now: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] = {
+  )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     for {
       lowerBoundO <- fetchLowerBound()
       members <- storage.query(
@@ -1364,7 +1353,6 @@ class DbSequencerStore(
         }.toSet,
       )
     }
-  }
 
   override def markLaggingSequencersOffline(
       cutoffTime: CantonTimestamp

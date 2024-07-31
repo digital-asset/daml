@@ -64,9 +64,9 @@ private[backend] trait StorageBackendTestsCompletions
       completions1to2 should have length 1
       completions0to9 should have length 3
 
-      completions0to9.head.completion.map(_.traceContext) shouldBe Some(None)
-      completions0to9(1).completion.map(_.traceContext) shouldBe Some(None)
-      completions0to9(2).completion.map(_.traceContext) shouldBe Some(
+      completions0to9.head.completionResponse.completion.map(_.traceContext) shouldBe Some(None)
+      completions0to9(1).completionResponse.completion.map(_.traceContext) shouldBe Some(None)
+      completions0to9(2).completionResponse.completion.map(_.traceContext) shouldBe Some(
         Some(SerializableTraceContext(aTraceContext).toDamlProto)
       )
     }
@@ -90,8 +90,10 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     completions should not be empty
-    completions.head.completion should not be empty
-    completions.head.completion.toList.head.applicationId should be(applicationId)
+    completions.head.completionResponse.completion should not be empty
+    completions.head.completionResponse.completion.toList.head.applicationId should be(
+      applicationId
+    )
   }
 
   it should "correctly persist and retrieve submission IDs" in {
@@ -119,10 +121,14 @@ private[backend] trait StorageBackendTestsCompletions
 
     completions should have length 2
     inside(completions) { case List(completionWithSubmissionId, completionWithoutSubmissionId) =>
-      completionWithSubmissionId.completion should not be empty
-      completionWithSubmissionId.completion.toList.head.submissionId should be(someSubmissionId)
-      completionWithoutSubmissionId.completion should not be empty
-      completionWithoutSubmissionId.completion.toList.head.submissionId should be("")
+      completionWithSubmissionId.completionResponse.completion should not be empty
+      completionWithSubmissionId.completionResponse.completion.toList.head.submissionId should be(
+        someSubmissionId
+      )
+      completionWithoutSubmissionId.completionResponse.completion should not be empty
+      completionWithoutSubmissionId.completionResponse.completion.toList.head.submissionId should be(
+        ""
+      )
     }
   }
 
@@ -157,12 +163,12 @@ private[backend] trait StorageBackendTestsCompletions
     completions should have length 2
     inside(completions) {
       case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
-        completionWithDeduplicationOffset.completion should not be empty
-        completionWithDeduplicationOffset.completion.toList.head.deduplicationPeriod.deduplicationOffset should be(
+        completionWithDeduplicationOffset.completionResponse.completion should not be empty
+        completionWithDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationOffset should be(
           Some(anOffsetHex)
         )
-        completionWithoutDeduplicationOffset.completion should not be empty
-        completionWithoutDeduplicationOffset.completion.toList.head.deduplicationPeriod.deduplicationOffset should not be defined
+        completionWithoutDeduplicationOffset.completionResponse.completion should not be empty
+        completionWithoutDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationOffset should not be defined
     }
   }
 
@@ -205,12 +211,12 @@ private[backend] trait StorageBackendTestsCompletions
     completions should have length 2
     inside(completions) {
       case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
-        completionWithDeduplicationOffset.completion should not be empty
-        completionWithDeduplicationOffset.completion.toList.head.deduplicationPeriod.deduplicationDuration should be(
+        completionWithDeduplicationOffset.completionResponse.completion should not be empty
+        completionWithDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationDuration should be(
           Some(expectedDuration)
         )
-        completionWithoutDeduplicationOffset.completion should not be empty
-        completionWithoutDeduplicationOffset.completion.toList.head.deduplicationPeriod.deduplicationDuration should not be defined
+        completionWithoutDeduplicationOffset.completionResponse.completion should not be empty
+        completionWithoutDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationDuration should not be defined
     }
   }
 

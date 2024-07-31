@@ -80,7 +80,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
         SubmitAndWaitForUpdateIdResponse.of(
           updateId = response.completion.updateId,
-          completionOffset = response.checkpoint.map(_.offset).getOrElse(""),
+          completionOffset = response.completion.offset,
         )
       }
     }
@@ -183,7 +183,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       loggingContextWithTrace: LoggingContextWithTrace,
   )(
       submitWithContext: (ContextualizedErrorLogger, TraceContext) => Future[T]
-  ): Future[T] = {
+  ): Future[T] =
     LoggingContextWithTrace.withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
@@ -200,7 +200,6 @@ private[apiserver] final class CommandServiceImpl private[services] (
         loggingContext.traceContext,
       )
     }(loggingContextWithTrace)
-  }
 }
 
 private[apiserver] object CommandServiceImpl {

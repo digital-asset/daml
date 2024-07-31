@@ -83,26 +83,22 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
       verb: ResultOfTaggedAsInvocationOnString,
       condition: => Boolean,
   ) {
-    def in(testFun: FixtureParam => Any /* Assertion */ )(implicit pos: source.Position): Unit = {
+    def in(testFun: FixtureParam => Any /* Assertion */ )(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
   }
   protected final class OnlyRunWhenWordSpecStringWrapper(
       verb: WordSpecStringWrapper,
       condition: => Boolean,
   ) {
-    def in(testFun: FixtureParam => Any /* Assertion */ )(implicit pos: source.Position): Unit = {
+    def in(testFun: FixtureParam => Any /* Assertion */ )(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
     def ignore(
         testFun: FixtureParam => Any /* Assertion */
-    )(implicit pos: source.Position): Unit = {
+    )(implicit pos: source.Position): Unit =
       verb.ignore(testFun)
-    }
 
-    def when(testFun: => Unit /* Assertion */ )(implicit pos: source.Position): Unit = {
+    def when(testFun: => Unit /* Assertion */ )(implicit pos: source.Position): Unit =
       if (condition) verb.when(testFun) else verb.ignore(() => testFun)
-    }
   }
 }
 
@@ -159,25 +155,22 @@ trait ProtocolVersionChecksFixtureAsyncWordSpec {
       verb: ResultOfTaggedAsInvocationOnString,
       condition: => Boolean,
   ) {
-    def in(testFun: FixtureParam => Future[Assertion])(implicit pos: source.Position): Unit = {
+    def in(testFun: FixtureParam => Future[Assertion])(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
   }
   protected final class OnlyRunWhenWordSpecStringWrapper(
       verb: WordSpecStringWrapper,
       condition: => Boolean,
   ) {
-    def in(testFun: FixtureParam => Future[Assertion])(implicit pos: source.Position): Unit = {
+    def in(testFun: FixtureParam => Future[Assertion])(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
 
-    def when(testFun: => Unit)(implicit pos: source.Position): Unit = {
+    def when(testFun: => Unit)(implicit pos: source.Position): Unit =
       if (condition) verb.when(testFun)
       else
         verb.ignore { _ =>
           Future.successful { testFun; succeed }
         }
-    }
   }
 }
 
@@ -224,13 +217,11 @@ trait ProtocolVersionChecksAsyncWordSpec {
       verb: WordSpecStringWrapper,
       condition: => Boolean,
   ) {
-    def in(testFun: => Future[Assertion])(implicit pos: source.Position): Unit = {
+    def in(testFun: => Future[Assertion])(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
 
-    def when(testFun: => Unit)(implicit pos: source.Position): Unit = {
+    def when(testFun: => Unit)(implicit pos: source.Position): Unit =
       if (condition) verb.when(testFun)
-    }
   }
 }
 
@@ -266,12 +257,10 @@ trait ProtocolVersionChecksAnyWordSpec {
       verb: WordSpecStringWrapper,
       condition: => Boolean,
   ) {
-    def in(testFun: => Any /* Assertion */ )(implicit pos: source.Position): Unit = {
+    def in(testFun: => Any /* Assertion */ )(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
-    }
 
-    def when(testFun: => Unit /* Assertion */ )(implicit pos: source.Position): Unit = {
+    def when(testFun: => Unit /* Assertion */ )(implicit pos: source.Position): Unit =
       if (condition) verb.when(testFun) else verb.ignore(testFun)
-    }
   }
 }

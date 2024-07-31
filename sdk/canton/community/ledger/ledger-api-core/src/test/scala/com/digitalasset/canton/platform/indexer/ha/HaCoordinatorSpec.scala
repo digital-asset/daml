@@ -949,13 +949,11 @@ class HaCoordinatorSpec
   ) {
 
     /** trigger end of execution initialization */
-    def completeExecutionInitialization(): Unit = {
+    def completeExecutionInitialization(): Unit =
       executionHandlePromise.success(())
-    }
 
     /** simulate a failure during execution initialization */
-    def failDuringExecutionInitialization(cause: Throwable): Unit = {
+    def failDuringExecutionInitialization(cause: Throwable): Unit =
       executionHandlePromise.failure(cause)
-    }
   }
 }

@@ -4,9 +4,12 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.{RawLedgerBlock, SequencerDriverHealthStatus}
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
@@ -85,4 +88,11 @@ trait BlockOrderer extends AutoCloseable {
   ): Future[SequencerDriverHealthStatus]
 
   def adminServices: Seq[ServerServiceDefinition] = Seq.empty
+
+  /** Provides information for the [[com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot.additional]]
+    * field, which can be used for onboarding.
+    */
+  def sequencerSnapshotAdditionalInfo(
+      timestamp: CantonTimestamp
+  ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]]
 }

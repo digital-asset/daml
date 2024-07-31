@@ -28,12 +28,11 @@ class TrafficControlAdministrationGroup(
   )
   def traffic_state(
       domainId: DomainId
-  ): TrafficState = {
+  ): TrafficState =
     consoleEnvironment.run(
       runner.adminCommand(
         ParticipantAdminCommands.TrafficControl
           .GetTrafficControlState(domainId)
       )
     )
-  }
 }

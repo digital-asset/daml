@@ -56,7 +56,7 @@ class GrpcSequencerConnectClient(
 
   override def getDomainClientBootstrapInfo(
       domainAlias: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainClientBootstrapInfo] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, Error, DomainClientBootstrapInfo] =
     for {
       _ <- CantonGrpcUtil
         .checkCantonApiInfo(
@@ -93,7 +93,6 @@ class GrpcSequencerConnectClient(
 
       sequencerId <- EitherT.fromEither[Future](sequencerId)
     } yield DomainClientBootstrapInfo(domainId, sequencerId)
-  }
 
   override def getDomainParameters(
       domainIdentifier: String
@@ -186,10 +185,10 @@ class GrpcSequencerConnectClient(
 
     // retry in case of failure. Also if waitForActive is true, retry if response is negative
     implicit val success: Success[Either[Error, Boolean]] =
-      retry.Success({
+      retry.Success {
         case Left(_) => false
         case Right(value) => value || !waitForActive
-      })
+      }
 
     def verifyActive(): Future[Either[Error, Boolean]] =
       service.verifyActive(VerifyActiveRequest()).map(handleVerifyActiveResponse)

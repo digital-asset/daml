@@ -9,9 +9,12 @@ import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{BlockSequencerStateManager, SequencerDriverFactory}
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerHealthConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.domain.sequencing.sequencer.{
+  SequencerHealthConfig,
+  SequencerSnapshot,
+}
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -73,6 +76,7 @@ class DriverBlockSequencerFactory[C](
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
       domainLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit

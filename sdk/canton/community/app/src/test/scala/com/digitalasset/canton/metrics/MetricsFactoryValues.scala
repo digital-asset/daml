@@ -43,16 +43,14 @@ trait MetricsFactoryValues extends MetricValues {
 
   case class MetricsStateValuable(state: MetricsState) {
 
-    def totalMetricsRegistered: Int = {
+    def totalMetricsRegistered: Int =
       state.gauges.size + state.asyncGauges.size + state.histograms.size + state.timers.size + state.counters.size + state.meters.size
-    }
 
     def filteredForPrefix(metricName: MetricName): MetricsState = {
-      def filteredMapForPrefix[Metric](state: MetricsByName[Metric]): MetricsByName[Metric] = {
+      def filteredMapForPrefix[Metric](state: MetricsByName[Metric]): MetricsByName[Metric] =
         TrieMap.from(
           state.toMap.view.filterKeys(_.startsWith(metricName)).toMap
         )
-      }
 
       MetricsState(
         timers = filteredMapForPrefix(state.timers),

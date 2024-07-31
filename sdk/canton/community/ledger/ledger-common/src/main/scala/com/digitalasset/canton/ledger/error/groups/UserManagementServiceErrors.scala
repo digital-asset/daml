@@ -99,7 +99,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
     final case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${operation} failed for unknown user \"${userId}\""
+          cause = s"$operation failed for unknown user \"$userId\""
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId
@@ -118,7 +118,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
     final case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${operation} failed, as user \"${userId}\" already exists"
+          cause = s"$operation failed, as user \"$userId\" already exists"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId
@@ -142,7 +142,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
     final case class Reject(operation: String, userId: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${operation} failed, as user \"${userId}\" would have too many rights."
+          cause = s"$operation failed, as user \"$userId\" would have too many rights."
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.User -> userId

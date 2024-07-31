@@ -53,7 +53,7 @@ class GrpcSequencerInitializationService(
 
   override def initializeSequencerFromGenesisState(
       responseObserver: StreamObserver[InitializeSequencerFromGenesisStateResponse]
-  ): StreamObserver[InitializeSequencerFromGenesisStateRequest] = {
+  ): StreamObserver[InitializeSequencerFromGenesisStateRequest] =
     GrpcStreamingUtils.streamFromClient(
       _.topologySnapshot,
       _.domainParameters,
@@ -61,7 +61,6 @@ class GrpcSequencerInitializationService(
         initializeSequencerFromGenesisState(topologySnapshot, domainParams),
       responseObserver,
     )
-  }
 
   private def initializeSequencerFromGenesisState(
       topologySnapshot: ByteString,
@@ -132,7 +131,7 @@ class GrpcSequencerInitializationService(
 
   override def initializeSequencerFromOnboardingState(
       responseObserver: StreamObserver[InitializeSequencerFromOnboardingStateResponse]
-  ): StreamObserver[InitializeSequencerFromOnboardingStateRequest] = {
+  ): StreamObserver[InitializeSequencerFromOnboardingStateRequest] =
     GrpcStreamingUtils.streamFromClient(
       _.onboardingState,
       _ => (),
@@ -140,7 +139,6 @@ class GrpcSequencerInitializationService(
         initializeSequencerFromOnboardingState(onboardingState),
       responseObserver,
     )
-  }
 
   private def initializeSequencerFromOnboardingState(onboardingState: ByteString) = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext

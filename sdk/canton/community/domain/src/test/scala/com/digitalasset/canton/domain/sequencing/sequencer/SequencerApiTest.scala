@@ -123,7 +123,7 @@ abstract class SequencerApiTest
 
   def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
-  def simClockOrFail(clock: Clock): SimClock = {
+  def simClockOrFail(clock: Clock): SimClock =
     clock match {
       case simClock: SimClock => simClock
       case _ =>
@@ -131,7 +131,6 @@ abstract class SequencerApiTest
           "This test case is only compatible with SimClock for `clock` and `driverClock` fields"
         )
     }
-  }
   def domainId: DomainId = DefaultTestIdentities.domainId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
   def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
@@ -676,7 +675,7 @@ abstract class SequencerApiTest
           checkRejection(reads14a, p14, messageId2, defaultExpectedTrafficReceipt) {
             case SequencerErrors.AggregateSubmissionStuffing(reason) =>
               reason should include(
-                s"The sender ${p14} previously contributed to the aggregatable submission with ID"
+                s"The sender $p14 previously contributed to the aggregatable submission with ID"
               )
           }
           val deliveredEnvelopeDetails = EnvelopeDetails(
@@ -982,7 +981,7 @@ trait SequencerApiTestUtils
       // up to 60 seconds needed because Besu is very slow on CI
       timeout: FiniteDuration = 60.seconds,
       firstSequencerCounter: SequencerCounter = SequencerCounter.Genesis,
-  )(implicit materializer: Materializer): Future[Seq[(Member, OrdinarySerializedEvent)]] = {
+  )(implicit materializer: Materializer): Future[Seq[(Member, OrdinarySerializedEvent)]] =
     members
       .parTraverseFilter { member =>
         for {
@@ -1003,7 +1002,6 @@ trait SequencerApiTestUtils
             }
         } yield events
       }
-  }
 
   case class EnvelopeDetails(
       content: String,
@@ -1055,7 +1053,7 @@ trait SequencerApiTestUtils
     val sortReceived = receivedMessages.sortBy { case (member, _) => member }
 
     forAll(sortReceived.zip(sortExpected)) { case ((member, message), expectedMessage) =>
-      withClue(s"Member mismatch") { member shouldBe expectedMessage.to }
+      withClue(s"Member mismatch")(member shouldBe expectedMessage.to)
 
       withClue(s"Sequencer counter is wrong") {
         message.counter shouldBe expectedMessage.counter
@@ -1095,7 +1093,7 @@ trait SequencerApiTestUtils
       sender: Member,
       expectedMessageId: MessageId,
       expectedTrafficReceipt: Option[TrafficReceipt],
-  )(assertReason: PartialFunction[Status, Assertion]): Assertion = {
+  )(assertReason: PartialFunction[Status, Assertion]): Assertion =
     got match {
       case Seq((`sender`, event)) =>
         event.signedEvent.content match {
@@ -1115,7 +1113,6 @@ trait SequencerApiTestUtils
         }
       case _ => fail(s"Read wrong events for $sender: $got")
     }
-  }
 
   def signEnvelope(
       crypto: DomainSyncCryptoClient,
@@ -1143,11 +1140,10 @@ trait SequencerApiTestUtils
     override def forRecipient(
         member: Member,
         groupAddresses: Set[GroupRecipient],
-    ): Option[Envelope[String]] = {
+    ): Option[Envelope[String]] =
       recipients
         .forMember(member, groupAddresses)
         .map(recipients => TestingEnvelope(content, recipients))
-    }
 
     override def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
   }
@@ -1156,7 +1152,7 @@ trait SequencerApiTestUtils
     * Used for unit testing sequencers. During the normal sequencer operation members are registered
     * via topology subscription or sequencer startup in SequencerRuntime.
     */
-  def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit = {
+  def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit =
     (for {
       allMembers <- EitherT.right[Sequencer.RegisterError](headSnapshot.allMembers())
       _ <- allMembers.toSeq
@@ -1174,5 +1170,4 @@ trait SequencerApiTestUtils
           } yield res
         }
     } yield ()).futureValue
-  }
 }

@@ -88,13 +88,12 @@ trait SequencerStateManagerStoreTest
     super.beforeAll()
   }
 
-  override def afterAll(): Unit = {
+  override def afterAll(): Unit =
     try super.afterAll()
     finally {
       materializer.shutdown()
       Await.result(actorSystem.terminate(), 10.seconds)
     }
-  }
 
   def sequencerStateManagerStore(mk: () => SequencerStateManagerStore): Unit = {
     val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
@@ -657,7 +656,7 @@ trait SequencerStateManagerStoreTest
               error.counter shouldBe SequencerCounter(1)
               error.reason.message should include("Sequencer signing key not available")
             case event =>
-              fail(s"Expected tombstone, but got ${event}")
+              fail(s"Expected tombstone, but got $event")
           }
         }
       }

@@ -43,7 +43,7 @@ class OpenTelemetryOnDemandMetricsReader extends MetricReader with OnDemandMetri
     CompletableResultCode.ofSuccess()
   }
 
-  override def read(): Seq[MetricData] = {
+  override def read(): Seq[MetricData] =
     optionalProducer
       .get()
       .map { producer =>
@@ -53,6 +53,5 @@ class OpenTelemetryOnDemandMetricsReader extends MetricReader with OnDemandMetri
         logger.warn("Could not read metrics as the producer is not set.")
         Seq.empty
       }
-  }
 
 }

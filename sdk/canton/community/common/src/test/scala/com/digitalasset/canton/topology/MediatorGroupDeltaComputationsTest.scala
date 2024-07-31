@@ -12,9 +12,8 @@ import scala.annotation.nowarn
 
 @nowarn("msg=match may not be exhaustive")
 class MediatorGroupDeltaComputationsTest extends AnyWordSpec with BaseTest {
-  private def mediatorIdFor(idx: Int) = {
-    MediatorId(UniqueIdentifier.tryCreate(s"mediator$idx", s"m${idx}"))
-  }
+  private def mediatorIdFor(idx: Int) =
+    MediatorId(UniqueIdentifier.tryCreate(s"mediator$idx", s"m$idx"))
 
   private lazy val Seq(m1, m2, m3, m4) = (1 to 4).map(mediatorIdFor)
 

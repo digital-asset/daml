@@ -45,17 +45,15 @@ object AuthorizedTopologyTransaction {
     * A root certificate is defined by a namespace delegation that authorizes the
     * key f to act on the namespace spanned by f, authorized by f.
     */
-  def isRootCertificate(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean = {
+  def isRootCertificate(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
     NamespaceDelegation.isRootCertificate(namespaceDelegation.transaction)
-  }
 
   /** Returns true if the namespace delegation is a root certificate or a root delegation
     *
     * A root delegation is a namespace delegation whose target key may be used to authorize other namespace delegations.
     */
-  def isRootDelegation(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean = {
+  def isRootDelegation(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
     NamespaceDelegation.isRootDelegation(namespaceDelegation.transaction)
-  }
 
 }
 
@@ -351,16 +349,14 @@ final case class DecentralizedNamespaceAuthorizationGraph(
   override def existsAuthorizedKeyIn(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
-  ): Boolean = {
+  ): Boolean =
     ownerGraphs.count(_.existsAuthorizedKeyIn(authKeys, requireRoot)) >= dnd.threshold.value
-  }
 
   override def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
-  ): Set[SigningPublicKey] = {
+  ): Set[SigningPublicKey] =
     ownerGraphs
       .flatMap(_.keysSupportingAuthorization(authKeys, requireRoot))
       .toSet
-  }
 }

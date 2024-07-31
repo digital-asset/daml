@@ -33,14 +33,14 @@ class TopologyStoreTestData(
         op,
         serial,
         mapping,
-        ProtocolVersion.v31,
+        ProtocolVersion.v32,
       ),
       signatures = NonEmpty(Set, Signature.noSignature),
       isProposal = isProposal,
     )(
       SignedTopologyTransaction.supportedProtoVersions
         .protocolVersionRepresentativeFor(
-          ProtocolVersion.v31
+          ProtocolVersion.v32
         )
     )
 

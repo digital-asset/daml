@@ -74,7 +74,7 @@ object OrderingRequest
   override def name: String = "OrderingRequest"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.OrderingRequest)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.OrderingRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -84,9 +84,8 @@ object OrderingRequest
       sequencerId: SequencerId,
       content: A,
       protocolVersion: ProtocolVersion,
-  ): OrderingRequest[A] = {
+  ): OrderingRequest[A] =
     OrderingRequest(sequencerId, content)(protocolVersionRepresentativeFor(protocolVersion), None)
-  }
 
   def fromProtoV30(
       orderingRequestP: v30.OrderingRequest

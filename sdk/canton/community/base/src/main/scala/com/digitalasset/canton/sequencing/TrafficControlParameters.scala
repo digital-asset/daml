@@ -71,7 +71,7 @@ object TrafficControlParameters {
 
   def fromProtoV30(
       proto: protoV30.TrafficControlParameters
-  ): ParsingResult[TrafficControlParameters] = {
+  ): ParsingResult[TrafficControlParameters] =
     for {
       maxBaseTrafficAmount <- ProtoConverter.parseNonNegativeLong(
         "max_base_traffic_amount",
@@ -100,5 +100,4 @@ object TrafficControlParameters {
       setBalanceRequestSubmissionWindowSize,
       proto.enforceRateLimiting,
     )
-  }
 }

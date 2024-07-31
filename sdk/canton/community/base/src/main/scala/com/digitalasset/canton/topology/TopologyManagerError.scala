@@ -47,7 +47,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Other(s: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"TODO(#14048) other failure: ${s}"
+          cause = s"TODO(#14048) other failure: $s"
         )
         with TopologyManagerError
 
@@ -83,7 +83,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Topology transaction with hash ${txHash} does not exist or is not active or is not an active proposal at $effective"
+            s"Topology transaction with hash $txHash does not exist or is not active or is not an active proposal at $effective"
         )
         with TopologyManagerError
   }
@@ -227,7 +227,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class ExistsAt(ts: CantonTimestamp)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given topology transaction already exists at ${ts}."
+          cause = s"The given topology transaction already exists at $ts."
         )
         with TopologyManagerError
   }

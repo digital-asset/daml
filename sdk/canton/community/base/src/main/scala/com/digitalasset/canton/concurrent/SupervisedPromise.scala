@@ -23,9 +23,8 @@ class SupervisedPromise[T](
     ec: ExecutionContext,
 ) extends Promise[T] {
   private val promise: Promise[T] = Promise[T]()
-  override def future: Future[T] = {
+  override def future: Future[T] =
     futureSupervisor.supervised(description, logAfter, logLevel)(promise.future)
-  }
 
   override def isCompleted: Boolean = promise.isCompleted
   override def tryComplete(result: Try[T]): Boolean = promise.tryComplete(result)

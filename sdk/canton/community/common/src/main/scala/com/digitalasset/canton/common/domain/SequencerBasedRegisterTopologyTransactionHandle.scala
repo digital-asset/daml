@@ -59,7 +59,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       transactions: Seq[GenericSignedTopologyTransaction]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] = {
+  ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] =
     service.registerTopologyTransaction(
       TopologyTransactionsBroadcast.create(
         domainId,
@@ -70,7 +70,6 @@ class SequencerBasedRegisterTopologyTransactionHandle(
         protocolVersion,
       )
     )
-  }
 
   override def onClosed(): Unit = service.close()
 
@@ -145,7 +144,7 @@ class DomainTopologyService(
         // Do not amplify because we are running our own retry loop here anyway
         amplify = false,
       ),
-      s"Failed sending topology transaction broadcast: ${request}",
+      s"Failed sending topology transaction broadcast: $request",
     )
   }
 }

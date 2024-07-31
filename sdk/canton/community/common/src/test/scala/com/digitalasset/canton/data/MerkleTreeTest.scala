@@ -115,7 +115,7 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
     }
 
     "wrap something (unless it is blinded)" in {
-      forEvery(testCases)((merkleTree, _, _, _) => {
+      forEvery(testCases) { (merkleTree, _, _, _) =>
         merkleTree match {
           case BlindedNode(rootHash) =>
             merkleTree.unwrap should equal(Left(rootHash))
@@ -124,7 +124,7 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
             merkleTree.unwrap should equal(Right(merkleTree))
             merkleTree.tryUnwrap should equal(merkleTree)
         }
-      })
+      }
     }
 
     "correctly say whether it is fully unblinded" in {
@@ -140,61 +140,61 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
     }
 
     "be blindable" in {
-      forEvery(testCases)((merkleTree, _, _, _) => {
+      forEvery(testCases) { (merkleTree, _, _, _) =>
         val blindedTree = BlindedNode(merkleTree.rootHash)
-        merkleTree.blind({ case t if t eq merkleTree => BlindSubtree }) should equal(blindedTree)
-        merkleTree.blind({ case _ => RevealIfNeedBe }) should equal(blindedTree)
-      })
+        merkleTree.blind { case t if t eq merkleTree => BlindSubtree } should equal(blindedTree)
+        merkleTree.blind { case _ => RevealIfNeedBe } should equal(blindedTree)
+      }
     }
 
     "remain unchanged on Reveal" in {
-      forEvery(testCases)((merkleTree, _, _, _) => {
-        merkleTree.blind({ case t if t eq merkleTree => RevealSubtree }) should equal(merkleTree)
-      })
+      forEvery(testCases) { (merkleTree, _, _, _) =>
+        merkleTree.blind { case t if t eq merkleTree => RevealSubtree } should equal(merkleTree)
+      }
     }
 
     "escalate a malformed blinding policy" in {
-      forEvery(testCases)((merkleTree, _, _, _) => {
+      forEvery(testCases) { (merkleTree, _, _, _) =>
         merkleTree match {
           case BlindedNode(_) => // skip test, as the blinding policy cannot be malformed
           case _ =>
             an[IllegalArgumentException] should be thrownBy merkleTree.blind(PartialFunction.empty)
         }
-      })
+      }
     }
   }
 
   "A deep Merkle tree" can {
     "be partially blinded" in {
       // Blind threeLevelTree to threeLevelTreePartiallyBlinded.
-      threeLevelTree.blind({
+      threeLevelTree.blind {
         case InnerNode1(_*) => RevealIfNeedBe
         case Leaf1(_) => BlindSubtree
         case InnerNode2(_*) => RevealSubtree
-      }) should equal(threeLevelTreePartiallyBlinded)
+      } should equal(threeLevelTreePartiallyBlinded)
 
       // Use RevealIfNeedBe while blinding one child and revealing the other child.
-      innerNodeWithTwoChildren.blind({
+      innerNodeWithTwoChildren.blind {
         case InnerNode2(_*) => RevealIfNeedBe
         case Leaf2(_) => BlindSubtree
         case Leaf3(_) => RevealSubtree
-      }) should equal(InnerNode2(BlindedNode(singletonLeafHash(2)), singletonLeaf3))
+      } should equal(InnerNode2(BlindedNode(singletonLeafHash(2)), singletonLeaf3))
 
       // Use RevealIfNeedBe while blinding all children.
-      innerNodeWithTwoChildren.blind({
+      innerNodeWithTwoChildren.blind {
         case InnerNode2(_*) => RevealIfNeedBe
         case Leaf2(_) => BlindSubtree
         case Leaf3(_) => BlindSubtree
-      }) should equal(BlindedNode(innerNodeWithTwoChildrenHash))
+      } should equal(BlindedNode(innerNodeWithTwoChildrenHash))
 
       // Use RevealIfNeedBe while blinding all children.
       // Make sure that grandchildren are blinded, even though the policy assigns Reveal to them.
-      threeLevelTree.blind({
+      threeLevelTree.blind {
         case InnerNode1(_*) => RevealIfNeedBe
         case Leaf1(_) => BlindSubtree
         case InnerNode2(_*) => BlindSubtree
         case _ => RevealSubtree
-      }) should equal(BlindedNode(threeLevelTreeHash))
+      } should equal(BlindedNode(threeLevelTreeHash))
     }
   }
 }
@@ -209,21 +209,19 @@ object MerkleTreeTest {
     override def supportedProtoVersions: data.MerkleTreeTest.AbstractLeaf.SupportedProtoVersions =
       SupportedProtoVersions(
         ProtoVersion(30) -> VersionedProtoConverter.raw(
-          ProtocolVersion.v31,
+          ProtocolVersion.v32,
           fromProto(30),
           _.getCryptographicEvidence,
         )
       )
 
-    def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] = {
-
+    def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] =
       protocolVersionRepresentativeFor(ProtoVersion(protoVersion)).flatMap { rpv =>
         leafFromByteString(i => Leaf1(i)(rpv))(bytes).leftMap(e =>
           ProtoDeserializationError.OtherError(e.message)
         )
       }
 
-    }
   }
 
   abstract class AbstractLeaf[A <: MerkleTree[

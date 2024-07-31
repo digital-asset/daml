@@ -14,7 +14,7 @@ class SlickStringTest extends AnyWordSpec with Matchers {
 
   def assertIsError(result: WartTestTraverser.Result): Assertion = {
     result.errors.length should be >= 1
-    result.errors.foreach { _ should include(SlickString.message) }
+    result.errors.foreach(_ should include(SlickString.message))
     succeed
   }
 

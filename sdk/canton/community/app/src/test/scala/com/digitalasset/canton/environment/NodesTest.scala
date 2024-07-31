@@ -174,9 +174,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
         storage: Storage
     ): (DependenciesHealthService, LivenessHealthService) =
       ???
-    override def start(): EitherT[Future, String, Unit] = {
+    override def start(): EitherT[Future, String, Unit] =
       EitherT.pure[Future, String](())
-    }
     override protected def lookupTopologyClient(
         storeId: TopologyStoreId
     ): Option[DomainTopologyClientWithInit] = ???
@@ -242,7 +241,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     }
     "return an initialization failure if an exception is thrown during startup" in { f =>
       val exception = new RuntimeException("Nope!")
-      f.nodeFactory.setupCreate { throw exception }
+      f.nodeFactory.setupCreate(throw exception)
       the[RuntimeException] thrownBy Await.result(
         f.nodes.start("n1").value,
         10.seconds,
@@ -267,9 +266,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     "return an initialization failure if an exception is thrown during shutdown" in { f =>
       val anException = new RuntimeException("Nope!")
       val node = new TestNodeBootstrap(f.config) {
-        override def onClosed() = {
+        override def onClosed() =
           throw anException
-        }
       }
       f.nodeFactory.setupCreate(node)
 

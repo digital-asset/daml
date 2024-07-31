@@ -70,7 +70,7 @@ class Cron(val unwrap: CronExpression) {
   // This wrapper around CronExpression also encapsulates its use of java Date.
   def getNextValidTimeAfter(
       baselineTimestamp: CantonTimestamp
-  ): Either[CronNextTimeAfterError, CantonTimestamp] = {
+  ): Either[CronNextTimeAfterError, CantonTimestamp] =
     for {
       jdate <- TryUtil
         .tryCatchInterrupted(baselineTimestamp.toDate)
@@ -85,7 +85,6 @@ class Cron(val unwrap: CronExpression) {
         .fromDate(nextJDate)
         .leftMap[CronNextTimeAfterError](DateConversionError)
     } yield nextCantonTimestamp
-  }
 }
 
 object Cron {
@@ -103,14 +102,13 @@ object Cron {
     new Cron(cronExpr)
   }
 
-  def create(rawCron: String): Either[String, Cron] = {
+  def create(rawCron: String): Either[String, Cron] =
     try {
       Right(tryCreate(rawCron))
     } catch {
       case NonFatal(t) =>
-        Left(s"Invalid cron expression \"${rawCron}\": ${t.getMessage}")
+        Left(s"Invalid cron expression \"$rawCron\": ${t.getMessage}")
     }
-  }
 
   def fromProtoPrimitive(cronP: String): ParsingResult[Cron] =
     create(cronP).leftMap(ValueConversionError("cron", _))
@@ -120,7 +118,7 @@ object Cron {
   }
 
   final case class NoNextValidTimeAfter(ts: CantonTimestamp) extends CronNextTimeAfterError {
-    override def message = s"No next valid time after ${ts} exists."
+    override def message = s"No next valid time after $ts exists."
   }
 
   final case class DateConversionError(message: String) extends CronNextTimeAfterError

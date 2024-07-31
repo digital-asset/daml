@@ -276,19 +276,17 @@ class DbCommandDeduplicationStore(
             )
           }
         } else {
-          def error(): Unit = {
+          def error(): Unit =
             ErrorUtil.internalError(
               new IllegalArgumentException(
                 s"Cannot update command deduplication data for $changeIdHash from offset ${data.latestDefiniteAnswer.offset} to offset ${definiteAnswerEvent.offset}\n Found data: $data\nDefinite answer update: $definiteAnswerEvent"
               )
             )
-          }
 
-          def laterOverwrite(): Unit = {
+          def laterOverwrite(): Unit =
             logger.debug(
               s"Command deduplication data for ${changeId.hash} is being overwritten by later completion."
             )
-          }
 
           /* If the bulk insertion query is retried, we may find a later definite answer than the current one.
            * So we check for this possibility before we complain.
@@ -370,7 +368,7 @@ class DbCommandDeduplicationStore(
 
   override def latestPruning()(implicit
       traceContext: TraceContext
-  ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] = {
+  ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] =
     cachedLastPruning.get() match {
       case None =>
         {
@@ -388,5 +386,4 @@ class DbCommandDeduplicationStore(
           }
       case Some(value) => OptionT.fromOption[Future](value)
     }
-  }
 }

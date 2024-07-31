@@ -86,16 +86,15 @@ object LoggerUtil {
     *
     * Therefore, this method allows to set lower digits to 0 and only keep the leading digits as nonzeros.
     */
-  def roundDurationForHumans(duration: Duration, keep: Int = 2): Duration = {
+  def roundDurationForHumans(duration: Duration, keep: Int = 2): Duration =
     if (duration.isFinite && duration.length != 0) {
       val length = Math.abs(duration.length)
       val adjusted = length - length % math
         .pow(10, Math.max(0, math.floor(math.log10(length.toDouble)) - keep))
       Duration(if (duration.length > 0) adjusted else -adjusted, duration.unit).toCoarsest
     } else duration
-  }
 
-  def logOnThrow[T](task: => T)(implicit loggingContext: ErrorLoggingContext): T = {
+  def logOnThrow[T](task: => T)(implicit loggingContext: ErrorLoggingContext): T =
     try {
       task
     } catch {
@@ -103,16 +102,14 @@ object LoggerUtil {
         loggingContext.error("Unhandled exception thrown!", e)
         throw e
     }
-  }
 
-  def logOnThrow_(task: => Unit)(implicit loggingContext: ErrorLoggingContext): Unit = {
+  def logOnThrow_(task: => Unit)(implicit loggingContext: ErrorLoggingContext): Unit =
     try {
       task
     } catch {
       case NonFatal(e) =>
         loggingContext.logger.error("Unhandled exception thrown!", e)(loggingContext.traceContext)
     }
-  }
 
   /** truncates a string
     *

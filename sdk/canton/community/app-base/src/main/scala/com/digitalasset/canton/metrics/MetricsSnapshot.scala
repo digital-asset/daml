@@ -15,9 +15,8 @@ final case class MetricsSnapshot(
 
 object MetricsSnapshot {
 
-  def apply(reader: OnDemandMetricsReader): MetricsSnapshot = {
+  def apply(reader: OnDemandMetricsReader): MetricsSnapshot =
     MetricsSnapshot(
       otelMetrics = reader.read()
     )
-  }
 }

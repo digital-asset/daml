@@ -101,7 +101,7 @@ object TransactionViewDecomposition {
 
   // Count all the NewViews representing actual views (in contrast to SameViews that are part of their parent)
   @tailrec
-  def countNestedViews(views: Seq[TransactionViewDecomposition], count: Int = 0): Int = {
+  def countNestedViews(views: Seq[TransactionViewDecomposition], count: Int = 0): Int =
     views match {
       case head +: rest =>
         head match {
@@ -113,5 +113,4 @@ object TransactionViewDecomposition {
       case _ => // scala compiler is not happy matching on Seq() thinking that there is some other missing case
         count
     }
-  }
 }

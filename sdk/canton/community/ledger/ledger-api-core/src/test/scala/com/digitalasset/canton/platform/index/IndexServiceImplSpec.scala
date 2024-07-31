@@ -825,7 +825,7 @@ class IndexServiceImplSpec
 
   it should "add a checkpoint after the element if they have the same offset" in new Scope {
     val elements = 1L to end
-    val source: Source[(Offset, Carrier[Option[Long]]), NotUsed] = {
+    val source: Source[(Offset, Carrier[Option[Long]]), NotUsed] =
       Source(elements)
         .map(x => (Offset.fromLong(x), Some(x)))
         .via(
@@ -834,7 +834,6 @@ class IndexServiceImplSpec
             endInclusive = Offset.fromLong(elements.last),
           )
         )
-    }
 
     forAll(Seq(1L, 5L, 10L)) { checkpoint =>
       val out: Seq[Option[Long]] =

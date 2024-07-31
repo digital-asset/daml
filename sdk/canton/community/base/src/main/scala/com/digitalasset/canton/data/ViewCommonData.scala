@@ -99,7 +99,7 @@ object ViewCommonData
   override val name: String = "ViewCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ViewCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -176,7 +176,7 @@ final case class ViewConfirmationParameters private (
     param("quorums", _.quorums),
   )
 
-  lazy val confirmers: Set[LfPartyId] = quorums.flatMap { _.confirmers.keys }.toSet
+  lazy val confirmers: Set[LfPartyId] = quorums.flatMap(_.confirmers.keys).toSet
 }
 
 object ViewConfirmationParameters {

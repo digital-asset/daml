@@ -335,9 +335,8 @@ class PackageService(
 
   override def getDar(hash: Hash)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageService.Dar]] = {
+  ): Future[Option[PackageService.Dar]] =
     packagesDarsStore.getDar(hash)
-  }
 
   override def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
@@ -349,7 +348,7 @@ class PackageService(
     EitherT(
       packagesDarsStore
         .getDar(darId)
-        .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
+        .map(_.toRight(s"No such dar $darId").flatMap(PackageService.darToLf))
     )
 
   def vetPackages(
@@ -454,9 +453,7 @@ object PackageService {
     DarParser
       .readArchive(dar.descriptor.name.str, stream)
       .fold(
-        { _ =>
-          Left(s"Cannot parse stored dar $dar")
-        },
+        _ => Left(s"Cannot parse stored dar $dar"),
         x => Right(dar.descriptor -> x),
       )
   }

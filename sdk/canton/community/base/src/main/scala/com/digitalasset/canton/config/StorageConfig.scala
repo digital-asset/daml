@@ -120,14 +120,13 @@ trait StorageConfig {
   /** General database related parameters. */
   def parameters: DbParametersConfig
 
-  private def maxConnectionsOrDefault: Int = {
+  private def maxConnectionsOrDefault: Int =
     // The following is an educated guess of a sane default for the number of DB connections.
     // https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
     parameters.maxConnections match {
       case Some(value) if value > 0 => value
       case _ => Threading.detectNumberOfThreads(NamedLogging.noopNoTracingLogger)
     }
-  }
 
   /** Returns the size of the Canton read connection pool for the given usage.
     *
@@ -242,13 +241,12 @@ object CommunityStorageConfig {
 trait DbConfig extends StorageConfig with PrettyPrinting {
 
   /** Function to combine the defined migration path together with dev version changes */
-  final def buildMigrationsPaths(alphaVersionSupport: Boolean): Seq[String] = {
+  final def buildMigrationsPaths(alphaVersionSupport: Boolean): Seq[String] =
     if (parameters.migrationsPaths.nonEmpty)
       parameters.migrationsPaths
     else if (alphaVersionSupport)
       Seq(stableMigrationPath, devMigrationPath)
     else Seq(stableMigrationPath)
-  }
 
   protected def devMigrationPath: String
   protected def stableMigrationPath: String
@@ -264,12 +262,11 @@ trait DbConfig extends StorageConfig with PrettyPrinting {
 }
 
 trait H2DbConfig extends DbConfig {
-  def databaseName: Option[String] = {
+  def databaseName: Option[String] =
     if (config.hasPath("url")) {
       val url = config.getString("url")
       "(:mem:|:file:)([^:;]+)([:;])".r.findFirstMatchIn(url).map(_.group(2))
     } else None
-  }
   private val defaultDriver: String = "org.h2.Driver"
   val defaultConfig: Config = DbConfig.toConfig(Map("driver" -> defaultDriver))
 }

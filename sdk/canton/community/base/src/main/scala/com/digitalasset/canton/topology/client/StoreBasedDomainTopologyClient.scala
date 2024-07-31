@@ -46,14 +46,13 @@ trait TopologyAwaiter extends FlagCloseable {
     shutdownConditions()
   }
 
-  private def shutdownConditions(): Unit = {
+  private def shutdownConditions(): Unit =
     conditions.updateAndGet { x =>
       x.foreach(_.promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard[Boolean])
       Seq()
     }.discard
-  }
 
-  protected def checkAwaitingConditions()(implicit traceContext: TraceContext): Unit = {
+  protected def checkAwaitingConditions()(implicit traceContext: TraceContext): Unit =
     conditions
       .get()
       .foreach(stateAwait =>
@@ -64,15 +63,14 @@ trait TopologyAwaiter extends FlagCloseable {
             stateAwait.promise.tryFailure(e).discard[Boolean]
         }
       )
-  }
 
   private class StateAwait(func: => Future[Boolean]) {
     val promise: Promise[UnlessShutdown[Boolean]] = Promise[UnlessShutdown[Boolean]]()
-    promise.future.onComplete(_ => {
+    promise.future.onComplete { _ =>
       val _ = conditions.updateAndGet(_.filterNot(_.promise.isCompleted))
-    })
+    }
 
-    def check(): Unit = {
+    def check(): Unit =
       if (!promise.isCompleted) {
         // Ok to use onComplete as any exception will be propagated to the promise.
         func.onComplete {
@@ -81,7 +79,6 @@ trait TopologyAwaiter extends FlagCloseable {
             val _ = promise.tryComplete(res.map(UnlessShutdown.Outcome(_)))
         }
       }
-    }
   }
 
   private[topology] def scheduleAwait(
@@ -138,14 +135,13 @@ class StoreBasedDomainTopologyClient(
     def update(
         newEffectiveTimestamp: EffectiveTime,
         newApproximateTimestamp: ApproximateTime,
-    ): HeadTimestamps = {
+    ): HeadTimestamps =
       HeadTimestamps(
         effectiveTimestamp =
           EffectiveTime(effectiveTimestamp.value.max(newEffectiveTimestamp.value)),
         approximateTimestamp =
           ApproximateTime(approximateTimestamp.value.max(newApproximateTimestamp.value)),
       )
-    }
   }
   private val head = new AtomicReference[HeadTimestamps](
     HeadTimestamps(

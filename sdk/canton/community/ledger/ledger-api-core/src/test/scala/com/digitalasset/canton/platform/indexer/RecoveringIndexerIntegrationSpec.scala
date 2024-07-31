@@ -359,7 +359,7 @@ object RecoveringIndexerIntegrationSpec {
     override def apply(participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         traceContext: TraceContext,
-    ): ResourceOwner[ParticipantState] = {
+    ): ResourceOwner[ParticipantState] =
       ResourceOwner
         .forReleasable(() =>
           // required for the indexer to resubscribe to the update source
@@ -367,11 +367,11 @@ object RecoveringIndexerIntegrationSpec {
             .queue[(Offset, Traced[Update])](bufferSize = 16)
             .toMat(BroadcastHub.sink)(Keep.both)
             .run()
-        )({ case (queue, _) =>
+        ) { case (queue, _) =>
           Future {
             queue.complete()
           }(materializer.executionContext)
-        })
+        }
         .map { case (queue, source) =>
           val readWriteService = new PartyOnlyQueueWriteService(
             participantId,
@@ -380,7 +380,6 @@ object RecoveringIndexerIntegrationSpec {
           )
           readWriteService -> readWriteService
         }
-    }
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
@@ -393,7 +392,7 @@ object RecoveringIndexerIntegrationSpec {
           var lastFailure: Option[Offset] = None
           // This spy inserts a failure after each state update to force the indexer to restart.
           val failingParticipantState = spy(readingDelegate)
-          doAnswer(invocation => {
+          doAnswer { invocation =>
             val beginAfter = invocation.getArgument[Option[Offset]](0)
             readingDelegate.stateUpdates(beginAfter).flatMapConcat { case value @ (offset, _) =>
               if (lastFailure.forall(_ < offset)) {
@@ -403,7 +402,7 @@ object RecoveringIndexerIntegrationSpec {
                 Source.single(value)
               }
             }
-          }).when(failingParticipantState)
+          }.when(failingParticipantState)
             .stateUpdates(
               ArgumentMatchers.any[Option[Offset]]()
             )(ArgumentMatchers.any[TraceContext])

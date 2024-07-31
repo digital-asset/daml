@@ -272,10 +272,19 @@ private[index] class IndexServiceImpl(
         dispatcher()
           .startingAt(
             beginOpt,
-            RangeSource(
-              commandCompletionsReader.getCommandCompletions(_, _, applicationId, parties)
+            RangeSource((startExclusive, endInclusive) =>
+              commandCompletionsReader
+                .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+                .via(rangeDecorator(startExclusive, endInclusive))
             ),
             None,
+          )
+          .via(
+            checkpointFlow(
+              cond = true,
+              fetchOffsetCheckpoint = fetchOffsetCheckpoint,
+              responseFromCheckpoint = completionsResponse,
+            )
           )
           .mapError(shutdownError)
           .map(_._2)
@@ -387,7 +396,7 @@ private[index] class IndexServiceImpl(
 
   override def partyEntries(
       startExclusive: Option[ParticipantOffset.Absolute]
-  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
@@ -398,7 +407,6 @@ private[index] class IndexServiceImpl(
         case (_, PartyLedgerEntry.AllocationAccepted(subId, _, details)) =>
           PartyEntry.AllocationAccepted(subId, details)
       }
-  }
 
   override def prune(
       pruneUpToInclusive: Offset,
@@ -605,7 +613,7 @@ object IndexServiceImpl {
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Offset,
       ledgerEnd: Offset,
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] = {
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
     if (activeAt > ledgerEnd) {
       Left(
         RequestValidationErrors.OffsetAfterLedgerEnd
@@ -619,7 +627,6 @@ object IndexServiceImpl {
     } else {
       Right(())
     }
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(
@@ -877,5 +884,10 @@ object IndexServiceImpl {
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdateTreesResponse =
     GetUpdateTreesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
+
+  private def completionsResponse(
+      offsetCheckpoint: OffsetCheckpoint
+  ): CompletionStreamResponse =
+    CompletionStreamResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
 }

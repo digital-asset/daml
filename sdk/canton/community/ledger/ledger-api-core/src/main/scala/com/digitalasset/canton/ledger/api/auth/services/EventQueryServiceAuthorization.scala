@@ -9,8 +9,8 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 

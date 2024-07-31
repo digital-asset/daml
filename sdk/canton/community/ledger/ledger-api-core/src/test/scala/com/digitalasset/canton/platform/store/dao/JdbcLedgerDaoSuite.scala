@@ -57,7 +57,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       .pipe(DarParser.assertReadArchiveFromFile)
 
   protected final lazy val packageMap =
-    dar.all.map { archive => archive.getHash -> archive }.toMap
+    dar.all.map(archive => archive.getHash -> archive).toMap
 
   private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
   override def loadPackage: PackageId => Future[Option[DamlLf.Archive]] = pkgId =>
@@ -834,7 +834,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Future[Seq[(String, Int)]] =
     ledgerDao.completions
       .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-      .map(_._2.completion.toList.head)
+      .map(_._2.completionResponse.completion.toList.head)
       .map(c => c.commandId -> c.status.value.code)
       .runWith(Sink.seq)
 

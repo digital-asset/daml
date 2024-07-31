@@ -108,7 +108,7 @@ object DamlPackageStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
-  ) = {
+  ) =
     storage match {
       case _: MemoryStorage =>
         new InMemoryDamlPackageStore(loggerFactory)
@@ -122,7 +122,6 @@ object DamlPackageStore {
           loggerFactory,
         )
     }
-  }
 
   /** Read the package id from a archive.
     * Despite different types both values should be ascii7 values

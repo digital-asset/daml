@@ -44,13 +44,12 @@ object ParticipantPruningSchedulerStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
-  ): ParticipantPruningSchedulerStore = {
+  ): ParticipantPruningSchedulerStore =
     storage match {
       case _: MemoryStorage =>
         new InMemoryParticipantPruningSchedulerStore(loggerFactory)
       case dbStorage: DbStorage =>
         new DbParticipantPruningSchedulerStore(dbStorage, timeouts, loggerFactory)
     }
-  }
 
 }

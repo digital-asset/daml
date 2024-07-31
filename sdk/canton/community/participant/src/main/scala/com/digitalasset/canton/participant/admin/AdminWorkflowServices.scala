@@ -130,7 +130,7 @@ class AdminWorkflowServices(
       lc: LedgerClient,
   ): Future[Boolean] =
     for {
-      pkgRes <- pkgs.keys.toList.parTraverse(lc.v2.packageService.getPackageStatus(_))
+      pkgRes <- pkgs.keys.toList.parTraverse(lc.packageService.getPackageStatus(_))
     } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
   private def handleDamlErrorDuringPackageLoading(
@@ -230,12 +230,12 @@ class AdminWorkflowServices(
     val service = createService(client)
 
     val startupF =
-      client.v2.stateService.getActiveContracts(service.filters).map { case (acs, offset) =>
+      client.stateService.getActiveContracts(service.filters).map { case (acs, offset) =>
         logger.debug(s"Loading $acs $service")
         service.processAcs(acs)
         new ResilientLedgerSubscription(
           makeSource = subscribeOffset =>
-            client.v2.updateService.getUpdatesSource(subscribeOffset, service.filters),
+            client.updateService.getUpdatesSource(subscribeOffset, service.filters),
           consumingFlow = Flow[GetUpdatesResponse]
             .map(_.update)
             .map {

@@ -61,7 +61,7 @@ trait DatabaseDeadlockTest
     def run(
         ascending: Boolean,
         maxRetries: Int,
-    ): Future[Array[Int]] = {
+    ): Future[Array[Int]] =
       rawStorage.queryAndUpdate(
         DbStorage.bulkOperation(
           sql,
@@ -71,7 +71,6 @@ trait DatabaseDeadlockTest
         s"$functionFullName-${sql.take(10)}",
         maxRetries,
       )
-    }
   }
 
   def setIdValue(sp: PositionedParameters)(id: Int): Unit = {
@@ -82,9 +81,8 @@ trait DatabaseDeadlockTest
     sp >> Random.nextInt()
     sp >> id
   }
-  def setId(sp: PositionedParameters)(id: Int): Unit = {
+  def setId(sp: PositionedParameters)(id: Int): Unit =
     sp >> id
-  }
 
   def upsertCommand: DbBulkCommand
 
@@ -126,9 +124,8 @@ trait DatabaseDeadlockTest
       description: String,
       command1: DbBulkCommand,
       command2: DbBulkCommand,
-  ): Unit = {
+  ): Unit =
     testQueryWithSetup((), description, command1, command2)
-  }
 
   def testQueryWithSetup(
       setup: => Unit,
@@ -155,7 +152,7 @@ trait DatabaseDeadlockTest
 
   def dbCanDeadlock: Boolean = true
 
-  def assertSQLException(body: => Try[_]): Assertion = {
+  def assertSQLException(body: => Try[_]): Assertion =
     forAtLeast(1, 0 until roundsNegative) { _ =>
       // Note that we can also hit spurious constraint violation errors here, as the query may be MERGE (see UpsertTestOracle).
       // This is no problem as long as there is at least one deadlock.
@@ -163,7 +160,6 @@ trait DatabaseDeadlockTest
         assertDeadlock(e)
       }
     }
-  }
 
   def assertDeadlock(e: SQLException): Assertion
 

@@ -372,11 +372,8 @@ class GrpcSequencerService(
       // Rate limiting only if participants send to participants.
       case participantId: ParticipantId if request.isConfirmationRequest =>
         for {
-          confirmationRequestsMaxRate <- EitherTUtil
-            .fromFuture(
-              domainParamsLookup.getApproximateOrDefaultValue(),
-              e => SendAsyncError.Internal(s"Unable to retrieve domain parameters: ${e.getMessage}"),
-            )
+          confirmationRequestsMaxRate <- EitherT
+            .right(domainParamsLookup.getApproximateOrDefaultValue())
             .map(_.confirmationRequestsMaxRate)
           _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
         } yield ()

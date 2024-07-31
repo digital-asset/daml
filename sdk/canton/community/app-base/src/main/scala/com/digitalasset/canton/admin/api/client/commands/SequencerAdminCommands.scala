@@ -104,10 +104,9 @@ object SequencerAdminCommands {
       service.setTrafficPurchased(request)
     override def handleResponse(
         response: admin.v30.SetTrafficPurchasedResponse
-    ): Either[String, Option[CantonTimestamp]] = {
+    ): Either[String, Option[CantonTimestamp]] =
       response.maxSequencingTimestamp
         .traverse(CantonTimestamp.fromProtoTimestamp)
         .leftMap(_.message)
-    }
   }
 }

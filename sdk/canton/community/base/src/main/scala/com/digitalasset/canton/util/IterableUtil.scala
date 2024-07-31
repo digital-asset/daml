@@ -28,28 +28,26 @@ object IterableUtil {
         a -> b
       }
 
-    def generateBlocks(state: Option[(A, B)]): LazyList[(B, NonEmpty[CC[A]])] = {
+    def generateBlocks(state: Option[(A, B)]): LazyList[(B, NonEmpty[CC[A]])] =
       state match {
         case Some((head, b)) =>
           val blockBuilder = iterable.iterableFactory.newBuilder[A]
           blockBuilder.addOne(head)
 
           @tailrec
-          def addAllSame(): Option[(A, B)] = {
+          def addAllSame(): Option[(A, B)] =
             peek() match {
               case Some((next, bNext)) if b == bNext =>
                 blockBuilder.addOne(next)
                 addAllSame()
               case peeked => peeked
             }
-          }
 
           val stateForNextBlock = addAllSame()
           (b -> NonEmptyUtil.fromUnsafe(blockBuilder.result())) #::
             generateBlocks(stateForNextBlock)
         case None => LazyList.empty
       }
-    }
 
     generateBlocks(peek())
   }
@@ -60,23 +58,21 @@ object IterableUtil {
   )(p: A => Boolean): LazyList[NonEmpty[CC[A]]] = {
     val iterator = xs.iterator
 
-    def go(): LazyList[NonEmpty[CC[A]]] = {
+    def go(): LazyList[NonEmpty[CC[A]]] =
       if (iterator.hasNext) {
         val chunkBuilder = xs.iterableFactory.newBuilder[A]
 
-        @tailrec def addUntilP(): Unit = {
+        @tailrec def addUntilP(): Unit =
           if (iterator.hasNext) {
             val x = iterator.next()
             chunkBuilder.addOne(x)
             if (!p(x)) addUntilP()
           }
-        }
 
         addUntilP()
         val block = chunkBuilder.result()
         NonEmptyUtil.fromUnsafe(block) #:: go()
       } else LazyList.empty
-    }
 
     go()
   }
@@ -131,7 +127,7 @@ object IterableUtil {
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   def mapReducePar[A, B](parallelism: PositiveNumeric[Int], xs: Seq[A])(
       f: A => B
-  )(g: (B, B) => B)(implicit ec: ExecutionContext): Future[Option[B]] = {
+  )(g: (B, B) => B)(implicit ec: ExecutionContext): Future[Option[B]] =
     if (xs.isEmpty) { Future.successful(None) }
     else {
       val futureCount = parallelism.value
@@ -149,7 +145,6 @@ object IterableUtil {
           Some(reducedChunks.reduce(g))
         }
     }
-  }
 
   /** Calculates the largest possible list ys of elements in an input iterable xs such that:
     * For all y in ys. y >= x for all x in xs.
@@ -158,7 +153,7 @@ object IterableUtil {
     *
     * See `TraversableUtilTest` for an example.
     */
-  def maxList[A](xs: Iterable[A])(implicit order: Ordering[A]): List[A] = {
+  def maxList[A](xs: Iterable[A])(implicit order: Ordering[A]): List[A] =
     xs.foldLeft(List.empty: List[A]) {
       case (Nil, x) => List(x)
       case (accs @ (acc :: _), x) =>
@@ -168,16 +163,14 @@ object IterableUtil {
           x :: accs
         else accs
     }
-  }
 
   /** Calculates the largest possible list ys of elements in an input iterable xs such that:
     * For all y in ys. y <= x for all x in xs.
     *
     * Informally, this gives the list of all lowest elements of `xs`.
     */
-  def minList[A](xs: Iterable[A])(implicit order: Ordering[A]): List[A] = {
+  def minList[A](xs: Iterable[A])(implicit order: Ordering[A]): List[A] =
     maxList[A](xs)(order.reverse)
-  }
 
   def zipAllOption[A, B](xs: Seq[A], ys: Iterable[B]): Seq[(Option[A], Option[B])] =
     xs.map(Some(_)).zipAll(ys.map(Some(_)), None, None)

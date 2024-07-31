@@ -105,12 +105,11 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
     val service = new TestService(clock)
     val pingTimeout = NonNegativeFiniteDuration.tryOfMillis(5000)
 
-    def archived(cid: String): Unit = {
+    def archived(cid: String): Unit =
       service.processArchivedEvents(Seq(cid))
-    }
 
     def pingCreated(cid: String, id: String, initiator: PartyId, responder: PartyId): Unit = {
-      logger.debug(s"Responding to ping ${id}")
+      logger.debug(s"Responding to ping $id")
       val contract = new M.ping.Ping.Contract(
         new M.ping.Ping.ContractId(cid),
         new M.ping.Ping(
@@ -133,7 +132,7 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
     }
 
     def bongCreated(cid: String, id: String, initiator: PartyId, responder: PartyId): Unit = {
-      logger.debug(s"Responding with bong ${id}")
+      logger.debug(s"Responding with bong $id")
       val contract = new M.bong.Bong.Contract(
         new M.bong.Bong.ContractId(cid),
         new M.bong.Bong(
@@ -212,10 +211,9 @@ class PingServiceTest extends BaseTestWordSpec with HasExecutionContext {
   "initiates a bong correctly" in {
     runTest { fixture =>
       import fixture.*
-      val resultF = {
+      val resultF =
         // use two target parties to trigger the initiation of a bong
         service.ping(targetParties = Set(bobId, charlieId), validators = Set(), pingTimeout)
-      }
       for {
         id <- service.getIdCheckActionAndRespondSubmission(
           "bong-proposal",

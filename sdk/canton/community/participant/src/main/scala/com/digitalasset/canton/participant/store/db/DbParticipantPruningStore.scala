@@ -60,13 +60,12 @@ class DbParticipantPruningStore(
 
   override def markPruningDone(
       upToInclusive: GlobalOffset
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"""update par_pruning_operation set completed_up_to_inclusive = $upToInclusive
                        where name = $name and (completed_up_to_inclusive is null or completed_up_to_inclusive < $upToInclusive)""",
       functionFullName,
     )
-  }
 
   private implicit val readParticipantPruningStatus: GetResult[ParticipantPruningStatus] =
     GetResult { r =>

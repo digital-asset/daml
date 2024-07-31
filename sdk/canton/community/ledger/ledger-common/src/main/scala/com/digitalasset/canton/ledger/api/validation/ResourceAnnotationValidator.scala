@@ -59,7 +59,7 @@ object ResourceAnnotationValidator {
 
   private def validateAnnotationsValues(
       annotations: Map[String, String]
-  ): Either[MetadataAnnotationsError, Unit] = {
+  ): Either[MetadataAnnotationsError, Unit] =
     annotations.view.iterator.foldLeft(Right(()): Either[MetadataAnnotationsError, Unit]) {
       case (acc, (key, value)) =>
         for {
@@ -67,11 +67,10 @@ object ResourceAnnotationValidator {
           _ <- if (value.isEmpty) Left(EmptyAnnotationsValueError(key = key)) else Right(())
         } yield ()
     }
-  }
 
   private def validateAnnotationKeys(
       annotations: Map[String, String]
-  ): Either[MetadataAnnotationsError, Unit] = {
+  ): Either[MetadataAnnotationsError, Unit] =
     annotations.keys.iterator.foldLeft(Right(()): Either[MetadataAnnotationsError, Unit]) {
       (acc, key) =>
         for {
@@ -79,9 +78,8 @@ object ResourceAnnotationValidator {
           _ <- isValidKey(key)
         } yield ()
     }
-  }
 
-  private def isValidKey(key: String): Either[MetadataAnnotationsError, Unit] = {
+  private def isValidKey(key: String): Either[MetadataAnnotationsError, Unit] =
     key.split('/') match {
       case Array(name) => isValidKeyNameSegment(name)
       case Array(prefix, name) =>
@@ -96,11 +94,10 @@ object ResourceAnnotationValidator {
           )
         )
     }
-  }
 
   private def isValidKeyPrefixSegment(
       prefixSegment: String
-  ): Either[InvalidAnnotationsKeyError, Unit] = {
+  ): Either[InvalidAnnotationsKeyError, Unit] =
     if (prefixSegment.length > 253) {
       Left(
         InvalidAnnotationsKeyError(
@@ -118,11 +115,10 @@ object ResourceAnnotationValidator {
         )
       }
     }
-  }
 
   private def isValidKeyNameSegment(
       nameSegment: String
-  ): Either[InvalidAnnotationsKeyError, Unit] = {
+  ): Either[InvalidAnnotationsKeyError, Unit] =
     if (nameSegment.length > 63) {
       Left(
         InvalidAnnotationsKeyError(
@@ -140,7 +136,6 @@ object ResourceAnnotationValidator {
         )
       }
     }
-  }
 
   private def shorten(s: String): String =
     if (s.length > 53) { s.take(50) + "..." }

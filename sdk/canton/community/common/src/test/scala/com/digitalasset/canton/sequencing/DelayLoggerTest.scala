@@ -34,16 +34,16 @@ class DelayLoggerTest extends AnyWordSpec with BaseTest {
       probe(2000, _ shouldBe empty)
     }
     "log success after we caught up" in {
-      probe(500, forEvery(_) { _.message should include("Caught up") })
+      probe(500, forEvery(_)(_.message should include("Caught up")))
     }
     "log a warning if we are late again" in {
-      probe(2000, forEvery(_) { _.warningMessage should include("Late batch") })
+      probe(2000, forEvery(_)(_.warningMessage should include("Late batch")))
     }
     "don't log another warning if we are still late" in {
       probe(2000, _ shouldBe empty)
     }
     "log a notification if the situation is resolved" in {
-      probe(500, forEvery(_) { _.message should include("Caught up") })
+      probe(500, forEvery(_)(_.message should include("Caught up")))
     }
     "not log another notification" in {
       probe(500, _ shouldBe empty)

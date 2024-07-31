@@ -69,7 +69,7 @@ trait ResourceManagementService {
   )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
     resourceLimits.maxInflightValidationRequests
       .filter(currentLoad >= _.unwrap)
-      .map(limit => {
+      .map { limit =>
         val status =
           ParticipantBackpressure
             .Rejection(
@@ -78,7 +78,7 @@ trait ResourceManagementService {
             .rpcStatus()
         // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
         SubmissionResult.SynchronousError(status)
-      })
+      }
 
   protected def checkAndUpdateRate()(implicit
       loggingContext: ErrorLoggingContext

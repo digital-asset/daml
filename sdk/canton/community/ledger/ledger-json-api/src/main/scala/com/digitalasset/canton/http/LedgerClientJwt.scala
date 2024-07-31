@@ -64,7 +64,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       implicit traceContext =>
         implicit lc => {
           logFuture(SubmitAndWaitForTransactionLog) {
-            client.v2.commandService
+            client.commandService
               .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
           }
             .requireHandling(submitErrors)
@@ -76,7 +76,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
     (jwt, req) =>
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionTreeLog) {
-          client.v2.commandService
+          client.commandService
             .deprecatedSubmitAndWaitForTransactionTreeForJsonApi(req, token = bearer(jwt))
         }
           .requireHandling(submitErrors)
@@ -89,7 +89,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
     (jwt, filter, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
-          client.v2.stateService
+          client.stateService
             .getActiveContractsSource(
               filter = filter,
               verbose = verbose,
@@ -104,24 +104,31 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => { implicit lc =>
       {
-        val end = terminates.toOffset
-        if (skipRequest(offset, end))
-          Source.empty[Transaction]
-        else {
-          log(GetUpdatesLog) {
-            client.v2.updateService
-              .getUpdatesSource(
-                begin = offset.getAbsolute,
-                filter = filter,
-                verbose = true,
-                end = end,
-                token = bearer(jwt),
-              )
-              .collect { response =>
-                response.update match {
-                  case Update.Transaction(t) => t
+        val endSource: Source[String, NotUsed] = terminates match {
+          case Terminates.AtParticipantEnd =>
+            Source.future(client.stateService.getLedgerEnd()).map(_.offset)
+          case Terminates.Never => Source.single("")
+          case Terminates.AtAbsolute(off) => Source.single(off)
+        }
+        endSource.flatMapConcat { end =>
+          if (skipRequest(offset, end))
+            Source.empty[Transaction]
+          else {
+            log(GetUpdatesLog) {
+              client.updateService
+                .getUpdatesSource(
+                  begin = offset.getAbsolute,
+                  filter = filter,
+                  verbose = true,
+                  end = end,
+                  token = bearer(jwt),
+                )
+                .collect { response =>
+                  response.update match {
+                    case Update.Transaction(t) => t
+                  }
                 }
-              }
+            }
           }
         }
       }
@@ -133,7 +140,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
     (jwt, contractId, requestingParties) =>
       { implicit lc =>
         logFuture(GetContractByContractIdLog) {
-          client.v2.eventQueryService.getEventsByContractId(
+          client.eventQueryService.getEventsByContractId(
             contractId = contractId.unwrap,
             requestingParties = requestingParties.view.map(_.unwrap).toSeq,
             token = bearer(jwt),
@@ -164,14 +171,13 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   //      }
   //  }
 
-  private def skipRequest(start: ParticipantOffset, end: Option[ParticipantOffset]): Boolean = {
-    import com.digitalasset.canton.http.util.ParticipantOffsetUtil.AbsoluteOffsetOrdering
-    (start.value, end.map(_.value)) match {
-      case (s: ParticipantOffset.Value.Absolute, Some(e: ParticipantOffset.Value.Absolute)) =>
-        AbsoluteOffsetOrdering.gteq(s, e)
+  private def skipRequest(start: ParticipantOffset, end: String): Boolean =
+    (start.value, end) match {
+      case (_, "") => false
+      case (ParticipantOffset.Value.Absolute(s), _) =>
+        s >= end
       case _ => false
     }
-  }
 
   // TODO(#13303): Replace all occurrences of EC for logging purposes in this file
   //  (preferrably with DirectExecutionContext)
@@ -226,7 +232,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       implicit lc => {
         logger.trace(s"sending list packages request to ledger, ${lc.makeString}")
         logFuture(ListPackagesLog) {
-          client.v2.packageService.listPackages(bearer(jwt))
+          client.packageService.listPackages(bearer(jwt))
         }
       }
 
@@ -238,7 +244,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       implicit lc => {
         logger.trace(s"sending get packages request to ledger, ${lc.makeString}")
         logFuture(GetPackageLog) {
-          client.v2.packageService.getPackage(packageId, token = bearer(jwt))
+          client.packageService.getPackage(packageId, token = bearer(jwt))
         }
       }
 
@@ -407,22 +413,13 @@ object LedgerClientJwt {
       GetMeteringReportResponse
     ]
 
-  sealed abstract class Terminates extends Product with Serializable {
-    import Terminates.*
-    def toOffset: Option[ParticipantOffset] = this match {
-      case AtParticipantEnd => Some(participantEndOffset)
-      case Never => None
-      case AtAbsolute(off) => Some(ParticipantOffset(off))
-    }
-  }
+  sealed abstract class Terminates extends Product with Serializable
+
   object Terminates {
     case object AtParticipantEnd extends Terminates
     case object Never extends Terminates
-    final case class AtAbsolute(off: ParticipantOffset.Value.Absolute) extends Terminates
+    final case class AtAbsolute(off: String) extends Terminates
   }
-
-  private val participantEndOffset =
-    ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_END))
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
   object Grpc {

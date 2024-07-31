@@ -65,15 +65,14 @@ object TopologyStoreId {
   final case class DomainStore(domainId: DomainId, discriminator: String = "")
       extends TopologyStoreId {
     private val dbStringWithoutDiscriminator = domainId.toLengthLimitedString
-    val dbString: LengthLimitedString = {
+    val dbString: LengthLimitedString =
       if (discriminator.isEmpty) dbStringWithoutDiscriminator
       else
         LengthLimitedString
           .tryCreate(discriminator + "::", discriminator.length + 2)
           .tryConcatenate(dbStringWithoutDiscriminator)
-    }
 
-    override def pretty: Pretty[this.type] = {
+    override def pretty: Pretty[this.type] =
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
           show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.domainId}"
@@ -81,7 +80,6 @@ object TopologyStoreId {
       } else {
         prettyOfParam(_.domainId)
       }
-    }
 
     // The reason for this somewhat awkward method is backward compat with uniquifier inserted in the middle of
     // discriminator and domain id. Can be removed once fully on daml 3.0:
@@ -345,7 +343,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransaction
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
+  )(implicit traceContext: TraceContext): Future[Boolean] =
     findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
       transaction.signatures.diff(inStore.transaction.signatures.forgetNE).nonEmpty &&
@@ -353,7 +351,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       inStore.transaction.isProposal &&
       inStore.validUntil.isEmpty
     })
-  }
 
   /** returns initial set of onboarding transactions that should be dispatched to the domain */
   def findParticipantOnboardingTransactions(participantId: ParticipantId, domainId: DomainId)(
@@ -409,7 +406,7 @@ object TopologyStore {
 
   def accumulateUpcomingEffectiveChanges(
       items: Seq[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): Seq[Change] = {
+  ): Seq[Change] =
     items
       .map(x => (x, x.mapping))
       .map {
@@ -419,7 +416,6 @@ object TopologyStore {
       }
       .sortBy(_.effective)
       .distinct
-  }
 
   def apply[StoreID <: TopologyStoreId](
       storeId: StoreID,
@@ -449,7 +445,7 @@ object TopologyStore {
       participantId: ParticipantId,
       domainId: DomainId,
       transactions: Seq[GenericStoredTopologyTransaction],
-  ): Seq[GenericSignedTopologyTransaction] = {
+  ): Seq[GenericSignedTopologyTransaction] =
     // TODO(#14060): Extend filtering along the lines of:
     //  TopologyStore.filterInitialParticipantDispatchingTransactions
     transactions.map(_.transaction).collect {
@@ -484,7 +480,6 @@ object TopologyStore {
           ) =>
         tx
     }
-  }
 
   /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target domain */
   def awaitTxObserved(
@@ -495,14 +490,13 @@ object TopologyStore {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[Boolean] = {
+  ): FutureUnlessShutdown[Boolean] =
     client.await(
       // we know that the transaction is stored and effective once we find it in the target
       // domain store and once the effective time (valid from) is smaller than the client timestamp
       sp => target.findStored(sp.timestamp, transaction, includeRejected = true).map(_.nonEmpty),
       timeout,
     )
-  }
 }
 
 sealed trait TimeQuery {

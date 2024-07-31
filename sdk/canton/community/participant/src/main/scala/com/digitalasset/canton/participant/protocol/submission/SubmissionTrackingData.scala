@@ -71,7 +71,7 @@ object SubmissionTrackingData
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter
-      .storage(ReleaseProtocolVersion(ProtocolVersion.v31), v30.SubmissionTrackingData)(
+      .storage(ReleaseProtocolVersion(ProtocolVersion.v32), v30.SubmissionTrackingData)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )
@@ -119,14 +119,13 @@ final case class TransactionSubmissionTrackingData(
 
   override def updateOnNotSequenced(timestamp: CantonTimestamp, reason: Status)(implicit
       loggingContext: NamedLoggingContext
-  ): Option[UnsequencedSubmission] = {
+  ): Option[UnsequencedSubmission] =
     UnsequencedSubmission(
       timestamp,
       this.copy(rejectionCause = TransactionSubmissionTrackingData.CauseWithTemplate(reason))(
         representativeProtocolVersion
       ),
     ).some
-  }
 
   protected def toProtoV30: v30.SubmissionTrackingData = {
     val completionInfoP = SerializableCompletionInfo(completionInfo).toProtoV30

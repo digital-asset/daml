@@ -129,7 +129,7 @@ trait TransactionAuthorizationValidator {
         uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid)
       }.toMap
 
-    val extraKeyAuthorizations = {
+    val extraKeyAuthorizations =
       // assume extra keys are not found
       referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
         // and replace with those that were actually found
@@ -150,7 +150,6 @@ trait TransactionAuthorizationValidator {
             }
           }
           .toMap
-    }
 
     val allKeysUsedForAuthorization =
       (namespaceWithRootAuthorizations.values ++
@@ -280,12 +279,11 @@ trait TransactionAuthorizationValidator {
 
   protected def tryGetAuthorizationGraphForNamespace(
       namespace: Namespace
-  )(implicit traceContext: TraceContext): AuthorizationGraph = {
+  )(implicit traceContext: TraceContext): AuthorizationGraph =
     namespaceCache.getOrElse(
       namespace,
       ErrorUtil.invalidState(s"Cache miss for direct namespace $namespace"),
     )
-  }
 
   protected def loadNamespaceCaches(
       effectiveTime: CantonTimestamp,

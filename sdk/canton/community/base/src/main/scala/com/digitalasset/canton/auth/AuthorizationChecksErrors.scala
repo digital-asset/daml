@@ -1,23 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.error.groups
+package com.digitalasset.canton.auth
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  ErrorCategory,
-  ErrorCategoryRetry,
-  ErrorCode,
-  Explanation,
-  Resolution,
-}
-import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AuthorizationChecksErrorGroup
+import com.daml.error.*
+import com.digitalasset.canton.error.CantonErrorGroups
 
 import scala.concurrent.duration.*
 
 @Explanation("Authentication and authorization errors.")
-object AuthorizationChecksErrors extends AuthorizationChecksErrorGroup {
+object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksErrorGroup {
 
   @Explanation("""The stream was aborted because the authenticated user's rights changed,
                  |and the user might thus no longer be authorized to this stream.
@@ -109,6 +101,26 @@ object AuthorizationChecksErrors extends AuthorizationChecksErrorGroup {
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
             s"The provided authorization token is not sufficient to authorize the intended command: $cause"
+        )
+  }
+
+  @Explanation(
+    """This error is emitted when a submitted ledger API command contains an invalid token."""
+  )
+  @Resolution("Inspect the reason given and correct your application.")
+  object InvalidToken
+      extends ErrorCode(id = "INVALID_TOKEN", ErrorCategory.InvalidIndependentOfSystemState) {
+    final case class MissingUserId(reason: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"The submitted request is missing a user-id: $reason"
+        )
+
+    final case class InvalidField(fieldName: String, message: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The submitted token has a field with invalid value: Invalid field $fieldName: $message"
         )
   }
 }

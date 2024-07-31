@@ -51,7 +51,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
   User,
   UserManagementServiceGrpc,
 }
-import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v2.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -148,7 +147,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
+import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
@@ -275,9 +274,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetPartiesResponse
-      ): Either[String, PartyDetails] = {
+      ): Either[String, PartyDetails] =
         response.partyDetails.headOption.toRight("PARTY_NOT_FOUND")
-      }
     }
 
     final case class UpdateIdp(
@@ -402,9 +400,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetCommandStatusResponse
-      ): Either[String, Seq[CommandStatus]] = {
+      ): Either[String, Seq[CommandStatus]] =
         response.commandStatus.traverse(CommandStatus.fromProto).leftMap(_.message)
-      }
     }
   }
 
@@ -460,14 +457,13 @@ object LedgerApiCommands {
       def participantAdmin: Boolean
       def readAsAnyParty: Boolean
 
-      protected def getRights: Seq[UserRight] = {
+      protected def getRights: Seq[UserRight] =
         actAs.toSeq.map(x => UserRight().withCanActAs(UserRight.CanActAs(x))) ++
           readAs.toSeq.map(x => UserRight().withCanReadAs(UserRight.CanReadAs(x))) ++
           (if (participantAdmin) Seq(UserRight().withParticipantAdmin(UserRight.ParticipantAdmin()))
            else Seq()) ++
           (if (readAsAnyParty) Seq(UserRight().withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
            else Seq())
-      }
     }
 
     final case class Create(
@@ -1040,9 +1036,9 @@ object LedgerApiCommands {
         extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
         with SubscribeBase[GetUpdatesRequest, Resp, Res] {
 
-      def beginExclusive: ParticipantOffset
+      def beginExclusive: String
 
-      def endInclusive: Option[ParticipantOffset]
+      def endInclusive: String
 
       def filter: TransactionFilter
 
@@ -1050,7 +1046,7 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = Some(beginExclusive),
+          beginExclusive = beginExclusive,
           endInclusive = endInclusive,
           verbose = verbose,
           filter = Some(filter),
@@ -1060,8 +1056,8 @@ object LedgerApiCommands {
 
     final case class SubscribeTrees(
         override val observer: StreamObserver[UpdateTreeWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1083,8 +1079,8 @@ object LedgerApiCommands {
 
     final case class SubscribeFlat(
         override val observer: StreamObserver[UpdateWrapper],
-        override val beginExclusive: ParticipantOffset,
-        override val endInclusive: Option[ParticipantOffset],
+        override val beginExclusive: String,
+        override val endInclusive: String,
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1118,7 +1114,7 @@ object LedgerApiCommands {
       override def submitRequest(
           service: UpdateServiceStub,
           request: GetTransactionByIdRequest,
-      ): Future[GetTransactionTreeResponse] = {
+      ): Future[GetTransactionTreeResponse] =
         // The Ledger API will throw an error if it can't find a transaction by ID.
         // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
         // an error and change it to a None
@@ -1126,7 +1122,6 @@ object LedgerApiCommands {
           case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
             GetTransactionTreeResponse(None)
         }
-      }
 
       override def handleResponse(
           response: GetTransactionTreeResponse
@@ -1224,9 +1219,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitRequest,
-      ): Future[SubmitResponse] = {
+      ): Future[SubmitResponse] =
         service.submit(request)
-      }
 
       override def handleResponse(response: SubmitResponse): Either[String, Unit] = Right(())
     }
@@ -1265,9 +1259,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitReassignmentRequest,
-      ): Future[SubmitReassignmentResponse] = {
+      ): Future[SubmitReassignmentResponse] =
         service.submitReassignment(request)
-      }
 
       override def handleResponse(response: SubmitReassignmentResponse): Either[String, Unit] =
         Right(())
@@ -1307,9 +1300,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitReassignmentRequest,
-      ): Future[SubmitReassignmentResponse] = {
+      ): Future[SubmitReassignmentResponse] =
         service.submitReassignment(request)
-      }
 
       override def handleResponse(response: SubmitReassignmentResponse): Either[String, Unit] =
         Right(())
@@ -1500,12 +1492,6 @@ object LedgerApiCommands {
     }
   }
 
-  final case class CompletionWrapper(
-      completion: Completion,
-      checkpoint: Checkpoint,
-      domainId: DomainId,
-  )
-
   object CommandCompletionService {
     abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = CommandCompletionServiceStub
@@ -1520,11 +1506,11 @@ object LedgerApiCommands {
         expectedCompletions: Int,
         timeout: java.time.Duration,
         applicationId: String,
-    )(filter: CompletionWrapper => Boolean, scheduler: ScheduledExecutorService)
+    )(filter: Completion => Boolean, scheduler: ScheduledExecutorService)
         extends BaseCommand[
           CompletionStreamRequest,
-          Seq[CompletionWrapper],
-          Seq[CompletionWrapper],
+          Seq[Completion],
+          Seq[Completion],
         ] {
 
       override def createRequest(): Either[String, CompletionStreamRequest] =
@@ -1539,23 +1525,12 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandCompletionServiceStub,
           request: CompletionStreamRequest,
-      ): Future[Seq[CompletionWrapper]] = {
+      ): Future[Seq[Completion]] = {
         import scala.jdk.DurationConverters.*
         GrpcAdminCommand
-          .streamedResponse[CompletionStreamRequest, CompletionStreamResponse, CompletionWrapper](
+          .streamedResponse[CompletionStreamRequest, CompletionStreamResponse, Completion](
             service.completionStream,
-            response =>
-              List(
-                CompletionWrapper(
-                  completion = response.completion.getOrElse(
-                    throw new IllegalStateException("Completion should be present.")
-                  ),
-                  checkpoint = response.checkpoint.getOrElse(
-                    throw new IllegalStateException("Checkpoint should be present.")
-                  ),
-                  domainId = DomainId.tryFromString(response.domainId),
-                )
-              ).filter(filter),
+            response => response.completionResponse.completion.toList.filter(filter),
             request,
             expectedCompletions,
             timeout.toScala,
@@ -1564,67 +1539,15 @@ object LedgerApiCommands {
       }
 
       override def handleResponse(
-          response: Seq[CompletionWrapper]
-      ): Either[String, Seq[CompletionWrapper]] =
-        Right(response)
-
-      override def timeoutType: TimeoutType = ServerEnforcedTimeout
-    }
-
-    final case class CompletionCheckpointRequest(
-        partyId: LfPartyId,
-        beginExclusive: String,
-        expectedCompletions: Int,
-        timeout: config.NonNegativeDuration,
-        applicationId: String,
-    )(filter: Completion => Boolean, scheduler: ScheduledExecutorService)
-        extends BaseCommand[CompletionStreamRequest, Seq[(Completion, Option[Checkpoint])], Seq[
-          (Completion, Option[Checkpoint])
-        ]] {
-
-      override def createRequest(): Either[String, CompletionStreamRequest] =
-        Right(
-          CompletionStreamRequest(
-            applicationId = applicationId,
-            parties = Seq(partyId),
-            beginExclusive = beginExclusive,
-          )
-        )
-
-      override def submitRequest(
-          service: CommandCompletionServiceStub,
-          request: CompletionStreamRequest,
-      ): Future[Seq[(Completion, Option[Checkpoint])]] = {
-        def extract(response: CompletionStreamResponse): Seq[(Completion, Option[Checkpoint])] = {
-          val checkpoint = response.checkpoint
-
-          response.completion.filter(filter).map(_ -> checkpoint).toList
-        }
-
-        GrpcAdminCommand.streamedResponse[
-          CompletionStreamRequest,
-          CompletionStreamResponse,
-          (Completion, Option[Checkpoint]),
-        ](
-          service.completionStream,
-          extract,
-          request,
-          expectedCompletions,
-          timeout.asFiniteApproximation,
-          scheduler,
-        )
-      }
-
-      override def handleResponse(
-          response: Seq[(Completion, Option[Checkpoint])]
-      ): Either[String, Seq[(Completion, Option[Checkpoint])]] =
+          response: Seq[Completion]
+      ): Either[String, Seq[Completion]] =
         Right(response)
 
       override def timeoutType: TimeoutType = ServerEnforcedTimeout
     }
 
     final case class Subscribe(
-        observer: StreamObserver[CompletionWrapper],
+        observer: StreamObserver[Completion],
         parties: Seq[String],
         offset: String,
         applicationId: String,
@@ -1645,20 +1568,9 @@ object LedgerApiCommands {
           service: CommandCompletionServiceStub,
           request: CompletionStreamRequest,
       ): Future[AutoCloseable] = {
-        val rawObserver = new ForwardingStreamObserver[CompletionStreamResponse, CompletionWrapper](
+        val rawObserver = new ForwardingStreamObserver[CompletionStreamResponse, Completion](
           observer,
-          response =>
-            List(
-              CompletionWrapper(
-                completion = response.completion.getOrElse(
-                  throw new IllegalStateException("Completion should be present.")
-                ),
-                checkpoint = response.checkpoint.getOrElse(
-                  throw new IllegalStateException("Checkpoint should be present.")
-                ),
-                domainId = DomainId.tryFromString(response.domainId),
-              )
-            ),
+          response => response.completionResponse.completion.toList,
         )
         val context = Context.current().withCancellation()
         context.run(() => service.completionStream(request, rawObserver))
@@ -1689,9 +1601,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: TimeServiceStub,
           request: GetTimeRequest,
-      ): Future[GetTimeResponse] = {
+      ): Future[GetTimeResponse] =
         service.getTime(request)
-      }
 
       /** Create the request from configured options
         */

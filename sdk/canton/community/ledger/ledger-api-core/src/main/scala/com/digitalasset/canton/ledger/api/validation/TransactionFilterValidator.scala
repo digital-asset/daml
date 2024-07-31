@@ -57,16 +57,16 @@ object TransactionFilterValidator {
   ): Either[StatusRuntimeException, domain.CumulativeFilter] = {
     val extractedFilters = filters.cumulative.map(_.identifierFilter)
     val empties = extractedFilters.filter(_.isEmpty)
-    lazy val templateFilters = extractedFilters.collect({ case IdentifierFilter.TemplateFilter(f) =>
+    lazy val templateFilters = extractedFilters.collect { case IdentifierFilter.TemplateFilter(f) =>
       f
-    })
-    lazy val interfaceFilters = extractedFilters.collect({
+    }
+    lazy val interfaceFilters = extractedFilters.collect {
       case IdentifierFilter.InterfaceFilter(f) =>
         f
-    })
-    lazy val wildcardFilters = extractedFilters.collect({ case IdentifierFilter.WildcardFilter(f) =>
+    }
+    lazy val wildcardFilters = extractedFilters.collect { case IdentifierFilter.WildcardFilter(f) =>
       f
-    })
+    }
 
     if (empties.size == extractedFilters.size)
       Right(domain.CumulativeFilter.templateWildcardFilter())
@@ -103,7 +103,7 @@ object TransactionFilterValidator {
 
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.InterfaceFilter] = {
+  ): Either[StatusRuntimeException, domain.InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
       validatedId <- validateIdentifier(interfaceId)
@@ -112,7 +112,6 @@ object TransactionFilterValidator {
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
-  }
 
   private def validateNonEmptyFilters(
       templateFilters: Seq[TemplateFilter],

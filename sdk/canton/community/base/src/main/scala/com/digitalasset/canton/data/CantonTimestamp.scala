@@ -79,12 +79,11 @@ object CantonTimestamp {
 
   def MaxValue: CantonTimestamp = new CantonTimestamp(LfTimestamp.MaxValue)
 
-  def fromProtoTimestamp(ts: ProtoTimestamp): ParsingResult[CantonTimestamp] = {
+  def fromProtoTimestamp(ts: ProtoTimestamp): ParsingResult[CantonTimestamp] =
     for {
       instant <- ProtoConverter.InstantConverter.fromProtoPrimitive(ts)
       ts <- LfTimestamp.fromInstant(instant).left.map(err => TimestampConversionError(err))
     } yield new CantonTimestamp(ts)
-  }
 
   def fromProtoPrimitive(ts: Long): ParsingResult[CantonTimestamp] =
     LfTimestamp.fromLong(ts).bimap(TimestampConversionError, new CantonTimestamp(_))

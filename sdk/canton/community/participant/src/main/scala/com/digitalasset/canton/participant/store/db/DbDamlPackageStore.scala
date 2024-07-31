@@ -207,7 +207,7 @@ class DbDamlPackageStore(
 
   override def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] = {
+  ): Future[Option[PackageDescription]] =
     storage
       .querySingle(
         sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages where package_id = $packageId"
@@ -216,7 +216,6 @@ class DbDamlPackageStore(
         functionFullName,
       )
       .value
-  }
 
   override def listPackages(
       limit: Option[Int]
@@ -279,7 +278,7 @@ class DbDamlPackageStore(
 
   override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
       implicit tc: TraceContext
-  ): OptionT[Future, PackageId] = {
+  ): OptionT[Future, PackageId] =
     NonEmpty
       .from(packages)
       .fold(OptionT.none[Future, PackageId])(pkgs =>
@@ -287,20 +286,18 @@ class DbDamlPackageStore(
           packagesNotInAnyOtherDarsQuery(pkgs, removeDar.hash, limit = Some(1)).map(_.headOption)
         )
       )
-  }
 
   override def determinePackagesExclusivelyInDar(
       packages: Seq[PackageId],
       dar: DarDescriptor,
   )(implicit
       tc: TraceContext
-  ): Future[Seq[PackageId]] = {
+  ): Future[Seq[PackageId]] =
     NonEmpty
       .from(packages)
       .fold(Future.successful(Seq.empty[PackageId]))(
         packagesNotInAnyOtherDarsQuery(_, dar.hash, limit = None)
       )
-  }
 
   override def getDar(
       hash: Hash
@@ -340,7 +337,7 @@ class DbDamlPackageStore(
 
   override def removeDar(
       hash: Hash
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     writeQueue.execute(
       storage.update_(
         sqlu"""delete from par_dars where hash_hex = ${hash.toLengthLimitedHexString}""",
@@ -348,11 +345,9 @@ class DbDamlPackageStore(
       ),
       functionFullName,
     )
-  }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(writeQueue)(logger)
-  }
 
 }
 

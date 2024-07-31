@@ -58,7 +58,7 @@ class LedgerServerPartyNotifier(
     pendingAllocationData
       .putIfAbsent((party, onParticipant), (submissionId, displayName))
       .toLeft(())
-      .leftMap(_ => s"Allocation for party ${party} is already inflight")
+      .leftMap(_ => s"Allocation for party $party is already inflight")
   } else
     Right(())
 
@@ -95,9 +95,8 @@ class LedgerServerPartyNotifier(
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
           transactions: Seq[GenericSignedTopologyTransaction],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         observeTopologyTransactions(sequencerTimestamp, effectiveTimestamp, transactions)
-      }
     }
 
   def attachToIdentityManager(): TopologyManagerObserver =
@@ -117,16 +116,15 @@ class LedgerServerPartyNotifier(
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
       transactions: Seq[GenericSignedTopologyTransaction],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     transactions.parTraverse_(
       extractTopologyProcessorData(_)
         .parTraverse_(observedF(sequencedTime, effectiveTime, _))
     )
-  }
 
   private def extractTopologyProcessorData(
       transaction: GenericSignedTopologyTransaction
-  ): Seq[(PartyId, ParticipantId, String255, Option[DisplayName])] = {
+  ): Seq[(PartyId, ParticipantId, String255, Option[DisplayName])] =
     if (transaction.operation != TopologyChangeOp.Replace || transaction.isProposal) {
       Seq.empty
     } else {
@@ -160,7 +158,6 @@ class LedgerServerPartyNotifier(
         case _ => Seq.empty
       }
     }
-  }
 
   private val sequentialQueue = new SimpleExecutionQueue(
     "LedgerServerPartyNotifier",
@@ -207,7 +204,7 @@ class LedgerServerPartyNotifier(
     // an update even if nothing else has changed.
     // Assumption: `current.partyId == partyId`
     def computeUpdateOver(current: PartyMetadata): Option[PartyMetadata] = {
-      val update = {
+      val update =
         PartyMetadata(
           partyId = partyId,
           displayName = displayName.orElse(current.displayName),
@@ -218,7 +215,6 @@ class LedgerServerPartyNotifier(
           effectiveTimestamp = effectiveTimestamp.value.max(current.effectiveTimestamp),
           submissionId = submissionIdRaw,
         )
-      }
       Option.when(current != update)(update)
     }
 
@@ -268,7 +264,7 @@ class LedgerServerPartyNotifier(
       sequencerTimestamp: SequencedTime,
   )(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     // Delays the notification to ensure that the topology change is visible to the ledger server
     // This approach relies on the local `clock` not to drift to much away from the sequencer
     PositiveFiniteDuration
@@ -283,7 +279,6 @@ class LedgerServerPartyNotifier(
       case None =>
         notifyLedgerServer(metadata.partyId, Future.successful(metadata))(clock.now)
     }
-  }
 
   private def checkForConcurrentUpdate(current: PartyMetadata)(implicit
       traceContext: TraceContext

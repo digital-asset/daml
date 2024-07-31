@@ -167,7 +167,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
       val sut = createSubscription(handler = _ => handlerCompleted.future)
 
-      val onNextF = Future { sut.observer.onNext(messageP) }
+      val onNextF = Future(sut.observer.onNext(messageP))
 
       eventuallyForever(timeUntilSuccess = 0.seconds, durationOfSuccess = 100.milliseconds) {
         !onNextF.isCompleted
@@ -188,7 +188,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
       })
 
       // Processing this message takes forever...
-      Future { sut.observer.onNext(messageP) }.failed
+      Future(sut.observer.onNext(messageP)).failed
         .foreach(logger.error("Unexpected exception", _))
 
       // Make sure that the handler has been invoked before doing the next step.
@@ -227,9 +227,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           sut.observer.onError(Status.INTERNAL.asRuntimeException())
           sut.close()
         },
-        { logs =>
-          logs shouldBe empty
-        },
+        logs => logs shouldBe empty,
       )
     }
   }

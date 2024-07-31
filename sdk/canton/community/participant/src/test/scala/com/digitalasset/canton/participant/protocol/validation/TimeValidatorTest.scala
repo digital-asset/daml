@@ -27,7 +27,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
       submissionTime: CantonTimestamp,
       sequencerTimestamp: CantonTimestamp,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
-  ) = {
+  ) =
     TimeValidator.checkTimestamps(
       CommonData(transactionId, ledgerTime, submissionTime),
       sequencerTimestamp,
@@ -35,7 +35,6 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
       amSubmitter = false,
       logger,
     )
-  }
 
   "ledger time" when {
 

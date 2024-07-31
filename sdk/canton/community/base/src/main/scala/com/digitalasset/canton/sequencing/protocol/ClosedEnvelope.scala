@@ -62,7 +62,7 @@ final case class ClosedEnvelope private (
   def openEnvelope(
       hashOps: HashOps,
       protocolVersion: ProtocolVersion,
-  ): ParsingResult[DefaultOpenEnvelope] = {
+  ): ParsingResult[DefaultOpenEnvelope] =
     NonEmpty.from(signatures) match {
       case None =>
         EnvelopeContent
@@ -80,7 +80,6 @@ final case class ClosedEnvelope private (
             )(protocolVersion)
           }
     }
-  }
 
   override def pretty: Pretty[ClosedEnvelope] = prettyOfClass(
     param("recipients", _.recipients),
@@ -115,11 +114,10 @@ final case class ClosedEnvelope private (
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  ): EitherT[Future, SignatureCheckError, Unit] =
     NonEmpty
       .from(signatures)
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
-  }
 }
 
 object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
@@ -130,7 +128,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v31
+      ProtocolVersion.v32
     )(v30.Envelope)(
       protoCompanion =>
         ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),
@@ -192,7 +190,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       protocolMessage: ProtocolMessage,
       recipients: Recipients,
       protocolVersion: ProtocolVersion,
-  ): ClosedEnvelope = {
+  ): ClosedEnvelope =
     protocolMessage match {
       case SignedProtocolMessage(typedMessageContent, signatures) =>
         ClosedEnvelope.create(
@@ -209,7 +207,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
           protocolVersion,
         )
     }
-  }
 
   def verifySignatures(
       snapshot: SyncCryptoApi,

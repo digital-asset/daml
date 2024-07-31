@@ -77,7 +77,7 @@ object SubmitterMetadata
   override val name: String = "SubmitterMetadata"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.SubmitterMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -115,7 +115,7 @@ object SubmitterMetadata
       salt: Salt,
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
-  ): Either[String, SubmitterMetadata] = {
+  ): Either[String, SubmitterMetadata] =
     NonEmpty.from(submitterActAs.toSet).toRight("The actAs set must not be empty.").map {
       actAsNes =>
         SubmitterMetadata(
@@ -131,7 +131,6 @@ object SubmitterMetadata
           protocolVersion,
         )
     }
-  }
 
   private def fromProtoV30(hashOps: HashOps, metaDataP: v30.SubmitterMetadata)(
       bytes: ByteString

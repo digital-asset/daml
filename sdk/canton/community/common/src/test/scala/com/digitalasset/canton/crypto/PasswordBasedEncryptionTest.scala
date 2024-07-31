@@ -16,8 +16,7 @@ trait PasswordBasedEncryptionTest {
       supportedPbkdfSchemes: Set[PbkdfScheme],
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
       newCrypto: => FutureUnlessShutdown[PasswordBasedEncryptionOps & EncryptionOps],
-  ): Unit = {
-
+  ): Unit =
     s"encrypt with passwords" should {
 
       forAll(supportedPbkdfSchemes) { pbkdfScheme =>
@@ -97,5 +96,4 @@ trait PasswordBasedEncryptionTest {
         }
       }
     }
-  }
 }

@@ -18,7 +18,7 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
   override def makeUpdateObject(
       identityProviderConfig: IdentityProviderConfigUpdate,
       updateTrie: UpdatePathsTrie,
-  ): Result[IdentityProviderConfigUpdate] = {
+  ): Result[IdentityProviderConfigUpdate] =
     for {
       isDeactivatedUpdate <- resolveIsDeactivatedUpdate(
         updateTrie,
@@ -39,7 +39,6 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
         audienceUpdate = audienceUpdate,
       )
     }
-  }
 
   def resolveAudienceUpdate(
       updateTrie: UpdatePathsTrie,

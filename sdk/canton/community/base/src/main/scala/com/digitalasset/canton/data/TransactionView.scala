@@ -47,9 +47,8 @@ final case class TransactionView private (
       }
   }
 
-  def subviewHashesConsistentWith(subviewHashes: Seq[ViewHash]): Boolean = {
+  def subviewHashesConsistentWith(subviewHashes: Seq[ViewHash]): Boolean =
     subviews.hashesConsistentWith(hashOps)(subviewHashes)
-  }
 
   override def subtrees: Seq[MerkleTree[?]] =
     Seq[MerkleTree[?]](viewCommonData, viewParticipantData) ++ subviews.trees
@@ -117,11 +116,10 @@ final case class TransactionView private (
     def helper(
         view: TransactionView,
         viewPos: ViewPosition,
-    ): Seq[(TransactionView, ViewPosition)] = {
+    ): Seq[(TransactionView, ViewPosition)] =
       (view, viewPos) +: view.subviews.unblindedElementsWithIndex.flatMap {
         case (view, viewIndex) => helper(view, viewIndex +: viewPos)
       }
-    }
 
     helper(this, rootPos)
   }
@@ -182,7 +180,7 @@ final case class TransactionView private (
         subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
           (acc, subview) =>
             val subviewGki = subview.globalKeyInputs
-            MapsUtil.mergeWith(acc, subviewGki) { (accRes, _subviewRes) => accRes }
+            MapsUtil.mergeWith(acc, subviewGki)((accRes, _subviewRes) => accRes)
         }
     }
 
@@ -216,7 +214,7 @@ final case class TransactionView private (
     )
     val currentRollbackScope = vpd.rollbackContext.rollbackScope
     subviews.assertAllUnblinded(hash =>
-      s"Inputs and created contracts of view $viewHash can be computed only if all subviews are unblinded, but ${hash} is blinded"
+      s"Inputs and created contracts of view $viewHash can be computed only if all subviews are unblinded, but $hash is blinded"
     )
     val subviewInputsAndCreated = subviews.unblindedElements.map { subview =>
       val subviewVpd =
@@ -301,7 +299,7 @@ object TransactionView
   override def name: String = "TransactionView"
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ViewNode)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ViewNode)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )

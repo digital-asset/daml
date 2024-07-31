@@ -85,9 +85,8 @@ class HeadlessConsole(
     )
   } yield ()
 
-  override def close(): Unit = {
+  override def close(): Unit =
     lock.release()
-  }
 }
 
 /** Creates an interpreter but with matching bindings to the InteractiveConsole for running scripts non-interactively

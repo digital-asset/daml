@@ -5,9 +5,7 @@ package com.digitalasset.canton.admin.api.client.data
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.sequencing.{
-  TrafficControlParameters as TrafficControlParametersInternal
-}
+import com.digitalasset.canton.sequencing.TrafficControlParameters as TrafficControlParametersInternal
 import com.digitalasset.canton.time.{
   NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
   PositiveFiniteDuration as InternalPositiveFiniteDuration,

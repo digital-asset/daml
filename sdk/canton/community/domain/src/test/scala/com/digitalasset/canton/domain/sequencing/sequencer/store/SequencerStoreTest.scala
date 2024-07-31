@@ -149,7 +149,7 @@ trait SequencerStoreTest
           expectedRecipients: Set[Member],
           expectedPayload: Payload,
           expectedTopologyTimestamp: Option[CantonTimestamp] = None,
-      ): Future[Assertion] = {
+      ): Future[Assertion] =
         for {
           senderId <- lookupRegisteredMember(expectedSender)
           recipientIds <- expectedRecipients.toList.parTraverse(lookupRegisteredMember).map(_.toSet)
@@ -173,7 +173,6 @@ trait SequencerStoreTest
               fail(s"Expected deliver event but got $other")
           }
         }
-      }
 
       def assertReceiptEvent(
           event: Sequenced[Payload],
@@ -181,7 +180,7 @@ trait SequencerStoreTest
           expectedSender: Member,
           expectedMessageId: MessageId,
           expectedTopologyTimestamp: Option[CantonTimestamp],
-      ): Future[Assertion] = {
+      ): Future[Assertion] =
         for {
           senderId <- lookupRegisteredMember(expectedSender)
         } yield {
@@ -202,7 +201,6 @@ trait SequencerStoreTest
               fail(s"Expected deliver receipt but got $other")
           }
         }
-      }
 
       /** Save payloads using the default `instanceDiscriminator1` and expecting it to succeed */
       def savePayloads(payloads: NonEmpty[Seq[Payload]]): Future[Unit] =
@@ -397,11 +395,9 @@ trait SequencerStoreTest
           aliceId <- env.store.registerMember(alice, ts1)
           // lets write 20 deliver events - offsetting the second timestamp that is at epoch second 1
           events = NonEmptyUtil.fromUnsafe(
-            (0L until 20L)
-              .map(n => {
-                env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = aliceId)()
-              })
-              .toSeq
+            (0L until 20L).map { n =>
+              env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = aliceId)()
+            }.toSeq
           )
           payloads = DomainSequencingTestUtils.payloadsForEvents(events)
           _ <- env.store
@@ -430,9 +426,9 @@ trait SequencerStoreTest
         for {
           aliceId <- env.store.registerMember(alice, ts1)
           // lets write 20 events - offsetting the second timestamp that is at epoch second 1
-          events = (0L until 20L).map(n => {
+          events = (0L until 20L).map { n =>
             env.deliverEventWithDefaults(ts2.plusSeconds(n), sender = aliceId)()
-          })
+          }
           payloads = DomainSequencingTestUtils.payloadsForEvents(events)
           _ <- env.store
             .savePayloads(NonEmptyUtil.fromUnsafe(payloads), instanceDiscriminator1)

@@ -128,14 +128,13 @@ object ProtocolVersion {
   implicit val protocolVersionWriter: ConfigWriter[ProtocolVersion] =
     ConfigWriter.toString(_.toProtoPrimitiveS)
 
-  lazy implicit val protocolVersionReader: ConfigReader[ProtocolVersion] = {
+  lazy implicit val protocolVersionReader: ConfigReader[ProtocolVersion] =
     ConfigReader.fromString[ProtocolVersion] { str =>
       ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion)
     }
-  }
 
   implicit val getResultProtocolVersion: GetResult[ProtocolVersion] =
-    GetResult { r => ProtocolVersion(r.nextInt()) }
+    GetResult(r => ProtocolVersion(r.nextInt()))
 
   implicit val setParameterProtocolVersion: SetParameter[ProtocolVersion] =
     (pv: ProtocolVersion, pp: PositionedParameters) => pp >> pv.v
@@ -161,7 +160,7 @@ object ProtocolVersion {
     *
     * Otherwise, use one of the other factory methods.
     */
-  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] = {
+  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 
@@ -173,7 +172,6 @@ object ProtocolVersion {
             Left(s"Unable to convert string `$rawVersion` to a protocol version.")
           }
     }
-  }
 
   /** Creates a [[ProtocolVersion]] from the given raw version value and ensures that it is a supported version.
     * @param rawVersion   String to be parsed.
@@ -213,9 +211,8 @@ object ProtocolVersion {
     * For handshake, we want to use a string as the primitive type and not an int because that is
     * an endpoint that should never change. Using string allows us to evolve the scheme if needed.
     */
-  def fromProtoPrimitiveHandshake(rawVersion: String): ParsingResult[ProtocolVersion] = {
+  def fromProtoPrimitiveHandshake(rawVersion: String): ParsingResult[ProtocolVersion] =
     ProtocolVersion.create(rawVersion).leftMap(OtherError)
-  }
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
@@ -235,10 +232,11 @@ object ProtocolVersion {
       ProtocolVersion(5),
       ProtocolVersion(6),
       ProtocolVersion(30),
+      ProtocolVersion(31),
     )
 
   val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =
-    NonEmpty.mk(List, ProtocolVersion.v31, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v32, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
     parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
@@ -260,11 +258,11 @@ object ProtocolVersion {
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
     ProtocolVersion.createAlpha(Int.MaxValue)
 
-  lazy val v31: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
-    ProtocolVersion.createAlpha(31)
+  lazy val v32: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    ProtocolVersion.createAlpha(32)
 
   // Minimum stable protocol version introduced
-  lazy val minimum: ProtocolVersion = v31
+  lazy val minimum: ProtocolVersion = v32
 
   private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
     pv.map(parseUnchecked)

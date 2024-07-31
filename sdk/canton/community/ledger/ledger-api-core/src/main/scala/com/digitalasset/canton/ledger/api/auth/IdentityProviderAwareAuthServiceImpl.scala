@@ -4,7 +4,16 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.auth0.jwt.JWT
-import com.daml.jwt.{DecodedJwt, Error as JwtError, JwtFromBearerHeader, JwtVerifier}
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  DecodedJwt,
+  Error as JwtError,
+  JwtFromBearerHeader,
+  JwtVerifier,
+  StandardJWTPayload,
+}
+import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.ledger.api.auth.interceptor.IdentityProviderAwareAuthService
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -57,7 +66,7 @@ class IdentityProviderAwareAuthServiceImpl(
       token: String,
       issuer: Option[String],
       keyId: Option[String],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] =
     issuer match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(issuer) =>
@@ -76,7 +85,6 @@ class IdentityProviderAwareAuthServiceImpl(
           jwtPayload <- parsePayload(payload)
         } yield toAuthenticatedUser(jwtPayload, identityProviderConfig.identityProviderId)
     }
-  }
 
   private def checkAudience(
       payload: AuthServiceJWTPayload,
@@ -125,7 +133,7 @@ class IdentityProviderAwareAuthServiceImpl(
 
   private def toAuthenticatedUser(payload: StandardJWTPayload, id: IdentityProviderId.Id) =
     ClaimSet.AuthenticatedUser(
-      identityProviderId = id,
+      identityProviderId = Some(id.value),
       participantId = payload.participantId,
       userId = payload.userId,
       expiration = payload.exp,

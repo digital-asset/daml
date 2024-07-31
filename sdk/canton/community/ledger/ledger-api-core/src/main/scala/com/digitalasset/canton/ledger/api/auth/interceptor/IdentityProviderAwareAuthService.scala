@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth.interceptor
 
-import com.digitalasset.canton.ledger.api.auth.ClaimSet
+import com.digitalasset.canton.auth.ClaimSet
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import io.grpc.Metadata
 

@@ -89,8 +89,7 @@ class DomainRouter(
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] = {
-
+  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
     for {
       // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
       _ <- EitherT.fromEither[Future](
@@ -178,7 +177,6 @@ class DomainRouter(
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
       )
     } yield transactionSubmittedF
-  }
 
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]

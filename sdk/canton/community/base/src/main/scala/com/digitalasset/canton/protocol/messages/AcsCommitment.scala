@@ -33,9 +33,8 @@ final case class CommitmentPeriod(
 ) extends PrettyPrinting {
   val toInclusive: CantonTimestampSecond = fromExclusive + periodLength
 
-  def overlaps(other: CommitmentPeriod): Boolean = {
+  def overlaps(other: CommitmentPeriod): Boolean =
     fromExclusive < other.toInclusive && toInclusive > other.fromExclusive
-  }
 
   override def pretty: Pretty[CommitmentPeriod] =
     prettyOfClass(
@@ -124,7 +123,7 @@ abstract sealed case class AcsCommitment private (
 
   override def signingTimestamp: Option[CantonTimestamp] = Some(period.toInclusive.forgetRefinement)
 
-  protected def toProtoV30: v30.AcsCommitment = {
+  protected def toProtoV30: v30.AcsCommitment =
     v30.AcsCommitment(
       domainId = domainId.toProtoPrimitive,
       sendingParticipantUid = sender.uid.toProtoPrimitive,
@@ -133,7 +132,6 @@ abstract sealed case class AcsCommitment private (
       toInclusive = period.toInclusive.toProtoPrimitive,
       commitment = AcsCommitment.commitmentTypeToProto(commitment),
     )
-  }
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -144,7 +142,7 @@ abstract sealed case class AcsCommitment private (
       getCryptographicEvidence
     )
 
-  override lazy val pretty: Pretty[AcsCommitment] = {
+  override lazy val pretty: Pretty[AcsCommitment] =
     prettyOfClass(
       param("domainId", _.domainId),
       param("sender", _.sender),
@@ -152,14 +150,13 @@ abstract sealed case class AcsCommitment private (
       param("period", _.period),
       param("commitment", _.commitment),
     )
-  }
 }
 
 object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCommitment] {
   override val name: String = "AcsCommitment"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.AcsCommitment)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AcsCommitment)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -189,7 +186,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
 
   private def fromProtoV30(protoMsg: v30.AcsCommitment)(
       bytes: ByteString
-  ): ParsingResult[AcsCommitment] = {
+  ): ParsingResult[AcsCommitment] =
     for {
       domainId <- DomainId.fromProtoPrimitive(protoMsg.domainId, "AcsCommitment.domainId")
       sender <- UniqueIdentifier
@@ -227,7 +224,6 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       rpv,
       Some(bytes),
     ) {}
-  }
 
   implicit val acsCommitmentCast: SignedMessageContentCast[AcsCommitment] =
     SignedMessageContentCast.create[AcsCommitment]("AcsCommitment") {

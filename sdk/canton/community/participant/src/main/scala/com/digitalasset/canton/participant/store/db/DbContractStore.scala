@@ -166,14 +166,11 @@ class DbContractStore(
 
   private def lookupManyUncachedInternal(
       ids: NonEmpty[Seq[LfContractId]]
-  )(implicit traceContext: TraceContext) = {
-    {
-      storage.sequentialQueryAndCombine(lookupQueries(ids), functionFullName)(
-        traceContext,
-        closeContext,
-      )
-    }
-  }
+  )(implicit traceContext: TraceContext) =
+    storage.sequentialQueryAndCombine(lookupQueries(ids), functionFullName)(
+      traceContext,
+      closeContext,
+    )
 
   override def find(
       filterId: Option[String],
@@ -215,20 +212,18 @@ class DbContractStore(
 
   override def storeCreatedContracts(
       creations: Seq[(WithTransactionId[SerializableContract], RequestCounter)]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     creations.parTraverse_ { case (WithTransactionId(creation, transactionId), requestCounter) =>
       storeContract(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
     }
-  }
 
   override def storeDivulgedContracts(
       requestCounter: RequestCounter,
       divulgences: Seq[SerializableContract],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     divulgences.parTraverse_ { divulgence =>
       storeContract(StoredContract.fromDivulgedContract(divulgence, requestCounter))
     }
-  }
 
   private def storeContract(
       contract: StoredContract
@@ -515,9 +510,8 @@ class DbContractStore(
         )
     }
 
-  override def contractCount()(implicit traceContext: TraceContext): Future[Int] = {
+  override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
     storage.query(sql"select count(*) from par_contracts".as[Int].head, functionFullName)
-  }
 }
 
 object DbContractStore {

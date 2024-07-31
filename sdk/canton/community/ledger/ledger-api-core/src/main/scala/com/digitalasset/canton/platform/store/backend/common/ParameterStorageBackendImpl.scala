@@ -106,11 +106,10 @@ private[backend] class ParameterStorageBackendImpl(
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Offset] = {
+  private val LedgerEndOffsetParser: RowParser[Offset] =
     // Note: the ledger_end is a non-optional column,
     // however some databases treat Offset.beforeBegin (the empty string) as NULL
     offset(LedgerEndColumnName).?.map(_.getOrElse(Offset.beforeBegin))
-  }
 
   private val LedgerEndSequentialIdParser: RowParser[Long] =
     long(LedgerEndSequentialIdColumnName)
@@ -222,12 +221,11 @@ private[backend] class ParameterStorageBackendImpl(
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
-  ): Option[Offset] = {
+  ): Option[Offset] =
     SqlSelectMostRecentPruningAllDivulgedContracts
       .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
         connection
       )
-  }
 
   private val SqlSelectMostRecentPruningAndLedgerEnd =
     SQL"select participant_pruned_up_to_inclusive, #$LedgerEndColumnName from lapi_parameters"
@@ -256,7 +254,7 @@ private[backend] class ParameterStorageBackendImpl(
 
   override def domainLedgerEnd(domainId: DomainId)(
       connection: Connection
-  ): DomainIndex = {
+  ): DomainIndex =
     // not using stringInterning here to allow broader usage with tricky state inspection integration tests
     SQL"""
       SELECT internal_id
@@ -336,9 +334,8 @@ private[backend] class ParameterStorageBackendImpl(
           )(connection)
       )
       .getOrElse(DomainIndex.empty)
-  }
 
-  override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit = {
+  override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit =
     batchUpsert(
       "INSERT INTO lapi_post_processing_end VALUES ({postProcessingEnd})",
       "UPDATE lapi_post_processing_end SET post_processing_end = {postProcessingEnd}",
@@ -348,7 +345,6 @@ private[backend] class ParameterStorageBackendImpl(
         )
       ),
     )(connection)
-  }
 
   override def postProcessingEnd(connection: Connection): Option[Offset] =
     SQL"select post_processing_end from lapi_post_processing_end"

@@ -81,8 +81,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       def add(
           timestamp: CantonTimestamp,
           transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-      ): Future[Unit] = {
-
+      ): Future[Unit] =
         for {
           _ <- store.update(
             SequencedTime(timestamp),
@@ -95,14 +94,12 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
             .observed(timestamp, timestamp, SequencerCounter(1), transactions)
             .failOnShutdown(s"observe timestamp $timestamp")
         } yield ()
-      }
 
-      def advance(ts: CantonTimestamp): Unit = {
+      def advance(ts: CantonTimestamp): Unit =
         client
           .observed(SequencedTime(ts), EffectiveTime(ts), SequencerCounter(0), List())
           .failOnShutdown(s"advance to $ts")
           .futureValue
-      }
     }
 
     "waiting for snapshots" should {

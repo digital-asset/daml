@@ -24,9 +24,8 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     extends NamedLogging
     with NoTracing {
 
-  private def allServicesAreServing(healthStatusManager: ServiceHealthStatusManager): Boolean = {
+  private def allServicesAreServing(healthStatusManager: ServiceHealthStatusManager): Boolean =
     healthStatusManager.services.map(_.getState).forall(_ == ServingStatus.SERVING)
-  }
 
   /** Update a service in a health manager.
     * If the status is not SERVING, the aggregated health status will be updated to NOT_SERVING
@@ -77,13 +76,13 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     */
   def registerHealthManager(
       healthStatusManager: ServiceHealthStatusManager
-  ): Unit = {
+  ): Unit =
     healthStatusManager.services.foreach(service =>
       service
         .registerOnHealthChange(new HealthListener {
           override def name: String = "GrpcHealthReporter"
 
-          override def poke()(implicit traceContext: TraceContext): Unit = {
+          override def poke()(implicit traceContext: TraceContext): Unit =
             Try(updateHealthManager(healthStatusManager, service))
               .recover {
                 // Can happen if we update the status while a listening RPC is being cancelled
@@ -95,9 +94,7 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
                   )
               }
               .discard[Try[Unit]]
-          }
         })
         .discard[Boolean]
     )
-  }
 }

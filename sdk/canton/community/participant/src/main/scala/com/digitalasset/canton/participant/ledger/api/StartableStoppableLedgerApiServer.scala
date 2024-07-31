@@ -22,7 +22,13 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
-import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter}
+import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain.{
+  CumulativeFilter,
+  IdentityProviderId,
+  TransactionFilter,
+  UserRight,
+}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
@@ -49,6 +55,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
 }
+import com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -63,6 +70,7 @@ import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValu
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
@@ -370,14 +378,13 @@ class StartableStoppableLedgerApiServer(
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
       _ <- startHttpApiIfEnabled
-      _ <- {
-        config.serverConfig.userManagementService.additionalAdminUserId.fold(ResourceOwner.unit) {
-          rawUserId =>
-            ResourceOwner.forFuture { () =>
-              userManagementStore.createExtraAdminUser(rawUserId)
-            }
+      _ <- config.serverConfig.userManagementService.additionalAdminUserId
+        .fold(ResourceOwner.unit) { rawUserId =>
+          ResourceOwner.forFuture { () =>
+            createExtraAdminUser(rawUserId, userManagementStore)
+          }
         }
-      }
+
     } yield ()
   }
 
@@ -407,6 +414,31 @@ class StartableStoppableLedgerApiServer(
       maxRightsPerUser = config.serverConfig.userManagementService.maxRightsPerUser,
       loggerFactory = loggerFactory,
     )(executionContext, traceContext)
+
+  private def createExtraAdminUser(rawUserId: String, userManagementStore: UserManagementStore)(
+      implicit loggingContext: LoggingContextWithTrace
+  ): Future[Unit] = {
+    import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
+    val userId = Ref.UserId.assertFromString(rawUserId)
+    userManagementStore
+      .createUser(
+        user = domain.User(
+          id = userId,
+          primaryParty = None,
+          identityProviderId = IdentityProviderId.Default,
+        ),
+        rights = Set(UserRight.ParticipantAdmin),
+      )
+      .flatMap {
+        case Left(UserManagementStore.UserExists(_)) =>
+          logger.info(
+            s"Creating admin user with id $userId failed. User with this id already exists"
+          )
+          Future.successful(())
+        case other =>
+          ApiUserManagementService.handleResult("creating extra admin user")(other).map(_ => ())
+      }
+  }
 
   private def getInterceptors(
       indexerExecutor: QueueAwareExecutor & NamedExecutor
@@ -456,7 +488,7 @@ class StartableStoppableLedgerApiServer(
           channel <- ResourceOwner
             .forReleasable(() =>
               ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
-            ) { channel => Future(channel.shutdown().discard) }
+            )(channel => Future(channel.shutdown().discard))
           _ <- HttpApiServer(jsonApiConfig, channel, loggerFactory)(config.jsonApiMetrics)
         } yield ()
       }

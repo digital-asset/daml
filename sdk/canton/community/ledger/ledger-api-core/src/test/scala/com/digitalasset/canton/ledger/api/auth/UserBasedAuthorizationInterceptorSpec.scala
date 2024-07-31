@@ -4,9 +4,10 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.auth.{AuthService, AuthorizationInterceptor, ClaimSet}
 import com.digitalasset.canton.ledger.api.auth.interceptor.{
-  AuthorizationInterceptor,
   IdentityProviderAwareAuthService,
+  UserBasedAuthorizationInterceptor,
 }
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
@@ -24,7 +25,7 @@ import java.util.concurrent.CompletableFuture
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
-class AuthorizationInterceptorSpec
+class UserBasedAuthorizationInterceptorSpec
     extends AsyncFlatSpec
     with MockitoSugar
     with Matchers
@@ -73,7 +74,7 @@ class AuthorizationInterceptorSpec
     }
 
     val authorizationInterceptor =
-      AuthorizationInterceptor(
+      new UserBasedAuthorizationInterceptor(
         authService,
         Some(userManagementService),
         identityProviderAwareAuthService,

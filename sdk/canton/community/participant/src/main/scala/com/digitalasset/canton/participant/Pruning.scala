@@ -23,7 +23,7 @@ object Pruning {
       boundInclusive: GlobalOffset,
   ) extends LedgerPruningError {
     override def message = "No internal participant data to prune up to time " +
-      s"${beforeOrAt} and offset ${boundInclusive.unwrap.value}."
+      s"$beforeOrAt and offset ${boundInclusive.unwrap.value}."
   }
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
@@ -55,7 +55,7 @@ object Pruning {
       status: DomainConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message =
-      s"The domain ${domainId} can not be pruned as there is a pending domain migration: ${status}"
+      s"The domain $domainId can not be pruned as there is a pending domain migration: $status"
   }
 
 }

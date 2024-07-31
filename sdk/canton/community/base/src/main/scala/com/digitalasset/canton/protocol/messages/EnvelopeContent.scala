@@ -28,7 +28,7 @@ object EnvelopeContent
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v31
+      ProtocolVersion.v32
     )(v30.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toByteStringUnversioned,
@@ -91,7 +91,7 @@ object EnvelopeContent
       hashOps: HashOps,
   )(
       bytes: Array[Byte]
-  )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] = {
+  )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] =
     for {
       envelopeContent <- fromByteString(hashOps, protocolVersion)(ByteString.copyFrom(bytes))
       message <- cast
@@ -102,5 +102,4 @@ object EnvelopeContent
           )
         )
     } yield message
-  }
 }

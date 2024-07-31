@@ -20,7 +20,7 @@ sealed trait RepeatableTest extends NamedLogging {
     * running up to n times or until failure.
     * @param n Maximum number of runs of the test.
     */
-  case class RepeatTest(n: Int) extends Tag(s"Repeated ${n}")
+  case class RepeatTest(n: Int) extends Tag(s"Repeated $n")
 
 }
 
@@ -62,12 +62,11 @@ trait RepeatableAsyncTestSuiteTest extends RepeatableTest with AsyncTestSuite {
     if (repeat > 1) logger.info(s"Repeating async test $repeat times")
     val init = super.withFixture(test).toFuture
 
-    def process(outcome: Outcome): Future[Outcome] = {
+    def process(outcome: Outcome): Future[Outcome] =
       if (outcome.isSucceeded)
         // Run the test again
         super.withFixture(test).toFuture
       else Future.successful(outcome)
-    }
     val result = MonadUtil.repeatFlatmap(init, process, repeat - 1);
     new FutureOutcome(result)
   }

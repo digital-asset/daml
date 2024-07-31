@@ -12,6 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.daml.lf.data.Ref
@@ -36,29 +37,32 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   private def commonValidations(
       req: GetUpdatesRequest
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] =
     for {
       filter <- requirePresence(req.filter, "filter")
-      requiredBegin <- requirePresence(req.beginExclusive, "begin")
-      convertedBegin <- ParticipantOffsetValidator.validate(requiredBegin, "begin")
-      convertedEnd <- ParticipantOffsetValidator.validateOptional(req.endInclusive, "end")
+      begin <- ParticipantOffsetValidator
+        .validate(req.beginExclusive)
+        .map(ParticipantOffset.fromString)
+      convertedEnd <- ParticipantOffsetValidator
+        .validate(req.endInclusive)
+        .map(str =>
+          if (str.isEmpty) None
+          else Some(Absolute(Ref.LedgerString.assertFromString(str)))
+        )
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       filter,
-      convertedBegin,
+      begin,
       convertedEnd,
       knownParties,
     )
-
-  }
 
   def validate(
       req: GetUpdatesRequest,
       ledgerEnd: ParticipantOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionsRequest] = {
-
+  ): Result[transaction.GetTransactionsRequest] =
     for {
       partial <- commonValidations(req)
       _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
@@ -80,13 +84,12 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         req.verbose,
       )
     }
-  }
 
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByIdRequest] = {
+  ): Result[transaction.GetTransactionByIdRequest] =
     for {
       _ <- requireNonEmptyString(req.updateId, "update_id")
       trId <- requireLedgerString(req.updateId)
@@ -98,13 +101,12 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         parties,
       )
     }
-  }
 
   def validateTransactionByEventId(
       req: GetTransactionByEventIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByEventIdRequest] = {
+  ): Result[transaction.GetTransactionByEventIdRequest] =
     for {
       eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -115,7 +117,6 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         parties,
       )
     }
-  }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   private def transactionFilterToPartySet(

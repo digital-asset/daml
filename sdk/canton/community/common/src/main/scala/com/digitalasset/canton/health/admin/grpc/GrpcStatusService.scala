@@ -55,14 +55,13 @@ class GrpcStatusService(
   override def healthDump(
       request: HealthDumpRequest,
       responseObserver: StreamObserver[HealthDumpResponse],
-  ): Unit = {
+  ): Unit =
     GrpcStreamingUtils.streamToClientFromFile(
       (file: File) => healthDump(file),
       responseObserver,
       byteString => HealthDumpResponse(byteString),
       processingTimeout.unbounded.duration,
     )
-  }
 
   override def setLogLevel(request: v30.SetLogLevelRequest): Future[v30.SetLogLevelResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
@@ -73,7 +72,7 @@ class GrpcStatusService(
 
   override def getLastErrors(
       request: v30.GetLastErrorsRequest
-  ): Future[v30.GetLastErrorsResponse] = {
+  ): Future[v30.GetLastErrorsResponse] =
     NodeLoggingUtil.lastErrors() match {
       case Some(errors) =>
         Future.successful(v30.GetLastErrorsResponse(errors = errors.map { case (traceId, message) =>
@@ -86,11 +85,10 @@ class GrpcStatusService(
             .asRuntimeException()
         )
     }
-  }
 
   override def getLastErrorTrace(
       request: v30.GetLastErrorTraceRequest
-  ): Future[v30.GetLastErrorTraceResponse] = {
+  ): Future[v30.GetLastErrorTraceResponse] =
     NodeLoggingUtil.lastErrorTrace(request.traceId) match {
       case Some(trace) =>
         Future.successful(v30.GetLastErrorTraceResponse(trace))
@@ -101,6 +99,5 @@ class GrpcStatusService(
             .asRuntimeException()
         )
     }
-  }
 
 }

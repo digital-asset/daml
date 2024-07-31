@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.admin.user_management_service.*
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.{
@@ -41,13 +41,12 @@ final class UserManagementServiceAuthorization(
   private def containsParticipantAdmin(rights: Seq[Right]): Boolean =
     rights.contains(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())))
 
-  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] = {
+  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId[CreateUserRequest, CreateUserResponse](
       identityProviderIdL = Lens.unit[CreateUserRequest].user.identityProviderId,
       mustBeParticipantAdmin = containsParticipantAdmin(request.rights),
       call = service.createUser,
     )(request)
-  }
 
   override def getUser(request: GetUserRequest): Future[GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
@@ -134,13 +133,12 @@ final class UserManagementServiceAuthorization(
 
   override def updateUserIdentityProviderId(
       request: UpdateUserIdentityProviderIdRequest
-  ): Future[UpdateUserIdentityProviderIdResponse] = {
+  ): Future[UpdateUserIdentityProviderIdResponse] =
     authorizer.requireAdminClaims(
       call = service.updateUserIdentityProviderId
     )(
       request
     )
-  }
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)

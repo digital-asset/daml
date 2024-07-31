@@ -22,10 +22,9 @@ class ParticipantTrafficControlSubscriber(
     with NamedLogging {
   override def observedTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Unit = {
-    logger.debug(s"Traffic control handler observed timestamp: $timestamp")
+  ): Unit =
     // Nothing to do here for the participant, only interested in balance updates
-  }
+    logger.debug(s"Traffic control handler observed timestamp: $timestamp")
 
   override def trafficPurchasedUpdate(
       update: SetTrafficPurchasedMessage,

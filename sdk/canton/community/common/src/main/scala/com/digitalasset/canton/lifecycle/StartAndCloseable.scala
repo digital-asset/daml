@@ -71,9 +71,8 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
       ec: ExecutionContext,
       traceContext: TraceContext,
       err: ErrorLoggingContext,
-  ): FutureUnlessShutdown[A] = {
+  ): FutureUnlessShutdown[A] =
     FutureUnlessShutdown(start())
-  }
 
   protected def startAsync()(implicit tc: TraceContext): FutureUnlessShutdown[A]
 

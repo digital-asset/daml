@@ -227,14 +227,14 @@ class InMemoryStateUpdaterSpec
           2 -> 3,
           3 -> 5,
         ),
-      ).map({ case (offset, domainTimesRaw) =>
+      ).map { case (offset, domainTimesRaw) =>
         OffsetCheckpoint(
           offset = Offset.fromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map({ case (d, t) =>
+          domainTimes = domainTimesRaw.map { case (d, t) =>
             DomainId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
-          }),
+          },
         )
-      })
+      }
 
     val input = createInputSeq(
       offsetsAndTicks,
@@ -430,15 +430,17 @@ object InMemoryStateUpdaterSpec {
       tx_accepted_completion.copy(updateId = tx_rejected_transactionId)
     val tx_accepted_completionDetails: TransactionLogUpdate.CompletionDetails =
       TransactionLogUpdate.CompletionDetails(
-        completionStreamResponse =
-          CompletionStreamResponse(completion = Some(tx_accepted_completion)),
+        completionStreamResponse = CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(tx_accepted_completion)
+        ),
         submitters = tx_accepted_submitters,
       )
 
     val tx_rejected_completionDetails: TransactionLogUpdate.CompletionDetails =
       TransactionLogUpdate.CompletionDetails(
-        completionStreamResponse =
-          CompletionStreamResponse(completion = Some(tx_rejected_completion)),
+        completionStreamResponse = CompletionStreamResponse(completionResponse =
+          CompletionStreamResponse.CompletionResponse.Completion(tx_rejected_completion)
+        ),
         submitters = tx_rejected_submitters,
       )
 

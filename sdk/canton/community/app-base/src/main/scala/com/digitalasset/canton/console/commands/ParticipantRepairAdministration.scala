@@ -99,14 +99,13 @@ class ParticipantRepairAdministration(
       source: DomainAlias,
       target: DomainConnectionConfig,
       force: Boolean = false,
-  ): Unit = {
+  ): Unit =
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement
           .MigrateDomain(source, target, force = force)
       )
     }
-  }
 
   @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
@@ -139,7 +138,7 @@ class ParticipantRepairAdministration(
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
       force: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
-  ): Unit = {
+  ): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         val file = File(outputFile)
@@ -168,7 +167,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
   @Help.Description(
@@ -200,7 +198,7 @@ class ParticipantRepairAdministration(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       workflowIdPrefix: String = "",
       allowContractIdSuffixRecomputation: Boolean = false,
-  ): Map[LfContractId, LfContractId] = {
+  ): Map[LfContractId, LfContractId] =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
@@ -212,7 +210,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Add specified contracts to a specific domain on the participant.")
   @Help.Description(
@@ -277,7 +274,7 @@ class ParticipantRepairAdministration(
        |Purging a deactivated domain is typically performed automatically as part of a hard domain migration via
        |``repair.migrate_domain``."""
   )
-  def purge_deactivated_domain(domain: DomainAlias): Unit = {
+  def purge_deactivated_domain(domain: DomainAlias): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
@@ -285,7 +282,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Mark sequenced events as ignored.")
   @Help.Description(

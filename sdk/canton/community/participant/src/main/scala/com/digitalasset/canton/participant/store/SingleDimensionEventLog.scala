@@ -114,7 +114,7 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
     */
   def insert(events: Seq[TimestampedEvent])(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     insertsUnlessEventIdClash(events).map { results =>
       val clashes = results.collect { case Left(eventWithSameId) =>
         (eventWithSameId.eventId, eventWithSameId.localOffset)
@@ -128,7 +128,6 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
         )
       }
     }
-  }
 
   def prune(beforeAndIncluding: LocalOffset)(implicit traceContext: TraceContext): Future[Unit]
 

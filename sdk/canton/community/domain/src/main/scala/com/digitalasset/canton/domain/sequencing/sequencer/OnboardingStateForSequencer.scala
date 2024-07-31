@@ -46,7 +46,7 @@ object OnboardingStateForSequencer
     )
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
       v30.OnboardingStateForSequencer
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -56,7 +56,7 @@ object OnboardingStateForSequencer
 
   private def fromProtoV30(
       value: v30.OnboardingStateForSequencer
-  ): ParsingResult[OnboardingStateForSequencer] = {
+  ): ParsingResult[OnboardingStateForSequencer] =
     for {
       topologySnapshot <- ProtoConverter.parseRequired(
         StoredTopologyTransactions.fromProtoV30,
@@ -77,6 +77,5 @@ object OnboardingStateForSequencer
     } yield OnboardingStateForSequencer(topologySnapshot, staticDomainParams, sequencerSnapshot)(
       rpv
     )
-  }
 
 }

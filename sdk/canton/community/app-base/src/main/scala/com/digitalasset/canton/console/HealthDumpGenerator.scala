@@ -32,7 +32,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
       nodeName: String,
       nodeConfig: LocalNodeConfig,
       deserializer: v30.StatusResponse.Status => ParsingResult[S],
-  ): NodeStatus[S] = {
+  ): NodeStatus[S] =
     grpcAdminCommandRunner
       .runCommand(
         nodeName,
@@ -43,16 +43,14 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
       case CommandSuccessful(value) => value
       case err: CommandError => data.NodeStatus.Failure(err.cause)
     }
-  }
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
       deserializer: v30.StatusResponse.Status => ParsingResult[S],
-  ): Map[String, () => NodeStatus[S]] = {
+  ): Map[String, () => NodeStatus[S]] =
     nodes.map { case (nodeName, nodeConfig) =>
       nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer))
     }
-  }
 
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   def generateHealthDump(

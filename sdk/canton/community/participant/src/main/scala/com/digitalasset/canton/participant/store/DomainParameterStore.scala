@@ -34,7 +34,7 @@ object DomainParameterStore {
       domainId: DomainId,
       processingTimeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): DomainParameterStore = {
+  )(implicit executionContext: ExecutionContext): DomainParameterStore =
     storage match {
       case _: MemoryStorage =>
         new InMemoryDomainParameterStore(
@@ -47,5 +47,4 @@ object DomainParameterStore {
           loggerFactory,
         )
     }
-  }
 }

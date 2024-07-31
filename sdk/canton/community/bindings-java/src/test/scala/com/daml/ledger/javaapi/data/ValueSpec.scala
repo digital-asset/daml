@@ -64,13 +64,12 @@ class ValueSpec
     }
   }
 
-  def assertUnsuccessfulConversions(value: Value, excludedSumCase: SumCase): scala.Unit = {
+  def assertUnsuccessfulConversions(value: Value, excludedSumCase: SumCase): scala.Unit =
     for ((conversion, name) <- conversions.view.filterKeys(_ != excludedSumCase).toMap.values) {
       s"Value.$name()" should s" should return Optional.empty() for ${value.getClass.getSimpleName} instances" in {
         conversion(value) shouldEqual JOptional.empty()
       }
     }
-  }
 
   assertConversions(SumCase.BOOL, Value.fromProto(boolValueGen.sample.get))
   assertConversions(SumCase.CONTRACT_ID, Value.fromProto(contractIdValueGen.sample.get))

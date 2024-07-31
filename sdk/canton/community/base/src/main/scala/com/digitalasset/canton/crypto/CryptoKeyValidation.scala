@@ -67,14 +67,13 @@ object CryptoKeyValidation {
       defaultAlgorithmSpec: EncryptionAlgorithmSpec,
       supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
       errFn: EncryptionAlgorithmSpec => E,
-  ): Either[E, EncryptionAlgorithmSpec] = {
+  ): Either[E, EncryptionAlgorithmSpec] =
     if (defaultAlgorithmSpec.supportedEncryptionKeySpecs.contains(keySpec))
       Right(defaultAlgorithmSpec)
     else
       supportedAlgorithmSpecs
         .find(_.supportedEncryptionKeySpecs.contains(keySpec))
         .toRight(errFn(defaultAlgorithmSpec))
-  }
 
   /** Ensures that a given key specification is supported by the selected crypto algorithm. It
     * also checks if this crypto algorithm is part of the set of supported algorithms.

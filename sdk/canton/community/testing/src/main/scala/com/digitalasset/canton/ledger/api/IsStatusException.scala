@@ -12,15 +12,13 @@ import scala.util.control.NonFatal
 
 object IsStatusException extends Matchers {
 
-  def apply(expectedStatusCode: Status.Code)(throwable: Throwable): Assertion = {
+  def apply(expectedStatusCode: Status.Code)(throwable: Throwable): Assertion =
     throwable match {
       case GrpcException(GrpcStatus(code, _), _) => code shouldEqual expectedStatusCode
       case NonFatal(other) => fail(s"$other is not a gRPC Status exception.")
       case t: Throwable => throw t
     }
-  }
 
-  def apply(expectedStatus: Status): Throwable => Assertion = {
+  def apply(expectedStatus: Status): Throwable => Assertion =
     apply(expectedStatus.getCode)
-  }
 }

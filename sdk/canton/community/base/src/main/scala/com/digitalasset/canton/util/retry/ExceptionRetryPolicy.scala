@@ -33,7 +33,7 @@ trait ExceptionRetryPolicy {
       lastErrorKind: Option[ErrorKind],
   )(implicit
       tc: TraceContext
-  ): ErrorKind = {
+  ): ErrorKind =
     outcome match {
       case util.Success(_) => NoSuccessErrorKind
       case Failure(exception) =>
@@ -43,12 +43,11 @@ trait ExceptionRetryPolicy {
           logThrowable(exception, logger)
         } else {
           logger.debug(
-            s"Retrying on same error kind ${errorKind} for ${exception.getClass.getSimpleName}/${exception.getMessage}"
+            s"Retrying on same error kind $errorKind for ${exception.getClass.getSimpleName}/${exception.getMessage}"
           )
         }
         errorKind
     }
-  }
 
   protected def logThrowable(e: Throwable, logger: TracedLogger)(implicit
       traceContext: TraceContext
@@ -127,10 +126,9 @@ case object AllExceptionRetryPolicy extends ExceptionRetryPolicy {
 
   override protected def determineExceptionErrorKind(exception: Throwable, logger: TracedLogger)(
       implicit tc: TraceContext
-  ): ErrorKind = {
+  ): ErrorKind =
     // We don't classify the kind of error, always retry indefinitely
     UnknownErrorKind
-  }
 
 }
 
@@ -140,9 +138,8 @@ case object NoExceptionRetryPolicy extends ExceptionRetryPolicy {
 
   override protected def determineExceptionErrorKind(exception: Throwable, logger: TracedLogger)(
       implicit tc: TraceContext
-  ): ErrorKind = {
+  ): ErrorKind =
     // We treat the exception as fatal, never retry
     FatalErrorKind
-  }
 
 }

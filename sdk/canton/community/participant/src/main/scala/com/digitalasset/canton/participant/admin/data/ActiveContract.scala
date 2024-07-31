@@ -26,13 +26,12 @@ final case class ActiveContract(
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
     with HasSerializableContract {
-  private def toProtoV30: v30.ActiveContract = {
+  private def toProtoV30: v30.ActiveContract =
     v30.ActiveContract(
       domainId.toProtoPrimitive,
       Some(contract.toAdminProtoV30),
       transferCounter.toProtoPrimitive,
     )
-  }
 
   override protected lazy val companionObj: ActiveContract.type = ActiveContract
 
@@ -48,7 +47,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   override def name: String = "ActiveContract"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(v30.ActiveContract)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ActiveContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -56,7 +55,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
 
   private def fromProtoV30(
       proto: v30.ActiveContract
-  ): ParsingResult[ActiveContract] = {
+  ): ParsingResult[ActiveContract] =
     for {
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       contract <- ProtoConverter.parseRequired(
@@ -69,7 +68,6 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     } yield {
       ActiveContract(domainId, contract, TransferCounter(transferCounter))(reprProtocolVersion)
     }
-  }
 
   def create(
       domainId: DomainId,
@@ -80,18 +78,17 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] = {
+  private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] =
     ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>
       loadFromSource(fileInput) match {
         case Left(error) => throw new Exception(error)
         case Right(value) => value.iterator
       }
     }
-  }
 
   private[admin] def loadFromByteString(
       bytes: ByteString
-  ): Either[String, List[ActiveContract]] = {
+  ): Either[String, List[ActiveContract]] =
     for {
       decompressedBytes <-
         ByteStringUtil
@@ -103,7 +100,6 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
         loadFromSource(inputSource)
       }
     } yield contracts
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   private def loadFromSource(

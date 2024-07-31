@@ -9,13 +9,12 @@ final case class DecomposedFilter(party: Option[Party], templateId: Option[Ident
 
 object FilterUtils {
   def decomposeFilters(filter: TemplatePartiesFilter): Seq[DecomposedFilter] = {
-    val wildcardFilters = {
+    val wildcardFilters =
       filter.templateWildcardParties match {
         case Some(parties) =>
           parties.map(party => DecomposedFilter(Some(party), None))
         case None => Seq(DecomposedFilter(None, None))
       }
-    }
     val filters = filter.relation.iterator.flatMap {
       case (templateId, Some(parties)) =>
         parties.iterator.map(party => DecomposedFilter(Some(party), Some(templateId)))

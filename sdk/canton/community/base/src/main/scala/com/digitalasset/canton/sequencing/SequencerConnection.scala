@@ -146,8 +146,7 @@ object SequencerConnection {
   private def fromGrpcProto(
       grpcP: v30.SequencerConnection.Grpc,
       alias: String,
-  ): ParsingResult[SequencerConnection] = {
-
+  ): ParsingResult[SequencerConnection] =
     for {
       uris <- grpcP.connections
         .traverse { connection =>
@@ -169,7 +168,6 @@ object SequencerConnection {
       grpcP.customTrustCertificates,
       sequencerAlias,
     )
-  }
 
   def merge(connections: Seq[SequencerConnection]): Either[String, SequencerConnection] =
     for {

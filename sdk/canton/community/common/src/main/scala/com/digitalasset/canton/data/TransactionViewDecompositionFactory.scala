@@ -48,9 +48,8 @@ case object TransactionViewDecompositionFactory {
         rollbackContext,
       )
 
-    def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] = {
+    def withNewView(view: V, rollbackContext: RollbackContext): BuildState[V] =
       BuildState[V](this.views :+ view, this.informees, this.quorums, rollbackContext)
-    }
 
     def childState: BuildState[TransactionViewDecomposition] =
       BuildState(Chain.empty, Set.empty, Chain.empty, rollbackContext)
@@ -181,7 +180,7 @@ case object TransactionViewDecompositionFactory {
     val tx: LfVersionedTransaction = transaction.unwrap
 
     val policyMapF: Iterable[Future[(NodeId, ActionNodeInfo)]] =
-      tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+      tx.nodes.collect { case (nodeId, node: LfActionNode) =>
         val childNodeIds = node match {
           case e: LfNodeExercises => e.children.toSeq
           case _ => Seq.empty
@@ -193,7 +192,7 @@ case object TransactionViewDecompositionFactory {
           childNodeIds,
           transaction,
         )
-      })
+      }
 
     Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
       Builder(tx.nodes, policyMap)
@@ -216,7 +215,7 @@ case object TransactionViewDecompositionFactory {
     def createQuorum(
         informeesMap: Map[LfPartyId, (Set[ParticipantId], NonNegativeInt)],
         threshold: NonNegativeInt,
-    ): Quorum = {
+    ): Quorum =
       Quorum(
         informeesMap.mapFilter { case (_, weight) =>
           Option.when(weight.unwrap > 0)(
@@ -225,17 +224,16 @@ case object TransactionViewDecompositionFactory {
         },
         threshold,
       )
-    }
 
     val itF = informeesParticipantsAndThreshold(node, topologySnapshot)
-    itF.map({ case (i, t) =>
+    itF.map { case (i, t) =>
       nodeId -> ActionNodeInfo(
         i.fmap { case (participants, _) => participants },
         createQuorum(i, t),
         childNodeIds,
         transaction.seedFor(nodeId),
       )
-    })
+    }
   }
 
   /** Returns informees, participants hosting those informees,

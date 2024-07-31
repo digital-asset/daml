@@ -49,7 +49,7 @@ object ParticipantMetadataBackend {
 
   def getAnnotations(
       annotationsTableName: String
-  )(internalId: Int)(connection: Connection): Map[String, String] = {
+  )(internalId: Int)(connection: Connection): Map[String, String] =
     try {
       SQL"""
          SELECT name, val, updated_at
@@ -66,7 +66,6 @@ object ParticipantMetadataBackend {
         e.printStackTrace()
         throw new RuntimeException(e)
     }
-  }
 
   /** Invokes a query to increase the version number of a resource if the currently stored version matches the expected value.
     * If there are multiple transactions executing this query then the first transaction will proceed and all the others
@@ -83,9 +82,9 @@ object ParticipantMetadataBackend {
          UPDATE #$tableName
          SET resource_version = resource_version + 1
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
              AND
-             resource_version = ${expectedResourceVersion}
+             resource_version = $expectedResourceVersion
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }
@@ -104,7 +103,7 @@ object ParticipantMetadataBackend {
          UPDATE #$tableName
          SET resource_version  = resource_version + 1
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }

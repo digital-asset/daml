@@ -28,9 +28,7 @@ import java.time.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(
-    reloadPackageStoreIfChanged: (
-        Jwt
-    ) => PackageService.ReloadPackageStore,
+    reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,
     val loggerFactory: NamedLoggerFactory,
     timeoutInSeconds: Long = 60L,
 ) extends NamedLogging
@@ -102,7 +100,7 @@ class PackageService(
     def reload(jwt: Jwt)(implicit
         ec: ExecutionContext,
         lc: LoggingContextOf[InstanceUUID],
-    ): Future[Error \/ Unit] = {
+    ): Future[Error \/ Unit] =
       EitherT
         .eitherT(
           Future(
@@ -143,7 +141,6 @@ class PackageService(
           res
         }
         .run
-    }
   }
 
   private object StateCache {

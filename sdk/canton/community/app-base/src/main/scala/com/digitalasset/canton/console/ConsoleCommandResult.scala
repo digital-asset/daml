@@ -162,7 +162,7 @@ object CommandErrors extends CommandErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Error(timeout: Duration)
-        extends CantonCommandError(s"Condition never became true after ${timeout}")
+        extends CantonCommandError(s"Condition never became true after $timeout")
   }
 
   object NodeNotStarted

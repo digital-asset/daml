@@ -48,13 +48,12 @@ class TopologyStateProcessor(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  override protected val loggerFactory: NamedLoggerFactory = {
+  override protected val loggerFactory: NamedLoggerFactory =
     // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a domain,
     // it will already have the `domain` key, so having `store` with the same domainId is just a waste
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent
-  }
 
   // small container to store potentially pending data
   private case class MaybePending(originalTx: GenericSignedTopologyTransaction) {
@@ -162,12 +161,12 @@ class TopologyStateProcessor(
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
           val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"${enqueuingOrStoring} topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
+            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms)"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
+            s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms) due to $r"
           )
       }
       _ <- outboxQueue match {
@@ -234,14 +233,13 @@ class TopologyStateProcessor(
     }
   }
 
-  private def trackProposal(txHash: TxHash, mappingHash: MappingHash): Unit = {
+  private def trackProposal(txHash: TxHash, mappingHash: MappingHash): Unit =
     proposalsByMapping
       .updateWith(mappingHash) {
         case None => Some(Seq(txHash))
         case Some(seq) => Some(seq :+ txHash)
       }
       .discard
-  }
 
   private def preloadProposalsForTx(
       effective: EffectiveTime,
@@ -289,7 +287,7 @@ class TopologyStateProcessor(
       expectFullAuthorization: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyTransactionRejection, GenericSignedTopologyTransaction] = {
+  ): EitherT[Future, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
     EitherT
       .right(
         authValidator
@@ -303,25 +301,23 @@ class TopologyStateProcessor(
       .subflatMap { tx =>
         tx.rejectionReason.toLeft(tx.transaction)
       }
-  }
 
   private def mergeSignatures(
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
-  ): (Boolean, GenericSignedTopologyTransaction) = {
+  ): (Boolean, GenericSignedTopologyTransaction) =
     inStore match {
       case Some(value) if value.hash == toValidate.hash =>
         (true, value.addSignatures(toValidate.signatures.toSeq))
 
       case _ => (false, toValidate)
     }
-  }
 
   /** determine whether one of the txs got already added earlier */
   private def findDuplicates(
       timestamp: EffectiveTime,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  )(implicit traceContext: TraceContext): Future[Seq[Option[EffectiveTime]]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[Option[EffectiveTime]]] =
     Future.sequence(
       transactions.map { tx =>
         // skip duplication check for non-adds
@@ -342,17 +338,15 @@ class TopologyStateProcessor(
         }
       }
     )
-  }
 
   private def mergeWithPendingProposal(
       toValidate: GenericSignedTopologyTransaction
-  ): GenericSignedTopologyTransaction = {
+  ): GenericSignedTopologyTransaction =
     proposalsForTx.get(toValidate.hash) match {
       case None => toValidate
       case Some(existingProposal) =>
         toValidate.addSignatures(existingProposal.validatedTx.transaction.signatures.toSeq)
     }
-  }
 
   private def validateAndMerge(
       effective: EffectiveTime,
@@ -421,7 +415,7 @@ class TopologyStateProcessor(
         existingProposal.expireImmediately.set(true)
         ErrorUtil.requireState(
           existingProposal.rejection.get().isEmpty,
-          s"Error state should be empty for ${existingProposal}",
+          s"Error state should be empty for $existingProposal",
         )
       }
       trackProposal(txHash, finalTx.mapping.uniqueKey)
@@ -437,7 +431,7 @@ class TopologyStateProcessor(
         existingMapping.expireImmediately.set(true)
         ErrorUtil.requireState(
           existingMapping.rejection.get().isEmpty,
-          s"Error state should be empty for ${existingMapping}",
+          s"Error state should be empty for $existingMapping",
         )
       }
       // remove all pending proposals for this mapping
@@ -449,7 +443,7 @@ class TopologyStateProcessor(
               val cur = existing.rejection.getAndSet(
                 Some(TopologyTransactionRejection.Other("Outdated proposal within batch"))
               )
-              ErrorUtil.requireState(cur.isEmpty, s"Error state should be empty for ${existing}")
+              ErrorUtil.requireState(cur.isEmpty, s"Error state should be empty for $existing")
             }
           )
         )

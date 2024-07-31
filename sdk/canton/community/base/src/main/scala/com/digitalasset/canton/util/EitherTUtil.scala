@@ -90,11 +90,10 @@ object EitherTUtil {
       errorHandler: Throwable => E,
   )(implicit
       executionContext: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, E, A] = {
+  ): EitherT[FutureUnlessShutdown, E, A] =
     EitherT(futUnlSht.recover[Either[E, A]] { case NonFatal(x) =>
       UnlessShutdown.Outcome(errorHandler(x).asLeft[A])
     })
-  }
 
   /** Log `message` if `result` fails with an exception or results in a `Left` */
   def logOnError[E, R](result: EitherT[Future, E, R], message: String, level: Level = Level.ERROR)(

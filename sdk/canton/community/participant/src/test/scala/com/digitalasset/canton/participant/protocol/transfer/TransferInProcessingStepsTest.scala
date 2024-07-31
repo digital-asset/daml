@@ -90,7 +90,7 @@ class TransferInProcessingStepsTest
 
   private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       participant,
@@ -99,7 +99,6 @@ class TransferInProcessingStepsTest
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
-  }
 
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val crypto =
@@ -189,7 +188,7 @@ class TransferInProcessingStepsTest
         transferData: TransferData,
         transferOutResult: DeliveredTransferOutResult,
         persistentState: SyncDomainPersistentState,
-    ): FutureUnlessShutdown[Unit] = {
+    ): FutureUnlessShutdown[Unit] =
       for {
         _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
           "add transfer data failed"
@@ -198,7 +197,6 @@ class TransferInProcessingStepsTest
           "add transfer out result failed"
         )
       } yield ()
-    }
 
     val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
     val transferDataF =

@@ -109,7 +109,7 @@ class ParticipantMetrics(
 
   object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
-  def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
+  def domainMetrics(alias: DomainAlias): SyncDomainMetrics =
     clients
       .getOrElseUpdate(
         alias,
@@ -124,7 +124,6 @@ class ParticipantMetrics(
         ),
       )
       .value
-  }
 
   val updatesPublished: Meter = openTelemetryMetricsFactory.meter(
     MetricInfo(

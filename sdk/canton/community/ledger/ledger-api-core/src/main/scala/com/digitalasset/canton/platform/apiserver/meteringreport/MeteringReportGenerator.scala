@@ -25,8 +25,7 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
       applicationId: Option[Ref.ApplicationId],
       reportData: ReportData,
       generationTime: ProtoTimestamp,
-  ): Either[String, GetMeteringReportResponse] = {
-
+  ): Either[String, GetMeteringReportResponse] =
     genMeteringReportJson(from, to, applicationId, reportData).map { reportJson =>
       GetMeteringReportResponse(
         request = Some(request),
@@ -34,8 +33,6 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
         meteringReportJson = Some(reportJson),
       )
     }
-
-  }
 
   // Note that this will be removed once downstream consumers no longer need it
   private def genMeteringReportJson(

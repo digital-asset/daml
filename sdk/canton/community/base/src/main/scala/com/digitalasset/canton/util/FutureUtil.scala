@@ -64,11 +64,10 @@ object FutureUtil {
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,
       closeContext: Option[CloseContext] = None,
-  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] = {
+  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] =
     FutureUnlessShutdown(
       logOnFailure(future.unwrap, failureMessage, onFailure, level, closeContext)
     )
-  }
 
   /** Discard `future` and log an error if it does not complete successfully.
     * This is useful to document that a `Future` is intentionally not being awaited upon.
@@ -91,9 +90,8 @@ object FutureUtil {
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,
       closeContext: Option[CloseContext] = None,
-  )(implicit loggingContext: ErrorLoggingContext): Unit = {
+  )(implicit loggingContext: ErrorLoggingContext): Unit =
     doNotAwait(future.unwrap, failureMessage, onFailure, level, closeContext)
-  }
 
   /** Variant of [[doNotAwait]] that also catches non-fatal errors thrown while constructing the future. */
   def catchAndDoNotAwait(

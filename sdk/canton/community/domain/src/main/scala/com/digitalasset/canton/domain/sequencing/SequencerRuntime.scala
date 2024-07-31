@@ -323,32 +323,28 @@ class SequencerRuntime(
   }
 
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
-    {
-      ServerInterceptors.intercept(
-        v30.SequencerConnectServiceGrpc.bindService(
-          new GrpcSequencerConnectService(
-            domainId,
-            sequencerId,
-            staticDomainParameters,
-            domainTopologyManager,
-            syncCrypto,
-            loggerFactory,
-          )(
-            ec
-          ),
-          executionContext,
+    ServerInterceptors.intercept(
+      v30.SequencerConnectServiceGrpc.bindService(
+        new GrpcSequencerConnectService(
+          domainId,
+          sequencerId,
+          staticDomainParameters,
+          domainTopologyManager,
+          syncCrypto,
+          loggerFactory,
+        )(
+          ec
         ),
-        new SequencerConnectServerInterceptor(loggerFactory),
-      )
-    }, {
-      SequencerVersionServiceGrpc.bindService(
-        new GrpcSequencerVersionService(staticDomainParameters.protocolVersion, loggerFactory),
-        ec,
-      )
-    }, {
-      v30.SequencerAuthenticationServiceGrpc
-        .bindService(authenticationServices.sequencerAuthenticationService, ec)
-    }, {
+        executionContext,
+      ),
+      new SequencerConnectServerInterceptor(loggerFactory),
+    ),
+    SequencerVersionServiceGrpc.bindService(
+      new GrpcSequencerVersionService(staticDomainParameters.protocolVersion, loggerFactory),
+      ec,
+    ),
+    v30.SequencerAuthenticationServiceGrpc
+      .bindService(authenticationServices.sequencerAuthenticationService, ec), {
       import scala.jdk.CollectionConverters.*
 
       // use the auth service interceptor if available
@@ -358,14 +354,13 @@ class SequencerRuntime(
         v30.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
       )
-    }, {
-      ApiInfoServiceGrpc.bindService(
-        new GrpcApiInfoService(
-          CantonGrpcUtil.ApiName.SequencerPublicApi
-        ),
-        executionContext,
-      )
     },
+    ApiInfoServiceGrpc.bindService(
+      new GrpcApiInfoService(
+        CantonGrpcUtil.ApiName.SequencerPublicApi
+      ),
+      executionContext,
+    ),
   )
 
   @VisibleForTesting
@@ -455,12 +450,11 @@ class SequencerRuntime(
 
       private def handle(tracedEvents: NonEmpty[Seq[Traced[SequencedEvent[DefaultOpenEnvelope]]]])(
           implicit traceContext: TraceContext
-      ): HandlerResult = {
+      ): HandlerResult =
         for {
           topology <- topologyHandler(Traced(tracedEvents))
           _ <- trafficProcessor.handle(tracedEvents)
         } yield topology
-      }
     }
 
   private val eventHandler = StripSignature(handler(domainId))
@@ -476,7 +470,7 @@ class SequencerRuntime(
       loggerFactory,
     )
 
-  def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     for {
       _ <- initialize()
       _ = logger.debug("Subscribing topology client within sequencer runtime")
@@ -498,9 +492,8 @@ class SequencerRuntime(
       logger.info("Sequencer runtime initialized")
       runtimeReadyPromise.outcome(())
     }
-  }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       Lifecycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
@@ -513,5 +506,4 @@ class SequencerRuntime(
       authenticationServices.memberAuthenticationService,
       sequencer,
     )(logger)
-  }
 }

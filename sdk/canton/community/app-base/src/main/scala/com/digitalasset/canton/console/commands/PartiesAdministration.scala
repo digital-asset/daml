@@ -116,7 +116,7 @@ class ParticipantPartiesAdministrationGroup(
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
-  ): Seq[ListPartiesResult] = {
+  ): Seq[ListPartiesResult] =
     list(
       filterParty,
       filterParticipant = participantId.filterString,
@@ -124,21 +124,19 @@ class ParticipantPartiesAdministrationGroup(
       asOf = asOf,
       limit = limit,
     )
-  }
 
   @Help.Summary("Find a party from a filter string")
   @Help.Description(
     """Will search for all parties that match this filter string. If it finds exactly one party, it
       |will return that one. Otherwise, the function will throw."""
   )
-  def find(filterParty: String): PartyId = {
+  def find(filterParty: String): PartyId =
     list(filterParty).map(_.party).distinct.toList match {
       case one :: Nil => one
       case Nil => throw new IllegalArgumentException(s"No party matching $filterParty")
       case more =>
         throw new IllegalArgumentException(s"Multiple parties match $filterParty: $more")
     }
-  }
 
   @Help.Summary("Enable/add party to participant")
   @Help.Description("""This function registers a new party with the current participant within the participants
@@ -165,12 +163,11 @@ class ParticipantPartiesAdministrationGroup(
       mustFullyAuthorize: Boolean = true,
   ): PartyId = {
 
-    def registered(lst: => Seq[ListPartiesResult]): Set[DomainId] = {
+    def registered(lst: => Seq[ListPartiesResult]): Set[DomainId] =
       lst
         .flatMap(_.participants.flatMap(_.domains))
         .map(_.domain)
         .toSet
-    }
     def primaryRegistered(partyId: PartyId) =
       registered(
         list(filterParty = partyId.filterString, filterParticipant = participantId.filterString)
@@ -184,7 +181,7 @@ class ParticipantPartiesAdministrationGroup(
     def findDomainIds(
         name: String,
         connected: Either[String, Seq[ListConnectedDomainsResult]],
-    ): Either[String, Set[DomainId]] = {
+    ): Either[String, Set[DomainId]] =
       for {
         domainIds <- waitForDomain match {
           case DomainChoice.All =>
@@ -198,26 +195,23 @@ class ParticipantPartiesAdministrationGroup(
             }
         }
       } yield domainIds.toSet
-    }
-    def retryE(condition: => Boolean, message: => String): Either[String, Unit] = {
+    def retryE(condition: => Boolean, message: => String): Either[String, Unit] =
       AdminCommandRunner
         .retryUntilTrue(consoleEnvironment.commandTimeouts.ledgerCommand)(condition)
         .toEither
         .leftMap(_ => message)
-    }
     def waitForParty(
         partyId: PartyId,
         domainIds: Set[DomainId],
         registered: => Set[DomainId],
         queriedParticipant: ParticipantId = participantId,
-    ): Either[String, Unit] = {
+    ): Either[String, Unit] =
       if (domainIds.nonEmpty) {
         retryE(
           domainIds subsetOf registered,
           show"Party $partyId did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
         )
       } else Right(())
-    }
     val syncLedgerApi = waitForDomain match {
       case DomainChoice.All => true
       case DomainChoice.Only(aliases) => aliases.nonEmpty
@@ -333,14 +327,13 @@ class ParticipantPartiesAdministrationGroup(
 
   @Help.Summary("Disable party on participant")
   // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
-  def disable(name: String /*, force: Boolean = false*/ ): Unit = {
+  def disable(name: String /*, force: Boolean = false*/ ): Unit =
     reference.topology.party_to_participant_mappings
       .propose_delta(
         PartyId(reference.id.member.uid.tryChangeId(name)),
         removes = List(this.participantId),
       )
       .discard
-  }
 
   @Help.Summary("Update participant-local party details")
   @Help.Description(
@@ -352,12 +345,11 @@ class ParticipantPartiesAdministrationGroup(
   def update(
       party: PartyId,
       modifier: PartyDetails => PartyDetails,
-  ): PartyDetails = {
+  ): PartyDetails =
     reference.ledger_api.parties.update(
       party = party,
       modifier = modifier,
     )
-  }
 
   @Help.Summary("Set party display name")
   @Help.Description(

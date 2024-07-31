@@ -162,9 +162,8 @@ class TransactionProcessingSteps(
 
   override def requestKind: String = "Transaction"
 
-  override def submissionDescription(param: SubmissionParam): String = {
+  override def submissionDescription(param: SubmissionParam): String =
     show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
-  }
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -290,14 +289,13 @@ class TransactionProcessingSteps(
     private def mkTransactionSubmissionTrackingData(
         error: TransactionError,
         completionInfo: CompletionInfo,
-    ): TransactionSubmissionTrackingData = {
+    ): TransactionSubmissionTrackingData =
       TransactionSubmissionTrackingData(
         completionInfo,
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
         domainId,
         protocolVersion,
       )
-    }
 
     override def submissionId: Option[LedgerSubmissionId] = submitterInfo.submissionId
 
@@ -732,7 +730,7 @@ class TransactionProcessingSteps(
       ): FutureUnlessShutdown[Either[
         EncryptedViewMessageError,
         (WithRecipients[DecryptedView], Option[Signature]),
-      ]] = {
+      ]] =
         for {
           _ <- FutureUnlessShutdown.outcomeF(extractRandomnessFromView(transactionViewEnvelope))
           randomness <- randomnessMap(transactionViewEnvelope.protocolMessage.viewHash).futureUS
@@ -743,8 +741,6 @@ class TransactionProcessingSteps(
         } yield lightViewTreeE.map { case (view, signature) =>
           (WithRecipients(view, transactionViewEnvelope.recipients), signature)
         }
-
-      }
 
       EitherT.right {
         for {
@@ -830,11 +826,10 @@ class TransactionProcessingSteps(
       parsedRequest: ParsedTransactionRequest
   )(implicit
       traceContext: TraceContext
-  ): Either[TransactionProcessorError, ActivenessSet] = {
+  ): Either[TransactionProcessorError, ActivenessSet] =
     // TODO(i12911): check that all non-root lightweight trees can be decrypted with the expected (derived) randomness
     //   Also, check that all the view's informees received the derived randomness
     Right(parsedRequest.usedAndCreated.activenessSet)
-  }
 
   def authenticateInputContracts(
       parsedRequest: ParsedTransactionRequest
@@ -1199,7 +1194,7 @@ class TransactionProcessingSteps(
       engineController: EngineController,
   )(implicit traceContext: TraceContext): PendingTransaction = {
     // We consider that we rejected if at least one of the responses is not "approve'
-    val locallyRejectedF = responsesF.map(_.exists { response => !response.localVerdict.isApprove })
+    val locallyRejectedF = responsesF.map(_.exists(response => !response.localVerdict.isApprove))
 
     // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
     // or a negative mediator verdict concurrently received in Phase 7
@@ -1335,7 +1330,7 @@ class TransactionProcessingSteps(
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] =
     for {
       usedAndCreated <- EitherT.right(
         ExtractUsedAndCreated(
@@ -1372,7 +1367,6 @@ class TransactionProcessingSteps(
         lfTx = validSubTransaction,
       )
     } yield commitAndContractsAndEvent
-  }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
@@ -1464,13 +1458,12 @@ class TransactionProcessingSteps(
             //   -> we can reject as no participant will commit a subtransaction and violate transparency.
             rejectedWithModelConformanceError(error)
         },
-        { modelConformanceResult =>
+        modelConformanceResult =>
           getCommitSetAndContractsToBeStoredAndEventApproveConform(
             pendingRequestData,
             completionInfoO,
             modelConformanceResult,
-          ).mapK(FutureUnlessShutdown.outcomeK)
-        },
+          ).mapK(FutureUnlessShutdown.outcomeK),
       )
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
@@ -1486,14 +1479,13 @@ class TransactionProcessingSteps(
       FutureUnlessShutdown,
       TransactionProcessorError,
       CommitAndStoreContractsAndPublishEvent,
-    ] = {
+    ] =
       (for {
         event <- EitherT.fromEither[Future](
           createRejectionEvent(RejectionArgs(pendingRequestData, rejection))
         )
       } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event))
         .mapK(FutureUnlessShutdown.outcomeK)
-    }
 
     for {
       topologySnapshot <- EitherT

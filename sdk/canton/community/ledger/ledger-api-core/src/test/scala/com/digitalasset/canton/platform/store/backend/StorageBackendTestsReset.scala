@@ -66,7 +66,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def end = executeSql(backend.parameter.ledgerEnd)
 
-    def events = {
+    def events =
       executeSql(
         backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
           EventPayloadSourceForTreeTx.Create
@@ -77,7 +77,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
             EventPayloadSourceForTreeTx.Consuming
           )(List(2L), Some(Set.empty))
         )
-    }
 
     def parties = executeSql(backend.party.knownParties(None, 10))
 

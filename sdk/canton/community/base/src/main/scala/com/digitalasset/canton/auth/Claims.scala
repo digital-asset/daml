@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.auth
+package com.digitalasset.canton.auth
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.canton.LfLedgerString
 import com.digitalasset.daml.lf.data.Ref
 
 import java.time.{Duration, Instant}
@@ -57,11 +57,14 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   *
   * Does NOT authorize to issue commands.
   */
-final case object ClaimReadAsAnyParty extends Claim
+case object ClaimReadAsAnyParty extends Claim
 
 sealed trait ClaimSet
 
 object ClaimSet {
+
+  val DefaultIdentityProviderId: String = ""
+
   object Unauthenticated extends ClaimSet
 
   /** [[Claims]] define what actions an authenticated user can perform on the Ledger API.
@@ -78,14 +81,13 @@ object ClaimSet {
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
     * @param identityProviderId  If set, the claims will only be valid on the given Identity Provider configuration.
-    * @param audience  Claims which identifies the intended recipients.
     */
   final case class Claims(
       claims: Seq[Claim],
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
-      identityProviderId: IdentityProviderId,
+      identityProviderId: Option[LfLedgerString],
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
 
@@ -139,7 +141,7 @@ object ClaimSet {
       Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim)
 
     /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-    def canActAs(party: String): Either[AuthorizationError, Unit] = {
+    def canActAs(party: String): Either[AuthorizationError, Unit] =
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
@@ -149,10 +151,9 @@ object ClaimSet {
         (),
         AuthorizationError.MissingActClaim(party),
       )
-    }
 
     /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
-    def canReadAs(party: String): Either[AuthorizationError, Unit] = {
+    def canReadAs(party: String): Either[AuthorizationError, Unit] =
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
@@ -164,10 +165,9 @@ object ClaimSet {
         (),
         AuthorizationError.MissingReadClaim(party),
       )
-    }
 
     /** Returns true if the set of claims authorizes the user to read data as any party, unless the claims expired */
-    def canReadAsAnyParty: Either[AuthorizationError, Unit] = {
+    def canReadAsAnyParty: Either[AuthorizationError, Unit] =
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
@@ -177,12 +177,11 @@ object ClaimSet {
         (),
         AuthorizationError.MissingReadAsAnyPartyClaim,
       )
-    }
   }
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
-      identityProviderId: IdentityProviderId,
+      identityProviderId: Option[LfLedgerString],
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],
@@ -197,7 +196,7 @@ object ClaimSet {
       applicationId = None,
       expiration = None,
       resolvedFromUser = false,
-      identityProviderId = IdentityProviderId.Default,
+      identityProviderId = None,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */

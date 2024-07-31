@@ -90,8 +90,7 @@ class SequencerReader(
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] = {
-
+  ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
     performUnlessClosingEitherT(
       functionFullName,
       CreateSubscriptionError.ShutdownError: CreateSubscriptionError,
@@ -160,7 +159,6 @@ class SequencerReader(
         reader.from(offset, initialReadState)
       }
     }
-  }
 
   private[SequencerReader] class EventsReader(
       member: Member,
@@ -173,7 +171,7 @@ class SequencerReader(
 
     private def unvalidatedEventsSourceFromCheckpoint(initialReadState: ReadState)(implicit
         traceContext: TraceContext
-    ): Source[(SequencerCounter, Sequenced[Payload]), NotUsed] = {
+    ): Source[(SequencerCounter, Sequenced[Payload]), NotUsed] =
       eventSignaller
         .readSignalsForMember(member, registeredMember.memberId)
         .via(
@@ -183,7 +181,6 @@ class SequencerReader(
             (state, _events) => !state.lastBatchWasFull,
           )
         )
-    }
 
     /** An Pekko flow that passes the [[UnsignedEventData]] untouched from input to output,
       * but asynchronously records every checkpoint interval.
@@ -490,7 +487,7 @@ class SequencerReader(
         readState: ReadState
     )(implicit
         traceContext: TraceContext
-    ): Future[(ReadState, Seq[(SequencerCounter, Sequenced[Payload])])] = {
+    ): Future[(ReadState, Seq[(SequencerCounter, Sequenced[Payload])])] =
       for {
         readEvents <- store.readEvents(
           readState.memberId,
@@ -515,7 +512,6 @@ class SequencerReader(
         }
         (newReadState, eventsWithCounter)
       }
-    }
 
     private def signEvent(
         event: SequencedEvent[ClosedEnvelope],
@@ -524,7 +520,7 @@ class SequencerReader(
       FutureUnlessShutdown,
       SequencerSubscriptionError.TombstoneEncountered.Error,
       OrdinarySerializedEvent,
-    ] = {
+    ] =
       for {
         signedEvent <- SignedContent
           .create(
@@ -551,7 +547,6 @@ class SequencerReader(
               throw new IllegalStateException(s"Signing failed with an unexpected error: $err")
           }
       } yield OrdinarySequencedEvent(signedEvent)(traceContext)
-    }
 
     private def getTrafficReceipt(senderMemberId: SequencerMemberId, timestamp: CantonTimestamp)(
         implicit traceContext: TraceContext
@@ -722,7 +717,7 @@ object SequencerReader {
 
     def changeString(previous: ReadState): Option[String] = {
       def build[T](a: T, b: T, name: String): Option[String] =
-        Option.when(a != b)(s"${name}=$a (from $b)")
+        Option.when(a != b)(s"$name=$a (from $b)")
       val items = Seq(
         build(nextReadTimestamp, previous.nextReadTimestamp, "nextReadTs"),
         build(nextCounterAccumulator, previous.nextCounterAccumulator, "nextCounterAcc"),
@@ -737,7 +732,7 @@ object SequencerReader {
     def update(
         readEvents: ReadEvents,
         batchSize: Int,
-    ): ReadState = {
+    ): ReadState =
       copy(
         // increment the counter by the number of events we've now processed
         nextCounterAccumulator = nextCounterAccumulator + readEvents.payloads.size.toLong,
@@ -747,17 +742,15 @@ object SequencerReader {
         // did we receive a full batch of events on this update
         lastBatchWasFull = readEvents.payloads.sizeCompare(batchSize) == 0,
       )
-    }
 
     /** Apply a previously recorded counter checkpoint so that we don't have to start from 0 on every subscription */
-    def startFromCheckpoint(checkpoint: CounterCheckpoint): ReadState = {
+    def startFromCheckpoint(checkpoint: CounterCheckpoint): ReadState =
       // with this checkpoint we'll start reading from this timestamp and as reads are not inclusive we'll receive the next event after this checkpoint first
       copy(
         nextCounterAccumulator = checkpoint.counter + 1,
         nextReadTimestamp = checkpoint.timestamp,
         latestTopologyClientRecipientTimestamp = checkpoint.latestTopologyClientTimestamp,
       )
-    }
 
     override def pretty: Pretty[ReadState] = prettyOfClass(
       param("member", _.member),

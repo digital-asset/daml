@@ -34,8 +34,7 @@ object ExtractUsedAndCreated {
   ) {
     def informees: Set[LfPartyId] = common.viewConfirmationParameters.informees
 
-    def transientContracts(): Seq[LfContractId] = {
-
+    def transientContracts(): Seq[LfContractId] =
       // Only track transient contracts outside of rollback scopes.
       if (!participant.rollbackContext.inRollback) {
         val transientCore =
@@ -50,7 +49,6 @@ object ExtractUsedAndCreated {
       } else {
         Seq.empty
       }
-    }
 
   }
 
@@ -86,13 +84,12 @@ object ExtractUsedAndCreated {
       parties: Set[LfPartyId],
       participantId: ParticipantId,
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] = {
+  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] =
     topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
       parties
         .map(partyId => partyId -> partyWithAttributes.contains(partyId))
         .toMap
     }
-  }
 
   def apply(
       participantId: ParticipantId,
@@ -299,7 +296,7 @@ private[validation] class ExtractUsedAndCreated(
   private def hostsAny(
       parties: IterableOnce[LfPartyId]
   )(implicit loggingContext: ErrorLoggingContext): Boolean =
-    parties.iterator.exists(party => {
+    parties.iterator.exists { party =>
       hostedParties.getOrElse(
         party, {
           loggingContext.error(
@@ -308,6 +305,6 @@ private[validation] class ExtractUsedAndCreated(
           false
         },
       )
-    })
+    }
 
 }

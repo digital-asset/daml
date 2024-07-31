@@ -44,13 +44,12 @@ object NodeLoggingUtil {
   }
 
   private def getAppenders(logger: Logger): List[Appender[ILoggingEvent]] = {
-    def go(currentAppender: Appender[ILoggingEvent]): List[Appender[ILoggingEvent]] = {
+    def go(currentAppender: Appender[ILoggingEvent]): List[Appender[ILoggingEvent]] =
       currentAppender match {
         case attachable: AppenderAttachable[ILoggingEvent @unchecked] =>
           attachable.iteratorForAppenders().asScala.toList.flatMap(go)
         case appender: Appender[ILoggingEvent] => List(appender)
       }
-    }
 
     logger.iteratorForAppenders().asScala.toList.flatMap(go)
   }
@@ -63,26 +62,23 @@ object NodeLoggingUtil {
     Option(rootLogger.getAppender(appenderName))
       .orElse(allAppenders.find(_.getName == appenderName))
 
-  private lazy val lastErrorsAppender: Option[LastErrorsAppender] = {
+  private lazy val lastErrorsAppender: Option[LastErrorsAppender] =
     findAppender("LAST_ERRORS") match {
       case Some(lastErrorsAppender: LastErrorsAppender) => Some(lastErrorsAppender)
       case _ => None
     }
-  }
 
-  private def renderError(errorEvent: ILoggingEvent): String = {
+  private def renderError(errorEvent: ILoggingEvent): String =
     findAppender("FILE") match {
       case Some(appender: FileAppender[ILoggingEvent]) =>
         ByteString.copyFrom(appender.getEncoder.encode(errorEvent)).toStringUtf8
       case _ => errorEvent.getFormattedMessage
     }
-  }
 
   def lastErrors(): Option[Map[String, String]] =
     lastErrorsAppender.map(_.lastErrors.fmap(renderError))
 
-  def lastErrorTrace(traceId: String): Option[Seq[String]] = {
+  def lastErrorTrace(traceId: String): Option[Seq[String]] =
     lastErrorsAppender.flatMap(_.lastErrorTrace(traceId)).map(_.map(renderError))
-  }
 
 }

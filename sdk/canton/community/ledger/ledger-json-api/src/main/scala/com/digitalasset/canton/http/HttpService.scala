@@ -93,7 +93,7 @@ class HttpService(
 
       packageService = new PackageService(
         reloadPackageStoreIfChanged =
-          doLoad(ledgerClient.v2.packageService, LedgerReader(loggerFactory), packageCache),
+          doLoad(ledgerClient.packageService, LedgerReader(loggerFactory), packageCache),
         loggerFactory = loggerFactory,
       )
 

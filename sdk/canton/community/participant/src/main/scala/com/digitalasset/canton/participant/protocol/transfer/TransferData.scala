@@ -53,7 +53,7 @@ final case class TransferData(
   def addTransferOutResult(result: DeliveredTransferOutResult): Option[TransferData] =
     mergeTransferOutResult(Some(result))
 
-  def mergeWith(other: TransferData): Option[TransferData] = {
+  def mergeWith(other: TransferData): Option[TransferData] =
     if (this eq other) Some(this)
     else
       other match {
@@ -72,7 +72,6 @@ final case class TransferData(
             .flatMap(_.mergeTransferGlobalOffset(otherTransferGlobalOffset))
         case _ => None
       }
-  }
 
   private[this] def mergeTransferOutResult(
       result: Option[DeliveredTransferOutResult]

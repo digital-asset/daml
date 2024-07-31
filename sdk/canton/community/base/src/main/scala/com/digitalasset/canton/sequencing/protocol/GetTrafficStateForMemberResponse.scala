@@ -30,7 +30,7 @@ object GetTrafficStateForMemberResponse
   override val name: String = "GetTrafficStateForMemberResponse"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
       v30.GetTrafficStateForMemberResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),

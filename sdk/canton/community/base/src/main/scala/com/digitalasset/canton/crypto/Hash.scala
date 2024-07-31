@@ -101,9 +101,8 @@ final case class Hash private (private val hash: ByteString, private val algorit
   val toLengthLimitedHexString: String68 =
     String68.tryCreate(toHexString, Some("HexString of hash"))
 
-  def compare(that: Hash): Int = {
+  def compare(that: Hash): Int =
     this.toHexString.compare(that.toHexString)
-  }
 
   override val pretty: Pretty[Hash] = prettyOfString(hash =>
     s"${hash.algorithm.name}:${HexString.toHexString(hash.hash).readableHash}"
@@ -154,11 +153,10 @@ object Hash {
   def build(purpose: HashPurpose, algorithm: HashAlgorithm): HashBuilder =
     new HashBuilderFromMessageDigest(algorithm, purpose)
 
-  def digest(purpose: HashPurpose, bytes: ByteString, algorithm: HashAlgorithm): Hash = {
+  def digest(purpose: HashPurpose, bytes: ByteString, algorithm: HashAlgorithm): Hash =
     // It's safe to use `addWithoutLengthPrefix` because there cannot be hash collisions due to concatenation
     // as we're immediately calling `finish`.
     build(purpose, algorithm).addWithoutLengthPrefix(bytes).finish()
-  }
 
   def fromProtoPrimitive(bytes: ByteString): ParsingResult[Hash] =
     fromByteString(bytes).leftMap(CryptoDeserializationError)

@@ -98,7 +98,7 @@ object TransferOutMediatorMessage
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v31)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
       v30.TransferOutMediatorMessage
     )(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),

@@ -88,12 +88,11 @@ class PeriodicAcknowledgements(
       }
     }
 
-  private def scheduleNextUpdate(): Unit = {
+  private def scheduleNextUpdate(): Unit =
     clock
       .scheduleAfter(_ => update(), interval.toJava)
       .map(_ => scheduleNextUpdate())
       .discard[FutureUnlessShutdown[Unit]]
-  }
 
   @VisibleForTesting
   def flush(): Future[Unit] = doFlush()
@@ -115,7 +114,7 @@ object PeriodicAcknowledgements {
       clock: Clock,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): PeriodicAcknowledgements = {
+  )(implicit executionContext: ExecutionContext): PeriodicAcknowledgements =
     new PeriodicAcknowledgements(
       isHealthy,
       interval,
@@ -132,7 +131,6 @@ object PeriodicAcknowledgements {
       timeouts,
       loggerFactory,
     )
-  }
 
   def fetchCleanCounterFromStore(
       counterTrackerStore: SequencerCounterTrackerStore

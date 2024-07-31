@@ -36,9 +36,8 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   ): MeteringStorageReadBackend =
     MeteringStorageBackendReadTemplate
 
-  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend = {
+  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend =
     MeteringStorageBackendWriteTemplate
-  }
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
     PartyRecordStorageBackendImpl

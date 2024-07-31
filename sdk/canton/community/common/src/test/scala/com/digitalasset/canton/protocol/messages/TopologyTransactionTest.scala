@@ -38,9 +38,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
   private def mk[T <: TopologyMapping](
       mapping: T
-  ): TopologyTransaction[TopologyChangeOp.Replace, T] = {
+  ): TopologyTransaction[TopologyChangeOp.Replace, T] =
     TopologyTransaction(TopologyChangeOp.Replace, PositiveInt.one, mapping, testedProtocolVersion)
-  }
 
   private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp, TopologyMapping] =
     bytes =>

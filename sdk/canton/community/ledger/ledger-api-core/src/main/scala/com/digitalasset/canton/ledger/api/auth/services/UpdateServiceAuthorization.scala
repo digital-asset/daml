@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.daml.ledger.api.v2.update_service.*
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver

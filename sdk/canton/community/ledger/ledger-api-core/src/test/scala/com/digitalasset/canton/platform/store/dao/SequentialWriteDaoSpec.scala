@@ -333,7 +333,7 @@ object SequentialWriteDaoSpec {
       )
   }
 
-  private val stringInterningViewFixture: StringInterning with InternizingStringInterningView = {
+  private val stringInterningViewFixture: StringInterning with InternizingStringInterningView =
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[Ref.Identifier] =
         throw new NotImplementedException
@@ -349,13 +349,11 @@ object SequentialWriteDaoSpec {
         throw new NotImplementedException
       override def internize(
           domainStringIterators: DomainStringIterators
-      ): Iterable[(Int, String)] = {
+      ): Iterable[(Int, String)] =
         if (domainStringIterators.templateIds.isEmpty) Nil
         else List(1 -> "a", 2 -> "b")
-      }
 
     }
-  }
 
   private val someConnection = mock[Connection]
 

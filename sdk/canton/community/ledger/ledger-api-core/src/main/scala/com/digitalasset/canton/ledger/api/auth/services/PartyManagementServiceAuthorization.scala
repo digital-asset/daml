@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v2.admin.party_management_service.*
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import scalapb.lenses.Lens
@@ -66,13 +66,12 @@ final class PartyManagementServiceAuthorization(
 
   override def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderIdRequest
-  ): Future[UpdatePartyIdentityProviderIdResponse] = {
+  ): Future[UpdatePartyIdentityProviderIdResponse] =
     authorizer.requireAdminClaims(
       call = service.updatePartyIdentityProviderId
     )(
       request
     )
-  }
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)

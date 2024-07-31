@@ -128,7 +128,7 @@ object ClientChannelBuilder {
   def configureKeepAlive(
       keepAlive: Option[KeepAliveClientConfig],
       builder: NettyChannelBuilder,
-  ): NettyChannelBuilder = {
+  ): NettyChannelBuilder =
     keepAlive.fold(builder) { opt =>
       val time = opt.time.unwrap
       val timeout = opt.timeout.unwrap
@@ -136,7 +136,6 @@ object ClientChannelBuilder {
         .keepAliveTime(time.toMillis, TimeUnit.MILLISECONDS)
         .keepAliveTimeout(timeout.toMillis, TimeUnit.MILLISECONDS)
     }
-  }
 
   /** Simple channel construction for test and console clients.
     * `maxInboundMessageSize` is 2GB; so don't use this to connect to an untrusted server.

@@ -65,7 +65,7 @@ private[apiserver] final class ApiPackageManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
-  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] = {
+  override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
     LoggingContextWithTrace.withEnrichedLoggingContext(telemetry)(
       logging.submissionId(submissionIdGenerator(request.submissionId))
     ) { implicit loggingContext: LoggingContextWithTrace =>
@@ -77,7 +77,6 @@ private[apiserver] final class ApiPackageManagementService private (
           case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
         }
     }
-  }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)

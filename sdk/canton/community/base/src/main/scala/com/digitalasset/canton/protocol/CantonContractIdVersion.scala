@@ -18,7 +18,7 @@ object CantonContractIdVersion {
   def fromProtocolVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v31) Right(AuthenticatedContractIdVersionV10)
+    if (protocolVersion >= ProtocolVersion.v32) Right(AuthenticatedContractIdVersionV10)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
   def ensureCantonContractId(
@@ -38,7 +38,7 @@ object CantonContractIdVersion {
     } yield versionedContractId
   }
 
-  def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
+  def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV10)
     } else {
@@ -48,7 +48,6 @@ object CantonContractIdVersion {
             |""".stripMargin.replaceAll("\r|\n", "")
       )
     }
-  }
 }
 
 sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)

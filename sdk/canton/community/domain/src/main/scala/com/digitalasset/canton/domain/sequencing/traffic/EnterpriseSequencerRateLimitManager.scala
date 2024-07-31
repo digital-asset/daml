@@ -139,7 +139,7 @@ class EnterpriseSequencerRateLimitManager(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[
     TrafficPurchased
-  ]] = {
+  ]] =
     trafficPurchasedManager
       .getTrafficPurchasedAt(member, timestamp, lastBalanceUpdateTimestamp, warnIfApproximate)
       .leftMap { case TrafficPurchasedManager.TrafficPurchasedAlreadyPruned(member, timestamp) =>
@@ -148,29 +148,26 @@ class EnterpriseSequencerRateLimitManager(
         )
         SequencerRateLimitError.TrafficNotFound(member)
       }
-  }
 
   override def lastKnownBalanceFor(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficPurchased]] =
     trafficPurchasedManager.getLatestKnownBalance(member)
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(trafficPurchasedManager)(logger)
-  }
   override def balanceUpdateSubscriber: SequencerTrafficControlSubscriber =
     trafficPurchasedManager.subscription
 
   override def prune(upToExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String] = {
+  ): Future[String] =
     (
       trafficPurchasedManager.prune(upToExclusive),
       trafficConsumedStore.pruneBelowExclusive(upToExclusive),
     ).parMapN { case (purchasePruningResult, consumedPruningResult) =>
       s"$purchasePruningResult\n$consumedPruningResult"
     }
-  }
 
   override def balanceKnownUntil: Option[CantonTimestamp] = trafficPurchasedManager.maxTsO
 
@@ -235,7 +232,7 @@ class EnterpriseSequencerRateLimitManager(
       parameters: TrafficControlParameters,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] =
     for {
       trafficConsumedManager <- EitherT
         .liftF[FutureUnlessShutdown, SequencerRateLimitError, TrafficConsumedManager](
@@ -268,7 +265,6 @@ class EnterpriseSequencerRateLimitManager(
         }
         .leftWiden[SequencerRateLimitError]
     } yield ()
-  }
 
   override def validateRequestAtSubmissionTime(
       request: SubmissionRequest,
@@ -505,7 +501,7 @@ class EnterpriseSequencerRateLimitManager(
 
     def handleIncorrectCost(
         correctCostDetails: EventCostDetails
-    ): EitherT[FutureUnlessShutdown, SequencingCostValidationError, Option[ValidCost]] = {
+    ): EitherT[FutureUnlessShutdown, SequencingCostValidationError, Option[ValidCost]] =
       submissionTimestampO match {
         case Some(submissionTimestamp) =>
           handleIncorrectCostWithSubmissionTimestamp(submissionTimestamp, correctCostDetails)
@@ -525,7 +521,6 @@ class EnterpriseSequencerRateLimitManager(
           )
           EitherT.leftT(error)
       }
-    }
 
     validateCostIsCorrect(request, validationSnapshot)
       .biflatMap(
@@ -646,12 +641,11 @@ class EnterpriseSequencerRateLimitManager(
     // Whatever happens in terms of traffic consumption we'll want to at
     // least make sure the traffic consumed state is at sequencing timestamp.
     // That includes updating the timestamp itself and the base traffic remainder accumulation that results.
-    def ensureTrafficConsumedAtSequencingTime(snapshotAtSequencingTime: TopologySnapshot) = {
+    def ensureTrafficConsumedAtSequencingTime(snapshotAtSequencingTime: TopologySnapshot) =
       for {
         tcm <- getOrCreateTrafficConsumedManager(sender)
         paramsO <- snapshotAtSequencingTime.trafficControlParameters(protocolVersion)
       } yield paramsO.map(params => tcm.updateAt(sequencingTime, params, logger))
-    }
 
     def processWithTopologySnapshot(topologyAtSequencingTime: SyncCryptoApi) = {
       val snapshotAtSequencingTime = topologyAtSequencingTime.ipsSnapshot
@@ -675,7 +669,7 @@ class EnterpriseSequencerRateLimitManager(
 
       result
         // Even if we fail, make sure the traffic consumed state is updated with the sequencing time
-        .leftFlatMap(err => {
+        .leftFlatMap { err =>
           val errorUpdatedWithTrafficConsumed
               : EitherT[FutureUnlessShutdown, SequencerRateLimitError, SequencerRateLimitError] =
             for {
@@ -711,7 +705,7 @@ class EnterpriseSequencerRateLimitManager(
           EitherT[FutureUnlessShutdown, SequencerRateLimitError, Option[TrafficReceipt]](
             errorUpdatedWithTrafficConsumed.merge.map(err => Left(err))
           )
-        })
+        }
     }
 
     for {
@@ -783,7 +777,7 @@ class EnterpriseSequencerRateLimitManager(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[
     TrafficState
-  ]] = {
+  ]] =
     for {
       trafficConsumedO <- EitherT
         .liftF(
@@ -794,7 +788,6 @@ class EnterpriseSequencerRateLimitManager(
         getTrafficState(_, member, None, lastSequencerEventTimestamp, warnIfApproximate = true)
       )
     } yield trafficStateO
-  }
 
   override def getStates(
       requestedMembers: Set[Member],

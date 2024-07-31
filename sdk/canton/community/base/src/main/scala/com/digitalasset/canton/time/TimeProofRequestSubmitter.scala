@@ -88,7 +88,7 @@ private[time] class TimeProofRequestSubmitterImpl(
         } else FutureUnlessShutdown.pure(Right(()))
       }
 
-    def eventuallySendRequest(): Unit = {
+    def eventuallySendRequest(): Unit =
       performUnlessClosing("unless closing, sendRequestIfPending") {
         addToFlushAndLogError(
           s"sendRequestIfPending scheduled ${config.maxSequencingDelay} after ${clock.now}"
@@ -127,7 +127,6 @@ private[time] class TimeProofRequestSubmitterImpl(
         // using instead of discard to highlight that this change goes with reducing activity during shutdown
         ()
       )
-    }
 
     // initial kick off
     eventuallySendRequest()

@@ -129,7 +129,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v31,
+      ProtocolVersion.v32,
       supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
       _.toProtoCryptoKeyPairV30.toByteString,
     )
@@ -163,10 +163,9 @@ trait PublicKey extends CryptoKeyPairKey {
 
   def fingerprint: Fingerprint = id
 
-  override lazy val id: Fingerprint = {
+  override lazy val id: Fingerprint =
     // TODO(i15649): Consider the key format and fingerprint scheme before computing
     Fingerprint.create(key)
-  }
 
   def purpose: KeyPurpose
 
@@ -234,7 +233,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v31,
+      ProtocolVersion.v32,
       supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
       _.toProtoV30.toByteString,
     )

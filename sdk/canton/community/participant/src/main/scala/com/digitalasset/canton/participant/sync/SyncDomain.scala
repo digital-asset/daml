@@ -88,7 +88,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.daml.lf.engine.Engine
 import io.opentelemetry.api.trace.Tracer
@@ -389,7 +389,7 @@ class SyncDomain(
           )
         }
 
-    def lookupChangeMetadata(change: ActiveContractIdsChange): Future[AcsChange] = {
+    def lookupChangeMetadata(change: ActiveContractIdsChange): Future[AcsChange] =
       for {
         // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
@@ -432,7 +432,6 @@ class SyncDomain(
             .toMap,
         )
       }
-    }
 
     // pre-inform the ACS commitment processor about upcoming topology changes.
     // as we future date the topology changes, they happen at an effective time
@@ -456,7 +455,7 @@ class SyncDomain(
 
     def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] = {
+    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] =
       liftF(for {
         contractIdChanges <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive)
@@ -488,7 +487,6 @@ class SyncDomain(
         )
         changes
       })
-    }
 
     def initializeClientAtCleanHead(): Future[Unit] = {
       // generally, the topology client will be initialised by the topology processor. however,
@@ -632,13 +630,12 @@ class SyncDomain(
         domainHandle.topologyClient
           .await(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
           .map(isActive =>
-            if (isActive) Right(())
-            else
-              Left(
-                ParticipantDidNotBecomeActive(
-                  s"Participant did not become active after ${timeouts.verifyActive.duration}"
-                )
-              )
+            EitherUtil.condUnitE(
+              isActive,
+              ParticipantDidNotBecomeActive(
+                s"Participant did not become active after ${timeouts.verifyActive.duration}"
+              ),
+            )
           )
       )
 
@@ -674,7 +671,7 @@ class SyncDomain(
               tracedEvents: BoxedEnvelope[Lambda[
                 `+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]
               ], ClosedEnvelope]
-          ): HandlerResult = {
+          ): HandlerResult =
             tracedEvents.withTraceContext { traceContext => closedEvents =>
               val openEvents = closedEvents.map { event =>
                 val openedEvent = PossiblyIgnoredSequencedEvent.openEnvelopes(event)(
@@ -696,7 +693,6 @@ class SyncDomain(
 
               messageDispatcher.handleAll(Traced(openEvents)(traceContext))
             }
-          }
         }
       eventHandler = monitor(messageHandler)
 

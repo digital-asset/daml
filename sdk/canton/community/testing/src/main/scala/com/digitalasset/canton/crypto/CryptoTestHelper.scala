@@ -49,11 +49,10 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
   protected def getSigningPublicKey(
       crypto: Crypto,
       scheme: SigningKeyScheme,
-  ): FutureUnlessShutdown[SigningPublicKey] = {
+  ): FutureUnlessShutdown[SigningPublicKey] =
     crypto
       .generateSigningKey(scheme)
       .valueOrFail("generate signing key")
-  }
 
   /** Helper method to get two different signing public keys.
     */

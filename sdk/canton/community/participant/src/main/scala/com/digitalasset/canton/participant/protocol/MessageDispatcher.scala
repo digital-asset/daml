@@ -315,14 +315,13 @@ trait MessageDispatcher { this: NamedLogging =>
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     def withNewRequestCounter(
         body: RequestCounter => FutureUnlessShutdown[ProcessingResult]
-    ): FutureUnlessShutdown[ProcessingResult] = {
+    ): FutureUnlessShutdown[ProcessingResult] =
       requestCounterAllocator.allocateFor(sc) match {
         case Some(rc) => body(rc)
         case None => FutureUnlessShutdown.pure(processingResultMonoid.empty)
       }
-    }
 
-    def processRequest(goodRequest: GoodRequest) = {
+    def processRequest(goodRequest: GoodRequest) =
       withNewRequestCounter { rc =>
         val rootHashMessage: goodRequest.rootHashMessage.type = goodRequest.rootHashMessage
         val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType
@@ -339,7 +338,6 @@ trait MessageDispatcher { this: NamedLogging =>
           processor.processRequest(ts, rc, sc, batch),
         )
       }
-    }
 
     val checkedRootHashMessagesC = checkRootHashMessageAndViews(rootHashMessages, encryptedViews)
     checkedRootHashMessagesC.nonaborts.iterator.foreach(alarm(sc, ts, _))
@@ -491,7 +489,7 @@ trait MessageDispatcher { this: NamedLogging =>
       hasEncryptedViews: Boolean,
   ): Checked[FailedRootHashMessageCheck, String, OpenEnvelope[
     RootHashMessage[SerializedRootHashMessagePayload]
-  ]] = {
+  ]] =
     rootHashMessages match {
       case Seq(rootHashMessage) => Checked.result(rootHashMessage)
 
@@ -519,7 +517,6 @@ trait MessageDispatcher { this: NamedLogging =>
           ),
         )
     }
-  }
 
   /** Check that we received encrypted views with the same view type as the root hash message.
     * If there is no such view, return an aborting error; otherwise return those views.
@@ -614,16 +611,14 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def observeDeliverError(
       error: DeliverError
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
       DeliveryMessageKind,
       FutureUnlessShutdown.outcomeF(inFlightSubmissionTracker.observeDeliverError(error)),
     )
-  }
 
-  private def recordEventDelivered(): Unit = {
+  private def recordEventDelivered(): Unit =
     metrics.trafficControl.eventDelivered.mark()
-  }
 
   private def tickRecordOrderPublisher(sc: SequencerCounter, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -658,11 +653,10 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def logTimeProof(sc: SequencerCounter, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     logger.debug(
-      show"Processing time-proof at sc=${sc}, ts=${ts}"
+      show"Processing time-proof at sc=$sc, ts=$ts"
     )
-  }
 
   private def withMsgId(msgId: Option[MessageId]): String = msgId match {
     case Some(id) => s", messageId=$id"
@@ -676,7 +670,7 @@ trait MessageDispatcher { this: NamedLogging =>
       err: WithOpeningErrors[SequencedEvent[DefaultOpenEnvelope]],
   )(implicit traceContext: TraceContext): Unit =
     logger.info(
-      show"Skipping faulty event at sc=${sc}, ts=${ts}${withMsgId(msgId)}, with errors=${err.openingErrors
+      show"Skipping faulty event at sc=$sc, ts=$ts${withMsgId(msgId)}, with errors=${err.openingErrors
           .map(_.message)} and contents=${err.event.envelopes
           .map(_.protocolMessage)}"
     )
@@ -687,7 +681,7 @@ trait MessageDispatcher { this: NamedLogging =>
       msgId: Option[MessageId],
       evt: SignedContent[SequencedEvent[DefaultOpenEnvelope]],
   )(implicit traceContext: TraceContext): Unit = logger.info(
-    show"Processing event at sc=${sc}, ts=${ts}${withMsgId(msgId)}, with contents=${evt.content.envelopes
+    show"Processing event at sc=$sc, ts=$ts${withMsgId(msgId)}, with contents=${evt.content.envelopes
         .map(_.protocolMessage)}"
   )
 
@@ -697,7 +691,7 @@ trait MessageDispatcher { this: NamedLogging =>
       msgId: MessageId,
       status: Status,
   )(implicit traceContext: TraceContext): Unit = logger.info(
-    show"Processing delivery error at sc=${sc}, ts=${ts}, messageId=$msgId, status=$status"
+    show"Processing delivery error at sc=$sc, ts=$ts, messageId=$msgId, status=$status"
   )
 
 }
@@ -862,7 +856,7 @@ private[participant] object MessageDispatcher {
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         loggerFactory: NamedLoggerFactory,
         metrics: SyncDomainMetrics,
-    )(implicit ec: ExecutionContext, tracer: Tracer): MessageDispatcher = {
+    )(implicit ec: ExecutionContext, tracer: Tracer): MessageDispatcher =
       new DefaultMessageDispatcher(
         protocolVersion,
         domainId,
@@ -880,6 +874,5 @@ private[participant] object MessageDispatcher {
         loggerFactory,
         metrics,
       )
-    }
   }
 }

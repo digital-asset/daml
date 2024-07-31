@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.checkpoint.Checkpoint as PbCheckpoint
 import com.daml.ledger.api.v2.completion.Completion as PbCompletion
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
@@ -14,20 +13,19 @@ import io.grpc.protobuf.StatusProto
 
 import scala.util.{Failure, Success, Try}
 
-final case class CompletionResponse(checkpoint: Option[PbCheckpoint], completion: PbCompletion)
+final case class CompletionResponse(completion: PbCompletion)
 
 object CompletionResponse {
   def fromCompletion(
       errorLogger: ContextualizedErrorLogger,
       completion: PbCompletion,
-      checkpoint: Option[PbCheckpoint],
   ): Try[CompletionResponse] =
     completion.status
       .toRight(missingStatusError(errorLogger))
       .toTry
       .flatMap {
         case status if status.code == 0 =>
-          Success(CompletionResponse(checkpoint, completion))
+          Success(CompletionResponse(completion))
         case nonZeroStatus =>
           Failure(
             StatusProto.toStatusRuntimeException(
@@ -60,12 +58,11 @@ object CompletionResponse {
   def closing(implicit errorLogger: ContextualizedErrorLogger): Try[CompletionResponse] =
     Failure(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
 
-  private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
+  private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     CommonErrors.ServiceInternalError
       .Generic(
         "Missing status in completion response",
         throwableO = None,
       )(errorLogger)
       .asGrpcError
-  }
 }

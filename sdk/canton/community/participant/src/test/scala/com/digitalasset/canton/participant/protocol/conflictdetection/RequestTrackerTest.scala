@@ -1102,9 +1102,8 @@ private[conflictdetection] trait RequestTrackerTest {
     }
   }
 
-  protected def enterTick(rt: RequestTracker, sc: SequencerCounter, ts: CantonTimestamp): Unit = {
+  protected def enterTick(rt: RequestTracker, sc: SequencerCounter, ts: CantonTimestamp): Unit =
     rt.tick(sc, ts)
-  }
 
   protected def enterCR(
       rt: RequestTracker,
@@ -1132,7 +1131,7 @@ private[conflictdetection] trait RequestTrackerTest {
       activenessTimestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
       activenessSet: ActivenessSet,
-  ): Future[(Future[ActivenessResult], Future[TimeoutResult])] = {
+  ): Future[(Future[ActivenessResult], Future[TimeoutResult])] =
     enterCR_US(
       rt,
       rc,
@@ -1144,7 +1143,6 @@ private[conflictdetection] trait RequestTrackerTest {
     ).map { case (aR, tR) =>
       (aR.failOnShutdown("activeness result"), tR.failOnShutdown("timeout result"))
     }
-  }
 
   protected def enterCR_US(
       rt: RequestTracker,
@@ -1284,7 +1282,7 @@ private[conflictdetection] trait RequestTrackerTest {
       activenessResult: ActivenessResult,
       commitSet: CommitSet,
       commitDelay: Long,
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     for {
       (cdFuture, timeoutFuture) <- enterCR(rt, rc, sc, crTimestamp, decisionTime, activenessSet)
       _ <- checkConflictResult(rc, cdFuture, activenessResult)
@@ -1301,5 +1299,4 @@ private[conflictdetection] trait RequestTrackerTest {
         enterTick(rt, sc + 2, crTimestamp.plusMillis(1 + commitDelay))
       _ <- checkFinalize(rc, finalizeFuture)
     } yield succeed
-  }
 }

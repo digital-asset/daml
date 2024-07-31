@@ -55,7 +55,7 @@ class TransferInValidationTest
 
   private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       participant,
@@ -64,7 +64,6 @@ class TransferInValidationTest
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
-  }
 
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
@@ -250,7 +249,7 @@ class TransferInValidationTest
 
     "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
       val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v31))
+        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
       for {
         result <-
           transferInValidation
@@ -263,7 +262,7 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v31) {
+        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v32) {
           result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
         } else {
           result shouldBe Left(

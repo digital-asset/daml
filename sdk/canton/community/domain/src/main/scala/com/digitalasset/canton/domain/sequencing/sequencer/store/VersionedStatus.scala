@@ -28,7 +28,7 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter
       .storage(
-        ReleaseProtocolVersion(ProtocolVersion.v31),
+        ReleaseProtocolVersion(ProtocolVersion.v32),
         v30.VersionedStatus.messageCompanion,
       )(
         supportedProtoVersion(_)(fromProtoV30),
@@ -36,14 +36,12 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
       )
   )
 
-  def fromProtoV30(versionedStatusP: v30.VersionedStatus): ParsingResult[VersionedStatus] = {
+  def fromProtoV30(versionedStatusP: v30.VersionedStatus): ParsingResult[VersionedStatus] =
     for {
       status <- versionedStatusP.status.toRight(ProtoDeserializationError.FieldNotSet("status"))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield VersionedStatus(status)(rpv)
-  }
 
-  def create(status: Status, protocolVersion: ProtocolVersion): VersionedStatus = {
+  def create(status: Status, protocolVersion: ProtocolVersion): VersionedStatus =
     VersionedStatus(status)(protocolVersionRepresentativeFor(protocolVersion))
-  }
 }

@@ -105,7 +105,7 @@ private[store] object SerializableLedgerSyncEvent
   override val supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> VersionedProtoConverter
-        .storage(ReleaseProtocolVersion(ProtocolVersion.v31), v30.LedgerSyncEvent)(
+        .storage(ReleaseProtocolVersion(ProtocolVersion.v32), v30.LedgerSyncEvent)(
           supportedProtoVersion(_)(fromProtoV30),
           _.toProtoV30.toByteString,
         )
@@ -794,11 +794,10 @@ final case class SerializableRejectionReasonTemplate(
 object SerializableRejectionReasonTemplate {
   def fromProtoV30(
       reasonP: v30.CommandRejected.GrpcRejectionReasonTemplate
-  ): ParsingResult[LedgerSyncEvent.CommandRejected.FinalReason] = {
+  ): ParsingResult[LedgerSyncEvent.CommandRejected.FinalReason] =
     for {
       rpcStatus <- ProtoConverter.protoParser(RpcStatus.parseFrom)(reasonP.status)
     } yield LedgerSyncEvent.CommandRejected.FinalReason(rpcStatus)
-  }
 }
 
 private[store] final case class SerializableTransferredOut(

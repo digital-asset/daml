@@ -96,9 +96,35 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
     private[metrics] val queryLatency: Item = Item(
       prefix :+ "query-latency",
       summary = "Topology query latency",
-      description = "Records the rate and latency it takes to query the topology client.",
+      description = "Records the rate and latency when querying the topology client.",
       qualification = MetricQualification.Latency,
     )
+  }
+
+  object p2p {
+    val prefix: MetricName = BftOrderingHistograms.this.prefix :+ "p2p"
+
+    object send {
+      val prefix: MetricName = p2p.prefix :+ "send"
+
+      private[metrics] val networkWriteLatency: Item = Item(
+        prefix :+ "network-write-latency",
+        summary = "Message network write latency",
+        description = "Records the rate and latency when writing P2P messages to the network.",
+        qualification = MetricQualification.Latency,
+      )
+    }
+
+    object receive {
+      val prefix: MetricName = p2p.prefix :+ "receive"
+
+      private[metrics] val processingLatency: Item = Item(
+        prefix :+ "processing-latency",
+        summary = "Message receive processing latency",
+        description = "Records the rate and latency when processing incoming P2P network messages.",
+        qualification = MetricQualification.Latency,
+      )
+    }
   }
 
   // Force the registration of all histograms, else it would happen too late
@@ -111,6 +137,8 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
     output.blockSizeBytes.discard
     output.blockSizeRequests.discard
     output.blockSizeBatches.discard
+    p2p.send.networkWriteLatency.discard
+    p2p.receive.processingLatency.discard
   }
 }
 
@@ -338,6 +366,16 @@ class BftOrderingMetrics(
       0,
     )
 
+    val epochLength: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "epoch-length",
+        summary = "Epoch length",
+        description = "Length of the current epoch in number of blocks.",
+        qualification = MetricQualification.Traffic,
+      ),
+      0,
+    )
+
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
@@ -393,7 +431,7 @@ class BftOrderingMetrics(
   }
 
   object p2p {
-    private val prefix = BftOrderingMetrics.this.prefix :+ "p2p"
+    private val prefix = histograms.p2p.prefix
 
     object connections {
       private val prefix = p2p.prefix :+ "connections"
@@ -420,7 +458,7 @@ class BftOrderingMetrics(
     }
 
     object send {
-      private val prefix = p2p.prefix :+ "send"
+      private val prefix = histograms.p2p.send.prefix
 
       object labels {
         val TargetSequencer: String = "targetSequencer"
@@ -454,10 +492,13 @@ class BftOrderingMetrics(
           qualification = MetricQualification.Traffic,
         )
       )
+
+      val networkWriteLatency: Timer =
+        openTelemetryMetricsFactory.timer(histograms.p2p.send.networkWriteLatency.info)
     }
 
     object receive {
-      private val prefix = p2p.prefix :+ "receive"
+      private val prefix = histograms.p2p.receive.prefix
 
       object labels {
         val SourceSequencer: String = "sourceSequencer"
@@ -492,6 +533,9 @@ class BftOrderingMetrics(
           qualification = MetricQualification.Traffic,
         )
       )
+
+      val processingLatency: Timer =
+        openTelemetryMetricsFactory.timer(histograms.p2p.receive.processingLatency.info)
     }
   }
 }

@@ -266,11 +266,10 @@ class DatabaseSequencer(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, RegisterError, Unit] = {
+  ): EitherT[Future, RegisterError, Unit] =
     EitherT
       .right[RegisterError](store.registerMember(member, timestamp))
       .map(_ => ())
-  }
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
@@ -320,11 +319,10 @@ class DatabaseSequencer(
   final protected def writeAcknowledgementInternal(
       member: Member,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     withExpectedRegisteredMember(member, "Acknowledge") {
       store.acknowledge(_, timestamp)
     }
-  }
 
   override protected def acknowledgeSignedInternal(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
@@ -401,7 +399,7 @@ class DatabaseSequencer(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerError, SequencerSnapshot] = {
+  ): EitherT[Future, SequencerError, SequencerSnapshot] =
     for {
       safeWatermarkO <- EitherT.right(store.safeWatermark)
       // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
@@ -419,7 +417,6 @@ class DatabaseSequencer(
       }
       snapshot <- EitherT.right[SequencerError](store.readStateAtTimestamp(timestamp))
     } yield snapshot
-  }
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     // Database sequencers are never bootstrapped
@@ -456,19 +453,17 @@ class DatabaseSequencer(
     FutureUnlessShutdown,
     TrafficControlErrors.TrafficControlError,
     CantonTimestamp,
-  ] = {
+  ] =
     throw new UnsupportedOperationException(
       "Traffic control is not supported by the database sequencer"
     )
-  }
 
   override def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[
     TrafficState
-  ]] = {
+  ]] =
     throw new UnsupportedOperationException(
       "Traffic control is not supported by the database sequencer"
     )
-  }
 }

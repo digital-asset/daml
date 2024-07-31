@@ -14,34 +14,34 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
 
   def assertIsErrorSynchronized(result: WartTestTraverser.Result): Assertion = {
     result.errors.length shouldBe 1
-    result.errors.foreach { _ should include(RequireBlocking.messageSynchronized) }
+    result.errors.foreach(_ should include(RequireBlocking.messageSynchronized))
     succeed
   }
 
   def assertIsErrorThreadSleep(result: WartTestTraverser.Result): Assertion = {
     result.errors.length shouldBe 1
-    result.errors.foreach { _ should include(RequireBlocking.messageThreadSleep) }
+    result.errors.foreach(_ should include(RequireBlocking.messageThreadSleep))
     succeed
   }
 
   "RequireBlocking" should {
     "detect this-qualified synchronized statements without blocking context" in {
       val result = WartTestTraverser(RequireBlocking) {
-        this.synchronized { 42 }
+        this.synchronized(42)
       }
       assertIsErrorSynchronized(result)
     }
 
     "detect unqualified synchronized statements without blocking context" in {
       val result = WartTestTraverser(RequireBlocking) {
-        synchronized { 42 }
+        synchronized(42)
       }
       assertIsErrorSynchronized(result)
     }
 
     "detect arbitrary synchronized statements without blocking context" in {
       val result = WartTestTraverser(RequireBlocking) {
-        new Object().synchronized { 42 }
+        new Object().synchronized(42)
       }
       assertIsErrorSynchronized(result)
     }
@@ -51,7 +51,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
         this.synchronized(this).synchronized(32)
       }
       result.errors.length shouldBe 2
-      result.errors.foreach { _ should include(RequireBlocking.messageSynchronized) }
+      result.errors.foreach(_ should include(RequireBlocking.messageSynchronized))
     }
 
     "detect nested synchronized blocks in the body" in {
@@ -59,7 +59,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       // but that's a false positive we can live with as nested synchronization calls are anyway
       // dangerous for their deadlock potential.
       val result = WartTestTraverser(RequireBlocking) {
-        blocking { this.synchronized { new Object().synchronized { 17 } } }
+        blocking(this.synchronized(new Object().synchronized(17)))
       }
       assertIsErrorSynchronized(result)
     }
@@ -80,7 +80,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
     "fail to detect renamed synchronized" in {
       val result = WartTestTraverser(RequireBlocking) {
         val x = new Object()
-        import x.{synchronized as foo}
+        import x.synchronized as foo
         foo(19)
       }
       // assertIsErrorSynchronized(result)
@@ -89,9 +89,9 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
 
     "allow synchronized statements inside blocking calls" in {
       val result = WartTestTraverser(RequireBlocking) {
-        blocking { this.synchronized { 42 } }
-        blocking { synchronized { 23 } }
-        blocking { synchronized { blocking { new Object().synchronized { 17 } } } }
+        blocking(this.synchronized(42))
+        blocking(synchronized(23))
+        blocking(synchronized(blocking(new Object().synchronized(17))))
       }
       result.errors shouldBe Seq.empty
     }
@@ -105,7 +105,7 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
 
     "fail to forbid renamed Thread.sleep" in {
       val result = WartTestTraverser(RequireBlocking) {
-        import Thread.{sleep as foo}
+        import Thread.sleep as foo
         foo(1)
       }
       // assertIsErrorThreadSleep(result)

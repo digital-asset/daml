@@ -86,9 +86,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
       code: Code,
       description: String,
       metadata: Map[String, String] = Map.empty,
-  ): Assertion = {
+  ): Assertion =
     inside(request)(isError(code, description, metadata))
-  }
   protected def isError(
       expectedCode: Code,
       expectedDescription: String,

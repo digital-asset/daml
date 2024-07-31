@@ -156,7 +156,7 @@ private final class ChangeAssignation(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     EitherT(hostsParties(repairTarget.domain.topologySnapshot, stakeholders, participantId).map {
       hosted =>
         Either.cond(
@@ -165,7 +165,6 @@ private final class ChangeAssignation(
           show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.domain.topologySnapshot.timestamp}",
         )
     })
-  }
 
   private def readContractsFromSource(
       contractIdsWithTransferCounters: List[
@@ -311,7 +310,7 @@ private final class ChangeAssignation(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Set[LfPartyId]] = {
+  ): Future[Set[LfPartyId]] =
     hostsParties(
       repair.domain.topologySnapshot,
       contracts
@@ -319,7 +318,6 @@ private final class ChangeAssignation(
         .toSet,
       participantId,
     )
-  }
 
   private def insertMany(repair: RepairRequest, events: List[TimestampedEvent])(implicit
       executionContext: ExecutionContext,

@@ -23,7 +23,7 @@ object BatchingParallelIngestionPipe {
       ingester: DB_BATCH => Future[DB_BATCH],
       maxTailerBatchSize: Int,
       ingestTail: Vector[DB_BATCH] => Future[Vector[DB_BATCH]],
-  ): Flow[IN, DB_BATCH, NotUsed] = {
+  ): Flow[IN, DB_BATCH, NotUsed] =
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     Flow[IN]
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
@@ -43,5 +43,4 @@ object BatchingParallelIngestionPipe {
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .mapConcat(identity)
-  }
 }

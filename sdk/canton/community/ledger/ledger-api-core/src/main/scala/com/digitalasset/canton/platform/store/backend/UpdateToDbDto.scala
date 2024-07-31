@@ -429,14 +429,13 @@ object UpdateToDbDto {
       status: String,
   )(implicit
       mc: MetricsContext
-  ): Unit = {
+  ): Unit =
     withExtraMetricLabels(
       IndexedUpdatesMetrics.Labels.eventType.key -> eventType,
       IndexedUpdatesMetrics.Labels.status.key -> status,
     ) { implicit mc =>
       metrics.eventsMeter.mark()
     }
-  }
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,

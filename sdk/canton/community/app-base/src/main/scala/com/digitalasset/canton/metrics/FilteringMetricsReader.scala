@@ -19,13 +19,12 @@ class FilteringMetricsReader private (filters: Seq[MetricsFilterConfig], parent:
 
   override def register(registration: CollectionRegistration): Unit =
     parent.register(new CollectionRegistration {
-      override def collectAllMetrics(): util.Collection[MetricData] = {
+      override def collectAllMetrics(): util.Collection[MetricData] =
         registration
           .collectAllMetrics()
           .stream()
           .filter(x => filter.includeMetric(x.getName))
           .collect(Collectors.toList())
-      }
     })
 
   override def forceFlush(): CompletableResultCode = parent.forceFlush()

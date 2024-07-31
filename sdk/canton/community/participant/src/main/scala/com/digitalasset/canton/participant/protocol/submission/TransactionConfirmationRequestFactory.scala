@@ -179,7 +179,7 @@ class TransactionConfirmationRequestFactory(
   private def assertSubmittersNodeAuthorization(
       submitters: List[LfPartyId],
       identities: TopologySnapshot,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantAuthorizationError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantAuthorizationError, Unit] =
     EitherT(
       identities
         .hostedOn(submitters.toSet, submitterNode)
@@ -206,7 +206,6 @@ class TransactionConfirmationRequestFactory(
             .void
         }
     )
-  }
 
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,

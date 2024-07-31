@@ -44,6 +44,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
+      sequencerSnapshot: Option[SequencerSnapshot],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -121,6 +122,7 @@ class CommunityDatabaseSequencerFactory(
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
+      sequencerSnapshot: Option[SequencerSnapshot],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,

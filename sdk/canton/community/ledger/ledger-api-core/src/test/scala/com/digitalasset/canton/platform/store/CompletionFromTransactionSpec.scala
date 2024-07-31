@@ -75,11 +75,10 @@ class CompletionFromTransactionSpec
             deduplicationDurationNanos,
           )
 
-          val checkpoint = completionStream.checkpoint.value
-          checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-          checkpoint.offset shouldBe ""
+          val completion = completionStream.completionResponse.completion.value
+          completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
+          completion.offset shouldBe ""
 
-          val completion = completionStream.completion.toList.head
           completion.commandId shouldBe "commandId"
           completion.updateId shouldBe "transactionId"
           completion.applicationId shouldBe "applicationId"
@@ -127,11 +126,10 @@ class CompletionFromTransactionSpec
         Some("submissionId"),
       )
 
-      val checkpoint = completionStream.checkpoint.value
-      checkpoint.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-      checkpoint.offset shouldBe Offset.fromLong(2L).toHexString
+      val completion = completionStream.completionResponse.completion.value
+      completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
+      completion.offset shouldBe Offset.fromLong(2L).toHexString
 
-      val completion = completionStream.completion.toList.head
       completion.commandId shouldBe "commandId"
       completion.applicationId shouldBe "applicationId"
       completion.submissionId shouldBe "submissionId"

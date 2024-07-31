@@ -56,7 +56,7 @@ class JwksVerifier(
     .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
     .build()
 
-  private[this] def getVerifier(keyId: String): Error \/ JwtVerifier = {
+  private[this] def getVerifier(keyId: String): Error \/ JwtVerifier =
     try {
       val jwk = http.get(keyId)
       val publicKey = jwk.getPublicKey
@@ -74,21 +74,19 @@ class JwksVerifier(
       case _: Throwable =>
         -\/(Error(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
     }
-  }
 
   /** Looks up the verifier for the given keyId from the local cache.
     * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
     */
-  private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier = {
+  private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier =
     if (keyId == null)
       -\/(Error(Symbol("getCachedVerifier"), "No Key ID found"))
     else
       \/.attempt(
         cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
       )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
-  }
 
-  def verify(jwt: Jwt): Error \/ DecodedJwt[String] = {
+  def verify(jwt: Jwt): Error \/ DecodedJwt[String] =
     for {
       keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
         Error(Symbol("verify"), e.getMessage)
@@ -96,7 +94,6 @@ class JwksVerifier(
       verifier <- getCachedVerifier(keyId)
       decoded <- verifier.verify(jwt)
     } yield decoded
-  }
 }
 
 object JwksVerifier {
