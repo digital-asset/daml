@@ -109,6 +109,8 @@ da_scala_library(
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
         "@maven//:com_google_guava_guava",
+        "@maven//:io_spray_spray_json_2_13",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -499,6 +501,7 @@ scala_library(
         ":community_lib_wartremover",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_daml-jwt",
         ":daml-common-staging_daml-tls",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
@@ -516,6 +519,7 @@ scala_library(
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//observability/metrics",
+        "//observability/tracing",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -550,6 +554,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
