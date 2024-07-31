@@ -12,49 +12,23 @@ import java.util.Set;
 public interface UpdateClient {
 
   Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose);
-
-  Flowable<Transaction> getTransactions(
-      ParticipantOffset begin,
-      ParticipantOffset end,
-      TransactionFilter filter,
-      boolean verbose,
-      String accessToken);
-
-  Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose);
-
-  Flowable<Transaction> getTransactions(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
+      String begin, String end, TransactionFilter filter, boolean verbose);
 
   Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffset begin,
+      String begin,
+      String end,
       Set<String> parties,
       boolean verbose);
 
   Flowable<Transaction> getTransactions(
-      ContractFilter<?> contractFilter,
-      ParticipantOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      String accessToken);
+      String begin, String end, TransactionFilter filter, boolean verbose, String accessToken);
 
   Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose);
+      String begin, String end, TransactionFilter filter, boolean verbose);
 
   Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin,
-      ParticipantOffset end,
-      TransactionFilter filter,
-      boolean verbose,
-      String accessToken);
-
-  Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose);
-
-  Flowable<TransactionTree> getTransactionsTrees(
-      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
+      String begin, String end, TransactionFilter filter, boolean verbose, String accessToken);
 
   Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties);
