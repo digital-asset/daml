@@ -276,7 +276,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
@@ -521,6 +521,7 @@ object TransactionCoder {
           keyOpt = keyOpt,
           byKey = byKey,
           version = nodeVersion,
+          isInterfaceFetch = false,
         )
 
       case NodeTypeCase.EXERCISE =>
