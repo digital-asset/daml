@@ -55,8 +55,8 @@ instance Applicative Upgrading where
 foldU :: (a -> a -> b) -> Upgrading a -> b
 foldU f u = f (_past u) (_present u)
 
-unsafeFlattenUpgrading :: Upgrading [a] -> [Upgrading a]
-unsafeFlattenUpgrading = foldU (zipWith Upgrading)
+unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
+unsafeZipUpgrading = foldU (zipWith Upgrading)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -734,7 +734,7 @@ isStructurallyEquivalentDatatype :: [TypeConName] -> Upgrading DefDataType -> Tc
 isStructurallyEquivalentDatatype identicalCons datatype =
     let params = dataParams <$> datatype
         allKindsMatch = foldU (==) (map snd <$> params)
-        paramNames = unsafeFlattenUpgrading (map fst <$> params)
+        paramNames = unsafeZipUpgrading (map fst <$> params)
     in
     if not allKindsMatch
       then pure False

@@ -33,6 +33,9 @@ data AlphaEnv = AlphaEnv
     -- ^ Maps bound expr variables from the right-hand-side to
     -- the depth of the binder which introduced them.
   , tconEquivalence :: !(Qualified TypeConName -> Qualified TypeConName -> Bool)
+    -- ^ Defines how names in typecons should be compared
+    -- Unlike above fields, this should not mutate over the course of the alpha
+    -- equivalence check
   }
 
 onList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
