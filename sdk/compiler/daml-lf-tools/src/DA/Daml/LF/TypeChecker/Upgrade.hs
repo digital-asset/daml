@@ -11,7 +11,7 @@ module DA.Daml.LF.TypeChecker.Upgrade (
 import           Control.DeepSeq
 import           Control.Monad (unless, forM, forM_, when)
 import           Control.Monad.Extra (allM, filterM)
-import           Control.Monad.Reader (withReaderT, local)
+import           Control.Monad.Reader (withReaderT)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, bindTypeVar)
@@ -78,11 +78,11 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     pure Upgrading { _past = pastResult, _present = presentResult }
 
 checkBothAndSingle
-  :: World -> (LF.UpgradedPackageId -> LF.Package -> [(LF.PackageId, LF.Package)] -> TcUpgradeM ()) -> TcM ()
-  -> Version -> UpgradeInfo
+  :: World -> (LF.UpgradedPackageId -> LF.Package -> TcUpgradeM ()) -> TcM ()
+  -> [LF.DalfPackage] -> Version -> UpgradeInfo
   -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPackage =
+checkBothAndSingle world checkBoth checkSingle deps version upgradeInfo mbUpgradedPackage =
     let shouldTypecheck = version `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades upgradeInfo
 
         gamma :: World -> Gamma
@@ -105,16 +105,14 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
             case mbUpgradedPackage of
                 Nothing ->
                     Right ((), [])
-                Just ((pastPkgId, pastPkg), deps) ->
+                Just ((pastPkgId, pastPkg), upgradedDeps) ->
                     let upgradingWorld = Upgrading { _past = initWorldSelf [] pastPkg, _present = world }
-                        upgradingEnv =
-                          UpgradingEnv
-                            { _upgradingGamma = fmap gamma upgradingWorld
-                            , _upgradingDeps = []
-                            }
+                        upgradingGamma = fmap gamma upgradingWorld
                     in
-                    runGammaF upgradingEnv $
-                        when (uiTypecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg deps)
+                    runGammaF upgradingGamma $ do
+                        deps <- checkUpgradeDependenciesM deps upgradedDeps
+                        withReaderT (\gamma -> UpgradingEnv gamma deps) $
+                            when (uiTypecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
 
         singlePkgDiagnostics :: Either Error ((), [Warning])
         singlePkgDiagnostics =
@@ -130,16 +128,14 @@ checkBothAndSingle world checkBoth checkSingle version upgradeInfo mbUpgradedPac
     extractDiagnostics bothPkgDiagnostics ++ extractDiagnostics singlePkgDiagnostics
 
 checkUpgrade
-  :: LF.Package -> [LF.DalfPackage]
-  -> Version -> UpgradeInfo
+  :: LF.Package
+  -> [LF.DalfPackage] -> Version -> UpgradeInfo
   -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkUpgrade pkg deps =
+checkUpgrade pkg =
     let world = initWorldSelf [] pkg
-        checkBoth upgradedPkgId upgradedPkg upgradedDeps = do
-          deps <- checkUpgradeDependenciesM deps upgradedDeps
-          local (\env -> env { _upgradingDeps = deps }) $
-            checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
+        checkBoth upgradedPkgId upgradedPkg = do
+          checkUpgradeM upgradedPkgId (Upgrading upgradedPkg pkg)
         checkSingle = do
           checkNewInterfacesAreUnused pkg
           checkNewInterfacesHaveNoTemplates pkg
@@ -147,21 +143,19 @@ checkUpgrade pkg deps =
     checkBothAndSingle world checkBoth checkSingle
 
 checkModule
-  :: LF.World -> LF.Module -> [LF.DalfPackage]
-  -> Version -> UpgradeInfo
+  :: LF.World -> LF.Module
+  -> [LF.DalfPackage] -> Version -> UpgradeInfo
   -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkModule world0 module_ deps =
+checkModule world0 module_ =
     let world = extendWorldSelf module_ world0
-        checkBoth upgradedPkgId upgradedPkg upgradedDeps = do
-          deps <- checkUpgradeDependenciesM deps upgradedDeps
+        checkBoth upgradedPkgId upgradedPkg = do
           case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
             Nothing -> pure ()
             Just pastModule -> do
               let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
               equalDataTypes <- structurallyEqualDataTypes upgradingModule
-              local (\env -> env { _upgradingDeps = deps }) $
-                checkModuleM equalDataTypes upgradedPkgId upgradingModule
+              checkModuleM equalDataTypes upgradedPkgId upgradingModule
         checkSingle = do
           checkNewInterfacesAreUnused module_
           checkNewInterfacesHaveNoTemplates module_
@@ -171,7 +165,7 @@ checkModule world0 module_ deps =
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
     -> [(LF.PackageId, LF.Package)]
-    -> TcUpgradeM [Upgrading LF.PackageId]
+    -> TcMF (Upgrading Gamma) [Upgrading LF.PackageId]
 checkUpgradeDependenciesM presentDeps pastDeps = do
     let pkgToTriple :: LF.PackageId -> LF.Package -> Maybe (LF.PackageName, (LF.PackageVersion, LF.PackageId))
         pkgToTriple packageId LF.Package{packageMetadata = Just LF.PackageMetadata{packageName, packageVersion}} = Just (packageName, (packageVersion, packageId))
@@ -189,15 +183,15 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
         in
         case foldU LF.comparePackageVersion versions of
           Left (FirstVersionUnparseable presentVersion) -> do
-            diagnosticWithContextF present' $
+            diagnosticWithContextF present $
               WEPresentDependencyHasUnparseableVersion depName presentVersion
             pure []
           Left (SecondVersionUnparseable pastVersion) -> do
-            diagnosticWithContextF present' $
+            diagnosticWithContextF present $
               WEPastDependencyHasUnparseableVersion depName pastVersion
             pure []
           Right GT ->
-            throwWithContextF present' $
+            throwWithContextF present $
               EUpgradeDependencyHasLowerVersionDespiteUpgrade depName (_present versions) (_past versions)
           _ -> pure [pkgIds] -- if past package is lesser than or equal, the dependency is a valid upgrade
     pure (concat depRelations)
