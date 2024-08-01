@@ -1283,14 +1283,14 @@ object Ast {
         metadata: PackageMetadata,
     ): GenPackage[E] = {
       val isUtilityPackage =
-          modules.values.forall(mod =>
-            mod.templates.isEmpty &&
-              mod.interfaces.isEmpty &&
-              mod.definitions.values.forall {
-                case DDataType(serializable, _, _) => !serializable
-                case _ => true
-              }
-          )
+        modules.values.forall(mod =>
+          mod.templates.isEmpty &&
+            mod.interfaces.isEmpty &&
+            mod.definitions.values.forall {
+              case DDataType(serializable, _, _) => !serializable
+              case _ => true
+            }
+        )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
