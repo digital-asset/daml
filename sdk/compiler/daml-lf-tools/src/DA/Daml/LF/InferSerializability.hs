@@ -23,6 +23,7 @@ inferModule world0 mod0 =
     -- For more information on this issue, refer to issue 
     -- https://github.com/digital-asset/daml/issues/19338issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
+    ModuleName ["DA", "Numeric"] -> pure mod0
     _ -> do
       let modName = moduleName mod0
       let dataTypes = moduleDataTypes mod0
