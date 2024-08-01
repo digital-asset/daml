@@ -47,6 +47,8 @@ final case class DidntUseForceOnRepairMigration(name: String) extends StartupErr
       s"See `help($name.db.repair_migration)` for more details. "
 }
 
+final case class FailedToCreateNode(name: String, message: String) extends StartupError
+
 final case class StartFailed(name: String, message: String) extends StartupError
 
 final case class ShutdownDuringStartup(name: String, message: String) extends StartupError

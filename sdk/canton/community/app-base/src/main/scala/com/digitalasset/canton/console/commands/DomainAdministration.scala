@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.admin.api.client.commands.DomainAdminCommands.GetDomainParameters
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   DomainAdminCommands,
   TopologyAdminCommands,
@@ -34,10 +35,11 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
+import com.digitalasset.canton.domain.admin.data.DomainStatus
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.*
@@ -617,4 +619,20 @@ trait DomainAdministration {
       )
     }
   }
+}
+
+class DomainHealthAdministration(
+    val runner: AdminCommandRunner,
+    val consoleEnvironment: ConsoleEnvironment,
+    override val loggerFactory: NamedLoggerFactory,
+) extends HealthAdministration(
+      runner,
+      consoleEnvironment,
+      DomainStatus.fromProtoV0,
+    )
+    with FeatureFlagFilter {
+  implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+
+  override protected def nodeStatusCommand: NodeStatusCommand[DomainStatus, _, _] =
+    DomainAdminCommands.Health.DomainStatusCommand()
 }

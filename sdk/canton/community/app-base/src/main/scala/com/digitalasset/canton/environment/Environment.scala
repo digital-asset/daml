@@ -285,9 +285,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
-  protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(domains, participants)
-  private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
+  protected def allNodes: List[Nodes.GenericNodes] =
+    List[Nodes.GenericNodes](domains, participants)
+  private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] =
+    allNodes.flatMap(_.running)
 
   private def autoConnectLocalNodes(): Either[StartupError, Unit] = {
     // TODO(#14048) extend this to x-nodes
@@ -385,7 +386,9 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       traceContext: TraceContext
   ): Either[StartupError, Unit] = {
     def reconnect(
-        instance: CantonNodeBootstrap[ParticipantNodeCommon] & ParticipantNodeBootstrapCommon
+        instance: CantonNodeBootstrap[ParticipantNodeCommon] & ParticipantNodeBootstrapCommon[
+          ParticipantNode
+        ]
     ): EitherT[Future, StartupError, Unit] =
       instance.getNode match {
         case None =>
@@ -430,7 +433,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     stopNodes(allNodesWithGroup)
 
   def startNodes(
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
+      nodes: Seq[(String, Nodes.GenericNodes)]
   )(implicit traceContext: TraceContext): Either[StartupError, Unit] =
     runOnNodesOrderedByStartupGroup(
       "startup-of-all-nodes",
@@ -440,7 +443,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     )
 
   def stopNodes(
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
+      nodes: Seq[(String, Nodes.GenericNodes)]
   )(implicit traceContext: TraceContext): Either[ShutdownError, Unit] =
     runOnNodesOrderedByStartupGroup(
       "stop-of-all-nodes",
@@ -455,8 +458,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     */
   private def runOnNodesOrderedByStartupGroup[T, I](
       name: String,
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])],
-      task: (String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]) => EitherT[Future, T, I],
+      nodes: Seq[(String, Nodes.GenericNodes)],
+      task: (String, Nodes.GenericNodes) => EitherT[Future, T, I],
       reverse: Boolean,
   )(implicit traceContext: TraceContext): Either[T, Unit] =
     config.parameters.timeouts.processing.unbounded.await(name)(
@@ -483,7 +486,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   protected def createParticipant(
       name: String,
       participantConfig: Config#ParticipantConfigType,
-  ): ParticipantNodeBootstrap =
+  ): Either[String, ParticipantNodeBootstrap] =
     participantNodeFactory
       .create(
         NodeFactoryArguments(
@@ -501,13 +504,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         ),
         testingTimeService,
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
 
   @VisibleForTesting
   protected def createDomain(
       name: String,
       domainConfig: config.DomainConfigType,
-  ): DomainNodeBootstrap =
+  ): Either[String, DomainNodeBootstrap] =
     domainFactory
       .create(
         NodeFactoryArguments(
@@ -524,7 +526,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           executionContext,
         )
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create domain bootstrap: $err"))
 
   private def simClocks: Seq[SimClock] = {
     val clocks = clock +: (participants.running.map(_.clock) ++ domains.running.map(_.clock))

@@ -6,6 +6,7 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.v0.{
   HealthDumpChunk,
   HealthDumpRequest,
@@ -16,11 +17,48 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.empty.Empty
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
-import io.grpc.{Context, ManagedChannel}
+import io.grpc.{Context, ManagedChannel, Status}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object StatusAdminCommands {
+
+  /* For backward compatibility:
+  Assumes getting a left of gRPC code `Status.Code.UNIMPLEMENTED.type` means
+  that the node specific status endpoint is not available (because that Canton
+  version does not include it), and thus we want to fall back to the original
+  status command in the caller.
+   */
+  abstract class NodeStatusCommand[
+      S <: NodeStatus.Status,
+      GrpcReq,
+      GrpcResponse,
+  ]()(implicit ec: ExecutionContext)
+      extends GrpcAdminCommand[
+        GrpcReq,
+        Either[Status.Code.UNIMPLEMENTED.type, GrpcResponse],
+        Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[S]],
+      ] {
+
+    def getStatus(service: Svc, request: GrpcReq): Future[GrpcResponse]
+
+    def submitReq(
+        service: Svc,
+        request: GrpcReq,
+    ): Future[Either[Status.Code.UNIMPLEMENTED.type, GrpcResponse]] =
+      getStatus(service, request)
+        .transformWith {
+          case Failure(exception: io.grpc.StatusRuntimeException)
+              if exception.getStatus.getCode == Status.Code.UNIMPLEMENTED =>
+            Future.successful(Status.Code.UNIMPLEMENTED.asLeft[GrpcResponse])
+
+          case Failure(exception) => Future.failed(exception)
+
+          case Success(response) =>
+            Future.successful(response.asRight[Status.Code.UNIMPLEMENTED.type])
+        }
+  }
 
   abstract class StatusServiceCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
     override type Svc = v0.StatusServiceGrpc.StatusServiceStub

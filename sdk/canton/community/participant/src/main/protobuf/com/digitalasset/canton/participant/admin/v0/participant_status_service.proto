@@ -1,0 +1,42 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.participant.admin.v0;
+
+import "com/digitalasset/canton/health/admin/v0/status_service.proto";
+import "com/digitalasset/canton/health/admin/v1/status_service.proto";
+
+service ParticipantStatusService {
+  rpc ParticipantStatus(ParticipantStatusRequest) returns (ParticipantStatusResponse);
+}
+
+message ParticipantStatusRequest {}
+
+message ConnectedDomain {
+  string domain_id = 1;
+  bool healthy = 2;
+}
+
+message ParticipantStatusResponse {
+  oneof kind {
+    ParticipantStatusResponseStatus status = 1;
+    com.digitalasset.canton.health.admin.v0.NodeStatus.NotInitialized unavailable = 2;
+    com.digitalasset.canton.health.admin.v1.Failure failure = 3;
+  }
+
+  message ParticipantStatusResponseStatus {
+    com.digitalasset.canton.health.admin.v1.Status common_status = 1;
+
+    repeated ConnectedDomain connected_domains = 2;
+
+    // Indicate if the participant node is active
+    // True if the participant node is replicated and is the active replica, or true if not replicated
+    bool active = 3;
+
+    // Protocol versions which this node supports
+    // Take into account config parameters such as alpha/beta version support and minimum protocol version
+    repeated int32 supported_protocol_versions = 4;
+  }
+}
