@@ -224,6 +224,25 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       sequencer.reportHealthState(badHealth)
 
       status shouldBe badHealth
+    }
+
+    "trigger high priority listeners before others" in {
+      val sequencer = new StubSequencer(Set())
+      var highPriorityStatus = SequencerHealthStatus(true)
+      var status = SequencerHealthStatus(true)
+      val badHealth = SequencerHealthStatus(false, Some("something bad happened"))
+      sequencer.registerOnHealthChange(HealthListener("")({
+        // High prio should already have been set when we switch to the bad health state
+        if (sequencer.getState == badHealth) highPriorityStatus shouldBe badHealth
+        status = sequencer.getState
+      }))
+      sequencer.registerHighPriorityOnHealthChange(HealthListener("") {
+        highPriorityStatus = sequencer.getState
+      })
+
+      sequencer.reportHealthState(badHealth)
+
+      status shouldBe badHealth
 
     }
   }
