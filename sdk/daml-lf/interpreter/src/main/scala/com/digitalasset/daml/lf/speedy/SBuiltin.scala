@@ -1315,7 +1315,7 @@ private[lf] object SBuiltin {
 
       if (tplId == tyCon) {
         Control.Value(SOptional(Some(record)))
-      } else {
+      } else if (tplId.qualifiedName == tyCon.qualifiedName) {
         val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
         val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
         val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
@@ -1327,6 +1327,8 @@ private[lf] object SBuiltin {
             }
           case _ => Control.Value(SOptional(None))
         }
+      } else {
+        Control.Value(SOptional(None))
       }
     }
   }
