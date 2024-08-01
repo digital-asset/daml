@@ -167,9 +167,6 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 --MaybeT $
-                 --    runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                 --        TypeChecker.Upgrade.checkUpgradeDependencies lfVersion pTypecheckUpgrades pkg (Map.elems dalfDependencies0) mbUpgradedPackage
                  unstableDeps <- getUnstableDalfDependencies files
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]

@@ -748,8 +748,6 @@ isStructurallyEquivalentDatatype identicalCons datatype =
               pure (allConNamesMatch && allTypesMatch)
           Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
               pure $ _past == _present
-          Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
-              pure False
           _ ->
               pure False
 
