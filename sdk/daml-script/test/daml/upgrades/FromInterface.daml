@@ -1,0 +1,151 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module FromInterface (main) where
+
+import qualified V1.InterfaceImplementer as V1
+import qualified V2.InterfaceImplementer as V2
+import qualified V3.InterfaceImplementer as V3
+import InvalidFromInterface
+import UpgradeTestLib
+import FixedInterface
+import PackageIds
+import DA.Optional
+import DA.Text
+
+-- Fixed package containing only the interface
+{- PACKAGE
+name: fixed-interface-fetch
+versions: 1
+-}
+
+{- MODULE
+package: fixed-interface-fetch
+contents: |
+  module FixedInterface where
+
+  data IV = IV with
+    owner : Party
+
+  interface I where
+    viewtype IV
+
+    getVersion : Text
+    nonconsuming choice GetVersion : Text
+      controller (view this).owner
+      do
+        pure $ getVersion this
+-}
+
+{- PACKAGE
+name: interface-implementer
+versions: 3
+depends: fixed-interface-fetch-1.0.0
+-}
+
+{- MODULE
+package: interface-implementer
+contents: |
+  module InterfaceImplementer where
+
+  import FixedInterface
+  import DA.Optional
+
+  template IITemplate with
+      party : Party
+      newField : Optional Text -- @V 2 3
+      newInvalidField : Int    -- @V   3
+    where
+    signatory party
+
+    interface instance I for IITemplate where
+      view = IV party
+      getVersion = "V1"    -- @V 1
+      getVersion = "V2"    -- @V  2
+      getVersion = "V3"    -- @V   3
+-}
+
+{- PACKAGE
+name: invalid-from-interface
+versions: 1
+depends: |
+  interface-implementer-1.0.0
+  interface-implementer-2.0.0
+  interface-implementer-3.0.0
+  fixed-interface-fetch-1.0.0
+-}
+
+{- MODULE
+package: invalid-from-interface
+contents: |
+  module InvalidFromInterface where
+
+  import qualified V1.InterfaceImplementer as V1
+  import qualified V2.InterfaceImplementer as V2
+  import qualified V3.InterfaceImplementer as V3
+  import FixedInterface
+
+  template TestHelper with
+      p : Party
+    where
+    signatory p
+
+    choice IllegalUpgrade : Optional V3.IITemplate
+      controller p
+      do
+        let v2Contract = V2.IITemplate p None
+            v2ContractInterface = toInterface @I v2Contract
+        pure $ fromInterface @V3.IITemplate v2ContractInterface
+
+    choice InvalidDowngrade : Optional V1.IITemplate
+      controller p
+      do
+        let v2Contract = V2.IITemplate p (Some "hello")
+            v2ContractInterface = toInterface @I v2Contract
+        pure $ fromInterface @V1.IITemplate v2ContractInterface
+-}
+
+main : TestTree
+main = tests
+  [ ("fromInterface performs upgrade", fromInterfaceUpgrade)
+  , ("fromInterface performs downgrade", fromInterfaceDowngrade)
+  , ("fromInterface fails invalid upgrade", fromInterfaceIllegalUpgrade)
+  , ("fromInterface fails invalid downgrade", fromInterfaceInvalidDowngrade)
+  ]
+
+fromInterfaceUpgrade : Test
+fromInterfaceUpgrade = test $ do
+  a <- allocateParty "alice"
+  let v1Contract = V1.IITemplate a
+      v1ContractInterface = toInterface @I v1Contract
+      v2Contract = fromInterface @V2.IITemplate v1ContractInterface
+  v2Contract === Some (V2.IITemplate a None)
+
+fromInterfaceDowngrade : Test
+fromInterfaceDowngrade = test $ do
+  a <- allocateParty "alice"
+  let v2Contract = V2.IITemplate a None
+      v2ContractInterface = toInterface @I v2Contract
+      v1Contract = fromInterface @V1.IITemplate v2ContractInterface
+  v1Contract === Some (V1.IITemplate a)
+
+fromInterfaceIllegalUpgrade : Test
+fromInterfaceIllegalUpgrade = test $ do
+  a <- allocateParty "alice"
+  res <- a `trySubmit` createAndExerciseCmd (TestHelper a) IllegalUpgrade
+  case res of
+    Right _ -> fail "Expected failure but got success"
+    -- The error is Unexpected non-optional extra template field type encountered during upgrading.
+    -- but its a crash, since it should be protected by the upload checks, therefore Canton doesn't send it back
+    Left _ -> pure ()
+
+fromInterfaceInvalidDowngrade : Test
+fromInterfaceInvalidDowngrade = test $ do
+  a <- allocateParty "alice"
+  res <- a `trySubmit` createAndExerciseCmd (TestHelper a) InvalidDowngrade
+  case res of
+    Right _ -> fail "Expected failure but got success"
+    Left (DevError Upgrade msg) | "field with a value of Some may not be dropped" `isInfixOf` msg -> pure ()
+    Left e -> fail $ "Expected Upgrade error but got " <> show e
