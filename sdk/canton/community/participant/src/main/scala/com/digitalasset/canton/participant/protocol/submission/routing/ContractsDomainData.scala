@@ -22,7 +22,7 @@ private[routing] object ContractsDomainData {
   def create(
       domainStateProvider: DomainStateProvider,
       contractRoutingParties: Map[LfContractId, Set[Party]],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ContractsDomainData] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ContractsDomainData] =
     domainStateProvider
       .getDomainsOfContracts(contractRoutingParties.keySet.toSeq)
       .map { domainMap =>
@@ -39,7 +39,6 @@ private[routing] object ContractsDomainData {
 
         ContractsDomainData(good, bad)
       }
-  }
 }
 
 private[routing] final case class ContractData(

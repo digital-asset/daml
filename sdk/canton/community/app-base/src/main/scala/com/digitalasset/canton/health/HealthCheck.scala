@@ -91,7 +91,7 @@ class PingHealthCheck(
       timer.stop()
       result match {
         case PingService.Success(roundTripTime, _) =>
-          logger.debug(s"Health check ping completed in ${roundTripTime}")
+          logger.debug(s"Health check ping completed in $roundTripTime")
           Healthy
         case PingService.Failure =>
           val elapsedTime = Duration.between(started, Instant.now)

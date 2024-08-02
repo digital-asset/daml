@@ -53,7 +53,7 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
     */
   def performUnlessClosing[A](
       name: String
-  )(f: => A)(implicit traceContext: TraceContext): UnlessShutdown[A] = {
+  )(f: => A)(implicit traceContext: TraceContext): UnlessShutdown[A] =
     if (isClosing || !addReader(name)) {
       logger.debug(s"Won't schedule the task '$name' as this object is closing")
       UnlessShutdown.AbortedDueToShutdown
@@ -63,7 +63,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       } finally {
         removeReader(name)
       }
-  }
 
   /** Performs the Future given by `f` unless a shutdown has been initiated. The future is lazy and not evaluated during shutdown.
     * The shutdown will only begin after `f` completes, but other tasks may execute concurrently with `f`, if started using this
@@ -89,7 +88,7 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
 
   protected def internalPerformUnlessClosingF[A](name: String)(
       f: => Future[A]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): UnlessShutdown[Future[A]] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): UnlessShutdown[Future[A]] =
     if (isClosing || !addReader(name)) {
       logger.debug(s"Won't schedule the future '$name' as this object is closing")
       UnlessShutdown.AbortedDueToShutdown
@@ -100,7 +99,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       trackFuture(fut)
       UnlessShutdown.Outcome(fut)
     }
-  }
 
   /** Performs the EitherT[Future] given by `etf` unless a shutdown has been initiated, in which case the provided error is returned instead.
     * Both `etf` and the error are lazy; `etf` is only evaluated if there is no shutdown, the error only if we're shutting down.
@@ -114,40 +112,36 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
     */
   def performUnlessClosingEitherT[E, R](name: String, onClosing: => E)(
       etf: => EitherT[Future, E, R]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, R] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, R] =
     EitherT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(Left(onClosing))))
-  }
 
   def performUnlessClosingEitherU[E, R](name: String)(
       etf: => EitherT[Future, E, R]
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, E, R] = {
+  ): EitherT[FutureUnlessShutdown, E, R] =
     EitherT(performUnlessClosingF(name)(etf.value))
-  }
 
   def performUnlessClosingEitherUSF[E, R](name: String)(
       etf: => EitherT[FutureUnlessShutdown, E, R]
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, E, R] = {
+  ): EitherT[FutureUnlessShutdown, E, R] =
     EitherT(performUnlessClosingUSF(name)(etf.value))
-  }
 
   def performUnlessClosingCheckedT[A, N, R](name: String, onClosing: => Checked[A, N, R])(
       etf: => CheckedT[Future, A, N, R]
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): CheckedT[Future, A, N, R] = {
+  ): CheckedT[Future, A, N, R] =
     CheckedT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(onClosing)))
-  }
 
   def performUnlessClosingEitherTF[E, R](name: String, onClosing: => E)(
       etf: => EitherT[Future, E, Future[R]]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, Future[R]] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, Future[R]] =
     if (isClosing || !addReader(name)) {
       logger.debug(s"Won't schedule the future '$name' as this object is closing")
       EitherT.leftT(onClosing)
@@ -164,7 +158,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
         }
       EitherT(res)
     }
-  }
 
   /** track running futures on shutdown
     *
@@ -184,11 +177,10 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       }.discard
     }
 
-  private def dumpRunning()(implicit traceContext: TraceContext): Unit = {
+  private def dumpRunning()(implicit traceContext: TraceContext): Unit =
     scheduled.updateAndGet(x => x.filterNot(_.fut.isCompleted)).foreach { cur =>
       logger.debug("Future created from here is still running", cur.location)
     }
-  }
 
   protected def onClosed(): Unit = ()
 
@@ -224,7 +216,7 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
     }
     if (readerState.get.count >= 0) {
       logger.warn(
-        s"Timeout ${closingTimeout} expired, but tasks still running. ${forceShutdownStr}"
+        s"Timeout $closingTimeout expired, but tasks still running. $forceShutdownStr"
       )
       dumpRunning()
     }

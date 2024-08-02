@@ -34,7 +34,7 @@ object EventsTable {
     ): Option[DamlTraceContext] =
       events
         .map(_.traceContext)
-        .collectFirst({ case Some(tc) => tc })
+        .collectFirst { case Some(tc) => tc }
         .map(DamlTraceContext.parseFrom)
 
     private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
@@ -78,7 +78,7 @@ object EventsTable {
         events: Vector[Entry[Event]]
     )(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
-    ): Vector[GetActiveContractsResponse] = {
+    ): Vector[GetActiveContractsResponse] =
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(
@@ -99,7 +99,6 @@ object EventsTable {
             )
             .asGrpcError
       }
-    }
 
     private def treeOf(
         events: Vector[Entry[TreeEvent]]

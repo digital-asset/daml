@@ -70,12 +70,12 @@ object MetricDoc {
     val wildcard = "<.*>".r // wildcard must be inside angle brackets (<,>)
     val matchingRepresentative = groupTags
       .map(_.representative)
-      .find(representative => {
+      .find { representative =>
         val escaped = representative.replace(".", "\\.")
         val pattern = wildcard.replaceFirstIn(escaped, ".*")
         // check if the pattern exists in the name and is a prefix
         pattern.r.findFirstIn(x.name).fold(false)(x.name.startsWith(_))
-      })
+      }
     matchingRepresentative match {
       case None => Item(tag = tag, name = x.name, metricType = x.metricType, groupingInfo = None)
       case Some(representative) => {
@@ -152,12 +152,11 @@ object MetricDoc {
 
     // baseClasses includes the entire dependency path, therefore we need to filter that out as otherwise, we get infinite loops
     val symbols = mirroredType.symbol.baseClasses.filter(includeSymbol).toSet
-    symbols.toSeq.flatMap(symbol => {
+    symbols.toSeq.flatMap { symbol =>
       val classGroupTags =
         if (symbol.isClass) extractTag(symbol.annotations, groupTagParser) else Seq()
-      val fanTags = {
+      val fanTags =
         if (symbol.isClass) extractTag(symbol.annotations, fanTagParser) else Seq()
-      }
       symbol.typeSignature.members.flatMap { m =>
         // do not pick methods
         if (m.isMethod) {
@@ -214,14 +213,14 @@ object MetricDoc {
           } else Seq()
         } else Seq()
       }.toSeq
-    })
+    }
   }
 
   private def extractTag[T: ClassTag, S: ru.TypeTag](
       annotations: Seq[ru.Annotation],
       tagParser: ru.Tree => S,
   ): Seq[S] = {
-    val filtered = annotations.map(fromAnnotation[S](_, tagParser)).collect({ case Some(s) => s })
+    val filtered = annotations.map(fromAnnotation[S](_, tagParser)).collect { case Some(s) => s }
     filtered match {
       case a :: b :: rest =>
         a match {
@@ -254,7 +253,7 @@ object MetricDoc {
       "org.wartremover.warts.Serializable",
     )
   )
-  private def tagParser(tree: ru.Tree): Tag = {
+  private def tagParser(tree: ru.Tree): Tag =
     try {
       Seq(1, 2).map(pos => getString(tree.children(pos))) match {
         case s :: d :: Nil =>
@@ -284,7 +283,6 @@ object MetricDoc {
         println(s"Error: $x")
         throw x
     }
-  }
 
   @SuppressWarnings(
     Array(
@@ -293,13 +291,12 @@ object MetricDoc {
   )
   @nowarn("msg=unchecked|cannot be checked at run time")
   private def getLabels(labelsChild: ru.Tree) = {
-    def getConstantsFromTree(tree: ru.Tree): List[String] = {
+    def getConstantsFromTree(tree: ru.Tree): List[String] =
       tree match {
         case ru.Constant(constant: String) => constant :: Nil
         case ru.Literal(ru.Constant(constant: String)) => constant :: Nil
         case _ => tree.children.flatMap(getConstantsFromTree)
       }
-    }
 
     // The workaround is for labels declared as Map("key" -> "value", "key2" -> "value2") and so on.
     // The Tree for the given expression becomes too complex to parse, but with a depth first traverse
@@ -338,7 +335,7 @@ object MetricDoc {
     }
   }
 
-  private def fanTagParser(tree: ru.Tree): FanTag = {
+  private def fanTagParser(tree: ru.Tree): FanTag =
     try {
       Seq(1, 2, 3).map(pos => getString(tree.children(pos))) match {
         case representative :: summary :: description :: Nil =>
@@ -362,15 +359,13 @@ object MetricDoc {
         )
         throw x
     }
-  }
 
   private def fromAnnotation[T: ru.TypeTag](
       annotation: ru.Annotation,
       parser: ru.Tree => T,
-  ): Option[T] = {
+  ): Option[T] =
     if (annotation.tree.tpe.typeSymbol == ru.typeOf[T].typeSymbol) {
       Some(parser(annotation.tree))
     } else None
-  }
 
 }

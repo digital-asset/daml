@@ -6,8 +6,10 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.Show
 import com.digitalasset.canton.admin.api.client.data.CantonStatus.splitSuccessfulAndFailedStatus
 import com.digitalasset.canton.console.{DomainReference, ParticipantReference}
-import com.digitalasset.canton.health.admin.data.{DomainStatus, NodeStatus, ParticipantStatus}
+import com.digitalasset.canton.domain.admin.data.DomainStatus
+import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.util.ShowUtil.*
 
 trait CantonStatus extends PrettyPrinting {

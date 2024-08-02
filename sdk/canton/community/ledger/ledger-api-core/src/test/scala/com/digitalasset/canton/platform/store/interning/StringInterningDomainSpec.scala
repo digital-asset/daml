@@ -28,12 +28,11 @@ class StringInterningDomainSpec extends AnyFlatSpec with Matchers {
   }
 
   object StaticStringInterningAccessor {
-    def apply(entries: Seq[(Int, String)]): StaticStringInterningAccessor = {
+    def apply(entries: Seq[(Int, String)]): StaticStringInterningAccessor =
       new StaticStringInterningAccessor(
         idToString = entries.toMap,
         stringToId = entries.map(_.swap).toMap,
       )
-    }
   }
 
   it should "handle a known string " in {

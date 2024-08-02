@@ -33,15 +33,13 @@ class GrpcDynamicService(
 
   def setInstance(
       descriptor: ServerServiceDefinition
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     serviceDescriptorRef.getAndSet(Some(descriptor)) foreach { _ =>
       logger.warn("Service was already set")
     }
-  }
 
-  def clear(): Unit = {
+  def clear(): Unit =
     serviceDescriptorRef.set(None)
-  }
 
   val serviceDescriptor: ServerServiceDefinition = {
     val builder = ServerServiceDefinition.builder(descriptor)

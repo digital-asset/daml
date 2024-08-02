@@ -26,7 +26,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
 
   override def getPartyRecord(
       party: Ref.Party
-  )(connection: Connection): Option[PartyRecordStorageBackend.DbPartyRecord] = {
+  )(connection: Connection): Option[PartyRecordStorageBackend.DbPartyRecord] =
     SQL"""
          SELECT
              internal_id,
@@ -50,7 +50,6 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
           ),
         )
       }
-  }
 
   override def createPartyRecord(
       partyRecord: PartyRecordStorageBackend.DbPartyRecordPayload
@@ -66,45 +65,40 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     internalId.fold(throw _, identity)
   }
 
-  override def getPartyAnnotations(internalId: Int)(connection: Connection): Map[String, String] = {
+  override def getPartyAnnotations(internalId: Int)(connection: Connection): Map[String, String] =
     ParticipantMetadataBackend.getAnnotations("participant_party_record_annotations")(internalId)(
       connection
     )
-  }
 
   override def addPartyAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
       connection: Connection
-  ): Unit = {
+  ): Unit =
     ParticipantMetadataBackend.addAnnotation("participant_party_record_annotations")(
       internalId,
       key,
       value,
       updatedAt,
     )(connection)
-  }
 
-  override def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit = {
+  override def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit =
     ParticipantMetadataBackend.deleteAnnotations("participant_party_record_annotations")(
       internalId
     )(
       connection
     )
-  }
 
   override def compareAndIncreaseResourceVersion(internalId: Int, expectedResourceVersion: Long)(
       connection: Connection
-  ): Boolean = {
+  ): Boolean =
     ParticipantMetadataBackend.compareAndIncreaseResourceVersion("participant_party_records")(
       internalId,
       expectedResourceVersion,
     )(connection)
-  }
 
-  override def increaseResourceVersion(internalId: Int)(connection: Connection): Boolean = {
+  override def increaseResourceVersion(internalId: Int)(connection: Connection): Boolean =
     ParticipantMetadataBackend.increaseResourceVersion("participant_party_records")(internalId)(
       connection
     )
-  }
 
   override def filterExistingParties(
       parties: Set[Ref.Party],
@@ -158,7 +152,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
          UPDATE participant_party_records
          SET identity_provider_id = $idpId
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }

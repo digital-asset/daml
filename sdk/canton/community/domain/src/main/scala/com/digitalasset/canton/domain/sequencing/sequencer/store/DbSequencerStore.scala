@@ -367,11 +367,9 @@ class DbSequencerStore(
   ): Future[Unit] =
     for {
       memberRemoved <- storage.update(
-        {
-          sqlu"""
+        sqlu"""
             delete from sequencer_members where member = $member
-           """
-        },
+           """,
         functionFullName,
       )
       _ = evictFromCache(member)
@@ -684,13 +682,11 @@ class DbSequencerStore(
 
   override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      {
-        profile match {
-          case _: H2 | _: Postgres =>
-            sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
-          case _: Oracle =>
-            sqlu"update sequencer_watermarks set sequencer_online = 0 where node_index = $instanceIndex"
-        }
+      profile match {
+        case _: H2 | _: Postgres =>
+          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
+        case _: Oracle =>
+          sqlu"update sequencer_watermarks set sequencer_online = 0 where node_index = $instanceIndex"
       },
       functionFullName,
     )
@@ -846,13 +842,11 @@ class DbSequencerStore(
   )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       eventsRemoved <- storage.update(
-        {
-          sqlu"""
+        sqlu"""
             delete from sequencer_events
             where node_index = $instanceIndex
                 and ts > coalesce((select watermark_ts from sequencer_watermarks where node_index = $instanceIndex), -1)
-           """
-        },
+           """,
         functionFullName,
       )
     } yield logger.debug(
@@ -865,8 +859,7 @@ class DbSequencerStore(
   )(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
-  ): EitherT[Future, SaveCounterCheckpointError, Unit] = {
-
+  ): EitherT[Future, SaveCounterCheckpointError, Unit] =
     EitherT {
       val CounterCheckpoint(counter, ts, latestTopologyClientTimestamp) = checkpoint
       CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
@@ -922,7 +915,6 @@ class DbSequencerStore(
           )
       }
     }
-  }
 
   override def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(
       implicit traceContext: TraceContext
@@ -995,7 +987,7 @@ class DbSequencerStore(
 
   override def saveLowerBound(
       ts: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SaveLowerBoundError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SaveLowerBoundError, Unit] =
     EitherT(
       storage.queryAndUpdate(
         (for {
@@ -1016,13 +1008,11 @@ class DbSequencerStore(
         "saveLowerBound",
       )
     )
-  }
 
   override protected[store] def adjustPruningTimestampForCounterCheckpoints(
       timestamp: CantonTimestamp,
       disabledMembers: Seq[SequencerMemberId],
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
-
+  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
     // query the lowest suitable timestamp for each member.
     // it would probably be better to do the ignore and aggregation in sql
     // however this way we don't have to deal with generating a `not in (..)` for
@@ -1049,7 +1039,6 @@ class DbSequencerStore(
       })
       // just take the lowest
       .map(NonEmpty.from(_).map(_.min1))
-  }
 
   override protected[store] def pruneEvents(
       timestamp: CantonTimestamp
@@ -1093,7 +1082,7 @@ class DbSequencerStore(
 
   override def status(
       now: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] = {
+  )(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     for {
       lowerBoundO <- fetchLowerBound()
       members <- storage.query(
@@ -1117,7 +1106,6 @@ class DbSequencerStore(
         },
       )
     }
-  }
 
   override def markLaggingSequencersOffline(
       cutoffTime: CantonTimestamp

@@ -40,12 +40,11 @@ class UniquePortGeneratorTest extends AnyFlatSpec with Matchers with BeforeAndAf
     }
   }
 
-  override def afterAll(): Unit = {
+  override def afterAll(): Unit =
     lock.foreach { l =>
       if (l.isValid) {
         l.release()
       }
     }
-  }
 
 }

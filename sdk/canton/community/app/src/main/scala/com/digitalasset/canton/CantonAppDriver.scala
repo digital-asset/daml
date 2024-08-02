@@ -34,7 +34,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
 
   protected def additionalVersions: Map[String, String] = Map.empty
 
-  protected def printVersion(): Unit = {
+  protected def printVersion(): Unit =
     (Map(
       "Canton" -> BuildInfo.version,
       "Daml Libraries" -> BuildInfo.damlLibrariesVersion,
@@ -43,7 +43,6 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
     ) ++ additionalVersions) foreach { case (name, version) =>
       Console.out.println(s"$name: $version")
     }
-  }
 
   // BE CAREFUL: Set the environment variables before you touch anything related to
   // logback as otherwise, the logback configuration will be read without these

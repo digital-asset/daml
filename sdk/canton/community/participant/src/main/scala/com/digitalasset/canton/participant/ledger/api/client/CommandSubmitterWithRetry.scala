@@ -108,13 +108,12 @@ class CommandSubmitterWithRetry(
       .andThen(retryableOverride => Option.when(retryableOverride)(DefaultRetryableDelay))
       .applyOrElse(
         status,
-        { (status: Status) =>
+        (status: Status) =>
           ErrorCodeUtils
             .errorCategoryFromString(status.message)
             .flatMap(_.retryable)
             .map(_.duration)
-            .orElse(Option.when(status.code == Code.DEADLINE_EXCEEDED.value)(DefaultRetryableDelay))
-        },
+            .orElse(Option.when(status.code == Code.DEADLINE_EXCEEDED.value)(DefaultRetryableDelay)),
       )
 
   private def runWithAbortOnShutdown(f: => Future[Either[Status, String]])(implicit

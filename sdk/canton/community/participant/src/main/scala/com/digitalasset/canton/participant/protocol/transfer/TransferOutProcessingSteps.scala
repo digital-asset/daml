@@ -77,9 +77,8 @@ class TransferOutProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.TransferOut
   override val requestType: RequestType = ProcessingSteps.RequestType.TransferOut
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions = {
+  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
     state.pendingTransferOutSubmissions
-  }
 
   override def requestKind: String = "TransferOut"
 
@@ -218,14 +217,13 @@ class TransferOutProcessingSteps(
       pendingSubmissionMap: PendingSubmissions,
       submissionParam: SubmissionParam,
       pendingSubmissionId: PendingSubmissionId,
-  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] = {
+  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
       None,
       submissionParam.submittingParty,
       pendingSubmissionId,
     )
-  }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],
@@ -256,7 +254,7 @@ class TransferOutProcessingSteps(
       tc: TraceContext
   ): EitherT[Future, EncryptedViewMessageError, WithRecipients[
     FullTransferOutTree
-  ]] = {
+  ]] =
     EncryptedViewMessage
       .decryptFor(
         staticDomainParameters,
@@ -271,7 +269,6 @@ class TransferOutProcessingSteps(
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
-  }
 
   private def expectedDomainId(
       fromRequest: SourceDomainId,
@@ -642,7 +639,7 @@ class TransferOutProcessingSteps(
       transferInExclusivity: Option[CantonTimestamp],
       isTransferringParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
-  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] = {
+  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] =
     for {
       updateId <- EitherT
         .fromEither[Future](rootHash.asLedgerTransactionId)
@@ -673,7 +670,6 @@ class TransferOutProcessingSteps(
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
     )
-  }
 
   private[this] def triggerTransferInWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData
@@ -708,7 +704,7 @@ class TransferOutProcessingSteps(
       confirmingStakeholders: Set[LfPartyId],
       viewHash: ViewHash,
       rootHash: RootHash,
-  ): Option[MediatorResponse] = {
+  ): Option[MediatorResponse] =
     // send a response only if the participant is a transferring participant or the activeness check has failed
     if (transferringParticipant || !activenessResult.isSuccessful) {
       val adminPartySet =
@@ -735,7 +731,6 @@ class TransferOutProcessingSteps(
       )
       Some(response)
     } else None
-  }
 }
 
 object TransferOutProcessingSteps {

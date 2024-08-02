@@ -265,9 +265,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
   }
 
   /** Automatically performs #$ interpolation for a call to `limit` */
-  def limitSql(numberOfItems: Int, skipItems: Long = 0L): SQLActionBuilder = {
+  def limitSql(numberOfItems: Int, skipItems: Long = 0L): SQLActionBuilder =
     sql" #${limit(numberOfItems, skipItems)} "
-  }
 
   /** Runs the given `query` transactionally with synchronous commit replication if
     * the database provides the ability to configure synchronous commits per transaction.
@@ -625,20 +624,17 @@ object DbStorage {
   }
 
   class SQLActionBuilderChain(private val builders: Chain[SQLActionBuilder]) extends AnyVal {
-    def ++(a2: SQLActionBuilder): SQLActionBuilderChain = {
+    def ++(a2: SQLActionBuilder): SQLActionBuilderChain =
       new SQLActionBuilderChain(builders.append(a2))
-    }
-    def ++(other: SQLActionBuilderChain): SQLActionBuilderChain = {
+    def ++(other: SQLActionBuilderChain): SQLActionBuilderChain =
       new SQLActionBuilderChain(builders.concat(other.builders))
-    }
-    def intercalate(item: SQLActionBuilder): SQLActionBuilderChain = {
+    def intercalate(item: SQLActionBuilder): SQLActionBuilderChain =
       new SQLActionBuilderChain(
         builders.foldLeft(Chain.empty[SQLActionBuilder]) { case (acc, elem) =>
           if (acc.isEmpty) Chain.one(elem)
           else acc.append(item).append(elem)
         }
       )
-    }
     def toActionBuilder: SQLActionBuilder = {
       val lst = builders.toList
       SQLActionBuilder(
@@ -963,10 +959,9 @@ object DbStorage {
 }
 
 object Storage {
-  def threadsAvailableForWriting(storage: Storage): PositiveInt = {
+  def threadsAvailableForWriting(storage: Storage): PositiveInt =
     storage match {
       case _: MemoryStorage => PositiveInt.one
       case dbStorage: DbStorage => dbStorage.threadsAvailableForWriting
     }
-  }
 }

@@ -48,7 +48,7 @@ class MetricDocTest extends AnyWordSpec with BaseTest {
       val items = getItems(itm)
 
       val expected =
-        Seq("varred", "nested.n1", "nested.n2", "top").map(nm => (nm, s"${nm} summary")).toSet
+        Seq("varred", "nested.n1", "nested.n2", "top").map(nm => (nm, s"$nm summary")).toSet
       items.map(x => (x.name, x.tag.summary)).toSet shouldBe expected
 
       items.flatMap(_.tag.labelsWithDescription) containsSlice Seq(

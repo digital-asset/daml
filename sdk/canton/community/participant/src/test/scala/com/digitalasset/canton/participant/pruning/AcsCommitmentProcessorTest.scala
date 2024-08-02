@@ -178,7 +178,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         LfContractId,
         (Set[LfPartyId], TimeOfChange, TimeOfChange),
       ]
-  )(toc: TimeOfChange): (CantonTimestamp, RequestCounter, AcsChange) = {
+  )(toc: TimeOfChange): (CantonTimestamp, RequestCounter, AcsChange) =
     (
       toc.timestamp,
       toc.rc,
@@ -205,7 +205,6 @@ sealed trait AcsCommitmentProcessorBaseTest
           )
       },
     )
-  }
 
   // Create the processor, but return the changes instead of publishing them, such that the user can decide when
   // to publish
@@ -1775,7 +1774,7 @@ class AcsCommitmentProcessorTest
           cantonTimestamp: CantonTimestamp,
           nrIntervalsToTriggerCatchUp: PositiveInt = PositiveInt.tryCreate(1),
           catchUpIntervalSkip: PositiveInt = PositiveInt.tryCreate(2),
-      ): Future[Assertion] = {
+      ): Future[Assertion] =
         for {
           config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
@@ -1786,12 +1785,11 @@ class AcsCommitmentProcessorTest
             case None => fail("catch up mode needs to be enabled")
           }
         }
-      }
 
       def checkCatchUpModeCfgDisabled(
           processor: pruning.AcsCommitmentProcessor,
           cantonTimestamp: CantonTimestamp,
-      ): Future[Assertion] = {
+      ): Future[Assertion] =
         for {
           config <- processor.catchUpConfig(cantonTimestamp)
         } yield {
@@ -1800,7 +1798,6 @@ class AcsCommitmentProcessorTest
             case None => succeed
           }
         }
-      }
 
       "enter catch up mode when processing falls behind" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
@@ -2504,75 +2501,73 @@ class AcsCommitmentProcessorTest
         )
 
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          {
-            for {
-              _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
-              remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
-              deliveredFast = remoteFast.map(cmt =>
-                (
-                  cmt.message.period.toInclusive.plusSeconds(1),
-                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-                )
+          for {
+            _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
+            remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
+            deliveredFast = remoteFast.map(cmt =>
+              (
+                cmt.message.period.toInclusive.plusSeconds(1),
+                List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
               )
-              // First ask for the remote commitments from remoteId1 to be processed,
-              // which are up to timestamp 30
-              // This causes the local participant to enter catch-up mode
-              _ <- deliveredFast
-                .parTraverse_ { case (ts, batch) =>
-                  processor.processBatchInternal(ts.forgetRefinement, batch)
-                }
-                .onShutdown(fail())
-
-              _ = changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+            )
+            // First ask for the remote commitments from remoteId1 to be processed,
+            // which are up to timestamp 30
+            // This causes the local participant to enter catch-up mode
+            _ <- deliveredFast
+              .parTraverse_ { case (ts, batch) =>
+                processor.processBatchInternal(ts.forgetRefinement, batch)
               }
-              _ <- processor.flush()
+              .onShutdown(fail())
 
-              // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
-              // The local participant did not compute those commitments because of the catch-up mode, but should
-              // not error (in particular, not report NO_SHARED_CONTRACTS)
-              remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
-              deliveredNormal = remoteNormal.map(cmt =>
-                (
-                  cmt.message.period.toInclusive.plusSeconds(1),
-                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-                )
-              )
-
-              _ <- deliveredNormal
-                .parTraverse_ { case (ts, batch) =>
-                  processor.processBatchInternal(ts.forgetRefinement, batch)
-                }
-                .onShutdown(fail())
-              _ <- processor.flush()
-
-              outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-              computed <- store.searchComputedBetween(
-                CantonTimestamp.Epoch,
-                timeProofs.lastOption.value,
-              )
-              computedCatchUp = computed.filter(_._2 == localId)
-              received <- store.searchReceivedBetween(
-                CantonTimestamp.Epoch,
-                timeProofs.lastOption.value,
-              )
-            } yield {
-              // there are four sends, at the end of each coarse-grained interval 10, 20, 30, and normal 35
-              verify(sequencerClient, times(4)).sendAsync(
-                any[Batch[DefaultOpenEnvelope]],
-                any[SendType],
-                any[Option[CantonTimestamp]],
-                any[CantonTimestamp],
-                any[MessageId],
-                any[SendCallback],
-              )(anyTraceContext)
-              // compute commitments for interval ends (10, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
-              assert(computed.size === 11)
-              assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
-              assert(received.size === 8)
-              // cannot prune past the mismatch
-              assert(outstanding == Some(toc(25).timestamp))
+            _ = changes.foreach { case (ts, tb, change) =>
+              processor.publish(RecordTime(ts, tb.v), change)
             }
+            _ <- processor.flush()
+
+            // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
+            // The local participant did not compute those commitments because of the catch-up mode, but should
+            // not error (in particular, not report NO_SHARED_CONTRACTS)
+            remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
+            deliveredNormal = remoteNormal.map(cmt =>
+              (
+                cmt.message.period.toInclusive.plusSeconds(1),
+                List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+              )
+            )
+
+            _ <- deliveredNormal
+              .parTraverse_ { case (ts, batch) =>
+                processor.processBatchInternal(ts.forgetRefinement, batch)
+              }
+              .onShutdown(fail())
+            _ <- processor.flush()
+
+            outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
+            computed <- store.searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+            computedCatchUp = computed.filter(_._2 == localId)
+            received <- store.searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+          } yield {
+            // there are four sends, at the end of each coarse-grained interval 10, 20, 30, and normal 35
+            verify(sequencerClient, times(4)).sendAsync(
+              any[Batch[DefaultOpenEnvelope]],
+              any[SendType],
+              any[Option[CantonTimestamp]],
+              any[CantonTimestamp],
+              any[MessageId],
+              any[SendCallback],
+            )(anyTraceContext)
+            // compute commitments for interval ends (10, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
+            assert(computed.size === 11)
+            assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+            assert(received.size === 8)
+            // cannot prune past the mismatch
+            assert(outstanding == Some(toc(25).timestamp))
           },
           LogEntry.assertLogSeq(
             Seq(
@@ -2642,78 +2637,76 @@ class AcsCommitmentProcessorTest
         )
 
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          {
-            for {
-              _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
-              remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
-              deliveredFast = remoteFast.map(cmt =>
-                (
-                  cmt.message.period.toInclusive.plusSeconds(1),
-                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-                )
+          for {
+            _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
+            remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
+            deliveredFast = remoteFast.map(cmt =>
+              (
+                cmt.message.period.toInclusive.plusSeconds(1),
+                List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
               )
-              // First ask for the remote commitments from remoteId1 to be processed,
-              // which are up to timestamp 30
-              // This causes the local participant to enter catch-up mode, and observe mismatch for timestamp 20,
-              // and fine-grained compute and send commitment 10-15
-              _ <- deliveredFast
-                .parTraverse_ { case (ts, batch) =>
-                  processor.processBatchInternal(ts.forgetRefinement, batch)
-                }
-                .onShutdown(fail())
-
-              _ = changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+            )
+            // First ask for the remote commitments from remoteId1 to be processed,
+            // which are up to timestamp 30
+            // This causes the local participant to enter catch-up mode, and observe mismatch for timestamp 20,
+            // and fine-grained compute and send commitment 10-15
+            _ <- deliveredFast
+              .parTraverse_ { case (ts, batch) =>
+                processor.processBatchInternal(ts.forgetRefinement, batch)
               }
-              _ <- processor.flush()
+              .onShutdown(fail())
 
-              // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
-              // The local participant did not compute commitment 20-25 because of the catch-up mode, but should
-              // not error (in particular, not report NO_SHARED_CONTRACTS)
-              // The local participant computed commitment 10-15 because of the mismatch at 20, and should issue
-              // a mismatch for that period
-              remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
-              deliveredNormal = remoteNormal.map(cmt =>
-                (
-                  cmt.message.period.toInclusive.plusSeconds(1),
-                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-                )
-              )
-
-              _ <- deliveredNormal
-                .parTraverse_ { case (ts, batch) =>
-                  processor.processBatchInternal(ts.forgetRefinement, batch)
-                }
-                .onShutdown(fail())
-              _ <- processor.flush()
-
-              outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-              computed <- store.searchComputedBetween(
-                CantonTimestamp.Epoch,
-                timeProofs.lastOption.value,
-              )
-              computedCatchUp = computed.filter(_._2 == localId)
-              received <- store.searchReceivedBetween(
-                CantonTimestamp.Epoch,
-                timeProofs.lastOption.value,
-              )
-            } yield {
-              // there are five sends, at the end of each coarse-grained interval 10, 15, 20, 30, and normal 35
-              verify(sequencerClient, times(5)).sendAsync(
-                any[Batch[DefaultOpenEnvelope]],
-                any[SendType],
-                any[Option[CantonTimestamp]],
-                any[CantonTimestamp],
-                any[MessageId],
-                any[SendCallback],
-              )(anyTraceContext)
-              // compute commitments for interval ends (10, 15, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
-              assert(computed.size === 13)
-              assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
-              assert(received.size === 9)
-              // cannot prune past the mismatch
-              assert(outstanding == Some(toc(25).timestamp))
+            _ = changes.foreach { case (ts, tb, change) =>
+              processor.publish(RecordTime(ts, tb.v), change)
             }
+            _ <- processor.flush()
+
+            // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
+            // The local participant did not compute commitment 20-25 because of the catch-up mode, but should
+            // not error (in particular, not report NO_SHARED_CONTRACTS)
+            // The local participant computed commitment 10-15 because of the mismatch at 20, and should issue
+            // a mismatch for that period
+            remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
+            deliveredNormal = remoteNormal.map(cmt =>
+              (
+                cmt.message.period.toInclusive.plusSeconds(1),
+                List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+              )
+            )
+
+            _ <- deliveredNormal
+              .parTraverse_ { case (ts, batch) =>
+                processor.processBatchInternal(ts.forgetRefinement, batch)
+              }
+              .onShutdown(fail())
+            _ <- processor.flush()
+
+            outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
+            computed <- store.searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+            computedCatchUp = computed.filter(_._2 == localId)
+            received <- store.searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+          } yield {
+            // there are five sends, at the end of each coarse-grained interval 10, 15, 20, 30, and normal 35
+            verify(sequencerClient, times(5)).sendAsync(
+              any[Batch[DefaultOpenEnvelope]],
+              any[SendType],
+              any[Option[CantonTimestamp]],
+              any[CantonTimestamp],
+              any[MessageId],
+              any[SendCallback],
+            )(anyTraceContext)
+            // compute commitments for interval ends (10, 15, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
+            assert(computed.size === 13)
+            assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+            assert(received.size === 9)
+            // cannot prune past the mismatch
+            assert(outstanding == Some(toc(25).timestamp))
           },
           LogEntry.assertLogSeq(
             Seq(
@@ -2725,7 +2718,7 @@ class AcsCommitmentProcessorTest
                     "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:15Z, toInclusive = 1970-01-01T00:00:20Z)"
                   )),
                 ),
-                s"mismatch at interval 15-20 with ${remoteId1}",
+                s"mismatch at interval 15-20 with $remoteId1",
               ),
               (
                 _.shouldBeCantonError(
@@ -2735,7 +2728,7 @@ class AcsCommitmentProcessorTest
                     "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:10Z, toInclusive = 1970-01-01T00:00:15Z)"
                   )),
                 ),
-                s"mismatch at interval 10-15 with buffered commitment from ${remoteId1}",
+                s"mismatch at interval 10-15 with buffered commitment from $remoteId1",
               ),
               (
                 _.shouldBeCantonError(
@@ -2745,7 +2738,7 @@ class AcsCommitmentProcessorTest
                     "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:10Z, toInclusive = 1970-01-01T00:00:15Z)"
                   )),
                 ),
-                s"mismatch at interval 10-15 with incoming commitment from ${remoteId2}",
+                s"mismatch at interval 10-15 with incoming commitment from $remoteId2",
               ),
               (
                 _.shouldBeCantonError(

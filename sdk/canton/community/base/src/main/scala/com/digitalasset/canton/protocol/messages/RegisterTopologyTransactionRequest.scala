@@ -115,7 +115,7 @@ object RegisterTopologyTransactionRequest
   def fromProtoV0(
       expectedProtocolVersion: ProtocolVersion,
       message: v0.RegisterTopologyTransactionRequest,
-  ): ParsingResult[RegisterTopologyTransactionRequest] = {
+  ): ParsingResult[RegisterTopologyTransactionRequest] =
     for {
       requestedBy <- Member.fromProtoPrimitive(message.requestedBy, "requestedBy")
       participantUid <- UniqueIdentifier.fromProtoPrimitive(message.participant, "participant")
@@ -134,7 +134,6 @@ object RegisterTopologyTransactionRequest
       transactions,
       DomainId(domainUid),
     )(rpv)
-  }
 
   override def name: String = "RegisterTopologyTransactionRequest"
 

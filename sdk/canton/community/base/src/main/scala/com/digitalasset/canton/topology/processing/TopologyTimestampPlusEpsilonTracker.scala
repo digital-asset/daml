@@ -96,12 +96,12 @@ class TopologyTimestampPlusEpsilonTracker(
       case last :: Nil =>
         if (sequencingTime.value < last.validFrom.value)
           logger.error(
-            s"Bad sequencing time $sequencingTime with last known epsilon update at ${last}"
+            s"Bad sequencing time $sequencingTime with last known epsilon update at $last"
           )
         last.epsilon
       case Nil =>
         logger.error(
-          s"Epsilon tracker is not initialised at sequencing time ${sequencingTime}, will use default value ${DynamicDomainParameters.topologyChangeDelayIfAbsent}"
+          s"Epsilon tracker is not initialised at sequencing time $sequencingTime, will use default value ${DynamicDomainParameters.topologyChangeDelayIfAbsent}"
         )
         DynamicDomainParameters.topologyChangeDelayIfAbsent // we use this (0) as a safe default
       case _ :: rest => go(rest)
@@ -118,7 +118,7 @@ class TopologyTimestampPlusEpsilonTracker(
     synchronize(
       sequencingTime, {
         val adjusted = adjustByEpsilon(sequencingTime)
-        val monotonic = {
+        val monotonic =
           // if a broken domain manager sends us an update too early after an epsilon reduction, we'll catch that and
           // ensure that we don't store txs in an out of order way
           // i.e. if we get at t1 an update with epsilon_1 < epsilon_0, then we do have to ensure that no topology
@@ -128,7 +128,6 @@ class TopologyTimestampPlusEpsilonTracker(
             if (cur.value >= adjusted.value) EffectiveTime(cur.value.immediateSuccessor)
             else adjusted
           )
-        }
         if (monotonic != adjusted) {
           logger.error(
             s"Broken or malicious domain topology manager is sending transactions during epsilon changes at ts=$sequencingTime!"
@@ -146,7 +145,7 @@ class TopologyTimestampPlusEpsilonTracker(
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[EffectiveTime] = {
     // note, this is a side effect free chain await
-    def chainUpdates(previousEffectiveTime: EffectiveTime): FutureUnlessShutdown[EffectiveTime] = {
+    def chainUpdates(previousEffectiveTime: EffectiveTime): FutureUnlessShutdown[EffectiveTime] =
       FutureUnlessShutdown(
         FutureUtil.logOnFailure(
           {
@@ -155,7 +154,7 @@ class TopologyTimestampPlusEpsilonTracker(
               case None => FutureUnlessShutdown.pure(computeEffective)
               case Some(value) =>
                 logger.debug(
-                  s"Need to wait until topology processing has caught up at $sequencingTime (must reach $synchronizeAt with current=${currentKnownTime})"
+                  s"Need to wait until topology processing has caught up at $sequencingTime (must reach $synchronizeAt with current=$currentKnownTime)"
                 )
                 value.map { _ =>
                   logger.debug(s"Topology processing caught up at $sequencingTime")
@@ -166,7 +165,6 @@ class TopologyTimestampPlusEpsilonTracker(
           "chaining of sequential waits failed",
         )
       )
-    }
     val nextChainP = new PromiseUnlessShutdown[EffectiveTime](
       "synchronized-chain-promise",
       futureSupervisor,
@@ -251,7 +249,7 @@ object TopologyTimestampPlusEpsilonTracker {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] = {
+  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] =
     FutureUnlessShutdown
       .outcomeF(
         store
@@ -282,7 +280,6 @@ object TopologyTimestampPlusEpsilonTracker {
             )
           )
       }
-  }
 
   /** Initialize tracker
     *

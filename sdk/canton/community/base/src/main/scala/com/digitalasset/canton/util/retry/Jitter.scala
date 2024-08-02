@@ -17,7 +17,7 @@ trait Jitter {
   protected def convert(dur: Duration, unit: TimeUnit): FiniteDuration =
     FiniteDuration(dur.toUnit(unit).toLong, unit)
 
-  protected def capped(input: FiniteDuration, cap: Duration)(op: Long => Long): FiniteDuration = {
+  protected def capped(input: FiniteDuration, cap: Duration)(op: Long => Long): FiniteDuration =
     if (!cap.isFinite) {
       Duration(op(input.length), input.unit)
     } else {
@@ -26,7 +26,6 @@ trait Jitter {
       if (value >= ceil.length) ceil
       else Duration(value, input.unit)
     }
-  }
 
   protected def pow(start: Long, base: Long, attempt: Long): Long = {
     val temp = start * math.pow(base.toDouble, attempt.toDouble)

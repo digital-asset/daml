@@ -50,7 +50,7 @@ final case class CommonMetadata private (
 
   @transient override protected lazy val companionObj: CommonMetadata.type = CommonMetadata
 
-  private def toProtoV0: v0.CommonMetadata = {
+  private def toProtoV0: v0.CommonMetadata =
     mediator match {
       case MediatorRef(mediatorId) =>
         v0.CommonMetadata(
@@ -63,7 +63,6 @@ final case class CommonMetadata private (
       case _ =>
         throw new IllegalStateException(singleMediatorError(representativeProtocolVersion))
     }
-  }
 }
 
 object CommonMetadata

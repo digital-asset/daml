@@ -85,8 +85,8 @@ class NonUnitForEachTest extends AnyWordSpec with Matchers with org.mockito.Mock
     "allow Scala builders" in {
       val result = WartTestTraverser(NonUnitForEach) {
         val builder = Set.newBuilder[Int]
-        Seq.empty[Int].foreach { x => builder += x }
-        Seq.empty[mutable.Builder[Int, Set[Int]]].foreach { builder => builder += 1 }
+        Seq.empty[Int].foreach(x => builder += x)
+        Seq.empty[mutable.Builder[Int, Set[Int]]].foreach(builder => builder += 1)
 
         // support pattern-matching functions
         Seq.empty[(mutable.Builder[Int, Set[Int]], Int)].foreach { case (builder, i) =>
@@ -98,16 +98,16 @@ class NonUnitForEachTest extends AnyWordSpec with Matchers with org.mockito.Mock
         }
 
         // support if-then
-        Seq.empty[Int].foreach { i => if (true) builder += i }
+        Seq.empty[Int].foreach(i => if (true) builder += i)
         // support if-then-else
-        Seq.empty[Int].foreach { i => if (false) throw new Exception else builder += i }
+        Seq.empty[Int].foreach(i => if (false) throw new Exception else builder += i)
         Seq.empty[Int].foreach { i =>
           if (false) throw new Exception else if (true) builder += i else ()
         }
 
         class C {
           val b = Set.newBuilder[Int]
-          Seq.empty[Int].foreach { x => b += x }
+          Seq.empty[Int].foreach(x => b += x)
         }
       }
       result.errors shouldBe empty
@@ -120,7 +120,7 @@ class NonUnitForEachTest extends AnyWordSpec with Matchers with org.mockito.Mock
         val result = WartTestTraverser(NonUnitForEach) {
           var cs = Set.newBuilder[Int]
           cs = Set.newBuilder[Int]
-          Seq.empty[Int].foreach { i => cs += i }
+          Seq.empty[Int].foreach(i => cs += i)
         }
         assertErrors(result, 1)
       }
@@ -129,7 +129,7 @@ class NonUnitForEachTest extends AnyWordSpec with Matchers with org.mockito.Mock
     "detect discarded builders" in {
       val result = WartTestTraverser(NonUnitForEach) {
         def builder = Set.newBuilder[Int]
-        Seq.empty[Int].foreach { x => builder += x }
+        Seq.empty[Int].foreach(x => builder += x)
         ()
       }
       assertErrors(result, 1)

@@ -425,7 +425,7 @@ object TransferInView
         transferOutResultEventPO: Option[v0.SignedContent],
         creatingTransactionIdP: ByteString,
         sourceProtocolVersion: ProtocolVersion,
-    ): ParsingResult[CommonData] = {
+    ): ParsingResult[CommonData] =
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV0, "salt", saltP)
         submitter <- ProtoConverter.parseLfPartyId(submitterP)
@@ -449,7 +449,6 @@ object TransferInView
         transferOutResultEvent,
         SourceProtocolVersion(sourceProtocolVersion),
       )
-    }
   }
 
   val supportedProtoVersions = SupportedProtoVersions(

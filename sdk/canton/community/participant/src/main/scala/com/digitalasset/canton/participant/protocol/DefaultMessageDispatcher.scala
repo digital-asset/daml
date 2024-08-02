@@ -179,7 +179,7 @@ class DefaultMessageDispatcher(
 
           case error @ DeliverError(sc, ts, _, msgId, status) =>
             logDeliveryError(sc, ts, msgId, status)
-            logger.debug(s"Received a deliver error at ${sc} / ${ts}")
+            logger.debug(s"Received a deliver error at $sc / $ts")
             for {
               _unit <- observeDeliverError(error)
               _unit <- tickTrackers(sc, ts, triggerAcsChangePublication = false)

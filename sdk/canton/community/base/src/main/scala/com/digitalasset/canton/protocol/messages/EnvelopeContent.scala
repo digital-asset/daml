@@ -268,7 +268,7 @@ object EnvelopeContent
       hashOps: HashOps,
   )(
       bytes: Array[Byte]
-  )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] = {
+  )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] =
     for {
       envelopeContent <- fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(
         ByteString.copyFrom(bytes)
@@ -281,5 +281,4 @@ object EnvelopeContent
           )
         )
     } yield message
-  }
 }

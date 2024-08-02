@@ -21,14 +21,13 @@ sealed trait LedgerIdentity {
 object LedgerIdentity {
   def fromProtoV0(
       identityP: v0.LedgerIdentity
-  ): ParsingResult[LedgerIdentity] = {
+  ): ParsingResult[LedgerIdentity] =
     identityP.identifier match {
       case v0.LedgerIdentity.Identifier.Empty =>
         Left(FieldNotSet("LedgerIdentity.identifier"))
       case v0.LedgerIdentity.Identifier.EthereumAccount(account) =>
         EthereumAccount.fromProtoV0(account)
     }
-  }
 }
 
 /** The address of an Ethereum account is derived by taking the last 20 bytes
@@ -45,18 +44,16 @@ final case class EthereumAccount(address: String) extends LedgerIdentity {
 }
 
 object EthereumAccount {
-  def create(address: String): Either[String, EthereumAccount] = {
+  def create(address: String): Either[String, EthereumAccount] =
     Right(new EthereumAccount(address))
-  }
 
   // public address representation is used when communicating with Ethereum nodes
   def fromPublicAddress(address: String): Either[String, EthereumAccount] = create(
     address
   )
 
-  def tryCreate(address: String): EthereumAccount = {
+  def tryCreate(address: String): EthereumAccount =
     create(address).valueOr(err => throw new IllegalArgumentException(err))
-  }
 
   // protobuf representation is used when communicating over the Admin API
   def fromProtoV0(accountP: v0.EthereumAccount): ParsingResult[EthereumAccount] =

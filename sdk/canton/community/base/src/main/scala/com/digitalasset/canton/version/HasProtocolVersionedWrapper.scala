@@ -106,12 +106,11 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
 
-  private def serializeToHighestVersion: VersionedMessage[ValueClass] = {
+  private def serializeToHighestVersion: VersionedMessage[ValueClass] =
     VersionedMessage(
       companionObj.supportedProtoVersions.higherConverter.serializer(self),
       companionObj.supportedProtoVersions.higherProtoVersion.v,
     )
-  }
 
   /** Will check that default value rules defined in `companionObj.defaultValues` hold.
     */
@@ -720,7 +719,7 @@ trait HasProtocolVersionedWrapperCompanion[
   private[version] def validateDeserialization(
       expectedProtocolVersion: ProtocolVersionValidation,
       deserializedRepresentativeProtocolVersion: ProtocolVersion,
-  ): ParsingResult[Unit] = {
+  ): ParsingResult[Unit] =
     expectedProtocolVersion match {
       case ProtocolVersionValidation.PV(pv) =>
         val expected = protocolVersionRepresentativeFor(pv).representative
@@ -732,16 +731,14 @@ trait HasProtocolVersionedWrapperCompanion[
       case ProtocolVersionValidation.NoValidation =>
         Right(())
     }
-  }
 
   private[version] def unexpectedProtoVersionError(
       expected: ProtocolVersion,
       found: ProtocolVersion,
-  ) = {
+  ) =
     OtherError(
       s"Error while deserializing a $name; expected representative protocol version $expected but found $found"
     )
-  }
 
 }
 
@@ -1081,7 +1078,7 @@ trait HasProtocolVersionedCompanion2[
     */
   def parseDelimitedFromUnsafe(
       input: InputStream
-  ): Option[ParsingResult[DeserializedValueClass]] = {
+  ): Option[ParsingResult[DeserializedValueClass]] =
     try {
       UntypedVersionedMessage
         .parseDelimitedFrom(input)
@@ -1093,7 +1090,6 @@ trait HasProtocolVersionedCompanion2[
       case NonFatal(e) =>
         Some(Left(ProtoDeserializationError.OtherError(e.getMessage)))
     }
-  }
 
   /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
     * set the version to use for the deserialization.
@@ -1102,13 +1098,12 @@ trait HasProtocolVersionedCompanion2[
     */
   def fromByteStringLegacy(
       protocolVersion: ProtocolVersion
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
       _(bytes),
       fromByteStringUnsafe(bytes),
     )
-  }
 
   /** Deserializes the data from the given file without validation.
     *
@@ -1117,12 +1112,11 @@ trait HasProtocolVersionedCompanion2[
     */
   def readFromFileUnsafe(
       inputFile: String
-  ): Either[String, DeserializedValueClass] = {
+  ): Either[String, DeserializedValueClass] =
     for {
       bs <- BinaryFileUtil.readByteStringFromFile(inputFile)
       value <- fromByteStringUnsafe(bs).leftMap(_.toString)
     } yield value
-  }
 
   /** Deserializes the data from the given file without validation.
     *
@@ -1227,13 +1221,12 @@ trait HasProtocolVersionedWithContextCompanion[
     */
   def fromByteStringLegacy(
       protocolVersion: ProtocolVersion
-  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
+  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] =
     deserializeForVersion(
       protocolVersionRepresentativeFor(protocolVersion),
       _(context, bytes),
       fromByteStringUnsafe(context)(bytes),
     )
-  }
 
   override protected def deserializationErrorK(
       error: ProtoDeserializationError

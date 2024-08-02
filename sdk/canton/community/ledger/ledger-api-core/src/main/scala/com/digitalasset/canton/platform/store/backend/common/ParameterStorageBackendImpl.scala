@@ -61,11 +61,10 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Offset] = {
+  private val LedgerEndOffsetParser: RowParser[Offset] =
     // Note: the ledger_end is a non-optional column,
     // however some databases treat Offset.beforeBegin (the empty string) as NULL
     offset(LedgerEndColumnName).?.map(_.getOrElse(Offset.beforeBegin))
-  }
 
   private val LedgerEndSequentialIdParser: RowParser[Long] =
     long(LedgerEndSequentialIdColumnName)
@@ -175,11 +174,10 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
-  ): Option[Offset] = {
+  ): Option[Offset] =
     SqlSelectMostRecentPruningAllDivulgedContracts
       .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
         connection
       )
-  }
 
 }

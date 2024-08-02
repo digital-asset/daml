@@ -26,7 +26,7 @@ object SafeSimpleString {
 
   val delimiter = "::"
 
-  def fromProtoPrimitive(str: String): Either[String, String] = {
+  def fromProtoPrimitive(str: String): Either[String, String] =
     for {
       _ <- LfPartyId.fromString(str)
       opt <- Either.cond(
@@ -35,7 +35,6 @@ object SafeSimpleString {
         s"String contains reserved delimiter `$delimiter`.",
       )
     } yield opt
-  }
 
 }
 

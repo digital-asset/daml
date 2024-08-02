@@ -40,9 +40,8 @@ class RateLimiterTest extends BaseTestWordSpec with HasExecutionContext {
     }
   }
 
-  private def deltaNanos(maxTasksPerSecond: Double, factor: Double): Long = {
+  private def deltaNanos(maxTasksPerSecond: Double, factor: Double): Long =
     ((1.0 / maxTasksPerSecond) * 1e9 * factor).toLong
-  }
 
   private def testRun(
       maxTasksPerSecond: Double,

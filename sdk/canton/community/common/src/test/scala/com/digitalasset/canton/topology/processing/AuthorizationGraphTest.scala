@@ -39,9 +39,8 @@ class AuthorizationGraphTest extends AnyWordSpec with BaseTestWordSpec {
       key: SigningPublicKey,
       requireRoot: Boolean,
       should: Boolean,
-  ) = {
+  ) =
     graph.isValidAuthorizationKey(key.fingerprint, requireRoot = requireRoot) shouldBe should
-  }
 
   "authorization graph" should {
     import fixture.*

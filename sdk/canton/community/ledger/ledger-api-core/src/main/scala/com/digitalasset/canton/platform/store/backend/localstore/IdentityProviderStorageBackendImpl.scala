@@ -65,25 +65,23 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(
       connection: Connection
-  ): Option[IdentityProviderConfig] = {
+  ): Option[IdentityProviderConfig] =
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
        FROM participant_identity_provider_config
        WHERE identity_provider_id = ${id.value: String}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
-  }
 
   override def listIdentityProviderConfigs()(
       connection: Connection
-  ): Vector[IdentityProviderConfig] = {
+  ): Vector[IdentityProviderConfig] =
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
        FROM participant_identity_provider_config
        ORDER BY identity_provider_id
        """
       .asVectorOf(IdpConfigRecordParser)(connection)
-  }
 
   override def identityProviderConfigByIssuerExists(
       ignoreId: IdentityProviderId.Id,
@@ -168,19 +166,17 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     rowsUpdated == 1
   }
 
-  override def countIdentityProviderConfigs()(connection: Connection): Int = {
+  override def countIdentityProviderConfigs()(connection: Connection): Int =
     SQL"SELECT count(*) AS identity_provider_configs_count from participant_identity_provider_config"
       .as(SqlParser.int("identity_provider_configs_count").single)(connection)
-  }
 
   override def getIdentityProviderConfigByIssuer(
       issuer: String
-  )(connection: Connection): Option[IdentityProviderConfig] = {
+  )(connection: Connection): Option[IdentityProviderConfig] =
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
        FROM participant_identity_provider_config
-       WHERE issuer = ${issuer}
+       WHERE issuer = $issuer
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
-  }
 }

@@ -130,7 +130,7 @@ class AsyncExecutorWithMetrics(
       /** count / total time */
       private val cost = new AtomicReference[Map[String, (Long, Long)]](Map())
       private val lastReport = new AtomicReference(CantonTimestamp.now())
-      def track(trace: String, runningTime: Long): Unit = {
+      def track(trace: String, runningTime: Long): Unit =
         if (logger.underlying.isInfoEnabled) {
           logQueryCost.foreach { case QueryCostMonitoringConfig(frequency, resetOnOutput, _) =>
             val updated = cost.updateAndGet { tmp =>
@@ -160,7 +160,6 @@ class AsyncExecutorWithMetrics(
             }
           }
         }
-      }
     }
 
     val running = new ConcurrentLinkedQueue[QueryInfo]()
@@ -245,9 +244,8 @@ class AsyncExecutorWithMetrics(
         }
       }
 
-      def reportAsSlow(): Unit = {
+      def reportAsSlow(): Unit =
         reportedAsSlow.set(true)
-      }
 
       def isDone: Boolean = done.get()
 
@@ -265,7 +263,7 @@ class AsyncExecutorWithMetrics(
         }
         if (reportedAsSlow.get()) {
           logger.warn(
-            s"Slow database query ${callsite} finished after ${TimeUnit.NANOSECONDS.toMillis(tm - started)} ms"
+            s"Slow database query $callsite finished after ${TimeUnit.NANOSECONDS.toMillis(tm - started)} ms"
           )
         }
         cleanupAndAlert(tm)
@@ -357,7 +355,7 @@ class AsyncExecutorWithMetrics(
 
       /** If the runnable/task has released the Jdbc connection we decrease the counter again
         */
-      override def afterExecute(r: Runnable, t: Throwable): Unit = {
+      override def afterExecute(r: Runnable, t: Throwable): Unit =
         try {
           super.afterExecute(r, t)
           (r, queue) match {
@@ -371,7 +369,6 @@ class AsyncExecutorWithMetrics(
           stats.remove(r).foreach(_.completed())
           // canton change end
         }
-      }
       // canton change begin
       override def shutdownNow(): util.List[Runnable] = {
         backgroundChecker.foreach(_.cancel(true))
@@ -411,7 +408,7 @@ class AsyncExecutorWithMetrics(
       override def reportFailure(t: Throwable): Unit =
         logger.error("Async executor failed with exception", t)
 
-      override def execute(command: Runnable): Unit = {
+      override def execute(command: Runnable): Unit =
         if (command.isInstanceOf[PrioritizedRunnable]) {
           executor.execute(command)
         } else {
@@ -420,7 +417,6 @@ class AsyncExecutorWithMetrics(
             override def run(): Unit = command.run()
           })
         }
-      }
     }
   }
 

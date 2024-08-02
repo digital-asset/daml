@@ -175,7 +175,7 @@ private[backend] trait StorageBackendTestsIDPConfig
     ) shouldBe Vector(cfg1, cfg2, cfg3)
   }
 
-  private def config() = {
+  private def config() =
     IdentityProviderConfig(
       identityProviderId = randomId(),
       isDeactivated = false,
@@ -183,11 +183,9 @@ private[backend] trait StorageBackendTestsIDPConfig
       issuer = UUID.randomUUID().toString,
       audience = Some(UUID.randomUUID().toString),
     )
-  }
 
-  private def randomId() = {
+  private def randomId() =
     id(UUID.randomUUID().toString)
-  }
 
   private def id(str: String) = IdentityProviderId.Id(Ref.LedgerString.assertFromString(str))
 

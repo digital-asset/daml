@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.google.protobuf.duration.{Duration as PDuration}
+import com.google.protobuf.duration.Duration as PDuration
 
-import java.time.{Duration as JDuration}
+import java.time.Duration as JDuration
 
 object DurationConversion {
 

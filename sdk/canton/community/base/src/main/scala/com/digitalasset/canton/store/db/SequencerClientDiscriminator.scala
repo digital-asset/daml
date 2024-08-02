@@ -40,11 +40,10 @@ object SequencerClientDiscriminator {
 
   def fromDomainMember(member: DomainMember, indexedStringStore: IndexedStringStore)(implicit
       ec: ExecutionContext
-  ): Future[SequencerClientDiscriminator] = {
+  ): Future[SequencerClientDiscriminator] =
     IndexedMember.indexed(indexedStringStore)(member).map { mb =>
       DomainMemberDiscriminator(member, mb.index)
     }
-  }
 
   def fromIndexedDomainId(domainId: IndexedDomain): DomainDiscriminator =
     DomainDiscriminator(domainId.item, domainId.index)

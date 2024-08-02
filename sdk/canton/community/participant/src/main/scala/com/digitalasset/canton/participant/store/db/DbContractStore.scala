@@ -172,14 +172,13 @@ class DbContractStore(
 
   private def lookupManyUncachedInternal(
       ids: NonEmpty[Seq[LfContractId]]
-  )(implicit traceContext: TraceContext) = {
+  )(implicit traceContext: TraceContext) =
     processingTime.event {
       storage.sequentialQueryAndCombine(lookupQueries(ids), functionFullName)(
         traceContext,
         closeContext,
       )
     }
-  }
 
   override def find(
       filterId: Option[String],

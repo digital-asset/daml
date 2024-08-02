@@ -111,7 +111,7 @@ class AuthorizationGraph(
     object RootDelegation extends AuthLevel(true, true)
 
     implicit val orderingAuthLevel: Ordering[AuthLevel] =
-      Ordering.by[AuthLevel, Int](authl => { Seq(authl.isAuth, authl.isRoot).count(identity) })
+      Ordering.by[AuthLevel, Int](authl => Seq(authl.isAuth, authl.isRoot).count(identity))
 
     def fromDelegationO(delegation: Option[AuthorizedNamespaceDelegation]): AuthLevel =
       delegation match {
@@ -174,9 +174,8 @@ class AuthorizationGraph(
 
   def unauthorizedRemove(
       items: Seq[AuthorizedNamespaceDelegation]
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     items.foreach(doRemove)
-  }
 
   /** remove a namespace delegation
     *
@@ -192,10 +191,9 @@ class AuthorizationGraph(
       item.mapping.namespace == namespace,
       s"added namespace ${item.mapping.namespace} to $namespace",
     )
-    def myFilter(existing: AuthorizedNamespaceDelegation): Boolean = {
+    def myFilter(existing: AuthorizedNamespaceDelegation): Boolean =
       // the auth key doesn't need to match on removals
       existing.uniquePath != item.uniquePath || existing.mapping != item.mapping
-    }
     def updateRemove(key: Fingerprint, res: GraphNode): Unit = {
       val _ =
         if (res.isEmpty)
@@ -203,7 +201,7 @@ class AuthorizationGraph(
         else
           nodes.update(key, res)
     }
-    def removeOutgoing(node: GraphNode): Unit = {
+    def removeOutgoing(node: GraphNode): Unit =
       // we need to use the "incoming" edges to figure out the original outgoing keys, as the key that
       // was authorizing this removal might not be the one that authorized the addition
       node.incoming.map(_.signingKey).foreach { fp =>
@@ -217,7 +215,6 @@ class AuthorizationGraph(
             )
         }
       }
-    }
     val targetKey = item.mapping.target.fingerprint
     nodes.get(targetKey) match {
       case Some(curTarget) =>
@@ -296,7 +293,7 @@ class AuthorizationGraph(
       }
     } else
       logger.debug(
-        s"Namespace ${namespace} has no root certificate, making all ${nodes.size} un-authorized"
+        s"Namespace $namespace has no root certificate, making all ${nodes.size} un-authorized"
       )
 
   def isValidAuthorizationKey(authKey: Fingerprint, requireRoot: Boolean): Boolean = {
@@ -313,7 +310,7 @@ class AuthorizationGraph(
         authKey: Fingerprint,
         requireRoot: Boolean,
         acc: List[AuthorizedNamespaceDelegation],
-    ): List[AuthorizedNamespaceDelegation] = {
+    ): List[AuthorizedNamespaceDelegation] =
       cache.getOrElse(authKey, None) match {
         // we've terminated with the root certificate
         case Some(delegation) if isRootCertificate(delegation) =>
@@ -324,7 +321,6 @@ class AuthorizationGraph(
         // return empty to indicate failure
         case _ => List.empty
       }
-    }
     go(startAuthKey, requireRoot, List.empty) match {
       case Nil => None
       case rest =>

@@ -65,14 +65,13 @@ object EncryptedViewMessageFactory {
     ): EitherT[Future, EncryptedViewMessageCreationError, B] =
       EitherT.fromEither[Future](value)
 
-    def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] = {
+    def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] =
       RootHashMessageRecipients
         .encryptedViewMessageRecipientsInfo(
           cryptoSnapshot.ipsSnapshot,
           informeeParties,
         )
         .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.domainId))
-    }
 
     // creates encrypted view message common elements between versions
     def createEVMCommon()

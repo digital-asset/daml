@@ -291,7 +291,7 @@ class WallClock(
 
   private val nextFlush = new AtomicReference[Option[CantonTimestamp]](None)
   // will schedule a new flush at the given time
-  private def scheduleNext(timestamp: CantonTimestamp): Unit = {
+  private def scheduleNext(timestamp: CantonTimestamp): Unit =
     if (running.get()) {
       // update next flush reference if this timestamp is before the current scheduled
       val newTimestamp = Some(timestamp)
@@ -321,7 +321,6 @@ class WallClock(
         )
       }
     }
-  }
 
 }
 
@@ -397,7 +396,7 @@ class RemoteClock(
 
   backgroundUpdate()
 
-  private def backgroundUpdate(): Unit = {
+  private def backgroundUpdate(): Unit =
     if (running.get()) {
       update().discard
 
@@ -409,7 +408,6 @@ class RemoteClock(
         TimeUnit.MILLISECONDS,
       )
     }
-  }
 
   private def update(): CantonTimestamp = {
     // the update method is invoked on every call to now()
@@ -457,7 +455,7 @@ class RemoteClock(
         // so the grpc call might fail because the API is not online. but as we are doing testing only,
         // we don't make a big fuss about it, just emit a log and retry
         noTracingLogger.info(
-          s"Failed to fetch remote time from ${config.port.unwrap}: ${err}. Will try again"
+          s"Failed to fetch remote time from ${config.port.unwrap}: $err. Will try again"
         )
         Threading.sleep(500)
         getRemoteTime

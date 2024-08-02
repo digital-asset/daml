@@ -42,7 +42,7 @@ object OptConfigValue {
             // has `enabled` inside, it cannot be supported by this writer
             case configObject: ConfigObject if configObject.toConfig.hasPath(enabledKey) =>
               throw new IllegalArgumentException(
-                s"Ambiguous configuration, object contains `${enabledKey}` flag"
+                s"Ambiguous configuration, object contains `$enabledKey` flag"
               )
             case _ =>
               writer.to(value).withFallback(toConfigValue(enabled = true))

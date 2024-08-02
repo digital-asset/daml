@@ -69,7 +69,7 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
     }
   }
 
-  private def runCommandUpdaterFlow(aCommandSubmission: CommandSubmission) = {
+  private def runCommandUpdaterFlow(aCommandSubmission: CommandSubmission) =
     Source
       .single(Ctx((), aCommandSubmission, NoOpTelemetryContext))
       .via(
@@ -81,7 +81,6 @@ class CommandUpdaterFlowTest extends AsyncWordSpec with Matchers with PekkoBefor
         )
       )
       .runWith(Sink.head)
-  }
 }
 
 object CommandUpdaterFlowTest {

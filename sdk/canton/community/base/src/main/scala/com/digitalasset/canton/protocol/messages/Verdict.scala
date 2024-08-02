@@ -157,7 +157,7 @@ object Verdict
         case Code.Timeout =>
           MediatorError.Timeout.Reject(reason)
         case Code.MissingCode | Code.Unrecognized(_) =>
-          throw new IllegalStateException(s"Code ${code} is forbidden by the class invariant")
+          throw new IllegalStateException(s"Code $code is forbidden by the class invariant")
       }
     }
 
@@ -196,7 +196,7 @@ object Verdict
             Left(
               ValueDeserializationError(
                 "reject",
-                s"Unknown mediator rejection error code ${code} with ${reason}",
+                s"Unknown mediator rejection error code $code with $reason",
               )
             )
           case _ => Right(codeP)
@@ -495,7 +495,7 @@ object Verdict
 
   private[messages] def fromProtoV0(verdictP: v0.Verdict): ParsingResult[Verdict] = {
     val v0.Verdict(someVerdictP) = verdictP
-    import v0.Verdict.{SomeVerdict as V}
+    import v0.Verdict.SomeVerdict as V
 
     someVerdictP match {
       case V.Approve(empty.Empty(_)) =>
@@ -515,7 +515,7 @@ object Verdict
 
   private[messages] def fromProtoV1(verdictP: v1.Verdict): ParsingResult[Verdict] = {
     val v1.Verdict(someVerdictP) = verdictP
-    import v1.Verdict.{SomeVerdict as V}
+    import v1.Verdict.SomeVerdict as V
 
     protocolVersionRepresentativeFor(ProtoVersion(1)).flatMap { rpv =>
       someVerdictP match {
@@ -531,7 +531,7 @@ object Verdict
 
   def fromProtoV2(verdictP: v2.Verdict): ParsingResult[Verdict] = {
     val v2.Verdict(someVerdictP) = verdictP
-    import v2.Verdict.{SomeVerdict as V}
+    import v2.Verdict.SomeVerdict as V
 
     protocolVersionRepresentativeFor(ProtoVersion(2)).flatMap { rpv =>
       someVerdictP match {
@@ -547,7 +547,7 @@ object Verdict
 
   def fromProtoV3(verdictP: v3.Verdict): ParsingResult[Verdict] = {
     val v3.Verdict(someVerdictP) = verdictP
-    import v3.Verdict.{SomeVerdict as V}
+    import v3.Verdict.SomeVerdict as V
 
     protocolVersionRepresentativeFor(ProtoVersion(3)).flatMap { rpv =>
       someVerdictP match {

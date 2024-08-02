@@ -73,7 +73,7 @@ object DecodedRpcStatus {
   private def accumulateErrorInfo(
       categoryO: Option[ErrorCategory],
       acc: DecodedRpcStatus,
-  )(reason: String, metadata: Map[String, String]): (Option[ErrorCategory], DecodedRpcStatus) = {
+  )(reason: String, metadata: Map[String, String]): (Option[ErrorCategory], DecodedRpcStatus) =
     if (reason.nonEmpty) {
       val category = (for {
         catS <- metadata.get("category")
@@ -82,7 +82,6 @@ object DecodedRpcStatus {
       } yield cat)
       (category, acc.copy(id = reason, context = metadata.filterNot(_._1 == "category")))
     } else (categoryO, acc)
-  }
 
   private def finaliseDecoding(
       acc: (Option[ErrorCategory], DecodedRpcStatus)
@@ -112,8 +111,7 @@ object DecodedRpcStatus {
         }
     )
 
-  def fromStatusRuntimeException(ex: StatusRuntimeException): Option[DecodedRpcStatus] = {
-
+  def fromStatusRuntimeException(ex: StatusRuntimeException): Option[DecodedRpcStatus] =
     Either
       .catchOnly[IllegalArgumentException](io.grpc.protobuf.StatusProto.fromThrowable(ex))
       .toOption
@@ -153,7 +151,5 @@ object DecodedRpcStatus {
         })
 
       }
-
-  }
 
 }

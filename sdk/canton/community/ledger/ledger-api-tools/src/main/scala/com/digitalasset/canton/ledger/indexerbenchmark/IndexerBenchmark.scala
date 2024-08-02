@@ -49,7 +49,7 @@ class IndexerBenchmark extends NamedLogging {
       config: Config,
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
-  ): Future[Unit] = {
+  ): Future[Unit] =
     withNewTraceContext { implicit traceContext =>
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
@@ -133,7 +133,6 @@ class IndexerBenchmark extends NamedLogging {
       }
       resource.asFuture
     }
-  }
 
   private def indexer(
       config: Config,
@@ -152,7 +151,7 @@ class IndexerBenchmark extends NamedLogging {
       )
       .acquire()
 
-  private def metricsResource(config: Config) = {
+  private def metricsResource(config: Config) =
     OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter, Seq.empty).flatMap {
       openTelemetry =>
         val registry = new MetricRegistry
@@ -178,11 +177,10 @@ class IndexerBenchmark extends NamedLogging {
           )
           .map(_ => metrics)
     }
-  }
 
   private[this] def createReadService(
       updates: Source[(Offset, Traced[Update]), NotUsed]
-  ): ReadService = {
+  ): ReadService =
     new ReadService {
       override def stateUpdates(
           beginAfter: Option[Offset]
@@ -198,7 +196,6 @@ class IndexerBenchmark extends NamedLogging {
       ): Future[SubmissionResult] =
         throw new UnsupportedOperationException()
     }
-  }
 
   def runAndExit(
       config: Config,

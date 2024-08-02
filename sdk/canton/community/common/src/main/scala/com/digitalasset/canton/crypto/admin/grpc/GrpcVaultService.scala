@@ -232,7 +232,7 @@ class GrpcVaultService(
   override def importKeyPair(request: v0.ImportKeyPairRequest): Future[v0.ImportKeyPairResponse] = {
     def parseKeyPair(
         keyPairBytes: ByteString
-    ): Either[String, CryptoKeyPair[PublicKey, PrivateKey]] = {
+    ): Either[String, CryptoKeyPair[PublicKey, PrivateKey]] =
       CryptoKeyPair
         .fromByteString(keyPairBytes)
         .leftFlatMap { firstErr =>
@@ -245,7 +245,6 @@ class GrpcVaultService(
             )
             .leftMap(secondErr => s"Failed to parse crypto key pair: $firstErr, $secondErr")
         }
-    }
 
     def loadKeyPair(
         validatedName: Option[KeyName],

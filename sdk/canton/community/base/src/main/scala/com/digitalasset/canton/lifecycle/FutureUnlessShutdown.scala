@@ -70,7 +70,7 @@ object FutureUnlessShutdown {
     * to [[FutureUnlessShutdown]].
     */
   def transformAbortedF[V](f: Future[V])(implicit ec: ExecutionContext): FutureUnlessShutdown[V] =
-    apply(f.transform({
+    apply(f.transform {
       case Success(value) => Success(UnlessShutdown.Outcome(value))
       case Failure(AbortedDueToShutdownException(_)) => Success(UnlessShutdown.AbortedDueToShutdown)
       case Failure(ce: CompletionException) =>
@@ -79,7 +79,7 @@ object FutureUnlessShutdown {
           case _ => Failure(ce)
         }
       case Failure(other) => Failure(other)
-    }))
+    })
 }
 
 /** Monad combination of `Future` and [[UnlessShutdown]]
@@ -169,16 +169,14 @@ object FutureUnlessShutdownImpl {
     def failOnShutdownToAbortException(action: String)(implicit ec: ExecutionContext): Future[A] =
       failOnShutdownTo(AbortedDueToShutdownException(action))
 
-    def failOnShutdownTo(t: => Throwable)(implicit ec: ExecutionContext): Future[A] = {
+    def failOnShutdownTo(t: => Throwable)(implicit ec: ExecutionContext): Future[A] =
       unwrap.flatMap {
         case UnlessShutdown.Outcome(result) => Future.successful(result)
         case UnlessShutdown.AbortedDueToShutdown => Future.failed(t)
       }
-    }
 
-    def isCompleted: Boolean = {
+    def isCompleted: Boolean =
       unwrap.isCompleted
-    }
 
     /** Evaluates `f` on shutdown but retains the result of the future. */
     def tapOnShutdown(f: => Unit)(implicit
@@ -256,9 +254,8 @@ object FutureUnlessShutdownImpl {
 
       override def handleErrorWith[A](
           fa: Future[UnlessShutdown[A]]
-      )(f: Throwable => Future[UnlessShutdown[A]]): Future[UnlessShutdown[A]] = {
+      )(f: Throwable => Future[UnlessShutdown[A]]): Future[UnlessShutdown[A]] =
         fa.recoverWith { case throwable => f(throwable) }
-      }
     }
 
   implicit def catsStdInstFutureUnlessShutdown(implicit
@@ -323,9 +320,8 @@ object FutureUnlessShutdownImpl {
 
     override def thereafterF[A](f: FutureUnlessShutdown[A])(
         body: Try[UnlessShutdown[A]] => Future[Unit]
-    )(implicit ec: ExecutionContext): FutureUnlessShutdown[A] = {
+    )(implicit ec: ExecutionContext): FutureUnlessShutdown[A] =
       FutureUnlessShutdown(Thereafter[Future].thereafterF(f.unwrap)(body))
-    }
   }
 
   /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused during implicit resolution,

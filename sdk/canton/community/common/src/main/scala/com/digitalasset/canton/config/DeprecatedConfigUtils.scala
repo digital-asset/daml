@@ -23,14 +23,13 @@ object DeprecatedConfigUtils {
       since: String,
       valueFilter: Option[T] = None,
   ) {
-    def isDeprecatedValue(configValue: ConfigValue): Boolean = {
+    def isDeprecatedValue(configValue: ConfigValue): Boolean =
       valueFilter.forall { dValue =>
         implicitly[ConfigReader[T]].from(configValue) match {
           case Right(value) => dValue == value
           case _ => false
         }
       }
-    }
   }
 
   final case class DeprecatedRawConfigType(
@@ -91,10 +90,10 @@ object DeprecatedConfigUtils {
                   .withFallback(cursorConfigValue)
 
                 to
-                  .foldLeft(originalConfig)({
+                  .foldLeft(originalConfig) {
                     // Adding the deprecated value to its new location(s)
                     case (config, toPath) => config.withFallback(deprecated.atPath(toPath))
-                  })
+                  }
                   // Deleting the deprecated value from the config, so that we don't get an "Unkown key" error later
                   .withoutPath(from)
                   .root()
@@ -138,7 +137,7 @@ object DeprecatedConfigUtils {
       */
     def deprecateConfigType(deprecated: DeprecatedRawConfigType)(implicit
         elc: ErrorLoggingContext
-    ): ConfigReader[T] = {
+    ): ConfigReader[T] =
       configReader
         .contramapCursor {
           case cursor if deprecated.transform.isDefinedAt(cursor) =>
@@ -151,7 +150,6 @@ object DeprecatedConfigUtils {
               .getOrElse(cursor)
           case cursor => cursor
         }
-    }
 
     /** Applies a list of deprecation fallbacks to the configReader
       * @return config reader with fallbacks applied

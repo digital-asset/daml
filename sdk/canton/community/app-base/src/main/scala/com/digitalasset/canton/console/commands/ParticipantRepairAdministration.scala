@@ -115,14 +115,13 @@ class ParticipantRepairAdministration(
       source: DomainAlias,
       target: DomainConnectionConfig,
       force: Boolean = false,
-  ): Unit = {
+  ): Unit =
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement
           .MigrateDomain(source, target, force = force)
       )
     }
-  }
 
   @Help.Summary("Download all contracts for the given set of parties to a file.")
   @Help.Description(
@@ -165,7 +164,7 @@ class ParticipantRepairAdministration(
       protocolVersion: Option[ProtocolVersion] = None,
       chunkSize: Option[PositiveInt] = None,
       contractDomainRenames: Map[DomainId, DomainId] = Map.empty,
-  ): Unit = {
+  ): Unit =
     check(FeatureFlag.Repair) {
       val generator = AcsSnapshotFileCollector[DownloadRequest, AcsSnapshotChunk](outputFile)
       val command = ParticipantAdminCommands.ParticipantRepairManagement
@@ -183,7 +182,6 @@ class ParticipantRepairAdministration(
 
       generator.materializeFile(command)
     }
-  }
 
   @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
@@ -209,7 +207,7 @@ class ParticipantRepairAdministration(
       filterDomainId: Option[DomainId] = None,
       timestamp: Option[Instant] = None,
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
-  ): Unit = {
+  ): Unit =
     check(FeatureFlag.Repair) {
       val collector = AcsSnapshotFileCollector[ExportAcsRequest, ExportAcsResponse](outputFile)
       val command = ParticipantAdminCommands.ParticipantRepairManagement
@@ -223,7 +221,6 @@ class ParticipantRepairAdministration(
         )
       collector.materializeFile(command)
     }
-  }
 
   private case class AcsSnapshotFileCollector[
       Req,
@@ -244,7 +241,7 @@ class ParticipantRepairAdministration(
           CancellableContext,
           CancellableContext,
         ]
-    ): Unit = {
+    ): Unit =
       consoleEnvironment.run {
 
         def call = consoleEnvironment.run {
@@ -274,7 +271,6 @@ class ParticipantRepairAdministration(
             CommandErrors.ConsoleTimeout.Error(timeout.asJavaApproximation)
         }
       }
-    }
   }
 
   @Help.Summary("Import ACS snapshot")
@@ -285,7 +281,7 @@ class ParticipantRepairAdministration(
   ) // TODO(i14441): Remove deprecated ACS download / upload functionality
   def upload(
       inputFile: String = ParticipantRepairAdministration.DefaultFile
-  ): Unit = {
+  ): Unit =
     check(FeatureFlag.Repair) {
       val file = File(inputFile)
       consoleEnvironment.run {
@@ -297,7 +293,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
   @Help.Description(
@@ -313,7 +308,7 @@ class ParticipantRepairAdministration(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       onboardedParties: Set[PartyId],
       workflowIdPrefix: String = "",
-  ): Unit = {
+  ): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
@@ -327,7 +322,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Add specified contracts to specific domain on local participant.")
   @Help.Description(
@@ -394,7 +388,7 @@ class ParticipantRepairAdministration(
        |Purging a deactivated domain is typically performed automatically as part of a hard domain migration via
        |``repair.migrate_domain``."""
   )
-  def purge_deactivated_domain(domain: DomainAlias): Unit = {
+  def purge_deactivated_domain(domain: DomainAlias): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
@@ -402,7 +396,6 @@ class ParticipantRepairAdministration(
         )
       }
     }
-  }
 
   @Help.Summary("Mark sequenced events as ignored.")
   @Help.Description(

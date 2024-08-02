@@ -268,44 +268,38 @@ class SequencerRuntime(
 
   @nowarn("cat=deprecation")
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(
-    {
-      v0.DomainServiceGrpc.bindService(
-        new GrpcDomainService(authenticationConfig.agreementManager, loggerFactory),
-        executionContext,
-      )
-    }, {
-      ApiInfoServiceGrpc.bindService(
-        new GrpcApiInfoService(
-          CantonGrpcUtil.ApiName.SequencerPublicApi
+    v0.DomainServiceGrpc.bindService(
+      new GrpcDomainService(authenticationConfig.agreementManager, loggerFactory),
+      executionContext,
+    ),
+    ApiInfoServiceGrpc.bindService(
+      new GrpcApiInfoService(
+        CantonGrpcUtil.ApiName.SequencerPublicApi
+      ),
+      executionContext,
+    ),
+    ServerInterceptors.intercept(
+      v0.SequencerConnectServiceGrpc.bindService(
+        new GrpcSequencerConnectService(
+          domainId,
+          sequencerId,
+          staticDomainParameters,
+          syncCrypto,
+          agreementManager,
+          loggerFactory,
+        )(
+          ec
         ),
         executionContext,
-      )
-    }, {
-      ServerInterceptors.intercept(
-        v0.SequencerConnectServiceGrpc.bindService(
-          new GrpcSequencerConnectService(
-            domainId,
-            sequencerId,
-            staticDomainParameters,
-            syncCrypto,
-            agreementManager,
-            loggerFactory,
-          )(
-            ec
-          ),
-          executionContext,
-        ),
-        new SequencerConnectServerInterceptor(loggerFactory),
-      )
-    }, {
-      SequencerVersionServiceGrpc.bindService(
-        new GrpcSequencerVersionService(staticDomainParameters.protocolVersion, loggerFactory),
-        ec,
-      )
-    }, {
-      v0.SequencerAuthenticationServiceGrpc
-        .bindService(authenticationServices.sequencerAuthenticationService, ec)
-    }, {
+      ),
+      new SequencerConnectServerInterceptor(loggerFactory),
+    ),
+    SequencerVersionServiceGrpc.bindService(
+      new GrpcSequencerVersionService(staticDomainParameters.protocolVersion, loggerFactory),
+      ec,
+    ),
+    v0.SequencerAuthenticationServiceGrpc
+      .bindService(authenticationServices.sequencerAuthenticationService, ec), {
       import scala.jdk.CollectionConverters.*
 
       // use the auth service interceptor if available
@@ -315,14 +309,13 @@ class SequencerRuntime(
         v0.SequencerServiceGrpc.bindService(sequencerService, ec),
         interceptors,
       )
-    }, {
-      ApiInfoServiceGrpc.bindService(
-        new GrpcApiInfoService(
-          CantonGrpcUtil.ApiName.SequencerPublicApi
-        ),
-        executionContext,
-      )
     },
+    ApiInfoServiceGrpc.bindService(
+      new GrpcApiInfoService(
+        CantonGrpcUtil.ApiName.SequencerPublicApi
+      ),
+      executionContext,
+    ),
   )
 
   override def onClosed(): Unit =

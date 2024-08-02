@@ -112,9 +112,8 @@ trait CantonHealthAdministration[Status <: CantonStatus]
 
   protected def statusMap[A <: InstanceReferenceCommon](
       nodes: NodeReferences[A, _, _]
-  ): Map[String, () => NodeStatus[A#Status]] = {
-    nodes.all.map { node => node.name -> (() => node.health.status) }.toMap
-  }
+  ): Map[String, () => NodeStatus[A#Status]] =
+    nodes.all.map(node => node.name -> (() => node.health.status)).toMap
 
   def status(): Status
 
@@ -142,7 +141,7 @@ trait CantonHealthAdministration[Status <: CantonStatus]
     }
 
     // Try to get a local dump by going through the local nodes and returning the first one that succeeds
-    def getLocalDump(nodes: NonEmptyList[InstanceReferenceCommon]): Future[String] = {
+    def getLocalDump(nodes: NonEmptyList[InstanceReferenceCommon]): Future[String] =
       Future {
         nodes.head.health.dump(
           File.newTemporaryFile(s"local-"),
@@ -160,7 +159,6 @@ trait CantonHealthAdministration[Status <: CantonStatus]
           case None => Future.failed(e)
         }
       }
-    }
 
     val localDump = NonEmptyList
       // The sorting is not necessary but makes testing easier
@@ -186,10 +184,9 @@ class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnviro
     extends CantonHealthAdministration[CommunityCantonStatus] {
 
   @Help.Summary("Aggregate status info of all participants and domains")
-  def status(): CommunityCantonStatus = {
+  def status(): CommunityCantonStatus =
     CommunityCantonStatus.getStatus(
       statusMap[DomainReference](consoleEnv.domains),
       statusMap[ParticipantReference](consoleEnv.participants),
     )
-  }
 }

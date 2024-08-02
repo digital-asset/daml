@@ -93,7 +93,7 @@ class GrpcStatusService(
     Future.successful(v0.SetLogLevelResponse())
   }
 
-  override def getLastErrors(request: v0.GetLastErrorsRequest): Future[v0.GetLastErrorsResponse] = {
+  override def getLastErrors(request: v0.GetLastErrorsRequest): Future[v0.GetLastErrorsResponse] =
     NodeLoggingUtil.lastErrors() match {
       case Some(errors) =>
         Future.successful(v0.GetLastErrorsResponse(errors = errors.map { case (traceId, message) =>
@@ -106,11 +106,10 @@ class GrpcStatusService(
             .asRuntimeException()
         )
     }
-  }
 
   override def getErrorTrace(
       request: v0.GetLastErrorTraceRequest
-  ): Future[v0.GetLastErrorTraceResponse] = {
+  ): Future[v0.GetLastErrorTraceResponse] =
     NodeLoggingUtil.lastErrorTrace(request.traceId) match {
       case Some(trace) =>
         Future.successful(v0.GetLastErrorTraceResponse(trace))
@@ -121,6 +120,5 @@ class GrpcStatusService(
             .asRuntimeException()
         )
     }
-  }
 
 }

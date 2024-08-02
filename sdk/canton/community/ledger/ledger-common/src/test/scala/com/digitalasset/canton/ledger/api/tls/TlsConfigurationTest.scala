@@ -152,7 +152,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
     }
   }
 
-  private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] = {
+  private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] =
     List("server.crt", "server.pem", "ca.crt").map { src =>
       TestResourceUtils.resourceFile("test-certificates/" + src)
     } match {
@@ -172,8 +172,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
         )
       case _ => None
     }
-
-  }
 
   private def getServerEnabledProtocols(minTls: Option[TlsVersion]): Seq[String] = {
     val sslContext: Option[SslContext] = configWithProtocols(minTls).flatMap(_.server)

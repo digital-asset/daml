@@ -67,7 +67,9 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     def setupCreate(result: => TestNodeBootstrap): Unit =
       createResult.set(new CreateResult(result))
 
-    def create(name: String, config: TestNodeConfig): TestNodeBootstrap = createResult.get.get
+    def create(name: String, config: TestNodeConfig): Either[String, TestNodeBootstrap] = Right(
+      createResult.get.get
+    )
   }
 
   class TestNodes(factory: TestNodeFactory, configs: Map[String, TestNodeConfig])
@@ -128,13 +130,13 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
       nodes.startAndWait("n1").map(_ => ()) shouldBe Right(()) // first create should work
       nodes.startAndWait("n1").map(_ => ()) shouldBe Right(()) // second is now a noop
     }
-    "return an initialization failure if an exception is thrown during startup" in new Fixture {
+    "return FailedToCreateNode if an exception is thrown during the creation of the node" in new Fixture {
       val exception = new RuntimeException("Nope!")
-      nodeFactory.setupCreate { throw exception }
-      the[RuntimeException] thrownBy Await.result(
+      nodeFactory.setupCreate(throw exception)
+      Await.result(
         nodes.start("n1").value,
         10.seconds,
-      ) shouldBe exception
+      ) shouldBe Left(FailedToCreateNode("n1", "Nope!"))
     }
     "return a proper left if startup fails" in new Fixture {
       val node = new TestNodeBootstrap {
@@ -155,9 +157,8 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     "return an initialization failure if an exception is thrown during shutdown" in new Fixture {
       val anException = new RuntimeException("Nope!")
       val node = new TestNodeBootstrap {
-        override def onClosed() = {
+        override def onClosed() =
           throw anException
-        }
       }
       nodeFactory.setupCreate(node)
 

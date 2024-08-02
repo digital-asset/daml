@@ -105,7 +105,7 @@ object PekkoUtil extends HasLoggerName {
   def remember[A, Mat](
       graph: FlowOps[A, Mat],
       memory: NonNegativeInt,
-  ): graph.Repr[NonEmpty[Seq[A]]] = {
+  ): graph.Repr[NonEmpty[Seq[A]]] =
     // Prepend window many None to the given source
     // so that sliding starts emitting upon the first element received
     graph
@@ -121,7 +121,6 @@ object PekkoUtil extends HasLoggerName {
         // because then the source completed before emitting any elements
         NonEmpty.from(elems)
       }
-  }
 
   /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
     * every subsequent element. Unlike [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
@@ -212,13 +211,12 @@ object PekkoUtil extends HasLoggerName {
     */
   def mapAsyncAndDrainUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
-  )(implicit loggingContext: NamedLoggingContext): graph.Repr[B] = {
+  )(implicit loggingContext: NamedLoggingContext): graph.Repr[B] =
     mapAsyncUS(graph, parallelism)(f)
       // Important to use `collect` instead of `takeWhile` here
       // so that the return source completes only after all `source`'s elements have been consumed.
       // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
       .collect { case Outcome(x) => x }
-  }
 
   /** Combines [[mapAsyncUS]] with [[statefulMapAsync]]. */
   def statefulMapAsyncUS[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
@@ -514,25 +512,23 @@ object PekkoUtil extends HasLoggerName {
     */
   def withUniqueKillSwitch[A, Mat, Mat2](
       graph: FlowOpsMat[A, Mat]
-  )(mat: (Mat, UniqueKillSwitch) => Mat2): graph.ReprMat[WithKillSwitch[A], Mat2] = {
+  )(mat: (Mat, UniqueKillSwitch) => Mat2): graph.ReprMat[WithKillSwitch[A], Mat2] =
     withMaterializedValueMat(new AtomicReference[UniqueKillSwitch])(graph)(Keep.both)
       .viaMat(KillSwitches.single) { case ((m, ref), killSwitch) =>
         ref.set(killSwitch)
         mat(m, killSwitch)
       }
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
-  }
 
   def injectKillSwitch[A, Mat](
       graph: FlowOpsMat[A, Mat]
-  )(killSwitch: Mat => KillSwitch): graph.ReprMat[WithKillSwitch[A], Mat] = {
+  )(killSwitch: Mat => KillSwitch): graph.ReprMat[WithKillSwitch[A], Mat] =
     withMaterializedValueMat(new AtomicReference[KillSwitch])(graph)(Keep.both)
       .mapMaterializedValue { case (mat, ref) =>
         ref.set(killSwitch(mat))
         mat
       }
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
-  }
 
   private[util] def withMaterializedValueMat[M, A, Mat, Mat2](create: => M)(
       graph: FlowOpsMat[A, Mat]
@@ -610,7 +606,7 @@ object PekkoUtil extends HasLoggerName {
       graph: FlowOps[WithKillSwitch[A], Mat],
       condition: A => Boolean,
   ): graph.Repr[WithKillSwitch[A]] =
-    graph.statefulMapConcat(() => {
+    graph.statefulMapConcat { () =>
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var draining = false
       elem => {
@@ -623,7 +619,7 @@ object PekkoUtil extends HasLoggerName {
           Iterable.single(elem)
         }
       }
-    })
+    }
 
   object syntax {
 

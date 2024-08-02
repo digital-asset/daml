@@ -122,7 +122,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
     testee
-      .update(6)((from, to) => {
+      .update(6) { (from, to) =>
         from shouldBe 0
         to shouldBe 6
         Future.successful(
@@ -135,7 +135,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
             6 -> "t|22:same:name",
           )
         )
-      })
+      }
       .map { _ =>
         partyPresent(testee, "p1", 1)
         partyPresent(testee, "p2", 2)
@@ -170,7 +170,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
     testee
-      .update(6)((from, to) => {
+      .update(6) { (from, to) =>
         from shouldBe 3
         to shouldBe 6
         Future.successful(
@@ -181,7 +181,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
             7 -> "t|22:same:name",
           )
         )
-      })
+      }
       .map { _ =>
         partyPresent(testee, "p1", 1)
         partyPresent(testee, "p2", 2)
@@ -224,7 +224,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     domainIdPresent(testee, "x::domain2", 8)
 
     testee
-      .update(4)((from, to) => {
+      .update(4) { (from, to) =>
         from shouldBe 2
         to shouldBe 6
         Future.successful(
@@ -235,7 +235,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
             6 -> "t|22:same:name",
           )
         )
-      })
+      }
       .map { _ =>
         partyPresent(testee, "p1", 1)
         partyPresent(testee, "p2", 2)

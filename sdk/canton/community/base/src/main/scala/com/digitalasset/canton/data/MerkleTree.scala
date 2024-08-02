@@ -73,7 +73,7 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
     // - the node effectively needs to be copied (because it has a blinded descendant).
     //
     // Returns (allRevealed, allBlinded) indicating whether all nodes in tree are revealed/blinded.
-    def optimizeBlindingPolicy(tree: MerkleTree[_]): (Boolean, Boolean) = {
+    def optimizeBlindingPolicy(tree: MerkleTree[_]): (Boolean, Boolean) =
       completeBlindingPolicy(tree) match {
         case BlindSubtree =>
           optimizedBlindingPolicy += tree.rootHash -> BlindSubtree
@@ -92,7 +92,6 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
           optimizedBlindingPolicy += tree.rootHash -> command
           (allRevealed && !allBlinded, allBlinded)
       }
-    }
 
     def completeBlindingPolicy(tree: MerkleTree[_]): BlindingCommand =
       blindingPolicy.applyOrElse[MerkleTree[_], BlindingCommand](

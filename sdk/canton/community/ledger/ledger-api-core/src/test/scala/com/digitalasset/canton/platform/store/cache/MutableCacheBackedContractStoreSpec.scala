@@ -351,7 +351,7 @@ object MutableCacheBackedContractStoreSpec {
 
     override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Option[LedgerDaoContractsReader.ContractState]] = {
+    ): Future[Option[LedgerDaoContractsReader.ContractState]] =
       (contractId, validAt) match {
         case (`cId_1`, `offset0`) => activeContract(contract1, Set(alice), t1)
         case (`cId_1`, validAt) if validAt > offset0 => archivedContract(Set(alice))
@@ -367,7 +367,6 @@ object MutableCacheBackedContractStoreSpec {
           result
         case _ => Future.successful(Option.empty)
       }
-    }
 
     override def lookupActiveContractAndLoadArgument(
         forParties: Set[Party],

@@ -1,0 +1,29 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.admin.v0;
+
+import "com/digitalasset/canton/health/admin/v0/status_service.proto";
+import "com/digitalasset/canton/health/admin/v1/status_service.proto";
+
+service DomainManagerStatusService {
+  rpc DomainManagerStatus(DomainManagerStatusRequest) returns (DomainManagerStatusResponse);
+}
+
+message DomainManagerStatusRequest {}
+
+message DomainManagerStatusResponse {
+  oneof kind {
+    DomainManagerStatusResponseStatus status = 1;
+    com.digitalasset.canton.health.admin.v0.NodeStatus.NotInitialized unavailable = 2;
+    com.digitalasset.canton.health.admin.v1.Failure failure = 3;
+  }
+
+  message DomainManagerStatusResponseStatus {
+    com.digitalasset.canton.health.admin.v1.Status common_status = 1;
+
+    int32 protocol_version = 2;
+  }
+}

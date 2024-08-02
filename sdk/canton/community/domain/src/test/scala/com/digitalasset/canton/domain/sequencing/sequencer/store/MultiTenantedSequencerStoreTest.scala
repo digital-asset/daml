@@ -29,7 +29,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
     def ts(epochSeconds: Int): CantonTimestamp =
       CantonTimestamp.Epoch.plusSeconds(epochSeconds.toLong)
 
-    def deliver(ts: CantonTimestamp, sender: SequencerMemberId): Sequenced[PayloadId] = {
+    def deliver(ts: CantonTimestamp, sender: SequencerMemberId): Sequenced[PayloadId] =
       Sequenced(
         ts,
         DomainSequencingTestUtils.mockDeliverStoreEvent(
@@ -38,7 +38,6 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           traceContext = traceContext,
         )(),
       )
-    }
 
     def writeDelivers(store: SequencerWriterStore, sender: SequencerMemberId)(
         epochSeconds: Int*

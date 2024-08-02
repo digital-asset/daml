@@ -171,7 +171,7 @@ final case class ListSignedLegalIdentityClaimResult(context: BaseResult, item: L
 object ListSignedLegalIdentityClaimResult {
   def fromProtoV0(
       value: v0.ListSignedLegalIdentityClaimResult.Result
-  ): ParsingResult[ListSignedLegalIdentityClaimResult] = {
+  ): ParsingResult[ListSignedLegalIdentityClaimResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV0(contextProto)
@@ -184,7 +184,6 @@ object ListSignedLegalIdentityClaimResult {
         item.claim
       )
     } yield ListSignedLegalIdentityClaimResult(context, claim)
-  }
 }
 
 final case class ListParticipantDomainStateResult(context: BaseResult, item: ParticipantState)

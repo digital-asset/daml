@@ -58,9 +58,8 @@ class CommunityEnvironment(
 
   def createHealthDumpGenerator(
       commandRunner: GrpcAdminCommandRunner
-  ): HealthDumpGenerator[CommunityCantonStatus] = {
+  ): HealthDumpGenerator[CommunityCantonStatus] =
     new CommunityHealthDumpGenerator(this, commandRunner)
-  }
 }
 
 object CommunityEnvironmentFactory extends EnvironmentFactory[CommunityEnvironment] {

@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.admin.api.client.commands.DomainAdminCommands.GetDomainParameters
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   DomainAdminCommands,
   TopologyAdminCommands,
@@ -34,10 +35,11 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
+import com.digitalasset.canton.domain.admin.data.DomainStatus
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.*
@@ -78,7 +80,7 @@ trait DomainAdministration {
       """This command will list the currently valid state as stored in the authorized store.
         | For a deep inspection of the identity management history, use the `topology.participant_domain_states.list` command."""
     )
-    def list(): Seq[ListParticipantDomainStateResult] = {
+    def list(): Seq[ListParticipantDomainStateResult] =
       consoleEnvironment
         .run {
           adminCommand(
@@ -97,7 +99,6 @@ trait DomainAdministration {
           )
         }
         .filter(_.item.side != RequestSide.To)
-    }
 
     @Help.Summary("Change state and trust level of participant")
     @Help.Description("""Set the state of the participant within the domain.
@@ -159,7 +160,7 @@ trait DomainAdministration {
 
     private def get_dynamic_domain_parameters_v1(
         operation: String
-    ): DynamicDomainParametersV1 = {
+    ): DynamicDomainParametersV1 =
       get_dynamic_domain_parameters match {
         case _ @(_: DynamicDomainParametersV0 | _: DynamicDomainParametersV2) =>
           val protocolVersion = get_static_domain_parameters.protocolVersion
@@ -168,11 +169,10 @@ trait DomainAdministration {
           )
         case p: DynamicDomainParametersV1 => p
       }
-    }
 
     private def get_dynamic_domain_parameters_v2(
         operation: String
-    ): DynamicDomainParametersV2 = {
+    ): DynamicDomainParametersV2 =
       get_dynamic_domain_parameters match {
         case _ @(_: DynamicDomainParametersV0 | _: DynamicDomainParametersV1) =>
           val protocolVersion = get_static_domain_parameters.protocolVersion
@@ -181,7 +181,6 @@ trait DomainAdministration {
           )
         case p: DynamicDomainParametersV2 => p
       }
-    }
 
     /*
       Get a parameter that was static in V0 and dynamic from V1
@@ -468,7 +467,7 @@ trait DomainAdministration {
     def set_ledger_time_record_time_tolerance(
         newLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
         force: Boolean = false,
-    ): Unit = {
+    ): Unit =
       TraceContext.withNewTraceContext { implicit tc =>
         get_dynamic_domain_parameters match {
           case oldDomainParameters: DynamicDomainParametersV1 if !force =>
@@ -492,7 +491,6 @@ trait DomainAdministration {
             )
         }
       }
-    }
 
     private def securely_set_ledger_time_record_time_tolerance(
         oldDomainParameters: Either[DynamicDomainParametersV1, DynamicDomainParametersV2],
@@ -621,4 +619,20 @@ trait DomainAdministration {
       )
     }
   }
+}
+
+class DomainHealthAdministration(
+    val runner: AdminCommandRunner,
+    val consoleEnvironment: ConsoleEnvironment,
+    override val loggerFactory: NamedLoggerFactory,
+) extends HealthAdministration(
+      runner,
+      consoleEnvironment,
+      DomainStatus.fromProtoV0,
+    )
+    with FeatureFlagFilter {
+  implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+
+  override protected def nodeStatusCommand: NodeStatusCommand[DomainStatus, _, _] =
+    DomainAdminCommands.Health.DomainStatusCommand()
 }

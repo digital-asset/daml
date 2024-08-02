@@ -152,7 +152,7 @@ object StoredTopologyTransactions
   ): ParsingResult[StoredTopologyTransactions[TopologyChangeOp]] = {
     def parseItem(
         item: v0.TopologyTransactions.Item
-    ): ParsingResult[StoredTopologyTransaction[TopologyChangeOp]] = {
+    ): ParsingResult[StoredTopologyTransaction[TopologyChangeOp]] =
       for {
         sequenced <- ProtoConverter.parseRequired(
           SequencedTime.fromProtoPrimitive,
@@ -172,7 +172,6 @@ object StoredTopologyTransactions
         validUntil,
         transaction,
       )
-    }
     value.items
       .traverse(parseItem)
       .map(StoredTopologyTransactions(_))
@@ -251,9 +250,8 @@ final case class SignedTopologyTransactions[+Op <: TopologyChangeOp](
 
   def filter(
       predicate: SignedTopologyTransaction[Op] => Future[Boolean]
-  )(implicit executionContext: ExecutionContext): Future[SignedTopologyTransactions[Op]] = {
+  )(implicit executionContext: ExecutionContext): Future[SignedTopologyTransactions[Op]] =
     result.parTraverseFilter(tx => predicate(tx).map(Option.when(_)(tx))).map(this.copy)
-  }
 }
 
 final case class PositiveSignedTopologyTransactions(
@@ -277,13 +275,12 @@ object TopologyTransactionSplitter {
       replaceSelector: F[TopologyChangeOp] => Option[F[Replace]],
   ): (Seq[F[Add]], Seq[F[Remove]], Seq[F[Replace]]) = {
 
-    val (adds, removes, replaces) = {
+    val (adds, removes, replaces) =
       (
         Vector.newBuilder[F[Add]],
         Vector.newBuilder[F[Remove]],
         Vector.newBuilder[F[Replace]],
       )
-    }
     // normally, most of the txs are adds, so we preallocate the size
     adds.sizeHint(collection.size)
     collection

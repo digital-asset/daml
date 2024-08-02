@@ -82,11 +82,11 @@ class RequestCounterAllocatorImpl(
   private var boundSequenceCounter: SequencerCounter = cleanReplaySequencerCounter
 
   private val lock = new Object()
-  private def withLock[A](body: => A): A = blocking { lock.synchronized { body } }
+  private def withLock[A](body: => A): A = blocking(lock.synchronized(body))
 
   override def allocateFor(
       sc: SequencerCounter
-  )(implicit traceContext: TraceContext): Option[RequestCounter] = {
+  )(implicit traceContext: TraceContext): Option[RequestCounter] =
     if (sc < cleanReplaySequencerCounter) {
       logger.debug(
         s"Skipping request counter allocation for sequencer counter $sc because it preceded the clean replay starting point"
@@ -123,7 +123,6 @@ class RequestCounterAllocatorImpl(
       }
       Some(allocatedRc)
     }
-  }
 
   override def skipRequestCounter(rc: RequestCounter)(implicit traceContext: TraceContext): Unit =
     withLock {
@@ -141,5 +140,5 @@ class RequestCounterAllocatorImpl(
       nextRc = rc + 1
     }
 
-  override def peek: RequestCounter = withLock { nextRc }
+  override def peek: RequestCounter = withLock(nextRc)
 }

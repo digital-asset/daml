@@ -31,16 +31,15 @@ class EventsByContractKeyCache(
     private[cache] val cache: ConcurrentCache[GlobalKey, KeyUpdates]
 ) {
 
-  def push(batch: Vector[(GlobalKey, TransactionLogUpdate.Event)]): Unit = {
-    batch.foreach({
+  def push(batch: Vector[(GlobalKey, TransactionLogUpdate.Event)]): Unit =
+    batch.foreach {
       case (key, update: TransactionLogUpdate.CreatedEvent) =>
         cache.put(key, KeyUpdates(key, update, None))
       case (key, update: TransactionLogUpdate.ExercisedEvent) =>
         cache.getIfPresent(key).foreach { r =>
           cache.put(key, r.copy(archive = Some(update)))
         }
-    })
-  }
+    }
 
   def get(key: GlobalKey): Option[KeyUpdates] = cache.getIfPresent(key)
 

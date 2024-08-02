@@ -10,7 +10,7 @@ sealed trait StartupError extends Product with Serializable {
   /** Node name */
   val name: String
   def message: String
-  override def toString: String = s"${name}: $message"
+  override def toString: String = s"$name: $message"
 
 }
 
@@ -47,6 +47,8 @@ final case class DidntUseForceOnRepairMigration(name: String) extends StartupErr
       s"See `help($name.db.repair_migration)` for more details. "
 }
 
+final case class FailedToCreateNode(name: String, message: String) extends StartupError
+
 final case class StartFailed(name: String, message: String) extends StartupError
 
 final case class ShutdownDuringStartup(name: String, message: String) extends StartupError
@@ -62,7 +64,7 @@ sealed trait ShutdownError {
   val name: String
   def message: String
 
-  override def toString: String = s"${name}: $message"
+  override def toString: String = s"$name: $message"
 }
 
 /** Configuration for the given name was not found in the CantonConfig

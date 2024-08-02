@@ -47,12 +47,11 @@ class BaseDomainTopologyClientTest extends BaseTestWordSpec {
       ???
     override def domainId: DomainId = ???
 
-    def advance(ts: CantonTimestamp): Unit = {
+    def advance(ts: CantonTimestamp): Unit =
       this
         .observed(SequencedTime(ts), EffectiveTime(ts), SequencerCounter(0), List())
         .failOnShutdown(s"advance to $ts")
         .futureValue
-    }
     override implicit val executionContext: ExecutionContext =
       DirectExecutionContext(noTracingLogger)
     override protected def loggerFactory: NamedLoggerFactory =
@@ -452,13 +451,12 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         ParticipantState(RequestSide.To, domainId, participant3, Submission, TrustLevel.Ordinary),
       )
       val f = new Fixture()
-      def get(tp: TopologySnapshot, party: PartyId) = {
+      def get(tp: TopologySnapshot, party: PartyId) =
         tp.activeParticipantsOf(party.toLf).map { res =>
           res.map { case (p, r) =>
             (p, (r.permission, r.trustLevel))
           }
         }
-      }
       val party4 = PartyId(UniqueIdentifier(Identifier.tryCreate(s"unrelated"), namespace))
       for {
         _ <- f.add(ts, txs.map(mkAdd(_)))

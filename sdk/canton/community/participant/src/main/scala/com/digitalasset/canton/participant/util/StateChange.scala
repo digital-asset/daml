@@ -31,9 +31,8 @@ object StateChange {
       status: Status,
       rc: RequestCounter,
       timestamp: CantonTimestamp,
-  ): StateChange[Status] = {
+  ): StateChange[Status] =
     StateChange[Status](status, TimeOfChange(rc, timestamp))
-  }
 
   implicit def stateChangeGetResult[A <: PrettyPrinting](implicit
       getResultStatus: GetResult[A]

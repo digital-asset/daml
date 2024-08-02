@@ -88,9 +88,8 @@ trait StorageBackendSpec
     )
   }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll(): Unit =
     super.afterAll()
-  }
 
   private val runningTests = new AtomicInteger(0)
 

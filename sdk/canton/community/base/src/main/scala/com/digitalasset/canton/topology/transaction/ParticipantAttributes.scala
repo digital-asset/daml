@@ -64,7 +64,7 @@ object ParticipantPermission {
 
   def fromProtoEnum(
       permission: v0.ParticipantPermission
-  ): ParsingResult[ParticipantPermission] = {
+  ): ParsingResult[ParticipantPermission] =
     permission match {
       case v0.ParticipantPermission.Observation => Right(ParticipantPermission.Observation)
       case v0.ParticipantPermission.Confirmation => Right(ParticipantPermission.Confirmation)
@@ -74,22 +74,19 @@ object ParticipantPermission {
         Left(FieldNotSet(permission.name))
       case v0.ParticipantPermission.Unrecognized(x) => Left(UnrecognizedEnum(permission.name, x))
     }
-  }
 
   implicit val orderingParticipantPermission: Ordering[ParticipantPermission] =
     Ordering.by[ParticipantPermission, Byte](_.level).reverse
 
-  def lowerOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission = {
+  def lowerOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
     if (fst.level > snd.level)
       fst
     else snd
-  }
 
-  def higherOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission = {
+  def higherOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
     if (fst.level < snd.level)
       fst
     else snd
-  }
 
 }
 

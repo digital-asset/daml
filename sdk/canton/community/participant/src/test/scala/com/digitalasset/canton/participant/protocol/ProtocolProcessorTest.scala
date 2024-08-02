@@ -114,7 +114,7 @@ class ProtocolProcessorTest
       any[SendCallback],
     )(anyTraceContext)
   )
-    .thenAnswer(
+    .thenAnswer {
       (
           batch: Batch[DefaultOpenEnvelope],
           _: SendType,
@@ -122,7 +122,7 @@ class ProtocolProcessorTest
           _: CantonTimestamp,
           messageId: MessageId,
           callback: SendCallback,
-      ) => {
+      ) =>
         callback(
           UnlessShutdown.Outcome(
             Success(
@@ -138,8 +138,7 @@ class ProtocolProcessorTest
           )
         )
         EitherT.pure[Future, SendAsyncClientError](())
-      }
-    )
+    }
 
   private val mockInFlightSubmissionTracker = mock[InFlightSubmissionTracker]
   when(
@@ -600,7 +599,7 @@ class ProtocolProcessorTest
             .processRequest(requestId.unwrap, rc, requestSc, requestBatchWrongRH)
             .onShutdown(fail()),
           _.warningMessage should include(
-            s"Request ${rc}: Found malformed payload: WrongRootHash"
+            s"Request $rc: Found malformed payload: WrongRootHash"
           ),
         )
         .futureValue
@@ -633,7 +632,7 @@ class ProtocolProcessorTest
             .processRequest(requestId.unwrap, rc, requestSc, requestBatchDecryptError)
             .onShutdown(fail()),
           _.warningMessage should include(
-            s"Request ${rc}: Decryption error: SyncCryptoDecryptError("
+            s"Request $rc: Decryption error: SyncCryptoDecryptError("
           ),
         )
         .futureValue
@@ -914,7 +913,7 @@ class ProtocolProcessorTest
       val processF = performResultProcessing(CantonTimestamp.Epoch.plusSeconds(10), sut)
 
       // Processing should not complete as the request processing has not finished
-      always() { processF.value.isCompleted shouldEqual false }
+      always()(processF.value.isCompleted shouldEqual false)
 
       // Check the result processing has not modified the request state
       taskScheduler.readSequencerCounterQueue(resultSc) shouldBe NotInserted(None, None)

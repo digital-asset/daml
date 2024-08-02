@@ -247,7 +247,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "No internal participant data to prune up to time " +
-            s"${beforeOrAt} and offset ${boundInclusive.unwrap.value}."
+            s"$beforeOrAt and offset ${boundInclusive.unwrap.value}."
         )
         with PruningServiceError
   }

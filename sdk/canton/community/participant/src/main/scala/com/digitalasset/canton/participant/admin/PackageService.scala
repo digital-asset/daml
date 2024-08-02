@@ -292,9 +292,8 @@ class PackageService(
 
   override def getDar(hash: Hash)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageService.Dar]] = {
+  ): Future[Option[PackageService.Dar]] =
     packagesDarsStore.getDar(hash)
-  }
 
   override def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
@@ -306,7 +305,7 @@ class PackageService(
     EitherT(
       packagesDarsStore
         .getDar(darId)
-        .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
+        .map(_.toRight(s"No such dar $darId").flatMap(PackageService.darToLf))
     )
 
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
@@ -394,8 +393,7 @@ object PackageService {
   )(implicit
       executionContext: ExecutionContext,
       contextualizedErrorLogger: ContextualizedErrorLogger,
-  ): EitherT[FutureUnlessShutdown, DamlError, T] = {
-
+  ): EitherT[FutureUnlessShutdown, DamlError, T] =
     EitherT.fromEither {
       attempt.leftMap {
         case LfArchiveError.InvalidDar(entries, cause) =>
@@ -410,7 +408,6 @@ object PackageService {
         case e => PackageServiceErrors.InternalError.Unhandled(e)
       }
     }
-  }
 
   private def darToLf(
       dar: Dar
@@ -421,9 +418,7 @@ object PackageService {
     DarParser
       .readArchive(dar.descriptor.name.str, stream)
       .fold(
-        { _ =>
-          Left(s"Cannot parse stored dar $dar")
-        },
+        _ => Left(s"Cannot parse stored dar $dar"),
         x => Right(dar.descriptor -> x),
       )
   }

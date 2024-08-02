@@ -133,14 +133,13 @@ private[mediator] class InMemoryFinalizedResponseStore(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Option[CantonTimestamp]] = {
+  ): Future[Option[CantonTimestamp]] =
     Future.successful {
       import cats.Order.*
       val sortedSet =
         SortedSet.empty[CantonTimestamp] ++ finalizedRequests.keySet
       sortedSet.drop(skip).headOption
     }
-  }
 
   override def close(): Unit = ()
 }
@@ -244,7 +243,7 @@ private[mediator] class DbFinalizedResponseStore(
       closeContext =>
         for {
           removedCount <- storage.update(
-            sqlu"delete from response_aggregations where request_id <= ${timestamp}",
+            sqlu"delete from response_aggregations where request_id <= $timestamp",
             functionFullName,
           )(traceContext, closeContext)
         } yield logger.debug(s"Removed $removedCount finalized responses")
@@ -253,7 +252,7 @@ private[mediator] class DbFinalizedResponseStore(
   override def count()(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Long] = {
+  ): Future[Long] =
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage.query(
@@ -261,14 +260,13 @@ private[mediator] class DbFinalizedResponseStore(
           functionFullName,
         )(traceContext, closeContext)
     }
-  }
 
   override def locatePruningTimestamp(
       skip: Int
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Option[CantonTimestamp]] = {
+  ): Future[Option[CantonTimestamp]] =
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage
@@ -280,6 +278,5 @@ private[mediator] class DbFinalizedResponseStore(
             functionFullName,
           )(traceContext, closeContext)
     }
-  }
 
 }

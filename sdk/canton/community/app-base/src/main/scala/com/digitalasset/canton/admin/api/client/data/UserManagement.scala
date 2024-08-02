@@ -60,7 +60,7 @@ final case class UserRights(
 object UserRights {
   def fromProtoV0(
       values: Seq[ProtoUserRight]
-  ): ParsingResult[UserRights] = {
+  ): ParsingResult[UserRights] =
     Right(values.map(_.kind).foldLeft(UserRights(Set(), Set(), false, false)) {
       case (acc, Kind.Empty) => acc
       case (acc, Kind.ParticipantAdmin(value)) => acc.copy(participantAdmin = true)
@@ -71,7 +71,6 @@ object UserRights {
       case (acc, Kind.IdentityProviderAdmin(value)) =>
         acc.copy(identityProviderAdmin = true)
     })
-  }
 }
 
 final case class ListLedgerApiUsersResult(users: Seq[LedgerApiUser], nextPageToken: String)

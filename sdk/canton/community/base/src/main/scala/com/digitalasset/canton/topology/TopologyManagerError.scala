@@ -39,7 +39,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Other(s: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"TODO(#14048) other failure: ${s}"
+          cause = s"TODO(#14048) other failure: $s"
         )
         with TopologyManagerError
 
@@ -185,7 +185,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class ExistsAt(ts: CantonTimestamp)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given topology transaction already exists at ${ts}."
+          cause = s"The given topology transaction already exists at $ts."
         )
         with TopologyManagerError
   }

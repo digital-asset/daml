@@ -44,11 +44,10 @@ object Traced {
   implicit val traverseTraced: Traverse[Traced] = new Traverse[Traced] {
     override def traverse[G[_], A, B](
         traced: Traced[A]
-    )(f: A => G[B])(implicit G: Applicative[G]): G[Traced[B]] = {
+    )(f: A => G[B])(implicit G: Applicative[G]): G[Traced[B]] =
       G.map(f(traced.value)) { newValue =>
         traced.copy(value = newValue)(traced.traceContext)
       }
-    }
 
     override def foldLeft[A, B](traced: Traced[A], b: B)(f: (B, A) => B): B = f(b, traced.value)
     override def foldRight[A, B](traced: Traced[A], lb: Eval[B])(

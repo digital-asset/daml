@@ -290,7 +290,7 @@ class SyncDomainMigration(
       domainId: DomainId
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] =
     performUnlessClosingF("pruneSelectedDeactivatedDomainStores") {
       logger.info(
         s"About to prune deactivated sync domain $domainId sequenced event store'"
@@ -300,7 +300,6 @@ class SyncDomainMigration(
         .get(domainId)
         .fold(Future.unit)(_.sequencedEventStore.delete(SequencerCounter.Genesis))
     }
-  }
 
   private def updateDomainStatus(
       alias: DomainAlias,

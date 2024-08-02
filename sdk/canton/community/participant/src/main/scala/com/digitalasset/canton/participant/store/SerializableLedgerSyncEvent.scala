@@ -1056,11 +1056,10 @@ final case class SerializableRejectionReasonTemplate(
 object SerializableRejectionReasonTemplate {
   def fromProtoV0(
       reasonP: v0.CommandRejected.GrpcRejectionReasonTemplate
-  ): ParsingResult[LedgerSyncEvent.CommandRejected.FinalReason] = {
+  ): ParsingResult[LedgerSyncEvent.CommandRejected.FinalReason] =
     for {
       rpcStatus <- ProtoConverter.protoParser(RpcStatus.parseFrom)(reasonP.status)
     } yield LedgerSyncEvent.CommandRejected.FinalReason(rpcStatus)
-  }
 }
 
 private[store] final case class SerializableTransferredOut(

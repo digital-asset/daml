@@ -144,7 +144,7 @@ class TransactionsFlatStreamReader(
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         maxOutputBatchCount: Int,
         metric: DatabaseMetrics,
-    ): Source[Iterable[Long], NotUsed] = {
+    ): Source[Iterable[Long], NotUsed] =
       decomposedFilters
         .map { filter =>
           paginatingAsyncStream.streamIdsFromSeekPagination(
@@ -178,7 +178,6 @@ class TransactionsFlatStreamReader(
             maxBatchCount = maxOutputBatchCount,
           )
         )
-    }
 
     def fetchPayloads(
         ids: Source[Iterable[Long], NotUsed],
@@ -288,12 +287,11 @@ class TransactionsFlatStreamReader(
   private def deserializeLfValues(
       rawEvents: Vector[EventStorageBackend.Entry[Raw.FlatEvent]],
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit lc: LoggingContextWithTrace): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+  )(implicit lc: LoggingContextWithTrace): Future[Vector[EventStorageBackend.Entry[Event]]] =
     Timed.future(
       future =
         Future.traverse(rawEvents)(deserializeEntry(eventProjectionProperties, lfValueTranslation)),
       timer = dbMetrics.flatTxStream.translationTimer,
     )
-  }
 
 }

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -214,7 +215,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
   }
   private val serverPort = UniquePortGenerator.next
-  logger.debug(s"Using port ${serverPort} for integration test")
+  logger.debug(s"Using port $serverPort for integration test")
   private val server = NettyServerBuilder
     .forPort(serverPort.unwrap)
     .addService(v0.SequencerConnectServiceGrpc.bindService(connectService, ec))
@@ -255,10 +256,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         CommonMockMetrics.sequencerClient,
         LoggingConfig(),
         loggerFactory,
-        ProtocolVersionCompatibility.supportedProtocolsParticipant(
+        ProtocolVersionCompatibility.trySupportedProtocolsParticipant(
           includeUnstableVersions = BaseTest.testedProtocolVersion.isUnstable,
           includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
-          release = ReleaseVersion.current,
         ),
         Some(BaseTest.testedProtocolVersion),
       ).create(
@@ -285,7 +285,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       ).value,
       10.seconds,
     )
-    .fold(fail(_), Predef.identity)
+    .valueOr(fail(_))
 
   override def close(): Unit =
     Lifecycle.close(
@@ -299,7 +299,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   def mockSubscription(
       subscribeCallback: Unit => Unit = _ => (),
       unsubscribeCallback: Unit => Unit = _ => (),
-  ): Unit = {
+  ): Unit =
     // when a subscription is made resolve the subscribe promise
     // return to caller a subscription that will resolve the unsubscribe promise on close
     when(
@@ -329,7 +329,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           }
         }
       }
-  }
 }
 
 class GrpcSequencerIntegrationTest

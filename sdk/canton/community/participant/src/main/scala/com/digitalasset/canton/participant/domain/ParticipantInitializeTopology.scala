@@ -116,9 +116,8 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
         ): HandlerResult = {
           val openEvents = tracedEvents.value.map { closedSignedEvent =>
             val closedEvent = closedSignedEvent.signedEvent.content
-            val (openEvent, openingErrors) = {
+            val (openEvent, openingErrors) =
               SequencedEvent.openEnvelopes(closedEvent)(protocolVersion, crypto.pureCrypto)
-            }
 
             openingErrors.foreach { error =>
               val cause =

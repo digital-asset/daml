@@ -332,7 +332,7 @@ final class RepairService(
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Adding ${contracts.length} contracts to domain ${domain} with ignoreAlreadyAdded=${ignoreAlreadyAdded} and ignoreStakeholderCheck=${ignoreStakeholderCheck}"
+      s"Adding ${contracts.length} contracts to domain $domain with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
     )
     if (contracts.isEmpty) {
       Either.right(logger.info("No contracts to add specified"))
@@ -514,7 +514,7 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change domain request for ${contractIds.length} contracts from ${sourceDomain} to ${targetDomain} with skipInactive=${skipInactive}"
+      s"Change domain request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
     )
     lockAndAwaitEitherTDomainPair(
       "repair.change_domain",
@@ -701,7 +701,7 @@ final class RepairService(
         EitherT(hostsParty(topologySnapshot, participantId)(p).map { hosted =>
           EitherUtil.condUnitE(
             hosted,
-            log(s"Witness ${p} not active on domain ${repair.domain.alias} and local participant"),
+            log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
           )
         })
       }
@@ -738,7 +738,7 @@ final class RepairService(
       _ <- topologySnapshot.allHaveActiveParticipants(contractToAdd.witnesses).leftMap {
         missingWitnesses =>
           log(
-            s"Domain ${repair.domain.alias} missing witnesses ${missingWitnesses} of contract ${contract.contractId}"
+            s"Domain ${repair.domain.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
       }
 
@@ -901,7 +901,7 @@ final class RepairService(
       )(storedContract =>
         EitherTUtil.condUnitET[Future](
           storedContract == contract,
-          s"Contract ${contract.contractId} already exists in the contract store, but differs from contract to be created. Contract to be created ${contract} versus existing contract ${storedContract}.",
+          s"Contract ${contract.contractId} already exists in the contract store, but differs from contract to be created. Contract to be created $contract versus existing contract $storedContract.",
         )
       )
 
@@ -915,12 +915,11 @@ final class RepairService(
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     repair.domain.persistentState.activeContractStore
       .markContractAdded(cid, timeOfChange)
       .toEitherTWithNonaborts
       .leftMap(e => log(s"Failed to create contract $cid in ActiveContractStore: $e"))
-  }
 
   private def persistTransferIn(
       repair: RepairRequest,
@@ -933,7 +932,7 @@ final class RepairService(
     repair.domain.persistentState.activeContractStore
       .transferInContract(cid, timeOfChange, sourceDomain)
       .toEitherTWithNonaborts
-      .leftMap(e => log(s"Failed to transfer in contract ${cid} in ActiveContractStore: ${e}"))
+      .leftMap(e => log(s"Failed to transfer in contract $cid in ActiveContractStore: $e"))
 
   private def persistPurge(
       repair: RepairRequest,
@@ -1068,7 +1067,7 @@ final class RepairService(
       _packageVetted <- EitherTUtil
         .condUnitET[Future](
           packageDescription.nonEmpty,
-          log(s"Failed to locate package ${lfPackageId}"),
+          log(s"Failed to locate package $lfPackageId"),
         )
     } yield ()
 
@@ -1080,7 +1079,7 @@ final class RepairService(
     def check(
         persistentState: SyncDomainPersistentState,
         indexedDomain: IndexedDomain,
-    ): Future[Either[String, Unit]] = {
+    ): Future[Either[String, Unit]] =
       SyncDomainEphemeralStateFactory
         .startingPoints(
           indexedDomain,
@@ -1092,19 +1091,18 @@ final class RepairService(
         .map { startingPoints =>
           if (startingPoints.processing.prenextTimestamp >= timestamp) {
             logger.debug(
-              s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing ${timestamp}"
+              s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing $timestamp"
             )
             Right(())
           } else {
             logger.debug(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet ${timestamp}"
+              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
             )
             Left(
-              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet ${timestamp}"
+              s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"
             )
           }
         }
-    }
     getPersistentState(domainId)
       .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap { case (persistentState, _, indexedDomain) =>
@@ -1115,7 +1113,7 @@ final class RepairService(
               this,
               retry.Forever,
               50.milliseconds,
-              s"awaiting clean-head for=${domainId} at ts=${timestamp}",
+              s"awaiting clean-head for=$domainId at ts=$timestamp",
             )
             .unlessShutdown(
               FutureUnlessShutdown.outcomeF(check(persistentState, indexedDomain)),
@@ -1144,7 +1142,7 @@ final class RepairService(
     val domainAlias = aliasManager.aliasForDomainId(domainId).fold(domainId.filterString)(_.unwrap)
     for {
       persistentState <- EitherT.fromEither[Future](
-        lookUpDomainPersistence(domainId, s"domain ${domainAlias}")
+        lookUpDomainPersistence(domainId, s"domain $domainAlias")
       )
       indexedDomain <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(domainId))
     } yield (persistentState, domainAlias, indexedDomain)
@@ -1257,7 +1255,7 @@ final class RepairService(
 
   private def markClean(
       repair: RepairRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     repair.requestCounters.forgetNE
       .parTraverse_(
         repair.domain.persistentState.requestJournalStore.replace(
@@ -1268,7 +1266,6 @@ final class RepairService(
         )
       )
       .leftMap(t => log(s"Failed to update request journal store on ${repair.domain.alias}: $t"))
-  }
 
   private def commitRepairs(
       repairs: RepairRequest*
@@ -1321,12 +1318,12 @@ final class RepairService(
     for {
       dp <- syncDomainPersistentStateManager
         .get(domainId)
-        .toRight(log(s"Could not find ${domainDescription}"))
+        .toRight(log(s"Could not find $domainDescription"))
       _ <- Either.cond(
         !dp.isMemory(),
         (),
         log(
-          s"${domainDescription} is in memory which is not supported by repair. Use db persistence."
+          s"$domainDescription is in memory which is not supported by repair. Use db persistence."
         ),
       )
     } yield dp
@@ -1413,7 +1410,7 @@ final class RepairService(
     lockAndAwait[B](
       description,
       domainIds.flatMap(Function.tupled(code)),
-      domainIds.map({ case (d1, d2) => Seq(d1, d2) }),
+      domainIds.map { case (d1, d2) => Seq(d1, d2) },
     )
   }
 
@@ -1447,13 +1444,13 @@ object RepairService {
         ledgerTime: Instant,
         contractSalt: Option[Salt],
         transactionVersion: Option[TransactionVersion],
-    )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] = {
+    )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] =
       for {
         template <- LedgerApiFieldValidations.validateIdentifier(templateId).leftMap(_.getMessage)
 
         argsValue <- LedgerApiValueValidator
           .validateRecord(createArguments)
-          .leftMap(e => s"Failed to validate arguments: ${e}")
+          .leftMap(e => s"Failed to validate arguments: $e")
 
         argsVersionedValue = LfVersioned(
           // Version is ignored by daml engine upon RepairService.addContract
@@ -1495,7 +1492,6 @@ object RepairService {
         ledgerCreateTime = LedgerCreateTime(time),
         contractSalt = contractSalt,
       )
-    }
 
     def contractInstanceToData(
         contract: SerializableContract
@@ -1518,7 +1514,7 @@ object RepairService {
         .lfValueToApiRecord(verbose = true, contractInstance.unversioned.arg)
         .bimap(
           e =>
-            s"Failed to convert contract instance to data due to issue with create-arguments: ${e}",
+            s"Failed to convert contract instance to data due to issue with create-arguments: $e",
           record => {
             val signatories = contract.metadata.signatories.map(_.toString)
             val stakeholders = contract.metadata.stakeholders.map(_.toString)

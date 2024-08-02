@@ -396,9 +396,8 @@ object RecoveringIndexerSpec {
         promise.future
       }
 
-      def completed(): Future[Unit] = {
+      def completed(): Future[Unit] =
         promise.future
-      }
     }
 
     def apply(): Indexer = new Subscription()
@@ -420,12 +419,12 @@ object RecoveringIndexerSpec {
               throw new TestIndexerException("subscribe")
             }
           })
-        })(handle => {
+        }) { handle =>
           handle.stop().transform { complete =>
             openSubscriptions -= handle.completed()
             complete
           }
-        }).map(_.completed())
+        }.map(_.completed())
       }
     }
   }

@@ -105,12 +105,11 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
 
   def closeAllSubscriptions(waitForClosed: Boolean = false)(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     pool.foreach { case (member, _) =>
       // safe to modify the underlying collection from the foreach iterator.
       closeSubscriptions(member, waitForClosed)
     }
-  }
 
   private def closeSubscription(
       member: Member,

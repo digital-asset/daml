@@ -120,7 +120,7 @@ final case class StoredContract(
 ) extends PrettyPrinting {
   def contractId: LfContractId = contract.contractId
 
-  def mergeWith(other: StoredContract): StoredContract = {
+  def mergeWith(other: StoredContract): StoredContract =
     if (this eq other) this
     else {
       require(
@@ -137,7 +137,6 @@ final case class StoredContract(
         )
       } else this
     }
-  }
 
   override def pretty: Pretty[StoredContract] = prettyOfClass(
     param("contract", _.contract),

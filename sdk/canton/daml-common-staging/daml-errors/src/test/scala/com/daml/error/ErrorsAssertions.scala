@@ -30,9 +30,9 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     val actualDescription = Option(actual.getStatus.getDescription)
     val actualStatusCode = actual.getStatus.getCode
     val cp = new Checkpoint
-    cp { actualErrorCodeId.value shouldBe expectedErrorCode.id }
-    cp { Some(actualStatusCode) shouldBe expectedErrorCode.category.grpcCode }
-    cp { actualDescription.value should startWith(expectedErrorCode.id) }
+    cp(actualErrorCodeId.value shouldBe expectedErrorCode.id)
+    cp(Some(actualStatusCode) shouldBe expectedErrorCode.category.grpcCode)
+    cp(actualDescription.value should startWith(expectedErrorCode.id))
     cp.reportAll()
     succeed
   }
@@ -48,11 +48,11 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     val actualStatusCode = actual.getCode
     val expectedStatusCode = expected.getCode
     val cp = new Checkpoint
-    cp { actualDescription shouldBe expectedDescription }
+    cp(actualDescription shouldBe expectedDescription)
     cp {
-      actualStatusCode shouldBe expectedStatusCode withClue (s", expecting status code: '${expectedStatusCode}''")
+      actualStatusCode shouldBe expectedStatusCode withClue (s", expecting status code: '$expectedStatusCode''")
     }
-    cp { actualDetails should contain theSameElementsAs expectedDetails }
+    cp(actualDetails should contain theSameElementsAs expectedDetails)
     cp.reportAll()
     succeed
   }
@@ -85,8 +85,8 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     val actualStatus = StatusProto.fromThrowable(actual)
     val actualDetails = actualStatus.getDetailsList.asScala.toSeq
     val cp = new Checkpoint
-    cp { actual.getStatus.getCode shouldBe expectedStatusCode }
-    cp { actualStatus.getMessage shouldBe expectedMessage }
+    cp(actual.getStatus.getCode shouldBe expectedStatusCode)
+    cp(actualStatus.getMessage shouldBe expectedMessage)
     cp {
       ErrorDetails.from(actualDetails) should contain theSameElementsAs expectedDetails
     }
@@ -95,7 +95,7 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
         actual.getStackTrace.length shouldBe 0 withClue ("it should contain no stacktrace")
       }
     }
-    cp { actual.getCause shouldBe null }
+    cp(actual.getCause shouldBe null)
     cp.reportAll()
   }
 
@@ -110,9 +110,9 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     val actualStatus = StatusProto.fromThrowable(actual)
     val actualDetails = actualStatus.getDetailsList.asScala.toSeq
     val errorDetails = ErrorDetails.from(actualDetails)
-    val tid = errorDetails.collectFirst({ case RequestInfoDetail(tid) => tid }).value
+    val tid = errorDetails.collectFirst { case RequestInfoDetail(tid) => tid }.value
     val errorInfoDetail =
-      errorDetails.collectFirst({ case detail: ErrorInfoDetail => detail }).value
+      errorDetails.collectFirst { case detail: ErrorInfoDetail => detail }.value
     val submissionId = errorInfoDetail.metadata.get("submissionId").value
     assertError(
       actual,

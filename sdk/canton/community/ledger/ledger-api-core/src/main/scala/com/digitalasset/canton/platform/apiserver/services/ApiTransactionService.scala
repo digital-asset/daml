@@ -173,7 +173,6 @@ final class ApiTransactionService(
 
   override def getLatestPrunedOffsets(
       request: GetLatestPrunedOffsetsRequest
-  ): Future[GetLatestPrunedOffsetsResponse] = {
+  ): Future[GetLatestPrunedOffsetsResponse] =
     service.getLatestPrunedOffsets()(LoggingContextWithTrace(loggerFactory, telemetry))
-  }
 }

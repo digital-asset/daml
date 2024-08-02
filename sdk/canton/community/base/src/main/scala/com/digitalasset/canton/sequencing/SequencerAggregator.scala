@@ -248,7 +248,7 @@ object SequencerAggregator {
   def aggregateHealthResult(
       healthResult: Map[SequencerId, ComponentHealthState],
       threshold: PositiveInt,
-  ): ComponentHealthState = {
+  ): ComponentHealthState =
     NonEmpty.from(healthResult) match {
       case None => ComponentHealthState.NotInitializedState
       case Some(healthResultNE) if healthResult.sizeIs == 1 && threshold == PositiveInt.one =>
@@ -268,7 +268,7 @@ object SequencerAggregator {
             healthyCount: Int,
             failed: Seq[SequencerId],
             degraded: Seq[SequencerId],
-        ): ComponentHealthState = {
+        ): ComponentHealthState =
           if (healthyCount >= threshold.value) ComponentHealthState.Ok()
           else if (!iter.hasNext) {
             val failureMsg = Option.when(failed.nonEmpty)(
@@ -287,9 +287,7 @@ object SequencerAggregator {
             else if (state.isFailed) go(healthyCount, sequencerId +: failed, degraded)
             else go(healthyCount, failed, sequencerId +: degraded)
           }
-        }
 
         go(0, Seq.empty, Seq.empty)
     }
-  }
 }

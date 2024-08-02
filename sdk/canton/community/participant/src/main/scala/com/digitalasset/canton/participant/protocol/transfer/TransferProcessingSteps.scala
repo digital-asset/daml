@@ -132,10 +132,9 @@ trait TransferProcessingSteps[
       pendingDataAndResponseArgs: PendingDataAndResponseArgs
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] = {
+  ): EitherT[Future, TransferProcessorError, Unit] =
     // We don't authenticate input contracts on transfers
     EitherT.pure(())
-  }
 
   protected def performPendingSubmissionMapUpdate(
       pendingSubmissionMap: concurrent.Map[RootHash, PendingTransferSubmission],
@@ -205,7 +204,7 @@ trait TransferProcessingSteps[
       for {
         relationshipO <- snapshot.hostedOn(stk, participantId)
       } yield {
-        relationshipO.map { _ => stk }
+        relationshipO.map(_ => stk)
       }
     }
   }

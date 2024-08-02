@@ -184,8 +184,9 @@ object ViewPosition {
     }
   }
 
-  def isDescendant(descendant: ViewPosition, ancestor: ViewPosition): Boolean = {
+  def isDescendant(descendant: ViewPosition, ancestor: ViewPosition): Boolean =
     descendant.position.size >= ancestor.position.size &&
-    descendant.position.drop(descendant.position.size - ancestor.position.size) == ancestor.position
-  }
+      descendant.position.drop(
+        descendant.position.size - ancestor.position.size
+      ) == ancestor.position
 }

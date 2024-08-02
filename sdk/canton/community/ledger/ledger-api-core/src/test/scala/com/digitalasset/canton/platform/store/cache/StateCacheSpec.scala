@@ -235,12 +235,11 @@ class StateCacheSpec
   private def prepare(
       `number of competing updates`: Long,
       `number of keys in cache`: Long,
-  ): Seq[(String, (Promise[String], String))] = {
+  ): Seq[(String, (Promise[String], String))] =
     for {
       i <- 1L to `number of keys in cache`
       j <- 1L to `number of competing updates`
     } yield (s"key-$i", (Promise[String](), s"value-$j"))
-  }
 
   private def assertCacheElements(stateCache: StateCache[String, String])(
       insertions: Seq[(String, (Promise[String], String))],

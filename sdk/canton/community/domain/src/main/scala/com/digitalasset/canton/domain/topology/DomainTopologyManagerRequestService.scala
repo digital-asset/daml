@@ -112,7 +112,7 @@ private[domain] object RequestProcessingStrategy {
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult.State]] = {
-      def permitted(transaction: SignedTopologyTransaction[TopologyChangeOp]): Boolean = {
+      def permitted(transaction: SignedTopologyTransaction[TopologyChangeOp]): Boolean =
         if (!allowedSet.contains(transaction.transaction.element.mapping.dbType)) {
           TopologyManagerAlarm
             .Warn(
@@ -134,8 +134,7 @@ private[domain] object RequestProcessingStrategy {
             case _ => true
           }
         }
-      }
-      def process(transaction: SignedTopologyTransaction[TopologyChangeOp]) = {
+      def process(transaction: SignedTopologyTransaction[TopologyChangeOp]) =
         if (!permitted(transaction)) {
           FutureUnlessShutdown.pure(Failed)
         } else {
@@ -144,7 +143,6 @@ private[domain] object RequestProcessingStrategy {
             case true => FutureUnlessShutdown.pure(Duplicate)
           }
         }
-      }
 
       for {
         res <- MonadUtil.sequentialTraverse(transactions)(process)
@@ -156,7 +154,7 @@ private[domain] object RequestProcessingStrategy {
         transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult.State]] = {
+    ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult.State]] =
       // TODO(i4933) enforce limits with respect to parties, packages, keys, certificates etc.
       for {
         isActive <- FutureUnlessShutdown.outcomeF(
@@ -166,12 +164,11 @@ private[domain] object RequestProcessingStrategy {
           if (isActive) addTransactions(transactions)
           else {
             logger.warn(
-              s"Failed to process participant ${participant} request as participant is not active"
+              s"Failed to process participant $participant request as participant is not active"
             )
             FutureUnlessShutdown.pure(rejectAll(transactions))
           }
       } yield res
-    }
 
     private def rejectAll(
         transactions: List[SignedTopologyTransaction[TopologyChangeOp]]
@@ -282,7 +279,7 @@ private[domain] object RequestProcessingStrategy {
         _ <- EitherT.cond[FutureUnlessShutdown](
           participantStates.nonEmpty,
           (),
-          maliciousOrFaulty(s"Participant ${participant} has not sent a domain trust certificate"),
+          maliciousOrFaulty(s"Participant $participant has not sent a domain trust certificate"),
         )
         domainTrustsParticipant <- participantIsAllowed(participant).mapK(
           FutureUnlessShutdown.outcomeK
@@ -290,7 +287,7 @@ private[domain] object RequestProcessingStrategy {
         _ <- EitherT.cond[FutureUnlessShutdown](
           domainTrustsParticipant || config.open,
           (),
-          reject(s"Participant ${participant} is not on the allow-list of this closed network"),
+          reject(s"Participant $participant is not on the allow-list of this closed network"),
         )
         keys <- EitherT.right(snapshot.allKeys(participant)).mapK(FutureUnlessShutdown.outcomeK)
         _ <- EitherT.cond[FutureUnlessShutdown](
@@ -348,7 +345,7 @@ private[domain] object RequestProcessingStrategy {
 
     private def participantIsAllowed(
         pid: ParticipantId
-    )(implicit traceContext: TraceContext): EitherT[Future, DomainTopologyManagerError, Boolean] = {
+    )(implicit traceContext: TraceContext): EitherT[Future, DomainTopologyManagerError, Boolean] =
       EitherT.right(
         authorizedStore
           .findPositiveTransactions(
@@ -367,7 +364,6 @@ private[domain] object RequestProcessingStrategy {
             }
           }
       )
-    }
 
     override def decide(
         requestedBy: Member,
@@ -375,7 +371,7 @@ private[domain] object RequestProcessingStrategy {
         transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult.State]] = {
+    ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult.State]] =
       requestedBy match {
         case UnauthenticatedMemberId(uid) =>
           // check that we have:
@@ -389,10 +385,9 @@ private[domain] object RequestProcessingStrategy {
         case requester: ParticipantId if requester == participant =>
           processExistingParticipantRequest(participant, transactions)
         case member: AuthenticatedMember =>
-          logger.warn(s"RequestedBy ${requestedBy} does not match participant ${participant}")
+          logger.warn(s"RequestedBy $requestedBy does not match participant $participant")
           FutureUnlessShutdown.pure(rejectAll(transactions))
       }
-    }
   }
 
 }
@@ -414,7 +409,7 @@ private[domain] class DomainTopologyManagerRequestService(
       res: List[SignedTopologyTransaction[TopologyChangeOp]],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult]] = {
+  ): FutureUnlessShutdown[List[RegisterTopologyTransactionResponseResult]] =
     for {
       // run pre-checks first
       preChecked <- FutureUnlessShutdown.outcomeF(res.parTraverse(preCheck))
@@ -454,22 +449,20 @@ private[domain] class DomainTopologyManagerRequestService(
         }
         .mkString("\n  ")
       logger.info(
-        show"Register topology request by ${requestedBy} for $participant yielded\n  $output"
+        show"Register topology request by $requestedBy for $participant yielded\n  $output"
       )
       result
     }
-  }
 
   private def preCheck(
       transaction: SignedTopologyTransaction[TopologyChangeOp]
-  ): Future[RegisterTopologyTransactionResponseResult.State] = {
+  ): Future[RegisterTopologyTransactionResponseResult.State] =
     (for {
       // check validity of signature
       _ <- EitherT
         .fromEither[Future](transaction.verifySignature(crypto))
         .leftMap(_ => Failed)
     } yield Accepted).merge
-  }
 
 }
 
@@ -492,8 +485,7 @@ private[domain] object DomainTopologyManagerRequestService {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
-  )(implicit ec: ExecutionContext): DomainTopologyManagerRequestService = {
-
+  )(implicit ec: ExecutionContext): DomainTopologyManagerRequestService =
     new DomainTopologyManagerRequestService(
       new RequestProcessingStrategy.Impl(
         config,
@@ -510,5 +502,4 @@ private[domain] object DomainTopologyManagerRequestService {
       manager.protocolVersion,
       loggerFactory,
     )
-  }
 }

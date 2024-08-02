@@ -65,14 +65,14 @@ trait ResourceManagementService {
   )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
     resourceLimits.maxDirtyRequests
       .filter(currentLoad >= _.unwrap)
-      .map(limit => {
+      .map { limit =>
         val status =
           ParticipantBackpressure
             .Rejection(s"too many requests (count: $currentLoad, limit: $limit)")
             .rpcStatus()
         // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
         SubmissionResult.SynchronousError(status)
-      })
+      }
 
   protected def checkAndUpdateRate()(implicit
       loggingContext: ErrorLoggingContext

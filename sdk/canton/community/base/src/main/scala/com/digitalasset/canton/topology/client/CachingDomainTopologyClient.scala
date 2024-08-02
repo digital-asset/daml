@@ -151,9 +151,8 @@ sealed abstract class BaseCachingDomainTopologyClient(
   override private[topology] def scheduleAwait(condition: => Future[Boolean], timeout: Duration) =
     parent.scheduleAwait(condition, timeout)
 
-  override def close(): Unit = {
+  override def close(): Unit =
     parent.close()
-  }
 
   override def numPendingChanges: Int = parent.numPendingChanges
 }
@@ -428,7 +427,7 @@ class CachingTopologySnapshot(
   override private[client] def loadBatchActiveParticipantsOf(
       parties: Seq[PartyId],
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
-  ) = {
+  ) =
     // split up the request into separate chunks so that we don't block the cache for too long
     // when loading very large batches
     MonadUtil
@@ -438,7 +437,6 @@ class CachingTopologySnapshot(
         partyCache.getAll(_).map(_.toSeq)
       )
       .map(_.toMap)
-  }
 
   override def loadParticipantStates(
       participants: Seq[ParticipantId]
@@ -449,10 +447,9 @@ class CachingTopologySnapshot(
 
   override def findParticipantCertificate(
       participantId: ParticipantId
-  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] = {
+  )(implicit traceContext: TraceContext): Future[Option[LegalIdentityClaimEvidence.X509Cert]] =
     // This one is not cached as we don't need during processing
     parent.findParticipantCertificate(participantId)
-  }
 
   override def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
@@ -532,7 +529,6 @@ class CachingTopologySnapshot(
 
   override def trafficControlStatus(
       members: Seq[Member]
-  ): Future[Map[Member, Option[MemberTrafficControlState]]] = {
+  ): Future[Map[Member, Option[MemberTrafficControlState]]] =
     domainTrafficControlStateCache.getAll(members)
-  }
 }

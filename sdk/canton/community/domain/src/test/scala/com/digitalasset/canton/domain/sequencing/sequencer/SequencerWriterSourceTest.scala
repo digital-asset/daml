@@ -109,19 +109,18 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     // explicitly pass a real execution context so shutdowns don't deadlock while Await'ing completion of the done
     // future while still finishing up running tasks that require an execution context
     val (writer, doneF) = PekkoUtil.runSupervised(
-      logger.error("Writer flow failed", _), {
-        SequencerWriterSource(
-          testWriterConfig,
-          totalNodeCount = PositiveInt.tryCreate(1),
-          keepAliveInterval,
-          writerStore,
-          clock,
-          eventSignaller,
-          loggerFactory,
-          testedProtocolVersion,
-        )(executorService, implicitly[TraceContext])
-          .toMat(Sink.ignore)(Keep.both)
-      },
+      logger.error("Writer flow failed", _),
+      SequencerWriterSource(
+        testWriterConfig,
+        totalNodeCount = PositiveInt.tryCreate(1),
+        keepAliveInterval,
+        writerStore,
+        clock,
+        eventSignaller,
+        loggerFactory,
+        testedProtocolVersion,
+      )(executorService, implicitly[TraceContext])
+        .toMat(Sink.ignore)(Keep.both),
     )
 
     def completeFlow(): Future[Unit] = {

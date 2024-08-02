@@ -118,9 +118,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       Future,
       LfError,
       (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
-    ] = {
+    ] =
       fail("Reinterpret should not be called by this test case.")
-    }
   }
 
   def viewsWithNoInputKeys(
@@ -135,7 +134,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       (viewTree, resolvers)
     })
 
-  val transactionTreeFactory: TransactionTreeFactoryImpl = {
+  val transactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submitterParticipant,
       factory.domainId,
@@ -144,7 +143,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       uniqueContractKeys = true,
       loggerFactory,
     )
-  }
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
     override private[protocol] def authenticate(
@@ -289,20 +287,19 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           Future,
           LfError,
           (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
-        ] = {
+        ] =
           EitherT.leftT(lfError)
-        }
       })
 
       val example = factory.MultipleRootsAndViewNestings
 
       def countLeaves(views: NonEmpty[Seq[TransactionView]]): Int =
-        views.foldLeft(0)((count, view) => {
+        views.foldLeft(0) { (count, view) =>
           NonEmpty.from(view.subviews.unblindedElements) match {
             case Some(subviewsNE) => count + countLeaves(subviewsNE)
             case None => count + 1
           }
-        })
+        }
 
       val nbLeafViews = countLeaves(NonEmptyUtil.fromUnsafe(example.rootViews))
 
@@ -362,11 +359,10 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             Future,
             LfError,
             (LfVersionedTransaction, TransactionMetadata, LfKeyResolver, Set[PackageId]),
-          ] = {
+          ] =
             EitherT.pure[Future, LfError](
               (reinterpreted, subviewMissing.metadata, subviewMissing.keyResolver, Set.empty)
             )
-          }
         })
 
         for {
@@ -515,7 +511,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution] = Map.empty,
           packagePreference: Set[LfPackageId] = Set.empty,
           seedO: Option[LfHash] = Some(seed),
-      ) = {
+      ) =
         factory.view(
           node = node,
           viewIndex = 0,
@@ -527,7 +523,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           isRoot = true,
           packagePreference = packagePreference,
         )
-      }
 
       "support legacy package id computation" in {
         val view = mkView(
@@ -629,9 +624,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     import cats.syntax.either.*
     override def packageDependencies(packages: List[PackageId])(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
+    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       result.toEitherT
-    }
   }
 
 }

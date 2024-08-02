@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.event.{
   Event as PbFlatEvent,
   ExercisedEvent as PbExercisedEvent,
 }
-import com.daml.ledger.api.v1.transaction.{TreeEvent as PbTreeEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent as PbTreeEvent
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.TimestampConversion

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.health
 
 import com.daml.error.BaseError
-import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Fatal, Ok}
-import com.digitalasset.canton.health.admin.v0 as proto
+import com.digitalasset.canton.health.admin.v0.NodeStatus.ComponentStatus
+import com.digitalasset.canton.health.admin.v0 as protoV0
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.util.ShowUtil
@@ -40,17 +40,8 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
   override def pretty: Pretty[ComponentHealthState] =
     ComponentHealthState.prettyComponentHealthState
 
-  def toComponentStatusV0: proto.NodeStatus.ComponentStatus.Status = this match {
-    case Ok(description) =>
-      proto.NodeStatus.ComponentStatus.Status
-        .Ok(proto.NodeStatus.ComponentStatus.StatusData(description))
-    case Degraded(degraded) =>
-      proto.NodeStatus.ComponentStatus.Status.Degraded(degraded.toComponentStatusDataV0)
-    case Failed(failed) =>
-      proto.NodeStatus.ComponentStatus.Status.Failed(failed.toComponentStatusDataV0)
-    case Fatal(fatal) =>
-      proto.NodeStatus.ComponentStatus.Status.Fatal(fatal.toComponentStatusDataV0)
-  }
+  def toComponentStatusV0: protoV0.NodeStatus.ComponentStatus.Status
+
 }
 
 object ComponentHealthState extends ShowUtil {
@@ -77,7 +68,11 @@ object ComponentHealthState extends ShowUtil {
 
   /** Ok state
     */
-  final case class Ok(description: Option[String] = None) extends ComponentHealthState
+  final case class Ok(description: Option[String] = None) extends ComponentHealthState {
+    override def toComponentStatusV0: ComponentStatus.Status =
+      protoV0.NodeStatus.ComponentStatus.Status
+        .Ok(protoV0.NodeStatus.ComponentStatus.StatusData(description))
+  }
 
   object Ok {
     implicit val okEncoder: Encoder[Ok.type] = Encoder.encodeString.contramap(_ => "ok")
@@ -96,7 +91,10 @@ object ComponentHealthState extends ShowUtil {
     */
   final case class Degraded(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
-      with HasUnhealthyState
+      with HasUnhealthyState {
+    override def toComponentStatusV0: ComponentStatus.Status =
+      protoV0.NodeStatus.ComponentStatus.Status.Degraded(state.toComponentStatusDataV0)
+  }
 
   object Degraded {
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
@@ -109,7 +107,10 @@ object ComponentHealthState extends ShowUtil {
     */
   final case class Failed(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
-      with HasUnhealthyState
+      with HasUnhealthyState {
+    override def toComponentStatusV0: ComponentStatus.Status =
+      protoV0.NodeStatus.ComponentStatus.Status.Failed(state.toComponentStatusDataV0)
+  }
 
   object Failed {
     @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
@@ -121,7 +122,10 @@ object ComponentHealthState extends ShowUtil {
     */
   final case class Fatal(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
-      with HasUnhealthyState
+      with HasUnhealthyState {
+    override def toComponentStatusV0: ComponentStatus.Status =
+      protoV0.NodeStatus.ComponentStatus.Status.Fatal(state.toComponentStatusDataV0)
+  }
 
   /** Unhealthy state data
     *
@@ -137,8 +141,9 @@ object ComponentHealthState extends ShowUtil {
       s"${error.code.codeStr(elc.flatMap(_.traceContext.traceId))}: ${error.cause}"
     }
 
-    def toComponentStatusDataV0: proto.NodeStatus.ComponentStatus.StatusData =
-      proto.NodeStatus.ComponentStatus.StatusData(Some(this.show))
+    def toComponentStatusDataV0: protoV0.NodeStatus.ComponentStatus.StatusData =
+      protoV0.NodeStatus.ComponentStatus.StatusData(Some(this.show))
+
   }
 
   object UnhealthyState {

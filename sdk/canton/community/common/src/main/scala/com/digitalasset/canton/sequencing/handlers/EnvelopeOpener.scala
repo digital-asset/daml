@@ -24,11 +24,10 @@ class EnvelopeOpener[Box[+_ <: Envelope[_]]](protocolVersion: ProtocolVersion, h
   def open(closed: Box[ClosedEnvelope]): ParsingResult[Box[DefaultOpenEnvelope]] =
     Box.traverse(closed)(_.openEnvelope(hashOps, protocolVersion))
 
-  def tryOpen(closed: Box[ClosedEnvelope]): Box[DefaultOpenEnvelope] = {
+  def tryOpen(closed: Box[ClosedEnvelope]): Box[DefaultOpenEnvelope] =
     open(closed).valueOr { error =>
       throw EventDeserializationError(error, protocolVersion)
     }
-  }
 }
 
 object EnvelopeOpener {

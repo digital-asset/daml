@@ -164,7 +164,7 @@ object TransactionProcessor {
   }
 
   trait TransactionSubmissionError extends TransactionProcessorError with TransactionError {
-    override def pretty: Pretty[TransactionSubmissionError] = {
+    override def pretty: Pretty[TransactionSubmissionError] =
       this.prettyOfString(_ =>
         this.code.toMsg(
           cause,
@@ -174,7 +174,6 @@ object TransactionProcessor {
           context
         )
       )
-    }
   }
 
   object SubmissionErrors extends SubmissionErrorGroup {

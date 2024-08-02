@@ -7,6 +7,8 @@ import com.digitalasset.canton.health.admin.data.NodeStatus
 
 /** A running instance of a canton node */
 trait CantonNode extends AutoCloseable {
-  def status: NodeStatus.Status
+  type Status <: NodeStatus.Status
+
+  def status: Status
   def isActive: Boolean
 }

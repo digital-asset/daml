@@ -131,7 +131,7 @@ object SequencerBasedRegisterTopologyTransactionHandle {
         maxSequencingTime = clock.now.add(timeout.duration),
         callback = fut,
         // return callback, as we might have to wait a bit for the domain to respond, hence risking a shutdown issue
-      ).map { _ => fut.future }
+      ).map(_ => fut.future)
     }
   }
 
@@ -208,7 +208,7 @@ class DomainTopologyService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncClientError, FutureUnlessShutdown[SendResult]] = {
-    logger.debug(s"Sending register topology transaction request ${request}")
+    logger.debug(s"Sending register topology transaction request $request")
     sender.send(
       OpenEnvelope(request, recipients)(protocolVersion),
       timeouts.topologyDispatching.toInternal,
@@ -226,16 +226,16 @@ class DomainTopologyService(
           result match {
             case _ @UnlessShutdown.Outcome(_) =>
               logger.debug(
-                s"Received register topology transaction response ${request}"
+                s"Received register topology transaction response $request"
               )
             case _: UnlessShutdown.AbortedDueToShutdown =>
               logger.info(
-                show"Shutdown before receiving register topology transaction response ${request}"
+                show"Shutdown before receiving register topology transaction response $request"
               )
           }
           result
         },
-        show"Failed to receive register topology transaction response ${request}",
+        show"Failed to receive register topology transaction response $request",
       )
     }
 
@@ -257,9 +257,8 @@ class DomainTopologyService(
       }
     )
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     responsePromiseMap.values.foreach(
       _.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard[Boolean]
     )
-  }
 }

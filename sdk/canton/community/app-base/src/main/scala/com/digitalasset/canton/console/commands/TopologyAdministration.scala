@@ -48,15 +48,14 @@ abstract class TopologyAdministrationGroupCommon(
   protected val idCache =
     new AtomicReference[Option[UniqueIdentifier]](None)
 
-  private[console] def clearCache(): Unit = {
+  private[console] def clearCache(): Unit =
     idCache.set(None)
-  }
 
   protected def getIdCommand(): ConsoleCommandResult[UniqueIdentifier]
 
   private[console] def idHelper[T](
       apply: UniqueIdentifier => T
-  ): T = {
+  ): T =
     apply(idCache.get() match {
       case Some(v) => v
       case None =>
@@ -66,7 +65,6 @@ abstract class TopologyAdministrationGroupCommon(
         idCache.set(Some(r))
         r
     })
-  }
 
   @Help.Summary("Topology synchronisation helpers", FeatureFlag.Preview)
   @Help.Group("Synchronisation Helpers")
@@ -90,7 +88,7 @@ abstract class TopologyAdministrationGroupCommon(
     ): Unit =
       ConsoleMacros.utils.retry_until_true(timeout)(
         is_idle(),
-        s"topology queue status never became idle ${topologyQueueStatus} after ${timeout}",
+        s"topology queue status never became idle $topologyQueueStatus after $timeout",
       )
 
     /** run a topology change command synchronized and wait until the node becomes idle again */
@@ -1197,7 +1195,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
         force: Boolean = false,
-    ): ByteString = {
+    ): ByteString =
       synchronisation.run(synchronize)(
         consoleEnvironment.run {
           adminCommand(
@@ -1212,7 +1210,6 @@ class TopologyAdministrationGroup(
           )
         }
       )
-    }
 
     // This method accepts parameters in the internal format; used by [[all.renew]] above
     private[TopologyAdministrationGroup] def authorizeInternal(

@@ -36,6 +36,11 @@ object ReleaseVersionToProtocolVersions {
   ): NonEmpty[List[ProtocolVersion]] =
     majorMinorToStableProtocolVersions.getOrElse(releaseVersion.majorMinor, default)
 
+  def get(
+      releaseVersion: ReleaseVersion
+  ): Option[NonEmpty[List[ProtocolVersion]]] =
+    majorMinorToStableProtocolVersions.get(releaseVersion.majorMinor)
+
   def getBetaProtocolVersions(releaseVersion: ReleaseVersion): List[ProtocolVersion] =
     majorMinorToBetaProtocolVersions
       .get(releaseVersion.majorMinor)

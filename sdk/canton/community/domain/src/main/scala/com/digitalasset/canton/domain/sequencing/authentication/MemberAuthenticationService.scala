@@ -71,7 +71,7 @@ class MemberAuthenticationService(
     */
   def generateNonce(member: Member)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] = {
+  ): EitherT[Future, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] =
     for {
       _ <- EitherT.right(waitForInitialized)
       snapshot = cryptoApi.ips.currentSnapshotApproximation
@@ -90,9 +90,8 @@ class MemberAuthenticationService(
       scheduleExpirations(storedNonce.expireAt)
       (nonce, fingerprints)
     }
-  }
 
-  private def waitForInitialized(implicit traceContext: TraceContext): Future[Unit] = {
+  private def waitForInitialized(implicit traceContext: TraceContext): Future[Unit] =
     // avoid logging if we're already done
     if (isTopologyInitialized.isCompleted) isTopologyInitialized
     else {
@@ -102,7 +101,6 @@ class MemberAuthenticationService(
         logger.debug(s"Topology has been initialized")
       }
     }
-  }
 
   private def handlePassiveInstanceException[A](
       future: Future[A]
@@ -226,14 +224,13 @@ class MemberAuthenticationService(
 
   protected def isMemberActive(check: TopologySnapshot => Future[Boolean])(implicit
       traceContext: TraceContext
-  ): Future[Boolean] = {
+  ): Future[Boolean] =
     cryptoApi.snapshot(cryptoApi.topologyKnownUntilTimestamp).flatMap { snapshot =>
       // we are a bit more conservative here. a member needs to be active NOW and the head state (i.e. effective in the future)
       Seq(snapshot.ipsSnapshot, cryptoApi.currentSnapshotApproximation.ipsSnapshot)
         .parTraverse(check(_))
         .map(_.forall(identity))
     }
-  }
 
   protected def isParticipantActive(participant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -282,10 +279,10 @@ class MemberAuthenticationServiceOld(
     FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
       transactions.map(_.transaction.element.mapping).foreach {
         case ParticipantState(_, _, participant, ParticipantPermission.Disabled, _) =>
-          def invalidateAndExpire: Future[Unit] = {
+          def invalidateAndExpire: Future[Unit] =
             isParticipantActive(participant).flatMap { isActive =>
               if (!isActive) {
-                logger.debug(s"Expiring all auth-tokens of ${participant}")
+                logger.debug(s"Expiring all auth-tokens of $participant")
                 tokenCache
                   // first, remove all auth tokens
                   .invalidateAllTokensForMember(participant)
@@ -293,7 +290,6 @@ class MemberAuthenticationServiceOld(
                   .map(_ => invalidateMemberCallback(Traced(participant)))
               } else Future.unit
             }
-          }
           FutureUtil.doNotAwait(
             invalidateAndExpire,
             s"Invalidating participant authentication for $participant",

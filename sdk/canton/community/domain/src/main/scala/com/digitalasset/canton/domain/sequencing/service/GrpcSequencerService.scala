@@ -203,7 +203,7 @@ object GrpcSequencerService {
         requestP: v0.SendAsyncVersionedRequest,
         maxRequestSize: MaxRequestSize,
         protocolVersion: ProtocolVersion,
-    ): ParsingResult[SignedContent[SubmissionRequest]] = {
+    ): ParsingResult[SignedContent[SubmissionRequest]] =
       for {
         signedContent <- SignedContent.fromByteString(protocolVersion)(
           requestP.signedSubmissionRequest
@@ -215,7 +215,6 @@ object GrpcSequencerService {
             )
         )
       } yield signedSubmissionRequest
-    }
 
     override def unwrap(request: SignedContent[SubmissionRequest]): SubmissionRequest =
       request.content
@@ -370,7 +369,7 @@ class GrpcSequencerService(
 
     performUnlessClosingF(functionFullName)(sendET.value.map { res =>
       res.left.foreach { err =>
-        logger.info(s"Rejecting submission request by $senderFromMetadata with ${err}")
+        logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
       }
       toSendAsyncResponse(res)
     })
@@ -866,8 +865,7 @@ class GrpcSequencerService(
     case _ => false
   }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     subscriptionPool.close()
-  }
 
 }

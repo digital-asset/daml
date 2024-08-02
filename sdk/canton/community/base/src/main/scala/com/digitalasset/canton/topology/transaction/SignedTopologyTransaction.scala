@@ -172,7 +172,7 @@ object SignedTopologyTransaction
       transactionP: v0.SignedTopologyTransaction,
   )(
       bytes: ByteString
-  ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] = {
+  ): ParsingResult[SignedTopologyTransaction[TopologyChangeOp]] =
     for {
       transaction <-
         TopologyTransaction.fromByteString(protocolVersionValidation)(
@@ -193,7 +193,6 @@ object SignedTopologyTransaction
       rpv,
       Some(bytes),
     )
-  }
 
   def createGetResultDomainTopologyTransaction
       : GetResult[SignedTopologyTransaction[TopologyChangeOp]] =

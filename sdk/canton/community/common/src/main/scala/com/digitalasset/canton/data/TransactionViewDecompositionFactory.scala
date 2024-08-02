@@ -38,11 +38,10 @@ trait TransactionViewDecompositionFactory {
 
 object TransactionViewDecompositionFactory {
 
-  def apply(protocolVersion: ProtocolVersion): TransactionViewDecompositionFactory = {
+  def apply(protocolVersion: ProtocolVersion): TransactionViewDecompositionFactory =
     if (protocolVersion >= ProtocolVersion.v6) V3
     else if (protocolVersion >= ProtocolVersion.v5) V2
     else V1
-  }
 
   private[data] object V1 extends TransactionViewDecompositionFactory {
 
@@ -324,17 +323,17 @@ object TransactionViewDecompositionFactory {
           childNodeIds: Seq[LfNodeId],
       )(implicit ec: ExecutionContext): Future[(LfNodeId, ActionNodeInfoV2)] = {
         val itF = confirmationPolicy.informeesAndThreshold(node, topologySnapshot)
-        itF.map({ case (i, t) =>
+        itF.map { case (i, t) =>
           nodeId -> ActionNodeInfoV2(
             ViewConfirmationParameters.create(i, t),
             childNodeIds,
             transaction.seedFor(nodeId),
           )
-        })
+        }
       }
 
       val policyMapF: Iterable[Future[(NodeId, ActionNodeInfoV2)]] =
-        tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+        tx.nodes.collect { case (nodeId, node: LfActionNode) =>
           val childNodeIds = node match {
             case e: LfNodeExercises => e.children.toSeq
             case _ => Seq.empty
@@ -344,7 +343,7 @@ object TransactionViewDecompositionFactory {
             nodeId,
             childNodeIds,
           )
-        })
+        }
 
       Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
         BuilderV2(tx.nodes, policyMap)
@@ -386,11 +385,11 @@ object TransactionViewDecompositionFactory {
           requiredTrustLevel
         }
         if (
-          parentInformees.keys.exists(key => {
+          parentInformees.keys.exists { key =>
             val parentTrustLevel = parentInformees.get(key)
             val childrenTrustLevel = childrenInformees.get(key)
             childrenTrustLevel.isDefined && parentTrustLevel != childrenTrustLevel
-          })
+          }
         ) {
           throw new IllegalStateException("Duplicate informees with different trust levels")
         }
@@ -488,7 +487,7 @@ object TransactionViewDecompositionFactory {
       val tx: LfVersionedTransaction = transaction.unwrap
 
       val policyMapF: Iterable[Future[(NodeId, ActionNodeInfoV3)]] =
-        tx.nodes.collect({ case (nodeId, node: LfActionNode) =>
+        tx.nodes.collect { case (nodeId, node: LfActionNode) =>
           val childNodeIds = node match {
             case e: LfNodeExercises => e.children.toSeq
             case _ => Seq.empty
@@ -501,7 +500,7 @@ object TransactionViewDecompositionFactory {
             childNodeIds,
             transaction,
           )
-        })
+        }
 
       Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
         BuilderV3(tx.nodes, policyMap)
@@ -525,7 +524,7 @@ object TransactionViewDecompositionFactory {
       def createQuorum(
           informeesMap: Map[LfPartyId, (Set[ParticipantId], NonNegativeInt, TrustLevel)],
           threshold: NonNegativeInt,
-      ): Quorum = {
+      ): Quorum =
         Quorum(
           informeesMap.mapFilter { case (_, weight, _) =>
             Option.when(weight.unwrap > 0)(
@@ -534,10 +533,9 @@ object TransactionViewDecompositionFactory {
           },
           threshold,
         )
-      }
 
       val itF = confirmationPolicy.informeesParticipantsAndThreshold(node, topologySnapshot)
-      itF.map({ case (i, t) =>
+      itF.map { case (i, t) =>
         nodeId -> ActionNodeInfoV3(
           i.fmap { case (participants, _, requiredTrustLevel) =>
             (participants, requiredTrustLevel)
@@ -546,7 +544,7 @@ object TransactionViewDecompositionFactory {
           childNodeIds,
           transaction.seedFor(nodeId),
         )
-      })
+      }
     }
 
   }

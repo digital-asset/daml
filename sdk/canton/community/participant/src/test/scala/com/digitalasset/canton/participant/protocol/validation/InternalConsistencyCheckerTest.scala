@@ -26,9 +26,8 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
   private def check(
       icc: InternalConsistencyChecker,
       views: Seq[FullTransactionViewTree],
-  ): Either[ErrorWithInternalConsistencyCheck, Unit] = {
+  ): Either[ErrorWithInternalConsistencyCheck, Unit] =
     icc.check(NonEmptyUtil.fromUnsafe(views), _ => false)
-  }
 
   "Rollback scope ordering" when {
 
@@ -44,11 +43,11 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
         _.exitRollback,
       )
 
-      val (_, testScopes) = ops.foldLeft((RollbackContext.empty, Seq(RollbackContext.empty)))({
+      val (_, testScopes) = ops.foldLeft((RollbackContext.empty, Seq(RollbackContext.empty))) {
         case ((c, seq), op) =>
           val nc = op(c)
           (nc, seq :+ nc)
-      })
+      }
 
       Random.shuffle(testScopes).sorted shouldBe testScopes
       checkRollbackScopeOrder(testScopes) shouldBe Right(())

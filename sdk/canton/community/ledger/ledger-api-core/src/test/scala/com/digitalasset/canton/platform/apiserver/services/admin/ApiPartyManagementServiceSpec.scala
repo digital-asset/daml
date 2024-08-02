@@ -60,13 +60,11 @@ class ApiPartyManagementServiceSpec
   var testTelemetrySetup: TestTelemetrySetup = _
   val partiesPageSize = PositiveInt.tryCreate(100)
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   private implicit val ec: ExecutionContext = directExecutionContext
 

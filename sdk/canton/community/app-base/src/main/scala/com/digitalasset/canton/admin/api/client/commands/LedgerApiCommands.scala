@@ -282,7 +282,7 @@ object LedgerApiCommands {
       override def submitRequest(
           service: TransactionServiceStub,
           request: GetTransactionByIdRequest,
-      ): Future[GetTransactionResponse] = {
+      ): Future[GetTransactionResponse] =
         // The Ledger API will throw an error if it can't find a transaction by ID.
         // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
         // an error and change it to a None
@@ -290,7 +290,6 @@ object LedgerApiCommands {
           case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
             GetTransactionResponse(None)
         }
-      }
 
       override def handleResponse(
           response: GetTransactionResponse
@@ -417,9 +416,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetPartiesResponse
-      ): Either[String, PartyDetails] = {
+      ): Either[String, PartyDetails] =
         response.partyDetails.headOption.toRight("PARTY_NOT_FOUND")
-      }
     }
 
     final case class UpdateIdp(
@@ -544,9 +542,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetCommandStatusResponse
-      ): Either[String, Seq[CommandStatus]] = {
+      ): Either[String, Seq[CommandStatus]] =
         response.commandStatus.traverse(CommandStatus.fromProto).leftMap(_.message)
-      }
     }
   }
 
@@ -826,9 +823,8 @@ object LedgerApiCommands {
       override def submitRequest(
           service: CommandSubmissionServiceStub,
           request: SubmitRequest,
-      ): Future[Empty] = {
+      ): Future[Empty] =
         service.submit(request)
-      }
 
       override def handleResponse(response: Empty): Either[String, Unit] = Right(())
     }
@@ -955,7 +951,7 @@ object LedgerApiCommands {
       override def submitRequest(
           service: ActiveContractsServiceStub,
           request: GetActiveContractsRequest,
-      ): Future[Seq[WrappedCreatedEvent]] = {
+      ): Future[Seq[WrappedCreatedEvent]] =
         GrpcAdminCommand.streamedResponse[
           GetActiveContractsRequest,
           GetActiveContractsResponse,
@@ -968,13 +964,11 @@ object LedgerApiCommands {
           timeout,
           scheduler,
         )
-      }
 
       override def handleResponse(
           response: Seq[WrappedCreatedEvent]
-      ): Either[String, Seq[WrappedCreatedEvent]] = {
+      ): Either[String, Seq[WrappedCreatedEvent]] =
         Right(response)
-      }
 
       // fetching ACS might take long if we fetch a lot of data
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -1034,12 +1028,11 @@ object LedgerApiCommands {
       def readAs: Set[LfPartyId]
       def participantAdmin: Boolean
 
-      protected def getRights: Seq[UserRight] = {
+      protected def getRights: Seq[UserRight] =
         actAs.toSeq.map(x => UserRight().withCanActAs(UserRight.CanActAs(x))) ++
           readAs.toSeq.map(x => UserRight().withCanReadAs(UserRight.CanReadAs(x))) ++
           (if (participantAdmin) Seq(UserRight().withParticipantAdmin(UserRight.ParticipantAdmin()))
            else Seq())
-      }
     }
 
     final case class Create(
@@ -1627,7 +1620,7 @@ object LedgerApiCommands {
           GetEventsByContractKeyResponse,
         ] {
 
-      override def createRequest(): Either[String, GetEventsByContractKeyRequest] = {
+      override def createRequest(): Either[String, GetEventsByContractKeyRequest] =
         Right(
           GetEventsByContractKeyRequest(
             contractKey = Some(contractKey),
@@ -1638,7 +1631,6 @@ object LedgerApiCommands {
             ),
           )
         )
-      }
 
       override def submitRequest(
           service: EventQueryServiceStub,

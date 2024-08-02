@@ -17,6 +17,9 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.admin.data.DomainStatus
+import com.digitalasset.canton.domain.admin.grpc.GrpcDomainStatusService
+import com.digitalasset.canton.domain.admin.v0.DomainStatusServiceGrpc.DomainStatusService
 import com.digitalasset.canton.domain.admin.v0.{DomainServiceGrpc, SequencerVersionServiceGrpc}
 import com.digitalasset.canton.domain.admin.grpc as admingrpc
 import com.digitalasset.canton.domain.config.*
@@ -40,11 +43,7 @@ import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.domain.topology.*
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.health.admin.data.{
-  DomainStatus,
-  SequencerHealthStatus,
-  TopologyQueueStatus,
-}
+import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.health.{
   ComponentStatus,
   DependenciesHealthService,
@@ -78,6 +77,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.version.ReleaseVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.actor.ActorSystem
 
@@ -105,7 +105,12 @@ class DomainNodeBootstrap(
     executionSequencerFactory: ExecutionSequencerFactory,
     scheduler: ScheduledExecutorService,
     actorSystem: ActorSystem,
-) extends CantonNodeBootstrapBase[Domain, DomainConfig, DomainNodeParameters, DomainMetrics](
+) extends CantonNodeBootstrapBase[
+      Domain,
+      DomainConfig,
+      DomainNodeParameters,
+      DomainMetrics,
+    ](
       arguments
     )
     with DomainTopologyManagerIdentityInitialization[StoredDomainNodeSettings] {
@@ -184,7 +189,7 @@ class DomainNodeBootstrap(
     softDependencies = Seq(domainTopologySenderHealth),
   )
 
-  private def makeDynamicDomainServer(maxRequestSize: MaxRequestSize) = {
+  private def makeDynamicDomainServer(maxRequestSize: MaxRequestSize) =
     new DynamicDomainGrpcServer(
       loggerFactory,
       maxRequestSize,
@@ -195,11 +200,17 @@ class DomainNodeBootstrap(
       healthReporter,
       domainApiServiceHealth,
     )
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var topologyManager: Option[DomainTopologyManager] = None
   private val protocolVersion = config.init.domainParameters.tryDomainProtocolVersion.unwrap
+
+  adminServerRegistry.addServiceU(
+    DomainStatusService.bindService(
+      new GrpcDomainStatusService(getNodeStatus, loggerFactory),
+      executionContext,
+    )
+  )
 
   override protected def autoInitializeIdentity(
       initConfigBase: InitConfigBase
@@ -346,7 +357,7 @@ class DomainNodeBootstrap(
     EitherT.pure(())
   }
 
-  override protected def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] = {
+  override protected def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       _ <- CryptoHandshakeValidator
         .validate(staticDomainParametersFromConfig, cryptoConfig)
@@ -369,7 +380,6 @@ class DomainNodeBootstrap(
         )
       _ <- startIfDomainManagerReadyOrDefer(manager, staticDomainParameters)
     } yield ()
-  }
 
   /** The Domain cannot be started until the domain manager has keys for all domain entities available. These keys
     * can be provided by console commands or external processes via the admin API so there are no guarantees for when they
@@ -395,7 +405,7 @@ class DomainNodeBootstrap(
         override def addedSignedTopologyTransaction(
             timestamp: CantonTimestamp,
             transaction: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-        )(implicit traceContext: TraceContext): Unit = {
+        )(implicit traceContext: TraceContext): Unit =
           if (!attemptedStart.get()) {
             val initTimeout = parameters.processingTimeouts.unbounded
             val managerInitialized =
@@ -420,7 +430,6 @@ class DomainNodeBootstrap(
               }
             }
           }
-        }
       })
       EitherT.pure[FutureUnlessShutdown, String](())
     }
@@ -672,7 +681,7 @@ object DomainNodeBootstrap {
       .toStaticDomainParameters(cryptoConfig)
       .valueOr(err =>
         throw new IllegalArgumentException(
-          s"Failed to convert static domain params: ${err}"
+          s"Failed to convert static domain params: $err"
         )
       )
 
@@ -735,6 +744,8 @@ class Domain(
     with HasUptime
     with NoTracing {
 
+  override type Status = DomainStatus
+
   registerAdminServices()
 
   logger.debug("Domain successfully initialized")
@@ -754,6 +765,7 @@ class Domain(
       dispatcher = topologyManagementArtefacts.dispatcher.queueSize,
       clients = topologyManagementArtefacts.client.numPendingChanges,
     )
+    val domainParameters = config.init.domainParameters
     DomainStatus(
       domainTopologyManager.id.uid,
       uptime(),
@@ -762,6 +774,8 @@ class Domain(
       sequencerHealth,
       topologyQueues,
       healthData,
+      version = Some(ReleaseVersion.current),
+      protocolVersion = domainParameters.protocolVersion.map(_.unwrap),
     )
   }
 

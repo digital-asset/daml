@@ -680,7 +680,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       catchUpConfig: Option[CatchUpConfig],
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
-  ): DynamicDomainParameters = {
+  ): DynamicDomainParameters =
     DynamicDomainParameters(
       participantResponseTimeout,
       mediatorReactionTimeout,
@@ -708,7 +708,6 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         representativeProtocolVersion,
       ),
     )(representativeProtocolVersion)
-  }
 
   /** Default dynamic domain parameters for non-static clocks */
   def defaultValues(protocolVersion: ProtocolVersion): DynamicDomainParameters =

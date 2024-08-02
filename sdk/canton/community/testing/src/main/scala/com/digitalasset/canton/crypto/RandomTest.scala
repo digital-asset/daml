@@ -11,7 +11,7 @@ import scala.concurrent.Future
 trait RandomTest {
   this: AsyncWordSpec with BaseTest =>
 
-  def randomnessProvider(providerF: => Future[RandomOps]): Unit = {
+  def randomnessProvider(providerF: => Future[RandomOps]): Unit =
     "Randomness provider" should {
       "generate fresh randomness" in {
 
@@ -23,5 +23,4 @@ trait RandomTest {
         }
       }
     }
-  }
 }

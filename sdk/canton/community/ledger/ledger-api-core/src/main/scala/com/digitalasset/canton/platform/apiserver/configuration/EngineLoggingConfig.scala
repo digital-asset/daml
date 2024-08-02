@@ -45,7 +45,7 @@ final case class EngineLoggingConfig(
       (new EngineLogger {
         override def add(message: String)(implicit
             loggingContext: LoggingContext
-        ): Unit = {
+        ): Unit =
           if (matcher(message)) {
             logLevel match {
               case Level.DEBUG => logger.debug(message)
@@ -56,7 +56,6 @@ final case class EngineLoggingConfig(
               case _ => ()
             }
           }
-        }
       }).some
     }
 }

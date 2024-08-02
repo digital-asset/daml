@@ -73,7 +73,7 @@ class ReferenceDemoScript(
 
   override def subscriptions(): Map[String, LedgerOffset] = readyToSubscribeM.get()
 
-  def imagePath: String = s"file:${rootPath}/images/"
+  def imagePath: String = s"file:$rootPath/images/"
 
   private val medical = ("medical", medicalConnection)
   private val banking = ("banking", bankingConnection)
@@ -101,12 +101,11 @@ class ReferenceDemoScript(
   }
 
   private val partyIdCache = mutable.LinkedHashMap[String, (PartyId, ParticipantReference)]()
-  private def partyId(name: String): PartyId = {
-    partyIdCache.getOrElse(name, sys.error(s"Failed to lookup party ${name}"))._1
-  }
+  private def partyId(name: String): PartyId =
+    partyIdCache.getOrElse(name, sys.error(s"Failed to lookup party $name"))._1
 
   private def darFile(dar: String): String =
-    darPath.map(path => s"$path/${dar}.dar").getOrElse(s"${rootPath}/dars/${dar}.dar")
+    darPath.map(path => s"$path/$dar.dar").getOrElse(s"$rootPath/dars/$dar.dar")
 
   private val lookupTimeoutSeconds: Long =
     System.getProperty("canton-demo.lookup-timeout-seconds", "40").toLong
@@ -211,7 +210,7 @@ class ReferenceDemoScript(
         "participant.parties.enable(NAME)",
         () => {
           execute(settings.map { case (name, participant, _, _) =>
-            logger.info(s"Enabling party ${name} on participant ${participant.id.toString}")
+            logger.info(s"Enabling party $name on participant ${participant.id.toString}")
             Future {
               blocking {
                 val pid = participant.parties.enable(name)
@@ -260,7 +259,7 @@ class ReferenceDemoScript(
             dars.map(darFile).map { x =>
               Future {
                 blocking {
-                  logger.debug(s"Uploading dar ${x} for ${name}")
+                  logger.debug(s"Uploading dar $x for $name")
                   participant.dars.upload(x)
                 }
               }
@@ -395,9 +394,8 @@ class ReferenceDemoScript(
           // Force the time proofs to be updated after topology transactions
           // TODO(i13200) The following line can be removed once the ticket is closed
           participant3.testing.fetch_domain_times()
-          val withdraw = {
+          val withdraw =
             insuranceLookup(M.bank.Cash.COMPANION).id.exerciseSplit(15).commands
-          }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), withdraw, optTimeout = syncTimeout)
             .discard[TransactionTree]
@@ -407,11 +405,10 @@ class ReferenceDemoScript(
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
           // settle claim (will invoke auto-transfer to the banking domain)
-          val settleClaim = {
+          val settleClaim =
             insuranceLookup(M.healthinsurance.Claim.COMPANION).id
               .exerciseAcceptAndSettleClaim(findCashCid.id)
               .commands
-          }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), settleClaim, optTimeout = syncTimeout)
             .discard[TransactionTree]
@@ -465,7 +462,7 @@ class ReferenceDemoScript(
                 val waitDuration =
                   if (waitDurationMaybeNegative.isNegative) Duration.ZERO
                   else waitDurationMaybeNegative
-                logger.info(s"I have to wait for ${waitDuration} before I can kick off pruning")
+                logger.info(s"I have to wait for $waitDuration before I can kick off pruning")
                 Threading.sleep(waitDuration.toMillis)
                 // now, flush all participants that have some business with this node
                 Seq(participant1, participant2, participant5).foreach(p =>
@@ -475,9 +472,9 @@ class ReferenceDemoScript(
                 )
                 // give the ACS commitment processor some time to catchup
                 Threading.sleep(5.seconds.toMillis)
-                logger.info(s"Pruning ledger up to offset ${offset} inclusively")
+                logger.info(s"Pruning ledger up to offset $offset inclusively")
                 participant5.pruning.prune(offset)
-                logger.info(s"Pruned ledger up to offset ${offset} inclusively.")
+                logger.info(s"Pruned ledger up to offset $offset inclusively.")
                 offset
               }
               .getOrElse(throw new RuntimeException("Unable to prune the ledger."))
@@ -486,7 +483,7 @@ class ReferenceDemoScript(
                 participant5.ledger_api.transactions
                   .flat(Set(registry), completeAfter = 5, beginOffset = prunedOffset)
               // ensure we don't see any transactions
-              require(transactions.isEmpty, s"transactions should be empty but was ${transactions}")
+              require(transactions.isEmpty, s"transactions should be empty but was $transactions")
             }
           }
           // ensure registry tab resubscribes after the pruning offset
@@ -512,13 +509,13 @@ class ReferenceDemoScript(
             }
           }
           val filename = darFile("ai-analysis")
-          val allF = Seq(participant5, participant1, participant6).map(participant => {
+          val allF = Seq(participant5, participant1, participant6).map { participant =>
             Future {
               blocking {
                 participant.dars.upload(filename)
               }
             }
-          }) :+ Future {
+          } :+ Future {
             blocking {}
           } :+ registerDomainF
           // once all dars are uploaded and we've connected the domain, register the party (as we can flush everything there ...)
@@ -533,7 +530,7 @@ class ReferenceDemoScript(
                 }
               }
             )
-          execute(Seq(sf.map(_ => {
+          execute(Seq(sf.map { _ =>
             val offer = new ME.aianalysis.OfferAnalysis(
               registry,
               alice,
@@ -542,7 +539,7 @@ class ReferenceDemoScript(
             participant5.ledger_api.javaapi.commands
               .submit(Seq(registry), offer, optTimeout = syncTimeout)
               .discard[TransactionTree]
-          }))).discard
+          })).discard
         },
       ),
       Action(
@@ -606,7 +603,7 @@ object ReferenceDemoScript {
     def getDomain(str: String): DomainReference =
       consoleEnvironment.domains.all
         .find(_.name == str)
-        .getOrElse(sys.error(s"can not find domain named ${str}"))
+        .getOrElse(sys.error(s"can not find domain named $str"))
 
     val banking = getDomain("banking")
     val medical = getDomain("medical")

@@ -62,7 +62,7 @@ final case class GeneratorsVerdict(protocolVersion: ProtocolVersion) {
 
   private[messages] def mediatorRejectGen(
       rpv: RepresentativeProtocolVersion[Verdict.type]
-  ): Gen[Verdict.MediatorReject] = {
+  ): Gen[Verdict.MediatorReject] =
     if (
       rpv >= Verdict.protocolVersionRepresentativeFor(
         Verdict.MediatorRejectV2.firstApplicableProtocolVersion
@@ -74,7 +74,6 @@ final case class GeneratorsVerdict(protocolVersion: ProtocolVersion) {
       )
     ) mediatorRejectV1Gen(rpv)
     else mediatorRejectV0Gen
-  }
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val mediatorRejectArb: Arbitrary[Verdict.MediatorReject] =
@@ -104,13 +103,12 @@ final case class GeneratorsVerdict(protocolVersion: ProtocolVersion) {
       case _: Verdict.ParticipantReject => ()
     }).discard
   }
-  private[messages] def verdictGen: Gen[Verdict] = {
+  private[messages] def verdictGen: Gen[Verdict] =
     Gen.oneOf(
       verdictApproveArb.arbitrary,
       mediatorRejectGen(Verdict.protocolVersionRepresentativeFor(protocolVersion)),
       participantRejectArb.arbitrary,
     )
-  }
 
   implicit val verdictArb: Arbitrary[Verdict] = Arbitrary(
     verdictGen

@@ -36,7 +36,7 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
   def forOwner(
       owner: KeyOwner,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
-  ): SyncCryptoApiProvider = {
+  ): SyncCryptoApiProvider =
     new SyncCryptoApiProvider(
       owner,
       ips(availableUpToInclusive),
@@ -46,7 +46,6 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
       FutureSupervisor.Noop,
       loggerFactory,
     )
-  }
 
   def forOwnerAndDomain(
       owner: KeyOwner,

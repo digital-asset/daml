@@ -175,7 +175,7 @@ object DiscardedFutureTest {
   def assertErrors(result: WartTestTraverser.Result, expectedErrors: Int): Assertion = {
     import Matchers.*
     result.errors.length shouldBe expectedErrors
-    result.errors.foreach { _ should include(DiscardedFuture.message) }
+    result.errors.foreach(_ should include(DiscardedFuture.message))
     succeed
   }
 }

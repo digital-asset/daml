@@ -225,7 +225,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         )
         .asScala
 
-      val result = fut.map(_ => {
+      val result = fut.map { _ =>
         verify(f.topologyManager).allocateParty(
           eqTo(String255.tryCreate(submissionId)),
           eqTo(partyId),
@@ -233,7 +233,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           eqTo(testedProtocolVersion),
         )(anyTraceContext)
         succeed
-      })
+      }
 
       result.futureValue
     }
@@ -265,7 +265,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       )
 
       Option(sync.eventTranslationStrategy.augmentTransactionStatistics(event))
-        .collect({ case ta: TransactionAccepted => ta })
+        .collect { case ta: TransactionAccepted => ta }
         .flatMap(_.completionInfoO)
         .flatMap(_.statistics)
         .map(_.committed.actions)

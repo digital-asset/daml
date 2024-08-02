@@ -157,9 +157,8 @@ class TransactionProcessingSteps(
 
   override def requestKind: String = "Transaction"
 
-  override def submissionDescription(param: SubmissionParam): String = {
+  override def submissionDescription(param: SubmissionParam): String =
     show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
-  }
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -704,7 +703,7 @@ class TransactionProcessingSteps(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
       ): Future[
         Either[EncryptedViewMessageError, (WithRecipients[DecryptedView], Option[Signature])]
-      ] = {
+      ] =
         for {
           _ <- extractRandomnessFromView(transactionViewEnvelope)
           randomness <- randomnessMap(transactionViewEnvelope.protocolMessage.viewHash).future
@@ -715,7 +714,6 @@ class TransactionProcessingSteps(
         } yield lightViewTreeE.map { case (view, signature) =>
           (WithRecipients(view, transactionViewEnvelope.recipients), signature)
         }
-      }
 
       val result = for {
         decryptionResult <- batch.toNEF.parTraverse(decryptView)
@@ -1150,14 +1148,13 @@ class TransactionProcessingSteps(
   // TODO(i12925) Internal consistency checks should give the answer whether this is maliciousness or a corrupted store.
   private def crashOnUnknownKeys(
       result: ActivenessResult
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     if (result.contracts.isSuccessful && result.keys.unknown.nonEmpty)
       ErrorUtil.internalError(
         new IllegalStateException(
           show"Unknown keys are to be reassigned. Either the persisted ledger state corrupted or this is a malformed transaction. Unknown keys: ${result.keys.unknown}"
         )
       )
-  }
 
   override def eventAndSubmissionIdForInactiveMediator(
       ts: CantonTimestamp,
@@ -1261,7 +1258,7 @@ class TransactionProcessingSteps(
       inputContracts: Map[LfContractId, SerializableContract]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, Unit] = {
+  ): EitherT[Future, TransactionProcessorError, Unit] =
     EitherT.fromEither(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
@@ -1270,7 +1267,6 @@ class TransactionProcessingSteps(
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )
-  }
 
   private def completionInfoFromSubmitterMetadataO(
       meta: SubmitterMetadata,
@@ -1452,7 +1448,7 @@ class TransactionProcessingSteps(
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+  ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] =
     for {
       usedAndCreated <- EitherT.right(
         ExtractUsedAndCreated(
@@ -1490,7 +1486,6 @@ class TransactionProcessingSteps(
         lfTx = validSubTransaction,
       )
     } yield commitAndContractsAndEvent
-  }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       eventE: Either[
@@ -1528,7 +1523,7 @@ class TransactionProcessingSteps(
       }
     }
 
-    def checkContradictoryMediatorApprove()(implicit traceContext: TraceContext): Unit = {
+    def checkContradictoryMediatorApprove()(implicit traceContext: TraceContext): Unit =
       if (
         isApprovalContradictionCheckEnabled(
           loggerFactory.name
@@ -1536,7 +1531,6 @@ class TransactionProcessingSteps(
       ) {
         ErrorUtil.invalidState(s"Mediator approved a request that we have locally rejected")
       }
-    }
 
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
@@ -1580,13 +1574,12 @@ class TransactionProcessingSteps(
         )
       )
 
-    def rejected(rejection: TransactionRejection) = {
+    def rejected(rejection: TransactionRejection) =
       for {
         event <- EitherT.fromEither[Future](
           createRejectionEvent(RejectionArgs(pendingRequestData, rejection))
         )
       } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event)
-    }
 
     for {
       topologySnapshot <- EitherT.right[TransactionProcessorError](

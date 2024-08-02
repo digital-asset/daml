@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import better.files.File
 import ch.qos.logback.classic.Level
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommands,
@@ -132,21 +133,19 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   def wait_for_running(): Unit = waitFor(running())
 
   @Help.Summary("Wait for the node to be initialized")
-  def wait_for_initialized(): Unit = {
+  def wait_for_initialized(): Unit =
     waitFor(initializedCache.updateAndGet {
       case false =>
         // in case the node is not reachable, we return false instead of throwing an error in order to keep retrying
         falseIfUnreachable(initializedCommand)
       case x => x
     })
-  }
 
-  protected def waitFor(condition: => Boolean): Unit = {
+  protected def waitFor(condition: => Boolean): Unit =
     // all calls here are potentially unbounded. we do not know how long it takes
     // for a node to start or for a node to become initialised. so we use the unbounded
     // timeout
     utils.retry_until_true(timeout = consoleEnvironment.commandTimeouts.unbounded)(condition)
-  }
 
   @Help.Summary("Change the log level of the process")
   @Help.Description(
@@ -180,7 +179,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
 
 }
 
-class HealthAdministration[S <: data.NodeStatus.Status](
+abstract class HealthAdministration[S <: data.NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     deserialize: v0.NodeStatus.Status => ParsingResult[S],
@@ -193,4 +192,21 @@ class HealthAdministration[S <: data.NodeStatus.Status](
     .toEither
     .isRight
 
+  protected def nodeStatusCommand: NodeStatusCommand[S, _, _]
+
+  @Help.Summary("Get human (and machine) readable participant status information")
+  override def status: NodeStatus[S] = consoleEnvironment.run {
+    val commandResult = runner.adminCommand(nodeStatusCommand)
+
+    commandResult.toEither match {
+      case Left(errorMessage) => CommandSuccessful(NodeStatus.Failure(errorMessage))
+      /* For backward compatibility:
+      Assumes getting a left of gRPC code means that the node specific status endpoint
+      is not available (because that Canton version does not include it), and thus we
+      want to fall back to the original status command.
+       */
+      case Right(Left(_code)) => CommandSuccessful(super.status)
+      case Right(Right(nodeStatus)) => CommandSuccessful(nodeStatus)
+    }
+  }
 }

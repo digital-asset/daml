@@ -86,7 +86,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       LedgerApplicationId.assertFromString("tests"),
@@ -95,7 +95,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       submissionId = None,
       workflowId = None,
     )
-  }
 
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)
@@ -161,7 +160,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferData: TransferData,
         transferOutResult: DeliveredTransferOutResult,
         persistentState: SyncDomainPersistentState,
-    ): Future[Unit] = {
+    ): Future[Unit] =
       for {
         _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
           "add transfer data failed"
@@ -170,7 +169,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           "add transfer out result failed"
         )
       } yield ()
-    }
 
     val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
     val transferDataF =

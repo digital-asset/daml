@@ -95,7 +95,7 @@ object FieldValidator {
 
   def requireResourceVersion(raw: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Long] = {
+  ): Either[StatusRuntimeException, Long] =
     Try {
       raw.toLong
     } match {
@@ -105,7 +105,6 @@ object FieldValidator {
           invalidField(fieldName = fieldName, message = "Invalid resource version number")
         )
     }
-  }
 
   def requireJwksUrl(raw: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
@@ -154,7 +153,7 @@ object FieldValidator {
 
   def eventSequentialId(raw: String, fieldName: String, message: String)(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Long] = {
+  ): Either[StatusRuntimeException, Long] =
     Try {
       raw.toLong
     } match {
@@ -163,7 +162,6 @@ object FieldValidator {
         // Do not mention event sequential id as this should be opaque externally
         Left(invalidField(fieldName = fieldName, message))
     }
-  }
 
   def requireIdentityProviderId(
       s: String,
@@ -181,11 +179,10 @@ object FieldValidator {
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, IdentityProviderId] = {
+  ): Either[StatusRuntimeException, IdentityProviderId] =
     if (s.isEmpty) Right(IdentityProviderId.Default)
     else
       IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
-  }
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -318,7 +315,7 @@ object FieldValidator {
       fieldName: String,
   )(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Map[String, String]] = {
+  ): Either[StatusRuntimeException, Map[String, String]] =
     ResourceAnnotationValidator.validateAnnotationsFromApiRequest(
       annotations,
       allowEmptyValues = allowEmptyValues,
@@ -333,7 +330,6 @@ object FieldValidator {
       case Left(e: EmptyAnnotationsValueError) => Left(invalidArgument(e.reason))
       case Right(_) => Right(annotations)
     }
-  }
 
   def validateTimestamp(timestamp: Timestamp, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger

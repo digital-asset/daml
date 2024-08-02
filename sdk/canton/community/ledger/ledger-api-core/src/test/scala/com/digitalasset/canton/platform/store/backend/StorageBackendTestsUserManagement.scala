@@ -53,9 +53,8 @@ private[backend] trait StorageBackendTestsUserManagement
       internalId
     }
 
-    override def fetchResourceVersion(): Long = {
+    override def fetchResourceVersion(): Long =
       executeSql(tested.getUser(user.id)).value.payload.resourceVersion
-    }
   }
 
   override def resourceVersionTableName: String = "participant_users"
@@ -504,9 +503,9 @@ private[backend] trait StorageBackendTestsUserManagement
   ): UserManagementStorageBackend.DbUserPayload = {
     val uuid = UUID.randomUUID.toString
     val primaryParty = primaryPartyOverride.getOrElse(
-      Some(Ref.Party.assertFromString(s"primary_party_${uuid}"))
+      Some(Ref.Party.assertFromString(s"primary_party_$uuid"))
     )
-    val userIdStr = if (userId != "") userId else s"user_id_${uuid}"
+    val userIdStr = if (userId != "") userId else s"user_id_$uuid"
     UserManagementStorageBackend.DbUserPayload(
       id = Ref.UserId.assertFromString(userIdStr),
       primaryPartyO = primaryParty,

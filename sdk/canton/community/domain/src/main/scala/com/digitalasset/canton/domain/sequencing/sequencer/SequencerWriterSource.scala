@@ -500,7 +500,7 @@ object WritePayloadsFlow {
 
     def writePayloads(
         events: Seq[Presequenced[StoreEvent[Payload]]]
-    ): Future[Seq[Presequenced[StoreEvent[PayloadId]]]] = {
+    ): Future[Seq[Presequenced[StoreEvent[PayloadId]]]] =
       if (events.isEmpty) Future.successful(Seq.empty[Presequenced[StoreEvent[PayloadId]]])
       else {
         implicit val traceContext: TraceContext = TraceContext.ofBatch(events)(logger)
@@ -524,7 +524,6 @@ object WritePayloadsFlow {
             .map((_: Unit) => eventsWithPayloadId)
         }
       }
-    }
 
     def extractPayload(event: StoreEvent[Payload]): Option[Payload] = event match {
       case DeliverStoreEvent(_, _, _, payload, _, _) => payload.some
@@ -551,7 +550,7 @@ object WritePayloadsFlow {
 object UpdateWatermarkFlow {
   def apply(store: SequencerWriterStore, logger: TracedLogger)(implicit
       executionContext: ExecutionContext
-  ): Flow[Traced[BatchWritten], Traced[BatchWritten], NotUsed] = {
+  ): Flow[Traced[BatchWritten], Traced[BatchWritten], NotUsed] =
     Flow[Traced[BatchWritten]]
       .mapAsync(1)(_.withTraceContext { implicit traceContext => written =>
         for {
@@ -579,7 +578,6 @@ object UpdateWatermarkFlow {
         } yield Traced(written)
       })
       .named("updateWatermark")
-  }
 }
 
 object NotifyEventSignallerFlow {

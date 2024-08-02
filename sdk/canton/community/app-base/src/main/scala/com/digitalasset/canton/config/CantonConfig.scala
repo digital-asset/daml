@@ -339,12 +339,11 @@ final case class CantonFeatures(
     // TODO(#15221) remove for x-nodes
     skipTopologyManagerSignatureValidation: Boolean = false,
 ) {
-  def featureFlags: Set[FeatureFlag] = {
+  def featureFlags: Set[FeatureFlag] =
     (Seq(FeatureFlag.Stable)
       ++ (if (enableTestingCommands) Seq(FeatureFlag.Testing) else Seq())
       ++ (if (enablePreviewCommands) Seq(FeatureFlag.Preview) else Seq())
       ++ (if (enableRepairCommands) Seq(FeatureFlag.Repair) else Seq())).toSet
-  }
 }
 
 /** Root configuration parameters for a single Canton process. */
@@ -525,7 +524,7 @@ trait CantonConfig {
 
 private[config] object CantonNodeParameterConverter {
 
-  def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General = {
+  def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General =
     CantonNodeParameters.General.Impl(
       parent.monitoring.tracing,
       parent.monitoring.delayLoggingThreshold.toInternal,
@@ -543,7 +542,6 @@ private[config] object CantonNodeParameterConverter {
       parent.parameters.exitOnFatalFailures,
       node.parameters.watchdog,
     )
-  }
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
     CantonNodeParameters.Protocol.Impl(
@@ -583,7 +581,7 @@ object CantonConfig {
     import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig.DeprecatedImplicits.*
     import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DeprecatedImplicits.*
 
-    lazy implicit val lengthLimitedStringReader: ConfigReader[LengthLimitedString] = {
+    lazy implicit val lengthLimitedStringReader: ConfigReader[LengthLimitedString] =
       ConfigReader.fromString[LengthLimitedString] { str =>
         Either.cond(
           str.nonEmpty && str.length <= defaultMaxLength,
@@ -591,7 +589,6 @@ object CantonConfig {
           InvalidLengthString(str),
         )
       }
-    }
 
     implicit val nonNegativeDurationReader: ConfigReader[NonNegativeDuration] =
       ConfigReader.fromString[NonNegativeDuration] { str =>
@@ -673,7 +670,7 @@ object CantonConfig {
             CannotConvert(
               unknownSeeding,
               Seeding.getClass.getName,
-              s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: ${unknownSeeding}",
+              s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: $unknownSeeding",
             )
           )
       }
@@ -1015,9 +1012,8 @@ object CantonConfig {
       deriveReader[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersReader: ConfigReader[CantonParameters] =
       deriveReader[CantonParameters]
-    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] = {
+    lazy implicit val cantonFeaturesReader: ConfigReader[CantonFeatures] =
       deriveReader[CantonFeatures]
-    }
     lazy implicit val cantonWatchdogConfigReader: ConfigReader[WatchdogConfig] =
       deriveReader[WatchdogConfig]
   }
@@ -1402,9 +1398,8 @@ object CantonConfig {
       deriveWriter[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersWriter: ConfigWriter[CantonParameters] =
       deriveWriter[CantonParameters]
-    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] = {
+    lazy implicit val cantonFeaturesWriter: ConfigWriter[CantonFeatures] =
       deriveWriter[CantonFeatures]
-    }
     lazy implicit val cantonWatchdogConfigWriter: ConfigWriter[WatchdogConfig] =
       deriveWriter[WatchdogConfig]
   }
@@ -1438,13 +1433,12 @@ object CantonConfig {
     */
   def parseAndMergeJustCLIConfigs(
       files: NonEmpty[Seq[File]]
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, Config] = {
+  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, Config] =
     for {
       verifiedFiles <- verifyThatFilesCanBeRead(files)
       parsedFiles <- parseConfigs(verifiedFiles)
       combinedConfig = mergeConfigs(parsedFiles)
     } yield combinedConfig
-  }
 
   /** Renders a configuration file such that we can write it to the log-file on startup */
   def renderForLoggingOnStartup(config: Config): String = {
@@ -1452,7 +1446,7 @@ object CantonConfig {
     val replace =
       Set("secret", "pw", "password", "ledger-api-jdbc-url", "jdbc", "token", "admin-token")
     val blinded = ConfigValueFactory.fromAnyRef("****")
-    def goVal(key: String, c: ConfigValue): ConfigValue = {
+    def goVal(key: String, c: ConfigValue): ConfigValue =
       c match {
         case lst: ConfigList => goLst(lst)
         case obj: ConfigObject =>
@@ -1462,7 +1456,6 @@ object CantonConfig {
             blinded
           else other
       }
-    }
     def goObj(c: ConfigObject): ConfigObject = {
       val resolved = Try(c.isEmpty).isSuccess
       if (resolved) {
@@ -1478,7 +1471,7 @@ object CantonConfig {
       }
       ConfigValueFactory.fromIterable(mapped.asJava)
     }
-    def go(c: Config): Config = {
+    def go(c: Config): Config =
       c
         .root()
         .entrySet()
@@ -1487,7 +1480,6 @@ object CantonConfig {
         .foldLeft(c) { case (subConfig, (key, obj)) =>
           subConfig.withValue(key, goVal(key, obj))
         }
-    }
     go(config)
       .resolve()
       .root()
@@ -1519,11 +1511,10 @@ object CantonConfig {
 
   private def configOrExit[ConfClass: ClassTag](
       result: Either[CantonConfigError, ConfClass]
-  ): ConfClass = {
+  ): ConfClass =
     result.valueOr { _ =>
       sys.exit(1)
     }
-  }
 
   /** Merge a number of [[com.typesafe.config.Config]] instances into a single [[com.typesafe.config.Config]].
     * If the same key is included in multiple configurations, then the last definition has highest precedence.
@@ -1548,13 +1539,12 @@ object CantonConfig {
       ConfClass <: CantonConfig with ConfigDefaults[DefaultPorts, ConfClass]: ClassTag: ConfigReader
   ](
       files: Seq[File]
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] = {
+  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] =
     for {
       nonEmpty <- NonEmpty.from(files).toRight(NoConfigFiles.Error())
       parsedAndMerged <- parseAndMergeConfigs(nonEmpty)
       loaded <- loadAndValidate[ConfClass](parsedAndMerged)
     } yield loaded
-  }
 
   /** Parses the provided files to generate a [[com.typesafe.config.Config]], then attempts to load the
     * [[com.typesafe.config.Config]] based on the given ClassTag. Will log the error and exit with code 1, if any error
@@ -1610,19 +1600,17 @@ object CantonConfig {
       ConfClass <: CantonConfig with ConfigDefaults[DefaultPorts, ConfClass]: ClassTag: ConfigReader
   ](
       config: Config
-  )(implicit elc: ErrorLoggingContext): ConfClass = {
+  )(implicit elc: ErrorLoggingContext): ConfClass =
     loadAndValidate[ConfClass](config).valueOr(_ => sys.exit(1))
-  }
 
   private[config] def loadRawConfig[ConfClass <: CantonConfig: ClassTag: ConfigReader](
       rawConfig: Config
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] = {
+  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] =
     pureconfig.ConfigSource
       .fromConfig(rawConfig)
       .at("canton")
       .load[ConfClass]
       .leftMap(failures => GenericConfigError.Error(ConfigErrors.getMessage[ConfClass](failures)))
-  }
 
   lazy val defaultConfigRenderer =
     ConfigRenderOptions.defaults().setOriginComments(false).setComments(false).setJson(false)

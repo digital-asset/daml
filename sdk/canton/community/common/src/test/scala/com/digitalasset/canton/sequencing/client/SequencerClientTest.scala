@@ -89,9 +89,8 @@ class SequencerClientTest
       CantonTimestamp.Epoch,
       DefaultTestIdentities.domainId,
     )
-  private lazy val signedDeliver: OrdinarySerializedEvent = {
+  private lazy val signedDeliver: OrdinarySerializedEvent =
     OrdinarySequencedEvent(SequencerTestUtils.sign(deliver), None)(traceContext)
-  }
 
   private lazy val nextDeliver: Deliver[Nothing] = SequencerTestUtils.mockDeliver(
     43,
@@ -176,12 +175,10 @@ class SequencerClientTest
 
         _ <- env.subscribeAfter(eventHandler = alwaysFailingHandler)
         _ <- loggerFactory.assertLogs(
-          {
-            for {
-              _ <- transport.subscriber.value.handler(signedDeliver)
-              _ <- client.flush()
-            } yield ()
-          },
+          for {
+            _ <- transport.subscriber.value.handler(signedDeliver)
+            _ <- client.flush()
+          } yield (),
           logEntry => {
             logEntry.errorMessage should be(
               "Synchronous event processing failed for event batch with sequencer counters 42 to 42."
@@ -304,16 +301,14 @@ class SequencerClientTest
         env @ Env(client, transport, _, _, _) <- Env.create(useParallelExecutionContext = true)
         _ <- env.subscribeAfter(CantonTimestamp.MinValue, handler)
         closeReason <- loggerFactory.assertLogs(
-          {
-            for {
-              _ <- transport.subscriber.value.sendToHandler(deliver)
-              // Send the next event so that the client notices that an error has occurred.
-              _ <- client.flush()
-              _ <- transport.subscriber.value.sendToHandler(nextDeliver)
-              // wait until the subscription is closed (will emit an error)
-              closeReason <- client.completion
-            } yield closeReason
-          },
+          for {
+            _ <- transport.subscriber.value.sendToHandler(deliver)
+            // Send the next event so that the client notices that an error has occurred.
+            _ <- client.flush()
+            _ <- transport.subscriber.value.sendToHandler(nextDeliver)
+            // wait until the subscription is closed (will emit an error)
+            closeReason <- client.completion
+          } yield closeReason,
           logEntry => {
             logEntry.errorMessage should be(
               s"Synchronous event processing failed for event batch with sequencer counters ${deliver.counter} to ${deliver.counter}."
@@ -370,24 +365,22 @@ class SequencerClientTest
           eventHandler = ApplicationHandler.create("async-failure")(_ => asyncFailure)
         )
         closeReason <- loggerFactory.assertLogs(
-          {
-            for {
-              _ <- transport.subscriber.value.sendToHandler(deliver)
-              // Make sure that the asynchronous error has been noticed
-              // We intentionally do two flushes. The first captures `handleReceivedEventsUntilEmpty` completing.
-              // During this it may addToFlush a future for capturing `asyncSignalledF` however this may occur
-              // after we've called `flush` and therefore won't guarantee completing all processing.
-              // So our second flush will capture `asyncSignalledF` for sure.
-              _ <- client.flush()
-              _ <- client.flush()
-              // Send the next event so that the client notices that an error has occurred.
-              _ <- transport.subscriber.value.sendToHandler(nextDeliver)
-              _ <- client.flush()
-              // wait until client completed (will write an error)
-              closeReason <- client.completion
-              _ = client.close() // make sure that we can still close the sequencer client
-            } yield closeReason
-          },
+          for {
+            _ <- transport.subscriber.value.sendToHandler(deliver)
+            // Make sure that the asynchronous error has been noticed
+            // We intentionally do two flushes. The first captures `handleReceivedEventsUntilEmpty` completing.
+            // During this it may addToFlush a future for capturing `asyncSignalledF` however this may occur
+            // after we've called `flush` and therefore won't guarantee completing all processing.
+            // So our second flush will capture `asyncSignalledF` for sure.
+            _ <- client.flush()
+            _ <- client.flush()
+            // Send the next event so that the client notices that an error has occurred.
+            _ <- transport.subscriber.value.sendToHandler(nextDeliver)
+            _ <- client.flush()
+            // wait until client completed (will write an error)
+            closeReason <- client.completion
+            _ = client.close() // make sure that we can still close the sequencer client
+          } yield closeReason,
           logEntry => {
             logEntry.errorMessage should include(
               s"Asynchronous event processing failed for event batch with sequencer counters ${deliver.counter} to ${deliver.counter}"
@@ -605,12 +598,10 @@ class SequencerClientTest
           timeTracker,
         )
         _ <- loggerFactory.assertLogs(
-          {
-            for {
-              _ <- transport.subscriber.value.handler(signedDeliver)
-              _ <- client.flushClean()
-            } yield ()
-          },
+          for {
+            _ <- transport.subscriber.value.handler(signedDeliver)
+            _ <- client.flushClean()
+          } yield (),
           logEntry => {
             logEntry.errorMessage should be(
               "Synchronous event processing failed for event batch with sequencer counters 42 to 42."
@@ -811,7 +802,7 @@ class SequencerClientTest
       handler: SerializedEventHandler[E],
       subscription: MockSubscription[E],
   ) {
-    def sendToHandler(event: SequencedEvent[ClosedEnvelope]): Future[Unit] = {
+    def sendToHandler(event: SequencedEvent[ClosedEnvelope]): Future[Unit] =
       handler(OrdinarySequencedEvent(SequencerTestUtils.sign(event), None)(traceContext))
         .transform {
           case Success(Right(_)) => Success(())
@@ -822,7 +813,6 @@ class SequencerClientTest
             subscription.closeSubscription(ex)
             Success(())
         }
-    }
   }
 
   private case class Env(
@@ -845,11 +835,10 @@ class SequencerClientTest
         PeriodicAcknowledgements.noAcknowledgements,
       )
 
-    def changeTransport(newTransport: SequencerClientTransport): Future[Unit] = {
+    def changeTransport(newTransport: SequencerClientTransport): Future[Unit] =
       client.changeTransport(
         SequencerTransports.default(sequencerId, newTransport)
       )
-    }
 
     def changeTransport(sequencerTransports: SequencerTransports): Future[Unit] =
       client.changeTransport(sequencerTransports)

@@ -67,11 +67,10 @@ class ExtractSingleMaterializedValueTest
 
   }
 
-  private def processElements(elements: Iterable[Int]) = {
+  private def processElements(elements: Iterable[Int]) =
     Source
       .fromIterator(() => elements.iterator)
       .viaMat(ExtractMaterializedValue(discriminator))(Keep.right)
       .toMat(Sink.seq)(Keep.both)
       .run()
-  }
 }

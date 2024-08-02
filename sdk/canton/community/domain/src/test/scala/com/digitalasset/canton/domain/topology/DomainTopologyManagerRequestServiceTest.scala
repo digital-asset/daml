@@ -118,7 +118,7 @@ class DomainTopologyManagerRequestServiceTest
     val client = mock[DomainTopologyClient]
     when(client.await(any[TopologySnapshot => Future[Boolean]], any[Duration])(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(true))
-    def service(config: TopologyConfig = TopologyConfig()): DomainTopologyManagerRequestService = {
+    def service(config: TopologyConfig = TopologyConfig()): DomainTopologyManagerRequestService =
       new DomainTopologyManagerRequestService(
         new RequestProcessingStrategy.Impl(
           config = config,
@@ -135,7 +135,6 @@ class DomainTopologyManagerRequestServiceTest
         testedProtocolVersion,
         loggerFactory,
       )
-    }
 
   }
 
@@ -166,7 +165,7 @@ class DomainTopologyManagerRequestServiceTest
 
   private def onboardingTests(config: TopologyConfig) = {
 
-    def expectMalicious[A](within: => A) = {
+    def expectMalicious[A](within: => A) =
       loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
         within,
         messages =>
@@ -175,7 +174,6 @@ class DomainTopologyManagerRequestServiceTest
               or include(InvalidOrFaultyOnboardingRequest.id))
           },
       )
-    }
 
     lazy val securityAsset: SecurityTest =
       SecurityTest(

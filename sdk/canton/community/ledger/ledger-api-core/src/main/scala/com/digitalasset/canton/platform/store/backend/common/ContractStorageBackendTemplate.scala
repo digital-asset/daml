@@ -305,7 +305,7 @@ class ContractStorageBackendTemplate(
   override def activeContractWithArgument(
       readers: Set[Party],
       contractId: ContractId,
-  )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
+  )(connection: Connection): Option[ContractStorageBackend.RawContract] =
     activeContract(
       resultSetParser = rawContractRowParser.singleOpt,
       resultColumns =
@@ -314,7 +314,6 @@ class ContractStorageBackendTemplate(
       readers = readers,
       contractId = contractId,
     )(connection)
-  }
 
   override def activeContractWithoutArgument(
       readers: Set[Party],

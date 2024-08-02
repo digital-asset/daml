@@ -274,7 +274,7 @@ class SequencerClientImpl(
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       callback: SendCallback = SendCallback.empty,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     member match {
       case _: AuthenticatedMember =>
         sendAsync(
@@ -294,7 +294,6 @@ class SequencerClientImpl(
           callback = callback,
         )
     }
-  }
 
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
@@ -479,7 +478,7 @@ class SequencerClientImpl(
       messageId: MessageId,
       request: SubmissionRequest,
       requiresAuthentication: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     EitherTUtil
       .timed(metrics.submissions.sends) {
         val timeout = timeouts.network.duration
@@ -509,7 +508,6 @@ class SequencerClientImpl(
         logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
         sendTracker.cancelPendingSend(messageId).map(_ => err)
       }
-  }
 
   override def generateMaxSequencingTime: CantonTimestamp =
     clock.now.add(config.defaultMaxSequencingTimeOffset.asJava)
@@ -530,7 +528,7 @@ class SequencerClientImpl(
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     sequencerCounterTrackerStore.preheadSequencerCounter.flatMap { cleanPrehead =>
       val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
         _.timestamp
@@ -548,7 +546,6 @@ class SequencerClientImpl(
         PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
       )
     }
-  }
 
   /** Create a subscription for sequenced events for this member,
     * starting after the last event in the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`.
@@ -643,7 +640,7 @@ class SequencerClientImpl(
           .fold(CantonTimestamp.MinValue)(_.timestamp)
           .immediateSuccessor
         _ = logger.info(
-          s"Processing events from the SequencedEventStore from ${replayStartTimeInclusive} on"
+          s"Processing events from the SequencedEventStore from $replayStartTimeInclusive on"
         )
 
         replayEvents <- FutureUnlessShutdown.outcomeF(
@@ -1122,7 +1119,7 @@ class SequencerClientImpl(
       .discard
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
       SyncCloseable("sequencer-aggregator", sequencerAggregator.close()),
       SyncCloseable("sequencer-send-tracker", sendTracker.close()),
@@ -1138,7 +1135,6 @@ class SequencerClientImpl(
       SyncCloseable("sequencer-client-recorder", recorderO.foreach(_.close())),
       SyncCloseable("deferred-subscription-health", deferredSubscriptionHealth.close()),
     )
-  }
 
   /** Returns a future that completes after asynchronous processing has completed for all events
     * whose synchronous processing has been completed prior to this call. May complete earlier if event processing
@@ -1163,11 +1159,10 @@ object SequencerClient {
     def expectedSequencers: NonEmpty[Set[SequencerId]] =
       sequencerToTransportMap.map(_._2.sequencerId).toSet
 
-    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer]] = {
+    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer]] =
       sequencerToTransportMap.map { case (_, transport) =>
         transport.sequencerId -> transport
       }.toMap
-    }
 
     def transports: Set[SequencerClientTransport] =
       sequencerToTransportMap.values.map(_.clientTransport).toSet

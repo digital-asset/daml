@@ -118,7 +118,7 @@ class CliTest extends AnyWordSpec with BaseTest {
     val args: Array[String] = if (!text.isEmpty) text.split(" ") else Array()
     val errOutput = new ByteArrayOutputStream()
 
-    val result = Console.withErr(errOutput) { Cli.parse(args) }
+    val result = Console.withErr(errOutput)(Cli.parse(args))
 
     (result, errOutput.toString)
   }

@@ -178,7 +178,7 @@ object MalformedMediatorRequestResult
     override def validateInstance(
         v: MalformedMediatorRequestResult,
         rpv: RepresentativeProtocolVersion[MalformedMediatorRequestResult.type],
-    ): Either[String, Unit] = {
+    ): Either[String, Unit] =
       v.verdict match {
         case _: Verdict.MediatorRejectV0 =>
           EitherUtil.condUnitE(
@@ -205,7 +205,6 @@ object MalformedMediatorRequestResult
             Verdict.MediatorRejectV2.wrongProtocolVersion(rpv),
           )
       }
-    }
   }
 
   override def invariants: Seq[canton.protocol.messages.MalformedMediatorRequestResult.Invariant] =

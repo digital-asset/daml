@@ -12,12 +12,11 @@ import scala.annotation.tailrec
 class SeqUtilTest extends AnyWordSpec with BaseTest {
 
   @tailrec
-  final def isPrime(i: Int): Boolean = {
+  final def isPrime(i: Int): Boolean =
     if (i == Integer.MIN_VALUE) false
     else if (i < 0) isPrime(-i)
     else if (i < 2) false
     else (2 to Math.sqrt(i.toDouble).toInt).forall(d => i % d != 0)
-  }
 
   "splitAfter" should {
     "split after the elements" in {

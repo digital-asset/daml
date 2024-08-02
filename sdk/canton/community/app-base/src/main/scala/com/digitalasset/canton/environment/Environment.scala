@@ -285,9 +285,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
-  protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(domains, participants)
-  private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
+  protected def allNodes: List[Nodes.GenericNodes] =
+    List[Nodes.GenericNodes](domains, participants)
+  private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] =
+    allNodes.flatMap(_.running)
 
   private def autoConnectLocalNodes(): Either[StartupError, Unit] = {
     // TODO(#14048) extend this to x-nodes
@@ -300,7 +301,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         name <- DomainAlias.create(domain.name.unwrap)
         sequencerConnections = SequencerConnections.single(connection)
       } yield DomainConnectionConfig(name, sequencerConnections)).leftMap(err =>
-        StartFailed(domain.name.unwrap, s"Can not parse config for auto-connect: ${err}")
+        StartFailed(domain.name.unwrap, s"Can not parse config for auto-connect: $err")
       )
     val connectParticipants =
       participants.running.filter(_.isActive).flatMap(x => x.getNode.map((x.name, _)).toList)
@@ -376,7 +377,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         better.files.File(portsFile).overwrite(out)
       } catch {
         case NonFatal(ex) =>
-          logger.warn(s"Failed to write to port file ${portsFile}. Will ignore the error", ex)
+          logger.warn(s"Failed to write to port file $portsFile. Will ignore the error", ex)
       }
     }
   }
@@ -385,8 +386,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       traceContext: TraceContext
   ): Either[StartupError, Unit] = {
     def reconnect(
-        instance: CantonNodeBootstrap[ParticipantNodeCommon] & ParticipantNodeBootstrapCommon
-    ): EitherT[Future, StartupError, Unit] = {
+        instance: CantonNodeBootstrap[ParticipantNodeCommon] & ParticipantNodeBootstrapCommon[
+          ParticipantNode
+        ]
+    ): EitherT[Future, StartupError, Unit] =
       instance.getNode match {
         case None =>
           // should not happen, but if it does, display at least a warning.
@@ -403,7 +406,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
             .onShutdown(Left(StartFailed(instance.name.unwrap, "aborted due to shutdown")))
 
       }
-    }
     config.parameters.timeouts.processing.unbounded.await("reconnect-particiapnts")(
       MonadUtil
         .parTraverseWithLimit_(config.parameters.getStartupParallelism(numThreads))(
@@ -417,11 +419,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     */
   def now: CantonTimestamp = clock.now
 
-  private def allNodesWithGroup = {
+  private def allNodesWithGroup =
     allNodes.flatMap { nodeGroup =>
       nodeGroup.names().map(name => (name, nodeGroup))
     }
-  }
 
   /** Start all instances described in the configuration
     */
@@ -432,26 +433,24 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     stopNodes(allNodesWithGroup)
 
   def startNodes(
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
-  )(implicit traceContext: TraceContext): Either[StartupError, Unit] = {
+      nodes: Seq[(String, Nodes.GenericNodes)]
+  )(implicit traceContext: TraceContext): Either[StartupError, Unit] =
     runOnNodesOrderedByStartupGroup(
       "startup-of-all-nodes",
       nodes,
       { case (name, nodes) => nodes.start(name) },
       reverse = false,
     )
-  }
 
   def stopNodes(
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
-  )(implicit traceContext: TraceContext): Either[ShutdownError, Unit] = {
+      nodes: Seq[(String, Nodes.GenericNodes)]
+  )(implicit traceContext: TraceContext): Either[ShutdownError, Unit] =
     runOnNodesOrderedByStartupGroup(
       "stop-of-all-nodes",
       nodes,
       { case (name, nodes) => nodes.stop(name) },
       reverse = true,
     )
-  }
 
   /** run some task on nodes ordered by their startup group
     *
@@ -459,10 +458,10 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     */
   private def runOnNodesOrderedByStartupGroup[T, I](
       name: String,
-      nodes: Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])],
-      task: (String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]) => EitherT[Future, T, I],
+      nodes: Seq[(String, Nodes.GenericNodes)],
+      task: (String, Nodes.GenericNodes) => EitherT[Future, T, I],
       reverse: Boolean,
-  )(implicit traceContext: TraceContext): Either[T, Unit] = {
+  )(implicit traceContext: TraceContext): Either[T, Unit] =
     config.parameters.timeouts.processing.unbounded.await(name)(
       MonadUtil
         .sequentialTraverse_(
@@ -482,13 +481,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         }
         .value
     )
-  }
 
   @VisibleForTesting
   protected def createParticipant(
       name: String,
       participantConfig: Config#ParticipantConfigType,
-  ): ParticipantNodeBootstrap = {
+  ): Either[String, ParticipantNodeBootstrap] =
     participantNodeFactory
       .create(
         NodeFactoryArguments(
@@ -506,14 +504,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         ),
         testingTimeService,
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
-  }
 
   @VisibleForTesting
   protected def createDomain(
       name: String,
       domainConfig: config.DomainConfigType,
-  ): DomainNodeBootstrap =
+  ): Either[String, DomainNodeBootstrap] =
     domainFactory
       .create(
         NodeFactoryArguments(
@@ -530,7 +526,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           executionContext,
         )
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create domain bootstrap: $err"))
 
   private def simClocks: Seq[SimClock] = {
     val clocks = clock +: (participants.running.map(_.clock) ++ domains.running.map(_.clock))
@@ -572,13 +567,12 @@ object Environment {
     * of translating all JUL log statements (regardless of whether they are being used).
     * See for more details: https://logback.qos.ch/manual/configuration.html#LevelChangePropagator
     */
-  def installJavaUtilLoggingBridge(): Unit = {
+  def installJavaUtilLoggingBridge(): Unit =
     if (!SLF4JBridgeHandler.isInstalled) {
       // we want everything going to slf4j so remove any default loggers
       SLF4JBridgeHandler.removeHandlersForRootLogger()
       SLF4JBridgeHandler.install()
     }
-  }
 
 }
 

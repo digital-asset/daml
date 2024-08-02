@@ -109,7 +109,7 @@ object ServiceAgreementManager {
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): Either[String, ServiceAgreementManager] = {
+  )(implicit ec: ExecutionContext): Either[String, ServiceAgreementManager] =
     for {
       agreementText <- Either
         .catchOnly[IOException](agreementFile.contentAsString)
@@ -125,7 +125,6 @@ object ServiceAgreementManager {
         loggerFactory,
       )
     } yield new ServiceAgreementManager(agreement, store, loggerFactory)
-  }
 }
 
 sealed trait ServiceAgreementManagerError

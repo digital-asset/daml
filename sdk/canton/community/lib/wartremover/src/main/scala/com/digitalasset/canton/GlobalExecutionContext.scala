@@ -41,7 +41,7 @@ object GlobalExecutionContext extends WartTraverser {
     val executionContextImplicitsName = "scala.concurrent.ExecutionContext.Implicits"
 
     new Traverser {
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
@@ -59,7 +59,6 @@ object GlobalExecutionContext extends WartTraverser {
           case _ =>
             super.traverse(tree)
         }
-      }
     }
   }
 

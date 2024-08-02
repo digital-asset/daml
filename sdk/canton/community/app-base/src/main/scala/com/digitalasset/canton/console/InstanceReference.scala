@@ -11,12 +11,14 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.domain.admin.data.DomainStatus
 import com.digitalasset.canton.domain.config.RemoteDomainConfig
 import com.digitalasset.canton.domain.{Domain, DomainNodeBootstrap}
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.{DomainStatus, NodeStatus, ParticipantStatus}
+import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -63,9 +65,8 @@ trait InstanceReferenceCommon
   @Help.Description(
     "Some commands cache values on the client side. Use this command to explicitly clear the caches of these values."
   )
-  def clear_cache(): Unit = {
+  def clear_cache(): Unit =
     topology.clearCache()
-  }
 
   type Status <: NodeStatus.Status
 
@@ -94,7 +95,7 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
   val name: String
   val consoleEnvironment: ConsoleEnvironment
-  private[console] val nodes: Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]
+  private[console] val nodes: Nodes.GenericNodes
 
   @Help.Summary("Database related operations")
   @Help.Group("Database")
@@ -157,11 +158,11 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
   private[console] def startCommand(): ConsoleCommandResult[Unit] =
     startInstance()
-      .toResult({
+      .toResult {
         case m: PendingDatabaseMigration =>
           s"${m.message} Please run `${m.name}.db.migrate` to apply pending migrations"
         case m => m.message
-      })
+      }
 
   private[console] def stopCommand(): ConsoleCommandResult[Unit] =
     try {
@@ -171,11 +172,10 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
     }
 
   protected def migrateInstanceDb(): Either[StartupError, _] = nodes.migrateDatabase(name)
-  protected def repairMigrationOfInstance(force: Boolean): Either[StartupError, Unit] = {
+  protected def repairMigrationOfInstance(force: Boolean): Either[StartupError, Unit] =
     Either
       .cond(force, (), DidntUseForceOnRepairMigration(name))
       .flatMap(_ => nodes.repairDatabaseMigration(name))
-  }
 
   protected def startInstance(): Either[StartupError, Unit] =
     nodes.startAndWait(name)
@@ -192,12 +192,11 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
 
   override protected[console] def adminCommand[Result](
       grpcCommand: GrpcAdminCommand[_, _, Result]
-  ): ConsoleCommandResult[Result] = {
+  ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
       consoleEnvironment.grpcAdminCommandRunner
         .runCommand(name, grpcCommand, config.clientAdminApi, None)
     )
-  }
 
 }
 
@@ -243,10 +242,10 @@ trait DomainReference
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")
   override def health =
-    new HealthAdministration[DomainStatus](
+    new DomainHealthAdministration(
       this,
       consoleEnvironment,
-      DomainStatus.fromProtoV0,
+      loggerFactory,
     )
 
   @Help.Summary(
@@ -269,12 +268,11 @@ trait DomainReference
 
   override protected val loggerFactory: NamedLoggerFactory = NamedLoggerFactory("domain", name)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: DomainReference => x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
   @Help.Summary("Inspect configured parties")
   @Help.Group("Parties")
@@ -575,13 +573,12 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
   def config: RemoteParticipantConfig =
     consoleEnvironment.environment.config.remoteParticipantsByString(name)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: RemoteParticipantReference =>
         x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
 }
 
@@ -653,13 +650,12 @@ class LocalParticipantReference(
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
-  override def equals(obj: Any): Boolean = {
+  override def equals(obj: Any): Boolean =
     obj match {
       case x: LocalParticipantReference =>
         x.consoleEnvironment == consoleEnvironment && x.name == name
       case _ => false
     }
-  }
 
   override def runningNode: Option[CantonNodeBootstrap[ParticipantNode]] =
     consoleEnvironment.environment.participants.getRunning(name)

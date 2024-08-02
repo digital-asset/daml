@@ -27,11 +27,10 @@ class LedgerApiStorage private[api] (
   def createSchema(): Either[SQLException, Unit] =
     asEitherT(_ => createAction(), Predef.identity)
 
-  override def close(): Unit = {
+  override def close(): Unit =
     blocking {
       closeAction(jdbcUrl)
     }
-  }
 
   private def asEitherT[E](action: String => Unit, error: SQLException => E): Either[E, Unit] =
     blocking {

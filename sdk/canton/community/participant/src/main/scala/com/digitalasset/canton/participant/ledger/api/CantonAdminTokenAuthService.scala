@@ -49,7 +49,7 @@ class CantonAdminTokenAuthService(adminToken: CantonAdminToken, parent: Seq[Auth
 
   private def decodeMetadataParent(
       headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] = {
+  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] =
     // iterate until we find one claim set which is not unauthenticated
     parent.foldLeft(deny) { case (acc, elem) =>
       acc.thenCompose { prevClaims =>
@@ -59,6 +59,5 @@ class CantonAdminTokenAuthService(adminToken: CantonAdminToken, parent: Seq[Auth
           elem.decodeMetadata(headers)
       }
     }
-  }
 
 }

@@ -29,7 +29,7 @@ object LedgerApiTypeWrappers {
 
     private def corrupt: String = s"corrupt event ${event.eventId} / ${event.contractId}"
 
-    def templateId: TemplateId = {
+    def templateId: TemplateId =
       TemplateId.fromIdentifier(
         event.templateId.getOrElse(
           throw new IllegalArgumentException(
@@ -37,11 +37,9 @@ object LedgerApiTypeWrappers {
           )
         )
       )
-    }
 
-    def packageId: String = {
+    def packageId: String =
       event.templateId.map(_.packageId).getOrElse(corrupt)
-    }
 
     private def flatten(prefix: Seq[String], field: RecordField): Seq[(String, Any)] = {
       def extract(args: Value.Sum): Seq[(String, Any)] =

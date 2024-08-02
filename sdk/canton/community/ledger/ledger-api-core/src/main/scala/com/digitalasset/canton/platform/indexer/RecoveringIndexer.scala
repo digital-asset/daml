@@ -52,11 +52,11 @@ private[indexer] final class RecoveringIndexer(
 
     val firstSubscription = indexer
       .acquire()
-      .map(handle => {
+      .map { handle =>
         logger.info("Started Indexer Server")
         updateHealthStatus(Healthy)
         handle
-      })
+      }
     subscription.set(firstSubscription)
     resubscribeOnFailure(firstSubscription) {}
 
@@ -144,17 +144,17 @@ private[indexer] final class RecoveringIndexer(
         .get()
         .asFuture
         .transform(_ => Success(healthReporter -> complete.future))
-    )(_ => {
+    ) { _ =>
       logger.info("Stopping Indexer Server")
       subscription
         .getAndSet(null)
         .release()
         .flatMap(_ => complete.future)
-        .map(_ => {
+        .map { _ =>
           updateHealthStatus(Unhealthy)
           logger.info("Stopped Indexer Server")
-        })
-    })
+        }
+    }
   }
 
   private def reportErrorState(errorMessage: String, exception: Throwable): Unit = {

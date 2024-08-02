@@ -25,7 +25,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Group of CantonNodes of the same type (domains, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
@@ -83,6 +83,10 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
   def repairDatabaseMigration(name: InstanceName): Either[StartupError, Unit]
 }
 
+object Nodes {
+  type GenericNodes = Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]
+}
+
 private sealed trait ManagedNodeStage[T]
 
 private final case class PreparingDatabase[T](
@@ -103,7 +107,7 @@ class ManagedNodes[
     NodeParameters <: CantonNodeParameters,
     NodeBootstrap <: CantonNodeBootstrap[Node],
 ](
-    create: (String, NodeConfig) => NodeBootstrap,
+    create: (String, NodeConfig) => Either[String, NodeBootstrap],
     migrationsFactory: DbMigrationsFactory,
     override protected val timeouts: ProcessingTimeout,
     configs: Map[String, NodeConfig],
@@ -153,12 +157,15 @@ class ManagedNodes[
       val params = parametersFor(name)
       val startup = for {
         // start migration
-        _ <- EitherT(Future { checkMigration(name, config.storage, params) })
-        instance = {
-          val instance = create(name, config)
-          nodes.put(name, StartingUp(promise, instance)).discard
-          instance
-        }
+        _ <- EitherT(Future(checkMigration(name, config.storage, params)))
+        // catch exceptions that might occur during the creation
+        instance <- EitherT.fromEither(
+          Try(create(name, config)).toEither
+            .leftMap(_.getMessage)
+            .flatten
+            .leftMap(err => FailedToCreateNode(name, err))
+        )
+        _ = nodes.put(name, StartingUp(promise, instance)).discard
         _ <-
           instance.start().leftMap { error =>
             instance.close() // clean up resources allocated during instance creation (e.g., db)
@@ -199,13 +206,12 @@ class ManagedNodes[
 
   private def configAndParams(
       name: InstanceName
-  ): Either[StartupError, (NodeConfig, CantonNodeParameters)] = {
+  ): Either[StartupError, (NodeConfig, CantonNodeParameters)] =
     for {
       config <- configs.get(name).toRight(ConfigurationNotFound(name): StartupError)
       _ <- checkNotRunning(name)
       params = parametersFor(name)
     } yield (config, params)
-  }
 
   override def migrateDatabase(name: InstanceName): Either[StartupError, Unit] = blocking(
     synchronized {
@@ -259,7 +265,7 @@ class ManagedNodes[
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, ShutdownError, Unit] = {
+  ): EitherT[Future, ShutdownError, Unit] =
     EitherT(stage match {
       // wait for the node to complete startup
       case PreparingDatabase(promise) => promise.future
@@ -280,7 +286,6 @@ class ManagedNodes[
         }
         Right(())
     }
-  }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     val runningInstances = nodes.toList
@@ -309,7 +314,7 @@ class ManagedNodes[
       import TraceContext.Implicits.Empty.*
       logger.info(s"Setting up database schemas for $name")
 
-      def errorMapping(err: DbMigrations.Error): StartupError = {
+      def errorMapping(err: DbMigrations.Error): StartupError =
         err match {
           case DbMigrations.PendingMigrationError(msg) => PendingDatabaseMigration(name, msg)
           case err: DbMigrations.FlywayError => FailedDatabaseMigration(name, err)
@@ -317,7 +322,6 @@ class ManagedNodes[
           case err: DbMigrations.DatabaseVersionError => FailedDatabaseVersionChecks(name, err)
           case err: DbMigrations.DatabaseConfigError => FailedDatabaseConfigChecks(name, err)
         }
-      }
       val retryConfig =
         if (storageConfig.parameters.failFastOnStartup) RetryConfig.failFast
         else RetryConfig.forever
@@ -367,7 +371,7 @@ class ManagedNodes[
 }
 
 class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: LocalParticipantConfig](
-    create: (String, PC) => B, // (nodeName, config) => bootstrap
+    create: (String, PC) => Either[String, B], // (nodeName, config) => bootstrap
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, PC],
@@ -419,7 +423,7 @@ object ParticipantNodes {
 }
 
 class DomainNodes[DC <: DomainConfig](
-    create: (String, DC) => DomainNodeBootstrap,
+    create: (String, DC) => Either[String, DomainNodeBootstrap],
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, DC],

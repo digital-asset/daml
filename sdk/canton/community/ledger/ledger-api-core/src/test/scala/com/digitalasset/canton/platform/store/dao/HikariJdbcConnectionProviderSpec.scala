@@ -46,11 +46,10 @@ class HikariJdbcConnectionProviderSpec
       private def notSupported = throw new OperationNotSupportedException
       override def getConnection: Connection =
         if (connectionGate.get()) new TestConnection {
-          override def isClosed: Boolean = {
+          override def isClosed: Boolean =
             // connection is signalled as closed after we gate connections
             if (connectionGate.get()) super.isClosed
             else true
-          }
 
           // connection is signalled as invalid after we gate connections
           override def isValid(i: Int): Boolean = connectionGate.get()

@@ -18,13 +18,12 @@ object DeduplicationPeriodValidator {
       maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DeduplicationPeriod] = {
+  ): Either[StatusRuntimeException, DeduplicationPeriod] =
     deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
         validateDuration(duration, maxDeduplicationDuration).map(_ => deduplicationPeriod)
       case DeduplicationPeriod.DeduplicationOffset(_) => Right(deduplicationPeriod)
     }
-  }
 
   def validateDuration(duration: Duration, maxDeduplicationDuration: Duration)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

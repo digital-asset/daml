@@ -120,9 +120,8 @@ object LedgerSyncEvent {
       proposedConfiguration: LedgerConfiguration,
       rejectionReason: String,
   ) extends LedgerSyncEvent {
-    override def description: String = {
+    override def description: String =
       s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
-    }
 
     override def pretty: Pretty[ConfigurationChangeRejected] =
       prettyOfClass(

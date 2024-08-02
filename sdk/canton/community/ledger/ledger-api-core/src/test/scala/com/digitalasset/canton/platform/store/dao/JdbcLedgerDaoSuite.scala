@@ -64,9 +64,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   private val now = Timestamp.now()
 
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
+  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
-  }
   private val (testPackageId, testPackage): (PackageId, Ast.Package) =
     Decode.assertDecodeArchive(dar.main)
   protected val testLanguageVersion = testPackage.languageVersion

@@ -34,16 +34,14 @@ final class LivenessHealthService(
   override protected def closingState: ServingStatus = getState
   override protected def prettyState: Pretty[ServingStatus] = Pretty[ServingStatus]
 
-  override protected def refreshFromDependencies()(implicit traceContext: TraceContext): Unit = {
+  override protected def refreshFromDependencies()(implicit traceContext: TraceContext): Unit =
     if (getState == ServingStatus.SERVING) {
       super.refreshFromDependencies()
     }
-  }
 
-  override protected def combineDependentStates: ServingStatus = {
+  override protected def combineDependentStates: ServingStatus =
     if (fatalDependencies.forall(!_.isFatal)) ServingStatus.SERVING
     else ServingStatus.NOT_SERVING
-  }
 
   override protected def initialHealthState: ServingStatus = ServingStatus.SERVING
 

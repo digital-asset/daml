@@ -102,7 +102,7 @@ trait LocationMixin {
   val location: Option[String] = {
     val stack = Thread.currentThread().getStackTrace
     val thisClassName = this.getClass.getName
-    val idx = stack.indexWhere { _.getClassName == thisClassName }
+    val idx = stack.indexWhere(_.getClassName == thisClassName)
     if (idx != -1 && (idx + 1) < stack.length) {
       val stackTraceElement = stack(idx + 1)
       Some(s"${stackTraceElement.getFileName}:${stackTraceElement.getLineNumber}")
@@ -142,7 +142,7 @@ object BaseError {
       "companionObj",
     )
 
-  def extractContext[D](obj: D): Map[String, String] = {
+  def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
       .map { field =>
@@ -150,5 +150,4 @@ object BaseError {
         (field.getName, field.get(obj).toString)
       }
       .toMap
-  }
 }

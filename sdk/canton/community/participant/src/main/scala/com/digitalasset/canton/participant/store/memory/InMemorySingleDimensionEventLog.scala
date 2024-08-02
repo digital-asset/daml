@@ -74,7 +74,7 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
         case Some(existingEvent) =>
           ErrorUtil.internalError(
             new IllegalArgumentException(show"""Unable to overwrite an existing event. Aborting.
-                                               |Existing event: ${existingEvent}
+                                               |Existing event: $existingEvent
                                                |New event: $event""".stripMargin)
           )
       }

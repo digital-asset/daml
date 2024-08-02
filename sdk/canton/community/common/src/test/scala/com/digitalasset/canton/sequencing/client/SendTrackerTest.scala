@@ -67,7 +67,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest {
       None,
     )(traceContext)
 
-  def deliverError(msgId: MessageId, timestamp: CantonTimestamp): OrdinaryProtocolEvent = {
+  def deliverError(msgId: MessageId, timestamp: CantonTimestamp): OrdinaryProtocolEvent =
     OrdinarySequencedEvent(
       sign(
         DeliverError.create(
@@ -81,7 +81,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest {
       ),
       None,
     )(traceContext)
-  }
 
   case class Env(tracker: MySendTracker, store: InMemorySendTrackerStore)
 
@@ -209,7 +208,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest {
       val concurrentCalls = new AtomicInteger()
       val totalCalls = new AtomicInteger()
 
-      val Env(tracker, _) = mkSendTracker(_msgId => {
+      val Env(tracker, _) = mkSendTracker { _msgId =>
         totalCalls.incrementAndGet()
         if (!concurrentCalls.compareAndSet(0, 1)) {
           fail("timeout handler was called concurrently")
@@ -220,7 +219,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest {
             fail("timeout handler was called concurrently")
           }
         }
-      })
+      }
 
       for {
         _ <- valueOrFail(tracker.track(msgId1, CantonTimestamp.MinValue))("track msgId1")

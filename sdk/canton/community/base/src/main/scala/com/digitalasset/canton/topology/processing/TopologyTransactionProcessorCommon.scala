@@ -84,9 +84,8 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   )
 
   /** assumption: subscribers don't do heavy lifting */
-  final def subscribe(listener: SubscriberType): Unit = {
+  final def subscribe(listener: SubscriberType): Unit =
     listeners += listener
-  }
 
   protected def epsilonForTimestamp(
       asOfExclusive: CantonTimestamp
@@ -192,7 +191,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       potentialChanges: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(
-      s"Updating listener heads to ${effective} and ${approximate}. Potential changes: ${potentialChanges}"
+      s"Updating listener heads to $effective and $approximate. Potential changes: $potentialChanges"
     )
     listeners.toList.foreach(_.updateHead(effective, approximate, potentialChanges))
   }
@@ -241,7 +240,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   )(implicit traceContext: TraceContext): HandlerResult = {
     def computeEffectiveTime(
         updates: List[M]
-    ): FutureUnlessShutdown[EffectiveTime] = {
+    ): FutureUnlessShutdown[EffectiveTime] =
       if (updates.nonEmpty) {
         val effectiveTimeF =
           futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
@@ -260,13 +259,12 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
           timeAdjuster.adjustTimestampForTick(sequencedTime)
         )
       }
-    }
 
     for {
       updates <- updatesF
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
-        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter ${sc} at ${sequencedTime}",
+        s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
       )
       // compute effective time
       effectiveTime <- computeEffectiveTime(updates)
@@ -274,12 +272,10 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       // the rest, we'll run asynchronously, but sequential
       val scheduledF =
         serializer.executeUS(
-          {
-            if (updates.nonEmpty) {
-              process(sequencedTime, effectiveTime, sc, updates)
-            } else {
-              tickleListeners(sequencedTime, effectiveTime)
-            }
+          if (updates.nonEmpty) {
+            process(sequencedTime, effectiveTime, sc, updates)
+          } else {
+            tickleListeners(sequencedTime, effectiveTime)
           },
           "processing topology transactions",
         )
@@ -290,14 +286,13 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   private def tickleListeners(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     this.performUnlessClosingF(functionFullName) {
       Future {
         val approximate = ApproximateTime(sequencedTimestamp.value)
         listenersUpdateHead(effectiveTimestamp, approximate, potentialChanges = false)
       }
     }
-  }
 
   override def createHandler(domainId: DomainId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
@@ -306,7 +301,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
 
       override def apply(
           tracedBatch: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
-      ): HandlerResult = {
+      ): HandlerResult =
         MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
           _.withTraceContext { implicit traceContext =>
             {
@@ -331,7 +326,6 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
             }
           }
         }
-      }
 
       override def subscriptionStartsAt(
           start: SubscriptionStart,
@@ -340,13 +334,12 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
         TopologyTransactionProcessorCommonImpl.this.subscriptionStartsAt(start, domainTimeTracker)
     }
 
-  override def onClosed(): Unit = {
+  override def onClosed(): Unit =
     Lifecycle.close(
       timeAdjuster,
       store,
       serializer,
     )(logger)
-  }
 
 }
 

@@ -28,7 +28,7 @@ class MissingKeysAlerter(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  def init()(implicit traceContext: TraceContext): Future[Unit] = {
+  def init()(implicit traceContext: TraceContext): Future[Unit] =
     for {
       encryptionKeys <- client.currentSnapshotApproximation.encryptionKeys(participantId)
       signingKeys <- client.currentSnapshotApproximation.signingKeys(participantId)
@@ -36,7 +36,6 @@ class MissingKeysAlerter(
       encryptionKeys.foreach(key => alertOnMissingKey(key.fingerprint, KeyPurpose.Encryption))
       signingKeys.foreach(key => alertOnMissingKey(key.fingerprint, KeyPurpose.Signing))
     }
-  }
 
   def attachToTopologyProcessorOld(): TopologyTransactionProcessingSubscriber =
     new TopologyTransactionProcessingSubscriber {
@@ -54,7 +53,7 @@ class MissingKeysAlerter(
   private def processTransactions(
       timestamp: CantonTimestamp,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     // scan state and alarm if the domain suggest that I use a key which I don't have
     transactions.view
       .filter(_.operation == TopologyChangeOp.Add)
@@ -69,7 +68,6 @@ class MissingKeysAlerter(
           alertOnMissingKey(okm.key.fingerprint, okm.key.purpose)
         case _ => ()
       }
-  }
 
   private def alertOnMissingKey(fingerprint: Fingerprint, purpose: KeyPurpose)(implicit
       traceContext: TraceContext

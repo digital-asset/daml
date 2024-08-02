@@ -88,9 +88,8 @@ class RequestJournal(
 
   override def query(
       rc: RequestCounter
-  )(implicit traceContext: TraceContext): OptionT[Future, RequestData] = {
+  )(implicit traceContext: TraceContext): OptionT[Future, RequestData] =
     store.query(rc)
-  }
 
   private val numDirtyRequests = new AtomicInteger(0)
 
@@ -154,13 +153,11 @@ class RequestJournal(
       pending.add(rc).discard
     }
 
-  private def incrementNumDirtyRequests(): Unit = {
+  private def incrementNumDirtyRequests(): Unit =
     numDirtyRequests.incrementAndGet().discard
-  }
 
-  private def decrementNumDirtyRequests(): Unit = {
+  private def decrementNumDirtyRequests(): Unit =
     numDirtyRequests.decrementAndGet().discard
-  }
 
   /** Moves the given request to [[RequestJournal.RequestState.Clean]] and sets the commit time.
     * Does nothing if the request was already clean.
@@ -200,13 +197,12 @@ class RequestJournal(
   ): Future[Option[Future[Unit]]] = {
     logger.debug(withRc(rc, s"Transitioning to state $newState"))
 
-    def drainCursorsAndStoreNewCleanPrehead(): Future[Unit] = {
+    def drainCursorsAndStoreNewCleanPrehead(): Future[Unit] =
       newState
         .visitCursor { case RequestState.Clean =>
           Some(drainClean)
         }
         .getOrElse(Future.unit)
-    }
 
     def handleError(err: RequestJournalStoreError): Nothing = err match {
       case UnknownRequestCounter(requestCounter) =>
@@ -290,16 +286,15 @@ class RequestJournal(
 
   private def drainClean(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     for {
-      newPrehead <- Future { drain(cleanCursor) }
+      newPrehead <- Future(drain(cleanCursor))
       _ <- newPrehead.fold(Future.unit) { case (prehead, completionPromise) =>
         store.advancePreheadCleanTo(prehead).map { _ =>
           completionPromise.success(())
         }
       }
     } yield ()
-  }
 
   /** Drains elements from the given [[PeanoQueue]] until no more elements can be polled.
     * The promises in the drained elements are fulfilled

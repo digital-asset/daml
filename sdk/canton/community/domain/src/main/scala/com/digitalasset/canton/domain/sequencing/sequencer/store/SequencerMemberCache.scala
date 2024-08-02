@@ -40,7 +40,6 @@ class SequencerMemberCache(populate: Traced[Member] => Future[Option[RegisteredM
   /** Evicts an unauthenticated member from the cache. Used when unregistering unauthenticated members.
     * @param member member to evict from the cache
     */
-  def evict(member: UnauthenticatedMemberId): Unit = {
+  def evict(member: UnauthenticatedMemberId): Unit =
     cache.invalidate(member)
-  }
 }

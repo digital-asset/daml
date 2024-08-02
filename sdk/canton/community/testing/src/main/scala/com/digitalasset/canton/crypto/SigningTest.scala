@@ -17,8 +17,7 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
   def signingProvider(
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       newCrypto: => Future[Crypto],
-  ): Unit = {
-
+  ): Unit =
     forAll(supportedSigningKeySchemes) { signingKeyScheme =>
       s"Sign with $signingKeyScheme" should {
 
@@ -88,7 +87,5 @@ trait SigningTest extends BaseTest with CryptoTestHelper {
 
       }
     }
-
-  }
 
 }

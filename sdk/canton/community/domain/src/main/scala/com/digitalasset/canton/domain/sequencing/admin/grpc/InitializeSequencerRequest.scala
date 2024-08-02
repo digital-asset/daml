@@ -61,7 +61,7 @@ object InitializeSequencerRequest
 
   def convertTopologySnapshot(
       transactionsP: protocolV0.TopologyTransactions
-  ): ParsingResult[StoredTopologyTransactions[TopologyChangeOp.Positive]] = {
+  ): ParsingResult[StoredTopologyTransactions[TopologyChangeOp.Positive]] =
     StoredTopologyTransactions.fromProtoV0(transactionsP).flatMap { topologySnapshot =>
       val topologySnapshotPositive = topologySnapshot.collectOfType[TopologyChangeOp.Positive]
       if (topologySnapshot.result.sizeCompare(topologySnapshotPositive.result) == 0)
@@ -73,7 +73,6 @@ object InitializeSequencerRequest
           )
         )
     }
-  }
 
   private[sequencing] def fromProtoV0(
       request: v0.InitRequest

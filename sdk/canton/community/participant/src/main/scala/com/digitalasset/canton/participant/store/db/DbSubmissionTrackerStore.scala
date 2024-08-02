@@ -104,7 +104,7 @@ class DbSubmissionTrackerStore(
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): Future[Int] =
     processingTime.event {
       val deleteQuery =
         sqlu"""delete from fresh_submitted_transaction
@@ -112,7 +112,6 @@ class DbSubmissionTrackerStore(
 
       storage.queryAndUpdate(deleteQuery, "prune fresh_submitted_transaction")
     }
-  }
 
   override def size(implicit
       traceContext: TraceContext

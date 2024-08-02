@@ -124,7 +124,7 @@ final class ApiParticipantPruningService private (
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[Offset] = {
+  ): Future[Offset] =
     (for {
       pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
@@ -133,7 +133,6 @@ final class ApiParticipantPruningService private (
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
       )
-  }
 
   private def pruneWriteService(
       pruneUpTo: Offset,

@@ -36,7 +36,7 @@ object OracleDBLockStorageBackend extends DBLockStorageBackend {
     }
   }
 
-  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean = {
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean =
     SQL"""
           SELECT DBMS_LOCK.RELEASE(
             id => ${oracleIntLockId(lock.lockId)}
@@ -49,7 +49,6 @@ object OracleDBLockStorageBackend extends DBLockStorageBackend {
         throw new Exception("DBMS_LOCK.RELEASE Error 5: Illegal lock handle as releasing lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")
     }
-  }
 
   final case class OracleLockId(id: Int) extends DBLockStorageBackend.LockId {
     // respecting Oracle limitations: https://docs.oracle.com/cd/B19306_01/appdev.102/b14258/d_lock.htm#ARPLS021

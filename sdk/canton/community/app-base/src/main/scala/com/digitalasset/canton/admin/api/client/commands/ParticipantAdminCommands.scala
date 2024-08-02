@@ -11,6 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   ServerEnforcedTimeout,
   TimeoutType,
 }
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   ListConnectedDomainsResult,
@@ -18,7 +19,9 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.grpc.{
   GrpcParticipantRepairService,
   TransferSearchResult,
@@ -28,6 +31,7 @@ import com.digitalasset.canton.participant.admin.v0.EnterpriseParticipantReplica
 import com.digitalasset.canton.participant.admin.v0.InspectionServiceGrpc.InspectionServiceStub
 import com.digitalasset.canton.participant.admin.v0.PackageServiceGrpc.PackageServiceStub
 import com.digitalasset.canton.participant.admin.v0.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
+import com.digitalasset.canton.participant.admin.v0.ParticipantStatusServiceGrpc.ParticipantStatusServiceStub
 import com.digitalasset.canton.participant.admin.v0.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
 import com.digitalasset.canton.participant.admin.v0.PingServiceGrpc.PingServiceStub
 import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc.PruningServiceStub
@@ -56,14 +60,14 @@ import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
-import io.grpc.{Context, ManagedChannel}
+import io.grpc.{Context, ManagedChannel, Status}
 
 import java.io.IOException
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{Duration, MILLISECONDS}
-import scala.concurrent.{Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
 object ParticipantAdminCommands {
 
@@ -204,12 +208,11 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: RemovePackageResponse
-      ): Either[String, Unit] = {
+      ): Either[String, Unit] =
         response.success match {
           case None => Left("unexpected empty response")
           case Some(_success) => Right(())
         }
-      }
 
     }
 
@@ -284,12 +287,11 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: RemoveDarResponse
-      ): Either[String, Unit] = {
+      ): Either[String, Unit] =
         response.success match {
           case None => Left("unexpected empty response")
           case Some(success) => Right(())
         }
-      }
 
     }
 
@@ -399,7 +401,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, DownloadRequest] = {
+      override def createRequest(): Either[String, DownloadRequest] =
         Right(
           DownloadRequest(
             parties.map(_.toLf).toSeq,
@@ -414,7 +416,6 @@ object ParticipantAdminCommands {
             partiesOffboarding = partiesOffboarding,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -441,13 +442,12 @@ object ParticipantAdminCommands {
         val ref = new AtomicReference[Option[Resp]](None)
 
         val responseObserver = new StreamObserver[Resp] {
-          override def onNext(value: Resp): Unit = {
+          override def onNext(value: Resp): Unit =
             ref.set(Some(value))
-          }
 
           override def onError(t: Throwable): Unit = requestComplete.failure(t)
 
-          override def onCompleted(): Unit = {
+          override def onCompleted(): Unit =
             ref.get() match {
               case Some(response) => requestComplete.success(response)
               case None =>
@@ -458,7 +458,6 @@ object ParticipantAdminCommands {
                 )
             }
 
-          }
         }
         val requestObserver = load(responseObserver)
 
@@ -485,24 +484,21 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, UploadRequest] = {
+      override def createRequest(): Either[String, UploadRequest] =
         Right(UploadRequest(acsChunk, gzip))
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
           request: UploadRequest,
-      ): Future[UploadResponse] = {
+      ): Future[UploadResponse] =
         stream(
           service.upload,
           (bytes: Array[Byte]) => UploadRequest(ByteString.copyFrom(bytes), gzip),
           request.acsSnapshot,
         )
-      }
 
-      override def handleResponse(response: UploadResponse): Either[String, Unit] = {
+      override def handleResponse(response: UploadResponse): Either[String, Unit] =
         Right(())
-      }
     }
 
     final case class ExportAcs(
@@ -523,7 +519,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, ExportAcsRequest] = {
+      override def createRequest(): Either[String, ExportAcsRequest] =
         Right(
           ExportAcsRequest(
             parties.map(_.toLf).toSeq,
@@ -540,7 +536,6 @@ object ParticipantAdminCommands {
             partiesOffboarding = partiesOffboarding,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -569,7 +564,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, ImportAcsRequest] = {
+      override def createRequest(): Either[String, ImportAcsRequest] =
         Right(
           ImportAcsRequest(
             acsChunk,
@@ -577,12 +572,11 @@ object ParticipantAdminCommands {
             onboardedParties = onboardedParties.map(_.toLf).toSeq,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
           request: ImportAcsRequest,
-      ): Future[ImportAcsResponse] = {
+      ): Future[ImportAcsResponse] =
         stream(
           service.importAcs,
           (bytes: Array[Byte]) =>
@@ -593,11 +587,9 @@ object ParticipantAdminCommands {
             ),
           request.acsSnapshot,
         )
-      }
 
-      override def handleResponse(response: ImportAcsResponse): Either[String, Unit] = {
+      override def handleResponse(response: ImportAcsResponse): Either[String, Unit] =
         Right(())
-      }
     }
 
     final case class PurgeContracts(
@@ -612,7 +604,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, PurgeContractsRequest] = {
+      override def createRequest(): Either[String, PurgeContractsRequest] =
         Right(
           PurgeContractsRequest(
             domain = domain.toProtoPrimitive,
@@ -621,7 +613,6 @@ object ParticipantAdminCommands {
             offboardedParties = offboardedParties.toSeq.map(_.toLf),
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -1160,9 +1151,8 @@ object ParticipantAdminCommands {
       ): Future[v0.ResourceLimits] =
         service.getResourceLimits(request)
 
-      override def handleResponse(response: v0.ResourceLimits): Either[String, ResourceLimits] = {
+      override def handleResponse(response: v0.ResourceLimits): Either[String, ResourceLimits] =
         Right(ResourceLimits.fromProtoV0(response))
-      }
     }
 
     final case class SetResourceLimits(limits: ResourceLimits)
@@ -1418,6 +1408,47 @@ object ParticipantAdminCommands {
         response match {
           case SetPassive.Response() => Right(())
         }
+    }
+  }
+
+  object Health {
+    /*
+      Response and Result types are an Either of the gRPC Status Code to enable backward compatibility.
+      Implicitly, the Left only represents the unavailability of the participant specific status command
+      endpoint because it is an older version that has not yet implemented it.
+      This allows to implement fallback behavior on the call site.
+     */
+    final case class ParticipantStatusCommand()(implicit ec: ExecutionContext)
+        extends NodeStatusCommand[
+          ParticipantStatus,
+          ParticipantStatusRequest,
+          ParticipantStatusResponse,
+        ] {
+
+      override type Svc = ParticipantStatusServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantStatusServiceStub =
+        ParticipantStatusServiceGrpc.stub(channel)
+
+      override def getStatus(
+          service: ParticipantStatusServiceStub,
+          request: ParticipantStatusRequest,
+      ): Future[ParticipantStatusResponse] = service.participantStatus(request)
+
+      override def submitRequest(
+          service: ParticipantStatusServiceStub,
+          request: ParticipantStatusRequest,
+      ): Future[Either[Status.Code.UNIMPLEMENTED.type, ParticipantStatusResponse]] =
+        submitReq(service, request)
+
+      override def createRequest(): Either[String, ParticipantStatusRequest] = Right(
+        ParticipantStatusRequest()
+      )
+
+      override def handleResponse(
+          response: Either[Status.Code.UNIMPLEMENTED.type, ParticipantStatusResponse]
+      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[ParticipantStatus]]] =
+        response.traverse(ParticipantStatus.fromProtoV1).leftMap(_.message)
     }
   }
 }

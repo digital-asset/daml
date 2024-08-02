@@ -49,14 +49,13 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
   private def createResilientSubscriber[E](
       subscriptionFactory: SequencerSubscriptionFactoryPekko[E],
       retryDelayRule: SubscriptionRetryDelayRule = retryDelay(),
-  ): ResilientSequencerSubscriberPekko[E] = {
+  ): ResilientSequencerSubscriberPekko[E] =
     new ResilientSequencerSubscriberPekko[E](
       retryDelayRule,
       subscriptionFactory,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
-  }
 
   "ResilientSequencerSubscriberPekko" should {
     "not retry on an unrecoverable error" in assertAllStagesStopped {
@@ -376,12 +375,11 @@ object TestSequencerSubscriptionFactoryPekko {
       extends SubscriptionErrorRetryPolicyPekko[TestSubscriptionError] {
     override def retryOnError(subscriptionError: TestSubscriptionError, receivedItems: Boolean)(
         implicit loggingContext: ErrorLoggingContext
-    ): Boolean = {
+    ): Boolean =
       subscriptionError match {
         case RetryableError => true
         case UnretryableError => false
       }
-    }
 
     override def retryOnException(ex: Throwable)(implicit
         loggingContext: ErrorLoggingContext

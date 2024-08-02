@@ -66,13 +66,11 @@ class ApiPackageManagementServiceSpec
 
   var testTelemetrySetup: TestTelemetrySetup = _
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   "ApiPackageManagementService" should {
     "propagate trace context" in {
@@ -106,7 +104,7 @@ class ApiPackageManagementServiceSpec
           logEntries should not be empty
 
           val mdcs = logEntries.map(_.mdc)
-          forEvery(mdcs) { _.getOrElse("trace-id", "") should not be empty }
+          forEvery(mdcs)(_.getOrElse("trace-id", "") should not be empty)
         },
       )
     }

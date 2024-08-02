@@ -116,14 +116,13 @@ final case class VectorClock(
       param("Party", _.partyId),
     )
 
-  private[messages] def toProtoV0: v0.VectorClock = {
+  private[messages] def toProtoV0: v0.VectorClock =
     v0.VectorClock(
       originDomainId = sourceDomainId.toProtoPrimitive,
       localTs = Some(localTs.toProtoPrimitive),
       partyId = partyId,
       clock = clock.map { case (did, cts) => did.toProtoPrimitive -> cts.toProtoPrimitive },
     )
-  }
 }
 
 object VectorClock {

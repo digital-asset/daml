@@ -107,11 +107,10 @@ object RetryUtil {
 
     def retryOKForever(error: Throwable, logger: TracedLogger)(implicit
         tc: TraceContext
-    ): Boolean = {
+    ): Boolean =
       // Don't retry forever on "contention" errors, as these may not actually be due to contention and get stuck
       // forever. Eg unique constraint violation exceptions can be caused by contention in H2 leading to data anomalies.
       DbExceptionRetryable.retryOK(Failure(error), logger, None).maxRetries == Int.MaxValue
-    }
 
     override def retryOK(
         outcome: Try[_],
@@ -119,7 +118,7 @@ object RetryUtil {
         lastErrorKind: Option[ErrorKind],
     )(implicit
         tc: TraceContext
-    ): ErrorKind = {
+    ): ErrorKind =
       outcome match {
         case util.Success(_) => NoErrorKind
         case ff @ Failure(exception) =>
@@ -129,19 +128,18 @@ object RetryUtil {
             logThrowable(exception, logger)
           } else {
             logger.debug(
-              s"Retrying on same error kind ${errorKind} for ${exception.getClass.getSimpleName}/${exception.getMessage}"
+              s"Retrying on same error kind $errorKind for ${exception.getClass.getSimpleName}/${exception.getMessage}"
             )
           }
           errorKind
       }
-    }
 
     private def retryOKInternal(
         outcome: Failure[_],
         logger: TracedLogger,
     )(implicit
         tc: TraceContext
-    ): ErrorKind = {
+    ): ErrorKind =
       outcome.exception match {
         case exn: java.util.concurrent.RejectedExecutionException =>
           // This occurs when slick's task queue is full
@@ -154,7 +152,6 @@ object RetryUtil {
           TransientErrorKind
         case other => determineErrorKind(other, logger)
       }
-    }
 
     @tailrec def determineErrorKind(
         exception: Throwable,

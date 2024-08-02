@@ -180,15 +180,12 @@ class DomainTopologyManager(
     with RequestProcessingStrategy.ManagerHooks {
 
   private val observers = new AtomicReference[List[DomainIdentityStateObserver]](List.empty)
-  def addObserver(observer: DomainIdentityStateObserver): Unit = {
+  def addObserver(observer: DomainIdentityStateObserver): Unit =
     observers.updateAndGet(_ :+ observer).discard
-  }
-  def removeObserver(observer: DomainIdentityStateObserver): Unit = {
+  def removeObserver(observer: DomainIdentityStateObserver): Unit =
     observers.updateAndGet(_.filterNot(_ == observer)).discard
-  }
-  private def sendToObservers(action: DomainIdentityStateObserver => Unit): Unit = {
+  private def sendToObservers(action: DomainIdentityStateObserver => Unit): Unit =
     observers.get().foreach(action)
-  }
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
     *
@@ -308,7 +305,7 @@ class DomainTopologyManager(
       side: RequestSide,
       participantId: ParticipantId,
       permission: ParticipantPermission,
-  )(implicit traceContext: TraceContext): EitherT[Future, DomainTopologyManagerError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, DomainTopologyManagerError, Unit] =
     if (permission == ParticipantPermission.Disabled) EitherT.rightT(())
     else {
       for {
@@ -348,11 +345,10 @@ class DomainTopologyManager(
         )
       } yield ()
     }
-  }
 
   override protected def preNotifyObservers(
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]]
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     transactions.iterator
       .filter(_.transaction.op == TopologyChangeOp.Add)
       .map(_.transaction.element.mapping)
@@ -364,7 +360,6 @@ class DomainTopologyManager(
           logger.info(s"Setting participant $participant state to $attributes")
         case _ => ()
       }
-  }
 
   override protected def wrapError(error: TopologyManagerError)(implicit
       traceContext: TraceContext
@@ -380,7 +375,7 @@ class DomainTopologyManager(
       .map {
         case Left(reason) =>
           if (logReason)
-            logger.debug(s"Domain is not yet initialised: ${reason}")
+            logger.debug(s"Domain is not yet initialised: $reason")
           false
         case Right(_) => true
       }
@@ -400,7 +395,7 @@ class DomainTopologyManager(
 
   override def issueParticipantStateForDomain(participantId: ParticipantId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DomainTopologyManagerError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, DomainTopologyManagerError, Unit] =
     authorize(
       TopologyStateUpdate.createAdd(
         ParticipantState(
@@ -416,7 +411,6 @@ class DomainTopologyManager(
       force = false,
       replaceExisting = true,
     ).map(_ => ())
-  }
 
   override def addFromRequest(transaction: SignedTopologyTransaction[TopologyChangeOp])(implicit
       traceContext: TraceContext

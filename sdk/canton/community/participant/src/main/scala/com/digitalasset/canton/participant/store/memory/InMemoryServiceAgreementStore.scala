@@ -57,7 +57,7 @@ class InMemoryServiceAgreementStore(protected val loggerFactory: NamedLoggerFact
 
   override def insertAcceptedAgreement(domainId: DomainId, agreementId: ServiceAgreementId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ServiceAgreementStoreError, Unit] = {
+  ): EitherT[Future, ServiceAgreementStoreError, Unit] =
     EitherT.cond(
       agreements.contains((domainId, agreementId)), {
         acceptedAgreements.computeIfPresent(domainId, (_, agreements) => agreements + agreementId)
@@ -65,7 +65,6 @@ class InMemoryServiceAgreementStore(protected val loggerFactory: NamedLoggerFact
       },
       UnknownServiceAgreement(domainId, agreementId),
     )
-  }
 
   def listAcceptedAgreements(domainId: DomainId)(implicit
       traceContext: TraceContext

@@ -45,7 +45,7 @@ package object repair {
       participantId: ParticipantId,
       hostedPartiesO: Option[NonEmpty[Set[LfPartyId]]],
       keyO: Option[LfGlobalKeyWithMaintainers],
-  )(implicit executionContext: ExecutionContext): Future[Option[LfGlobalKey]] = {
+  )(implicit executionContext: ExecutionContext): Future[Option[LfGlobalKey]] =
     keyO.collect { case LfGlobalKeyWithMaintainers(key, maintainers) =>
       (maintainers, key)
     } match {
@@ -66,6 +66,5 @@ package object repair {
 
         isHostedF.map(Option.when(_)(key))
     }
-  }
 
 }

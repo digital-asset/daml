@@ -50,7 +50,7 @@ class TransferInValidationTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       LedgerApplicationId.assertFromString("tests"),
@@ -59,7 +59,6 @@ class TransferInValidationTest
       submissionId = None,
       workflowId = None,
     )
-  }
 
   private val identityFactory = TestingTopology()
     .withDomains(sourceDomain.unwrap)

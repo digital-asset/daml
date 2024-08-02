@@ -37,12 +37,11 @@ class TopUpQueue(
   ): Option[TopUpEvent] = {
     def dequeueAsLong[A](queue: mutable.PriorityQueue[A], pred: A => Boolean): Option[A] = {
       @tailrec
-      def go(prev: Option[A]): Option[A] = {
+      def go(prev: Option[A]): Option[A] =
         if (queue.headOption.exists(pred))
           go(Some(queue.dequeue()))
         else
           prev
-      }
 
       go(None)
     }
@@ -55,7 +54,7 @@ class TopUpQueue(
 
   /** Add a new top up
     */
-  def addOne(topUp: TopUpEvent): Unit = {
+  def addOne(topUp: TopUpEvent): Unit =
     blocking {
       timestampedTopUps.synchronized {
         timestampedTopUps
@@ -63,7 +62,6 @@ class TopUpQueue(
           .discard
       }
     }
-  }
 
   /** Prune until currentTimestamp and return the current and all following top ups
     */
@@ -78,9 +76,8 @@ class TopUpQueue(
 
   /** Return a list of all the top ups without modifying the internal state.
     */
-  def getAllTopUps: List[TopUpEvent] = {
+  def getAllTopUps: List[TopUpEvent] =
     currentLimit.toList ++ timestampedTopUps.clone().dequeueAll.toList
-  }
 
   def getTrafficLimit(timestamp: CantonTimestamp): NonNegativeLong = {
     if (timestampedTopUps.headOption.exists(timestamp >= _.validFromInclusive)) {

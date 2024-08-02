@@ -98,7 +98,7 @@ private[backend] class PackageStorageBackendTemplate(
       endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PackageLedgerEntry)] = {
+  )(connection: Connection): Vector[(Offset, PackageLedgerEntry)] =
     SQL"""
       select * from package_entries
       where ${queryStrategy.offsetIsBetween(
@@ -111,6 +111,5 @@ private[backend] class PackageStorageBackendTemplate(
       fetch next $pageSize rows only
     """
       .asVectorOf(packageEntryParser)(connection)
-  }
 
 }

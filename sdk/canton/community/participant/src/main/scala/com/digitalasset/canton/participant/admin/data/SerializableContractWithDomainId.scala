@@ -59,7 +59,7 @@ private[canton] object SerializableContractWithDomainId {
   private[admin] def loadFromByteString(
       bytes: ByteString,
       gzip: Boolean,
-  ): Either[String, LazyList[SerializableContractWithDomainId]] = {
+  ): Either[String, LazyList[SerializableContractWithDomainId]] =
     for {
       decompressedBytes <-
         if (gzip)
@@ -73,7 +73,6 @@ private[canton] object SerializableContractWithDomainId {
         loadFromSource(inputSource)
       }
     } yield contracts
-  }
 
   private[canton] def loadFromFile(fileInput: File): Iterator[SerializableContractWithDomainId] = {
     val decompressedInput = if (fileInput.toJava.getName.endsWith(".gz")) {
@@ -93,7 +92,7 @@ private[canton] object SerializableContractWithDomainId {
 
   private def loadFromSource(
       source: Source
-  ): Either[String, LazyList[SerializableContractWithDomainId]] = {
+  ): Either[String, LazyList[SerializableContractWithDomainId]] =
     // build source iterator (we can't load everything into memory)
     LazyList
       .from(
@@ -104,5 +103,4 @@ private[canton] object SerializableContractWithDomainId {
       .traverse { case (line, lineNumber) =>
         SerializableContractWithDomainId.decode(line, lineNumber)
       }
-  }
 }

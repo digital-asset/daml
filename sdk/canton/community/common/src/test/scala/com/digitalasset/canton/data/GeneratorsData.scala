@@ -339,13 +339,13 @@ final class GeneratorsData(
         val key = contract.contract.metadata.maybeKeyWithMaintainersVersioned.value
         Gen
           .zip(key, assignedKeyGen(contract.contractId))
-          .map({ case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) })
+          .map { case (k, r) => (k.unversioned.globalKey, r.copy()(k.version)) }
       })
 
       freeResolvedKeys <- Gen.listOf(
         Gen
           .zip(Arbitrary.arbitrary[Versioned[LfGlobalKey]], Arbitrary.arbitrary[FreeKey])
-          .map({ case (k, r) => (k.unversioned, r.copy()(k.version)) })
+          .map { case (k, r) => (k.unversioned, r.copy()(k.version)) }
       )
 
       resolvedKeys = assignedResolvedKeys ++ freeResolvedKeys

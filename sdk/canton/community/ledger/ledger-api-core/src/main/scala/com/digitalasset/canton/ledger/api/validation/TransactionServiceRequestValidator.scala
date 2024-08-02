@@ -47,7 +47,7 @@ class TransactionServiceRequestValidator(
 
   private def commonValidations(
       req: GetTransactionsRequest
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] =
     for {
       ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
@@ -65,15 +65,12 @@ class TransactionServiceRequestValidator(
       knownParties,
     )
 
-  }
-
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionsRequest] = {
-
+  ): Result[transaction.GetTransactionsRequest] =
     for {
       partial <- commonValidations(req)
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
@@ -97,14 +94,13 @@ class TransactionServiceRequestValidator(
         req.verbose,
       )
     }
-  }
 
   private def validateSendPrunedOffset(
       sendPrunedOffset: Boolean,
       end: Option[LedgerOffset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Boolean] = {
+  ): Either[StatusRuntimeException, Boolean] =
     (sendPrunedOffset, end) match {
       case (false, _) => Right(false)
       case (true, None) => Right(true)
@@ -116,15 +112,12 @@ class TransactionServiceRequestValidator(
         )
     }
 
-  }
-
   def validateTree(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[GetTransactionTreesRequest] = {
-
+  ): Result[GetTransactionTreesRequest] =
     for {
       partial <- commonValidations(req)
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
@@ -148,23 +141,21 @@ class TransactionServiceRequestValidator(
         req.verbose,
       )
     }
-  }
 
   def validateLedgerEnd(req: GetLedgerEndRequest)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetLedgerEndRequest] = {
+  ): Result[transaction.GetLedgerEndRequest] =
     for {
       _ <- matchId(optionalLedgerId(req.ledgerId))
     } yield {
       transaction.GetLedgerEndRequest()
     }
-  }
 
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByIdRequest] = {
+  ): Result[transaction.GetTransactionByIdRequest] =
     for {
       ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       _ <- requireNonEmptyString(req.transactionId, "transaction_id")
@@ -178,13 +169,12 @@ class TransactionServiceRequestValidator(
         parties,
       )
     }
-  }
 
   def validateTransactionByEventId(
       req: GetTransactionByEventIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByEventIdRequest] = {
+  ): Result[transaction.GetTransactionByEventIdRequest] =
     for {
       ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       eventId <- requireLedgerString(req.eventId, "event_id")
@@ -197,7 +187,6 @@ class TransactionServiceRequestValidator(
         parties,
       )
     }
-  }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")

@@ -33,7 +33,7 @@ object TransactionMetadata {
       metaLedgerEffectiveTime: Time.Timestamp,
       metaSubmissionTime: Time.Timestamp,
       metaOptNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
-  ): Either[String, TransactionMetadata] = {
+  ): Either[String, TransactionMetadata] =
     for {
       seeds <- metaOptNodeSeeds.toRight("Node seeds must be specified")
     } yield TransactionMetadata(
@@ -41,6 +41,5 @@ object TransactionMetadata {
       CantonTimestamp(metaSubmissionTime),
       seeds.toSeq.toMap,
     )
-  }
 
 }

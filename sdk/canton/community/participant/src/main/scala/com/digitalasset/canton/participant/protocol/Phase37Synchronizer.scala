@@ -230,15 +230,12 @@ object Phase37Synchronizer {
   final class PendingRequestDataHandle[T <: PendingRequestData](
       private val handle: PromiseUnlessShutdown[Option[PendingRequestDataOrReplayData[T]]]
   ) {
-    def complete(pendingData: Option[PendingRequestDataOrReplayData[T]]): Unit = {
+    def complete(pendingData: Option[PendingRequestDataOrReplayData[T]]): Unit =
       handle.outcome(pendingData)
-    }
-    def failed(exception: Throwable): Unit = {
+    def failed(exception: Throwable): Unit =
       handle.tryFailure(exception).discard
-    }
-    def shutdown(): Unit = {
+    def shutdown(): Unit =
       handle.shutdown()
-    }
   }
 
   /** Final outcome of a request outputted by awaitConfirmed.

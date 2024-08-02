@@ -167,7 +167,7 @@ class ConfirmationRequestFactory(
       identities: TopologySnapshot,
   ): EitherT[Future, ParticipantAuthorizationError, Unit] = {
 
-    def assertSubmitterNodeAuthorization(submitter: LfPartyId) = {
+    def assertSubmitterNodeAuthorization(submitter: LfPartyId) =
       for {
         relationship <- EitherT(
           identities
@@ -188,7 +188,6 @@ class ConfirmationRequestFactory(
           ),
         )
       } yield ()
-    }
     submitters.parTraverse(assertSubmitterNodeAuthorization).map(_ => ())
   }
 

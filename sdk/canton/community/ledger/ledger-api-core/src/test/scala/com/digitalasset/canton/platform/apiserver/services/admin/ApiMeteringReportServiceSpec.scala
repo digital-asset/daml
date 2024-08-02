@@ -141,7 +141,7 @@ class ApiMeteringReportServiceSpec
           loggerFactory,
         )
       val request = GetMeteringReportRequest.defaultInstance
-      underTest.getMeteringReport(request).failed.map { _ => succeed }
+      underTest.getMeteringReport(request).failed.map(_ => succeed)
     }
 
     "fail if the from timestamp is not aligned with an hour boundary" in {
@@ -159,7 +159,7 @@ class ApiMeteringReportServiceSpec
       val request = GetMeteringReportRequest.defaultInstance
         .withFrom(toProtoTimestamp(nonBoundaryFrom))
 
-      underTest.getMeteringReport(request).failed.map { _ => succeed }
+      underTest.getMeteringReport(request).failed.map(_ => succeed)
     }
 
     "fail an invalid key is passed is provided" in {
@@ -172,7 +172,7 @@ class ApiMeteringReportServiceSpec
           loggerFactory,
         )
       val request = GetMeteringReportRequest.defaultInstance
-      underTest.getMeteringReport(request).failed.map { _ => succeed }
+      underTest.getMeteringReport(request).failed.map(_ => succeed)
     }
 
   }

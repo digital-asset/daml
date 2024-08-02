@@ -65,7 +65,7 @@ class DbDomainConnectionConfigStore private[store] (
     Future,
     MissingConfigForAlias,
     StoredDomainConnectionConfig,
-  ] = {
+  ] =
     processingTime.eitherTEvent {
       EitherT {
         storage
@@ -79,7 +79,6 @@ class DbDomainConnectionConfigStore private[store] (
           .map(_.toRight(MissingConfigForAlias(domainAlias)))
       }
     }
-  }
 
   private def getAllInternal(implicit
       traceContext: TraceContext

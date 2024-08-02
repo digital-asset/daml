@@ -15,8 +15,7 @@ final class GeneratorsData(
     generatorsProtocol: GeneratorsProtocol,
 ) {
 
-  implicit val activeContractArb: Arbitrary[ActiveContract] = {
-
+  implicit val activeContractArb: Arbitrary[ActiveContract] =
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
       contract <- generatorsProtocol.serializableContractArb.arbitrary
@@ -24,7 +23,5 @@ final class GeneratorsData(
       ac = ActiveContract.create(domainId, contract)(protocolVersion)
 
     } yield ac.value)
-
-  }
 
 }

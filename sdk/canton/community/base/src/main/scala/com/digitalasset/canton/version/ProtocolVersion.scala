@@ -19,6 +19,7 @@ import com.digitalasset.canton.version.ProtocolVersion.{
   supported,
   unstable,
 }
+import io.circe.Encoder
 import pureconfig.error.FailureReason
 import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -129,17 +130,19 @@ object ProtocolVersion {
   implicit val protocolVersionWriter: ConfigWriter[ProtocolVersion] =
     ConfigWriter.toString(_.toProtoPrimitiveS)
 
-  lazy implicit val protocolVersionReader: ConfigReader[ProtocolVersion] = {
+  lazy implicit val protocolVersionReader: ConfigReader[ProtocolVersion] =
     ConfigReader.fromString[ProtocolVersion] { str =>
       ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion)
     }
-  }
 
   implicit val getResultProtocolVersion: GetResult[ProtocolVersion] =
-    GetResult { r => ProtocolVersion(r.nextInt()) }
+    GetResult(r => ProtocolVersion(r.nextInt()))
 
   implicit val setParameterProtocolVersion: SetParameter[ProtocolVersion] =
     (pv: ProtocolVersion, pp: PositionedParameters) => pp >> pv.v
+
+  implicit val protocolVersionEncoder: Encoder[ProtocolVersion] =
+    Encoder.encodeInt.contramap[ProtocolVersion](_.v)
 
   /** Try to parse a semver version.
     * Return:
@@ -210,7 +213,7 @@ object ProtocolVersion {
     *
     * Otherwise, use one of the other factory methods.
     */
-  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] = {
+  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 
@@ -219,7 +222,6 @@ object ProtocolVersion {
           .orElse(parseDev(rawVersion).map(Right(_)))
           .getOrElse(Left(s"Unable to convert string `$rawVersion` to a protocol version."))
     }
-  }
 
   /** Creates a [[ProtocolVersion]] from the given raw version value and ensures that it is a supported version.
     * @param rawVersion   String to be parsed.
@@ -239,9 +241,8 @@ object ProtocolVersion {
       Either.cond(isSupported, pv, unsupportedErrorMessage(pv, includeDeleted = allowDeleted))
     }
 
-  private def isSupportedConsidering(allowDeleted: Boolean, pv: ProtocolVersion) = {
+  private def isSupportedConsidering(allowDeleted: Boolean, pv: ProtocolVersion) =
     pv.isSupported || (allowDeleted && pv.isDeleted)
-  }
 
   /** Like [[create]] ensures a supported protocol version; but throws a runtime exception for errors.
     */
@@ -264,9 +265,8 @@ object ProtocolVersion {
   def fromProtoPrimitiveS(
       rawVersion: String,
       allowDeleted: Boolean = false,
-  ): ParsingResult[ProtocolVersion] = {
+  ): ParsingResult[ProtocolVersion] =
     ProtocolVersion.create(rawVersion, allowDeleted).leftMap(OtherError)
-  }
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 

@@ -127,7 +127,7 @@ class SequencedEventTestFixture(
 
   def mkValidator(
       syncCryptoApi: DomainSyncCryptoClient = subscriberCryptoApi
-  )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl = {
+  )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl =
     new SequencedEventValidatorImpl(
       unauthenticated = false,
       optimistic = false,
@@ -137,7 +137,6 @@ class SequencedEventTestFixture(
       loggerFactory,
       timeouts,
     )(executionContext)
-  }
 
   def createEvent(
       domainId: DomainId = defaultDomainId,

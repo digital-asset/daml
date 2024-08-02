@@ -75,13 +75,12 @@ object Hmac {
   private[crypto] def create(
       hmac: ByteString,
       algorithm: HmacAlgorithm,
-  ): Either[HmacError, Hmac] = {
+  ): Either[HmacError, Hmac] =
     Either.cond(
       hmac.size() == algorithm.hashAlgorithm.length,
       new Hmac(hmac, algorithm),
       InvalidHmacLength(hmac.size(), algorithm.hashAlgorithm.length),
     )
-  }
 
   def fromProtoV0(hmacP: v0.Hmac): ParsingResult[Hmac] =
     for {
@@ -157,7 +156,7 @@ object HmacSecret {
     * e.g., 512 bits for SHA256.
     */
   def generate(randomOps: RandomOps, length: Int = defaultLength): HmacSecret = {
-    require(length >= defaultLength, s"Specified HMAC secret key length ${length} too small.")
+    require(length >= defaultLength, s"Specified HMAC secret key length $length too small.")
     new HmacSecret(randomOps.generateRandomByteString(length))
   }
 }

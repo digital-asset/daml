@@ -40,13 +40,12 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
   override def pretty: Pretty[Recipients.this.type] =
     prettyOfClass(param("Recipient trees", _.trees.toList))
 
-  def asSingleGroup: Option[NonEmpty[Set[Recipient]]] = {
+  def asSingleGroup: Option[NonEmpty[Set[Recipient]]] =
     trees match {
       case Seq(RecipientsTree(group, Seq())) =>
         NonEmpty.from(group)
       case _ => None
     }
-  }
 
   /** Recipients that appear at the leaf of the BCC tree. For example, the informees of a view are leaf members of the
     * view message.
@@ -59,7 +58,7 @@ object Recipients {
 
   def fromProtoV0(
       proto: v0.Recipients
-  ): ParsingResult[Recipients] = {
+  ): ParsingResult[Recipients] =
     for {
       trees <- proto.recipientsTree.traverse(t => RecipientsTree.fromProtoV0(t))
       recipients <- NonEmpty
@@ -71,7 +70,6 @@ object Recipients {
           )
         )
     } yield Recipients(recipients)
-  }
 
   /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing a group of
     * members that "see" each other.
@@ -79,9 +77,8 @@ object Recipients {
   def cc(first: Member, others: Member*): Recipients =
     Recipients(NonEmpty(Seq, RecipientsTree.leaf(NonEmpty(Set, first, others: _*))))
 
-  def cc(recipient: Recipient, others: Recipient*): Recipients = {
+  def cc(recipient: Recipient, others: Recipient*): Recipients =
     Recipients(NonEmpty.mk(Seq, RecipientsTree(NonEmpty.mk(Set, recipient, others *), Seq.empty)))
-  }
 
   /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent groups of members
     * that do not "see" each other.

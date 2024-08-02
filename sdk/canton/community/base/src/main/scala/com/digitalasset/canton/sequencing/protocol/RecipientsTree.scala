@@ -82,7 +82,7 @@ object RecipientsTree {
 
   def fromProtoV0(
       treeProto: v0.RecipientsTree
-  ): ParsingResult[RecipientsTree] = {
+  ): ParsingResult[RecipientsTree] =
     for {
       members <- treeProto.recipients.traverse(str =>
         Member.fromProtoPrimitive(str, "RecipientsTreeProto.recipients").map(Recipient(_))
@@ -101,6 +101,5 @@ object RecipientsTree {
       recipientsNonEmpty.toSet,
       childTrees,
     )
-  }
 
 }

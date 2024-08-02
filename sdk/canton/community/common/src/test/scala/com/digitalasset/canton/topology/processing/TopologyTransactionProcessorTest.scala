@@ -52,7 +52,7 @@ class TopologyTransactionProcessorTest
   private def fetch(
       store: TopologyStore[TopologyStoreId],
       timestamp: CantonTimestamp,
-  ): Future[List[TopologyStateElement[TopologyMapping]]] = {
+  ): Future[List[TopologyStateElement[TopologyMapping]]] =
     store
       .findStateTransactions(
         asOf = timestamp,
@@ -63,7 +63,6 @@ class TopologyTransactionProcessorTest
         None,
       )
       .map(_.toIdentityState)
-  }
 
   private def process(
       proc: TopologyTransactionProcessor,

@@ -48,8 +48,7 @@ private[protocol] object AdminPartiesAndParticipants {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, AdminPartiesAndParticipants] = {
-
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, AdminPartiesAndParticipants] =
     for {
       _ <- submitterIsStakeholder(contractId, submitter, stakeholders)
       participantsByParty <- PartyParticipantPermissions(
@@ -72,7 +71,6 @@ private[protocol] object AdminPartiesAndParticipants {
 
       new AdminPartiesAndParticipants(transferOutAdminParties, participants) {}
     }
-  }
 
   private def submitterIsStakeholder(
       contractId: LfContractId,

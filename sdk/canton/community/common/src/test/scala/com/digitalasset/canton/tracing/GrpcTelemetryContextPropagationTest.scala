@@ -83,7 +83,7 @@ class GrpcTelemetryContextPropagationTest
 
       sut.foo(grpc.sendRequest()(_).value).futureValue shouldBe Right(response)
 
-      eventually { telemetry.reportedSpans() should have size (2) }
+      eventually(telemetry.reportedSpans() should have size (2))
 
       val List(rootSpan, childSpan) = telemetry.reportedSpans()
       childSpan.getParentSpanId shouldBe rootSpan.getSpanId

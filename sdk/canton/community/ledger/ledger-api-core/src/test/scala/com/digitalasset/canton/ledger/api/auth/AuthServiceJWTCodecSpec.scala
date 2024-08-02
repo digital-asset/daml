@@ -37,7 +37,7 @@ class AuthServiceJWTCodecSpec
       parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
 
-  private implicit val arbInstant: Arbitrary[Instant] = {
+  private implicit val arbInstant: Arbitrary[Instant] =
     Arbitrary {
       for {
         seconds <- Gen.chooseNum(Instant.MIN.getEpochSecond, Instant.MAX.getEpochSecond)
@@ -45,7 +45,6 @@ class AuthServiceJWTCodecSpec
         Instant.ofEpochSecond(seconds)
       }
     }
-  }
 
   private implicit val arbFormat: Arbitrary[StandardJWTTokenFormat] =
     Arbitrary(
@@ -56,7 +55,7 @@ class AuthServiceJWTCodecSpec
     )
 
   // participantId is mandatory for the format `StandardJWTTokenFormat.Audience`
-  private val StandardJWTPayloadGen = {
+  private val StandardJWTPayloadGen =
     Gen
       .resultOf(StandardJWTPayload)
       .filterNot { payload =>
@@ -73,7 +72,6 @@ class AuthServiceJWTCodecSpec
       .map(payload =>
         payload.copy(scope = payload.scope.map(_ => AuthServiceJWTCodec.scopeLedgerApiFull))
       )
-  }
 
   "Audience-Based AuthServiceJWTPayload codec" when {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits.*
@@ -86,9 +84,7 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary custom Daml token values" in forAll(
         PayloadGen,
         minSuccessful(100),
-      )(value => {
-        serializeAndParse(value) shouldBe Success(value)
-      })
+      )(value => serializeAndParse(value) shouldBe Success(value))
     }
 
     "support multiple audiences with a single participant audience" in {
@@ -128,9 +124,7 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary custom Daml token values" in forAll(
         PayloadGen,
         minSuccessful(100),
-      )(value => {
-        serializeAndParse(value) shouldBe Success(value)
-      })
+      )(value => serializeAndParse(value) shouldBe Success(value))
     }
   }
 
@@ -142,9 +136,7 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary custom Daml token values" in forAll(
         Gen.resultOf(CustomDamlJWTPayload),
         minSuccessful(100),
-      )(value => {
-        serializeAndParse(value) shouldBe Success(value)
-      })
+      )(value => serializeAndParse(value) shouldBe Success(value))
 
       "work for arbitrary standard Daml token values" in forAll(
         StandardJWTPayloadGen,

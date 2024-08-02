@@ -67,13 +67,11 @@ class ApiConfigManagementServiceSpec
 
   var testTelemetrySetup: TestTelemetrySetup = _
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
-  }
 
-  override def afterEach(): Unit = {
+  override def afterEach(): Unit =
     testTelemetrySetup.close()
-  }
 
   "ApiConfigManagementService" should {
     "get the time model" in {

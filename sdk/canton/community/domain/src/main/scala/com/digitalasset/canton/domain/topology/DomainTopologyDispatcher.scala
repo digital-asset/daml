@@ -124,7 +124,7 @@ private[domain] class DomainTopologyDispatcher(
 
   override protected val timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  def queueSize: Int = blocking { lock.synchronized { queue.size + inflight.get() } }
+  def queueSize: Int = blocking(lock.synchronized(queue.size + inflight.get()))
 
   private val topologyClient =
     new StoreBasedDomainTopologyClient(
@@ -244,7 +244,7 @@ private[domain] class DomainTopologyDispatcher(
     val lst = byStrategy.getOrElse(Last, 0)
     ErrorUtil.requireArgument(
       (lst < 2 && alone == 0) || (alone < 2 && lst == 0 && batched == 0),
-      s"received batch of topology transactions with multiple changes $byStrategy that can't be batched ${transactions}",
+      s"received batch of topology transactions with multiple changes $byStrategy that can't be batched $transactions",
     )
     updateTopologyClientTs(timestamp)
     blocking {
@@ -316,7 +316,7 @@ private[domain] class DomainTopologyDispatcher(
       : Seq[Traced[StoredTopologyTransaction[TopologyChangeOp]]] = {
     val builder = mutable.ListBuffer.newBuilder[Traced[StoredTopologyTransaction[TopologyChangeOp]]]
     @tailrec
-    def go(size: Int): Unit = {
+    def go(size: Int): Unit =
       queue.headOption.map { tx =>
         dispatchStrategy(tx.value.transaction.transaction.element.mapping)
       } match {
@@ -331,7 +331,6 @@ private[domain] class DomainTopologyDispatcher(
         case Some(Alone) if size == 0 => builder.addOne(queue.dequeue())
         case _ => // done
       }
-    }
     go(0)
     builder.result().toSeq
   }
@@ -409,7 +408,7 @@ private[domain] class DomainTopologyDispatcher(
     }
   }
 
-  def flush()(implicit traceContext: TraceContext): Unit = {
+  def flush()(implicit traceContext: TraceContext): Unit =
     if (initialized.get() && queue.nonEmpty && !flushing.getAndSet(true)) {
       val ret = for {
         pending <- EitherT.right(performUnlessClosingF(functionFullName)(Future {
@@ -448,30 +447,25 @@ private[domain] class DomainTopologyDispatcher(
       )
     }
 
-  }
-
   private def safeTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): CantonTimestamp = {
+  ): CantonTimestamp =
     if (timestamp > topologyClient.topologyKnownUntilTimestamp) {
       logger.error(
-        s"Requesting invalid authorized topology timestamp at ${timestamp} while I only have ${topologyClient.topologyKnownUntilTimestamp}"
+        s"Requesting invalid authorized topology timestamp at $timestamp while I only have ${topologyClient.topologyKnownUntilTimestamp}"
       )
       topologyClient.topologyKnownUntilTimestamp
     } else timestamp
-  }
 
   private def authorizedCryptoSnapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): DomainSnapshotSyncCryptoApi = {
+  )(implicit traceContext: TraceContext): DomainSnapshotSyncCryptoApi =
     checked(domainSyncCryptoClient.trySnapshot(safeTimestamp(timestamp)))
-  }
 
   private def authorizedStoreSnapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot = {
+  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot =
     checked(topologyClient.trySnapshot(safeTimestamp(timestamp)))
-  }
 
   /** re-order and split into three buckets to ensure that the participant gets
     * the right keys and certificates first, such that it can then subsequently
@@ -623,7 +617,7 @@ private[domain] class DomainTopologyDispatcher(
                     case (true, false) =>
                       // TODO(#1251) implement catchup for mediator
                       logger.warn(
-                        s"Mediator ${mediator} is deactivated and will miss out on topology transactions. This will break it"
+                        s"Mediator $mediator is deactivated and will miss out on topology transactions. This will break it"
                       )
                       None
                   }
@@ -765,7 +759,7 @@ private[domain] object DomainTopologyDispatcher {
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Unit] = {
     val now = clock.now
-    def go(target: CantonTimestamp): Unit = {
+    def go(target: CantonTimestamp): Unit =
       timeTracker
         .fetchTimeProof()
         .map { proof =>
@@ -778,7 +772,6 @@ private[domain] object DomainTopologyDispatcher {
           }
         }
         .discard
-    }
     for {
       // flush the sequencer client with a time-proof. this should ensure that we give the
       // topology processor time to catch up with any pending submissions
@@ -791,7 +784,7 @@ private[domain] object DomainTopologyDispatcher {
       _ = go(targetTimestamp)
       // wait until the topology client has seen this timestamp or our current clock
       // we need our current clock if we are lagging behind a lot (e.g. replaying after backup)
-      _ = logger.info(s"Waiting for sequencer ts=${targetTimestamp} with current=$timestamp")
+      _ = logger.info(s"Waiting for sequencer ts=$targetTimestamp with current=$timestamp")
       _ <- targetClient
         .awaitTimestampUS(targetTimestamp, waitForEffectiveTime = false)
         .getOrElse(FutureUnlessShutdown.unit)
@@ -863,7 +856,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
       for {
         nonEmptyRecipients <- EitherT.fromOption[FutureUnlessShutdown](
           recipientGroup,
-          show"Empty set of recipients for ${transactions}",
+          show"Empty set of recipients for $transactions",
         )
         _ <- transactions
           .grouped(if (batching) maxBatchSize else transactions.size + 1)
@@ -874,7 +867,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
               for {
                 _ <- ensureDelivery(
                   ts => genBatch(batch, nonEmptyRecipients)(ts),
-                  s"${offset + 1} to ${offset + batch.size} out of ${transactions.size} ${name} topology transactions for ${recipients.size} recipients",
+                  s"${offset + 1} to ${offset + batch.size} out of ${transactions.size} $name topology transactions for ${recipients.size} recipients",
                 )
               } yield ()
             )
@@ -882,11 +875,10 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
       } yield ()
     }
 
-    private def finalizeCurrentJob(outcome: UnlessShutdown[Either[String, Unit]]): Unit = {
+    private def finalizeCurrentJob(outcome: UnlessShutdown[Either[String, Unit]]): Unit =
       currentJob.getAndSet(None).foreach { promise =>
         promise.trySuccess(outcome).discard
       }
-    }
 
     override def onClosed(): Unit = {
       // invoked once all performUnlessClosed tasks are done.
@@ -928,9 +920,8 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
         "Ensure delivery called while we already had a pending call!",
       )
 
-      def stopDispatching(str: String): Unit = {
+      def stopDispatching(str: String): Unit =
         finalizeCurrentJob(UnlessShutdown.Outcome(Left(str)))
-      }
 
       def abortDueToShutdown(): Unit = {
         logger.info("Aborting batch dispatching due to shutdown")
@@ -953,7 +944,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
       }
 
       def dispatch(): Unit = {
-        logger.debug(s"Attempting to dispatch ${message}")
+        logger.debug(s"Attempting to dispatch $message")
         FutureUtil.doNotAwait(
           send(batch, callback).transform {
             case x @ Success(UnlessShutdown.Outcome(Left(RequestRefused(error))))
@@ -962,7 +953,7 @@ object DomainTopologySender extends TopologyDispatchingErrorGroup {
               // delay the retry, assuming that the retry is much smaller than our shutdown interval
               // the perform unless closing will ensure we don't close the ec before the delay
               // has kicked in
-              logger.debug(s"Scheduling topology dispatching retry in ${retryInterval}")
+              logger.debug(s"Scheduling topology dispatching retry in $retryInterval")
               clock
                 .scheduleAfter(_ => dispatch(), java.time.Duration.ofMillis(retryInterval.toMillis))
                 .discard
@@ -1097,7 +1088,7 @@ class MemberTopologyCatchup(
         } yield {
           val cleanedTxs = deduplicateDomainParameterChanges(participantCatchupTxs)
           logger.info(
-            s"Participant $participantId is changing from ${from} to ${to}, requires to catch up ${cleanedTxs.result.size}"
+            s"Participant $participantId is changing from $from to $to, requires to catch up ${cleanedTxs.result.size}"
           )
           Option.when(cleanedTxs.result.nonEmpty)((participantInactiveSince.isEmpty, cleanedTxs))
         }
