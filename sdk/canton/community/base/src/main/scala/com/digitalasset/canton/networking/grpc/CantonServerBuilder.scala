@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
@@ -138,8 +136,6 @@ object CantonServerBuilder {
     */
   def forConfig(
       config: ServerConfig,
-      metricsPrefix: MetricName,
-      metricsFactory: LabeledMetricsFactory,
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,
@@ -164,8 +160,6 @@ object CantonServerBuilder {
       config.instantiateServerInterceptors(
         tracing,
         apiLoggingConfig,
-        metricsPrefix,
-        metricsFactory,
         loggerFactory,
         grpcMetrics,
       ),

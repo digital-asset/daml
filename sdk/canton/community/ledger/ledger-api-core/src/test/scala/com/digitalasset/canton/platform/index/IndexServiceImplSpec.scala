@@ -850,15 +850,68 @@ class IndexServiceImplSpec
     }
   }
 
+  it should "add a checkpoint invoked from timeout when its offset is greater than last streamed checkpoint" in new Scope {
+    val elements = 1L to end
+    val checkpoint = 11L
+
+    val out: Seq[Long] =
+      createSource(elements)
+        .concat(Source.single((Offset.beforeBegin, Timeout)))
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.toLong)
+    out shouldBe elements :+ checkpoint
+  }
+
+  it should "not add a checkpoint invoked from timeout when its offset is less or equal to the last streamed checkpoint" in new Scope {
+    val elements = 1L to end
+    val checkpoint = 10L
+
+    val out: Seq[Long] =
+      createSource(elements)
+        .concat(Source.single((Offset.beforeBegin, Timeout)))
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.toLong)
+    out shouldBe elements :+ checkpoint
+  }
+
+  it should "not add the same checkpoint invoked from timeout" in new Scope {
+    val elements = 1L to end
+    val checkpoint = 11L
+
+    val out: Seq[Long] =
+      createSource(elements)
+        .concat(Source(Seq((Offset.beforeBegin, Timeout), (Offset.beforeBegin, Timeout))))
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.toLong)
+    out shouldBe elements :+ checkpoint
+  }
+
   // checkpoint for element at offset #xx is denoted by Cxx,
   // (xx, RB) is the RangeBegin indicator at offset #xx
   // (xx, RE) is the RangeEnd indicator at offset #xx
+  // TO is the Timeout indicator
   // NC means no checkpoint is there
   // e.g. (0,RB), C3, 1, 2, (2,RE), (2,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3
   private val u: Option[Unit] = Some(())
   private val e: Carrier[Option[Unit]] = Element(u)
   private val RB: Carrier[Option[Unit]] = RangeBegin
   private val RE: Carrier[Option[Unit]] = RangeEnd
+  private val TO: (Int, Carrier[Option[Unit]]) = (0, Timeout)
   private def fetchOffsetCheckpoints(
       checkpoints: mutable.Queue[Option[Int]]
   ): () => Option[OffsetCheckpoint] =
@@ -995,11 +1048,135 @@ class IndexServiceImplSpec
       }
   }
 
-  // TODO(#20098) this is to test dormant streams behavior and timeouts
-  // e.g. (0,RB), NC, 1, 2, 3, (3, RE), (TO), C3 -shouldBe> 1, 2, 3, C3 in checkpoint for dormant streams
-  // e.g. (0,RB), C3, 1, 2, 3, (3, RE), (TO), C3 -shouldBe> 1, 2, 3, C3 in checkpoint not repeated
-  // e.g. (0,RB), NC, 1, 2, 3, (3, RE), (TO), C3 , (TO), C3 -shouldBe> 1, 2, 3, C3 in checkpoint not repeated
-  // e.g. (0,RB), NC, 1, 2, 3, (3, RE), (TO), C3, (3, RB), C3, 4, (4,RE), (4,RB), C4, (5,RE) -shouldBe> 1, 2, 3, C3, 4, C4 in checkpoint for dormant streams regular continuation
+  it should "add checkpoints for dormant streams" in new Scope {
+    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C4 -shouldBe> 1, 2, 3, C4
+
+    private val source = Source(
+      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO)
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(42))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (42, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "not repeat checkpoints after regular checkpoint" in new Scope {
+    // e.g. (0,RB), C3, 1, 2, 3, (3,RE), (TO), C3 -shouldBe> 1, 2, 3, C3
+
+    private val source = Source(
+      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO)
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "not repeat checkpoints after timeout checkpoint" in new Scope {
+    // e.g. (0,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3 -shouldBe> 1, 2, 3, C3
+
+    private val source = Source(
+      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, TO)
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3), Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "not add checkpoints in the middle of a range" in new Scope {
+    // (0,RB), NC, 1, (TO), C3, 2, 3, (3,RE) -shouldBe> 1, 2, 3
+
+    private val source = Source(
+      Seq((0, RB), (1, e), TO, (2, e), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "continue regularly after idleness period" in new Scope {
+    // e.g. (0,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3, (TO), C3, (3, RB), C3, 4, (4,RE), (4,RB), C4, (5,RE) -shouldBe> 1, 2, 3, C3, 4, C4
+
+    private val source = Source(
+      Seq(
+        (0, RB), // no checkpoint
+        (1, e),
+        (2, e),
+        (3, e),
+        (3, RE),
+        TO, // C3
+        TO, // C3
+        TO, // C3
+        (3, RB), // C3
+        (4, e),
+        (4, RE),
+        (4, RB), // C4
+        (5, RE),
+      )
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] =
+      mutable.Queue(None, Some(3), Some(3), Some(3), Some(3), Some(4))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (3, None), (4, u), (4, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
 
 }
 

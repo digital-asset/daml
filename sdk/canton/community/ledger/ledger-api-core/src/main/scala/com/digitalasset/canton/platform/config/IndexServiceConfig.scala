@@ -28,6 +28,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * @param globalMaxEventIdQueries                 maximum number of concurrent event id queries across all stream types
   * @param globalMaxEventPayloadQueries            maximum number of concurrent event payload queries across all stream types
   * @param offsetCheckpointCacheUpdateInterval     the interval duration for OffsetCheckpoint cache updates
+  * @param idleStreamOffsetCheckpointTimeout       the interval duration for checking if a new OffsetCheckpoint is created
   */
 final case class IndexServiceConfig(
     bufferedEventsProcessingParallelism: Int =
@@ -52,6 +53,8 @@ final case class IndexServiceConfig(
     globalMaxEventPayloadQueries: Int = 10,
     offsetCheckpointCacheUpdateInterval: NonNegativeFiniteDuration =
       IndexServiceConfig.OffsetCheckpointCacheUpdateInterval,
+    idleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
+      IndexServiceConfig.IdleStreamOffsetCheckpointTimeout,
 )
 
 object IndexServiceConfig {
@@ -67,6 +70,8 @@ object IndexServiceConfig {
   val DefaultCompletionsPageSize = 1000
   val OffsetCheckpointCacheUpdateInterval: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(15)
+  val IdleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.ofMinutes(1)
 
   def DefaultInMemoryFanOutThreadPoolSize(logger: Logger): Int = {
     val numberOfThreads = Threading.detectNumberOfThreads(logger)
