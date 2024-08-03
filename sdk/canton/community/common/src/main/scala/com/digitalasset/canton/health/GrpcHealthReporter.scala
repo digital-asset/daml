@@ -78,8 +78,11 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
       healthStatusManager: ServiceHealthStatusManager
   ): Unit =
     healthStatusManager.services.foreach(service =>
+      // Register as high priority because we want the health status exposed externally to reflect health changes
+      // as soon as possible, specifically before we disconnect clients, to avoid re-connection attempts to a node that
+      // is unhealthy
       service
-        .registerOnHealthChange(new HealthListener {
+        .registerHighPriorityOnHealthChange(new HealthListener {
           override def name: String = "GrpcHealthReporter"
 
           override def poke()(implicit traceContext: TraceContext): Unit =

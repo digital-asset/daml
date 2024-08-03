@@ -235,8 +235,6 @@ abstract class CantonNodeBootstrapImpl[
     val builder = CantonServerBuilder
       .forConfig(
         adminApiConfig,
-        arguments.metrics.prefix,
-        arguments.metrics.openTelemetryMetricsFactory,
         executionContext,
         loggerFactory,
         parameterConfig.loggingConfig.api,

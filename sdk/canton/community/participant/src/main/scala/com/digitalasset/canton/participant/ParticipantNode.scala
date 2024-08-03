@@ -11,6 +11,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonRequireTypes
@@ -43,7 +44,6 @@ import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapp
   LedgerApiServerState,
 }
 import com.digitalasset.canton.participant.ledger.api.{
-  CantonAdminToken,
   StartableStoppableLedgerApiDependentServices,
   StartableStoppableLedgerApiServer,
 }
