@@ -172,7 +172,7 @@ object HaCoordinator {
                 "Step 7: Released periodic checker of the exclusive Indexer Main Lock on the main connection"
               )
             }
-            protectedHandle <- goF(initializeExecution(workerConnection => {
+            protectedHandle <- goF(initializeExecution { workerConnection =>
               // this is the checking routine on connection creation
               // step 1: acquire shared worker-lock
               logger.debug(s"Preparing worker connection. Step 1: acquire lock.")
@@ -181,7 +181,7 @@ object HaCoordinator {
               logger.debug(s"Preparing worker connection. Step 2: checking main lock.")
               mainLockChecker.check()
               logger.debug(s"Preparing worker connection DONE.")
-            }))
+            })
             _ = logger.debug("Step 6: initialize protected execution - DONE")
             _ = logger.info("Elected as leader: initialization complete")
             _ <- merge(protectedHandle)

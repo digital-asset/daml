@@ -29,9 +29,8 @@ final case class DelayedSequencerClient(domain: DomainId, member: Member)
   private[this] val onPublish: AtomicReference[SequencedEventDelayPolicy] =
     new AtomicReference[SequencedEventDelayPolicy](_ => Immediate)
 
-  def setDelayPolicy(publishPolicy: SequencedEventDelayPolicy): Unit = {
+  def setDelayPolicy(publishPolicy: SequencedEventDelayPolicy): Unit =
     onPublish.set(publishPolicy)
-  }
 
   override def delay(event: OrdinarySerializedEvent): Future[Unit] = {
     val temp = onPublish.get()
@@ -48,9 +47,8 @@ object DelayedSequencerClient {
       environmentId: String,
       domainId: DomainId,
       member: Member,
-  ): Option[DelayedSequencerClient] = {
+  ): Option[DelayedSequencerClient] =
     clients.get((environmentId, domainId, member))
-  }
 
   def registerAndCreate(
       environmentId: String,

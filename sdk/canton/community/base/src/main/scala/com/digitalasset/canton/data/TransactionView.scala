@@ -47,9 +47,8 @@ final case class TransactionView private (
       }
   }
 
-  def subviewHashesConsistentWith(subviewHashes: Seq[ViewHash]): Boolean = {
+  def subviewHashesConsistentWith(subviewHashes: Seq[ViewHash]): Boolean =
     subviews.hashesConsistentWith(hashOps)(subviewHashes)
-  }
 
   override def subtrees: Seq[MerkleTree[_]] =
     Seq[MerkleTree[_]](viewCommonData, viewParticipantData) ++ subviews.trees
@@ -117,11 +116,10 @@ final case class TransactionView private (
     def helper(
         view: TransactionView,
         viewPos: ViewPosition,
-    ): Seq[(TransactionView, ViewPosition)] = {
+    ): Seq[(TransactionView, ViewPosition)] =
       (view, viewPos) +: view.subviews.unblindedElementsWithIndex.flatMap {
         case (view, viewIndex) => helper(view, viewIndex +: viewPos)
       }
-    }
 
     helper(this, rootPos)
   }
@@ -181,13 +179,13 @@ final case class TransactionView private (
       val viewParticipantData = tryUnblindViewParticipantData("Global key inputs")
 
       subviews.assertAllUnblinded(hash =>
-        s"Global key inputs of view $viewHash can be computed only if all subviews are unblinded, but ${hash} is blinded"
+        s"Global key inputs of view $viewHash can be computed only if all subviews are unblinded, but $hash is blinded"
       )
 
       subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
         (acc, subview) =>
           val subviewGki = subview.globalKeyInputs
-          MapsUtil.mergeWith(acc, subviewGki) { (accRes, _subviewRes) => accRes }
+          MapsUtil.mergeWith(acc, subviewGki)((accRes, _subviewRes) => accRes)
       }
     }
 
@@ -221,7 +219,7 @@ final case class TransactionView private (
     )
     val currentRollbackScope = vpd.rollbackContext.rollbackScope
     subviews.assertAllUnblinded(hash =>
-      s"Inputs and created contracts of view $viewHash can be computed only if all subviews are unblinded, but ${hash} is blinded"
+      s"Inputs and created contracts of view $viewHash can be computed only if all subviews are unblinded, but $hash is blinded"
     )
     val subviewInputsAndCreated = subviews.unblindedElements.map { subview =>
       val subviewVpd =

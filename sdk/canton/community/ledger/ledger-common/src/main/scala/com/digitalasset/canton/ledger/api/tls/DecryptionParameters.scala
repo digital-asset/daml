@@ -37,9 +37,8 @@ final case class DecryptionParameters(
     decrypt(bytes)
   }
 
-  private[tls] def algorithm: String = {
+  private[tls] def algorithm: String =
     transformation.split("/")(0)
-  }
 
   private[tls] def decrypt(encrypted: Array[Byte]): Array[Byte] = {
     val key: Array[Byte] = Hex.decodeHex(keyInHex)

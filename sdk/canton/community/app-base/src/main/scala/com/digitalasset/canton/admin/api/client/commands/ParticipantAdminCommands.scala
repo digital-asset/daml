@@ -204,12 +204,11 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: RemovePackageResponse
-      ): Either[String, Unit] = {
+      ): Either[String, Unit] =
         response.success match {
           case None => Left("unexpected empty response")
           case Some(_success) => Right(())
         }
-      }
 
     }
 
@@ -284,12 +283,11 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: RemoveDarResponse
-      ): Either[String, Unit] = {
+      ): Either[String, Unit] =
         response.success match {
           case None => Left("unexpected empty response")
           case Some(success) => Right(())
         }
-      }
 
     }
 
@@ -399,7 +397,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, DownloadRequest] = {
+      override def createRequest(): Either[String, DownloadRequest] =
         Right(
           DownloadRequest(
             parties.map(_.toLf).toSeq,
@@ -414,7 +412,6 @@ object ParticipantAdminCommands {
             partiesOffboarding = partiesOffboarding,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -441,13 +438,12 @@ object ParticipantAdminCommands {
         val ref = new AtomicReference[Option[Resp]](None)
 
         val responseObserver = new StreamObserver[Resp] {
-          override def onNext(value: Resp): Unit = {
+          override def onNext(value: Resp): Unit =
             ref.set(Some(value))
-          }
 
           override def onError(t: Throwable): Unit = requestComplete.failure(t)
 
-          override def onCompleted(): Unit = {
+          override def onCompleted(): Unit =
             ref.get() match {
               case Some(response) => requestComplete.success(response)
               case None =>
@@ -458,7 +454,6 @@ object ParticipantAdminCommands {
                 )
             }
 
-          }
         }
         val requestObserver = load(responseObserver)
 
@@ -485,24 +480,21 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, UploadRequest] = {
+      override def createRequest(): Either[String, UploadRequest] =
         Right(UploadRequest(acsChunk, gzip))
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
           request: UploadRequest,
-      ): Future[UploadResponse] = {
+      ): Future[UploadResponse] =
         stream(
           service.upload,
           (bytes: Array[Byte]) => UploadRequest(ByteString.copyFrom(bytes), gzip),
           request.acsSnapshot,
         )
-      }
 
-      override def handleResponse(response: UploadResponse): Either[String, Unit] = {
+      override def handleResponse(response: UploadResponse): Either[String, Unit] =
         Right(())
-      }
     }
 
     final case class ExportAcs(
@@ -523,7 +515,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, ExportAcsRequest] = {
+      override def createRequest(): Either[String, ExportAcsRequest] =
         Right(
           ExportAcsRequest(
             parties.map(_.toLf).toSeq,
@@ -540,7 +532,6 @@ object ParticipantAdminCommands {
             partiesOffboarding = partiesOffboarding,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -569,7 +560,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, ImportAcsRequest] = {
+      override def createRequest(): Either[String, ImportAcsRequest] =
         Right(
           ImportAcsRequest(
             acsChunk,
@@ -577,12 +568,11 @@ object ParticipantAdminCommands {
             onboardedParties = onboardedParties.map(_.toLf).toSeq,
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
           request: ImportAcsRequest,
-      ): Future[ImportAcsResponse] = {
+      ): Future[ImportAcsResponse] =
         stream(
           service.importAcs,
           (bytes: Array[Byte]) =>
@@ -593,11 +583,9 @@ object ParticipantAdminCommands {
             ),
           request.acsSnapshot,
         )
-      }
 
-      override def handleResponse(response: ImportAcsResponse): Either[String, Unit] = {
+      override def handleResponse(response: ImportAcsResponse): Either[String, Unit] =
         Right(())
-      }
     }
 
     final case class PurgeContracts(
@@ -612,7 +600,7 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
         ParticipantRepairServiceGrpc.stub(channel)
 
-      override def createRequest(): Either[String, PurgeContractsRequest] = {
+      override def createRequest(): Either[String, PurgeContractsRequest] =
         Right(
           PurgeContractsRequest(
             domain = domain.toProtoPrimitive,
@@ -621,7 +609,6 @@ object ParticipantAdminCommands {
             offboardedParties = offboardedParties.toSeq.map(_.toLf),
           )
         )
-      }
 
       override def submitRequest(
           service: ParticipantRepairServiceStub,
@@ -1160,9 +1147,8 @@ object ParticipantAdminCommands {
       ): Future[v0.ResourceLimits] =
         service.getResourceLimits(request)
 
-      override def handleResponse(response: v0.ResourceLimits): Either[String, ResourceLimits] = {
+      override def handleResponse(response: v0.ResourceLimits): Either[String, ResourceLimits] =
         Right(ResourceLimits.fromProtoV0(response))
-      }
     }
 
     final case class SetResourceLimits(limits: ResourceLimits)

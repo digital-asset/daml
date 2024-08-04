@@ -57,12 +57,11 @@ class TransferCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[UnknownDomain, Future[Unit]] = {
+  ): Either[UnknownDomain, Future[Unit]] =
     syncCryptoApi
       .forDomain(domain.unwrap, staticDomainParameters)
       .toRight(UnknownDomain(domain.unwrap, "When transfer-in waits for transfer-out timestamp"))
       .map(_.awaitTimestamp(timestamp, waitForEffectiveTime = true).getOrElse(Future.unit))
-  }
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `domain`.
     * [[scala.None$]] indicates that this point has already been reached before the call.
@@ -77,7 +76,7 @@ class TransferCoordination(
       waitForEffectiveTime: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Either[TransferProcessorError, Option[Future[Unit]]] = {
+  ): Either[TransferProcessorError, Option[Future[Unit]]] =
     OptionUtil
       .zipWith(syncCryptoApi.forDomain(domain, staticDomainParameters), inSubmissionById(domain)) {
         (cryptoApi, handle) =>
@@ -86,7 +85,6 @@ class TransferCoordination(
           cryptoApi.awaitTimestamp(timestamp, waitForEffectiveTime)
       }
       .toRight(UnknownDomain(domain, "When waiting for timestamp"))
-  }
 
   /** Similar to [[awaitTimestamp]] but lifted into an [[EitherT]]
     *
@@ -181,7 +179,7 @@ class TransferCoordination(
       waitForEffectiveTime: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, DomainSnapshotSyncCryptoApi] = {
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, DomainSnapshotSyncCryptoApi] =
     for {
       _ <- awaitTimestampUS(
         domain,
@@ -194,7 +192,6 @@ class TransferCoordination(
         FutureUnlessShutdown.outcomeK
       )
     } yield snapshot
-  }
 
   private[transfer] def getTimeProofAndSnapshot(
       targetDomain: TargetDomainId,
@@ -220,14 +217,13 @@ class TransferCoordination(
   /** Stores the given transfer data on the target domain. */
   private[transfer] def addTransferOutRequest(
       transferData: TransferData
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] =
     for {
       transferStore <- EitherT.fromEither[Future](transferStoreFor(transferData.targetDomain))
       _ <- transferStore
         .addTransfer(transferData)
         .leftMap[TransferProcessorError](TransferStoreFailed(transferData.transferId, _))
     } yield ()
-  }
 
   /** Adds the transfer-out result to the transfer stored on the given domain. */
   private[transfer] def addTransferOutResult(
@@ -235,14 +231,13 @@ class TransferCoordination(
       transferOutResult: DeliveredTransferOutResult,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] = {
+  ): EitherT[Future, TransferProcessorError, Unit] =
     for {
       transferStore <- EitherT.fromEither[Future](transferStoreFor(domain))
       _ <- transferStore
         .addTransferOutResult(transferOutResult)
         .leftMap[TransferProcessorError](TransferStoreFailed(transferOutResult.transferId, _))
     } yield ()
-  }
 
   /** Removes the given [[com.digitalasset.canton.protocol.TransferId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.TransferStore]]. */
   private[transfer] def deleteTransfer(targetDomain: TargetDomainId, transferId: TransferId)(

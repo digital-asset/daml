@@ -30,7 +30,7 @@ object StripSignature {
 object StripOrdinaryEnvelopeBox {
   def apply(
       handler: EnvelopeHandler
-  )(implicit ec: ExecutionContext): OrdinaryApplicationHandler[DefaultOpenEnvelope] = {
+  )(implicit ec: ExecutionContext): OrdinaryApplicationHandler[DefaultOpenEnvelope] =
     StripSignature(
       handler.replace[UnsignedEnvelopeBox, DefaultOpenEnvelope](box =>
         MonadUtil.sequentialTraverseMonoid(box.value)(
@@ -43,6 +43,5 @@ object StripOrdinaryEnvelopeBox {
         )
       )
     )
-  }
 
 }

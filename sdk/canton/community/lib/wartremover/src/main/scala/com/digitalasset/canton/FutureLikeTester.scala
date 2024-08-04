@@ -30,7 +30,7 @@ object FutureLikeTester {
     val futureTransformerType: Type = typeOf[FutureTransformer]
 
     @tailrec
-    def go(typ: Type): Boolean = {
+    def go(typ: Type): Boolean =
       if (typ.typeConstructor =:= futureTypeConstructor) true
       else if (typ.typeConstructor =:= eitherTTypeConstructor) {
         val args = typ.typeArgs
@@ -57,7 +57,6 @@ object FutureLikeTester {
                 case _ => false
               }
         }
-    }
 
     go
   }

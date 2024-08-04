@@ -35,7 +35,7 @@ final case class CommandStatus(
     requestStatistics: RequestStatistics,
     updates: CommandUpdates,
 ) extends PrettyPrinting {
-  def toProto: GetCommandStatusResponse.CommandStatus = {
+  def toProto: GetCommandStatusResponse.CommandStatus =
     GetCommandStatusResponse.CommandStatus(
       started = Some(started.toProtoPrimitive),
       completed = completed.map(_.toProtoPrimitive),
@@ -45,7 +45,6 @@ final case class CommandStatus(
       requestStatistics = Some(requestStatistics),
       updates = Some(updates),
     )
-  }
 
   def decodedError: Option[DecodedRpcStatus] =
     completion.status.flatMap(DecodedRpcStatus.fromScalaStatus)
@@ -64,9 +63,8 @@ final case class CommandStatus(
     param("lookedUpByKey", _.lookedUpByKey),
   )
 
-  private def nonEmptyUpdate(update: CommandUpdates): Boolean = {
+  private def nonEmptyUpdate(update: CommandUpdates): Boolean =
     update.created.nonEmpty || update.archived.nonEmpty || update.exercised > 0 || update.fetched > 0 || update.lookedUpByKey > 0
-  }
 
   override lazy val pretty: Pretty[CommandStatus] = prettyOfClass(
     param("commandId", _.completion.commandId.singleQuoted),
@@ -133,7 +131,7 @@ trait CommandResultHandle {
   def failedSync(err: StatusRuntimeException): Unit
   def internalErrorSync(err: Throwable): Unit
 
-  def extractFailure[T](f: Future[T])(implicit executionContext: ExecutionContext): Future[T] = {
+  def extractFailure[T](f: Future[T])(implicit executionContext: ExecutionContext): Future[T] =
     f.transform {
       case ff @ Failure(err: StatusRuntimeException) =>
         failedSync(err)
@@ -143,7 +141,6 @@ trait CommandResultHandle {
         ff
       case rr => rr
     }
-  }
 
   def recordEnvelopeSizes(batchSize: Int, numRecipients: Int, numEnvelopes: Int): Unit
 

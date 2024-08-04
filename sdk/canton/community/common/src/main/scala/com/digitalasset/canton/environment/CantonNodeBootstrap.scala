@@ -187,17 +187,16 @@ abstract class CantonNodeBootstrapBase[
       .map(NodeStatus.Success(_))
       .getOrElse(NodeStatus.NotInitialized(isActive))
 
-  protected def registerHealthGauge(): Unit = {
+  protected def registerHealthGauge(): Unit =
     arguments.metrics.healthMetrics
       .registerHealthGauge(
         name.toProtoPrimitive,
         () => getNode.exists(_.status.active),
       )
       .discard // we still want to report the health even if the node is closed
-  }
 
   // The admin-API services
-  logger.info(s"Starting admin-api services on ${adminApiConfig}")
+  logger.info(s"Starting admin-api services on $adminApiConfig")
   protected val (adminServer, adminServerRegistry) = {
     val builder = CantonServerBuilder
       .forConfig(
@@ -395,16 +394,14 @@ abstract class CantonNodeBootstrapBase[
           functionFullName,
         )
         .apply(
-          {
-            if (storage.isActive) Future.successful(Right(None))
-            else {
-              isWaitingForIdVar.set(true)
-              initializationStore.id
-                .map(
-                  _.toRight("Active replica failed to initialize unique identifier")
-                    .map(Some(_))
-                )
-            }
+          if (storage.isActive) Future.successful(Right(None))
+          else {
+            isWaitingForIdVar.set(true)
+            initializationStore.id
+              .map(
+                _.toRight("Active replica failed to initialize unique identifier")
+                  .map(Some(_))
+              )
           },
           NoExnRetryable,
         )
@@ -472,7 +469,7 @@ abstract class CantonNodeBootstrapBase[
 
   protected def startWithStoredNodeId(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] =
     if (nodeId.compareAndSet(None, Some(id))) {
-      logger.info(s"Resuming as existing instance with uid=${id}")
+      logger.info(s"Resuming as existing instance with uid=$id")
       initialize(id).leftMap { err =>
         logger.info(s"Failed to initialize node, trying to clean up: $err")
         close()
@@ -487,7 +484,7 @@ abstract class CantonNodeBootstrapBase[
   /** kick off initialisation during startup */
   protected def startInstanceUnlessClosing(
       instanceET: => EitherT[FutureUnlessShutdown, String, T]
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     if (isInitialized) {
       logger.warn("Will not start instance again as it is already initialised")
       EitherT.pure[FutureUnlessShutdown, String](())
@@ -506,7 +503,6 @@ abstract class CantonNodeBootstrapBase[
         EitherT.pure[FutureUnlessShutdown, String](())
       }
     }
-  }
 
   /** All existing domain stores */
   protected def sequencedTopologyStores: Seq[TopologyStore[TopologyStoreId]]
@@ -514,28 +510,25 @@ abstract class CantonNodeBootstrapBase[
   /** Initialize the node with an externally provided identity. */
   def initializeWithProvidedId(nodeId: NodeId): EitherT[Future, String, Unit] = initQueue
     .executeEUS(
-      {
-        for {
-          _ <- performUnlessClosingEitherU("storeNodeId")(storeId(nodeId))
-          _ <- initialize(nodeId)
-        } yield ()
-      },
+      for {
+        _ <- performUnlessClosingEitherU("storeNodeId")(storeId(nodeId))
+        _ <- initialize(nodeId)
+      } yield (),
       functionFullName,
     )
     .onShutdown(Left("Aborted due to shutdown"))
 
   protected def startTopologyManagementWriteService[E <: CantonError](
       topologyManager: TopologyManager[E]
-  ): Unit = {
+  ): Unit =
     adminServerRegistry
       .addServiceU(
         topologyManagerWriteService(topologyManager)
       )
-  }
 
   protected def topologyManagerWriteService[E <: CantonError](
       topologyManager: TopologyManager[E]
-  ): ServerServiceDefinition = {
+  ): ServerServiceDefinition =
     TopologyManagerWriteServiceGrpc.bindService(
       new GrpcTopologyManagerWriteService(
         topologyManager,
@@ -545,8 +538,6 @@ abstract class CantonNodeBootstrapBase[
       ),
       executionContext,
     )
-
-  }
 
   // utility functions used by automatic initialization of domain and participant
   protected def authorizeStateUpdate[E <: CantonError](

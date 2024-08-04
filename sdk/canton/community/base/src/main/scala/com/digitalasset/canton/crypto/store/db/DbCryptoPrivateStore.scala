@@ -45,7 +45,7 @@ final case class StoredPrivateKey(
 ) extends Product
     with Serializable {
 
-  def isEncrypted: Boolean = { this.wrapperKeyId.isDefined }
+  def isEncrypted: Boolean = this.wrapperKeyId.isDefined
 
 }
 
@@ -84,7 +84,7 @@ class DbCryptoPrivateStore(
 
   private def insertKeyUpdate(
       key: StoredPrivateKey
-  ): DbAction.WriteOnly[Int] = {
+  ): DbAction.WriteOnly[Int] =
     storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
@@ -96,13 +96,12 @@ class DbCryptoPrivateStore(
            values (${key.id}, ${key.purpose}, ${key.data}, ${key.name}, ${key.wrapperKeyId})
            on conflict do nothing"""
     }
-  }
 
   private def insertKey(key: StoredPrivateKey)(implicit
       traceContext: TraceContext
   ): EitherT[Future, CryptoPrivateStoreError, Unit] = {
 
-    def equalKeys(existingKey: StoredPrivateKey, newKey: StoredPrivateKey): Boolean = {
+    def equalKeys(existingKey: StoredPrivateKey, newKey: StoredPrivateKey): Boolean =
       if (existingKey.wrapperKeyId.isEmpty) {
         existingKey.data == newKey.data &&
         existingKey.name == newKey.name &&
@@ -113,7 +112,6 @@ class DbCryptoPrivateStore(
         existingKey.name == newKey.name &&
         existingKey.purpose == newKey.purpose
       }
-    }
 
     for {
       inserted <- EitherT.right(
@@ -147,7 +145,7 @@ class DbCryptoPrivateStore(
       purpose: KeyPurpose,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Option[StoredPrivateKey]] = {
+  ): EitherT[Future, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
     EitherT.right(
       storage
         .querySingle(
@@ -156,7 +154,6 @@ class DbCryptoPrivateStore(
         )
         .value
     )
-  }
 
   private[crypto] def writePrivateKey(
       key: StoredPrivateKey
@@ -168,13 +165,12 @@ class DbCryptoPrivateStore(
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPrivateStoreError, Set[StoredPrivateKey]] = {
+  ): EitherT[Future, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     EitherT.right(
       storage
         .query(queryKeys(purpose), functionFullName)
         .map(keys => keys.filter(_.isEncrypted == encrypted))
     )
-  }
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
     sqlu"delete from crypto_private_keys where key_id = $keyId"

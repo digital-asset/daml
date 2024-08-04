@@ -138,7 +138,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
       )
     )
 
-  private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] = {
+  private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] =
     // Safety switch to abort the stream if the user-rights-state-check task
     // fails to refresh within 2*[[userRightsCheckIntervalInSeconds]] seconds.
     // In normal conditions we expected the refresh delay to be about [[userRightsCheckIntervalInSeconds]] seconds.
@@ -150,7 +150,6 @@ private[auth] final class OngoingAuthorizationObserver[A](
     ) {
       Left(staleStreamAuthError)
     } else Right(())
-  }
 
   private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] =
     originalClaims

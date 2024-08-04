@@ -19,9 +19,8 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
   behavior of classOf[ErrorDetails.type].getName
 
   it should "correctly match exception to error codes " in {
-    val securitySensitive = {
+    val securitySensitive =
       SevereError.Reject("some internal failure")(errorLogger).asGrpcError
-    }
     val notSecuritySensitive =
       BenignError.Reject("some service")(errorLogger).asGrpcError
 

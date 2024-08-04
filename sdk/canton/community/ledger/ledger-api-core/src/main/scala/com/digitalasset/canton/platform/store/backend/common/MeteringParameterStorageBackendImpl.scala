@@ -57,11 +57,10 @@ private[backend] object MeteringParameterStorageBackendImpl
 
   }
 
-  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd = {
+  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd =
     ledgerMeteringEnd(connection).getOrElse(
       throw new IllegalStateException("Ledger metering is not initialized")
     )
-  }
 
   def updateLedgerMeteringEnd(
       ledgerMeteringEnd: LedgerMeteringEnd

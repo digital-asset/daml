@@ -146,7 +146,7 @@ private[inspection] object AcsInspection {
   )(f: SerializableContract => Either[Error, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Option[(Set[LfPartyId], CantonTimestamp)]] = {
+  ): EitherT[Future, Error, Option[(Set[LfPartyId], CantonTimestamp)]] =
     for {
       acsSnapshotO <- getAcsSnapshot(domainId, state, timestamp)
       allStakeholdersAndTs <- acsSnapshotO.traverse { acsSnapshot =>
@@ -157,7 +157,6 @@ private[inspection] object AcsInspection {
           .map((_, acsSnapshot.ts))
       }
     } yield allStakeholdersAndTs
-  }
 
   /** Check that the ACS snapshot does not contain contracts that are still needed on the participant.
     * In the context of party offboarding, we want to avoid purging contracts
@@ -172,7 +171,7 @@ private[inspection] object AcsInspection {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     for {
       topologySnapshot <- EitherT.liftF[Future, String, TopologySnapshot](
         topologyClient.awaitSnapshot(snapshotTs)
@@ -199,7 +198,6 @@ private[inspection] object AcsInspection {
             .mkString(", ")}",
       )
     } yield ()
-  }
 
   /** Applies function f to all the contracts in the batch whose set of stakeholders has
     * non-empty intersection with `parties`

@@ -134,11 +134,10 @@ object SequencerConnections
   def tryMany(
       connections: Seq[SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
-  ): SequencerConnections = {
+  ): SequencerConnections =
     many(NonEmptyUtil.fromUnsafe(connections), sequencerTrustThreshold).valueOr(err =>
       throw new IllegalArgumentException(err)
     )
-  }
 
   private def fromProtoV0V1(
       fieldName: String,

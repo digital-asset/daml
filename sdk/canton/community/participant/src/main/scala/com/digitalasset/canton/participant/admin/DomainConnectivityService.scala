@@ -131,7 +131,7 @@ class DomainConnectivityService(
 
     val resp = for {
       conf <- mapErr(DomainConnectionConfig.fromProtoV0(request))
-      _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
+      _ = logger.info(show"Registering ${request.domainAlias} with $conf")
       _ <- mapErrNewET(sync.addDomain(conf))
       _ <-
         if (!conf.manualConnect) for {
@@ -185,7 +185,7 @@ class DomainConnectivityService(
 
   private def getSequencerAggregatedInfo(domainAlias: String)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, StatusRuntimeException, SequencerAggregatedInfo] = {
+  ): EitherT[Future, StatusRuntimeException, SequencerAggregatedInfo] =
     for {
       alias <- mapErr(DomainAlias.create(domainAlias))
       connectionConfig <- mapErrNewET(
@@ -206,7 +206,6 @@ class DomainConnectivityService(
         .leftMap(DomainRegistryHelpers.fromDomainAliasManagerError)
         .leftMap(_.asGrpcError)
     } yield result
-  }
 
   /** Accept the agreement for the domain */
   def acceptAgreement(domainAlias: String, agreementId: String)(implicit

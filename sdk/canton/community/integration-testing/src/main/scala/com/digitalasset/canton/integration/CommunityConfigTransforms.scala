@@ -89,13 +89,12 @@ object CommunityConfigTransforms {
         .focus(_.participants)
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
-  def uniqueH2DatabaseNames: CommunityConfigTransform = {
+  def uniqueH2DatabaseNames: CommunityConfigTransform =
     updateAllDomainConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     } compose updateAllParticipantConfigs { case (nodeName, cfg) =>
       cfg.focus(_.storage).modify(CommunityConfigTransforms.withUniqueDbName(nodeName, _))
     }
-  }
 
   def uniquePorts: CommunityConfigTransform = {
 

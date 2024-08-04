@@ -153,7 +153,7 @@ abstract class StoreBasedDomainOutboxCommon[
 
   def awaitIdle(
       timeout: Duration
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     // first, we wait until the idle future is idle again
     // this is the case when we've updated the dispatching watermark such that
     // there are no more topology transactions to read
@@ -171,7 +171,6 @@ abstract class StoreBasedDomainOutboxCommon[
           awaitTransactionObserved(targetClient, last, timeout)
         }
       }
-  }
 
   protected case class Watermarks(
       queuedApprox: Int,
@@ -286,14 +285,13 @@ abstract class StoreBasedDomainOutboxCommon[
     } yield ()
   }
 
-  protected final def kickOffFlush(): Unit = {
+  protected final def kickOffFlush(): Unit =
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
       TraceContext.withNewTraceContext(implicit tc =>
         EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "domain outbox flusher")
       )
     }
-  }
 
   protected def findPendingTransactions(
       watermarks: Watermarks
@@ -390,7 +388,7 @@ abstract class StoreBasedDomainOutboxCommon[
       case (valid, ((item, idx), response)) =>
         if (!isExpectedState(response)) {
           logger.warn(
-            s"Topology transaction ${topologyTransaction(item)} got ${response}. Will not update watermark."
+            s"Topology transaction ${topologyTransaction(item)} got $response. Will not update watermark."
           )
           false
         } else valid

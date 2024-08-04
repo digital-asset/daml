@@ -46,7 +46,7 @@ class DbParticipantEventLog(
   override def firstEventWithAssociatedDomainAtOrAfter(
       associatedDomain: DomainId,
       atOrAfter: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Option[TimestampedEvent]] = {
+  )(implicit traceContext: TraceContext): Future[Option[TimestampedEvent]] =
     IndexedDomain.indexed(indexedStringStore)(associatedDomain).flatMap { associatedDomainIndex =>
       processingTime.event {
         // Use #$ instead of $ for ParticipantEventLogId.log_id so that it shows up as a literal string
@@ -74,7 +74,6 @@ class DbParticipantEventLog(
         storage.query(query.headOption, functionFullName)
       }
     }
-  }
 
   override def nextLocalOffsets(
       count: NonNegativeInt

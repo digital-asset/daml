@@ -137,7 +137,7 @@ class HealthCheckTest extends AsyncWordSpec with BaseTest {
     def withPingResult(result: Future[PingService.Result]): Environment = mockEnvironment { mocks =>
       val init = mock[ParticipantNodeBootstrap]
       val node = mock[ParticipantNode]
-      val id = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive(s"${participant}::test"))
+      val id = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive(s"$participant::test"))
       val ledgerApiDependentServices = mock[StartableStoppableLedgerApiDependentServices]
       val adminWorkflowServices = mock[AdminWorkflowServices]
       val pingService = mock[PingService]

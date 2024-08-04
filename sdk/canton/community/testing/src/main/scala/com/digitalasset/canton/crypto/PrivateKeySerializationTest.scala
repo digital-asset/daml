@@ -14,8 +14,7 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       newCrypto: => Future[Crypto],
-  ): Unit = {
-
+  ): Unit =
     s"Serialize and deserialize a private key via protobuf" should {
 
       forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
@@ -60,5 +59,4 @@ trait PrivateKeySerializationTest extends BaseTest { this: AsyncWordSpec =>
         }
       }
     }
-  }
 }

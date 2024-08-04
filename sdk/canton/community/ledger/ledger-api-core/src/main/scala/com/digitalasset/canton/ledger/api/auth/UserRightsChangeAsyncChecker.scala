@@ -46,7 +46,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
     // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
-      pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {
+      pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay) { () =>
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {
@@ -69,7 +69,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
               }
               lastUserRightsCheckTime.set(nowF())
           }
-      })
+      }
     () => (cancellable.cancel(): Unit)
   }
 

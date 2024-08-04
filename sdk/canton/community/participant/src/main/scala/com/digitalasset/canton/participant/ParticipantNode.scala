@@ -239,7 +239,7 @@ class ParticipantNodeBootstrap(
 
   override protected def setPostInitCallbacks(
       sync: CantonSyncService
-  ): Unit = {
+  ): Unit =
     // provide the idm a handle to synchronize package vettings
     topologyManager.setPostInitCallbacks(new PostInitCallbacks {
 
@@ -250,11 +250,9 @@ class ParticipantNodeBootstrap(
 
       override def partyHasActiveContracts(partyId: PartyId)(implicit
           traceContext: TraceContext
-      ): Future[Boolean] = {
+      ): Future[Boolean] =
         sync.partyHasActiveContracts(partyId)
-      }
     })
-  }
 
   override def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] =
     startInstanceUnlessClosing {
@@ -388,7 +386,7 @@ class ParticipantNodeBootstrap(
             nodeHealthService.dependencies.map(_.toComponentStatus),
           )
       }
-    }.map { _ => setInitialized() }
+    }.map(_ => setInitialized())
 
   override def isActive: Boolean = storage.isActive
 
@@ -635,7 +633,7 @@ class ParticipantNode(
   def autoConnectLocalDomain(config: CantonDomainConnectionConfig)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (sync.isActive()) {
       // check if we already know this domain
       sync.domainConnectionConfigStore
@@ -652,8 +650,6 @@ class ParticipantNode(
       logger.info("Not auto-connecting to local domains as instance is passive")
       EitherTUtil.unitUS
     }
-
-  }
 
   def readyDomains: Map[DomainId, Boolean] =
     sync.readyDomains.values.toMap

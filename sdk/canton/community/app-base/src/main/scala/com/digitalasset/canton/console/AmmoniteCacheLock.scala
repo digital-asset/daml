@@ -58,7 +58,7 @@ object AmmoniteCacheLock {
         case Right(lock) => lock
         case Left(err) =>
           logger.warn(
-            s"Failed to acquire ammonite cache directory due to ${err}. Will use in-memory instead."
+            s"Failed to acquire ammonite cache directory due to $err. Will use in-memory instead."
           )
           InMemory
       }
@@ -71,19 +71,18 @@ object AmmoniteCacheLock {
 
   private def createDirsIfNecessary(path: os.Path): Either[String, Unit] =
     if (path.toIO.exists())
-      Either.cond(path.toIO.isDirectory, (), s"File ${path} exists but is not a directory")
+      Either.cond(path.toIO.isDirectory, (), s"File $path exists but is not a directory")
     else
       Either.cond(
         // create or test again (mkdirs fails if the directory exists in the meantime, which can happen
         // if several tests try to create the directory at the same time
         path.toIO.mkdirs() || path.toIO.exists(),
         (),
-        s"Failed to create ammonite cache directory ${path}. Is the path writable?",
+        s"Failed to create ammonite cache directory $path. Is the path writable?",
       )
 
-  private def ensureDirIsWritable(path: os.Path): Either[String, Unit] = {
+  private def ensureDirIsWritable(path: os.Path): Either[String, Unit] =
     Either.cond(path.toIO.canWrite, (), s"Directory $path is not writable")
-  }
 
   private def acquireLock(logger: TracedLogger, path: os.Path, isRepl: Boolean)(implicit
       traceContext: TraceContext
@@ -93,29 +92,28 @@ object AmmoniteCacheLock {
       if (myLockFile.toIO.exists()) {
         Right(None)
       } else {
-        logger.debug(s"Attempting to obtain lock ${myLockFile}")
+        logger.debug(s"Attempting to obtain lock $myLockFile")
         val out = new RandomAccessFile(myLockFile.toIO, "rw")
         Option(out.getChannel.tryLock()) match {
           case None =>
-            logger.debug(s"Failed to acquire lock for ${myLockFile}")
+            logger.debug(s"Failed to acquire lock for $myLockFile")
             out.close()
             Right(None)
           case Some(lock) =>
             myLockFile.toIO.deleteOnExit()
             Right(Some(new AmmoniteCacheLock {
-              override def release(): Unit = {
+              override def release(): Unit =
                 try {
                   logger.debug(s"Releasing lock $myLockFile...")
                   lock.release()
                   out.close()
                   if (!myLockFile.toIO.delete()) {
-                    logger.warn(s"Failed to delete lock file ${myLockFile}")
+                    logger.warn(s"Failed to delete lock file $myLockFile")
                   }
                 } catch {
                   case NonFatal(e) =>
                     logger.error(s"Releasing ammonite cache lock $lockFile failed", e)
                 }
-              }
 
               override val storage: Storage = new Storage.Folder(path, isRepl = isRepl)
 

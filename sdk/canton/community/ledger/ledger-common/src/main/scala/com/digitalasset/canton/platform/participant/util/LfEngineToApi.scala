@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.participant.util
 
-import com.daml.ledger.api.v1.{value as api}
+import com.daml.ledger.api.v1.value as api
 import com.daml.lf.data.Numeric
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.value.{Value as Lf}
+import com.daml.lf.value.Value as Lf
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.std.either.*
@@ -29,22 +29,20 @@ object LfEngineToApi {
 
   private[this] type LfValue = Lf
 
-  def toApiIdentifier(identifier: Identifier): api.Identifier = {
+  def toApiIdentifier(identifier: Identifier): api.Identifier =
     api.Identifier(
       identifier.packageId,
       identifier.qualifiedName.module.toString(),
       identifier.qualifiedName.name.toString(),
     )
-  }
 
-  def toTimestamp(instant: Instant): Timestamp = {
+  def toTimestamp(instant: Instant): Timestamp =
     Timestamp.apply(instant.getEpochSecond, instant.getNano)
-  }
 
   def lfValueToApiRecord(
       verbose: Boolean,
       recordValue: LfValue,
-  ): Either[String, api.Record] = {
+  ): Either[String, api.Record] =
     recordValue match {
       case Lf.ValueRecord(tycon, fields) =>
         val fs = fields.foldLeft[Either[String, Vector[api.RecordField]]](Right(Vector.empty)) {
@@ -65,7 +63,6 @@ object LfEngineToApi {
         Left(s"Expected value to be record, but got $other")
     }
 
-  }
   def lfValueToApiValue(
       verbose: Boolean,
       lf: Option[LfValue],

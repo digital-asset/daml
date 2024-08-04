@@ -74,7 +74,7 @@ private[protocol] trait ConflictDetectionHelpers {
         new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
   )(
       entries: (TransferId, MediatorId)*
-  )(implicit traceContext: TraceContext): Future[TransferCache] = {
+  )(implicit traceContext: TraceContext): Future[TransferCache] =
     Future
       .traverse(entries) { case (transferId, sourceMediator) =>
         for {
@@ -89,14 +89,13 @@ private[protocol] trait ConflictDetectionHelpers {
         } yield result
       }
       .map(_ => new TransferCache(store, loggerFactory)(parallelExecutionContext))
-  }
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {
   def insertEntriesAcs(
       acs: ActiveContractStore,
       entries: Seq[(LfContractId, TimeOfChange, ActiveContractStore.Status)],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[Unit] =
     Future
       .traverse(entries) {
         case (coid, toc, Active) => acs.markContractCreated(coid, toc).value
@@ -106,12 +105,11 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           acs.transferOutContract(coid, toc, targetDomain).value
       }
       .void
-  }
 
   def insertEntriesCkj(
       ckj: ContractKeyJournal,
       entries: Seq[(LfGlobalKey, TimeOfChange, ContractKeyJournal.Status)],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext, position: Position): Future[Unit] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext, position: Position): Future[Unit] =
     Future
       .traverse(entries) { case (key, toc, status) =>
         ckj
@@ -119,7 +117,6 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           .valueOr(err => throw new TestFailedException(_ => Some(err.toString), None, position))
       }
       .void
-  }
 
   def mkActivenessCheck[Key: Pretty](
       fresh: Set[Key] = Set.empty[Key],

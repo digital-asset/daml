@@ -172,11 +172,10 @@ object LedgerClient {
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     LedgerClient(
       GrpcChannel.withShutdownHook(builder),
       configuration,
       loggerFactory,
     )
-  }
 }

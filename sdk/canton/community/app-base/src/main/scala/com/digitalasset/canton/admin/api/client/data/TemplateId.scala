@@ -30,24 +30,20 @@ final case class TemplateId(
 
 object TemplateId {
 
-  def fromIdentifier(identifier: Identifier): TemplateId = {
+  def fromIdentifier(identifier: Identifier): TemplateId =
     TemplateId(
       packageId = identifier.packageId,
       moduleName = identifier.moduleName,
       entityName = identifier.entityName,
     )
-  }
 
-  def templateIdsFromJava(identifiers: javaapi.data.Identifier*): Seq[TemplateId] = {
+  def templateIdsFromJava(identifiers: javaapi.data.Identifier*): Seq[TemplateId] =
     identifiers.map(fromJavaIdentifier)
-  }
 
-  def fromJavaProtoIdentifier(templateId: ValueOuterClass.Identifier): TemplateId = {
+  def fromJavaProtoIdentifier(templateId: ValueOuterClass.Identifier): TemplateId =
     fromIdentifier(Identifier.fromJavaProto(templateId))
-  }
 
-  def fromJavaIdentifier(templateId: javaapi.data.Identifier): TemplateId = {
+  def fromJavaIdentifier(templateId: javaapi.data.Identifier): TemplateId =
     fromJavaProtoIdentifier(templateId.toProto)
-  }
 
 }

@@ -127,7 +127,7 @@ class ParticipantTopologyManager(
       callbacks: PostInitCallbacks,
       transaction: PartyToParticipant,
       force: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
     transaction match {
       case PartyToParticipant(_, partyId: PartyId, _, _) =>
         if (force) {
@@ -154,14 +154,12 @@ class ParticipantTopologyManager(
       // anything else, pass through
       case _ => EitherT.rightT(())
     }
-  }
 
   private def checkOwnerToKeyMappingRefersToExistingKeys(
       participantId: ParticipantId,
       mapping: OwnerToKeyMapping,
       force: Boolean,
-  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] = {
-
+  )(implicit traceContext: TraceContext): EitherT[Future, ParticipantTopologyManagerError, Unit] =
     mapping match {
       // if tx is for this node, check that we do have this key
       case OwnerToKeyMapping(`participantId`, key) =>
@@ -187,7 +185,6 @@ class ParticipantTopologyManager(
       // anything else, pass through
       case _ => EitherT.rightT(())
     }
-  }
 
   private def checkPackageVettingRefersToExistingPackages(
       participantId: ParticipantId,

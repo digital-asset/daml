@@ -57,7 +57,6 @@ object OpenEnvelope {
   def fromProtoV0(
       hashOps: HashOps,
       protocolVersion: ProtocolVersion,
-  )(envelopeP: v0.Envelope): ParsingResult[DefaultOpenEnvelope] = {
+  )(envelopeP: v0.Envelope): ParsingResult[DefaultOpenEnvelope] =
     ClosedEnvelope.fromProtoV0(envelopeP).flatMap(_.openEnvelope(hashOps, protocolVersion))
-  }
 }

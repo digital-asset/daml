@@ -41,7 +41,7 @@ abstract class GrpcTopologyAggregationServiceCommon[
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, List[(DomainId, TopologySnapshotLoader)]] = {
+  ): EitherT[Future, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
     for {
       asOfO <- wrapErr(asOf.traverse(CantonTimestamp.fromProtoPrimitive))
     } yield {
@@ -61,7 +61,6 @@ abstract class GrpcTopologyAggregationServiceCommon[
           )
       }.toList
     }
-  }
 
   private def groupBySnd[A, B, C](item: Seq[(A, B, C)]): Map[B, Seq[(A, C)]] =
     item.groupBy(_._2).map { case (b, res) =>

@@ -178,9 +178,9 @@ final case class ResponseAggregation[VKEY](
       localVerdict match {
         case LocalApprove() =>
           val consortiumVotingUpdated =
-            newlyResponded.foldLeft(consortiumVoting)((votes, confirmingParty) => {
+            newlyResponded.foldLeft(consortiumVoting) { (votes, confirmingParty) =>
               votes + (confirmingParty -> votes(confirmingParty).approveBy(sender))
-            })
+            }
           val newlyRespondedFullVotes = newlyResponded.filter(consortiumVotingUpdated(_).isApproved)
           loggingContext.debug(
             show"$requestId($keyName $viewKey): Received an approval (or reached consortium thresholds) for parties: $newlyRespondedFullVotes"
@@ -221,12 +221,11 @@ final case class ResponseAggregation[VKEY](
 
         case rejection: LocalReject =>
           val consortiumVotingUpdated =
-            authorizedParties.foldLeft(consortiumVoting)((votes, party) => {
+            authorizedParties.foldLeft(consortiumVoting) { (votes, party) =>
               votes + (party -> votes(party).rejectBy(sender))
-            })
-          val newRejectionsFullVotes = authorizedParties.filter(party => {
-            consortiumVotingUpdated(party).isRejected
-          })
+            }
+          val newRejectionsFullVotes =
+            authorizedParties.filter(party => consortiumVotingUpdated(party).isRejected)
           if (newRejectionsFullVotes.nonEmpty) {
             loggingContext.debug(
               show"$requestId($keyName $viewKey): Received a rejection (or reached consortium thresholds) for parties: $newRejectionsFullVotes"
@@ -325,25 +324,22 @@ object ResponseAggregation {
       approvals: Set[ParticipantId] = Set.empty,
       rejections: Set[ParticipantId] = Set.empty,
   ) extends PrettyPrinting {
-    def approveBy(participant: ParticipantId): ConsortiumVotingState = {
+    def approveBy(participant: ParticipantId): ConsortiumVotingState =
       this.copy(approvals = this.approvals + participant)
-    }
 
-    def rejectBy(participant: ParticipantId): ConsortiumVotingState = {
+    def rejectBy(participant: ParticipantId): ConsortiumVotingState =
       this.copy(rejections = this.rejections + participant)
-    }
 
     def isApproved: Boolean = approvals.size >= threshold.value
 
     def isRejected: Boolean = rejections.size >= threshold.value
 
-    override def pretty: Pretty[ConsortiumVotingState] = {
+    override def pretty: Pretty[ConsortiumVotingState] =
       prettyOfClass(
         param("consortium-threshold", _.threshold, _.threshold.value > 1),
         paramIfNonEmpty("approved by participants", _.approvals),
         paramIfNonEmpty("rejected by participants", _.rejections),
       )
-    }
   }
 
   /** @param quorumsState keeps track of what is remaining for a view to be confirmed (e.g. threshold)
@@ -354,13 +350,12 @@ object ResponseAggregation {
       rejections: List[(Set[LfPartyId], LocalReject)],
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[ViewState] = {
+    override def pretty: Pretty[ViewState] =
       prettyOfClass(
         param("quorumsState", _.quorumsState),
         param("consortiumVoting", _.consortiumVoting),
         param("rejections", _.rejections),
       )
-    }
   }
 
   /** Creates a non-finalized response aggregation from a request.
@@ -390,7 +385,7 @@ object ResponseAggregation {
   private def mkInitialState[K](
       informeesAndThresholdByView: Map[K, ViewConfirmationParameters],
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext): Future[Map[K, ViewState]] = {
+  )(implicit ec: ExecutionContext): Future[Map[K, ViewState]] =
     informeesAndThresholdByView.toSeq
       .parTraverse {
         case (viewKey, viewConfirmationParameters @ ViewConfirmationParameters(_, quorumsState)) =>
@@ -410,5 +405,4 @@ object ResponseAggregation {
           }
       }
       .map(_.toMap)
-  }
 }

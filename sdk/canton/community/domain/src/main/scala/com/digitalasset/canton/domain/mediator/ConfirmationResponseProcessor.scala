@@ -116,7 +116,7 @@ private[mediator] class ConfirmationResponseProcessor(
     if (logger.underlying.isInfoEnabled()) {
       extractEventsForLogging(events).foreach { result =>
         logger.info(
-          show"Phase 5: Received responses for request=${requestId}: $result"
+          show"Phase 5: Received responses for request=$requestId: $result"
         )(result.traceContext)
       }
     }
@@ -212,7 +212,7 @@ private[mediator] class ConfirmationResponseProcessor(
       decisionTime: CantonTimestamp,
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     withSpan("ConfirmationResponseProcessor.processRequest") { implicit traceContext => span =>
       span.setAttribute("request_id", requestId.toString)
       span.setAttribute("counter", counter.toString)
@@ -271,7 +271,6 @@ private[mediator] class ConfirmationResponseProcessor(
         }
       } yield ()
     }
-  }
 
   /** Validate a mediator request
     *
@@ -343,7 +342,7 @@ private[mediator] class ConfirmationResponseProcessor(
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorRef] = {
 
-    def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] = {
+    def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] =
       Some(
         MediatorVerdict.MediatorReject(
           MediatorError.MalformedMessage
@@ -354,7 +353,6 @@ private[mediator] class ConfirmationResponseProcessor(
             .reported()
         )
       )
-    }
 
     (request.mediator match {
       case MediatorRef(declaredMediatorId) =>
@@ -504,7 +502,7 @@ private[mediator] class ConfirmationResponseProcessor(
       snapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
+  ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] =
     request.informeesAndConfirmationParamsByViewPosition.toList
       .parTraverse_ { case (viewPosition, viewConfirmationParameters) =>
         // sorting parties to get deterministic error messages
@@ -570,7 +568,6 @@ private[mediator] class ConfirmationResponseProcessor(
           )
         } yield ()
       }
-  }
 
   def processResponse(
       ts: CantonTimestamp,

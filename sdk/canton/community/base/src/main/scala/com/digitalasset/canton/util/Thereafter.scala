@@ -83,10 +83,10 @@ object Thereafter {
 
     override def thereafterF[A](f: Future[A])(body: Try[A] => Future[Unit])(implicit
         ec: ExecutionContext
-    ): Future[A] = {
+    ): Future[A] =
       f.transformWith {
         case result @ Success(success) =>
-          body(result).map { (_: Unit) => success }
+          body(result).map((_: Unit) => success)
         case result @ Failure(resultEx) =>
           Future.fromTry(Try(body(result))).flatten.transform {
             case Success(_) => result
@@ -95,7 +95,6 @@ object Thereafter {
               result
           }
       }
-    }
   }
   implicit val futureThereafter: Thereafter.Aux[Future, Try] = FutureThereafter
 

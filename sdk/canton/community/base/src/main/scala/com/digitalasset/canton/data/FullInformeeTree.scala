@@ -48,21 +48,19 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
       parties: collection.Set[LfPartyId],
       protocolVersion: ProtocolVersion,
   ): InformeeTree = {
-    val rawResult = tree
-      .blind({
-        case _: GenTransactionTree => RevealIfNeedBe
-        case _: SubmitterMetadata => BlindSubtree
-        case _: CommonMetadata => RevealSubtree
-        case _: ParticipantMetadata => BlindSubtree
-        case _: TransactionView => RevealIfNeedBe
-        case v: ViewCommonData =>
-          if (v.viewConfirmationParameters.informeesIds.intersect(parties).nonEmpty)
-            RevealSubtree
-          else
-            BlindSubtree
-        case _: ViewParticipantData => BlindSubtree
-      })
-      .tryUnwrap
+    val rawResult = tree.blind {
+      case _: GenTransactionTree => RevealIfNeedBe
+      case _: SubmitterMetadata => BlindSubtree
+      case _: CommonMetadata => RevealSubtree
+      case _: ParticipantMetadata => BlindSubtree
+      case _: TransactionView => RevealIfNeedBe
+      case v: ViewCommonData =>
+        if (v.viewConfirmationParameters.informeesIds.intersect(parties).nonEmpty)
+          RevealSubtree
+        else
+          BlindSubtree
+      case _: ViewParticipantData => BlindSubtree
+    }.tryUnwrap
     InformeeTree.tryCreate(rawResult, protocolVersion)
   }
 

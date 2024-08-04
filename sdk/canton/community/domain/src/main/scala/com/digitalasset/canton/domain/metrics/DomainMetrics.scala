@@ -145,14 +145,13 @@ class EnvMetrics(
     NoOpGauge(executionContextQueueSizeName, 0L)
 
   @nowarn("cat=deprecation")
-  def registerExecutionContextQueueSize(f: () => Long): Unit = {
+  def registerExecutionContextQueueSize(f: () => Long): Unit =
     factory
       .gaugeWithSupplier(
         executionContextQueueSizeName,
         f,
       )(MetricsContext.Empty)
       .discard
-  }
 
 }
 

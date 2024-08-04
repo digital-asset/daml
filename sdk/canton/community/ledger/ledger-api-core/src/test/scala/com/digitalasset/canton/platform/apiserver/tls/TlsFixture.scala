@@ -44,9 +44,8 @@ final case class TlsFixture(
   private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
 
   private final class MockApiServices(apiServices: ApiServices) extends ResourceOwner[ApiServices] {
-    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
+    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
       Resource(Future.successful(apiServices))(_ => Future.successful(()))(context)
-    }
   }
 
   private final class EmptyApiServices extends ApiServices {

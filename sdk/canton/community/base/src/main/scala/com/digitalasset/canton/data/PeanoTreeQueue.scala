@@ -66,13 +66,12 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
     } else false
   }
 
-  override def alreadyInserted(key: Counter[Discr]): Boolean = {
+  override def alreadyInserted(key: Counter[Discr]): Boolean =
     if (key >= frontV) {
       elems.contains(key)
     } else {
       true
     }
-  }
 
   /** Update `front` as long as the [[elems]] contain consecutive key-value pairs starting at `front`.
     */
@@ -87,7 +86,7 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
     frontV = next
   }
 
-  def get(key: Counter[Discr]): AssociatedValue[V] = {
+  def get(key: Counter[Discr]): AssociatedValue[V] =
     if (key < headV) BeforeHead
     else
       elems.get(key) match {
@@ -97,9 +96,8 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
           NotInserted(floor, ceiling)
         case Some(value) => InsertedValue(value)
       }
-  }
 
-  override def poll(): Option[(Counter[Discr], V)] = {
+  override def poll(): Option[(Counter[Discr], V)] =
     if (headV >= frontV) None
     else {
       val key = headV
@@ -112,13 +110,11 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
       headV = key + 1
       Some((key, value))
     }
-  }
 
   @VisibleForTesting
-  def invariant: Boolean = {
+  def invariant: Boolean =
     headV <= frontV &&
-    elems.rangeImpl(None, Some(frontV + 1)).toSeq.map(_._1) == (headV until frontV)
-  }
+      elems.rangeImpl(None, Some(frontV + 1)).toSeq.map(_._1) == (headV until frontV)
 
   override def toString: String = {
     val builder = new StringBuilder("PeanoQueue(front = ").append(frontV)
@@ -139,20 +135,20 @@ class SynchronizedPeanoTreeQueue[Discr, V](initHead: Counter[Discr])
     extends PeanoQueue[Counter[Discr], V] {
   private[this] val queue: PeanoQueue[Counter[Discr], V] = new PeanoTreeQueue(initHead)
 
-  override def head: Counter[Discr] = blocking { queue synchronized queue.head }
+  override def head: Counter[Discr] = blocking(queue synchronized queue.head)
 
-  override def front: Counter[Discr] = blocking { queue synchronized queue.front }
+  override def front: Counter[Discr] = blocking(queue synchronized queue.front)
 
   override def insert(key: Counter[Discr], value: V): Boolean =
-    blocking { queue synchronized queue.insert(key, value) }
+    blocking(queue synchronized queue.insert(key, value))
 
   override def alreadyInserted(key: Counter[Discr]): Boolean =
-    blocking { queue synchronized queue.alreadyInserted(key) }
+    blocking(queue synchronized queue.alreadyInserted(key))
 
   override def get(key: Counter[Discr]): AssociatedValue[V] = blocking {
     queue synchronized queue.get(key)
   }
 
-  override def poll(): Option[(Counter[Discr], V)] = blocking { queue synchronized queue.poll() }
+  override def poll(): Option[(Counter[Discr], V)] = blocking(queue synchronized queue.poll())
 
 }

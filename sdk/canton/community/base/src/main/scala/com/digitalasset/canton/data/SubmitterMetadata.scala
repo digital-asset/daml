@@ -136,7 +136,7 @@ object SubmitterMetadata
       salt: Salt,
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
-  ): Either[String, SubmitterMetadata] = {
+  ): Either[String, SubmitterMetadata] =
     NonEmpty.from(submitterActAs.toSet).toRight("The actAs set must not be empty.").map {
       actAsNes =>
         SubmitterMetadata(
@@ -152,7 +152,6 @@ object SubmitterMetadata
           protocolVersion,
         )
     }
-  }
 
   private def fromProtoV0(hashOps: HashOps, metaDataP: v0.SubmitterMetadata)(
       bytes: ByteString
@@ -223,7 +222,7 @@ object SubmitterMetadata
       maxSequencingTimeOPO: Option[Option[com.google.protobuf.timestamp.Timestamp]],
   )(
       bytes: ByteString
-  ): ParsingResult[SubmitterMetadata] = {
+  ): ParsingResult[SubmitterMetadata] =
     for {
       submitterParticipant <- ParticipantId
         .fromProtoPrimitive(submitterParticipantP, "SubmitterMetadata.submitter_participant")
@@ -281,5 +280,4 @@ object SubmitterMetadata
       dedupPeriod,
       maxSequencingTimeO,
     )(hashOps, rpv, Some(bytes))
-  }
 }

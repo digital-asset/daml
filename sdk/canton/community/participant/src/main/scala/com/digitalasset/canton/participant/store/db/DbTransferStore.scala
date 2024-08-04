@@ -271,18 +271,17 @@ class DbTransferStore(
 
       val exists = existsRaw.map(_.map(_.map(_.tryCreateDeliveredTransferOutResul(cryptoApi))))
 
-      def update(previousResult: Option[DeliveredTransferOutResult]) = {
+      def update(previousResult: Option[DeliveredTransferOutResult]) =
         previousResult
           .fold[Checked[TransferStoreError, Nothing, Option[DBIO[Int]]]](Checked.result(Some(sqlu"""
               update transfers
-              set transfer_out_result=${transferOutResult}
+              set transfer_out_result=$transferOutResult
               where target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
               """)))(previous =>
             if (previous == transferOutResult) Checked.result(None)
             else
               Checked.abort(TransferOutResultAlreadyExists(transferId, previous, transferOutResult))
           )
-      }
 
       updateDependentDeprecated(
         exists,
@@ -474,11 +473,11 @@ class DbTransferStore(
           import DbStorage.Implicits.BuilderChain.*
           import DbStorage.Implicits.*
 
-          val sourceFilter = filterSource.fold(sql"")(domain => sql" and origin_domain=${domain}")
+          val sourceFilter = filterSource.fold(sql"")(domain => sql" and origin_domain=$domain")
           val timestampFilter =
-            filterTimestamp.fold(sql"")(ts => sql" and transfer_out_timestamp=${ts}")
+            filterTimestamp.fold(sql"")(ts => sql" and transfer_out_timestamp=$ts")
           val submitterFilter =
-            filterSubmitter.fold(sql"")(submitter => sql" and submitter_lf=${submitter}")
+            filterSubmitter.fold(sql"")(submitter => sql" and submitter_lf=$submitter")
           val limitSql = storage.limitSql(limit)
           (findPendingBase(onlyNotFinished =
             true
@@ -502,9 +501,9 @@ class DbTransferStore(
             requestAfter.fold(sql"") { case (requestTimestamp, sourceDomain) =>
               storage.profile match {
                 case Profile.Oracle(_) =>
-                  sql" and (transfer_out_timestamp > ${requestTimestamp} or (transfer_out_timestamp = ${requestTimestamp} and origin_domain > ${sourceDomain}))"
+                  sql" and (transfer_out_timestamp > $requestTimestamp or (transfer_out_timestamp = $requestTimestamp and origin_domain > $sourceDomain))"
                 case _ =>
-                  sql" and (transfer_out_timestamp, origin_domain) > (${requestTimestamp}, ${sourceDomain}) "
+                  sql" and (transfer_out_timestamp, origin_domain) > ($requestTimestamp, $sourceDomain) "
               }
             }
           val order = sql" order by transfer_out_timestamp, origin_domain "

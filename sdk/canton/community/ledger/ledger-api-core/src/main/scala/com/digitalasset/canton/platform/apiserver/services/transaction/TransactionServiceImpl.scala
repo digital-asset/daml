@@ -281,7 +281,7 @@ private[apiserver] final class TransactionServiceImpl private (
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[GetFlatTransactionResponse] = {
+  ): Future[GetFlatTransactionResponse] =
     transactionsService
       .getTransactionById(transactionId, requestingParties)
       .flatMap {
@@ -293,7 +293,6 @@ private[apiserver] final class TransactionServiceImpl private (
           )
         case Some(transaction) => Future.successful(ApiConversions.toV1(transaction))
       }
-  }
 
   private def transactionTreesLoggable(trees: GetTransactionTreesResponse): LoggingEntries =
     LoggingEntries(

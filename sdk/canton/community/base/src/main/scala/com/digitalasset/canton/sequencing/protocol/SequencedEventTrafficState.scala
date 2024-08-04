@@ -19,19 +19,18 @@ final case class SequencedEventTrafficState(
 ) {
   lazy val extraTrafficLimit: Option[PositiveLong] =
     PositiveLong.create((extraTrafficRemainder + extraTrafficConsumed).value).toOption
-  def toProtoV0: SequencedEventTrafficStateP = {
+  def toProtoV0: SequencedEventTrafficStateP =
     SequencedEventTrafficStateP(
       extraTrafficRemainder = extraTrafficRemainder.value,
       extraTrafficConsumed = extraTrafficConsumed.value,
     )
-  }
 
 }
 
 object SequencedEventTrafficState {
   def fromProtoV0(
       stateP: SequencedEventTrafficStateP
-  ): ParsingResult[SequencedEventTrafficState] = {
+  ): ParsingResult[SequencedEventTrafficState] =
     for {
       extraTrafficRemainder <- ProtoConverter.parseNonNegativeLong(stateP.extraTrafficRemainder)
       extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(stateP.extraTrafficConsumed)
@@ -39,7 +38,6 @@ object SequencedEventTrafficState {
       extraTrafficRemainder = extraTrafficRemainder,
       extraTrafficConsumed = extraTrafficConsumed,
     )
-  }
 
   implicit val sequencedEventTrafficStateGetResult: GetResult[Option[SequencedEventTrafficState]] =
     GetResult

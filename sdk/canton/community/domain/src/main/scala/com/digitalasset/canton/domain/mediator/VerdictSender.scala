@@ -185,7 +185,7 @@ private[mediator] class DefaultVerdictSender(
         val recipientSeq = informeesMap.keys.toSeq.map(Recipient(_))
         val recipients =
           NonEmpty
-            .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
+            .from(recipientSeq.map((r: Recipient) => NonEmpty(Set, r).toSet))
             .map(Recipients.recipientGroups)
             .getOrElse(
               // Should never happen as the topology (same snapshot) is checked in

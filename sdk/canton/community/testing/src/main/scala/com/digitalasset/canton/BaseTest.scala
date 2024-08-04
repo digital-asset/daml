@@ -225,18 +225,16 @@ trait BaseTest
   /** Converts an OptionT into a Future, failing in case of a [[scala.Some$]]. */
   def noneOrFail[A](e: OptionT[Future, A])(
       clue: String
-  )(implicit ec: ExecutionContext, position: Position): Future[Assertion] = {
+  )(implicit ec: ExecutionContext, position: Position): Future[Assertion] =
     e.fold(succeed)(some => fail(s"$clue, value is $some"))
-  }
 
   /** Converts an Either into a B value, failing in case of a [[scala.Left$]]. */
   def valueOrFail[A, B](e: Either[A, B])(clue: String)(implicit position: Position): B =
     e.fold(x => fail(s"$clue: ${x.toString}"), Predef.identity)
 
   /** Converts an Option into a A value, failing in case of a [[scala.None$]]. */
-  def valueOrFail[A](o: Option[A])(clue: String)(implicit position: Position): A = {
+  def valueOrFail[A](o: Option[A])(clue: String)(implicit position: Position): A =
     o.getOrElse(fail(s"$clue"))
-  }
 
   /** Converts an EitherT into a Future, failing in a case of a [[scala.Right$]] */
   def leftOrFail[F[_], A, B](e: EitherT[F, A, B])(
@@ -256,7 +254,7 @@ trait BaseTest
 
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
   def withClueF[A](clue: String)(sut: => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    withClue(clue) { sut.transform(outcome => Try(withClue(clue)(outcome.get))) }
+    withClue(clue)(sut.transform(outcome => Try(withClue(clue)(outcome.get))))
 
   // Syntax extensions for valueOrFail
   implicit class OptionTestSyntax[A](option: Option[A]) {
@@ -436,7 +434,7 @@ object BaseTest {
 }
 
 trait BaseTestWordSpec extends BaseTest with AnyWordSpecLike {
-  def checkAllLaws(name: String, ruleSet: Laws#RuleSet)(implicit position: Position): Unit = {
+  def checkAllLaws(name: String, ruleSet: Laws#RuleSet)(implicit position: Position): Unit =
     for ((id, prop) <- ruleSet.all.properties) {
       (name + "." + id) in {
         CheckerAsserting.assertingNatureOfAssertion.check(
@@ -447,5 +445,4 @@ trait BaseTestWordSpec extends BaseTest with AnyWordSpecLike {
         )
       }
     }
-  }
 }

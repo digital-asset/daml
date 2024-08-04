@@ -28,7 +28,7 @@ object DbDtoEq extends Matchers {
 
   val DbDtoSeqEq: org.scalactic.Equality[Seq[DbDto]] = {
     case (a: Seq[_], b: Seq[_]) =>
-      a.size == b.size && a.zip(b).forall({ case (x, y) => DbDtoEq.areEqual(x, y) })
+      a.size == b.size && a.zip(b).forall { case (x, y) => DbDtoEq.areEqual(x, y) }
     case (_, _) => false
   }
 

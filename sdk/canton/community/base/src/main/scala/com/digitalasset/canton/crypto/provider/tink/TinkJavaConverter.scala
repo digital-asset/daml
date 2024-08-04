@@ -247,7 +247,7 @@ class TinkJavaConverter extends JavaKeyConverter {
       publicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
       fingerprint: Fingerprint,
-  ): Either[JavaKeyConversionError, SigningPublicKey] = {
+  ): Either[JavaKeyConversionError, SigningPublicKey] =
     publicKey match {
       case ecPubKey: ECPublicKey =>
         for {
@@ -284,13 +284,12 @@ class TinkJavaConverter extends JavaKeyConverter {
           )
         )
     }
-  }
 
   override def fromJavaEncryptionKey(
       publicKey: JPublicKey,
       algorithmIdentifier: AlgorithmIdentifier,
       fingerprint: Fingerprint,
-  ): Either[JavaKeyConversionError, EncryptionPublicKey] = {
+  ): Either[JavaKeyConversionError, EncryptionPublicKey] =
     publicKey match {
       case ecPubKey: ECPublicKey =>
         for {
@@ -346,7 +345,6 @@ class TinkJavaConverter extends JavaKeyConverter {
           )
         )
     }
-  }
 
 }
 

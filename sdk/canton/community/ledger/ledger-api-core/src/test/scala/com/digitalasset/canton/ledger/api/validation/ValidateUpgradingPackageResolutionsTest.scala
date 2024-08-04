@@ -106,12 +106,11 @@ class ValidateUpgradingPackageResolutionsTest
     def testResolutions(
         userPreference: Seq[String],
         expectedPreferenceSetResult: Either[StatusRuntimeException, Set[Ref.PackageId]],
-    ): Assertion = {
+    ): Assertion =
       validator(userPreference) shouldBe expectedPreferenceSetResult.map(
         // If validation is successful, packageMapSnapshot is the same as the one retrieved from the metadata snapshot
         // so we always assert that it is forwarded
         ValidatedCommandPackageResolutionsSnapshot(packageMapSnapshot, _)
       )
-    }
   }
 }

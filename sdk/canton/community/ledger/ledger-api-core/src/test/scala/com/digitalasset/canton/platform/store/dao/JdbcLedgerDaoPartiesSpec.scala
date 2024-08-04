@@ -47,13 +47,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   it should "retrieve all parties in two chunks" in {
     val randomSuffix = UUID.randomUUID()
-    def genParty(name: String) = {
+    def genParty(name: String) =
       IndexerPartyDetails(
         party = Ref.Party.assertFromString(s"$name-$randomSuffix"),
         displayName = Some(s"$name ${name}son"),
         isLocal = true,
       )
-    }
     val newParties = List("Wes", "Zeb", "Les", "Mel").map(genParty)
 
     for {

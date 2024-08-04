@@ -85,13 +85,12 @@ final class CommandClient(
   def submissionFlow[Context](
       ledgerIdToUse: LedgerId,
       token: Option[String] = None,
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] =
     Flow[Ctx[Context, CommandSubmission]]
       .via(CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse))
       .via(
         CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions, loggerFactory)
       )
-  }
 
   def getCompletionEnd(
       ledgerIdToUse: LedgerId,

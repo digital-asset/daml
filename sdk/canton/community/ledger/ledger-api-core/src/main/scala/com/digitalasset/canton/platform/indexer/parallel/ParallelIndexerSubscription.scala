@@ -65,9 +65,8 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
   )
   private def mapInSpan(
       mapper: Offset => Traced[Update] => Iterator[DbDto]
-  )(offset: Offset)(update: Traced[Update]): Iterator[DbDto] = {
+  )(offset: Offset)(update: Traced[Update]): Iterator[DbDto] =
     withSpan("Indexer.mapInput")(_ => _ => mapper(offset)(update))(update.traceContext, tracer)
-  }
 
   def apply(
       inputMapperExecutor: Executor,
@@ -222,7 +221,7 @@ object ParallelIndexerSubscription {
   )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
-  ): Batch[Vector[DbDto]] = {
+  ): Batch[Vector[DbDto]] =
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -298,7 +297,6 @@ object ParallelIndexerSubscription {
         )
       },
     )
-  }
 
   def batcher[DB_BATCH](
       batchF: Vector[DbDto] => DB_BATCH

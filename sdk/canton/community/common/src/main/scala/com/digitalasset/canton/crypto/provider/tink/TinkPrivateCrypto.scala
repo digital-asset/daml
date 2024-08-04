@@ -124,7 +124,7 @@ class TinkPrivateCrypto private (
   protected[crypto] def generateSigningKeypairInternal(
       scheme: SigningKeyScheme,
       outputPrefixType: OutputPrefixType = OutputPrefixType.RAW,
-  ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair] = {
+  ): EitherT[Future, SigningKeyGenerationError, SigningKeyPair] =
     for {
       keyTemplate <- for {
         template <- scheme match {
@@ -166,7 +166,6 @@ class TinkPrivateCrypto private (
         scheme = scheme,
       )
     } yield keypair
-  }
 
   override def name: String = "tink-private-crypto"
 

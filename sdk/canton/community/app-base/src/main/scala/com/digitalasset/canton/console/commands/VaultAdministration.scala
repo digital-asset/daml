@@ -45,7 +45,7 @@ class SecretKeyAdministration(
 
   import runner.*
 
-  protected def regenerateKey(currentKey: PublicKey, name: Option[String]): PublicKey = {
+  protected def regenerateKey(currentKey: PublicKey, name: Option[String]): PublicKey =
     currentKey match {
       case encKey: EncryptionPublicKey =>
         instance.keys.secret.generate_encryption_key(
@@ -59,7 +59,6 @@ class SecretKeyAdministration(
         )
       case unknown => throw new IllegalArgumentException(s"Invalid public key type: $unknown")
     }
-  }
 
   @Help.Summary("List keys in private vault")
   @Help.Description("""Returns all public keys to the corresponding private keys in the key vault.
@@ -82,11 +81,10 @@ class SecretKeyAdministration(
   def generate_signing_key(
       name: String = "",
       scheme: Option[SigningKeyScheme] = None,
-  ): SigningPublicKey = {
+  ): SigningPublicKey =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.GenerateSigningKey(name, scheme))
     }
-  }
 
   @Help.Summary("Generate new public/private key pair for encryption and store it in the vault")
   @Help.Description(
@@ -97,11 +95,10 @@ class SecretKeyAdministration(
   def generate_encryption_key(
       name: String = "",
       scheme: Option[EncryptionKeyScheme] = None,
-  ): EncryptionPublicKey = {
+  ): EncryptionPublicKey =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.GenerateEncryptionKey(name, scheme))
     }
-  }
 
   @Help.Summary(
     "Register the specified KMS signing key in canton storing its public information in the vault"
@@ -114,11 +111,10 @@ class SecretKeyAdministration(
   def register_kms_signing_key(
       kmsKeyId: String,
       name: String = "",
-  ): SigningPublicKey = {
+  ): SigningPublicKey =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.RegisterKmsSigningKey(kmsKeyId, name))
     }
-  }
 
   @Help.Summary(
     "Register the specified KMS encryption key in canton storing its public information in the vault"
@@ -131,11 +127,10 @@ class SecretKeyAdministration(
   def register_kms_encryption_key(
       kmsKeyId: String,
       name: String = "",
-  ): EncryptionPublicKey = {
+  ): EncryptionPublicKey =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.RegisterKmsEncryptionKey(kmsKeyId, name))
     }
-  }
 
   private def findPublicKey(
       fingerprint: String,
@@ -293,18 +288,16 @@ class SecretKeyAdministration(
   )
   def rotate_wrapper_key(
       newWrapperKeyId: String = ""
-  ): Unit = {
+  ): Unit =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.RotateWrapperKey(newWrapperKeyId))
     }
-  }
 
   @Help.Summary("Get the wrapper key id that is used for the encrypted private keys store")
-  def get_wrapper_key_id(): String = {
+  def get_wrapper_key_id(): String =
     consoleEnvironment.run {
       adminCommand(VaultAdminCommands.GetWrapperKeyId())
     }
-  }
 
   @Help.Summary("Upload (load and import) a key pair from file")
   def upload(filename: String, name: Option[String]): Unit = {
@@ -333,7 +326,7 @@ class SecretKeyAdministration(
   def download(
       fingerprint: Fingerprint,
       protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
-  ): ByteString = {
+  ): ByteString =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run {
         adminCommand(
@@ -341,7 +334,6 @@ class SecretKeyAdministration(
         )
       }
     }
-  }
 
   protected def writeToFile(outputFile: String, bytes: ByteString): Unit = {
     val file = new File(outputFile)
@@ -361,9 +353,8 @@ class SecretKeyAdministration(
       fingerprint: Fingerprint,
       outputFile: String,
       protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
-  ): Unit = {
+  ): Unit =
     writeToFile(outputFile, download(fingerprint, protocolVersion))
-  }
 
   @Help.Summary("Delete private key")
   def delete(fingerprint: Fingerprint, force: Boolean = false): Unit = {
@@ -443,12 +434,11 @@ class PublicKeyAdministration(
       fingerprint: Fingerprint,
       outputFile: String,
       protocolVersion: ProtocolVersion = ProtocolVersion.latestStable,
-  ): Unit = {
+  ): Unit =
     BinaryFileUtil.writeByteStringToFile(
       outputFile,
       download(fingerprint, protocolVersion),
     )
-  }
 
   @Help.Summary("List public keys in registry")
   @Help.Description("""Returns all public keys that have been added to the key registry.

@@ -43,7 +43,7 @@ class DelayLogger(
               }
             } else if (caughtUp.compareAndSet(false, true)) {
               logger.info(
-                s"Caught up with batch with counter=${counter} with sequencer with $delta ms delay"
+                s"Caught up with batch with counter=$counter with sequencer with $delta ms delay"
               )
             }
           case _ => ()

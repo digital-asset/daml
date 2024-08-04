@@ -57,13 +57,12 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
       setHandler(
         out1,
         new OutHandler {
-          override def onPull(): Unit = {
+          override def onPull(): Unit =
             if (freeCapacity > 0) {
               admitNewElement()
             } else {
               logger.trace("No free capacity left. Backpressuring...")
             }
-          }
         },
       )
 
@@ -114,14 +113,13 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
             completeStage()
           }
 
-          private def checkMaxInFlight(elemToEmit: O): Unit = {
+          private def checkMaxInFlight(elemToEmit: O): Unit =
             require(
               freeCapacity <= maxInFlight,
               s"Free capacity has risen above maxInFlight value of $maxInFlight after emitting element $elemToEmit. " +
                 s"This indicates that the layer below is emitting multiple elements per input. " +
                 s"Such Flows are incompatible with the MaxInFlight stage.",
             )
-          }
         },
       )
 

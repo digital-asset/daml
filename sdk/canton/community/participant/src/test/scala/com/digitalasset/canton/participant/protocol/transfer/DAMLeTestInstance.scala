@@ -84,9 +84,8 @@ object DAMLeTestInstance {
       override def contractMetadata(
           contractInstance: LfContractInst,
           supersetOfSignatories: Set[LfPartyId],
-      )(implicit traceContext: TraceContext): EitherT[Future, Error, ContractMetadata] = {
+      )(implicit traceContext: TraceContext): EitherT[Future, Error, ContractMetadata] =
         EitherT.pure[Future, Error](ContractMetadata.tryCreate(signatories, stakeholders, None))
-      }
     }
 
   }

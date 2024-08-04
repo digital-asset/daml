@@ -112,13 +112,12 @@ class JceJavaConverter(
       fingerprint: Fingerprint,
   ): Either[JavaKeyConversionError, SigningPublicKey] = {
 
-    def ensureJceSupportedScheme(scheme: SigningKeyScheme): Either[JavaKeyConversionError, Unit] = {
+    def ensureJceSupportedScheme(scheme: SigningKeyScheme): Either[JavaKeyConversionError, Unit] =
       Either.cond(
         supportedSigningSchemes.contains(scheme),
         (),
         JavaKeyConversionError.UnsupportedSigningKeyScheme(scheme, supportedSigningSchemes),
       )
-    }
 
     javaPublicKey.getAlgorithm match {
       case "EC" =>
@@ -191,13 +190,12 @@ class JceJavaConverter(
 
     def ensureJceSupportedScheme(
         scheme: EncryptionKeyScheme
-    ): Either[JavaKeyConversionError, Unit] = {
+    ): Either[JavaKeyConversionError, Unit] =
       Either.cond(
         supportedEncryptionSchemes.contains(scheme),
         (),
         JavaKeyConversionError.UnsupportedEncryptionKeyScheme(scheme, supportedEncryptionSchemes),
       )
-    }
 
     javaPublicKey.getAlgorithm match {
       case "EC" | "RSA" =>

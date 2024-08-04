@@ -116,7 +116,7 @@ final case class SimpleStatus(
 }
 
 object SimpleStatus {
-  def fromProtoV0(proto: v0.NodeStatus.Status): ParsingResult[SimpleStatus] = {
+  def fromProtoV0(proto: v0.NodeStatus.Status): ParsingResult[SimpleStatus] =
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(proto.id, "Status.id")
       uptime <- ProtoConverter
@@ -141,7 +141,6 @@ object SimpleStatus {
       topology,
       components,
     )
-  }
 }
 
 /** Health status of the sequencer component itself.
@@ -343,12 +342,11 @@ object ParticipantStatus {
 
   private def connectedDomainFromProtoV0(
       proto: v0.ParticipantStatusInfo.ConnectedDomain
-  ): ParsingResult[(DomainId, Boolean)] = {
+  ): ParsingResult[(DomainId, Boolean)] =
     DomainId.fromProtoPrimitive(proto.domain, s"ParticipantStatus.connectedDomains").map {
       domainId =>
         (domainId, proto.healthy)
     }
-  }
 
   def fromProtoV0(
       proto: v0.NodeStatus.Status

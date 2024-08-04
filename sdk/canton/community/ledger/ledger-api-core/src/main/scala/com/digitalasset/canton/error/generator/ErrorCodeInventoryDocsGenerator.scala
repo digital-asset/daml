@@ -45,9 +45,8 @@ object ErrorCodeInventoryDocsGenerator {
 
   }
 
-  private def newlineIntoSpace(s: String): String = {
+  private def newlineIntoSpace(s: String): String =
     s.replace('\n', ' ')
-  }
 
 }
 
@@ -69,33 +68,29 @@ class ErrorGroupTree(
     errorCodes: mutable.Map[String, ErrorCodeValue] = new mutable.HashMap[String, ErrorCodeValue](),
 ) {
 
-  def sortedSubGroups(): List[ErrorGroupTree] = {
+  def sortedSubGroups(): List[ErrorGroupTree] =
     children.values.toList.sortBy(_.name)
-  }
 
-  def sortedErrorCodes(): List[ErrorCodeValue] = {
+  def sortedErrorCodes(): List[ErrorCodeValue] =
     errorCodes.values.toList.sortBy(_.code)
-  }
 
   def insertErrorCode(
       errorCode: ErrorCodeValue,
       getExplanation: (List[Grouping]) => Option[String],
-  ): Unit = {
+  ): Unit =
     insert(
       remaining = errorCode.errorGroupPath.groupings,
       path = Nil,
       errorCode = errorCode,
       getExplanation = getExplanation,
     )
-  }
 
   private def insert(
       remaining: List[Grouping],
       errorCode: ErrorCodeValue,
       path: List[Grouping],
       getExplanation: (List[Grouping]) => Option[String],
-  ): Unit = {
-
+  ): Unit =
     remaining match {
       case Nil =>
         assert(!errorCodes.contains(errorCode.code), s"Code: ${errorCode.code} is already present!")
@@ -120,7 +115,6 @@ class ErrorGroupTree(
           getExplanation,
         )
     }
-  }
 
 }
 
@@ -179,7 +173,7 @@ object ErrorGroupTree {
 
   private def handleErrorCode(e: ErrorCodeValue): String = {
     val deprecationText = e.deprecationO.fold("")(d => s"""
-         |    **Deprecation**: ${d}
+         |    **Deprecation**: $d
          |    """.stripMargin)
     val errorCodeReferenceName = s"error_code_${e.code}"
     s"""

@@ -125,13 +125,12 @@ private[mediator] class MediatorEventsProcessor(
     }
   }
 
-  private def executeStage(traceContext: TraceContext)(stage: MediatorEventStage): HandlerResult = {
+  private def executeStage(traceContext: TraceContext)(stage: MediatorEventStage): HandlerResult =
     for {
       result <- stage.requests.forgetNE.toSeq.parTraverse { case (requestId, events) =>
         handleMediatorEvents(requestId, events, traceContext)
       } map Monoid[AsyncResult].combineAll
     } yield result
-  }
 
   /** Keep track of the stages we've accumulated alongside requests that are still pending. */
   private case class EventProcessingStages(
@@ -235,7 +234,7 @@ private[mediator] class MediatorEventsProcessor(
 
   private def determineStages(
       envelopesByEvent: Seq[(TracedProtocolEvent, Seq[OpenEnvelope[ProtocolMessage]])]
-  ): Future[List[MediatorEventStage]] = {
+  ): Future[List[MediatorEventStage]] =
     NonEmpty
       .from(envelopesByEvent)
       .fold(Future.successful(List.empty[MediatorEventStage])) { envelopesByEventNE =>
@@ -264,7 +263,6 @@ private[mediator] class MediatorEventsProcessor(
           }
         stagesF.map(_.stages)
       }
-  }
 
   private def extractMediatorEventsStage(
       counter: SequencerCounter,
@@ -318,7 +316,7 @@ private[mediator] object MediatorEventsProcessor {
       protocolVersion: ProtocolVersion,
       metrics: MediatorMetrics,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): MediatorEventsProcessor = {
+  )(implicit executionContext: ExecutionContext): MediatorEventsProcessor =
     new MediatorEventsProcessor(
       state,
       crypto,
@@ -329,6 +327,5 @@ private[mediator] object MediatorEventsProcessor {
       metrics,
       loggerFactory,
     )
-  }
 
 }

@@ -223,11 +223,10 @@ class InMemoryTransferStore(
     def incompleteTransfer(entry: TransferEntry): Boolean =
       onlyTransferOutCompleted(entry) || onlyTransferInCompleted(entry)
 
-    def filter(entry: TransferEntry): Boolean = {
+    def filter(entry: TransferEntry): Boolean =
       sourceDomain.forall(_ == entry.transferData.sourceDomain) &&
-      incompleteTransfer(entry) &&
-      stakeholders.forall(_.exists(entry.transferData.contract.metadata.stakeholders))
-    }
+        incompleteTransfer(entry) &&
+        stakeholders.forall(_.exists(entry.transferData.contract.metadata.stakeholders))
 
     val values = transferDataMap.values
       .to(LazyList)

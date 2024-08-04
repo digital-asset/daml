@@ -45,7 +45,7 @@ object SecureRandomness {
     */
   def fromByteString(
       expectedLength: Int
-  )(bytes: ByteString): Either[DeserializationError, SecureRandomness] = {
+  )(bytes: ByteString): Either[DeserializationError, SecureRandomness] =
     if (bytes.size != expectedLength)
       Left(
         DefaultDeserializationError(
@@ -53,7 +53,6 @@ object SecureRandomness {
         )
       )
     else Right(SecureRandomness(bytes))
-  }
 }
 
 /** Pseudo randomness, MUST NOT be used for security-relevant operations. */

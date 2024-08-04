@@ -99,7 +99,7 @@ trait InMemoryTopologyStoreCommon[+StoreId <: TopologyStoreId] extends NamedLogg
     watermark.getAndSet(Some(timestamp)) match {
       case Some(old) if old > timestamp =>
         logger.error(
-          s"Topology dispatching watermark is running backwards! new=$timestamp, old=${old}"
+          s"Topology dispatching watermark is running backwards! new=$timestamp, old=$old"
         )
       case _ => ()
     }
@@ -344,14 +344,13 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       filterNamespace: Option[Seq[Namespace]],
   ): Future[StoredTopologyTransactions[TopologyChangeOp]] = {
     val timeFilter = asOfFilter(asOf, asOfInclusive)
-    def pathFilter(path: UniquePath): Boolean = {
+    def pathFilter(path: UniquePath): Boolean =
       if (filterUid.isEmpty && filterNamespace.isEmpty)
         true
       else {
         path.maybeUid.exists(uid => filterUid.exists(_.contains(uid))) ||
         filterNamespace.exists(_.contains(path.namespace))
       }
-    }
     // filter for secondary uids (required for cascading updates)
     def secondaryFilter(entry: TopologyStoreEntry[TopologyChangeOp]): Boolean =
       includeSecondary &&
@@ -361,7 +360,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         )
 
     filteredState(
-      blocking(synchronized { store.toSeq }),
+      blocking(synchronized(store.toSeq)),
       entry => {
         timeFilter(entry.from.value, entry.until.map(_.value)) &&
         types.contains(entry.transaction.uniquePath.dbType) &&
@@ -455,22 +454,22 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       filterParticipant: String,
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] = {
-    def filter(entry: TopologyStoreEntry[Positive]): Boolean = {
+    def filter(entry: TopologyStoreEntry[Positive]): Boolean =
       // active
       entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
-      // not rejected
-      entry.rejected.isEmpty &&
-      // matches either a party to participant mapping (with appropriate filters)
-      ((entry.transaction.uniquePath.dbType == DomainTopologyTransactionType.PartyToParticipant &&
-        entry.transaction.uniquePath.maybeUid.exists(_.toProtoPrimitive.startsWith(filterParty)) &&
-        entry.secondaryUid.exists(_.toProtoPrimitive.startsWith(filterParticipant))) ||
-        // or matches a participant with appropriate filters
-        (entry.transaction.uniquePath.dbType == DomainTopologyTransactionType.ParticipantState &&
+        // not rejected
+        entry.rejected.isEmpty &&
+        // matches either a party to participant mapping (with appropriate filters)
+        ((entry.transaction.uniquePath.dbType == DomainTopologyTransactionType.PartyToParticipant &&
           entry.transaction.uniquePath.maybeUid
             .exists(_.toProtoPrimitive.startsWith(filterParty)) &&
-          entry.transaction.uniquePath.maybeUid
-            .exists(_.toProtoPrimitive.startsWith(filterParticipant))))
-    }
+          entry.secondaryUid.exists(_.toProtoPrimitive.startsWith(filterParticipant))) ||
+          // or matches a participant with appropriate filters
+          (entry.transaction.uniquePath.dbType == DomainTopologyTransactionType.ParticipantState &&
+            entry.transaction.uniquePath.maybeUid
+              .exists(_.toProtoPrimitive.startsWith(filterParty)) &&
+            entry.transaction.uniquePath.maybeUid
+              .exists(_.toProtoPrimitive.startsWith(filterParticipant))))
     val topologyStateStoreSeq = blocking(synchronized(topologyStateStore.toSeq))
     Future.successful(
       topologyStateStoreSeq
@@ -510,7 +509,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     val filter2: TopologyStoreEntry[TopologyChangeOp] => Boolean = entry =>
       ops.forall(_ == entry.operation)
 
-    val filter3: TopologyStoreEntry[TopologyChangeOp] => Boolean = {
+    val filter3: TopologyStoreEntry[TopologyChangeOp] => Boolean =
       if (idFilter.isEmpty) _ => true
       else if (namespaceOnly) { entry =>
         entry.transaction.uniquePath.namespace.fingerprint.unwrap.startsWith(idFilter)
@@ -526,7 +525,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
           entry.transaction.uniquePath.maybeUid.forall(_.id.unwrap.startsWith(prefix))
         }
       }
-    }
     filteredState(
       blocking(synchronized(store.toSeq)),
       entry =>

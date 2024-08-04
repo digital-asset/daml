@@ -85,7 +85,7 @@ private[backend] class ConfigurationStorageBackendTemplate(
       endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, ConfigurationEntry)] = {
+  )(connection: Connection): Vector[(Offset, ConfigurationEntry)] =
     SQL"""
       select
         configuration_entries.ledger_offset,
@@ -107,5 +107,4 @@ private[backend] class ConfigurationStorageBackendTemplate(
       fetch next $pageSize rows only
   """
       .asVectorOf(configurationEntryParser)(connection)
-  }
 }

@@ -101,7 +101,7 @@ class SequencerAggregatorPekko(
           Left(control.map((_, configAndHealth) => configAndHealth._1, Predef.identity))
       }
       .mapMaterializedValue { doneF =>
-        val doneAndClosedF = doneF.thereafter { _ => onShutdownRunner.close() }
+        val doneAndClosedF = doneF.thereafter(_ => onShutdownRunner.close())
         doneAndClosedF -> health
       }
   }
@@ -140,7 +140,7 @@ class SequencerAggregatorPekko(
   )(implicit traceContext: TraceContext): Unit =
     control match {
       case ActiveSourceTerminated(sequencerId, cause) =>
-        cause.foreach { ex => logger.error(s"Sequencer subscription for $sequencerId failed", ex) }
+        cause.foreach(ex => logger.error(s"Sequencer subscription for $sequencerId failed", ex))
       case NewConfiguration(_, _) =>
     }
 
@@ -284,7 +284,7 @@ object SequencerAggregatorPekko {
       SequencerAggregator.aggregateHealthResult(getDependencies.fmap(_.getState), threshold)
     }
 
-    def updateHealth(control: SubscriptionControlInternal[?]): Unit = {
+    def updateHealth(control: SubscriptionControlInternal[?]): Unit =
       control match {
         case NewConfiguration(newConfig, startingOffset) =>
           val currentlyRegisteredDependencies = getDependencies
@@ -301,7 +301,6 @@ object SequencerAggregatorPekko {
         case ActiveSourceTerminated(sequencerId, _cause) =>
           alterDependencies(remove = Set(sequencerId), add = Map.empty)
       }
-    }
 
     override def pretty: Pretty[SequencerAggregatorHealth] = prettyOfClass(
       param("domain id", _.domainId),

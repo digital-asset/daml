@@ -155,7 +155,7 @@ trait TopologyStoreTest
         from: CantonTimestamp,
         until: Option[CantonTimestamp],
         op: TopologyChangeOp,
-    ): Future[Seq[SignedTopologyTransaction[TopologyChangeOp]]] = {
+    ): Future[Seq[SignedTopologyTransaction[TopologyChangeOp]]] =
       store
         .allTransactions()
         .map(
@@ -166,7 +166,6 @@ trait TopologyStoreTest
             )
             .map(_.transaction)
         )
-    }
 
     def getTransactions[Op <: TopologyChangeOp](validatedTx: List[ValidatedTopologyTransaction])(
         implicit checker: TopologyChangeOp.OpTypeChecker[Op]
@@ -240,8 +239,7 @@ trait TopologyStoreTest
               Option[Seq[Namespace]],
               Boolean,
           ) => Future[List[TopologyStateElement[TopologyMapping]]]
-      ): Future[Assertion] = {
-
+      ): Future[Assertion] =
         for {
           empty1 <- fetch(Some(Seq()), Some(Seq()), true)
           asUid <- fetch(Some(Seq(uid)), None, true)
@@ -254,25 +252,22 @@ trait TopologyStoreTest
           asUid2 shouldBe List(trTo, trB).map(_.transaction.element)
         }
 
-      }
     }
 
     def append(
         store: TopologyStore[TopologyStoreId],
         ts: CantonTimestamp,
         items: List[ValidatedTopologyTransaction],
-    ): Future[Unit] = {
+    ): Future[Unit] =
       store.append(SequencedTime(ts), EffectiveTime(ts), items)
-    }
 
     def updateState(
         store: TopologyStore[TopologyStoreId],
         ts: CantonTimestamp,
         deactivate: Seq[UniquePath],
         positive: Seq[SignedTopologyTransaction[TopologyChangeOp.Positive]],
-    ): Future[Unit] = {
+    ): Future[Unit] =
       store.updateState(SequencedTime(ts), EffectiveTime(ts), deactivate, positive)
-    }
 
     "topology store" should {
 
@@ -584,7 +579,7 @@ trait TopologyStoreTest
               )
           }
 
-          def change(sequenced: Int, effective: Int, dpc: Option[Int]): TopologyStore.Change = {
+          def change(sequenced: Int, effective: Int, dpc: Option[Int]): TopologyStore.Change =
             dpc.fold(
               TopologyStore.Change
                 .Other(
@@ -598,7 +593,6 @@ trait TopologyStoreTest
                 NonNegativeFiniteDuration.tryOfMillis(epsilon.toLong),
               )
             }
-          }
 
           for {
             _ <- storeF

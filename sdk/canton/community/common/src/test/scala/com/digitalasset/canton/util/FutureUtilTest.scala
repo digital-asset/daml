@@ -46,7 +46,7 @@ class FutureUtilTest extends AnyWordSpec with BaseTest {
 
       res should matchPattern {
         case Failure(exn: TimeoutException)
-            if exn.getMessage == s"Task $task did not complete within ${timeout}." =>
+            if exn.getMessage == s"Task $task did not complete within $timeout." =>
       }
     }
 
@@ -85,7 +85,7 @@ class FutureUtilTest extends AnyWordSpec with BaseTest {
 
       res should matchPattern {
         case Failure(exn: TimeoutException)
-            if exn.getMessage == s"Task $task did not complete within ${largeTimeout}." =>
+            if exn.getMessage == s"Task $task did not complete within $largeTimeout." =>
       }
     }
 
@@ -239,22 +239,21 @@ class FutureUtilTest extends AnyWordSpec with BaseTest {
     val infos = cumulativeAwaits
       .zip((1 to awaits.length).map(i => if (i <= expectedDebugLogs) Level.DEBUG else Level.INFO))
       .map { case (duration, level) =>
-        level -> s"Task $task still not completed after ${duration}. Continue waiting..."
+        level -> s"Task $task still not completed after $duration. Continue waiting..."
       }
     if (failure)
-      infos :+ Level.WARN -> s"Task ${task} did not complete within ${cumulativeAwaits.lastOption
+      infos :+ Level.WARN -> s"Task $task did not complete within ${cumulativeAwaits.lastOption
           .getOrElse(0.seconds)}. Stack traces:\n"
     else infos
   }
 
-  private def cumulative(expectedAwaits: List[FiniteDuration]) = {
+  private def cumulative(expectedAwaits: List[FiniteDuration]) =
     expectedAwaits
       .foldLeft(List.empty[Duration]) { case (acc, x) =>
         val total = acc.headOption.getOrElse(0.seconds)
         x.plus(total) :: acc
       }
       .reverse
-  }
 
   private def state
       : (mutable.ArrayDeque[(Level, String)], (Level, String) => Unit, AtomicInteger) = {

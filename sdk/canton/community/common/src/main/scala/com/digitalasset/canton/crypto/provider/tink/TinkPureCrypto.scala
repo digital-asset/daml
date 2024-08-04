@@ -62,19 +62,18 @@ class TinkPureCrypto private (
       // if the public key is already in cache it already has been deserialized and validated
       publicKeysetCache
         .getOrElseUpdate(
-          publicKey.id, {
-            for {
-              // convert key to Tink format so that we can deserialize it
-              tinkPublicKey <- keyConverter
-                .convert(publicKey, CryptoKeyFormat.Tink)
-                .leftMap(KeyParseAndValidateError)
-              handle <- TinkKeyFormat
-                .deserializeHandle(tinkPublicKey.key)
-                // we always make sure we use RAW key templates
-                .flatMap(convertKeysetHandleToRawOutputPrefix)
-                .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
-            } yield handle
-          },
+          publicKey.id,
+          for {
+            // convert key to Tink format so that we can deserialize it
+            tinkPublicKey <- keyConverter
+              .convert(publicKey, CryptoKeyFormat.Tink)
+              .leftMap(KeyParseAndValidateError)
+            handle <- TinkKeyFormat
+              .deserializeHandle(tinkPublicKey.key)
+              // we always make sure we use RAW key templates
+              .flatMap(convertKeysetHandleToRawOutputPrefix)
+              .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
+          } yield handle,
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
 
@@ -442,7 +441,7 @@ class TinkPureCrypto private (
       info: HkdfInfo,
       salt: ByteString,
       algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] = {
+  ): Either[HkdfError, SecureRandomness] =
     Either
       .catchOnly[GeneralSecurityException] {
         Hkdf.computeHkdf(
@@ -460,7 +459,6 @@ class TinkPureCrypto private (
           .leftMap(err => s"Invalid output from HKDF: $err")
       }
       .leftMap(HkdfInternalError)
-  }
 
   override protected def hkdfExpandInternal(
       keyMaterial: SecureRandomness,

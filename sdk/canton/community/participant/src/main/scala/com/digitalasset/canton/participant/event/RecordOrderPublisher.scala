@@ -220,11 +220,10 @@ class RecordOrderPublisher(
 
   /** The returned future completes after all events that are currently scheduled for publishing have been published. */
   @VisibleForTesting
-  def flush(): Future[Unit] = {
+  def flush(): Future[Unit] =
     recovered.future.flatMap { _bool =>
       taskScheduler.flush()
     }
-  }
 
   /** Used to inspect the state of the sequencerCounterQueue, for testing purposes. */
   @VisibleForTesting
@@ -262,7 +261,7 @@ class RecordOrderPublisher(
       override val timestamp: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends PublicationTask {
-    override def perform(): FutureUnlessShutdown[Unit] = {
+    override def perform(): FutureUnlessShutdown[Unit] =
       performUnlessClosingUSF("observe-timestamp-task") {
         /*
          * Observe timestamp will only return an UnknownDomain error if the domain ID is not in the connectedDomainMap
@@ -283,7 +282,6 @@ class RecordOrderPublisher(
             FutureUnlessShutdown.abortedDueToShutdown
           }
       }
-    }
 
     override def pretty: Pretty[this.type] = prettyOfClass(
       param("timestamp", _.timestamp),
@@ -308,20 +306,18 @@ class RecordOrderPublisher(
   )(implicit val traceContext: TraceContext)
       extends PublicationTask {
 
-    override def perform(): FutureUnlessShutdown[Unit] = {
+    override def perform(): FutureUnlessShutdown[Unit] =
       for {
         _recovered <- recovered.futureUS
         _unit <- publishEvent(eventO, inFlightReference)
       } yield ()
-    }
 
-    override def pretty: Pretty[this.type] = {
+    override def pretty: Pretty[this.type] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),
         paramIfDefined("event", _.eventO.map(_.event.description.singleQuoted)),
       )
-    }
 
     override def close(): Unit = ()
   }
@@ -399,20 +395,18 @@ class RecordOrderPublisher(
     override def close(): Unit = ()
   }
 
-  def setAcsChangeListener(listener: AcsChangeListener): Unit = {
+  def setAcsChangeListener(listener: AcsChangeListener): Unit =
     acsChangeListener.getAndUpdate {
       case None => Some(listener)
       case Some(_acsChangeListenerAlreadySet) =>
         throw new IllegalArgumentException("ACS change listener already set")
     }.discard
-  }
 
-  override def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+  override def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
       SyncCloseable("taskScheduler", taskScheduler.close()),
       SyncCloseable("recovered-promise", recovered.shutdown()),
     )
-  }
 }
 object RecordOrderPublisher {
   sealed trait PendingPublish {

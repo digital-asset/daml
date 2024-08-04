@@ -14,7 +14,7 @@ final case class Grouping(
 ) {
   require(
     docName.trim.nonEmpty,
-    s"Grouping.docName must be non empty and must contain not only whitespace characters, but was: |${docName}|!",
+    s"Grouping.docName must be non empty and must contain not only whitespace characters, but was: |$docName|!",
   )
 }
 

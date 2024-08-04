@@ -67,15 +67,14 @@ trait LedgerApiCommandRunner {
 /** Support for inspecting the instance */
 trait BaseInspection[I <: CantonNode] {
 
-  def underlying: Option[I] = {
+  def underlying: Option[I] =
     runningNode.flatMap(_.getNode)
-  }
 
   protected[console] def runningNode: Option[CantonNodeBootstrap[I]]
   protected[console] def startingNode: Option[CantonNodeBootstrap[I]]
   protected[console] def name: String
 
-  protected[console] def access[T](ops: I => T): T = {
+  protected[console] def access[T](ops: I => T): T =
     ops(
       runningNode
         .getOrElse(throw new IllegalArgumentException(s"instance $name is not running"))
@@ -86,13 +85,11 @@ trait BaseInspection[I <: CantonNode] {
           )
         )
     )
-  }
 
-  protected[canton] def crypto: Crypto = {
+  protected[canton] def crypto: Crypto =
     runningNode
       .map(_.crypto)
       .getOrElse(throw new IllegalArgumentException(s"instance $name is not running."))
-  }
 
 }
 
@@ -107,7 +104,7 @@ trait FeatureFlagFilter extends NamedLogging {
       command
     } else {
       noTracingLogger.error(
-        s"The command is currently disabled. You need to enable it explicitly by setting `canton.features.${config} = yes` in your Canton configuration file (`.conf`)"
+        s"The command is currently disabled. You need to enable it explicitly by setting `canton.features.$config = yes` in your Canton configuration file (`.conf`)"
       )
       throw new CommandFailure()
     }

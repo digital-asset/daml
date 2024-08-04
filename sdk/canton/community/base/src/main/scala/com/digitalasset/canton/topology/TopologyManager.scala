@@ -179,11 +179,9 @@ abstract class TopologyManager[E <: CantonError](
 
             // step3: remove namespace delegation transaction from cache store
             _ <- storedTxsToRemove.parTraverse { storedTxToRemove =>
-              {
-                val wrapStoredTx =
-                  new StoredTopologyTransactions[TopologyChangeOp](Seq(storedTxToRemove))
-                removeFromCache(validatorSnap, wrapStoredTx)
-              }
+              val wrapStoredTx =
+                new StoredTopologyTransactions[TopologyChangeOp](Seq(storedTxToRemove))
+              removeFromCache(validatorSnap, wrapStoredTx)
             }
 
             // step4: retrieve all transactions (possibly related with this namespace)
@@ -237,12 +235,11 @@ abstract class TopologyManager[E <: CantonError](
             namespace,
             targetKey,
             force,
-            { (validatorSnap, transaction) =>
+            (validatorSnap, transaction) =>
               EitherT.right[TopologyManagerError](
                 validatorSnap
                   .removeNamespaceDelegationFromCache(namespace, transaction)
-              )
-            },
+              ),
           )
         case IdentifierDelegation(uniqueKey, targetKey) =>
           keyRevocationDelegationIsNotDangerous(
@@ -250,12 +247,11 @@ abstract class TopologyManager[E <: CantonError](
             uniqueKey.namespace,
             targetKey,
             force,
-            { (validatorSnap, transaction) =>
+            (validatorSnap, transaction) =>
               EitherT.right[TopologyManagerError](
                 validatorSnap
                   .removeIdentifierDelegationFromCache(uniqueKey, transaction)
-              )
-            },
+              ),
           )
         case DomainParametersChange(_, newDomainParameters) if !force =>
           checkLedgerTimeRecordTimeToleranceNotIncreasing(newDomainParameters).mapK(
@@ -301,7 +297,7 @@ abstract class TopologyManager[E <: CantonError](
 
   private def checkLedgerTimeRecordTimeToleranceNotIncreasing(
       newDomainParameters: DynamicDomainParameters
-  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyManagerError, Unit] =
     // See i9028 for a detailed design.
 
     EitherT(for {
@@ -321,7 +317,6 @@ abstract class TopologyManager[E <: CantonError](
         ),
       )
     })
-  }
 
   protected def checkNewTransaction(
       transaction: SignedTopologyTransaction[TopologyChangeOp],
@@ -336,7 +331,7 @@ abstract class TopologyManager[E <: CantonError](
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, E, SignedTopologyTransaction[Op]] = {
+  ): EitherT[Future, E, SignedTopologyTransaction[Op]] =
     for {
       // find signing key
       key <- signingKey match {
@@ -363,7 +358,6 @@ abstract class TopologyManager[E <: CantonError](
           case err => wrapError(TopologyManagerError.InternalError.TopologySigningError(err))
         }
     } yield signed
-  }
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
     *
@@ -382,7 +376,7 @@ abstract class TopologyManager[E <: CantonError](
       replaceExisting: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, E, SignedTopologyTransaction[Op]] = {
+  ): EitherT[FutureUnlessShutdown, E, SignedTopologyTransaction[Op]] =
     sequentialQueue.executeEUS(
       {
         logger.debug(show"Attempting to authorize ${transaction.element.mapping} with $signingKey")
@@ -395,11 +389,10 @@ abstract class TopologyManager[E <: CantonError](
       },
       "authorize transaction",
     )
-  }
 
   protected def signingKeyForTransactionF(
       transaction: TopologyTransaction[TopologyChangeOp]
-  )(implicit traceContext: TraceContext): EitherT[Future, E, Fingerprint] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, E, Fingerprint] =
     for {
       // need to execute signing key finding sequentially, as the validator is expecting incremental in-memory updates
       // to the "autohrization graph"
@@ -408,7 +401,6 @@ abstract class TopologyManager[E <: CantonError](
       )
       fingerprint <- findSigningKey(keys).leftMap(wrapError)
     } yield fingerprint
-  }
 
   private def findSigningKey(
       keys: Seq[Fingerprint]
@@ -427,7 +419,7 @@ abstract class TopologyManager[E <: CantonError](
       force: Boolean = false,
       replaceExisting: Boolean = false,
       allowDuplicateMappings: Boolean = false,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, E, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, E, Unit] =
     // Ensure sequential execution of `process`: When processing signed topology transactions, we test whether they can be
     // added incrementally to the existing state. Therefore, we need to sequence
     // (testing + adding) and ensure that we don't concurrently insert these
@@ -436,7 +428,6 @@ abstract class TopologyManager[E <: CantonError](
       process(transaction, force, replaceExisting, allowDuplicateMappings),
       "add transaction",
     )
-  }
 
   protected val sequentialQueue = new SimpleExecutionQueue(
     "topology-manager-queue",
@@ -458,7 +449,7 @@ abstract class TopologyManager[E <: CantonError](
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, E, Unit] = {
     def checkValidationResult(
         validated: Seq[ValidatedTopologyTransaction]
-    ): EitherT[Future, E, Unit] = {
+    ): EitherT[Future, E, Unit] =
       EitherT.fromEither((validated.find(_.rejectionReason.nonEmpty) match {
         case Some(
               ValidatedTopologyTransaction(
@@ -471,11 +462,10 @@ abstract class TopologyManager[E <: CantonError](
           Left(TopologyManagerError.InternalError.ReplaceExistingFailed(tx))
         case None => Right(())
       }).leftMap(wrapError))
-    }
 
     def addOneByOne(
         transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]]
-    ): EitherT[Future, E, Unit] = {
+    ): EitherT[Future, E, Unit] =
       MonadUtil.sequentialTraverse_(transactions) { tx =>
         val now = clock.uniqueTime()
         preNotifyObservers(Seq(tx))
@@ -493,7 +483,6 @@ abstract class TopologyManager[E <: CantonError](
           _ <- EitherT.right(notifyObservers(now, Seq(tx)))
         } yield ()
       }
-    }
 
     val isUniquenessRequired = transaction.operation match {
       case TopologyChangeOp.Replace => false
@@ -624,11 +613,10 @@ abstract class TopologyManager[E <: CantonError](
     }
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
       SyncCloseable("topology-manager-store", store.close()),
       SyncCloseable("topology-manager-sequential-queue", sequentialQueue.close()),
     )
-  }
 
 }

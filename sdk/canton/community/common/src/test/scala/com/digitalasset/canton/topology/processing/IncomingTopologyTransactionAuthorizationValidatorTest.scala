@@ -96,10 +96,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             validatedTopologyTransactions,
             Seq(
               None,
-              Some({
+              Some {
                 case TopologyTransactionRejection.SignatureCheckFailed(_) => true
                 case _ => false
-              }),
+              },
             ),
           )
         }
@@ -126,10 +126,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             res._2,
             Seq(
               None,
-              Some({
+              Some {
                 case TopologyTransactionRejection.WrongDomain(_) => true
                 case _ => false
-              }),
+              },
             ),
           )
         }

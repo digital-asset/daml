@@ -44,7 +44,7 @@ class TransferOutValidationTest
 
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
+  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       DefaultDamlValues.lfApplicationId(),
@@ -53,7 +53,6 @@ class TransferOutValidationTest
       submissionId = None,
       workflowId = None,
     )
-  }
 
   val contractId = ExampleTransactionFactory.suffixedId(10, 0)
 

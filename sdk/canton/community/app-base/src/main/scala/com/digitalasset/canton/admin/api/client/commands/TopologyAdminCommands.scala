@@ -13,7 +13,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, KeyPurpose}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters as DynamicDomainParametersInternal}
+import com.digitalasset.canton.protocol.DynamicDomainParameters as DynamicDomainParametersInternal
 import com.digitalasset.canton.topology.admin.grpc.BaseQuery
 import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.admin.v0.AuthorizationSuccess
@@ -345,7 +345,7 @@ object TopologyAdminCommands {
         protocolVersion: ProtocolVersion,
         force: Boolean,
     ) extends BaseCommand[v0.DomainParametersChangeAuthorization] {
-      override def createRequest(): Either[String, v0.DomainParametersChangeAuthorization] = {
+      override def createRequest(): Either[String, v0.DomainParametersChangeAuthorization] =
         newParameters.toProto(protocolVersion).map { parameters =>
           v0.DomainParametersChangeAuthorization(
             authorization =
@@ -354,7 +354,6 @@ object TopologyAdminCommands {
             parameters = parameters,
           )
         }
-      }
 
       override def submitRequest(
           service: TopologyManagerWriteServiceStub,
@@ -781,14 +780,13 @@ object TopologyAdminCommands {
 
       override def handleResponse(
           response: v0.GetIdResponse
-      ): Either[String, UniqueIdentifier] = {
+      ): Either[String, UniqueIdentifier] =
         if (response.uniqueIdentifier.nonEmpty)
           UniqueIdentifier.fromProtoPrimitive_(response.uniqueIdentifier)
         else
           Left(
             s"Node ${response.instance} is not initialized and therefore does not have an Id assigned yet."
           )
-      }
     }
   }
 }

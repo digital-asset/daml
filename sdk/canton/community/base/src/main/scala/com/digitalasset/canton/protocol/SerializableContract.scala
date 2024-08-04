@@ -249,7 +249,7 @@ object SerializableContract
       metadata: ContractMetadata,
       ledgerCreateTime: Option[Timestamp],
       contractSaltO: Option[crypto.v0.Salt],
-  ): ParsingResult[SerializableContract] = {
+  ): ParsingResult[SerializableContract] =
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
       raw <- SerializableRawContractInstance
@@ -268,6 +268,5 @@ object SerializableContract
         contractSalt,
       )
     }
-  }
 
 }

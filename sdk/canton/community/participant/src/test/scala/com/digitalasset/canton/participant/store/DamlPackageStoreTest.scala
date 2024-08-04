@@ -146,7 +146,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
             .failOnShutdown
 
         val deletes: List[() => Future[Unit]] =
-          deletedPkgs.map { pkg => () => store.removePackage(readPackageId(pkg)).failOnShutdown }
+          deletedPkgs.map(pkg => () => store.removePackage(readPackageId(pkg)).failOnShutdown)
 
         val deleteDar2: () => Future[Unit] = () => store.removeDar(hash2).failOnShutdown
 
@@ -427,26 +427,23 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 
       logger.info(s"All packages are ${fivePkgs.map(readPackageId)}")
 
-      def canRemoveDar(descriptor: DarDescriptor) = {
+      def canRemoveDar(descriptor: DarDescriptor) =
         noneOrFail(
           store
             .anyPackagePreventsDarRemoval(
               fivePkgs.map(readPackageId),
               removeDar = descriptor,
             )
-        )(s"Lookup packages with no dar other than ${descriptor}")
-
-      }
+        )(s"Lookup packages with no dar other than $descriptor")
 
       def canRemoveDar1 = canRemoveDar(DamlPackageStoreTest.descriptor)
       def canRemoveDar2 = canRemoveDar(DamlPackageStoreTest.descriptor2)
 
-      def checkBothDarsCanBeRemoved = {
+      def checkBothDarsCanBeRemoved =
         for {
           _unit <- canRemoveDar1
           _unit <- canRemoveDar2
         } yield ()
-      }
 
       for {
 
@@ -522,7 +519,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
         _unit <- canRemoveDar1
 
         _ = logger.info(
-          s"We still can't remove ${DamlPackageStoreTest.descriptor2} as ${pkg3} has no alternative DAR"
+          s"We still can't remove ${DamlPackageStoreTest.descriptor2} as $pkg3 has no alternative DAR"
         )
         stillCantRemoveDar2 <-
           valueOrFail(

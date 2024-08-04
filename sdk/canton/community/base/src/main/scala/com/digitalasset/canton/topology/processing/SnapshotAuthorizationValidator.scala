@@ -107,7 +107,7 @@ class SnapshotAuthorizationValidator(
         val authorizedNsd = nsd.toAuthorizedTopologyTransactions { case x: IdentifierDelegation =>
           x
         }
-        updateIdentifierDelegationCache(uid, { _.filterNot(Seq(_) == authorizedNsd) })
+        updateIdentifierDelegationCache(uid, _.filterNot(Seq(_) == authorizedNsd))
       },
       functionFullName,
     )

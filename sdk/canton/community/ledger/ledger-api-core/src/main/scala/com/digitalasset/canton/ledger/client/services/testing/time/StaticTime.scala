@@ -37,23 +37,21 @@ class StaticTime(
       Some(TimestampConversion.fromInstant(instant)),
     )
 
-  def setTime(instant: Instant)(implicit ec: ExecutionContext): Future[Unit] = {
+  def setTime(instant: Instant)(implicit ec: ExecutionContext): Future[Unit] =
     timeService.setTime(timeRequest(instant)).map { _ =>
       val _ = StaticTime.advanceClock(clock, instant)
     }
-  }
 
   override def close(): Unit = killSwitch.shutdown()
 }
 
 object StaticTime {
 
-  def advanceClock(clock: AtomicReference[Instant], instant: Instant): Instant = {
+  def advanceClock(clock: AtomicReference[Instant], instant: Instant): Instant =
     clock.updateAndGet {
       case current if instant isAfter current => instant
       case current => current
     }
-  }
 
   def updatedVia(
       timeService: TimeServiceStub,

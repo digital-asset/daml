@@ -100,7 +100,7 @@ trait DomainOutboxDispatchHelperOld
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, /*DomainRegistryError*/ String, Seq[GenericSignedTopologyTransaction]] = {
+  ): EitherT[Future, /*DomainRegistryError*/ String, Seq[GenericSignedTopologyTransaction]] =
     transactions
       .parTraverse { tx =>
         if (tx.transaction.hasEquivalentVersion(protocolVersion)) {
@@ -117,7 +117,6 @@ trait DomainOutboxDispatchHelperOld
             }
         }
       }
-  }
 
   override protected def isFailedState(
       response: RegisterTopologyTransactionResponseResult.State

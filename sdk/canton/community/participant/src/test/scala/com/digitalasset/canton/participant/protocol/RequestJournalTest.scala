@@ -40,16 +40,14 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
   def mk(
       initRc: RequestCounter,
       store: RequestJournalStore = new InMemoryRequestJournalStore(loggerFactory),
-  ): RequestJournal = {
+  ): RequestJournal =
     new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc, FutureSupervisor.Noop)
-  }
 
-  private def mkSyncDomainMetrics = {
+  private def mkSyncDomainMetrics =
     new SyncDomainMetrics(
       MetricName(getClass.getSimpleName),
       new CantonDropwizardMetricsFactory(new MetricRegistry),
     )
-  }
 
   def insertWithCursor(
       rj: RequestJournal,
@@ -114,7 +112,7 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
 
   def assertPresent(rj: RequestJournal, presentRcs: List[(RequestCounter, CantonTimestamp)])(
       expectedState: (RequestCounter, CantonTimestamp) => RequestData
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     presentRcs
       .parTraverse_ { case (rc, ts) =>
         rj.query(rc)
@@ -127,9 +125,8 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
           )
       }
       .map((_: Unit) => succeed)
-  }
 
-  def assertAbsent(rj: RequestJournal, absentRcs: List[RequestCounter]): Future[Assertion] = {
+  def assertAbsent(rj: RequestJournal, absentRcs: List[RequestCounter]): Future[Assertion] =
     absentRcs
       .parTraverse_ { rc =>
         rj.query(rc)
@@ -137,7 +134,6 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
           .map(result => assert(result.isEmpty, s"Found state $result for request counter $rc"))
       }
       .map((_: Unit) => succeed)
-  }
 
   val commitTime: CantonTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2020-01-03T00:00:00.00Z"))
@@ -353,10 +349,10 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
 
       hooked.setCleanCounterHook { prehead =>
         val CursorPrehead(rc, _requestTimestamp) = prehead
-        assert(rc == initRc, s"Clean counter set to $rc instead of ${initRc}")
+        assert(rc == initRc, s"Clean counter set to $rc instead of $initRc")
         for {
-          state0 <- valueOrFail(rj.query(rc))(s"request state for ${rc}")
-          store0 <- valueOrFail(rjs.query(rc))(s"persisted request state for ${rc}")
+          state0 <- valueOrFail(rj.query(rc))(s"request state for $rc")
+          store0 <- valueOrFail(rjs.query(rc))(s"persisted request state for $rc")
         } yield {
           assert(state0.state == Clean, s"Request $rc must reach $Clean first.")
           assert(

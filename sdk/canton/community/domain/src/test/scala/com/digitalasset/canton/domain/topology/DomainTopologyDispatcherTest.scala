@@ -100,21 +100,19 @@ class DomainTopologyDispatcherTest
       recipients: Set[Member],
       observation: Long,
   ) {
-    def compare(expected: SignedTopologyTransaction[TopologyChangeOp]*): Assertion = {
+    def compare(expected: SignedTopologyTransaction[TopologyChangeOp]*): Assertion =
       check(current, expected)
-    }
   }
 
   private def check(
       actual: Seq[SignedTopologyTransaction[TopologyChangeOp]],
       expected: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  ): Assertion = {
+  ): Assertion =
     actual
       .map(_.transaction.element.mapping)
       .toList shouldBe expected
       .map(_.transaction.element.mapping)
       .toList
-  }
 
   private def toValidated(
       tx: SignedTopologyTransaction[TopologyChangeOp]
@@ -162,13 +160,12 @@ class DomainTopologyDispatcherTest
     // we use "expect(4):Future[Awaiter]" to wait until 4 topology txs have been sent, independent on the number
     // of messages.
     case class Awaiter(observed: Seq[GenericSignedTopologyTransaction], recipients: Set[Member]) {
-      def compare(expected: SignedTopologyTransaction[TopologyChangeOp]*): Assertion = {
+      def compare(expected: SignedTopologyTransaction[TopologyChangeOp]*): Assertion =
         check(observed, expected)
-      }
     }
 
     def expect(num: Int): Future[Awaiter] = {
-      def go(prev: Awaiter = Awaiter(Seq(), Set())): Future[Awaiter] = {
+      def go(prev: Awaiter = Awaiter(Seq(), Set())): Future[Awaiter] =
         nextMessage().flatMap { x =>
           val acc = Awaiter(prev.observed ++ x.current, prev.recipients ++ x.recipients)
           if (acc.observed.sizeIs >= num)
@@ -176,7 +173,6 @@ class DomainTopologyDispatcherTest
           else
             go(acc)
         }
-      }
       go()
     }
 
@@ -266,18 +262,16 @@ class DomainTopologyDispatcherTest
     )
     val dispatcher = mkDispatcher
 
-    def init(flusher: Future[Unit] = Future.unit): Future[Unit] = {
+    def init(flusher: Future[Unit] = Future.unit): Future[Unit] =
       initDispatcher(dispatcher, flusher)
-    }
 
     def initDispatcher(
         dispatcher: DomainTopologyDispatcher,
         flusher: Future[Unit],
-    ): Future[Unit] = {
+    ): Future[Unit] =
       dispatcher
         .init(FutureUnlessShutdown.outcomeF(flusher))
         .failOnShutdown("dispatcher initialization")
-    }
 
     def submit(
         ts: CantonTimestamp,
@@ -300,9 +294,8 @@ class DomainTopologyDispatcherTest
         store: TopologyStore[TopologyStoreId],
         ts: CantonTimestamp,
         txs: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-    ): Future[Unit] = {
+    ): Future[Unit] =
       store.append(SequencedTime(ts), EffectiveTime(ts), txs.map(toValidated))
-    }
 
     def txs = this.TestingTransactions
 
@@ -681,12 +674,11 @@ class DomainTopologySenderTest
     def submit(
         recipients: Set[Member],
         transactions: SignedTopologyTransaction[TopologyChangeOp]*
-    ) = {
+    ) =
       sender
         .sendTransactions(snapshot, transactions, recipients, "testing", batching = true)
         .value
         .onShutdown(Left("shutdown"))
-    }
 
     def respond(
         response: Response

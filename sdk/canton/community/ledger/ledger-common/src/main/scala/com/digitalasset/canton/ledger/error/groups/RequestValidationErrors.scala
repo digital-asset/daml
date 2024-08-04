@@ -42,9 +42,8 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
             cause = "Could not find package."
           ) {
 
-        override def resources: Seq[(ErrorResource, String)] = {
+        override def resources: Seq[(ErrorResource, String)] =
           super.resources :+ ((ErrorResource.DalfPackage, packageId))
-        }
       }
 
       final case class InterpretationReject(
@@ -97,7 +96,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       final case class RejectWithMessage(message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"The ledger configuration could not be retrieved: ${message}."
+            cause = s"The ledger configuration could not be retrieved: $message."
           )
     }
 
@@ -212,7 +211,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     final case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"${offsetType} offset (${requestedOffset}) is after ledger end (${ledgerEnd})"
+          cause = s"$offsetType offset ($requestedOffset) is after ledger end ($ledgerEnd)"
         )
   }
 
@@ -244,7 +243,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"Ledger ID '${receivedLegerId}' not found. Actual Ledger ID is '${expectedLedgerId}'.",
+            s"Ledger ID '$receivedLegerId' not found. Actual Ledger ID is '$expectedLedgerId'.",
           definiteAnswer = true,
         )
   }
@@ -258,7 +257,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     final case class Reject(missingField: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command is missing a mandatory field: ${missingField}",
+          cause = s"The submitted command is missing a mandatory field: $missingField",
           extraContext = Map("field_name" -> missingField),
         )
   }
@@ -273,7 +272,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           // TODO(i12777): Update the cause to mention a 'request' instead of a 'command'
-          cause = s"The submitted command has invalid arguments: ${reason}"
+          cause = s"The submitted command has invalid arguments: $reason"
         )
   }
 
@@ -287,7 +286,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The submitted command has a field with invalid value: Invalid field ${fieldName}: ${message}"
+            s"The submitted command has a field with invalid value: Invalid field $fieldName: $message"
         )
   }
 
@@ -309,13 +308,12 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command had an invalid deduplication period: ${reason}"
+          cause = s"The submitted command had an invalid deduplication period: $reason"
         ) {
-      override def context: Map[String, String] = {
+      override def context: Map[String, String] =
         super.context ++ maxDeduplicationDuration
           .map(ValidMaxDeduplicationFieldKey -> _.toString)
           .toList
-      }
     }
   }
 
@@ -333,7 +331,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     )(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
+          cause = s"Offset in $fieldName not specified in hexadecimal: $offsetValue: $message"
         )
   }
 }

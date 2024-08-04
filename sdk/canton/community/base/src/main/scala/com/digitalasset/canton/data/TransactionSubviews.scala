@@ -98,7 +98,7 @@ final case class TransactionSubviewsV0 private[data] (
 
   override private[data] def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
-  ): TransactionSubviews = {
+  ): TransactionSubviews =
     viewPos match {
       case ViewPositionFromRoot((index: ListIndex) +: tail) =>
         if (index.index >= subviews.size)
@@ -115,7 +115,6 @@ final case class TransactionSubviewsV0 private[data] (
       case other =>
         throw new UnsupportedOperationException(s"Invalid path: $other")
     }
-  }
 
   override def mapUnblinded(f: TransactionView => TransactionView): TransactionSubviews =
     TransactionSubviewsV0(subviews.map {
@@ -175,7 +174,7 @@ final case class TransactionSubviewsV1 private[data] (
 
   override def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
-  ): TransactionSubviews = {
+  ): TransactionSubviews =
     viewPos.position match {
       case (head: MerkleSeqIndexFromRoot) +: tail =>
         TransactionSubviewsV1(
@@ -186,23 +185,20 @@ final case class TransactionSubviewsV1 private[data] (
         )
       case other => throw new UnsupportedOperationException(s"Invalid path: $other")
     }
-  }
 
-  override def mapUnblinded(f: TransactionView => TransactionView): TransactionSubviews = {
+  override def mapUnblinded(f: TransactionView => TransactionView): TransactionSubviews =
     TransactionSubviewsV1(subviews.mapM(f))
-  }
 
   override def pretty: Pretty[TransactionSubviewsV1.this.type] = prettyOfClass(
     unnamedParam(_.subviews)
   )
 
-  override lazy val trySubviewHashes: Seq[ViewHash] = {
+  override lazy val trySubviewHashes: Seq[ViewHash] =
     if (blindedElements.isEmpty) unblindedElements.map(_.viewHash)
     else
       throw new IllegalStateException(
         "Attempting to get subviewHashes from a TransactionSubviewsV1 with blinded elements"
       )
-  }
 }
 
 object TransactionSubviews {
@@ -233,12 +229,11 @@ object TransactionSubviews {
 
   def apply(
       subviewsSeq: Seq[MerkleTree[TransactionView]]
-  )(protocolVersion: ProtocolVersion, hashOps: HashOps): TransactionSubviews = {
+  )(protocolVersion: ProtocolVersion, hashOps: HashOps): TransactionSubviews =
     if (protocolVersion >= ProtocolVersion.v4)
       TransactionSubviewsV1(MerkleSeq.fromSeq(hashOps, protocolVersion)(subviewsSeq))
     else
       TransactionSubviewsV0(subviewsSeq)
-  }
 
   def empty(protocolVersion: ProtocolVersion, hashOps: HashOps): TransactionSubviews =
     apply(Seq.empty)(protocolVersion, hashOps)

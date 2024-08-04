@@ -237,9 +237,7 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
   }
 
   it should "sort correctly 10 sources, random size" in testMergeSort(
-    {
-      Vector.fill(10)(sortedRandomInts(10))
-    },
+    Vector.fill(10)(sortedRandomInts(10)),
     times = 100,
   )
 

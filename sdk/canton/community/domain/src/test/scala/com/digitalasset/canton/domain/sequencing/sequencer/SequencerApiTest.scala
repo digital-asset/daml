@@ -251,7 +251,7 @@ trait SequencerApiTestUtils
       // up to 60 seconds needed because Besu is very slow on CI
       timeout: FiniteDuration = 60.seconds,
       firstSequencerCounter: SequencerCounter = SequencerCounter.Genesis,
-  )(implicit materializer: Materializer): Future[Seq[(Member, OrdinarySerializedEvent)]] = {
+  )(implicit materializer: Materializer): Future[Seq[(Member, OrdinarySerializedEvent)]] =
     members
       .parTraverseFilter { member =>
         for {
@@ -272,7 +272,6 @@ trait SequencerApiTestUtils
             }
         } yield events
       }
-  }
 
   case class EnvelopeDetails(
       content: String,
@@ -325,7 +324,7 @@ trait SequencerApiTestUtils
     val sortReceived = receivedMessages.sortBy { case (member, _) => member }
 
     forAll(sortReceived.zip(sortExpected)) { case ((member, message), expectedMessage) =>
-      withClue(s"Member mismatch") { member shouldBe expectedMessage.to }
+      withClue(s"Member mismatch")(member shouldBe expectedMessage.to)
 
       withClue(s"Sequencer counter is wrong") {
         message.counter shouldBe expectedMessage.counter
@@ -353,7 +352,7 @@ trait SequencerApiTestUtils
       got: Seq[(Member, OrdinarySerializedEvent)],
       sender: Member,
       expectedMessageId: MessageId,
-  )(assertReason: PartialFunction[Status, Assertion]): Assertion = {
+  )(assertReason: PartialFunction[Status, Assertion]): Assertion =
     got match {
       case Seq((`sender`, event)) =>
         event.signedEvent.content match {
@@ -365,7 +364,6 @@ trait SequencerApiTestUtils
         }
       case _ => fail(s"Read wrong events for $sender: $got")
     }
-  }
 
   case class TestingEnvelope(content: String, override val recipients: Recipients)
       extends Envelope[String] {
@@ -378,11 +376,10 @@ trait SequencerApiTestUtils
         testedProtocolVersion,
       )
 
-    override def forRecipient(member: Member): Option[Envelope[String]] = {
+    override def forRecipient(member: Member): Option[Envelope[String]] =
       recipients
         .forMember(member)
         .map(recipients => TestingEnvelope(content, recipients))
-    }
 
     override def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
   }

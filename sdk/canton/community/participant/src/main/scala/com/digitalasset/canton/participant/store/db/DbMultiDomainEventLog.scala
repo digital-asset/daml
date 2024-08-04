@@ -428,7 +428,7 @@ class DbMultiDomainEventLog private[db] (
 
   override def prune(
       upToInclusive: GlobalOffset
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     processingTime.event {
       storage
         .update_(
@@ -436,11 +436,10 @@ class DbMultiDomainEventLog private[db] (
           functionFullName,
         )
     }
-  }
 
   override def subscribe(startInclusive: Option[GlobalOffset])(implicit
       traceContext: TraceContext
-  ): Source[(GlobalOffset, Traced[LedgerSyncEvent]), NotUsed] = {
+  ): Source[(GlobalOffset, Traced[LedgerSyncEvent]), NotUsed] =
     dispatcher
       .startingAt(
         // start index is exclusive
@@ -470,7 +469,6 @@ class DbMultiDomainEventLog private[db] (
         // by construction, the offset is positive
         GlobalOffset.tryFromLong(offset.unwrap) -> event
       }
-  }
 
   override def lookupEventRange(upToInclusive: Option[GlobalOffset], limit: Option[Int])(implicit
       traceContext: TraceContext
@@ -866,16 +864,14 @@ object DbMultiDomainEventLog {
     import storage.api.*
 
     storage.query(
-      {
-        for {
-          rows <-
-            sql"""select log_id, max(local_offset) from linearized_event_log group by log_id"""
-              .as[(Int, LocalOffset)]
-        } yield {
-          val result = new TrieMap[Int, LocalOffset]()
-          result ++= rows
-          result
-        }
+      for {
+        rows <-
+          sql"""select log_id, max(local_offset) from linearized_event_log group by log_id"""
+            .as[(Int, LocalOffset)]
+      } yield {
+        val result = new TrieMap[Int, LocalOffset]()
+        result ++= rows
+        result
       },
       functionFullName,
     )

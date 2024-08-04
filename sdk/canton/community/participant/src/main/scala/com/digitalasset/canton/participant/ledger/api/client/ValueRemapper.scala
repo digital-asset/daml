@@ -21,7 +21,7 @@ object ValueRemapper {
     */
   def convertEvent(remapContractId: String => String, mapPartyId: String => String)(
       createdEvent: CreatedEvent
-  ): CreatedEvent = {
+  ): CreatedEvent =
     createdEvent.copy(
       contractId = remapContractId(createdEvent.contractId),
       signatories = createdEvent.signatories.map(mapPartyId),
@@ -31,7 +31,6 @@ object ValueRemapper {
         createdEvent.createArguments.map(remapRecord(remapContractId, mapPartyId, _)),
       contractKey = createdEvent.contractKey.map(remapValue(remapContractId, mapPartyId)),
     )
-  }
 
   /** Helper specifically useful for CreatedEvents that contain arguments as a record.
     */
@@ -39,7 +38,7 @@ object ValueRemapper {
       remapContractId: String => String,
       remapParty: String => String,
       record: value.Record,
-  ): value.Record = {
+  ): value.Record =
     record match {
       case value.Record(id, fields) =>
         val remappedFields = fields.map { case value.RecordField(label, v) =>
@@ -47,7 +46,6 @@ object ValueRemapper {
         }
         value.Record(id, remappedFields)
     }
-  }
 
   /** Helper for arbitrary ledger api values.
     */

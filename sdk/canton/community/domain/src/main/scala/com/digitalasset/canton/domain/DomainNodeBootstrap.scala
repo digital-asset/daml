@@ -184,7 +184,7 @@ class DomainNodeBootstrap(
     softDependencies = Seq(domainTopologySenderHealth),
   )
 
-  private def makeDynamicDomainServer(maxRequestSize: MaxRequestSize) = {
+  private def makeDynamicDomainServer(maxRequestSize: MaxRequestSize) =
     new DynamicDomainGrpcServer(
       loggerFactory,
       maxRequestSize,
@@ -195,7 +195,6 @@ class DomainNodeBootstrap(
       healthReporter,
       domainApiServiceHealth,
     )
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var topologyManager: Option[DomainTopologyManager] = None
@@ -346,7 +345,7 @@ class DomainNodeBootstrap(
     EitherT.pure(())
   }
 
-  override protected def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] = {
+  override protected def initialize(id: NodeId): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       _ <- CryptoHandshakeValidator
         .validate(staticDomainParametersFromConfig, cryptoConfig)
@@ -369,7 +368,6 @@ class DomainNodeBootstrap(
         )
       _ <- startIfDomainManagerReadyOrDefer(manager, staticDomainParameters)
     } yield ()
-  }
 
   /** The Domain cannot be started until the domain manager has keys for all domain entities available. These keys
     * can be provided by console commands or external processes via the admin API so there are no guarantees for when they
@@ -395,7 +393,7 @@ class DomainNodeBootstrap(
         override def addedSignedTopologyTransaction(
             timestamp: CantonTimestamp,
             transaction: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-        )(implicit traceContext: TraceContext): Unit = {
+        )(implicit traceContext: TraceContext): Unit =
           if (!attemptedStart.get()) {
             val initTimeout = parameters.processingTimeouts.unbounded
             val managerInitialized =
@@ -420,7 +418,6 @@ class DomainNodeBootstrap(
               }
             }
           }
-        }
       })
       EitherT.pure[FutureUnlessShutdown, String](())
     }
@@ -672,7 +669,7 @@ object DomainNodeBootstrap {
       .toStaticDomainParameters(cryptoConfig)
       .valueOr(err =>
         throw new IllegalArgumentException(
-          s"Failed to convert static domain params: ${err}"
+          s"Failed to convert static domain params: $err"
         )
       )
 

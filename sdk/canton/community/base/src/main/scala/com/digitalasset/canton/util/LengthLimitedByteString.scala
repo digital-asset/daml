@@ -69,21 +69,19 @@ object LengthLimitedByteString {
       str: ByteString,
       maxLength: Int,
       name: Option[String] = None,
-  ): LengthLimitedByteString = {
+  ): LengthLimitedByteString =
     new LengthLimitedByteStringVar(str, maxLength)(name)
-  }
 
   def create(
       str: ByteString,
       maxLength: Int,
       name: Option[String] = None,
-  ): Either[String, LengthLimitedByteString] = {
+  ): Either[String, LengthLimitedByteString] =
     Either.cond(
       str.size() <= maxLength,
       new LengthLimitedByteStringVar(str, maxLength)(name),
       errorMsg(str, maxLength, name),
     )
-  }
 
 }
 

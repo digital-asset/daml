@@ -29,13 +29,12 @@ final case class ActiveContract private (
   // Ensures the invariants related to default values hold
   validateInstance().valueOr(err => throw new IllegalArgumentException(err))
 
-  private def toProtoV0: v0.ActiveContract = {
+  private def toProtoV0: v0.ActiveContract =
     v0.ActiveContract(
       protocolVersion.toProtoPrimitive,
       domainId.toProtoPrimitive,
       contract.toByteString(protocolVersion),
     )
-  }
 
   override protected lazy val companionObj: ActiveContract.type = ActiveContract
 
@@ -60,7 +59,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
 
   private def fromProtoV0(
       proto: v0.ActiveContract
-  ): ParsingResult[ActiveContract] = {
+  ): ParsingResult[ActiveContract] =
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(
         proto.protocolVersion,
@@ -74,7 +73,6 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
     } yield {
       activeContract
     }
-  }
 
   private[admin] class InvalidActiveContract(message: String) extends RuntimeException(message) {
     lazy val toProtoDeserializationError: ProtoDeserializationError.InvariantViolation =
@@ -93,18 +91,17 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       )
       .leftMap(iae => new InvalidActiveContract(iae.getMessage))
 
-  private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] = {
+  private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] =
     ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>
       loadFromSource(fileInput) match {
         case Left(error) => throw new Exception(error)
         case Right(value) => value.iterator
       }
     }
-  }
 
   private[admin] def loadFromByteString(
       bytes: ByteString
-  ): Either[String, List[ActiveContract]] = {
+  ): Either[String, List[ActiveContract]] =
     for {
       decompressedBytes <-
         ByteStringUtil
@@ -116,7 +113,6 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
         loadFromSource(inputSource)
       }
     } yield contracts
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   private def loadFromSource(

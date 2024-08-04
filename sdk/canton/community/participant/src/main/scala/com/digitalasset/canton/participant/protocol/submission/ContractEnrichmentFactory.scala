@@ -28,9 +28,8 @@ private[submission] object ContractEnrichmentFactory {
 
   private type ContractEnrichment = SerializableContract => SerializableContract
 
-  def apply(protocolVersion: ProtocolVersion): ContractEnrichmentFactory = {
+  def apply(protocolVersion: ProtocolVersion): ContractEnrichmentFactory =
     if (protocolVersion >= ProtocolVersion.v5) PV5 else PV0
-  }
 
   private object PV0 extends ContractEnrichmentFactory {
     override def apply(coreOtherNodes: List[(LfActionNode, RollbackScope)]): ContractEnrichment = {
@@ -40,16 +39,15 @@ private[submission] object ContractEnrichmentFactory {
 
     private def buildNodeMetadata(
         coreOtherNodes: List[(LfActionNode, RollbackScope)]
-    ): Map[LfContractId, ContractMetadata] = {
+    ): Map[LfContractId, ContractMetadata] =
       coreOtherNodes.mapFilter { case (node, _) =>
         usedContractIdMetadata(node)
       }.toMap
-    }
 
     /** Uses maintainers for signatories and stakeholders of lookup (fixed for [[PV5]]) */
     private def usedContractIdMetadata(
         node: LfActionNode
-    ): Option[(LfContractId, ContractMetadata)] = {
+    ): Option[(LfContractId, ContractMetadata)] =
       node match {
         case _: LfNodeCreate => None
         case n: LfNodeFetch => Some(n.coid -> LfTransactionUtil.metadataFromFetch(n))
@@ -64,7 +62,6 @@ private[submission] object ContractEnrichmentFactory {
               )
           )
       }
-    }
   }
 
   private object PV5 extends ContractEnrichmentFactory {

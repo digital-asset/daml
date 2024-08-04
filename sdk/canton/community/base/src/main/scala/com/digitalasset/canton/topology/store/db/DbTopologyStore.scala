@@ -407,7 +407,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     val query =
       sql"SELECT id, instance, sequenced, valid_from, valid_until FROM topology_transactions WHERE store_id = $store " ++
         subQuery ++ (if (!includeRejected) sql" AND ignore_reason IS NULL"
-                     else sql"") ++ sql" #${orderBy} #${limit}"
+                     else sql"") ++ sql" #$orderBy #$limit"
     readTime.event {
       storage
         .query(
@@ -467,7 +467,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         // It is also stack safe as trampolined by a `Future.flatmap` inside queryForTransactions.
         queryForTransactions(
           store,
-          sql" AND transaction_type = ${typ} and valid_from < $ts",
+          sql" AND transaction_type = $typ and valid_from < $ts",
           limit = storage.limit(1),
           orderBy = " ORDER BY valid_from DESC",
         ).map(
@@ -477,7 +477,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           }
         )
       }
-      def go(before: CantonTimestamp): Future[CantonTimestamp] = {
+      def go(before: CantonTimestamp): Future[CantonTimestamp] =
         getParameterChangeBefore(before).flatMap {
           case None =>
             // there is no parameter change before, so we use the default (which is 0)
@@ -491,14 +491,13 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
               go(ts)
             }
         }
-      }
       sequencedO.map(Future.successful).getOrElse {
         go(validFrom).flatMap { sequenced =>
           logger.info(
-            s"Updating legacy topology transaction id=${id} with effective=${validFrom} to sequenced time=${sequenced}"
+            s"Updating legacy topology transaction id=$id with effective=$validFrom to sequenced time=$sequenced"
           )
           val query =
-            sqlu"UPDATE topology_transactions SET sequenced = ${sequenced} WHERE id = $id AND store_id = $store"
+            sqlu"UPDATE topology_transactions SET sequenced = $sequenced WHERE id = $id AND store_id = $store"
           storage.update_(query, functionFullName).map(_ => sequenced)
         }
       }
@@ -596,7 +595,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                  AND secondary_identifier LIKE $filterParticipantIdentifier AND secondary_namespace LIKE $filterParticipantNamespace)
              OR (transaction_type = $pdsm AND identifier LIKE $filterPartyIdentifier AND namespace LIKE $filterPartyNamespace
                  AND identifier LIKE $filterParticipantIdentifier AND namespace LIKE $filterParticipantNamespace)
-            ) AND ignore_reason IS NULL GROUP BY (identifier, namespace) #${limitS}"""
+            ) AND ignore_reason IS NULL GROUP BY (identifier, namespace) #$limitS"""
     readTime.event {
       storage
         .query(
@@ -623,11 +622,10 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactions[TopologyChangeOp]] = {
-    val storeId = {
+    val storeId =
       if (stateStore)
         stateStoreIdFilterName
       else transactionStoreIdName
-    }
     val query1: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>
         getHeadStateQuery(recentTimestampO)
@@ -772,48 +770,43 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactions[TopologyChangeOp]] = {
-    {
-      {
-        val hasUidFilter = filterUid.nonEmpty || filterNamespace.nonEmpty
-        val count =
-          filterUid.map(_.length).getOrElse(0) + filterNamespace.map(_.length).getOrElse(0)
-        if (hasUidFilter && count == 0) {
-          Future.successful(StoredTopologyTransactions.empty[TopologyChangeOp.Add])
-        } else {
-          val rangeQuery = asOfQuery(asOf, asOfInclusive)
-          val opFilter = filterOps.map(op => sql"operation = $op").intercalate(sql" or ")
-          val baseQuery =
-            sql" AND (" ++ opFilter ++ sql") AND transaction_type IN (" ++ types.toList
-              .map(s => sql"$s")
-              .intercalate(sql", ") ++ sql")"
+    val hasUidFilter = filterUid.nonEmpty || filterNamespace.nonEmpty
+    val count =
+      filterUid.map(_.length).getOrElse(0) + filterNamespace.map(_.length).getOrElse(0)
+    if (hasUidFilter && count == 0) {
+      Future.successful(StoredTopologyTransactions.empty[TopologyChangeOp.Add])
+    } else {
+      val rangeQuery = asOfQuery(asOf, asOfInclusive)
+      val opFilter = filterOps.map(op => sql"operation = $op").intercalate(sql" or ")
+      val baseQuery =
+        sql" AND (" ++ opFilter ++ sql") AND transaction_type IN (" ++ types.toList
+          .map(s => sql"$s")
+          .intercalate(sql", ") ++ sql")"
 
-          val pathQuery: SQLActionBuilderChain =
-            if (!hasUidFilter) sql""
-            else {
-              def genFilters(identifier: String, namespace: String): SQLActionBuilderChain = {
-                val filterUidQ =
-                  filterUid
-                    .map(_.filterNot(uid => filterNamespace.exists(_.contains(uid.namespace))))
-                    .toList
-                    .flatMap(
-                      _.map(uid =>
-                        sql"(#$identifier = ${uid.id} AND #$namespace = ${uid.namespace})"
-                      )
-                    )
-                val filterNsQ =
-                  filterNamespace.toList
-                    .flatMap(_.map(ns => sql"(#$namespace = $ns)"))
-                SQLActionBuilderChain(filterUidQ) ++ SQLActionBuilderChain(filterNsQ)
-              }
-              val plainFilter = genFilters("identifier", "namespace")
-              val filters = if (includeSecondary) {
-                plainFilter ++ genFilters("secondary_identifier", "secondary_namespace")
-              } else plainFilter
-              sql" AND (" ++ filters.intercalate(sql" OR ") ++ sql")"
-            }
-          queryForTransactions(store, rangeQuery ++ baseQuery ++ pathQuery)
+      val pathQuery: SQLActionBuilderChain =
+        if (!hasUidFilter) sql""
+        else {
+          def genFilters(identifier: String, namespace: String): SQLActionBuilderChain = {
+            val filterUidQ =
+              filterUid
+                .map(_.filterNot(uid => filterNamespace.exists(_.contains(uid.namespace))))
+                .toList
+                .flatMap(
+                  _.map(uid => sql"(#$identifier = ${uid.id} AND #$namespace = ${uid.namespace})")
+                )
+            val filterNsQ =
+              filterNamespace.toList
+                .flatMap(_.map(ns => sql"(#$namespace = $ns)"))
+            SQLActionBuilderChain(filterUidQ) ++ SQLActionBuilderChain(filterNsQ)
+          }
+
+          val plainFilter = genFilters("identifier", "namespace")
+          val filters = if (includeSecondary) {
+            plainFilter ++ genFilters("secondary_identifier", "secondary_namespace")
+          } else plainFilter
+          sql" AND (" ++ filters.intercalate(sql" OR ") ++ sql")"
         }
-      }
+      queryForTransactions(store, rangeQuery ++ baseQuery ++ pathQuery)
     }
   }
 
@@ -900,7 +893,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] = {
+  ): Future[Seq[TopologyStore.Change]] =
     queryForTransactions(
       transactionStoreIdName,
       sql" AND valid_from >= $asOfInclusive ",
@@ -910,7 +903,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         res.result
       )
     )
-  }
 
   override def currentDispatchingWatermark(implicit
       traceContext: TraceContext

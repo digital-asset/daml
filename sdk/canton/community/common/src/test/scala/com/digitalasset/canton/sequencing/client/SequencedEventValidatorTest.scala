@@ -37,7 +37,7 @@ class SequencedEventValidatorTest
         timeouts,
         futureSupervisor,
       )
-    ) { env => withFixture(test.toNoArgTest(env)) }
+    )(env => withFixture(test.toNoArgTest(env)))
 
   "validate on reconnect" should {
     "accept the prior event" in { fixture =>
@@ -115,12 +115,11 @@ class SequencedEventValidatorTest
 
       def expectLog[E](
           cmd: => FutureUnlessShutdown[SequencedEventValidationError[E]]
-      ): SequencedEventValidationError[E] = {
+      ): SequencedEventValidationError[E] =
         loggerFactory
           .assertLogs(cmd, _.shouldBeCantonErrorCode(ResilientSequencerSubscription.ForkHappened))
           .failOnShutdown
           .futureValue
-      }
 
       val priorEvent = createEvent().futureValue
       val validator = mkValidator()
@@ -165,7 +164,7 @@ class SequencedEventValidatorTest
           counter: SequencerCounter,
           suppliedEvent: SequencedEvent[ClosedEnvelope],
           expectedEvent: Option[SequencedEvent[ClosedEnvelope]],
-      ): Assertion = {
+      ): Assertion =
         err match {
           case ForkHappened(counterRes, suppliedEventRes, expectedEventRes) =>
             (
@@ -173,9 +172,8 @@ class SequencedEventValidatorTest
               suppliedEvent,
               expectedEvent,
             ) shouldBe (counterRes, suppliedEventRes, expectedEventRes)
-          case x => fail(s"${x} is not ForkHappened")
+          case x => fail(s"$x is not ForkHappened")
         }
-      }
 
       assertFork(errCounter)(
         SequencerCounter(updatedCounter),

@@ -60,9 +60,8 @@ class ParticipantMetrics(
   object pruning extends ParticipantPruningMetrics(prefix, metricsFactory)
 
   @nowarn("cat=deprecation")
-  def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
+  def domainMetrics(alias: DomainAlias): SyncDomainMetrics =
     clients.getOrElseUpdate(alias, new SyncDomainMetrics(prefix :+ alias.unwrap, metricsFactory))
-  }
 
   @MetricDoc.Tag(
     summary = "Number of updates published through the read service to the indexer",

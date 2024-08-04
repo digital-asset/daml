@@ -12,7 +12,7 @@ class GrpcSubscriptionErrorRetryPolicyPekko
   override def retryOnError(
       subscriptionError: GrpcSequencerSubscriptionError,
       receivedItems: Boolean,
-  )(implicit loggingContext: ErrorLoggingContext): Boolean = {
+  )(implicit loggingContext: ErrorLoggingContext): Boolean =
     subscriptionError match {
       case GrpcSequencerClientTransportPekko.ExpectedGrpcFailure(error) =>
         GrpcSubscriptionErrorRetryPolicy.logAndDetermineRetry(error, receivedItems)
@@ -23,7 +23,6 @@ class GrpcSubscriptionErrorRetryPolicyPekko
         loggingContext.error(s"Failed to parse sequenced event: $error")
         false
     }
-  }
 
   override def retryOnException(ex: Throwable)(implicit
       loggingContext: ErrorLoggingContext

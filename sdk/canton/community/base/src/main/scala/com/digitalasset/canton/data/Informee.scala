@@ -109,9 +109,8 @@ final case class ConfirmingParty(
 
   val weight: NonNegativeInt = partyWeight.toNonNegative
 
-  def withAdditionalWeight(delta: NonNegativeInt): Informee = {
+  def withAdditionalWeight(delta: NonNegativeInt): Informee =
     copy(partyWeight = partyWeight + delta)
-  }
 }
 
 /** An informee that is not a confirming party

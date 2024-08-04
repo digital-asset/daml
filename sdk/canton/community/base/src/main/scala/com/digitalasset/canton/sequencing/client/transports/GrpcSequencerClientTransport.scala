@@ -101,7 +101,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     sendInternal(
       stub =>
         stub.sendAsyncVersioned(
@@ -112,7 +112,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       timeout,
       SendAsyncResponse.fromSendAsyncSignedResponseProto,
     )
-  }
 
   override def sendAsync(
       request: SubmissionRequest,
@@ -131,7 +130,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncClientError, Unit] = {
+  ): EitherT[Future, SendAsyncClientError, Unit] =
     sendInternal(
       stub =>
         stub.sendAsyncUnauthenticatedVersioned(
@@ -142,7 +141,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       timeout,
       SendAsyncResponse.fromSendAsyncResponseProto,
     )
-  }
 
   private def sendInternal[Resp](
       send: SequencerServiceStub => Future[Resp],
@@ -171,7 +169,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   private def fromResponse[Proto](
       p: Proto,
       deserializer: Proto => ParsingResult[SendAsyncResponse],
-  ) = {
+  ) =
     for {
       response <- deserializer(p)
         .leftMap[SendAsyncClientError](err =>
@@ -179,7 +177,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         )
       _ <- response.error.toLeft(()).leftMap(SendAsyncClientError.RequestRefused)
     } yield ()
-  }
 
   private def fromGrpcError(error: GrpcError, messageId: MessageId)(implicit
       traceContext: TraceContext

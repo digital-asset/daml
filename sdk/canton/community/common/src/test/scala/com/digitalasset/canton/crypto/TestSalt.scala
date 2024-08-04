@@ -7,9 +7,8 @@ import cats.syntax.either.*
 
 object TestSalt {
 
-  def generateSeed(index: Int): SaltSeed = {
+  def generateSeed(index: Int): SaltSeed =
     SaltSeed(TestHash.digest(index).unwrap)
-  }
 
   // Generates a deterministic salt for hashing based on the provided index
   // Assumes TestHash uses SHA-256

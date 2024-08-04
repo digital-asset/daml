@@ -137,9 +137,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.GenerateSigningKeyRequest,
-    ): Future[v0.GenerateSigningKeyResponse] = {
+    ): Future[v0.GenerateSigningKeyResponse] =
       service.generateSigningKey(request)
-    }
 
     override def handleResponse(
         response: v0.GenerateSigningKeyResponse
@@ -173,9 +172,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.GenerateEncryptionKeyRequest,
-    ): Future[v0.GenerateEncryptionKeyResponse] = {
+    ): Future[v0.GenerateEncryptionKeyResponse] =
       service.generateEncryptionKey(request)
-    }
 
     override def handleResponse(
         response: v0.GenerateEncryptionKeyResponse
@@ -207,9 +205,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.RegisterKmsSigningKeyRequest,
-    ): Future[v0.RegisterKmsSigningKeyResponse] = {
+    ): Future[v0.RegisterKmsSigningKeyResponse] =
       service.registerKmsSigningKey(request)
-    }
 
     override def handleResponse(
         response: v0.RegisterKmsSigningKeyResponse
@@ -238,9 +235,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.RegisterKmsEncryptionKeyRequest,
-    ): Future[v0.RegisterKmsEncryptionKeyResponse] = {
+    ): Future[v0.RegisterKmsEncryptionKeyResponse] =
       service.registerKmsEncryptionKey(request)
-    }
 
     override def handleResponse(
         response: v0.RegisterKmsEncryptionKeyResponse
@@ -268,9 +264,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.RotateWrapperKeyRequest,
-    ): Future[Empty] = {
+    ): Future[Empty] =
       service.rotateWrapperKey(request)
-    }
 
     override def handleResponse(response: Empty): Either[String, Unit] = Right(())
 
@@ -291,9 +286,8 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v0.GetWrapperKeyIdRequest,
-    ): Future[v0.GetWrapperKeyIdResponse] = {
+    ): Future[v0.GetWrapperKeyIdResponse] =
       service.getWrapperKeyId(request)
-    }
 
     override def handleResponse(
         response: v0.GetWrapperKeyIdResponse
@@ -329,14 +323,13 @@ object VaultAdminCommands {
         ByteString,
       ] {
 
-    override def createRequest(): Either[String, v0.ExportKeyPairRequest] = {
+    override def createRequest(): Either[String, v0.ExportKeyPairRequest] =
       Right(
         v0.ExportKeyPairRequest(
           fingerprint = fingerprint.toProtoPrimitive,
           protocolVersion = protocolVersion.toProtoPrimitive,
         )
       )
-    }
 
     override def submitRequest(
         service: VaultServiceStub,
@@ -355,9 +348,8 @@ object VaultAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, v0.DeleteKeyPairRequest] = {
+    override def createRequest(): Either[String, v0.DeleteKeyPairRequest] =
       Right(v0.DeleteKeyPairRequest(fingerprint = fingerprint.toProtoPrimitive))
-    }
 
     override def submitRequest(
         service: VaultServiceStub,

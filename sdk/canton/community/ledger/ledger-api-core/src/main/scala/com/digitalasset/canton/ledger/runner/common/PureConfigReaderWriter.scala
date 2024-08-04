@@ -69,11 +69,10 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
     }
 
-  implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
+  implicit val metricReporterReader: ConfigReader[MetricsReporter] =
     ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
       MetricsReporter.parseMetricsReporter(s)
     })
-  }
   implicit val metricReporterWriter: ConfigWriter[MetricsReporter] =
     ConfigWriter.toString {
       case MetricsReporter.Console => "console"
@@ -135,7 +134,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
           CannotConvert(
             unknownSeeding,
             Seeding.getClass.getName,
-            s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: ${unknownSeeding}",
+            s"Seeding is neither ${Seeding.Strong.name}, ${Seeding.Weak.name}, nor ${Seeding.Static.name}: $unknownSeeding",
           )
         )
     }

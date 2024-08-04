@@ -147,7 +147,7 @@ class SequencerInfoLoader(
     Future,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
-  ] = {
+  ] =
     for {
       bootstrapInfo <- client
         .getDomainClientBootstrapInfo(domainAlias)
@@ -159,7 +159,6 @@ class SequencerInfoLoader(
         .getDomainParameters(domainAlias)
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(domainAlias))
     } yield (bootstrapInfo, domainParameters)
-  }
 
   private def getBootstrapInfoDomainParametersWithRetry(
       domainAlias: DomainAlias,
@@ -245,7 +244,7 @@ class SequencerInfoLoader(
         }
     } yield {
       logger.info(
-        s"Version handshake with sequencer ${sequencerAlias} and domain using protocol version ${success.serverProtocolVersion} succeeded."
+        s"Version handshake with sequencer $sequencerAlias and domain using protocol version ${success.serverProtocolVersion} succeeded."
       )
       ()
     }

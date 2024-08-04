@@ -114,12 +114,11 @@ final class Authorizer(
       identityProviderIdL: Lens[Req, String],
       claims: ClaimSet.Claims,
       req: Req,
-  ): Req = {
+  ): Req =
     if (identityProviderIdL.get(req) == "" && !claims.claims.contains(ClaimAdmin)) {
       val impliedIdpId = identityProviderIdFromClaims.fold("")(_.toRequestString)
       identityProviderIdL.set(impliedIdpId)(req)
     } else req
-  }
 
   def requireMatchingRequestIdpId[Req, Res](
       identityProviderIdL: Lens[Req, String],
@@ -168,11 +167,10 @@ final class Authorizer(
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit],
-  ): Either[AuthorizationError, Unit] = {
+  ): Either[AuthorizationError, Unit] =
     xs.iterator.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) =>
       acc.flatMap(_ => f(x))
     )
-  }
 
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -349,7 +347,7 @@ final class Authorizer(
   private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
-      .flatMap({
+      .flatMap {
         case ClaimSet.Unauthenticated =>
           Failure(
             AuthorizationChecksErrors.Unauthenticated
@@ -368,7 +366,7 @@ final class Authorizer(
               .asGrpcError
           )
         case claims: ClaimSet.Claims => Success(claims)
-      })
+      }
 
   private def authorizeWithReq[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]

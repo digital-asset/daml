@@ -96,7 +96,7 @@ object TimeProof {
       emptyDeliver = deliver.asInstanceOf[Deliver[Nothing]]
     } yield new TimeProof(event, emptyDeliver)
 
-  private def validateDeliver(deliver: Deliver[Envelope[_]]): Either[String, Unit] = {
+  private def validateDeliver(deliver: Deliver[Envelope[_]]): Either[String, Unit] =
     for {
       _ <- Either.cond(
         isTimeEventBatch(deliver.batch),
@@ -109,7 +109,6 @@ object TimeProof {
         "Time Proof event should have an expected message id",
       )
     } yield ()
-  }
 
   /** Return a wrapped [[TimeProof]] if the given `event` has the correct properties. */
   def fromEventO(event: OrdinarySequencedEvent[Envelope[_]]): Option[TimeProof] =

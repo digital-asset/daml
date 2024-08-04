@@ -54,7 +54,7 @@ object DbContractStoreTest {
       protocolVersion: ProtocolVersion,
       domainIndex: Int,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DbContractStore = {
+  )(implicit ec: ExecutionContext): DbContractStore =
     new DbContractStore(
       storage = storage,
       domainIdIndexed = IndexedDomain.tryCreate(
@@ -69,7 +69,6 @@ object DbContractStoreTest {
       timeouts = DefaultProcessingTimeouts.testing,
       loggerFactory = loggerFactory,
     )
-  }
 }
 
 class ContractStoreTestH2 extends DbContractStoreTest with H2Test

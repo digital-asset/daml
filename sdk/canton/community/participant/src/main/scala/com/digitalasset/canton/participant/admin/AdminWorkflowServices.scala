@@ -355,10 +355,9 @@ private[admin] class ResilientTransactionsSubscription(
 
   runOnShutdown_(new RunOnShutdown {
     override def name: String = s"$serviceName-$subscriptionName-shutdown"
-    override def done: Boolean = {
+    override def done: Boolean =
       // Use isClosing to avoid task eviction at the beginning (see runOnShutdown)
       isClosing && ledgerSubscriptionRef.get().forall(_.completed.isCompleted)
-    }
 
     override def run(): Unit =
       ledgerSubscriptionRef.getAndSet(None).foreach(Lifecycle.close(_)(logger))

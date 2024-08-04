@@ -28,13 +28,12 @@ object X509CertificatePem extends X509CertificateEncoder[X509CertificatePem] {
 
   def tryFromString(pem: String): X509CertificatePem = unwrap(fromString(pem))
 
-  def fromFile(pemFile: File): Either[String, X509CertificatePem] = {
+  def fromFile(pemFile: File): Either[String, X509CertificatePem] =
     Either
       .catchNonFatal(pemFile.loadBytes)
       .leftMap(err => s"Failed to load PEM file: $err")
       .map(ByteString.copyFrom)
       .flatMap(X509CertificatePem.fromBytes)
-  }
 
   def tryFromFile(pemFile: File): X509CertificatePem = unwrap(fromFile(pemFile))
 

@@ -54,7 +54,7 @@ object MonadUtil {
   @tailrec
   def repeatFlatmap[M[_], A](m: M[A], f: A => M[A], counter: Int)(implicit
       monad: Monad[M]
-  ): M[A] = {
+  ): M[A] =
     counter match {
       case 0 => m
       case n =>
@@ -62,7 +62,6 @@ object MonadUtil {
         val next = monad.flatMap(m)(f)
         repeatFlatmap(next, f, counter - 1)
     }
-  }
 
   def sequentialTraverse[X, M[_], S](
       xs: Seq[X]
@@ -108,11 +107,10 @@ object MonadUtil {
 
   def batchedSequentialTraverse_[X, M[_]](parallelism: PositiveInt, chunkSize: PositiveInt)(
       xs: Seq[X]
-  )(processChunk: Seq[X] => M[Unit])(implicit M: Parallel[M]): M[Unit] = {
+  )(processChunk: Seq[X] => M[Unit])(implicit M: Parallel[M]): M[Unit] =
     sequentialTraverse_(xs.grouped(chunkSize.value).grouped(parallelism.value))(chunk =>
       chunk.toSeq.parTraverse_(processChunk)
     )(M.monad)
-  }
 
   /** Conceptually equivalent to `sequentialTraverse(xs)(step).map(monoid.combineAll)`.
     */

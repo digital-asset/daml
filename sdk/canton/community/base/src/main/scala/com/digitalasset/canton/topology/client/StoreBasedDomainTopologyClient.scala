@@ -59,14 +59,13 @@ trait TopologyAwaiter extends FlagCloseable {
     shutdownConditions()
   }
 
-  private def shutdownConditions(): Unit = {
+  private def shutdownConditions(): Unit =
     conditions.updateAndGet { x =>
       x.foreach(_.promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard[Boolean])
       Seq()
     }.discard
-  }
 
-  protected def checkAwaitingConditions()(implicit traceContext: TraceContext): Unit = {
+  protected def checkAwaitingConditions()(implicit traceContext: TraceContext): Unit =
     conditions
       .get()
       .foreach(stateAwait =>
@@ -77,15 +76,14 @@ trait TopologyAwaiter extends FlagCloseable {
             stateAwait.promise.tryFailure(e).discard[Boolean]
         }
       )
-  }
 
   private class StateAwait(func: => Future[Boolean]) {
     val promise: Promise[UnlessShutdown[Boolean]] = Promise[UnlessShutdown[Boolean]]()
-    promise.future.onComplete(_ => {
+    promise.future.onComplete { _ =>
       val _ = conditions.updateAndGet(_.filterNot(_.promise.isCompleted))
-    })
+    }
 
-    def check(): Unit = {
+    def check(): Unit =
       if (!promise.isCompleted) {
         // Ok to use onComplete as any exception will be propagated to the promise.
         func.onComplete {
@@ -94,7 +92,6 @@ trait TopologyAwaiter extends FlagCloseable {
             val _ = promise.tryComplete(res.map(UnlessShutdown.Outcome(_)))
         }
       }
-    }
   }
 
   private[topology] def scheduleAwait(
@@ -150,14 +147,13 @@ abstract class BaseDomainTopologyClient
     def update(
         newEffectiveTimestamp: EffectiveTime,
         newApproximateTimestamp: ApproximateTime,
-    ): HeadTimestamps = {
+    ): HeadTimestamps =
       HeadTimestamps(
         effectiveTimestamp =
           EffectiveTime(effectiveTimestamp.value.max(newEffectiveTimestamp.value)),
         approximateTimestamp =
           ApproximateTime(approximateTimestamp.value.max(newApproximateTimestamp.value)),
       )
-    }
   }
   private val head = new AtomicReference[HeadTimestamps](
     HeadTimestamps(
@@ -426,12 +422,11 @@ class StoreBasedTopologySnapshot(
       copy(work = work.updated(participant, updated))
     }
 
-    def addParticipantState(ps: ParticipantState): PartyAggregation = {
+    def addParticipantState(ps: ParticipantState): PartyAggregation =
       if (ps.permission.isActive)
         update(ps.participant, ps.side, ps.permission)
       else
         this
-    }
 
   }
 
@@ -455,9 +450,8 @@ class StoreBasedTopologySnapshot(
         party: PartyId,
         mp: Map[PartyId, PartyAggregation],
         appender: PartyAggregation => PartyAggregation,
-    ): Map[PartyId, PartyAggregation] = {
+    ): Map[PartyId, PartyAggregation] =
       mp + (party -> appender(mp.getOrElse(party, PartyAggregation(Map()))))
-    }
     for {
 
       // get all party to participant mappings and also participant states for this uid (latter to mix in admin parties)
@@ -487,7 +481,7 @@ class StoreBasedTopologySnapshot(
       )
     } yield {
       // cap the party to participant permission to the participant permission
-      def capped(aggregated: PartyAggregation): Map[ParticipantId, ParticipantAttributes] = {
+      def capped(aggregated: PartyAggregation): Map[ParticipantId, ParticipantAttributes] =
         aggregated.work
           .map { case (participantId, (from, to)) =>
             val participantState =
@@ -508,7 +502,6 @@ class StoreBasedTopologySnapshot(
           }
           // filter out in-active
           .filter(_._2.permission.isActive)
-      }
       val partyToParticipantAttributes = allAggregated.fmap(v => capped(v))
       // For each party we must return a result to satisfy the expectations of the
       // calling CachingTopologySnapshot's caffeine partyCache per findings in #11598.
@@ -668,7 +661,7 @@ class StoreBasedTopologySnapshot(
       filterOwner: String,
       filterOwnerType: Option[KeyOwnerCode],
       limit: Int,
-  ): Future[Map[KeyOwner, KeyCollection]] = {
+  ): Future[Map[KeyOwner, KeyCollection]] =
     store
       .inspect(
         stateStore = useStateTxs,
@@ -699,7 +692,6 @@ class StoreBasedTopologySnapshot(
           }
           .take(limit)
       }
-  }
 
   /** Returns a list of all known parties on this domain */
   override def inspectKnownParties(
@@ -874,10 +866,9 @@ class StoreBasedTopologySnapshot(
 
   override def trafficControlStatus(
       members: Seq[Member]
-  ): Future[Map[Member, Option[MemberTrafficControlState]]] = {
+  ): Future[Map[Member, Option[MemberTrafficControlState]]] =
     // Non-X topology management does not support traffic control transactions
     Future.successful(members.map(_ -> None).toMap)
-  }
 
   /*
   This client does not support consortium parties, i.e. for all requested
@@ -897,7 +888,7 @@ object StoreBasedTopologySnapshot {
   def headstateOfAuthorizedStore(
       topologyStore: TopologyStore[AuthorizedStore],
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): StoreBasedTopologySnapshot = {
+  )(implicit executionContext: ExecutionContext): StoreBasedTopologySnapshot =
     new StoreBasedTopologySnapshot(
       CantonTimestamp.MaxValue, // we use a max value here, as this will give us the "head snapshot" transactions (valid_from < t && until.isNone)
       topologyStore,
@@ -907,5 +898,4 @@ object StoreBasedTopologySnapshot {
       loggerFactory,
       ProtocolVersionValidation.NoValidation,
     )
-  }
 }

@@ -141,7 +141,7 @@ object ClaimSet {
       Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim)
 
     /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-    def canActAs(party: String): Either[AuthorizationError, Unit] = {
+    def canActAs(party: String): Either[AuthorizationError, Unit] =
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
@@ -151,10 +151,9 @@ object ClaimSet {
         (),
         AuthorizationError.MissingActClaim(party),
       )
-    }
 
     /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
-    def canReadAs(party: String): Either[AuthorizationError, Unit] = {
+    def canReadAs(party: String): Either[AuthorizationError, Unit] =
       Either.cond(
         claims.exists {
           case ClaimActAsAnyParty => true
@@ -165,7 +164,6 @@ object ClaimSet {
         (),
         AuthorizationError.MissingReadClaim(party),
       )
-    }
   }
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */

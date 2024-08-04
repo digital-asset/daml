@@ -97,7 +97,7 @@ class FlywayMigrations(
           Future.unit
         } else {
           logger.debug(
-            s"Pending migrations ${pendingMigrations} on attempt ${attempt} of ${retries} attempts"
+            s"Pending migrations $pendingMigrations on attempt $attempt of $retries attempts"
           )
           Future.failed(MigrationIncomplete(pendingMigrations))
         }
@@ -116,7 +116,7 @@ class FlywayMigrations(
 
     (flywayInfo.pending().length, flywayInfo.applied().length) match {
       case (0, appliedMigrations) =>
-        logger.info(s"No pending migrations with ${appliedMigrations} migrations applied.")
+        logger.info(s"No pending migrations with $appliedMigrations migrations applied.")
 
       case (pendingMigrations, 0) =>
         logger.info(

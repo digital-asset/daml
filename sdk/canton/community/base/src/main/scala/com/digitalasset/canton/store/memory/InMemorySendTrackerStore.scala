@@ -25,14 +25,13 @@ class InMemorySendTrackerStore(implicit executionContext: ExecutionContext)
 
   override def savePendingSend(messageId: MessageId, maxSequencingTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SavePendingSendError, Unit] = {
+  ): EitherT[Future, SavePendingSendError, Unit] =
     // if putIfAbsent returns a value it means there was an existing item
     pendingSends
       .putIfAbsent(messageId, maxSequencingTime)
       .toLeft(())
       .leftMap(_ => MessageIdAlreadyTracked: SavePendingSendError)
       .toEitherT[Future]
-  }
 
   override def removePendingSend(
       messageId: MessageId

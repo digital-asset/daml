@@ -54,7 +54,7 @@ class LedgerServerPartyNotifier(
     pendingAllocationSubmissionIds
       .putIfAbsent((party, onParticipant), submissionId)
       .toLeft(())
-      .leftMap(_ => s"Allocation for party ${party} is already inflight")
+      .leftMap(_ => s"Allocation for party $party is already inflight")
   } else
     Right(())
 
@@ -91,7 +91,7 @@ class LedgerServerPartyNotifier(
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
           transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         transactions.parTraverse_ { transaction =>
           Option(transaction)
             .mapFilter(extractTopologyProcessorData)
@@ -99,7 +99,6 @@ class LedgerServerPartyNotifier(
             .getOrElse(FutureUnlessShutdown.unit)
         }
 
-      }
     }
 
   def attachToIdentityManagerOld(): ParticipantTopologyManagerObserver =
@@ -175,7 +174,7 @@ class LedgerServerPartyNotifier(
     // an update even if nothing else has changed.
     // Assumption: `current.partyId == partyId`
     def computeUpdateOver(current: PartyMetadata): Option[PartyMetadata] = {
-      val update = {
+      val update =
         PartyMetadata(
           partyId = partyId,
           displayName = displayName.orElse(current.displayName),
@@ -186,7 +185,6 @@ class LedgerServerPartyNotifier(
           effectiveTimestamp = effectiveTimestamp.value.max(current.effectiveTimestamp),
           submissionId = submissionIdRaw,
         )
-      }
       Option.when(current != update)(update)
     }
 
@@ -236,7 +234,7 @@ class LedgerServerPartyNotifier(
       sequencerTimestamp: SequencedTime,
   )(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Unit =
     // Delays the notification to ensure that the topology change is visible to the ledger server
     // This approach relies on the local `clock` not to drift to much away from the sequencer
     PositiveFiniteDuration
@@ -249,7 +247,6 @@ class LedgerServerPartyNotifier(
       case None =>
         notifyLedgerServer(Future.successful(metadata))(clock.now)
     }
-  }
 
   private def checkForConcurrentUpdate(current: PartyMetadata)(implicit
       traceContext: TraceContext

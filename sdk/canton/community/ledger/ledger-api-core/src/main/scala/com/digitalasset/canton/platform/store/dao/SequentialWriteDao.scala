@@ -43,7 +43,7 @@ object SequentialWriteDao {
       ingestionStorageBackend: IngestionStorageBackend[_],
       parameterStorageBackend: ParameterStorageBackend,
       loggerFactory: NamedLoggerFactory,
-  ): SequentialWriteDao = {
+  ): SequentialWriteDao =
     MetricsContext.withMetricLabels("participant_id" -> participantId) { implicit mc =>
       SequentialWriteDaoImpl(
         ingestionStorageBackend = ingestionStorageBackend,
@@ -65,7 +65,6 @@ object SequentialWriteDao {
         dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
       )
     }
-  }
 
   val noop: SequentialWriteDao = NoopSequentialWriteDao
 }
@@ -148,10 +147,10 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
           .map(DbDto.StringInterningDto.from)
           .pipe(newEntries =>
             newEntries.lastOption
-              .fold(dbDtos)(last => {
+              .fold(dbDtos) { last =>
                 lastStringInterningId = last.internalId
                 dbDtos ++ newEntries
-              })
+              }
           )
 
       dbDtosWithStringInterning

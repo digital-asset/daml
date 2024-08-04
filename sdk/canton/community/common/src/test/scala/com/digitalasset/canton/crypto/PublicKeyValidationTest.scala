@@ -80,8 +80,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       supportedEncryptionKeySchemes: Set[EncryptionKeyScheme],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
-  ): Unit = {
-
+  ): Unit =
     "Validate public keys" should {
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
         keyValidationTest[SigningPublicKey](
@@ -101,7 +100,5 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         )
       }
     }
-
-  }
 
 }

@@ -135,7 +135,7 @@ class JcePureCrypto(
   ): Either[E, JPublicKey] = {
     val keyFormat = publicKey.format
 
-    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] = {
+    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] =
       for {
         formatToConvertTo <- publicKey match {
           case _: EncryptionPublicKey => Right(CryptoKeyFormat.Der)
@@ -161,7 +161,6 @@ class JcePureCrypto(
             KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
           )
       } yield jPublicKey
-    }
 
     def getFromCacheOrDeserializeKey: Either[E, JPublicKey] =
       javaPublicKeyCache
@@ -292,12 +291,11 @@ class JcePureCrypto(
           case _ =>
             Either.left[JavaKeyConversionError, JPrivateKey](
               JavaKeyConversionError.UnsupportedKeyFormat(
-                sigKey.format, {
-                  sigKey.scheme match {
-                    case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
-                    case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
-                    case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
-                  }
+                sigKey.format,
+                sigKey.scheme match {
+                  case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
+                  case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
+                  case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
                 },
               )
             )
@@ -722,7 +720,7 @@ class JcePureCrypto(
             .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
       case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-        def decryptEciesCbc(ecPrivateKey: ECPrivateKey, ciphertextNotSplitted: ByteString) = {
+        def decryptEciesCbc(ecPrivateKey: ECPrivateKey, ciphertextNotSplitted: ByteString) =
           for {
             /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
              * that gets  pre-appended to the ciphertext.
@@ -755,7 +753,6 @@ class JcePureCrypto(
               .catchOnly[GeneralSecurityException](decrypter.doFinal(ciphertext.toByteArray))
               .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
           } yield plaintext
-        }
 
         for {
           ecPrivateKey <- parseAndGetPrivateKey(
@@ -774,7 +771,7 @@ class JcePureCrypto(
             .leftMap(DecryptionError.FailedToDeserialize)
         } yield message
       case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-        def decryptRsa(rsaPrivateKey: RSAPrivateKey, ciphertext: ByteString) = {
+        def decryptRsa(rsaPrivateKey: RSAPrivateKey, ciphertext: ByteString) =
           for {
             decrypter <- Either
               .catchOnly[GeneralSecurityException] {
@@ -802,7 +799,6 @@ class JcePureCrypto(
                 DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
             }
           } yield plaintext
-        }
 
         for {
           rsaPrivateKey <- parseAndGetPrivateKey(

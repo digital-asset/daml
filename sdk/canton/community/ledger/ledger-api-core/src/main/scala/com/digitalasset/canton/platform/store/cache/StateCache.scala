@@ -60,30 +60,29 @@ private[platform] case class StateCache[K, V](
     */
   def putBatch(validAt: Offset, batch: Map[K, V])(implicit traceContext: TraceContext): Unit =
     Timed.value(
-      registerUpdateTimer, {
-        blocking(pendingUpdates.synchronized {
-          // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
-          // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
-          // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
-          if (validAt > cacheIndex) {
-            batch.keySet.foreach { key =>
-              pendingUpdates
-                .get(key)
-                .foreach(_.latestValidAt = validAt)
-            }
-            cacheIndex = validAt
-            cache.putAll(batch)
-            logger.debug(
-              s"Updated cache with a batch of ${batch
-                  .map { case (k, v) => s"$k -> ${truncateValueForLogging(v)}" }
-                  .mkString("[", ", ", "]")} at $validAt"
-            )
-          } else
-            logger.warn(
-              s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
-            )
-        })
-      },
+      registerUpdateTimer,
+      blocking(pendingUpdates.synchronized {
+        // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
+        // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
+        // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
+        if (validAt > cacheIndex) {
+          batch.keySet.foreach { key =>
+            pendingUpdates
+              .get(key)
+              .foreach(_.latestValidAt = validAt)
+          }
+          cacheIndex = validAt
+          cache.putAll(batch)
+          logger.debug(
+            s"Updated cache with a batch of ${batch
+                .map { case (k, v) => s"$k -> ${truncateValueForLogging(v)}" }
+                .mkString("[", ", ", "]")} at $validAt"
+          )
+        } else
+          logger.warn(
+            s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
+          )
+      }),
     )
 
   /** Update the cache asynchronously.

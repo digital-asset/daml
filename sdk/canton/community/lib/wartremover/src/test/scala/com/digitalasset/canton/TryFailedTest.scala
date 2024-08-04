@@ -24,7 +24,7 @@ class TryFailedTest extends AnyWordSpec with Matchers {
     "flag calls Try.failed" in {
       val result = WartTestTraverser(TryFailed) {
         val attempt = (??? : Try[Int])
-        attempt.failed.foreach { _ => () }
+        attempt.failed.foreach(_ => ())
       }
       assertIsError(result)
     }
@@ -32,7 +32,7 @@ class TryFailedTest extends AnyWordSpec with Matchers {
     "flag calls Success.failed" in {
       val result = WartTestTraverser(TryFailed) {
         val attempt = (??? : Success[Int])
-        attempt.failed.foreach { _ => () }
+        attempt.failed.foreach(_ => ())
       }
       assertIsError(result)
     }

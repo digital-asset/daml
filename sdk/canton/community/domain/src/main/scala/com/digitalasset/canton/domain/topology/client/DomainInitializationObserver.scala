@@ -56,7 +56,7 @@ private[domain] class DomainInitializationObserver(
         // normal client to just get notified whenever there was an update to the topology state
         initialisedAt(snapshot.timestamp).value.map {
           case Left(missing) =>
-            logger.debug(s"Domain is not ready at=${snapshot.timestamp} due to ${missing}.")
+            logger.debug(s"Domain is not ready at=${snapshot.timestamp} due to $missing.")
             false
           case Right(_) => true
         }

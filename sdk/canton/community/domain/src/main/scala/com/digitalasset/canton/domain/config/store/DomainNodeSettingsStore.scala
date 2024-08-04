@@ -98,17 +98,17 @@ class DbDomainNodeSettingsStore(
           sqlu"""merge into domain_node_settings
                    (lock, static_domain_parameters)
                    values
-                   ($singleRowLockValue, ${params})"""
+                   ($singleRowLockValue, $params)"""
         case _: DbStorage.Profile.Postgres =>
           sqlu"""insert into domain_node_settings (static_domain_parameters)
-              values (${params})
+              values ($params)
               on conflict (lock) do update set
                   static_domain_parameters = excluded.static_domain_parameters"""
         case _: DbStorage.Profile.Oracle =>
           sqlu"""merge into domain_node_settings dsc
                       using (
                         select
-                          ${params} static_domain_parameters
+                          $params static_domain_parameters
                           from dual
                           ) excluded
                       on (dsc."LOCK" = 'X')

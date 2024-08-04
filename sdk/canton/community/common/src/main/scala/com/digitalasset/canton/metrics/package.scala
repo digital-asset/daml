@@ -14,15 +14,13 @@ package object metrics {
 
   implicit class TimerExtensions(val timer: Timer) extends AnyVal {
 
-    def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
+    def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] =
       EitherT(Timed.future(timer, ev.value))
-    }
 
     def timeEitherFUS[E, A](
         ev: EitherT[FutureUnlessShutdown, E, A]
-    ): EitherT[FutureUnlessShutdown, E, A] = {
+    ): EitherT[FutureUnlessShutdown, E, A] =
       EitherT(FutureUnlessShutdown(Timed.future(timer, ev.value.unwrap)))
-    }
 
   }
 }

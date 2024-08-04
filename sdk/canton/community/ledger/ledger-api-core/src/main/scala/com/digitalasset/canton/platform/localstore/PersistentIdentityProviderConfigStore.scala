@@ -83,15 +83,14 @@ class PersistentIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[Seq[domain.IdentityProviderConfig]]] = {
+  ): Future[Result[Seq[domain.IdentityProviderConfig]]] =
     inTransaction(_.listIdpConfigs) { implicit connection =>
       Right(backend.listIdentityProviderConfigs()(connection))
     }
-  }
 
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] = {
+  ): Future[Result[domain.IdentityProviderConfig]] =
     inTransaction(_.updateIdpConfig) { implicit connection =>
       val id = update.identityProviderId
       for {
@@ -110,7 +109,6 @@ class PersistentIdentityProviderConfigStore(
         s"Updated identity provider configuration with id ${update.identityProviderId}"
       )
     })
-  }
 
   override def getIdentityProviderConfig(issuer: String)(implicit
       loggingContext: LoggingContextWithTrace
@@ -124,11 +122,10 @@ class PersistentIdentityProviderConfigStore(
 
   def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Boolean] = {
+  ): Future[Boolean] =
     dbDispatcher.executeSql(metrics.daml.identityProviderConfigStore.getIdpConfig) { connection =>
       backend.idpConfigByIdExists(id)(connection)
     }
-  }
 
   private def updateIssuer(
       update: IdentityProviderConfigUpdate

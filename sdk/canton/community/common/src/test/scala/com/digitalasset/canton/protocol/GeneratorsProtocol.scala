@@ -33,7 +33,7 @@ final class GeneratorsProtocol(
   import org.scalatest.EitherValues.*
   import generatorsDataTime.*
 
-  implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
+  implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] =
     Arbitrary(for {
       uniqueContractKeys <- Arbitrary.arbitrary[Boolean]
 
@@ -72,7 +72,6 @@ final class GeneratorsProtocol(
       )
 
     } yield parameters)
-  }
 
   implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(
     for {

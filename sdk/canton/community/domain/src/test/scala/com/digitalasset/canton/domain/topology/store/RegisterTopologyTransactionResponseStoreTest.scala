@@ -43,8 +43,7 @@ trait RegisterTopologyTransactionResponseStoreTest {
 
   def registerTopologyTransactionResponseStore(
       mk: () => RegisterTopologyTransactionResponseStore
-  ): Unit = {
-
+  ): Unit =
     "when storing responses" should {
       "be able to list responses" in {
         val sut = mk()
@@ -79,7 +78,6 @@ trait RegisterTopologyTransactionResponseStoreTest {
         } yield responseO shouldBe Some(Response(response1, isCompleted = true))
       }
     }
-  }
 }
 
 class RegisterTopologyTransactionResponseStoreTestInMemory

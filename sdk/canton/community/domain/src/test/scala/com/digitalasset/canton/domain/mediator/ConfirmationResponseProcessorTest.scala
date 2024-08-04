@@ -240,7 +240,7 @@ abstract class ConfirmationResponseProcessorTestBase
           super.informeesAndConfirmationParamsByViewPosition.head
 
         override def informeesAndConfirmationParamsByViewPosition
-            : Map[ViewPosition, ViewConfirmationParameters] = {
+            : Map[ViewPosition, ViewConfirmationParameters] =
           super.informeesAndConfirmationParamsByViewPosition map {
             case (key, ViewConfirmationParameters(informees, quorums)) =>
               (
@@ -251,7 +251,6 @@ abstract class ConfirmationResponseProcessorTestBase
                 ),
               )
           }
-        }
 
         override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
       }
@@ -288,7 +287,7 @@ abstract class ConfirmationResponseProcessorTestBase
           }.value
 
         override def informeesAndConfirmationParamsByViewPosition
-            : Map[ViewPosition, ViewConfirmationParameters] = {
+            : Map[ViewPosition, ViewConfirmationParameters] =
           super.informeesAndConfirmationParamsByViewPosition map {
             case (key, ViewConfirmationParameters(informee, quorums)) =>
               (
@@ -301,7 +300,6 @@ abstract class ConfirmationResponseProcessorTestBase
                 ),
               )
           }
-        }
 
         override def rootHash: Option[RootHash] = Some(this.fullInformeeTree.tree.rootHash)
       }
@@ -990,13 +988,12 @@ abstract class ConfirmationResponseProcessorTestBase
 
       val malformedMsg = "this is a test malformed response"
 
-      def isMalformedWarn(participant: ParticipantId)(logEntry: LogEntry): Assertion = {
+      def isMalformedWarn(participant: ParticipantId)(logEntry: LogEntry): Assertion =
         logEntry.shouldBeCantonError(
           LocalReject.MalformedRejects.Payloads,
           _ shouldBe s"Rejected transaction due to malformed payload within views $malformedMsg",
           _ should contain("reportedBy" -> s"$participant"),
         )
-      }
 
       def malformedResponse(
           participant: ParticipantId,
@@ -1291,12 +1288,11 @@ class ConfirmationResponseProcessorTest extends ConfirmationResponseProcessorTes
           ts.plusSeconds(120),
           response,
           Recipients.cc(mediatorRef.toRecipient),
-        ), {
-          _.shouldBeCantonError(
-            MediatorError.InvalidMessage,
-            _ shouldBe show"Received a mediator response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
-          )
-        },
+        ),
+        _.shouldBeCantonError(
+          MediatorError.InvalidMessage,
+          _ shouldBe show"Received a mediator response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
+        ),
       )
     } yield {
       succeed

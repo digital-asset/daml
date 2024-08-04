@@ -138,18 +138,17 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
 
   override def domainDisconnected(
       domain: DomainAlias
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     domains.remove(domain) match {
       case Some(outbox) =>
         outbox.foreach(_.close())
       case None =>
         logger.debug(s"Topology pusher already disconnected from $domain")
     }
-  }
 
   override def awaitIdle(domain: DomainAlias, timeout: Duration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
+  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
     domains
       .get(domain)
       .fold(
@@ -164,7 +163,6 @@ abstract class ParticipantTopologyDispatcherImplCommon[S <: SyncDomainPersistent
           x.forgetNE.parTraverse(_.awaitIdle(timeout)).map(_.forall(identity))
         )
       )
-  }
 
   protected def getState(domainId: DomainId)(implicit
       traceContext: TraceContext
@@ -293,7 +291,7 @@ class ParticipantTopologyDispatcher(
       materializer: Materializer,
       tracer: Tracer,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
+  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
     getState(domainId).flatMap { state =>
       (new ParticipantInitializeTopology(
         domainId,
@@ -312,7 +310,6 @@ class ParticipantTopologyDispatcher(
         expectedSequencers,
       )).run()
     }
-  }
 }
 
 /** Utility class to dispatch the initial set of onboarding transactions to a domain
@@ -356,7 +353,7 @@ private class DomainOnboardingOutbox(
   ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = (for {
     initialTransactions <- loadInitialTransactionsFromStore()
     _ = logger.debug(
-      s"Sending ${initialTransactions.size} onboarding transactions to ${domain}"
+      s"Sending ${initialTransactions.size} onboarding transactions to $domain"
     )
     result <- dispatch(domain, initialTransactions).leftMap[DomainRegistryError](
       DomainRegistryError.DomainRegistryInternalError.InitialOnboardingError(_)

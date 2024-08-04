@@ -100,7 +100,7 @@ final case class GenTransactionTree private (
     */
   private[data] def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
-  ): GenTransactionTree = {
+  ): GenTransactionTree =
     viewPos.position match {
       case (head: MerkleSeqIndexFromRoot) +: tail =>
         val sm = if (viewPos.isTopLevel) submitterMetadata else submitterMetadata.blindFully
@@ -116,7 +116,6 @@ final case class GenTransactionTree private (
         )(hashOps)
       case _ => throw new UnsupportedOperationException(s"Invalid view position: $viewPos")
     }
-  }
 
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(rootHash)
 
@@ -124,7 +123,7 @@ final case class GenTransactionTree private (
     * The resulting informee tree is full, only if every view common data is unblinded.
     */
   def tryFullInformeeTree(protocolVersion: ProtocolVersion): FullInformeeTree = {
-    val tree = blind({
+    val tree = blind {
       case _: GenTransactionTree => RevealIfNeedBe
       case _: SubmitterMetadata => BlindSubtree
       case _: CommonMetadata => RevealSubtree
@@ -132,7 +131,7 @@ final case class GenTransactionTree private (
       case _: TransactionView => RevealIfNeedBe
       case _: ViewCommonData => RevealSubtree
       case _: ViewParticipantData => BlindSubtree
-    }).tryUnwrap
+    }.tryUnwrap
     FullInformeeTree.tryCreate(tree, protocolVersion)
   }
 

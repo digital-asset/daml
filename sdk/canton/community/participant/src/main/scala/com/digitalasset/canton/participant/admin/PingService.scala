@@ -149,7 +149,7 @@ class PingService(
         ),
         AllExnRetryable,
       )
-      .map { _ => () }
+      .map(_ => ())
   }
 
   // Execute vacuuming task when (re)connecting to a new domain
@@ -206,8 +206,8 @@ class PingService(
         override def executeBatch(items: NonEmpty[Seq[Traced[VacuumCommand]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Seq[Unit]] = {
-          Future.traverse(items.forgetNE)(item => {
+        ): Future[Seq[Unit]] =
+          Future.traverse(items.forgetNE) { item =>
             submitIgnoringErrors(
               item.value.id,
               item.value.action,
@@ -216,8 +216,7 @@ class PingService(
               NoCommandDeduplicationNeeded,
               unknownInformeesLogLevel = Level.INFO,
             )
-          })
-        }
+          }
 
         override def prettyItem: Pretty[VacuumCommand] = implicitly
       }
@@ -506,7 +505,7 @@ class PingService(
       maxLevel: Long,
       workflowId: Option[WorkflowId],
       timeoutMillis: Long,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Unit] =
     if (validators.isEmpty) {
       logger.debug(s"Starting ping $id with responders $responders and level $maxLevel")
       val ping =
@@ -540,7 +539,6 @@ class PingService(
         timeoutMillis,
       )
     }
-  }
 
   @nowarn("msg=match may not be exhaustive")
   private def submitIgnoringErrors(
@@ -616,7 +614,7 @@ class PingService(
 
   override private[admin] def processTransaction(
       scalaTx: Transaction
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     // Process ping transactions only on the active replica
     if (isActive) {
       val workflowId = WorkflowId(scalaTx.workflowId)
@@ -628,7 +626,6 @@ class PingService(
       processCollapses(JavaDecodeUtil.decodeAllCreated(M.Collapse.COMPANION)(tx), workflowId)
       processProposals(JavaDecodeUtil.decodeAllCreated(M.PingProposal.COMPANION)(tx), workflowId)
     }
-  }
 
   private def duplicateCheck(pingId: String, uniqueId: String, contract: Any)(implicit
       traceContext: TraceContext
@@ -648,7 +645,7 @@ class PingService(
       unknownInformeesLogLevel: Level = Level.WARN,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     // accept proposals where i'm the next candidate
     proposals.filter(_.data.candidates.asScala.headOption.contains(adminParty)).parTraverse_ {
       proposal =>
@@ -670,7 +667,6 @@ class PingService(
           case _ =>
         }
     }
-  }
 
   protected def processProposals(proposals: Seq[M.PingProposal.Contract], workflowId: WorkflowId)(
       implicit traceContext: TraceContext
@@ -696,7 +692,7 @@ class PingService(
 
   protected def processMerges(
       contracts: Seq[M.Merge.Contract]
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit =
     contracts
       .filter(_.data.responders.contains(adminParty))
       .foreach { p =>
@@ -704,7 +700,6 @@ class PingService(
         logger.debug(s"$adminParty storing merge of ${p.data.id} with path ${p.data.path}")
         merges += MergeIdx(p.data.id, p.data.path) -> MergeItem(p, None)
       }
-  }
 
   protected def processCollapses(contracts: Seq[M.Collapse.Contract], workflowId: WorkflowId)(
       implicit traceContext: TraceContext
@@ -744,13 +739,13 @@ class PingService(
 
     contracts
       .filter(_.data.responders.contains(adminParty))
-      .foreach(p => {
+      .foreach { p =>
         val index = MergeIdx(p.data.id, p.data.path)
         merges.get(index) match {
           case None => logger.error(s"Received collapse for processed merge: $p")
           case Some(item) => addOrCompleteCollapse(index, item, p)
         }
-      })
+      }
   }
 
   private def processPings(pings: Seq[M.Ping.Contract], workflowId: WorkflowId)(implicit
@@ -872,10 +867,8 @@ class PingService(
     // schedule completing the future exceptionally if it didn't finish before the timeout deadline
     timeoutScheduler.schedule(
       { () =>
-        {
-          if (result.tryFailure(new TimeoutException))
-            logger.info(s"Operation timed out after $durationMillis millis.")
-        }
+        if (result.tryFailure(new TimeoutException))
+          logger.info(s"Operation timed out after $durationMillis millis.")
       }: Runnable,
       durationMillis,
       TimeUnit.MILLISECONDS,

@@ -39,11 +39,10 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         txVersion
     }.last
 
-  lazy val fixtureLanguageVersion: LanguageVersion = {
+  lazy val fixtureLanguageVersion: LanguageVersion =
     LanguageVersion
       .fromString(s"1.${fixtureTransactionVersion.protoValue}")
       .fold(err => throw new IllegalArgumentException(err), identity)
-  }
 
   /*
   Simple topology, with two parties (signatory, observer) each connected to one

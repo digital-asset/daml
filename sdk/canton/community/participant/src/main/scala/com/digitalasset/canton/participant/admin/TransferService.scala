@@ -114,7 +114,7 @@ class TransferService(
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Seq[TransferData]] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Seq[TransferData]] =
     for {
       rawTargetDomain <- EitherT.fromEither[Future](domainIdFor(targetDomainAlias))
       targetDomain = TargetDomainId(rawTargetDomain)
@@ -134,7 +134,6 @@ class TransferService(
         transferLookup.find(filterDomain, filterTimestamp, filterSubmitter, limit)
       )
     } yield result
-  }
 
   private[this] def domainIdFor(alias: DomainAlias): Either[String, DomainId] =
     domainIdOfAlias(alias).toRight(s"Unknown domain alias $alias")

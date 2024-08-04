@@ -292,13 +292,11 @@ object IdentityProviderId {
   }
 
   object Id {
-    def fromString(id: String): Either[String, IdentityProviderId.Id] = {
+    def fromString(id: String): Either[String, IdentityProviderId.Id] =
       Ref.LedgerString.fromString(id).map(Id.apply)
-    }
 
-    def assertFromString(id: String): Id = {
+    def assertFromString(id: String): Id =
       Id(Ref.LedgerString.assertFromString(id))
-    }
   }
 
   def apply(identityProviderId: String): IdentityProviderId =

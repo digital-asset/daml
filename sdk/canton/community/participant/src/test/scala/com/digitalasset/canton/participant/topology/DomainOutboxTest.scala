@@ -112,7 +112,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
         logger.debug(s"Observed ${transactions.length} transactions")
         buffer ++= transactions
         for {
-          _ <- MonadUtil.sequentialTraverse(transactions)(x => {
+          _ <- MonadUtil.sequentialTraverse(transactions) { x =>
             logger.debug(s"Adding $x")
             val ts = CantonTimestamp.now()
             store.append(
@@ -120,7 +120,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
               EffectiveTime(ts),
               List(ValidatedTopologyTransaction(x, None)),
             )
-          })
+          }
           _ = if (buffer.length >= expect.get()) {
             promise.get().success(())
           }
@@ -182,7 +182,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
     domainOutbox
       .startup()
       .fold[StoreBasedDomainOutbox](
-        s => fail(s"Failed to start domain outbox ${s}"),
+        s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
             // add the outbox as an observer since these unit tests avoid instantiating the ParticipantTopologyDispatcher

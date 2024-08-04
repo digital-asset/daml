@@ -22,13 +22,12 @@ final case class ActivenessResult(
   def isSuccessful: Boolean =
     contracts.isSuccessful && inactiveTransfers.isEmpty && keys.isSuccessful
 
-  override def pretty: Pretty[ActivenessResult] = {
+  override def pretty: Pretty[ActivenessResult] =
     prettyOfClass(
       param("contracts", _.contracts, !_.contracts.isEmpty),
       paramIfNonEmpty("inactiveTransfers", _.inactiveTransfers),
       param("keys", _.keys, !_.keys.isEmpty),
     )
-  }
 
 }
 

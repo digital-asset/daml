@@ -369,7 +369,7 @@ abstract class TransactionTreeFactoryImpl(
       .flatMap { preloaded =>
         def fromPreloaded(
             cid: LfContractId
-        ): EitherT[Future, ContractLookupError, SerializableContract] = {
+        ): EitherT[Future, ContractLookupError, SerializableContract] =
           preloaded.get(cid) match {
             case Some(value) => EitherT.fromEither(value)
             case None =>
@@ -378,7 +378,6 @@ abstract class TransactionTreeFactoryImpl(
               logger.warn(s"Prefetch missed $cid")
               contractOfId(cid)
           }
-        }
         // Creating the views sequentially
         MonadUtil.sequentialTraverse(
           decompositions.zip(MerkleSeq.indicesFromSeq(decompositions.size))
@@ -544,9 +543,9 @@ abstract class TransactionTreeFactoryImpl(
     val createdInSubviews = createdInSubviewsSeq.toSet
     val createdInSameViewOrSubviews = createdInSubviewsSeq ++ created.map(_.contract.contractId)
 
-    val usedCore = SortedSet.from(coreOtherNodes.flatMap({ case (node, _) =>
+    val usedCore = SortedSet.from(coreOtherNodes.flatMap { case (node, _) =>
       LfTransactionUtil.usedContractId(node)
-    }))
+    })
     val coreInputs = usedCore -- createdInSameViewOrSubviews
     val createdInSubviewArchivedInCore = consumedInCore intersect createdInSubviews
 
@@ -560,7 +559,7 @@ abstract class TransactionTreeFactoryImpl(
         case Some(info) =>
           EitherT.pure(InputContract(info, cons))
         case None =>
-          contractOfId(contractId).map { c => InputContract(contractEnricher(c), cons) }
+          contractOfId(contractId).map(c => InputContract(contractEnricher(c), cons))
       }
     }
 
@@ -642,9 +641,8 @@ object TransactionTreeFactoryImpl {
 
     def suffixedNodes(): Map[LfNodeId, LfActionNode] = suffixedNodesBuilder.result()
 
-    def addSuffixedNode(nodeId: LfNodeId, suffixedNode: LfActionNode): Unit = {
+    def addSuffixedNode(nodeId: LfNodeId, suffixedNode: LfActionNode): Unit =
       suffixedNodesBuilder += nodeId -> suffixedNode
-    }
 
     private val unicumOfCreatedContractMap: mutable.Map[LfHash, Unicum] = mutable.Map.empty
 

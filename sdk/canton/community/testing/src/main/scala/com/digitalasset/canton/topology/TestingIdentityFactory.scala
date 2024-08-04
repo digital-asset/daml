@@ -133,10 +133,9 @@ final case class TestingTopology(
   ): TestingTopology =
     this.copy(participants = participants.toMap)
 
-  def allParticipants(): Set[ParticipantId] = {
+  def allParticipants(): Set[ParticipantId] =
     (topology.values
       .flatMap(x => x.keys) ++ participants.keys).toSet
-  }
 
   def withKeyPurposes(keyPurposes: Set[KeyPurpose]): TestingTopology =
     this.copy(keyPurposes = keyPurposes)

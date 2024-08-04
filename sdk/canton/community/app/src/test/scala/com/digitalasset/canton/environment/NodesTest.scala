@@ -130,7 +130,7 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     }
     "return an initialization failure if an exception is thrown during startup" in new Fixture {
       val exception = new RuntimeException("Nope!")
-      nodeFactory.setupCreate { throw exception }
+      nodeFactory.setupCreate(throw exception)
       the[RuntimeException] thrownBy Await.result(
         nodes.start("n1").value,
         10.seconds,
@@ -155,9 +155,8 @@ class NodesTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     "return an initialization failure if an exception is thrown during shutdown" in new Fixture {
       val anException = new RuntimeException("Nope!")
       val node = new TestNodeBootstrap {
-        override def onClosed() = {
+        override def onClosed() =
           throw anException
-        }
       }
       nodeFactory.setupCreate(node)
 

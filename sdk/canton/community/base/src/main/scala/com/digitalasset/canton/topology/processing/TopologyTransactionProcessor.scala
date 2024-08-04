@@ -146,11 +146,11 @@ class TopologyTransactionProcessor(
         validated.zipWithIndex.foreach {
           case (ValidatedTopologyTransaction(tx, None), idx) =>
             logger.info(
-              s"Storing topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} with ts=$effectiveTimestamp (epsilon=${epsilon} ms)"
+              s"Storing topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} with ts=$effectiveTimestamp (epsilon=$epsilon ms)"
             )
           case (ValidatedTopologyTransaction(tx, Some(r)), idx) =>
             logger.warn(
-              s"Rejected transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} at ts=$effectiveTimestamp (epsilon=${epsilon} ms) due to $r"
+              s"Rejected transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} at ts=$effectiveTimestamp (epsilon=$epsilon ms) due to $r"
             )
         }
 
@@ -211,7 +211,7 @@ class TopologyTransactionProcessor(
         )
         .foreach { previous =>
           logger.info(
-            s"Updated topology change delay from=${previous} to ${change.domainParameters.topologyChangeDelay}"
+            s"Updated topology change delay from=$previous to ${change.domainParameters.topologyChangeDelay}"
           )
         }
       timeAdjuster.effectiveTimeProcessed(effectiveTimestamp)
@@ -243,7 +243,7 @@ class TopologyTransactionProcessor(
       cascadingUpdate: UpdateAggregation,
       transactions: Seq[ValidatedTopologyTransaction],
   ): Seq[SignedTopologyTransaction[TopologyChangeOp]] = {
-    def isCascading(elem: SignedTopologyTransaction[TopologyChangeOp]): Boolean = {
+    def isCascading(elem: SignedTopologyTransaction[TopologyChangeOp]): Boolean =
       elem.transaction.element.mapping.requiredAuth match {
         // namespace delegation changes are always cascading
         case RequiredAuth.Ns(_, true) => true
@@ -253,7 +253,6 @@ class TopologyTransactionProcessor(
         // all others are cascading if there is at least one uid affected by the cascading update
         case RequiredAuth.Uid(uids) => uids.exists(cascadingUpdate.isCascading)
       }
-    }
     transactions.filter(_.rejectionReason.isEmpty).map(_.transaction).filterNot(isCascading)
   }
 
@@ -402,9 +401,8 @@ class TopologyTransactionProcessor(
       envelopes: List[DefaultOpenEnvelope],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[List[SignedTopologyTransaction[TopologyChangeOp]]] = {
+  ): FutureUnlessShutdown[List[SignedTopologyTransaction[TopologyChangeOp]]] =
     validator.extractTopologyUpdatesAndValidateEnvelope(ts, envelopes)
-  }
 
   override def onClosed(): Unit = {
     super.onClosed()

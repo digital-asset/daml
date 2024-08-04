@@ -27,7 +27,7 @@ object VersionUtil {
 
       case _ =>
         Left(
-          s"Unable to convert string `$rawVersion` to a valid ${baseName}. A ${baseName} is similar to a semantic version. For example, '1.2.3' or '1.2.3-SNAPSHOT' are valid ${baseName}s."
+          s"Unable to convert string `$rawVersion` to a valid $baseName. A $baseName is similar to a semantic version. For example, '1.2.3' or '1.2.3-SNAPSHOT' are valid ${baseName}s."
         )
     }
   }

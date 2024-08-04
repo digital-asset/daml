@@ -5,7 +5,7 @@ package com.digitalasset.canton.util.pekkostreams
 
 import com.codahale.metrics as codahale
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.metrics.api.dropwizard.{DropwizardCounter as Counter}
+import com.daml.metrics.api.dropwizard.DropwizardCounter as Counter
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.stream.stage.*
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -94,7 +94,7 @@ class MaxInFlightTest
           },
         )
 
-        private def flush() = {
+        private def flush() =
           accumulator match {
             case h :: t =>
               push(out, h)
@@ -102,7 +102,6 @@ class MaxInFlightTest
             case _ =>
               scheduleOnce(scheduledFlushTimerKey, flushAfter)
           }
-        }
 
         override def preStart(): Unit = {
           pull(in)
@@ -110,7 +109,7 @@ class MaxInFlightTest
           super.preStart()
         }
 
-        override protected def onTimer(timerKey: Any): Unit = {
+        override protected def onTimer(timerKey: Any): Unit =
           timerKey match {
             case `replaceHandlerTimerKey` =>
               setHandler(
@@ -127,7 +126,6 @@ class MaxInFlightTest
               flush()
             case _ =>
           }
-        }
       }
 
     override def shape = FlowShape(in, out)

@@ -90,14 +90,13 @@ object DomainTopologyTransactionMessageValidator {
     )(implicit
         traceContext: TraceContext,
         closeContext: CloseContext,
-    ): FutureUnlessShutdown[List[SignedTopologyTransaction[TopologyChangeOp]]] = {
+    ): FutureUnlessShutdown[List[SignedTopologyTransaction[TopologyChangeOp]]] =
       FutureUnlessShutdown.pure(
         envelopes
           .mapFilter(ProtocolMessage.select[DomainTopologyTransactionMessage])
           .map(_.protocolMessage)
           .flatMap(_.transactions)
       )
-    }
   }
 
   class Impl(
@@ -113,15 +112,14 @@ object DomainTopologyTransactionMessageValidator {
 
     private val lastSequencingTimestamp = new AtomicReference[Option[CantonTimestamp]](None)
 
-    override def initLastMessageTimestamp(lastMessageTs: Option[CantonTimestamp]): Unit = {
+    override def initLastMessageTimestamp(lastMessageTs: Option[CantonTimestamp]): Unit =
       lastSequencingTimestamp.getAndSet(lastMessageTs) match {
         case Some(value) =>
           noTracingLogger.error(
-            s"Updating the last sequencing timestamp again from=${value} to=${lastMessageTs}"
+            s"Updating the last sequencing timestamp again from=$value to=$lastMessageTs"
           )
         case None =>
       }
-    }
 
     private def validateFirstMessage(ts: SequencedTime, message: DomainTopologyTransactionMessage)(
         implicit traceContext: TraceContext
@@ -183,7 +181,7 @@ object DomainTopologyTransactionMessageValidator {
         _ <- client.pureCrypto
           .verifySignature(hash, key, message.domainTopologyManagerSignature)
           .leftMap(error =>
-            s"Signature checking of envelope failed: ${error}. Skipping ${message.transactions.length} transactions!"
+            s"Signature checking of envelope failed: $error. Skipping ${message.transactions.length} transactions!"
           )
         // check that the message was not replayed. the domain topology manager will submit these messages
         // with the max sequence time which is included in the hash of the message itself.
@@ -215,7 +213,7 @@ object DomainTopologyTransactionMessageValidator {
     )(implicit
         traceContext: TraceContext,
         closeContext: CloseContext,
-    ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    ): EitherT[FutureUnlessShutdown, String, Unit] =
       for {
         snapshot <- EitherT.right(
           SyncCryptoClient.getSnapshotForTimestampUS(
@@ -238,7 +236,6 @@ object DomainTopologyTransactionMessageValidator {
           } else
             EitherT.fromEither[FutureUnlessShutdown](validateMessageAgainstKeys(ts, keys, message))
       } yield ()
-    }
 
     override def extractTopologyUpdatesAndValidateEnvelope(
         ts: SequencedTime,

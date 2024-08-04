@@ -163,7 +163,7 @@ final case class DomainParametersConfig(
         defaultValue: String,
     ) =
       s"""|Starting from protocol version ${ProtocolVersion.v4}, $name is a dynamic parameter that cannot be configured within the configuration file.
-          |The configured value `$configuredValue` is ignored. The default value is ${defaultValue}.
+          |The configured value `$configuredValue` is ignored. The default value is $defaultValue.
           |Please use the admin api to set this parameter: domain-name.service.$setConsoleCommand($configuredValue)
           |""".stripMargin
 

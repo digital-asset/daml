@@ -62,7 +62,7 @@ class DomainTopologyManagerEventHandler(
 
   private def handle(
       request: RegisterTopologyTransactionRequest
-  )(implicit traceContext: TraceContext): Future[AsyncResult] = {
+  )(implicit traceContext: TraceContext): Future[AsyncResult] =
     for {
       // the logic below supports crash recovery.
       response <- store.getResponse(request.requestId).value
@@ -84,11 +84,10 @@ class DomainTopologyManagerEventHandler(
           else AsyncResult.immediate
       }
     } yield result
-  }
 
   private def handleTopologyRequest(
       request: RegisterTopologyTransactionRequest
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       // TODO(i4933) we need to add a signature to the request
       //   - signature must match participant
@@ -113,7 +112,6 @@ class DomainTopologyManagerEventHandler(
       _ <- FutureUnlessShutdown.outcomeF(store.savePendingResponse(pendingResponse))
       result <- sendResponse(pendingResponse)
     } yield result
-  }
 
   private def sendResponse(
       response: RegisterTopologyTransactionResponse.Result

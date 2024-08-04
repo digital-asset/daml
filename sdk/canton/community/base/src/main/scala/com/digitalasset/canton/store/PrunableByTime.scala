@@ -93,7 +93,7 @@ trait PrunableByTime {
       res <- MonadUtil.sequentialTraverse(
         computeBuckets(lastTs, limit)
       ) { case (prev, next) =>
-        closeContext.context.performUnlessClosingF(s"prune interval ${next}")(doPrune(next, prev))
+        closeContext.context.performUnlessClosingF(s"prune interval $next")(doPrune(next, prev))
       }
       _ <- FutureUnlessShutdown.outcomeF(advancePruningTimestamp(PruningPhase.Completed, limit))
     } yield {
@@ -144,7 +144,7 @@ trait PrunableByTime {
             }
             if (old != cur) {
               errorLoggingContext.logger.debug(
-                s"Updating pruning interval of ${kind} to ${cur} ms for average ${average.toInt} in ${res.length} buckets"
+                s"Updating pruning interval of $kind to $cur ms for average ${average.toInt} in ${res.length} buckets"
               )(
                 errorLoggingContext.traceContext
               )
@@ -162,7 +162,7 @@ trait PrunableByTime {
   private def computeBuckets(
       lastTsO: Option[CantonTimestamp],
       limit: CantonTimestamp,
-  ): Seq[(Option[CantonTimestamp], CantonTimestamp)] = {
+  ): Seq[(Option[CantonTimestamp], CantonTimestamp)] =
     (lastTsO, batchingParameters) match {
       case (Some(lastTs), Some(parameters)) if parameters.maxBuckets.value > 1 =>
         // limit batching to "max num buckets" such that unsteady load throughout the day doesn't lead to
@@ -182,7 +182,6 @@ trait PrunableByTime {
         go(lastTs, Seq.empty).reverse
       case _ => Seq((lastTsO, limit))
     }
-  }
   private def getLastPruningTs(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = pruningStatus.map(_.flatMap(_.lastSuccess))

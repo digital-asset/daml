@@ -268,9 +268,7 @@ object AuthServiceJWTCodec {
     case JsObject(fields) =>
       val scope = fields.get(propScope)
       // Support scope that spells 'daml_ledger_api'
-      val scopes = scope.toList
-        .collect({ case JsString(scope) => scope.split(" ") })
-        .flatten
+      val scopes = scope.toList.collect { case JsString(scope) => scope.split(" ") }.flatten
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrArray(propAud, fields)
@@ -425,13 +423,12 @@ object AuthServiceJWTCodec {
       deserializationError(s"Could not read ${value.prettyPrint} as string list for $name")
   }
 
-  private def readStringList(name: String, values: Vector[JsValue]) = {
+  private def readStringList(name: String, values: Vector[JsValue]) =
     values.toList.map {
       case JsString(value) => value
       case value =>
         deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
     }
-  }
   private[this] def readOptionalBoolean(
       name: String,
       fields: Map[String, JsValue],

@@ -142,9 +142,8 @@ final case class TopologyElementId(override protected val str: String255)
 }
 
 object TopologyElementId extends LengthLimitedStringWrapperCompanion[String255, TopologyElementId] {
-  def generate(): TopologyElementId = {
+  def generate(): TopologyElementId =
     TopologyElementId(String255.tryCreate(PseudoRandom.randomAlphaNumericString(32)))
-  }
 
   // Reuse externally supplied identifier that needs to be unique.
   def adopt(id: String255): TopologyElementId = TopologyElementId(id)
@@ -397,11 +396,10 @@ final case class TopologyStateUpdate[+Op <: AddRemoveChangeOp] private (
 
   override def asVersion(
       protocolVersion: ProtocolVersion
-  ): TopologyTransaction[Op] = {
+  ): TopologyTransaction[Op] =
     TopologyStateUpdate[Op](op, element)(
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
-  }
 }
 
 object TopologyStateUpdate {
@@ -499,7 +497,7 @@ object TopologyStateUpdate {
   def protoMappingResultV1(
       protocolVersionValidation: ProtocolVersionValidation,
       protoTopologyTransaction: v1.TopologyStateUpdate,
-  ): ParsingResult[TopologyStateUpdateMapping] = {
+  ): ParsingResult[TopologyStateUpdateMapping] =
     protoTopologyTransaction.mapping match {
 
       case v1.TopologyStateUpdate.Mapping.IdentifierDelegation(idDelegation) =>
@@ -529,7 +527,6 @@ object TopologyStateUpdate {
       case v1.TopologyStateUpdate.Mapping.Empty =>
         Left(UnrecognizedField("TopologyStateUpdate.Mapping is empty"))
     }
-  }
 
   def createAdd(
       mapping: TopologyStateUpdateMapping,

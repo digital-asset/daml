@@ -262,15 +262,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     }
   }
 
-  private def fetchIdsNonConsuming(): Vector[Long] = {
+  private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries.fetchEventIdsForInformee(
         EventIdSourceForInformees.NonConsumingInformee
       )(informee = someParty, startExclusive = 0, endInclusive = 1000, limit = 1000)
     )
-  }
 
-  private def fetchIdsConsumingNonStakeholder(): Vector[Long] = {
+  private def fetchIdsConsumingNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
         .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingNonStakeholder)(
@@ -280,9 +279,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           limit = 1000,
         )
     )
-  }
 
-  private def fetchIdsConsumingStakeholder(): Vector[Long] = {
+  private def fetchIdsConsumingStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
         .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingStakeholder)(
@@ -292,9 +290,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           limit = 1000,
         )
     )
-  }
 
-  private def fetchIdsCreateNonStakeholder(): Vector[Long] = {
+  private def fetchIdsCreateNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
         .fetchEventIdsForInformee(EventIdSourceForInformees.CreateNonStakeholder)(
@@ -304,9 +301,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           limit = 1000,
         )
     )
-  }
 
-  private def fetchIdsCreateStakeholder(): Vector[Long] = {
+  private def fetchIdsCreateStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
         .fetchEventIdsForInformee(EventIdSourceForInformees.CreateStakeholder)(
@@ -316,7 +312,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           limit = 1000,
         )
     )
-  }
 
   private def fetchIdsFromTransactionMeta(transactionIds: Seq[String]): Set[(Long, Long)] = {
     val txPointwiseQueries = backend.event.transactionPointwiseQueries

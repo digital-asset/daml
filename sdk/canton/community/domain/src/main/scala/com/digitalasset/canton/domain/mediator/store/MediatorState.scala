@@ -67,7 +67,7 @@ private[mediator] class MediatorState(
   /** Adds an incoming ResponseAggregation */
   def add(
       responseAggregation: ResponseAggregation[?]
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
     responseAggregation.asFinalized(protocolVersion) match {
       case None =>
         val requestId = responseAggregation.requestId
@@ -81,7 +81,6 @@ private[mediator] class MediatorState(
         Future.unit
       case Some(finalizedResponse) => add(finalizedResponse)
     }
-  }
 
   def add(
       finalizedResponse: FinalizedResponse
@@ -91,7 +90,7 @@ private[mediator] class MediatorState(
   def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[Future, ResponseAggregator] = {
+  ): OptionT[Future, ResponseAggregator] =
     Option(pendingRequests.get(requestId))
       .orElse(finishedRequests.getIfPresent(requestId)) match {
       case Some(cp) => OptionT.some[Future](cp)
@@ -101,7 +100,6 @@ private[mediator] class MediatorState(
           result
         }
     }
-  }
 
   /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches `currentVersion`.
     * You can only use this to update non-finalized aggregations
@@ -118,7 +116,7 @@ private[mediator] class MediatorState(
 
     val requestId = oldValue.requestId
 
-    def storeFinalized(finalizedResponse: FinalizedResponse): Future[Unit] = {
+    def storeFinalized(finalizedResponse: FinalizedResponse): Future[Unit] =
       finalizedResponseStore.store(finalizedResponse) map { _ =>
         // keep the request around for a while to avoid a database lookup under contention
         finishedRequests.put(requestId, finalizedResponse).discard
@@ -126,7 +124,6 @@ private[mediator] class MediatorState(
           updateNumRequests(-1)
         }
       }
-    }
 
     for {
       // I'm not really sure about these validations or errors...

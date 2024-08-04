@@ -43,12 +43,11 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     T
   ], DeserializedValueClass <: HasRepresentativeProtocolVersion](
       companion: HasProtocolVersionedWrapperWithoutContextCompanion[T, DeserializedValueClass]
-  )(implicit arb: Arbitrary[T]): Assertion = {
+  )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteStringUnsafe,
     )
-  }
 
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
@@ -59,12 +58,11 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
    */
   protected def testMemoizedProtocolVersioned[T <: HasProtocolVersionedWrapper[T]](
       companion: HasMemoizedProtocolVersionedWrapperCompanion[T]
-  )(implicit arb: Arbitrary[T]): Assertion = {
+  )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteStringUnsafe,
     )
-  }
 
   /*
    Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),
@@ -121,8 +119,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       protocolVersion: ProtocolVersion,
       deserializer: ByteString => ParsingResult[_],
       defaults: List[DefaultValueUntilExclusive[T]],
-  )(implicit arb: Arbitrary[T]): Assertion = {
-
+  )(implicit arb: Arbitrary[T]): Assertion =
     forAll { (instance: T) =>
       val proto = instance.toByteString(protocolVersion)
 
@@ -141,7 +138,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         updatedInstance shouldBe deserializedInstance
       }
     }
-  }
 
   /*
      Shared test code for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance),

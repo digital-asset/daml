@@ -107,17 +107,15 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
   private def parseKeyInStoreResponse[K <: PublicKey](
       fp: Fingerprint,
       result: EitherT[Future, CryptoPublicStoreError, Option[K]],
-  )(implicit traceContext: TraceContext): EitherT[Future, CantonError, K] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, CantonError, K] =
     result
       .leftMap(TopologyManagerError.InternalError.CryptoPublicError(_))
       .subflatMap(_.toRight(TopologyManagerError.PublicKeyNotInStore.Failure(fp): CantonError))
-  }
 
   private def getSigningPublicKey(
       fingerprint: Fingerprint
-  )(implicit traceContext: TraceContext): EitherT[Future, CantonError, SigningPublicKey] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, CantonError, SigningPublicKey] =
     parseKeyInStoreResponse(fingerprint, cryptoPublicStore.signingKey(fingerprint))
-  }
 
   private def parseFingerprint(
       proto: String

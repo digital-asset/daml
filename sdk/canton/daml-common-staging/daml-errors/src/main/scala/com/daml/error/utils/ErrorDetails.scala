@@ -22,20 +22,18 @@ object ErrorDetails {
 
   final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail {
     type T = ResourceInfo
-    def toRpc: ResourceInfo = {
+    def toRpc: ResourceInfo =
       ResourceInfo.newBuilder().setResourceType(typ).setResourceName(name).build()
-    }
   }
   final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
       extends ErrorDetail {
     type T = ErrorInfo
-    def toRpc: ErrorInfo = {
+    def toRpc: ErrorInfo =
       ErrorInfo
         .newBuilder()
         .setReason(errorCodeId)
         .putAllMetadata(metadata.asJava)
         .build()
-    }
   }
   final case class RetryInfoDetail(duration: Duration) extends ErrorDetail {
     type T = RetryInfo
@@ -58,18 +56,16 @@ object ErrorDetails {
   }
   final case class RequestInfoDetail(correlationId: String) extends ErrorDetail {
     type T = RequestInfo
-    def toRpc: RequestInfo = {
+    def toRpc: RequestInfo =
       RequestInfo
         .newBuilder()
         .setRequestId(correlationId)
         .setServingData("")
         .build()
-    }
   }
 
-  def from(status: com.google.rpc.Status): Seq[ErrorDetail] = {
+  def from(status: com.google.rpc.Status): Seq[ErrorDetail] =
     from(status.getDetailsList.asScala.toSeq)
-  }
   def from(e: StatusRuntimeException): Seq[ErrorDetail] =
     from(StatusProto.fromThrowable(e))
 

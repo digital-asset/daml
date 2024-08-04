@@ -98,7 +98,7 @@ class PackageUploader(
       val stream = new ZipInputStream(payload.newInput())
       for {
         dar <- catchUpstreamErrors(DarParser.readArchive("dar-validate", stream))
-          .thereafter { _ => stream.close() }
+          .thereafter(_ => stream.close())
         mainPackage <- catchUpstreamErrors(Decode.decodeArchive(dar.main))
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))

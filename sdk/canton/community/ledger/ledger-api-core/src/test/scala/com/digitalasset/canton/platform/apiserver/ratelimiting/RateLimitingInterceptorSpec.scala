@@ -110,12 +110,10 @@ final class RateLimitingInterceptorSpec
       val call = channel.newCall(methodDescriptor, CallOptions.DEFAULT)
       val promise = Promise[Status]()
       val listener = new ClientCall.Listener[ServerReflectionResponse]() {
-        override def onReady(): Unit = {
+        override def onReady(): Unit =
           call.request(1)
-        }
-        override def onClose(status: Status, trailers: Metadata): Unit = {
+        override def onClose(status: Status, trailers: Metadata): Unit =
           promise.success(status)
-        }
       }
       call.start(listener, new Metadata())
       val request = ServerReflectionRequest
@@ -149,9 +147,8 @@ final class RateLimitingInterceptorSpec
         _ = healthStub.watch(
           HealthCheckRequest(),
           new StreamObserver[HealthCheckResponse] {
-            override def onNext(value: HealthCheckResponse): Unit = {
+            override def onNext(value: HealthCheckResponse): Unit =
               promise.success(())
-            }
             override def onError(t: Throwable): Unit = {}
             override def onCompleted(): Unit = {}
           },
@@ -215,29 +212,27 @@ final class RateLimitingInterceptorSpec
 
     val waitService = new WaitService()
     withChannel(metrics, waitService, limitStreamConfig).use { channel =>
-      {
-        for {
-          fStatus1 <- streamHello(channel) // Ok
-          fStatus2 <- streamHello(channel) // Ok
-          activeStreams = metrics.daml.lapi.streams.active.getValue
-          fStatus3 <- streamHello(channel) // Limited
-          status3 <- fStatus3 // Closed as part of limiting
-          _ = waitService.completeStream()
-          status1 <- fStatus1
-          fStatus4 <- streamHello(channel) // Ok
-          _ = waitService.completeStream()
-          status2 <- fStatus2
-          _ = waitService.completeStream()
-          status4 <- fStatus4
-        } yield {
-          activeStreams shouldBe limitStreamConfig.maxStreams
-          status1.getCode shouldBe Code.OK
-          status2.getCode shouldBe Code.OK
-          status3.getCode shouldBe Code.ABORTED
-          status3.getDescription should include(metrics.daml.lapi.streams.activeName)
-          status4.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
-        }
+      for {
+        fStatus1 <- streamHello(channel) // Ok
+        fStatus2 <- streamHello(channel) // Ok
+        activeStreams = metrics.daml.lapi.streams.active.getValue
+        fStatus3 <- streamHello(channel) // Limited
+        status3 <- fStatus3 // Closed as part of limiting
+        _ = waitService.completeStream()
+        status1 <- fStatus1
+        fStatus4 <- streamHello(channel) // Ok
+        _ = waitService.completeStream()
+        status2 <- fStatus2
+        _ = waitService.completeStream()
+        status4 <- fStatus4
+      } yield {
+        activeStreams shouldBe limitStreamConfig.maxStreams
+        status1.getCode shouldBe Code.OK
+        status2.getCode shouldBe Code.OK
+        status3.getCode shouldBe Code.ABORTED
+        status3.getDescription should include(metrics.daml.lapi.streams.activeName)
+        status4.getCode shouldBe Code.OK
+        eventually(metrics.daml.lapi.streams.active.getValue shouldBe 0)
       }
     }
   }
@@ -248,34 +243,32 @@ final class RateLimitingInterceptorSpec
 
     val waitService = new WaitService()
     withChannel(metrics, waitService, limitStreamConfig).use { channel =>
-      {
-        for {
+      for {
 
-          fStatus1 <- streamHello(channel)
-          fHelloStatus1 = singleHello(channel)
-          fStatus2 <- streamHello(channel)
-          fHelloStatus2 = singleHello(channel)
+        fStatus1 <- streamHello(channel)
+        fHelloStatus1 = singleHello(channel)
+        fStatus2 <- streamHello(channel)
+        fHelloStatus2 = singleHello(channel)
 
-          activeStreams = metrics.daml.lapi.streams.active.getValue
+        activeStreams = metrics.daml.lapi.streams.active.getValue
 
-          _ = waitService.completeStream()
-          _ = waitService.completeSingle()
-          _ = waitService.completeStream()
-          _ = waitService.completeSingle()
+        _ = waitService.completeStream()
+        _ = waitService.completeSingle()
+        _ = waitService.completeStream()
+        _ = waitService.completeSingle()
 
-          status1 <- fStatus1
-          helloStatus1 <- fHelloStatus1
-          status2 <- fStatus2
-          helloStatus2 <- fHelloStatus2
+        status1 <- fStatus1
+        helloStatus1 <- fHelloStatus1
+        status2 <- fStatus2
+        helloStatus2 <- fHelloStatus2
 
-        } yield {
-          activeStreams shouldBe 2
-          status1.getCode shouldBe Code.OK
-          helloStatus1.getCode shouldBe Code.OK
-          status2.getCode shouldBe Code.OK
-          helloStatus2.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
-        }
+      } yield {
+        activeStreams shouldBe 2
+        status1.getCode shouldBe Code.OK
+        helloStatus1.getCode shouldBe Code.OK
+        status2.getCode shouldBe Code.OK
+        helloStatus2.getCode shouldBe Code.OK
+        eventually(metrics.daml.lapi.streams.active.getValue shouldBe 0)
       }
     }
   }
@@ -286,24 +279,22 @@ final class RateLimitingInterceptorSpec
 
     val waitService = new WaitService()
     withChannel(metrics, waitService, limitStreamConfig).use { channel =>
-      {
-        for {
+      for {
 
-          fStatus1 <- streamHello(channel)
-          fStatus2 <- streamHello(channel)
-          fHelloStatus1 = singleHello(channel)
+        fStatus1 <- streamHello(channel)
+        fStatus2 <- streamHello(channel)
+        fHelloStatus1 = singleHello(channel)
 
-          _ = waitService.completeSingle()
-          _ = waitService.completeStream()
-          _ = waitService.completeStream()
+        _ = waitService.completeSingle()
+        _ = waitService.completeStream()
+        _ = waitService.completeStream()
 
-          _ <- fStatus1
-          _ <- fStatus2
-          helloStatus <- fHelloStatus1
+        _ <- fStatus1
+        _ <- fStatus2
+        helloStatus <- fHelloStatus1
 
-        } yield {
-          helloStatus.getCode shouldBe Code.OK
-        }
+      } yield {
+        helloStatus.getCode shouldBe Code.OK
       }
     }
   }
@@ -320,7 +311,7 @@ final class RateLimitingInterceptorSpec
       } yield {
         status1.getCode shouldBe Code.CANCELLED
 
-        eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
+        eventually(metrics.daml.lapi.streams.active.getValue shouldBe 0)
       }
     }
   }
@@ -435,13 +426,12 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       responseObserver.onCompleted()
     }
 
-    def completeSingle(): Unit = {
+    def completeSingle(): Unit =
       discard(
         requests
           .poll(10, TimeUnit.SECONDS)
           .success(HelloResponse(0, ByteString.copyFromUtf8("only")))
       )
-    }
 
     override def serverStreaming(
         request: HelloRequest,
@@ -470,9 +460,8 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
           logger.debug(s"Single closed with $grpcStatus")
           status.success(grpcStatus)
         }
-        override def onMessage(message: HelloResponse): Unit = {
+        override def onMessage(message: HelloResponse): Unit =
           logger.debug(s"Got single message: $message")
-        }
       },
       new Metadata(),
     )
@@ -497,9 +486,8 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
           if (!init.isCompleted) init.success(status.future)
           status.success(grpcStatus)
         }
-        override def onMessage(message: HelloResponse): Unit = {
+        override def onMessage(message: HelloResponse): Unit =
           if (!init.isCompleted) init.success(status.future)
-        }
       },
       new Metadata(),
     )

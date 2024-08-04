@@ -183,7 +183,7 @@ object RegisterTopologyTransactionResponse
       protocolVersion: ProtocolVersion,
   ): Either[Error, RegisterTopologyTransactionResponse[
     RegisterTopologyTransactionResponseResult
-  ]] = {
+  ]] =
     splitResults(results) match {
       case (Nil, v1) =>
         val response = RegisterTopologyTransactionResponse(
@@ -209,7 +209,6 @@ object RegisterTopologyTransactionResponse
 
       case _ => Left(ResultVersionsMixture)
     }
-  }
 
   implicit val registerTopologyTransactionResponseCast: ProtocolMessageContentCast[
     RegisterTopologyTransactionResponse[RegisterTopologyTransactionResponseResult]
@@ -344,7 +343,7 @@ object RegisterTopologyTransactionResponseResult {
   private[messages] object V1 {
     def apply(state: State): V1 = new V1(state) {}
 
-    def fromProtoV1(result: v1.RegisterTopologyTransactionResponse.Result): ParsingResult[V1] = {
+    def fromProtoV1(result: v1.RegisterTopologyTransactionResponse.Result): ParsingResult[V1] =
       result.state match {
         case ProtoStateV1.MISSING_STATE =>
           Left(
@@ -364,7 +363,6 @@ object RegisterTopologyTransactionResponseResult {
             )
           )
       }
-    }
   }
 
   def create(state: State): RegisterTopologyTransactionResponseResult = V1(state)

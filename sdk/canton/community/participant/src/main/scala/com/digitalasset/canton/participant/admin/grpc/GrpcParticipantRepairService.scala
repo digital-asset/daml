@@ -159,7 +159,7 @@ object GrpcParticipantRepairService {
     private def validateRequest(
         request: ExportAcsRequest,
         allProtocolVersions: Map[DomainId, ProtocolVersion],
-    ): Either[String, ValidExportAcsRequest] = {
+    ): Either[String, ValidExportAcsRequest] =
       for {
         parties <- request.parties.traverse(party =>
           UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf)
@@ -177,7 +177,6 @@ object GrpcParticipantRepairService {
         contractDomainRenames.toMap,
         partiesOffboarding = request.partiesOffboarding,
       )
-    }
 
     def apply(request: ExportAcsRequest, allProtocolVersions: Map[DomainId, ProtocolVersion])(
         implicit elc: ErrorLoggingContext
@@ -256,7 +255,7 @@ final class GrpcParticipantRepairService(
 
   /** purge contracts
     */
-  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] = {
+  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val res: Either[RepairServiceError, Unit] = for {
         cids <- request.contractIds
@@ -293,7 +292,6 @@ final class GrpcParticipantRepairService(
         _ => Future.successful(PurgeContractsResponse()),
       )
     }
-  }
 
   /** get contracts for a party
     */
@@ -304,7 +302,7 @@ final class GrpcParticipantRepairService(
   override def download(
       request: DownloadRequest,
       responseObserver: StreamObserver[AcsSnapshotChunk],
-  ): Unit = {
+  ): Unit =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val (temporaryFile, outputStream) =
         if (request.gzipFormat) {
@@ -375,7 +373,6 @@ final class GrpcParticipantRepairService(
         temporaryFile.delete()
       }
     }
-  }
 
   private final val ExportAcsTemporaryFileNamePrefix = "temporary-canton-acs-snapshot-versioned"
 
@@ -384,7 +381,7 @@ final class GrpcParticipantRepairService(
   override def exportAcs(
       request: ExportAcsRequest,
       responseObserver: StreamObserver[ExportAcsResponse],
-  ): Unit = {
+  ): Unit =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val temporaryFile = File.newTemporaryFile(ExportAcsTemporaryFileNamePrefix, suffix = ".gz")
       val outputStream = temporaryFile.newGzipOutputStream()
@@ -455,7 +452,6 @@ final class GrpcParticipantRepairService(
         temporaryFile.delete()
       }
     }
-  }
 
   /** upload contracts for a party
     */
@@ -527,7 +523,7 @@ final class GrpcParticipantRepairService(
     }
 
     new StreamObserver[ImportAcsRequest] {
-      override def onNext(importAcsRequest: ImportAcsRequest): Unit = {
+      override def onNext(importAcsRequest: ImportAcsRequest): Unit =
         Try(outputStream.write(importAcsRequest.acsSnapshot.toByteArray)) match {
           case Failure(exception) =>
             outputStream.close()
@@ -562,7 +558,6 @@ final class GrpcParticipantRepairService(
               responseObserver.onError(new IllegalArgumentException(error))
             }
         }
-      }
 
       override def onError(t: Throwable): Unit = {
         responseObserver.onError(t)
@@ -628,7 +623,7 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] = {
+  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       // ensure here we don't process migration requests concurrently
       if (!domainMigrationInProgress.getAndSet(true)) {
@@ -671,7 +666,6 @@ final class GrpcParticipantRepairService(
             .asRuntimeException()
         )
     }
-  }
 
   /* Purge specified deactivated sync-domain and selectively prune domain stores.
    */
@@ -707,7 +701,7 @@ final class GrpcParticipantRepairService(
   private def convertAndAddContractsToStore(
       content: ByteString,
       gzip: Boolean,
-  ): Future[UploadResponse] = {
+  ): Future[UploadResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val resultE: EitherT[Future, String, Unit] = for {
         lazyContracts <- EitherT.fromEither[Future](
@@ -735,7 +729,6 @@ final class GrpcParticipantRepairService(
       }
 
     }
-  }
 
   @deprecated(
     "Use importAcs functionality instead",
@@ -743,7 +736,7 @@ final class GrpcParticipantRepairService(
   ) // TODO(i14441): Remove deprecated ACS download / upload functionality
   private def addContractToStore(domainId: DomainId, contracts: LazyList[SerializableContract])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     for {
       alias <- EitherT.fromEither[Future](
         sync.aliasManager
@@ -760,7 +753,6 @@ final class GrpcParticipantRepairService(
         )
       )
     } yield ()
-  }
 
   override def ignoreEvents(request: IgnoreEventsRequest): Future[IgnoreEventsResponse] =
     TraceContext.withNewTraceContext { implicit traceContext =>

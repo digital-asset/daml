@@ -52,9 +52,8 @@ object AuthenticationToken {
     */
   val length: Int = 20
 
-  def generate(randomOps: RandomOps): AuthenticationToken = {
+  def generate(randomOps: RandomOps): AuthenticationToken =
     new AuthenticationToken(randomOps.generateRandomByteString(length))
-  }
 
   def fromProtoPrimitive(
       bytes: ByteString

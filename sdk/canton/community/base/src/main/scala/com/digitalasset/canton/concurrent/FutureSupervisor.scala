@@ -105,11 +105,10 @@ object FutureSupervisor {
         level: Level,
         elc: ErrorLoggingContext,
         exception: Option[Throwable] = None,
-    ): Unit = {
+    ): Unit =
       exception
         .map(LoggerUtil.logThrowableAtLevel(level, message, _)(elc))
         .getOrElse(LoggerUtil.logAtLevel(level, message)(elc))
-    }
 
     private def checkSlow(): Unit = {
       val now = System.nanoTime()
@@ -152,7 +151,7 @@ object FutureSupervisor {
           val time = elapsed(itm)
           if (time > warnAfter) {
             errorLoggingContext.info(
-              s"${description} succeed successfully but slow after $time"
+              s"$description succeed successfully but slow after $time"
             )
           }
       }

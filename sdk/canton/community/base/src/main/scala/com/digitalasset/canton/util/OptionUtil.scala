@@ -19,12 +19,11 @@ object OptionUtil {
     */
   def zipWithF[F[_]: Monad: Parallel, A, B, C](left: Option[A], right: => F[Option[B]])(
       f: (A, B) => F[C]
-  ): F[Option[C]] = {
+  ): F[Option[C]] =
     left.parFlatTraverse(l => right.map(r => Some(l).zip(r))).flatMap {
       case Some(ab) => Function.tupled(f).andThen(_.map(Option(_)))(ab)
       case None => implicitly[Monad[F]].pure(None)
     }
-  }
 
   /** [[zipWithF]] but returns a default value if either of left or right are empty
     */
@@ -32,9 +31,8 @@ object OptionUtil {
       left: Option[A],
       right: => F[Option[B]],
       empty: => C,
-  )(f: (A, B) => F[C]): F[C] = {
+  )(f: (A, B) => F[C]): F[C] =
     zipWithF(left, right)(f).map(_.getOrElse(empty))
-  }
 
   def mergeWithO[A](left: Option[A], right: Option[A])(f: (A, A) => Option[A]): Option[Option[A]] =
     (left, right) match {
@@ -49,13 +47,12 @@ object OptionUtil {
     *  - Some(left), if only left is defined
     *  - Some(right), if right is defined
     */
-  def mergeEqual[A](left: Option[A], right: Option[A]): Option[Option[A]] = {
+  def mergeEqual[A](left: Option[A], right: Option[A]): Option[Option[A]] =
     if (left eq right) Some(left)
     else
       mergeWithO(left, right) { (x, y) =>
         if (x == y) left else None
       }
-  }
 
   def mergeWith[A](left: Option[A], right: Option[A])(f: (A, A) => A): Option[A] = {
     @nowarn("msg=match may not be exhaustive") // mergeWithO is always defined

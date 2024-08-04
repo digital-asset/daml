@@ -38,7 +38,7 @@ object ThrottlingApplicationEventHandler {
       )
 
     handler.replace { tracedEvents =>
-      blocking { queue.put(Token) }
+      blocking(queue.put(Token))
       metrics.handler.actualInFlightEventBatches.inc()
       handler(tracedEvents)
         .map { asyncF =>

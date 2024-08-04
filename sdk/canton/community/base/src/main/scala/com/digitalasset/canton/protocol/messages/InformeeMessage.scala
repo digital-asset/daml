@@ -68,7 +68,7 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): TransactionResultMessage = {
+  ): TransactionResultMessage =
     if (protocolVersion > ProtocolVersion.v4) {
       TransactionResultMessage(
         requestId,
@@ -88,7 +88,6 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
         protocolVersion,
       )
     }
-  }
 
   // Implementing a `toProto<version>` method allows us to compose serializable classes.
   // You should define the toProtoV0 method on the serializable class, because then it is easiest to find and use.

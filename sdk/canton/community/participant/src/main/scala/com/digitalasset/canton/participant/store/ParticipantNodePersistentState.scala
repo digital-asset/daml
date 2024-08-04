@@ -215,7 +215,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
       ): FutureUnlessShutdown[Unit] = {
         if (maxDeduplicationDuration != storedMaxDeduplication) {
           logger.warn(
-            show"Using the max deduplication duration ${storedMaxDeduplication} instead of the configured $maxDeduplicationDuration."
+            show"Using the max deduplication duration $storedMaxDeduplication instead of the configured $maxDeduplicationDuration."
           )
         }
         FutureUnlessShutdown.unit

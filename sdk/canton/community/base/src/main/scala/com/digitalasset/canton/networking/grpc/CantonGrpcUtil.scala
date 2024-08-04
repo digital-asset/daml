@@ -30,15 +30,13 @@ object CantonGrpcUtil {
   def wrapErr[T](value: ParsingResult[T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
-  ): EitherT[Future, CantonError, T] = {
+  ): EitherT[Future, CantonError, T] =
     wrapErr(EitherT.fromEither[Future](value))
-  }
   def wrapErr[T](value: EitherT[Future, ProtoDeserializationError, T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
-  ): EitherT[Future, CantonError, T] = {
+  ): EitherT[Future, CantonError, T] =
     value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
-  }
 
   @Deprecated
   def mapErr[T, C](value: Either[T, C])(implicit
@@ -134,7 +132,7 @@ object CantonGrpcUtil {
       case Duration.Inf =>
         (client, (x => x): Long => Long)
       case _ =>
-        logger.error(s"Ignoring unexpected timeout ${timeout} value.")
+        logger.error(s"Ignoring unexpected timeout $timeout value.")
         (client, (x => x): Long => Long)
     }
 
@@ -215,16 +213,14 @@ object CantonGrpcUtil {
     }
   }
 
-  def silentLogPolicy(error: GrpcError)(logger: TracedLogger)(traceContext: TraceContext): Unit = {
+  def silentLogPolicy(error: GrpcError)(logger: TracedLogger)(traceContext: TraceContext): Unit =
     // Log an info, if a cause is defined to not discard the cause information
     Option(error.status.getCause).foreach { cause =>
       logger.info(error.toString, cause)(traceContext)
     }
-  }
 
-  def retryUnlessClosing(closing: () => Boolean)(error: GrpcError): Boolean = {
+  def retryUnlessClosing(closing: () => Boolean)(error: GrpcError): Boolean =
     !closing() && error.retry
-  }
 
   object RetryPolicy {
     lazy val noRetry: GrpcError => Boolean = _ => false
@@ -258,9 +254,8 @@ object CantonGrpcUtil {
   }
 
   implicit class GrpcFUSExtended[A](val f: FutureUnlessShutdown[A]) extends AnyVal {
-    def asGrpcResponse(implicit ec: ExecutionContext, elc: ErrorLoggingContext): Future[A] = {
+    def asGrpcResponse(implicit ec: ExecutionContext, elc: ErrorLoggingContext): Future[A] =
       f.failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
-    }
   }
 
   def checkCantonApiInfo(
@@ -272,7 +267,7 @@ object CantonGrpcUtil {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, String, Unit] =
     for {
       apiInfoName <- CantonGrpcUtil
         .sendSingleGrpcRequest(
@@ -302,7 +297,6 @@ object CantonGrpcUtil {
         EitherTUtil.condUnitET[Future](apiInfoName == expectedName, errorMessage)
       }
     } yield ()
-  }
 
   private[grpc] def apiInfoErrorMessage(
       channel: Channel,
@@ -310,7 +304,7 @@ object CantonGrpcUtil {
       expectedApiName: String,
       serverName: String,
   ): String =
-    s"Endpoint '$channel' provides '${receivedApiName}', " +
+    s"Endpoint '$channel' provides '$receivedApiName', " +
       s"expected '$expectedApiName'. This message indicates a possible mistake in configuration, " +
       s"please check node connection settings for '$serverName'."
 

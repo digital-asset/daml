@@ -120,7 +120,7 @@ object SequencerClientTransportFactory {
   ): EitherT[FutureUnlessShutdown, String, Unit] = connection match {
     case conn: GrpcSequencerConnection =>
       implicit val traceContext = errorLoggingContext.traceContext
-      errorLoggingContext.logger.info(s"Validating sequencer connection ${conn}")
+      errorLoggingContext.logger.info(s"Validating sequencer connection $conn")
       val channelBuilder = ClientChannelBuilder(loggerFactory)
       val channel = GrpcSequencerChannelBuilder(
         channelBuilder,
@@ -129,7 +129,7 @@ object SequencerClientTransportFactory {
         traceContextPropagation,
         config.keepAliveClient,
       )
-      def closeChannel(): Unit = {
+      def closeChannel(): Unit =
         Lifecycle.close(
           Lifecycle.toCloseableChannel(
             channel,
@@ -139,21 +139,19 @@ object SequencerClientTransportFactory {
         )(
           errorLoggingContext.logger
         )
-      }
       // clientConfig.handshakeRetryDelay.underlying.fromNow,
       val retryMs = config.initialConnectionRetryDelay.asFiniteApproximation
       val attempts = config.handshakeRetryDelay.underlying.toMillis / retryMs.toMillis
-      def check(): EitherT[Future, String, Unit] = {
+      def check(): EitherT[Future, String, Unit] =
         channel.getState(true) match {
           case ConnectivityState.READY =>
-            errorLoggingContext.logger.info(s"Successfully connected to sequencer at ${conn}")
+            errorLoggingContext.logger.info(s"Successfully connected to sequencer at $conn")
             EitherT.rightT(())
           case other =>
-            val msg = s"Unable to connect to sequencer at ${conn}: channel is ${other}"
+            val msg = s"Unable to connect to sequencer at $conn: channel is $other"
             errorLoggingContext.debug(msg)
             EitherT.leftT(msg)
         }
-      }
       val name = "check-valid-sequencer-connection"
       EitherT(
         retry

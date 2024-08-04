@@ -154,8 +154,7 @@ trait TinkOutputPrefixTypeTest extends BaseTest with CryptoTestHelper { this: As
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
       supportedSigningKeySchemes: Set[SigningKeyScheme],
       newCrypto: => Future[Crypto],
-  ): Unit = {
-
+  ): Unit =
     "handle the TINK output prefix" should {
       forAll(supportedSigningKeySchemes) { signingKeyScheme =>
         canVerifySignatureWithTinkOutputPrefix(signingKeyScheme, newCrypto)
@@ -170,5 +169,4 @@ trait TinkOutputPrefixTypeTest extends BaseTest with CryptoTestHelper { this: As
       }
 
     }
-  }
 }

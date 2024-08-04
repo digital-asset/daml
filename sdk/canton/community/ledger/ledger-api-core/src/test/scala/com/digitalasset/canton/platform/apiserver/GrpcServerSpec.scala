@@ -146,11 +146,11 @@ final class GrpcServerSpec
         loggerFactory,
         metrics,
         rateLimitingConfig,
-        additionalChecks = List((_, _) => {
+        additionalChecks = List { (_, _) =>
           LimitResult.OverLimit(
             overLimitRejection
           )
-        }),
+        },
       )
       resources(loggerFactory, metrics, List(rateLimitingInterceptor)).use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)

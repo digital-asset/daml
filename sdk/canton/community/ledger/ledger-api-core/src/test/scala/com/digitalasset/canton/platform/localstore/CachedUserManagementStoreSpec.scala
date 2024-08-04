@@ -213,7 +213,7 @@ class CachedUserManagementStoreSpec
     }
   }
 
-  private def createTested(delegate: InMemoryUserManagementStore): CachedUserManagementStore = {
+  private def createTested(delegate: InMemoryUserManagementStore): CachedUserManagementStore =
     new CachedUserManagementStore(
       delegate,
       expiryAfterWriteInSeconds = 1,
@@ -221,5 +221,4 @@ class CachedUserManagementStoreSpec
       Metrics.ForTesting,
       loggerFactory,
     )
-  }
 }

@@ -59,7 +59,7 @@ private class SP800HashDRBGSecureRandom(entropySource: EntropySource) extends Se
   override def getAlgorithm: String = "HASH-DRBG-" ++ digest.getAlgorithmName
   override def generateSeed(numBytes: Int): Array[Byte] =
     EntropyUtil.generateSeed(entropySource, numBytes)
-  override def nextBytes(bytes: Array[Byte]): Unit = {
+  override def nextBytes(bytes: Array[Byte]): Unit =
     blocking(
       this.synchronized {
         if (hashSP800DRBG.generate(bytes, Array[Byte](), predictionResistant) < 0) {
@@ -69,7 +69,6 @@ private class SP800HashDRBGSecureRandom(entropySource: EntropySource) extends Se
         }
       }
     )
-  }
 }
 
 private object SP800HashDRBGSecureRandom {
@@ -152,7 +151,7 @@ object DeterministicRandom {
   )(implicit
       traceContext: TraceContext,
       loggingContext: ErrorLoggingContext,
-  ): SecureRandom = {
+  ): SecureRandom =
     // the source of randomness must be the hash over both the public key and the message
     SP800HashDRBGSecureRandom(
       DeterministicEncoding
@@ -161,5 +160,4 @@ object DeterministicRandom {
         .toByteArray,
       loggerFactory,
     )
-  }
 }

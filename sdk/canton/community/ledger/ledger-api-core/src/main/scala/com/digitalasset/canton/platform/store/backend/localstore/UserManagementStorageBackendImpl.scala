@@ -74,46 +74,41 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   override def addUserAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
       connection: Connection
-  ): Unit = {
+  ): Unit =
     ParticipantMetadataBackend.addAnnotation("participant_user_annotations")(
       internalId,
       key,
       value,
       updatedAt,
     )(connection)
-  }
 
-  override def deleteUserAnnotations(internalId: Int)(connection: Connection): Unit = {
+  override def deleteUserAnnotations(internalId: Int)(connection: Connection): Unit =
     ParticipantMetadataBackend.deleteAnnotations("participant_user_annotations")(internalId)(
       connection
     )
-  }
 
-  override def getUserAnnotations(internalId: Int)(connection: Connection): Map[String, String] = {
+  override def getUserAnnotations(internalId: Int)(connection: Connection): Map[String, String] =
     ParticipantMetadataBackend.getAnnotations("participant_user_annotations")(internalId)(
       connection
     )
-  }
 
   override def compareAndIncreaseResourceVersion(
       internalId: Int,
       expectedResourceVersion: Long,
-  )(connection: Connection): Boolean = {
+  )(connection: Connection): Boolean =
     ParticipantMetadataBackend.compareAndIncreaseResourceVersion("participant_users")(
       internalId,
       expectedResourceVersion,
     )(connection)
-  }
 
   override def increaseResourceVersion(internalId: Int)(
       connection: Connection
-  ): Boolean = {
+  ): Boolean =
     ParticipantMetadataBackend.increaseResourceVersion("participant_users")(internalId)(connection)
-  }
 
   override def getUser(
       id: UserId
-  )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] = {
+  )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] =
     SQL"""
        SELECT internal_id, user_id, primary_party, is_deactivated, identity_provider_id, resource_version, created_at
        FROM participant_users
@@ -142,7 +137,6 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
             ),
           )
       }
-  }
 
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
@@ -154,7 +148,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val userIdWhereClause = fromExcl match {
       case None => Nil
-      case Some(id: String) => List(cSQL"user_id > ${id}")
+      case Some(id: String) => List(cSQL"user_id > $id")
     }
     val identityProviderIdWhereClause = identityProviderId match {
       case IdentityProviderId.Default =>
@@ -217,9 +211,9 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       SQL"""
          SELECT 1 AS dummy
          FROM participant_user_rights ur
-         WHERE ur.user_internal_id = ${internalId}
+         WHERE ur.user_internal_id = $internalId
                AND
-               ur.user_right = ${userRight}
+               ur.user_right = $userRight
                AND
                ur.for_party ${isForPartyPredicate(forParty)}""".asVectorOf(IntParser0)(connection)
     assert(res.length <= 1)
@@ -234,8 +228,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       SQL"""
          INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
          VALUES (
-            ${internalId},
-            ${userRight},
+            $internalId,
+            $userRight,
             ${forParty: Option[String]},
             $grantedAt
          )
@@ -249,7 +243,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       SQL"""
          SELECT ur.user_right, ur.for_party, ur.granted_at
          FROM participant_user_rights ur
-         WHERE ur.user_internal_id = ${internalId}
+         WHERE ur.user_internal_id = $internalId
          """.asVectorOf(UserRightParser)(connection)
     rec.map { case (userRight, forPartyRaw, grantedAt) =>
       UserManagementStorageBackend.DbUserRight(
@@ -272,19 +266,18 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       SQL"""
            DELETE FROM participant_user_rights ur
            WHERE
-            ur.user_internal_id = ${internalId}
+            ur.user_internal_id = $internalId
             AND
-            ur.user_right = ${userRight}
+            ur.user_right = $userRight
             AND
             ur.for_party ${isForPartyPredicate(forParty)}
            """.executeUpdate()(connection)
     updatedRowCount == 1
   }
 
-  override def countUserRights(internalId: Int)(connection: Connection): Int = {
-    SQL"SELECT count(*) AS user_rights_count from participant_user_rights WHERE user_internal_id = ${internalId}"
+  override def countUserRights(internalId: Int)(connection: Connection): Int =
+    SQL"SELECT count(*) AS user_rights_count from participant_user_rights WHERE user_internal_id = $internalId"
       .as(SqlParser.int("user_rights_count").single)(connection)
-  }
 
   private def makeUserRight(value: Int, partyRaw: Option[String]): UserRight = {
     val partyO = dbStringToPartyString(partyRaw)
@@ -298,7 +291,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }
   }
 
-  private def fromUserRight(right: UserRight): (Int, Option[Party]) = {
+  private def fromUserRight(right: UserRight): (Int, Option[Party]) =
     right match {
       case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None)
       case IdentityProviderAdmin => (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None)
@@ -307,11 +300,9 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case _ =>
         throw new RuntimeException(s"Could not recognize user right: $right.")
     }
-  }
 
-  private def dbStringToPartyString(raw: Option[String]): Option[Party] = {
+  private def dbStringToPartyString(raw: Option[String]): Option[Party] =
     raw.map(Party.assertFromString)
-  }
 
   private def dbStringToIdentityProviderId(
       raw: Option[String]
@@ -332,7 +323,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
          UPDATE participant_users
          SET primary_party  = ${primaryPartyO: Option[String]}
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }
@@ -344,7 +335,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
          UPDATE participant_users
          SET is_deactivated  = $isDeactivated
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }
@@ -358,7 +349,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
          UPDATE participant_users
          SET identity_provider_id = $idpId
          WHERE
-             internal_id = ${internalId}
+             internal_id = $internalId
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }

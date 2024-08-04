@@ -36,7 +36,7 @@ class AsyncCloseable private (
     .noisyAwaitResult(closeFuture(), s"closing $name", timeout, onTimeout = onTimeout)
     .discard
 
-  override def toString: String = s"AsyncCloseable(name=${name})"
+  override def toString: String = s"AsyncCloseable(name=$name)"
 }
 object AsyncCloseable {
   def apply(
@@ -52,7 +52,7 @@ object AsyncCloseable {
 
 class SyncCloseable private (name: String, sync: () => Unit) extends AsyncOrSyncCloseable {
   override def close(): Unit = sync()
-  override def toString: String = s"SyncCloseable(name=${name})"
+  override def toString: String = s"SyncCloseable(name=$name)"
 }
 object SyncCloseable {
   def apply(name: String, sync: => Unit): SyncCloseable =

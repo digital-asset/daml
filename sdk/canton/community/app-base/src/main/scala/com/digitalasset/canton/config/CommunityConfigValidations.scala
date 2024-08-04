@@ -185,7 +185,7 @@ object CommunityConfigValidations
   /** Check that logging configs are backwards compatible but consistent */
   private def backwardsCompatibleLoggingConfig(
       config: CantonConfig
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
+  ): Validated[NonEmpty[Seq[String]], Unit] =
     (config.monitoring.logMessagePayloads, config.monitoring.logging.api.messagePayloads) match {
       case (Some(fst), Some(snd)) =>
         Validated.cond(
@@ -195,7 +195,6 @@ object CommunityConfigValidations
         )
       case _ => Valid
     }
-  }
 
   // Check that the protocol version is defined for the domains
   private def protocolVersionDefinedForDomains(config: CantonConfig) = {
@@ -214,14 +213,13 @@ object CommunityConfigValidations
 
   private def developmentProtocolSafetyCheckDomains(
       config: CantonConfig
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
+  ): Validated[NonEmpty[Seq[String]], Unit] =
     developmentProtocolSafetyCheck(
       config.parameters.nonStandardConfig,
       config.domains.toSeq.map { case (k, v) =>
         (k, v.init.domainParameters)
       },
     )
-  }
 
   private def developmentProtocolSafetyCheckParticipants(
       config: CantonConfig
@@ -230,16 +228,15 @@ object CommunityConfigValidations
         name: String,
         nonStandardConfig: Boolean,
         devVersionSupport: Boolean,
-    ): Validated[NonEmpty[Seq[String]], Unit] = {
+    ): Validated[NonEmpty[Seq[String]], Unit] =
       Validated.cond(
         nonStandardConfig || !devVersionSupport,
         (),
         NonEmpty(
           Seq,
-          s"Enabling dev-version-support for participant ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Enabling dev-version-support for participant $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
-    }
 
     config.participants.toList.traverse_ { case (name, participantConfig) =>
       toNe(
@@ -292,7 +289,7 @@ object CommunityConfigValidations
         config.init.domainParameters.betaVersionSupport || parameters.betaVersionSupport || config.init.domainParameters.devVersionSupport || parameters.devVersionSupport
 
       if (pv.isBeta && !betaVersionOrDevVersionEnabled)
-        s"Using beta protocol $pv for node ${name} requires you to explicitly set canton.parameters.beta-version-support = yes" +: errors
+        s"Using beta protocol $pv for node $name requires you to explicitly set canton.parameters.beta-version-support = yes" +: errors
       else errors
     }
     NonEmpty.from(errors).map(Validated.invalid).getOrElse(Valid)
@@ -306,16 +303,15 @@ object CommunityConfigValidations
         name: String,
         protocolVersion: ProtocolVersion,
         allowUnstableProtocolVersion: Boolean,
-    ): Validated[NonEmpty[Seq[String]], Unit] = {
+    ): Validated[NonEmpty[Seq[String]], Unit] =
       Validated.cond(
         !protocolVersion.isUnstable || allowUnstableProtocolVersion,
         (),
         NonEmpty(
           Seq,
-          s"Using non-stable protocol ${protocolVersion} for node ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Using non-stable protocol $protocolVersion for node $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
-    }
 
     namesAndConfig.toList.traverse_ { case (name, parameters) =>
       toNe(
@@ -335,16 +331,15 @@ object CommunityConfigValidations
         name: String,
         nonStandardConfig: Boolean,
         adminToken: Option[String],
-    ): Validated[NonEmpty[Seq[String]], Unit] = {
+    ): Validated[NonEmpty[Seq[String]], Unit] =
       Validated.cond(
         nonStandardConfig || adminToken.isEmpty,
         (),
         NonEmpty(
           Seq,
-          s"Setting ledger-api.admin-token for participant ${name} requires you to explicitly set canton.parameters.non-standard-config = yes",
+          s"Setting ledger-api.admin-token for participant $name requires you to explicitly set canton.parameters.non-standard-config = yes",
         ),
       )
-    }
 
     config.participants.toList.traverse_ { case (name, participantConfig) =>
       toNe(

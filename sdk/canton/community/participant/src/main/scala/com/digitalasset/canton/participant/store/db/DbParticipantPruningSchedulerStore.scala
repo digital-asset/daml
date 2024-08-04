@@ -53,7 +53,7 @@ final class DbParticipantPruningSchedulerStore(
                   """
             case _: Profile.H2 =>
               sqlu"""merge into participant_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
-                     values (${singleRowLockValue}, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
+                     values ($singleRowLockValue, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                   """
             case _: Profile.Oracle =>
               sqlu"""merge into participant_pruning_schedules pps
@@ -159,6 +159,6 @@ final class DbParticipantPruningSchedulerStore(
     Either.cond(
       rowCount > 0,
       (),
-      s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule or set_participant_schedule instead.",
+      s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule or set_participant_schedule instead.",
     )
 }

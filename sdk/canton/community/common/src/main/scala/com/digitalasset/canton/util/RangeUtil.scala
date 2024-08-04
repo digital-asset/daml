@@ -16,7 +16,7 @@ object RangeUtil {
     * </ul>
     * If `from >= to`, the result is `(from, to)`.
     */
-  def partitionIndexRange(from: Long, to: Long, maxBatchSize: Long): immutable.Seq[(Long, Long)] = {
+  def partitionIndexRange(from: Long, to: Long, maxBatchSize: Long): immutable.Seq[(Long, Long)] =
     if (from < to) {
       val froms = from until to by maxBatchSize
       val tos = froms.drop(1) :+ to
@@ -24,6 +24,5 @@ object RangeUtil {
     } else {
       immutable.Seq(from -> to)
     }
-  }
 
 }

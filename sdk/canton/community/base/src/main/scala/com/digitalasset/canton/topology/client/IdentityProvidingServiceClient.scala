@@ -434,7 +434,7 @@ trait DomainGovernanceSnapshotClient {
       case Right(value) => value.parameters
       case Left(_) =>
         if (warnOnUsingDefault) {
-          logger.warn(s"Unexpectedly using default domain parameters at ${timestamp}")
+          logger.warn(s"Unexpectedly using default domain parameters at $timestamp")
         }
 
         DynamicDomainParameters.initialValues(
@@ -507,22 +507,20 @@ trait DomainTopologyClientWithInit
   /** Overloaded snapshot returning derived type */
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[TopologySnapshotLoader] = {
+  )(implicit traceContext: TraceContext): Future[TopologySnapshotLoader] =
     snapshotInternal(timestamp)((timestamp, waitForEffectiveTime) =>
       this.awaitTimestamp(timestamp, waitForEffectiveTime)
     )
-  }
 
   /** Overloaded snapshot returning derived type */
   override def snapshotUS(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
     snapshotInternal[FutureUnlessShutdown](timestamp)(
       (timestamp, waitForEffectiveTime) => this.awaitTimestampUS(timestamp, waitForEffectiveTime),
       // Do not log a warning if we get a shutdown future
       logWarning = f => f != FutureUnlessShutdown.abortedDueToShutdown,
     )
-  }
 
   private def snapshotInternal[F[_]](
       timestamp: CantonTimestamp

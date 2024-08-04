@@ -156,7 +156,7 @@ class CommandDeduplicatorImpl(
 
       def checkAgainstPruning(
           deduplicationStart: CantonTimestamp
-      ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
+      ): EitherT[Future, DeduplicationFailed, GlobalOffset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
@@ -165,7 +165,6 @@ class CommandDeduplicatorImpl(
               dedupPeriodTooEarly(prunedOffset),
             )
         }
-      }
 
       for {
         deduplicationStart <- EitherT.fromEither[Future](
@@ -210,7 +209,7 @@ class CommandDeduplicatorImpl(
     ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
       def checkAgainstPruning(
           dedupOffset: GlobalOffset
-      ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
+      ): EitherT[Future, DeduplicationFailed, GlobalOffset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
@@ -219,7 +218,6 @@ class CommandDeduplicatorImpl(
               dedupPeriodTooEarly(prunedOffset),
             )
         }
-      }
 
       for {
         dedupOffset <- EitherT.fromEither[Future](

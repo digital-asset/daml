@@ -71,7 +71,7 @@ object NonUnitForEach extends WartTraverser {
        * - Does not work for receivers that are var
        *   (there does not seem to be an easy way to get this information without using internal APIs)
        */
-      def isThisTypeResult(tree: Tree): Boolean = {
+      def isThisTypeResult(tree: Tree): Boolean =
         stripApplies(tree, Nil) match {
           case (fun @ Select(receiver, op), args) =>
             tree.tpe match {
@@ -110,9 +110,8 @@ object NonUnitForEach extends WartTraverser {
               case _ => false
             }
         }
-      }
 
-      def isInterestingResult(tree: Tree): Option[Tree] = {
+      def isInterestingResult(tree: Tree): Option[Tree] =
         tree match {
           case Function(_, body) => isInterestingResult(body)
           case Block(_, res) => isInterestingResult(res)
@@ -129,9 +128,8 @@ object NonUnitForEach extends WartTraverser {
           case _ =>
             Option.when(!uninterestingType(tree.tpe) && !isThisTypeResult(tree))(tree)
         }
-      }
 
-      override def traverse(tree: Tree): Unit = {
+      override def traverse(tree: Tree): Unit =
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
@@ -151,7 +149,6 @@ object NonUnitForEach extends WartTraverser {
 
           case _ => super.traverse(tree)
         }
-      }
     }
   }
 }

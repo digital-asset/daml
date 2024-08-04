@@ -212,14 +212,13 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
 
       def completeAndLookup(time: TimeOfChange): Future[
         (Checked[Nothing, TransferStoreError, Unit], Either[TransferLookupError, TransferData])
-      ] = {
+      ] =
         for {
           complete <- cache.completeTransfer(transfer10, time).value
           lookup <- (store.lookup(transfer10)(traceContext)).value
         } yield {
           complete -> lookup
         }
-      }
 
       for {
         transferData <- transferDataF

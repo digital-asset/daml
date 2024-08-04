@@ -116,7 +116,7 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
   private def createDbMultiDomainEventLog(
       storage: DbStorage,
       clock: Clock,
-  ): Future[DbMultiDomainEventLog] = {
+  ): Future[DbMultiDomainEventLog] =
     DbMultiDomainEventLog.apply(
       storage,
       clock,
@@ -129,7 +129,6 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
       transferStoreFor = domainId =>
         transferStores.get(domainId).toRight(s"Cannot find transfer store for domain $domainId"),
     )
-  }
 
   "DbMultiDomainEventLog" should {
     behave like multiDomainEventLog { clock =>

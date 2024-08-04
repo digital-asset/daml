@@ -36,7 +36,7 @@ object ActiveContractsData {
       protocolVersion: ProtocolVersion,
       toc: TimeOfChange,
       contracts: Seq[LfContractId],
-  ): Either[String, ActiveContractsData] = {
+  ): Either[String, ActiveContractsData] =
     Either
       .catchOnly[IllegalArgumentException](
         ActiveContractsData(
@@ -46,7 +46,5 @@ object ActiveContractsData {
         )
       )
       .leftMap(_.getMessage)
-
-  }
 
 }

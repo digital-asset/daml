@@ -170,19 +170,16 @@ object SyncCryptoClient {
     (timestamp, traceContext) => client.snapshotUS(timestamp)(traceContext),
     (description, timestamp, traceContext) =>
       client.awaitSnapshotUSSupervised(description)(timestamp)(traceContext),
-    { (snapshot, traceContext) =>
-      {
-        closeContext.context.performUnlessClosingF(
-          "get-dynamic-domain-parameters"
-        ) {
-          snapshot
-            .findDynamicDomainParametersOrDefault(
-              protocolVersion = protocolVersion,
-              warnOnUsingDefault = false,
-            )(traceContext)
-        }(executionContext, traceContext)
-      }
-    },
+    (snapshot, traceContext) =>
+      closeContext.context.performUnlessClosingF(
+        "get-dynamic-domain-parameters"
+      ) {
+        snapshot
+          .findDynamicDomainParametersOrDefault(
+            protocolVersion = protocolVersion,
+            warnOnUsingDefault = false,
+          )(traceContext)
+      }(executionContext, traceContext),
   )
 
   /** Computes the snapshot for the desired timestamp, assuming that the last (relevant) update to the
@@ -200,7 +197,7 @@ object SyncCryptoClient {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): Future[SyncCryptoApi] = {
+  ): Future[SyncCryptoApi] =
     getSnapshotForTimestampInternal[Future](
       client,
       desiredTimestamp,
@@ -210,15 +207,13 @@ object SyncCryptoClient {
       (timestamp, traceContext) => client.snapshot(timestamp)(traceContext),
       (description, timestamp, traceContext) =>
         client.awaitSnapshotSupervised(description)(timestamp)(traceContext),
-      { (snapshot, traceContext) =>
+      (snapshot, traceContext) =>
         snapshot
           .findDynamicDomainParametersOrDefault(
             protocolVersion = protocolVersion,
             warnOnUsingDefault = false,
-          )(traceContext)
-      },
+          )(traceContext),
     )
-  }
 
   // Base version of getSnapshotForTimestamp abstracting over the effect type to allow for
   // a `Future` and `FutureUnlessShutdown` version. Once we migrate all usages to the US version, this abstraction
@@ -500,33 +495,31 @@ class DomainSnapshotSyncCryptoApi(
       hash: Hash,
       signer: KeyOwner,
       signature: Signature,
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  ): EitherT[Future, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- EitherT.fromEither[Future](
         verifySignature(hash, validKeys, signature, signer.toString)
       )
     } yield res
-  }
 
   override def verifySignatures(
       hash: Hash,
       signer: KeyOwner,
       signatures: NonEmpty[Seq[Signature]],
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  ): EitherT[Future, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- signatures.forgetNE.parTraverse_ { signature =>
         EitherT.fromEither[Future](verifySignature(hash, validKeys, signature, signer.toString))
       }
     } yield res
-  }
 
   override def verifySignatures(
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     for {
       mediatorGroup <- EitherT(
         ipsSnapshot.mediatorGroups().map { groups =>
@@ -584,7 +577,6 @@ class DomainSnapshotSyncCryptoApi(
         )
       }
     } yield ()
-  }
 
   private def ownerIsInitialized(
       validKeys: Seq[SigningPublicKey]

@@ -49,9 +49,8 @@ object PackageServiceTest extends BaseTest {
       .readArchiveFromFile(new File(BaseTest.CantonExamplesPath))
       .getOrElse(throw new IllegalArgumentException("Failed to read dar"))
 
-  def readCantonExamples(): List[DamlLf.Archive] = {
+  def readCantonExamples(): List[DamlLf.Archive] =
     loadExampleDar().all
-  }
 
   def readCantonExamplesBytes(): Array[Byte] =
     Files.readAllBytes(Paths.get(BaseTest.CantonExamplesPath))

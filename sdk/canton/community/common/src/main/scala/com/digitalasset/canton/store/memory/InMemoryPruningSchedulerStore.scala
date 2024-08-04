@@ -58,7 +58,7 @@ final class InMemoryPruningSchedulerStore(
       schedule
         .updateAndGet(_.map(f))
         .toRight(
-          s"Attempt to update ${field} of a schedule that has not been previously configured. Use set_schedule instead."
+          s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead."
         )
         .map(_ => ())
     }

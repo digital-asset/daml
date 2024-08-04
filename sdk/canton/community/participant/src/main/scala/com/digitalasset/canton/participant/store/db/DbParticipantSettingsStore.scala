@@ -101,7 +101,7 @@ class DbParticipantSettingsStore(
 
   override def writeResourceLimits(
       resourceLimits: ResourceLimits
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     processingTime.eventUS {
       // Put the new value into the cache right away so that changes become effective immediately.
       // This also ensures that value meets the object invariant of Settings.
@@ -123,7 +123,6 @@ class DbParticipantSettingsStore(
       }
       runQueryAndRefreshCache(query, functionFullName)
     }
-  }
 
   override def insertMaxDeduplicationDuration(maxDeduplicationDuration: NonNegativeFiniteDuration)(
       implicit traceContext: TraceContext

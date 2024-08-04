@@ -89,7 +89,7 @@ trait PartyMetadataStore extends AutoCloseable {
 
   final def insertOrUpdatePartyMetadata(metadata: PartyMetadata)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Future[Unit] =
     insertOrUpdatePartyMetadata(
       partyId = metadata.partyId,
       participantId = metadata.participantId,
@@ -97,7 +97,6 @@ trait PartyMetadataStore extends AutoCloseable {
       effectiveTimestamp = metadata.effectiveTimestamp,
       submissionId = metadata.submissionId,
     )
-  }
 
   def insertOrUpdatePartyMetadata(
       partyId: PartyId,
@@ -150,15 +149,14 @@ object TopologyStoreId {
   final case class DomainStore(domainId: DomainId, discriminator: String = "")
       extends TopologyStoreId {
     private val dbStringWithoutDiscriminator = domainId.toLengthLimitedString
-    val dbString: LengthLimitedString = {
+    val dbString: LengthLimitedString =
       if (discriminator.isEmpty) dbStringWithoutDiscriminator
       else
         LengthLimitedString
           .tryCreate(discriminator + "::", discriminator.length + 2)
           .tryConcatenate(dbStringWithoutDiscriminator)
-    }
 
-    override def pretty: Pretty[this.type] = {
+    override def pretty: Pretty[this.type] =
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
           show"${storeId.discriminator}${SafeSimpleString.delimiter}${storeId.domainId}"
@@ -166,7 +164,6 @@ object TopologyStoreId {
       } else {
         prettyOfParam(_.domainId)
       }
-    }
 
     // The reason for this somewhat awkward method is backward compat with uniquifier inserted in the middle of
     // discriminator and domain id. Can be removed once fully on daml 3.0:
@@ -244,9 +241,8 @@ object TopologyTransactionRejection {
 
     override def pretty: Pretty[ThresholdTooHigh] = prettyOfString(_ => asString)
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) = {
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InvalidThreshold.ThresholdTooHigh(actual, mustBeAtMost)
-    }
   }
 
   final case class SignatureCheckFailed(err: SignatureCheckError)
@@ -265,7 +261,7 @@ object TopologyTransactionRejection {
       TopologyManagerError.WrongDomain.Failure(wrong)
   }
   final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
-    override def asString: String = show"Duplicate transaction from ${old}"
+    override def asString: String = show"Duplicate transaction from $old"
     override def pretty: Pretty[Duplicate] = prettyOfClass(param("old", _.old))
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.DuplicateTransaction.ExistsAt(old)
@@ -545,7 +541,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       .toList
       .sortBy { case ((_, validFrom), _) => validFrom }
     if (logger.underlying.isDebugEnabled) {
-      logger.debug(s"Bootstrapping ${storeId} with ${groupedBySequencedAndValidFrom}")
+      logger.debug(s"Bootstrapping $storeId with $groupedBySequencedAndValidFrom")
     }
     MonadUtil
       .sequentialTraverse_(groupedBySequencedAndValidFrom) {
@@ -689,7 +685,7 @@ object TopologyStore {
 
     def accumulateUpcomingEffectiveChanges(
         items: Seq[StoredTopologyTransaction[TopologyChangeOp]]
-    ): Seq[TopologyStore.Change] = {
+    ): Seq[TopologyStore.Change] =
       items
         .map(x => (x, x.transaction.transaction.element.mapping))
         .map {
@@ -699,7 +695,6 @@ object TopologyStore {
         }
         .sortBy(_.effective)
         .distinct
-    }
 
   }
 
@@ -937,14 +932,13 @@ object TopologyStore {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[Boolean] = {
+  ): FutureUnlessShutdown[Boolean] =
     client.await(
       // we know that the transaction is stored and effective once we find it in the target
       // domain store and once the effective time (valid from) is smaller than the client timestamp
       sp => target.findStored(transaction).map(_.exists(_.validFrom.value < sp.timestamp)),
       timeout,
     )
-  }
 
 }
 

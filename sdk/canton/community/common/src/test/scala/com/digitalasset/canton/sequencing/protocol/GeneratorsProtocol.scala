@@ -49,14 +49,13 @@ final class GeneratorsProtocol(
     }
   }
 
-  implicit val recipientsArb: Arbitrary[Recipients] = {
+  implicit val recipientsArb: Arbitrary[Recipients] =
     Arbitrary(for {
       depths <- nonEmptyListGen(Arbitrary(Gen.choose(0, 3)))
       trees <- Gen.sequence[List[RecipientsTree], RecipientsTree](
         depths.forgetNE.map(recipientsTreeGen(implicitly[Arbitrary[Recipient]])(_))
       )
     } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
-  }
 
   implicit val closedEnvelopeArb: Arbitrary[ClosedEnvelope] = Arbitrary(
     for {

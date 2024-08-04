@@ -16,9 +16,8 @@ import scala.concurrent.Future
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  private def toOption(protoString: String): Option[String] = {
+  private def toOption(protoString: String): Option[String] =
     if (protoString.nonEmpty) Some(protoString) else None
-  }
 
   private def eventsReader = ledgerDao.eventsReader
 
@@ -133,14 +132,13 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     }
   }
 
-  private def createAndExerciseKey(key: GlobalKeyWithMaintainers, signatories: Set[Party]) = {
+  private def createAndExerciseKey(key: GlobalKeyWithMaintainers, signatories: Set[Party]) =
     for {
       (_, tx) <- store(
         singleCreate(cId => create(cId, signatories = signatories).copy(keyOpt = Some(key)))
       )
       (_, _) <- store(singleExercise(nonTransient(tx).loneElement))
     } yield tx
-  }
 
   it should "return the maximum create prior to the end-exclusive-seq-id" in {
     val key = globalKeyWithMaintainers("key5")
@@ -148,7 +146,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     // (contract-id, continuation-token)
     def getNextResult(
         keyContinuationToken: KeyContinuationToken
-    ): Future[(Option[String], KeyContinuationToken)] = {
+    ): Future[(Option[String], KeyContinuationToken)] =
       eventsReader
         .getEventsByContractKey(
           contractKey = key.globalKey,
@@ -162,7 +160,6 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
             KeyContinuationToken.fromTokenString(r.continuationToken).value,
           )
         )
-    }
 
     for {
       tx1 <- createAndExerciseKey(key, Set(alice, bob))
@@ -184,7 +181,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     // (contract-defined, continuation-token)
     def getNextImmediateResult(
         keyContinuationToken: KeyContinuationToken
-    ): Future[(Boolean, KeyContinuationToken)] = {
+    ): Future[(Boolean, KeyContinuationToken)] =
       eventsReader
         .getEventsByContractKey(
           contractKey = key.globalKey,
@@ -195,7 +192,6 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         .map(r =>
           (r.createEvent.isDefined, KeyContinuationToken.fromTokenString(r.continuationToken).value)
         )
-    }
 
     for {
       _ <- createAndExerciseKey(key, Set(alice, bob))

@@ -483,9 +483,8 @@ class GrpcSequencerServiceTest
     }
 
     "reject on rate excess" in { implicit env =>
-      def expectSuccess(): Future[Assertion] = {
+      def expectSuccess(): Future[Assertion] =
         sendAndCheckSucceed(defaultRequest)
-      }
 
       def expectOneSuccessOneOverloaded(): Future[Assertion] = {
         val result1F = send(defaultRequest, authenticated = true)

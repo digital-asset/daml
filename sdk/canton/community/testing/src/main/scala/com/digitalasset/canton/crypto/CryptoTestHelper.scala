@@ -50,11 +50,10 @@ trait CryptoTestHelper extends BaseTest {
   protected def getSigningPublicKey(
       crypto: Crypto,
       scheme: SigningKeyScheme,
-  ): Future[SigningPublicKey] = {
+  ): Future[SigningPublicKey] =
     crypto
       .generateSigningKey(scheme)
       .valueOrFail("generate signing key")
-  }
 
   /** Helper method to get two different signing public keys.
     */

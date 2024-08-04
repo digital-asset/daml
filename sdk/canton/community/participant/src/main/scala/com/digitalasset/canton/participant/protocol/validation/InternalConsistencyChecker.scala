@@ -48,17 +48,16 @@ class InternalConsistencyChecker(
       hostedParty: LfPartyId => Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Either[ErrorWithInternalConsistencyCheck, Unit] = {
+  ): Either[ErrorWithInternalConsistencyCheck, Unit] =
     for {
       _ <- checkRollbackScopes(rootViewTrees)
       _ <- checkContractState(rootViewTrees)
       _ <- checkKeyState(rootViewTrees, hostedParty)
     } yield ()
-  }
 
   private def checkRollbackScopes(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
-  ): Result[Unit] = {
+  ): Result[Unit] =
     // TransactionViewDecompositionFactory prior to ProtocolVersion.v5 did not enforce this
     if (protocolVersion >= ProtocolVersion.v5) {
       checkRollbackScopeOrder(
@@ -69,18 +68,15 @@ class InternalConsistencyChecker(
     } else {
       Right(())
     }
-  }
 
   private def checkContractState(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
-  )(implicit traceContext: TraceContext): Result[Unit] = {
-
+  )(implicit traceContext: TraceContext): Result[Unit] =
     MonadUtil
       .foldLeftM[Result, ContractState, FullTransactionViewTree](
         ContractState.empty,
         rootViewTrees,
-      )((previous, rootViewTree) => {
-
+      ) { (previous, rootViewTree) =>
         val state = adjustRollbackScope[ContractState, Set[LfContractId]](
           previous,
           rootViewTree.viewParticipantData.tryUnwrap.rollbackContext.rollbackScope,
@@ -97,35 +93,31 @@ class InternalConsistencyChecker(
           _ <- checkNotUsedAfterArchive(state.consumed, referenced)
         } yield state.update(referenced = referenced, consumed = consumed)
 
-      })
+      }
       .map(_.discard)
-  }
 
   private def checkNotUsedBeforeCreation(
       previouslyReferenced: Set[LfContractId],
       newlyCreated: Set[LfContractId],
-  ): Result[Unit] = {
+  ): Result[Unit] =
     NonEmpty.from(newlyCreated.intersect(previouslyReferenced)) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedBeforeCreation(ne)))
       case None => Right(())
     }
-  }
 
   private def checkNotUsedAfterArchive(
       previouslyConsumed: Set[LfContractId],
       newlyReferenced: Set[LfContractId],
-  ): Result[Unit] = {
+  ): Result[Unit] =
     NonEmpty.from(previouslyConsumed.intersect(newlyReferenced)) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedAfterArchive(ne)))
       case None => Right(())
     }
-  }
 
   private def checkKeyState(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
       hostedParty: LfPartyId => Boolean,
-  )(implicit traceContext: TraceContext): Result[Unit] = {
-
+  )(implicit traceContext: TraceContext): Result[Unit] =
     if (uniqueContractKeys) {
 
       // Validating only hosted keys (i.e. keys where this participant hosts a maintainer),
@@ -144,9 +136,8 @@ class InternalConsistencyChecker(
           .toMap
 
       MonadUtil
-        .foldLeftM[Result, KeyState, FullTransactionViewTree](KeyState.empty, rootViewTrees)(
-          (previous, rootViewTree) => {
-
+        .foldLeftM[Result, KeyState, FullTransactionViewTree](KeyState.empty, rootViewTrees) {
+          (previous, rootViewTree) =>
             val state = adjustRollbackScope[KeyState, KeyMapping](
               previous,
               rootViewTree.viewParticipantData.rollbackContext.rollbackScope,
@@ -161,24 +152,21 @@ class InternalConsistencyChecker(
               _ <- checkConsistentKeyUse(state.inconsistentKeys(viewGlobal))
             } yield state.update(viewGlobal, hostedUpdatedKeys(rootViewTree))
 
-          }
-        )
+        }
         .map(_.discard)
     } else {
       Right(())
     }
-  }
 
   /** @param inconsistent - the set of inconsistent keys or the empty set if no inconsistencies have been found,
     *                     see [[KeyState.inconsistentKeys]] to see how inconsistency is detected.
     * @return - returns a failed result if there are inconsistent keys
     */
-  private def checkConsistentKeyUse(inconsistent: Set[LfGlobalKey]): Result[Unit] = {
+  private def checkConsistentKeyUse(inconsistent: Set[LfGlobalKey]): Result[Unit] =
     NonEmpty.from(inconsistent) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(InconsistentKeyUse(ne)))
       case None => Right(())
     }
-  }
 
 }
 
@@ -233,13 +221,12 @@ object InternalConsistencyChecker {
       starting: M,
       targetScope: RollbackScope,
   ): M = {
-    @tailrec def loop(current: M): M = {
+    @tailrec def loop(current: M): M =
       RollbackScope.popsAndPushes(current.rollbackScope, targetScope) match {
         case (0, 0) => current
         case (0, _) => current.pushRollbackScope(targetScope)
         case _ => loop(current.popRollbackScope())
       }
-    }
 
     loop(starting)
   }
@@ -266,9 +253,8 @@ object InternalConsistencyChecker {
         stack: List[WithRollbackScope[Set[LfContractId]]],
     ): ContractState = copy(rollbackScope = rollbackScope, consumed = activeState, stack = stack)
 
-    def update(referenced: Set[LfContractId], consumed: Set[LfContractId]): ContractState = {
+    def update(referenced: Set[LfContractId], consumed: Set[LfContractId]): ContractState =
       copy(referenced = this.referenced ++ referenced, consumed = this.consumed ++ consumed)
-    }
 
   }
 
@@ -304,20 +290,18 @@ object InternalConsistencyChecker {
 
     def inconsistentKeys(
         viewKeyMappings: Map[LfGlobalKey, KeyResolution]
-    ): Set[LfGlobalKey] = {
+    ): Set[LfGlobalKey] =
       (for {
         (key, previousResolution) <- preResolutions ++ activeRollbackState
         currentResolution <- viewKeyMappings.get(key)
         if previousResolution != currentResolution
       } yield key).toSet
-    }
 
-    def update(viewGlobal: KeyMapping, updates: KeyMapping): KeyState = {
+    def update(viewGlobal: KeyMapping, updates: KeyMapping): KeyState =
       copy(
         preResolutions = preResolutions ++ (viewGlobal -- preResolutions.keySet),
         activeResolutions = activeResolutions ++ updates,
       )
-    }
 
   }
 
@@ -391,12 +375,11 @@ object InternalConsistencyChecker {
 
   private[validation] def checkRollbackScopeOrder(
       presented: Seq[RollbackContext]
-  ): Either[String, Unit] = {
+  ): Either[String, Unit] =
     Either.cond(
       presented == presented.sorted,
       (),
       s"Detected out of order rollback scopes in: $presented",
     )
-  }
 
 }

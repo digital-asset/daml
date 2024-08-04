@@ -47,7 +47,7 @@ class CronTest extends AnyWordSpec with BaseTest {
 
     val tooLong = "1234567890" * 30 + "too long"
     Cron.create(tooLong).leftOrFail("cron expression too long") should startWith
-    s"Invalid cron expression \"${tooLong}\": requirement failed: The given string has a maximum length of 300 but a string of length 308"
+    s"Invalid cron expression \"$tooLong\": requirement failed: The given string has a maximum length of 300 but a string of length 308"
 
   }
 

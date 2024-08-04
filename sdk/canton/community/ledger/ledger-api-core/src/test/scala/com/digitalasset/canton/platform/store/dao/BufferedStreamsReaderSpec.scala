@@ -371,7 +371,7 @@ object BufferedStreamsReaderSpec {
             multiDomainEnabled: Boolean,
         )(implicit
             loggingContext: LoggingContextWithTrace
-        ): Source[(Offset, String), NotUsed] = {
+        ): Source[(Offset, String), NotUsed] =
           if (startExclusive > endInclusive) fail("startExclusive after endInclusive")
           else if (endInclusive > offset(ledgerEndIndex)) fail("endInclusive after ledgerEnd")
           else
@@ -380,7 +380,6 @@ object BufferedStreamsReaderSpec {
               .takeWhile(_._1 <= endInclusive)
               .map { case (o, tx) => o -> tx.transactionId }
               .pipe(Source(_))
-        }
       }
 
       private val streamReader = new BufferedStreamsReader[Object, String](
