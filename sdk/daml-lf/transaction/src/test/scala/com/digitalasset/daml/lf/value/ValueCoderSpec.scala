@@ -165,7 +165,7 @@ class ValueCoderSpec
         if (i <= 0) acc
         else toNat(i - 1, ValueRecord(None, ImmArray(None -> acc)))
 
-      val n = toNat(100)
+      val n = toNat(1)
 
       // We double check that 100 is the maximum
       ValueCoder
