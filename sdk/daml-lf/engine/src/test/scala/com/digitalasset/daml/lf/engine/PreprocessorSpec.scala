@@ -204,50 +204,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             succeed
         }
       }
-
-      "reject disclosed contract of a type without key but with a key hash " in {
-        val preprocessor =
-          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-        val contract =
-          buildDisclosedContract(contractId, templateId = withoutKeyTmplId, keyHash = Some(keyHash))
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(
-                  Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
-                    `contractId`,
-                    `withoutKeyTmplId`,
-                    `keyHash`,
-                  )
-                )
-              ) =>
-            succeed
-        }
-      }
-
-      "reject disclosed contract of a type with key but without key hash " in {
-        val preprocessor =
-          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-        val contract =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = None)
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(
-                  Error.Preprocessing
-                    .MissingDisclosedContractKeyHash(`contractId`, `withKeyTmplId`)
-                )
-              ) =>
-            succeed
-        }
-      }
-
     }
   }
 }
@@ -328,32 +284,29 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       withNormalization: Boolean = true,
       withFieldsReversed: Boolean = false,
       keyHash: Option[Hash] = None,
-  ): command.DisclosedContract = {
+  ): FatContractInstanceImpl = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
       (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
         .ValueInt64(42L),
     )
-    command.DisclosedContract(
-      FatContractInstanceImpl(
-        version = TransactionVersion.StableVersions.max,
-        contractId = contractId,
-        packageName = pkgName,
-        packageVersion = pkg.pkgVersion,
-        templateId = templateId,
-        createArg = Value.ValueRecord(
-          if (withNormalization) None else Some(templateId),
-          if (withFieldsReversed) recordFields.reverse else recordFields,
-        ),
-        signatories = signatories,
-        stakeholders = signatories,
-        contractKeyWithMaintainers = keyHash.map(_ =>
-          GlobalKeyWithMaintainers.assertBuild(templateId, key, signatories, pkgName)
-        ),
-        createdAt = data.Time.Timestamp.Epoch,
-        cantonData = Bytes.Empty,
+    FatContractInstanceImpl(
+      version = TransactionVersion.StableVersions.max,
+      contractId = contractId,
+      packageName = pkgName,
+      packageVersion = pkg.pkgVersion,
+      templateId = templateId,
+      createArg = Value.ValueRecord(
+        if (withNormalization) None else Some(templateId),
+        if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      keyHash,
+      signatories = signatories,
+      stakeholders = signatories,
+      contractKeyWithMaintainers = keyHash.map(_ =>
+        GlobalKeyWithMaintainers.assertBuild(templateId, key, signatories, pkgName)
+      ),
+      createdAt = data.Time.Timestamp.Epoch,
+      cantonData = Bytes.Empty,
     )
   }
 

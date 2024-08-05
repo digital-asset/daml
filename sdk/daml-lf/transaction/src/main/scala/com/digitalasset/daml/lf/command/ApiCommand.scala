@@ -119,19 +119,3 @@ case class ApiCommands(
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
 )
-
-/** An additional contract that is used to resolve contract id and contract key lookups during interpretation.
-  *
-  * @param templateId   identifier of the template of disclosed contract
-  * @param contractId   the contract id of the disclosed contract
-  * @param argument     the payload of the disclosed contract
-  * @param keyHash        hash of the contract key, if present
-  */
-final case class DisclosedContract(
-    contractInstance: transaction.FatContractInstance,
-    keyHash: Option[crypto.Hash],
-) {
-  def templateId: Identifier = contractInstance.templateId
-  def contractId: Value.ContractId = contractInstance.contractId
-  def argument: Value = contractInstance.createArg
-}

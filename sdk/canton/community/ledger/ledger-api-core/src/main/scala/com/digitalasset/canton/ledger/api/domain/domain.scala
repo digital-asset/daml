@@ -8,15 +8,14 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.{
-  ApiCommands as LfCommands,
-  DisclosedContract as LfDisclosedContract,
+  ApiCommands as LfCommands
 }
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance as LfContractInstance,
+  FatContractInstance as LfFatContractInstance,
   GlobalKeyWithMaintainers,
   Node as LfNode,
   TransactionVersion
@@ -163,8 +162,8 @@ final case class DisclosedContract(
         throw new Error("unexpected mismatch between keyValue and keyMaintainers")
     }
 
-  def toLfContractInstance =
-    LfContractInstance.fromCreateNode(
+  def toLf =
+    LfFatContractInstance.fromCreateNode(
       LfNode.Create(
         coid = contractId,
         packageName = packageName,
@@ -177,11 +176,8 @@ final case class DisclosedContract(
         version = transactionVersion,
       ),
       createTime = Timestamp.Epoch,
-        cantonData = driverMetadata,
+      cantonData = driverMetadata,
     )
-
-  def toLf: LfDisclosedContract =
-    LfDisclosedContract(toLfContractInstance, keyHash)
 }
 
 object Commands {
