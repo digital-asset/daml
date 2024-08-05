@@ -8,6 +8,8 @@ import java.io.{StringReader, StringWriter}
 
 import com.google.common.io.{BaseEncoding, ByteStreams}
 import scalaz.{Equal, Order}
+import scala.collection.Factory
+import scala.collection.immutable.ArraySeq
 
 sealed trait StringModule[T] {
 
@@ -20,12 +22,14 @@ sealed trait StringModule[T] {
 
   implicit def ordering: Ordering[T]
 
-  // We provide the following array factory instead of a ClassTag
+  // We provide the following Array factory instead of a ClassTag
   // because the latter lets people easily reinterpret any string as a T.
   // See
   //  * https://github.com/digital-asset/daml/pull/983#discussion_r282513324
   //  * https://github.com/scala/bug/issues/9565
   val Array: ArrayFactory[T]
+
+  def ArraySeq: Factory[T, ArraySeq[T]]
 
   def toStringMap[V](map: Map[T, V]): Map[String, V]
 }
@@ -144,6 +148,8 @@ private sealed abstract class StringModuleImpl extends StringModule[String] {
   final implicit def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
   final val Array: ArrayFactory[T] = new ArrayFactory[T]
+
+  final val ArraySeq: Factory[T, ArraySeq[T]] = scala.collection.immutable.ArraySeq
 
   def fromString(str: String): Either[String, String] =
     try {
