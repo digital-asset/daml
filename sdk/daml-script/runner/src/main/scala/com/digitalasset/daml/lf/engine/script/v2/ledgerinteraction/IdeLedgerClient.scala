@@ -552,12 +552,7 @@ class IdeLedgerClient(
                 makeEmptySubmissionError(scenario.Error.DisclosureDecoding(err.errorMessage))
               )
           contracts = fatContacts.map(c =>
-            command.DisclosedContract(
-              templateId = c.templateId,
-              contractId = c.contractId,
-              argument = c.createArg,
-              keyHash = c.contractKeyWithMaintainers.map(_.globalKey.hash),
-            )
+            command.DisclosedContract(c, c.contractKeyWithMaintainers.map(_.globalKey.hash))
           )
           disclosures <-
             try {

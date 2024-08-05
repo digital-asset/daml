@@ -128,8 +128,10 @@ case class ApiCommands(
   * @param keyHash        hash of the contract key, if present
   */
 final case class DisclosedContract(
-    templateId: Identifier,
-    contractId: Value.ContractId,
-    argument: Value,
+    contractInstance: transaction.FatContractInstance,
     keyHash: Option[crypto.Hash],
-)
+) {
+  def templateId: Identifier = contractInstance.templateId
+  def contractId: Value.ContractId = contractInstance.contractId
+  def argument: Value = contractInstance.createArg
+}

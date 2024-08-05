@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, ChoiceName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.ContractId
 
