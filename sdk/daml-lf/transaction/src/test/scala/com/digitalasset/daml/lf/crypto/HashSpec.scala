@@ -92,7 +92,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "a8a73e9b78a46d4179bdd2f15cc002cfd30f864a451eae5b142b6fb61a67ccd7"
+      val hash = "c65eee0b19b2ec0d8ea727e3cc399c266e63fa174fe728857265fceca563d881"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value).toHexString shouldBe hash
@@ -118,7 +118,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in list of text" in {
+    "not produce collision in list of texts (1)" in {
       // Testing whether strings are delimited: ["AA", "A"] vs ["A", "AA"]
       def list(elements: String*) = VA.list(VA.text).inj(elements.toVector)
       val value1 = list("AA", "A")
@@ -162,7 +162,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in list of records" in {
+    "not produce collision in list of records (1)" in {
       val recordT =
         VA.record(
           defRef(name = "Tuple2"),
@@ -187,6 +187,17 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       val hash1 = assertHashContractKey(tid, value1)
       val hash2 = assertHashContractKey(tid, value2)
 
+      hash1 should !==(hash2)
+    }
+
+    "not produce collision in list of records (2)" in {
+      val emptyRecord = ValueRecord(None, ImmArray.empty)
+      val nonEmptyRecord = ValueRecord(None, ImmArray(None -> ValueInt64(1L)))
+      val value1 = ValueList(FrontStack(emptyRecord, nonEmptyRecord))
+      val value2 = ValueList(FrontStack(nonEmptyRecord, emptyRecord))
+      val tid = defRef("module", "name")
+      val hash1 = assertHashContractKey(tid, value1)
+      val hash2 = assertHashContractKey(tid, value2)
       hash1 should !==(hash2)
     }
 
@@ -253,7 +264,6 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
         ValueRecord(
           None,
           ImmArray(
-            None -> ValueUnit,
             None -> ValueUnit,
             None -> ValueUnit,
             None -> ValueUnit,
@@ -704,268 +714,268 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
 
       val expectedOutAsNonWrapped =
         """ValueUnit
-          | faee935763044f124d7526755a5058a33f9402a595994d59eddd4be8546ff201
+          | 9f44ac6acb8a37b00b615dc89259d306035be82dee7db2b472e4c48326195440
           |ValueBool(true)
-          | fbb59ed10e9cd4ff45a12c5bb92cbd80df984ba1fe60f26a30febf218e2f0f5e
+          | 75c8fd04ad916aec3e3d5cb76a452b116b3d4d0912a0a485e9fb8e3d240e210c
           |ValueBool(false)
-          | faee935763044f124d7526755a5058a33f9402a595994d59eddd4be8546ff201
+          | 9f44ac6acb8a37b00b615dc89259d306035be82dee7db2b472e4c48326195440
           |ValueInt64(-1)
-          | 8c6461aec2028ecd3880ad2243b6e0fdb4033ab46ce1702f5289819fb45f8a93
+          | f26fc3783d5b35ffb2fe7945ede3d29623535b8af80552ade5d34a5ce9876427
           |ValueInt64(0)
-          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
+          | 627d256f1d5abaa3a870e08d021ec18b8112b3e6ff0ef4a15a948eac307b20dd
           |ValueInt64(1)
-          | 36dd3485b6affcd5d59600c58aca5c1cdc2c01bb0a2956bfaa690d157bc9b2be
+          | eb52bdaca91ec03c5f17216695b93acbc2e18ee88da59167cf3fbc4e4a1de445
           |ValueNumeric(-10000.0000000000)
-          | 19d45e6d088423c70208cf7f87cc10429e66ef343c4c608ba69f675562d4be1e
+          | 9e461a8a49688dd809fb7fe9f93840bc09cb9a73157efbeb9d5e74a1449ddbae
           |ValueNumeric(0E-10)
-          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
+          | 92279f2e8f32b4c8d8122e22f6d185424b36d678cf5a4dd041e99482977dac3c
           |ValueNumeric(10000.0000000000)
-          | 1e4b9819cb11e44c0a5a826b7b81e756f3dfaf3061d9f9baa345c1a6c2d7c284
+          | fb13320481e43b753f3d97c245b2d78cc5aec4ab29d8ca2b18fe0564a5587a67
           |ValueNumeric(-10000)
-          | 02dfadf86a4fbb948e165e20350e472d087072695feb613f9c9562eccda56be8
+          | 1a1cc1480738da9f759c3016edd29e9559918f52e42e92ac2414196db37ce229
           |ValueNumeric(0)
-          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
+          | 92279f2e8f32b4c8d8122e22f6d185424b36d678cf5a4dd041e99482977dac3c
           |ValueNumeric(10000)
-          | 5a97286594af94c406d9354d35bf515a12e9d46b61f6dd6d4679e85395fde5f6
+          | db66926bbbf01e053a2b6490ad77e08e6440cd649bb3228f434ba7c066e2141c
           |ValueDate(1970-01-01)
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueDate(1969-07-21)
-          | f6538d4cb9a7663f9aeac6cd8b1cb5ddba62337ca3ca2b21b29297d85ec53ae5
+          | 5d5eba22a3723cd732677964e8a0789544999655072a028e3f07106c7188bc41
           |ValueDate(2019-12-16)
-          | 4a5ce4f9f37be5e93ccd1360f5e3d0b93ac4445be1532bfdbe2e0805dc0fc133
+          | 94ff9110c3f5c9dc0f6d8a67b17a81e8e17e7f83915d65943508c04f01ac93d0
           |ValueTimestamp(1970-01-01T00:00:00Z)
-          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
+          | 627d256f1d5abaa3a870e08d021ec18b8112b3e6ff0ef4a15a948eac307b20dd
           |ValueTimestamp(1969-07-21T02:56:15Z)
-          | c4f34225847a9d0d7a788df5c9f5aa3ac6e98ae7ad68d29b650411d6c95aaddb
+          | 0938a77f2c6ceef596ef35c8710a2b924126eba7406fb0ad55591113418deadb
           |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | 18f13afe32a31b84d8f0e24eba45e710a0dbef47282c81b0be4a361f8aacbb01
+          | e6867b934ce478fa4aa47129ba0e1ef44bef80516fa8283c05819470510eba4a
           |ValueText()
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueText(someText)
-          | 657c0cf2531d5219dc34b4e03f94278f78efc7c90cc0f03b48049bf66572d070
+          | aa0c9bac7049aa6590344e7087fa4fe96c87256701f1333b3141cdc3da986df9
           |ValueText(a¶‱😂)
-          | 88ee87e8038f8aa94057d5809adee8d12f9cb6657338171942695fad51fb8df1
+          | 82ac6804ce9420de48c14353da1b4a6a617d24531240275b44e719078a9d291d
           |ValueParty(alice)
-          | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
+          | b2623630e6d08b83fa8c247fa735ecfe22dcd04e8b55b2cc7971d77df8548053
           |ValueParty(bob)
-          | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
+          | 9186ad42806e6d9d3aa5fd2bf1d60dfecc69c63c1292cc024f9860f38f12af03
           |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | 0649b1e1e7f34be457c44146e449299109167b9199101349873142ed05878b96
+          | 98810b1ec3d136e358b3b73a27c6291201d5c87eb331ba60dd1fe337a1e4ff40
           |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 0b8c0cc8ebbd56e275b60cf73133387322a42448986dc3858b31eef23098e8e8
+          | 5ed345419c782aa68b990bb677fd5ae54fb71b049f55095b228eb6c7ba49dbc4
           |ValueOptional(None)
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 9f44ac6acb8a37b00b615dc89259d306035be82dee7db2b472e4c48326195440
           |ValueOptional(Some(ValueBool(false)))
-          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
+          | f896c3a5f9841b6e1f0a22bd35a6a1bc5efb28aaa23b66301ec8098ce57cf99a
           |ValueOptional(Some(ValueBool(true)))
-          | 5b5ca90960b8594498cc778421a40ff2aed14d788d06ede5d4a41207933d3e13
+          | 27ecd0a598e76f8a2fd264d427df0a119903e8eae384e478902541756f089dd1
           |ValueOptional(Some(ValueOptional(None)))
-          | 86c779d69df35dd466459fa498249d58d0cff42d4a65f112842d0a81d93c3774
+          | f896c3a5f9841b6e1f0a22bd35a6a1bc5efb28aaa23b66301ec8098ce57cf99a
           |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | d9ef2f4d617d921548e1e01da5af2b7ff67e7ed24a0cbd2e29fd30f4cce6ac4e
+          | 499ae0600c64765b309ab3cfebe22a70f8e51e7955dc791d01d9149a20d6bbd5
           |ValueList(FrontStack())
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueList(FrontStack(ValueBool(false)))
-          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
+          | 92279f2e8f32b4c8d8122e22f6d185424b36d678cf5a4dd041e99482977dac3c
           |ValueList(FrontStack(ValueBool(true)))
-          | 5b5ca90960b8594498cc778421a40ff2aed14d788d06ede5d4a41207933d3e13
+          | 637513d8155a9059a2796e42c84d31d2540516c5e759befcebfee5691ae7eee7
           |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
+          | 6343c2264acc770f4a2618f16fbcddc1e4d8a79ba78e8775bd4bdc048f468d35
           |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
+          | f003659e67e8d9863930f454903c16004fc0b2422c763ece8ee9a576994a5a1d
           |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | 768c5b90ed7ae5b727381e331fac83d7defd397d040f46ba067c80ec2af3eb33
+          | 2038e3437ac028968344be737195eab1e195ca65854716a252b4a5776bbe09d5
           |ValueTextMap(SortedLookupList())
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          | ce68b01101cc0225830c030171e3aeb59b5d9749c4ba729276b7e9bd0b069459
           |ValueTextMap(SortedLookupList((a,ValueBool(true))))
-          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
+          | ae44b0b5a0e2a6a8c601b1768408effa07df26b877421d5ea3b2ee79d6787672
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
+          | a5d6afb1fc59b905ad151db2279bf339c3a47fc343f137b8cc53cd6a1976b560
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | 132fba96cd6130c57d63f8eb2b9a245deaa8a618c4cb9793af32f1190624e6bd
+          | c22f164b80188197527b0cfbe7ad76b109b85f6996704f29777a100ad70f2518
           |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | 954d9283d02236a4f1cd6d1cdf8f8c8a0ced4fc18f14a8380574c4d09485ec60
+          | cf4cb65205f80c38bf99ea0cd3e70131deb4162dd27006401800778939723dc4
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
+          | acb314ced6ec890e313d66c78530e3600b40e01b7ea7401cf46c30abfe63f8da
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
+          | 1140f3cb287564bdc164c930cc53cd91e14c3cd699df05281e67498b4aab0850
           |ValueGenMap()
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueGenMap((ValueText(a),ValueBool(false)))
-          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
+          | ce68b01101cc0225830c030171e3aeb59b5d9749c4ba729276b7e9bd0b069459
           |ValueGenMap((ValueText(a),ValueBool(true)))
-          | 23c43da46c9b2cdc82d54385808ae5b3ffe3606ae516231d2869fea82067c204
+          | ae44b0b5a0e2a6a8c601b1768408effa07df26b877421d5ea3b2ee79d6787672
           |ValueGenMap((ValueText(b),ValueBool(false)))
-          | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
+          | a5d6afb1fc59b905ad151db2279bf339c3a47fc343f137b8cc53cd6a1976b560
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(false)))
-          | 132fba96cd6130c57d63f8eb2b9a245deaa8a618c4cb9793af32f1190624e6bd
+          | c22f164b80188197527b0cfbe7ad76b109b85f6996704f29777a100ad70f2518
           |ValueGenMap((ValueText(a),ValueBool(true)),(ValueText(b),ValueBool(false)))
-          | 954d9283d02236a4f1cd6d1cdf8f8c8a0ced4fc18f14a8380574c4d09485ec60
+          | cf4cb65205f80c38bf99ea0cd3e70131deb4162dd27006401800778939723dc4
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(true)))
-          | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
+          | acb314ced6ec890e313d66c78530e3600b40e01b7ea7401cf46c30abfe63f8da
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(c),ValueBool(false)))
-          | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
+          | 1140f3cb287564bdc164c930cc53cd91e14c3cd699df05281e67498b4aab0850
           |ValueEnum(Some(pkgId:Mod:Color),Red)
-          | 048b20422b487b8eeba059a219589ad477e5f11eb769c7fea658b63f1bb1d405
+          | ebc83f880e580deb67fce980b8266788546c4d98a4d28fce2ec110a7584ddb13
           |ValueEnum(Some(pkgId:Mod:Color),Green)
-          | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
+          | 0bd65c99036abfc195ae62c7b057a16bc954c2edd5fb111e28621f6f5cfdbfe3
           |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
-          | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
+          | 0bd65c99036abfc195ae62c7b057a16bc954c2edd5fb111e28621f6f5cfdbfe3
           |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | cd29d6c22cec7641df8990db49f9ade8a0bbd8871289b901ad0ab3c10dfb6b65
+          | 1729a9355c2ab95ce452a6bcaf3814e056aa71c74a4fb6c01fad4a1683df0c5a
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | 5b5ca90960b8594498cc778421a40ff2aed14d788d06ede5d4a41207933d3e13
+          | 1253dad19a6e01ec99096830043f397cc261bf2f9da4bb774fc49d7041934b63
           |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
-          | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
+          | ad154dbeef12528a512e6ccf5f13589e2623bf407b73e1683f823bb674341636
           |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
-          | 31d69356947365e8a3dd9706774182e86774af1aa6550055efc56a22bb594745
+          | 57689c3ea8617da95453e161536788122711133109fa3d7039779b60ef92a691
           |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
-          | bd89c47c2379a69e8e0d46ff634c533449e8e7e532e84def4e2b2e168bc786e7
+          | f3f05b039ece5a8008f0cc9268663ab955026d70a63d7862fd2cb28c338b5fcc
           |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
-          | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
+          | ad154dbeef12528a512e6ccf5f13589e2623bf407b73e1683f823bb674341636
           |""".stripMargin
 
       val expectedOutAsWrapped =
         """ValueUnit
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueBool(true)
-          | cd29d6c22cec7641df8990db49f9ade8a0bbd8871289b901ad0ab3c10dfb6b65
+          | 1729a9355c2ab95ce452a6bcaf3814e056aa71c74a4fb6c01fad4a1683df0c5a
           |ValueBool(false)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueInt64(-1)
-          | 4d6fcec1f99851d47f4346909337fa6225f3a8f17c16e7d3153ab74afc132385
+          | f30dc19ea78e0c645f96c2789cdeabc3efdf1bde5b07c8aa4d8ac0adbf8f0b64
           |ValueInt64(0)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueInt64(1)
-          | 6c6debb65d6612a4506498a8e06caf69bfac7ff2e2b57bc552bb7875ecccc2e2
+          | 34fb0189471cb3e7704a1bdae8113271761580cff3dcfcd173cc27cde0a4e09e
           |ValueNumeric(-10000.0000000000)
-          | ea314e6196717d20300779bd72332dcd4dda6ca90e7f5ea8fad406dfb98b8f08
+          | b85d4482503afaacd61bd8136eb4dbb41a1789443430e94f283f8e437d58a637
           |ValueNumeric(0E-10)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueNumeric(10000.0000000000)
-          | 270759e288db28ccc1dae8698101fde77f816b62850300ee3d4dee1c2235d5ec
+          | 7cecca9cb8075c469ba19c866e2ddd8d66c4a021d0877a93c05ab2fa340e77f2
           |ValueNumeric(-10000)
-          | b3c4c998cc1bcc9e977bb620d3e45d2f1960ab376a5098c4d50a0fe8bda76270
+          | 15eb7d5f1884234013a3932920b32084c070ff48beffa57682d6c11d9c9b93ac
           |ValueNumeric(0)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueNumeric(10000)
-          | f750b5e31726d95a816319586c4db3eb528468515facf2c62e22e46d05a0eb21
+          | 4d3b53f64defce30a1bef5df0cbc8c2d8bfe18e8db545708139226c5a5ad4332
           |ValueDate(1970-01-01)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueDate(1969-07-21)
-          | b9f4e9c1d5abc28566efc63b891c44a0b7de52e6ac5419e41a89f155287bdb64
+          | 4c56bd5106fec2ec809375bd79308f901ab1fd6d2cc58a88c774be4dd423695f
           |ValueDate(2019-12-16)
-          | 356a8dac4379766c4f7e43804cbd6738497f4fb544386f4516e4012b43e01273
+          | 1a0b83dc4f97f08fbde89aa08c5a69dde4fb8e7306f2e3121c9b83f1a8bd5dfc
           |ValueTimestamp(1970-01-01T00:00:00Z)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueTimestamp(1969-07-21T02:56:15Z)
-          | 27c3e785e401e9a888c0cd31b0014557214bd1dd6f34e279572434b2ff42300a
+          | 2fed708bbeebf6ec556f806e865756bd1b0c1312bd2a7523a891495801f7da5f
           |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | f8524e858702d78a9db8a31ee3f7fe7ef13a8bfc590417b51d77e08f9af130c0
+          | e298de176eb6c5f0a6214be15361011aa33d0bb48e6bbae991266c5bbb607c29
           |ValueText()
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueText(someText)
-          | e40a721ed6d6c8d7d6c41b776e58367a52c0adc93c52def30665f5f91b583666
+          | bb4ad1c05b62329c2964b3ad03bc88429d60323612f5204454d2fb050a3b28a8
           |ValueText(a¶‱😂)
-          | 65918d97eec5068f62dc263a230662e5de38a9531f728096ac653d909cd2b330
+          | a6b29469cf9110a49e421209cd711a3be4ce6bb664a18dbc323141e351371c98
           |ValueParty(alice)
-          | 5c519d29edf6aebc7688b9dedc2a878d9d8c7eafd45ae23245f3a110fa717694
+          | 343876f3e0d22b22a7c6a63599c2d2cf015abbdd661f0487fc204e60fa4b1e70
           |ValueParty(bob)
-          | eb2ae47dd9c81965191d2cdb01d0bb69bfac805f400f6d6f4495c36bbd86f3c1
+          | 9b8089a85c8ddf21bd6cf18d2319bc9cabab338834f3ac75eb531a6f310d03c6
           |ValueContractId(ContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | ad2c11a7e545bde57ed758923cb15fb9517a1ef6fa1542cc1a51e21e51d8ceb8
+          | bdd68a4ffa145551f7c35533ab8a9049da46203146777974caa160212a424624
           |ValueContractId(ContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 87a3c309519fb745e4ee87f0d92c980fc7ad59e0a7635f159cf53c11843c54d2
+          | 20ff6ca6cf6d42180c9316b8b59a966f195c6534ab84c2fa6c904b8d15e6212e
           |ValueOptional(None)
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueOptional(Some(ValueBool(false)))
-          | 926bd18700e14d0a029dbd3fdd2c5b8d94b62a757027152869a1170225cbbaa5
+          | 1c843ec06c1b9d81a3a98be5b9812d1b4d33cae0e6273227407b163279ea8b05
           |ValueOptional(Some(ValueBool(true)))
-          | cd29d6c22cec7641df8990db49f9ade8a0bbd8871289b901ad0ab3c10dfb6b65
+          | 1729a9355c2ab95ce452a6bcaf3814e056aa71c74a4fb6c01fad4a1683df0c5a
           |ValueOptional(Some(ValueOptional(None)))
-          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
+          | 1c843ec06c1b9d81a3a98be5b9812d1b4d33cae0e6273227407b163279ea8b05
           |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | 83a1d1b8cfa23c2405c1af57599886963df318dbcee2d3512fc80744e244624a
+          | d4613fc6871ec104a89254e2f74bfaaf0efa68d17f2183fedbf54fece80b4a04
           |ValueList(FrontStack())
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueList(FrontStack(ValueBool(false)))
-          | 83a1d1b8cfa23c2405c1af57599886963df318dbcee2d3512fc80744e244624a
+          | 36ce2c3f9246eb4127f879fddcdd12ae5734d119e9fbd13c8f3210524eb222d2
           |ValueList(FrontStack(ValueBool(true)))
-          | 73b8c021cfafadd055353578ec89b4473f1bb0b2228076fc36e1d717bdda6403
+          | 1402cfc444942c588559984a192e715f168ac27c703dfa1a4446df45bf4f4b6a
           |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | 0a6201545791949e4bc09999a60cd453cee9fb20fff07ae114ee20917416a97e
+          | d1edeaab490632b7ffb5ecfe54ad610152a0ab4b8a88b33ace48f0b72d13ec99
           |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | 80ad109cde9931d7bd892d13b6c9fe0a70667e71eb1eb3525a5bd4e81171c5d7
+          | bf9fc7fe58c0862eb6023181e10eed77cef51d8f6effec7498191bd081ec38c7
           |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | 0e418808c77c52eaf9a56729997013ccb2584ee73e481d575624a0509a908292
+          | 49c4df92250dfc1b37ad3b1882dd6c6643ff90e006099c2d890d943668b5d065
           |ValueTextMap(SortedLookupList())
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | 21f6cb72b5c1414b07d9fa9903ce2e83c01c8a381163eb8f55dee7a1b691e1ab
+          | 20e489daff665d24eb5dcc10712d37206bc6356305b4803485725e1e790bb48c
           |ValueTextMap(SortedLookupList((a,ValueBool(true))))
-          | 58c7b2ebe1851a5e64fe59be4a3c27dc2d87046b2a75b981f0f2d1a7f4525826
+          | 2b3d943cc8e07d2446f4d1ffba6a4075b7e348b2da9e7cf9a92116f303f113b8
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | a49c187a9c67afb30f206e0a6aa16af5f0c2e490a54b0030c5335051de38af1f
+          | 846fbb96d8c6b3e97c05ae22dfe4b8907501551728e15928022ccb876fb89ede
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | 35bb07e06d59d622055e2f6c48cc3aa9b3813885c1db7d3663cc78081c1c6a15
+          | a6530c4cca594216bb1444b3882f78c930bfd407545d24411a086930e7669c64
           |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | fd0707854e5ad18a3ed155bd329fc58809f53d7e2b7ae1c76811e4be54994773
+          | b2bef380b8def51587bca1aa59ab08b35a6e9c037d7b09789b128c7ac2753039
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | 996219badba34f8b2d83c8394b41bfcf56b2a4d89535488a3e22405b416e497c
+          | 90540e7c1f1fea016eecbd0bacd50cb5f6f9a624a1e9ef14ea65354d01131185
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | dde8d89d798a993d37a994e116fa71152d3fb1d0dcb85b245047ac20e5a297ac
+          | 9813fb2bfc0b10fd7faaaed2673dc7f6f2ba3223a89411c2114ce4e6dda17c35
           |ValueGenMap()
-          | b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2
+          | 1a71797cab8ed23c72233b7706b166a33049e4e87dfbc55b9e252f9c1843eca6
           |ValueGenMap((ValueText(a),ValueBool(false)))
-          | 21f6cb72b5c1414b07d9fa9903ce2e83c01c8a381163eb8f55dee7a1b691e1ab
+          | 20e489daff665d24eb5dcc10712d37206bc6356305b4803485725e1e790bb48c
           |ValueGenMap((ValueText(a),ValueBool(true)))
-          | 58c7b2ebe1851a5e64fe59be4a3c27dc2d87046b2a75b981f0f2d1a7f4525826
+          | 2b3d943cc8e07d2446f4d1ffba6a4075b7e348b2da9e7cf9a92116f303f113b8
           |ValueGenMap((ValueText(b),ValueBool(false)))
-          | a49c187a9c67afb30f206e0a6aa16af5f0c2e490a54b0030c5335051de38af1f
+          | 846fbb96d8c6b3e97c05ae22dfe4b8907501551728e15928022ccb876fb89ede
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(false)))
-          | 35bb07e06d59d622055e2f6c48cc3aa9b3813885c1db7d3663cc78081c1c6a15
+          | a6530c4cca594216bb1444b3882f78c930bfd407545d24411a086930e7669c64
           |ValueGenMap((ValueText(a),ValueBool(true)),(ValueText(b),ValueBool(false)))
-          | fd0707854e5ad18a3ed155bd329fc58809f53d7e2b7ae1c76811e4be54994773
+          | b2bef380b8def51587bca1aa59ab08b35a6e9c037d7b09789b128c7ac2753039
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(b),ValueBool(true)))
-          | 996219badba34f8b2d83c8394b41bfcf56b2a4d89535488a3e22405b416e497c
+          | 90540e7c1f1fea016eecbd0bacd50cb5f6f9a624a1e9ef14ea65354d01131185
           |ValueGenMap((ValueText(a),ValueBool(false)),(ValueText(c),ValueBool(false)))
-          | dde8d89d798a993d37a994e116fa71152d3fb1d0dcb85b245047ac20e5a297ac
+          | 9813fb2bfc0b10fd7faaaed2673dc7f6f2ba3223a89411c2114ce4e6dda17c35
           |ValueEnum(Some(pkgId:Mod:Color),Red)
-          | 41132598210c71974f18e2dceed6be79a2070f27d94c3bf9b12f5492a485c22f
+          | 08fe9e55ac1132695f2d9103dcdaf9ebbb78f853e104f4b3acb4e603b49b3e2e
           |ValueEnum(Some(pkgId:Mod:Color),Green)
-          | a0e6a213e8f20f6713f20160032ffab5ba705fd0d06259215b38c168b2738a7c
+          | 06de6b8a728491fc2cb88c976f02ab602e95ed8ccb51f6d185a99b84c2749e51
           |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
-          | a0e6a213e8f20f6713f20160032ffab5ba705fd0d06259215b38c168b2738a7c
+          | 06de6b8a728491fc2cb88c976f02ab602e95ed8ccb51f6d185a99b84c2749e51
           |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | ec5684692323c81c53bf15e0fe59047f88d3a9adee6eedb9a9a3b7e04f66c8e5
           |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | ec5684692323c81c53bf15e0fe59047f88d3a9adee6eedb9a9a3b7e04f66c8e5
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | ec5684692323c81c53bf15e0fe59047f88d3a9adee6eedb9a9a3b7e04f66c8e5
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | 817ef4e6515b36a321ce0cf0669df2d8a434c60ab40c2849c8035072366fc85a
+          | cd0576a339ec0a8ba86d97a1d15543a436c631fed0cb7437a9db08e98a97cca4
           |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | 73b8c021cfafadd055353578ec89b4473f1bb0b2228076fc36e1d717bdda6403
+          | 034c6c48c8cc35018c3233227eae327eb7220183044513bc46b1bf6e9dc5913e
           |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
+          | ec5684692323c81c53bf15e0fe59047f88d3a9adee6eedb9a9a3b7e04f66c8e5
           |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
-          | ceb9199b55658e8bdc2f628e92a9fffbedae46ac6fdf605ba34b3ff0912f1f9b
+          | 12d539011cac32ef2b9590e5d2119544711633136166596b5e63d842c8d5ba8f
           |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
-          | 89fc83022d6b8a76b31317e09192c509483e74ede2346b84c0eab7024d482e12
+          | 699162132335e6031182cd0bfe7aae28ea8089a374ae1a38126e6ed371720db2
           |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
-          | c0deebea802536cb0b1b6ec4a837e0d58ed280c62b4e3b457c3a9568648447ce
+          | 6b768e15128598f088aed642dd7552d869350711ce2ae1b6b2457b2e2a96a975
           |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
-          | ceb9199b55658e8bdc2f628e92a9fffbedae46ac6fdf605ba34b3ff0912f1f9b
+          | 12d539011cac32ef2b9590e5d2119544711633136166596b5e63d842c8d5ba8f
           |""".stripMargin
 
       val sep = System.getProperty("line.separator")

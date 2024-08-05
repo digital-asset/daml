@@ -8,10 +8,18 @@ import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
+import com.digitalasset.daml.lf.data.{
+  Bytes,
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time,
+  Utf8,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.data.Ref.Name
 import scalaz.Order
 
 import javax.crypto.Mac
@@ -34,7 +42,6 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
-  val version = 0.toByte
   val underlyingHashLength = 32
 
   sealed abstract class HashingError(val msg: String) extends Exception with NoStackTrace
@@ -86,10 +93,7 @@ object Hash {
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => throw HashingError.ForbiddenContractId()
 
-  private[crypto] sealed abstract class Builder(
-      cid2Bytes: Value.ContractId => Bytes,
-      upgradable: Boolean,
-  ) {
+  sealed abstract class Builder {
 
     protected def update(a: ByteBuffer): Unit
 
@@ -103,112 +107,67 @@ object Hash {
       new Hash(Bytes.fromByteArray(a))
     }
 
-    final def addBytes(buffer: Array[Byte]): this.type = {
-      update(buffer)
+    /* add size delimited byte array. */
+    def addBytes(bytes: Array[Byte]): this.type = {
+      discard(addInt(bytes.length))
+      update(bytes)
       this
     }
 
-    final def addBytes(buffer: ByteBuffer): this.type = {
-      update(buffer)
+    /* add size delimited byte string. */
+    def addBytes(bytes: Bytes): this.type = {
+      discard(addInt(bytes.length))
+      update(bytes.toByteBuffer)
       this
     }
-
-    final def addBytes(a: Bytes): this.type =
-      addBytes(a.toByteBuffer)
 
     private val byteBuff = Array.ofDim[Byte](1)
 
     final def addByte(a: Byte): this.type = {
       byteBuff(0) = a
-      addBytes(byteBuff)
+      update(byteBuff)
+      this
     }
 
-    final def addHash(a: Hash): this.type = addBytes(a.bytes)
-
-    final def addString(s: String): this.type = {
-      val a = Utf8.getBytes(s)
-      addInt(a.length).addBytes(a)
+    /* no size delimitation as hashes have fixed size  */
+    final def addHash(a: Hash): this.type = {
+      update(a.bytes.toByteBuffer)
+      this
     }
 
-    private def addString(fieldNumber: Int, v: String): this.type =
-      if (v.nonEmpty) addInt(fieldNumber).addString(v) else this
+    /* add size delimited utf8 string. */
+    final def addString(s: String): this.type =
+      addBytes(Utf8.getBytes(s))
 
     final def addBool(b: Boolean): this.type =
       addByte(if (b) 1.toByte else 0.toByte)
-
-    private def addBool(fieldNumber: Int, v: Boolean): this.type = {
-      if (v) addInt(fieldNumber).addBool(v) else this
-    }
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def addInt(a: Int): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      addBytes(intBuffer)
+      update(intBuffer)
+      this
     }
-
-    private def addInt(fieldNumber: Int, v: Int): this.type =
-      if (v != 0) addInt(fieldNumber).addInt(v) else this
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def addLong(a: Long): this.type = {
       discard(longBuffer.rewind())
       discard(longBuffer.putLong(a).position(0))
-      addBytes(longBuffer)
+      update(longBuffer)
+      this
     }
 
-    private def addLong(fieldNumber: Int, v: Long): this.type =
-      if (v != 0) addInt(fieldNumber).addLong(v) else this
-
-    final def addNumeric(v: data.Numeric): this.type = {
-      val a = v.unscaledValue().toByteArray
-      addInt(a.length).addBytes(a)
-    }
-
-    private def addNumeric(fieldNumber: Int, v: data.Numeric): this.type =
-      if (v.signum() != 0) addInt(fieldNumber).addNumeric(v) else this
+    final def addNumeric(v: data.Numeric): this.type =
+      addBytes(v.unscaledValue().toByteArray)
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)
 
-    private def iterateOver[T, U](fieldNumber: Int, a: ImmArray[T])(
-        f: (this.type, T) => this.type
-    ): this.type =
-      if (a.nonEmpty)
-        a.foldLeft[this.type](addInt(fieldNumber).addInt(a.length))(f)
-      else
-        this
-
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(size))(f)
-
-    final def iterateOver[T](fieldNumber: Int, a: Iterator[T], size: Int)(
-        f: (this.type, T) => this.type
-    ): this.type =
-      if (a.nonEmpty)
-        a.foldLeft[this.type](addInt(fieldNumber).addInt(size))(f)
-      else
-        this
-
-    final def iterateOver[T](v: Option[T])(f: (this.type, T) => this.type): this.type =
-      v match {
-        case Some(v) =>
-          f(addInt(1), v)
-        case None =>
-          addInt(0)
-      }
-
-    final def iterateOver[T](fieldNumber: Int, v: Option[T])(
-        f: (this.type, T) => this.type
-    ): this.type =
-      v match {
-        case Some(v) =>
-          f(addInt(fieldNumber), v)
-        case None =>
-          this
-      }
 
     final def addDottedName(name: Ref.DottedName): this.type =
       iterateOver(name.segments)(_ addString _)
@@ -223,28 +182,56 @@ object Hash {
       val ss = set.toSeq.sorted[String]
       iterateOver(ss.iterator, ss.size)(_ addString _)
     }
+  }
 
-    @throws[HashingError]
-    final def addCid(cid: Value.ContractId): this.type = {
-      val bytes = cid2Bytes(cid)
-      addInt(bytes.length).addBytes(bytes)
-    }
+  private final class HashMacBuilder(key: Hash) extends Builder {
+    private val macPrototype: MacPrototype = MacPrototype.HmacSha256
+    private val mac: Mac = macPrototype.newMac
 
-    private def addRecord(fs: ImmArray[(_, Value)]): this.type =
-      if (upgradable) {
-        fs.iterator.zipWithIndex.foreach { case ((_, v), i) =>
-          discard(addTypedValue(i, v))
-        }
-        this
-      } else {
-        iterateOver(fs)(_ addTypedValue _._2)
-      }
+    mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
 
+    final override protected def update(a: ByteBuffer): Unit =
+      mac.update(a)
+
+    final override protected def update(a: Array[Byte]): Unit =
+      mac.update(a)
+
+    final override protected def doFinal(buf: Array[Byte]): Unit =
+      mac.doFinal(buf, 0)
+  }
+
+  sealed abstract class ValueHashBuilder(
+      version: Byte,
+      purpose: Purpose,
+      cid2Bytes: Value.ContractId => Bytes,
+  ) extends Builder {
     // In order to avoid hash collision, this should be used together
     // with another data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
     @throws[HashingError]
-    final def addTypedValue(value: Value): this.type =
+    def addTypedValue(value: Value): this.type
+
+    def addCid(cid: Value.ContractId): this.type =
+      addBytes(cid2Bytes(cid))
+
+    private val md = MessageDigestPrototype.Sha256.newDigest
+
+    override protected def update(a: ByteBuffer): Unit =
+      md.update(a)
+
+    override protected def update(a: Array[Byte]): Unit =
+      md.update(a)
+
+    override protected def doFinal(buf: Array[Byte]): Unit =
+      assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
+
+    md.update(version)
+    md.update(purpose.id)
+  }
+
+  private final class LegacyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
+      extends ValueHashBuilder(version = 0.toByte, purpose = purpose, cid2Bytes = cid2Bytes) {
+    final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
           addByte(0.toByte)
@@ -263,15 +250,20 @@ object Hash {
         case Value.ValueText(v) =>
           addString(v)
         case Value.ValueContractId(cid) =>
-          addCid(cid)
+          addBytes(cid2Bytes(cid))
         case Value.ValueOptional(opt) =>
-          iterateOver(opt)(_ addTypedValue _)
+          opt match {
+            case Some(value) =>
+              addInt(1).addTypedValue(value)
+            case None =>
+              addInt(0)
+          }
         case Value.ValueList(xs) =>
           iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
           iterateOver(xs.toImmArray)((acc, x) => acc.addString(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
-          addRecord(fs)
+          iterateOver(fs)(_ addTypedValue _._2)
         case Value.ValueVariant(_, variant, v) =>
           addString(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>
@@ -281,51 +273,129 @@ object Hash {
             acc.addTypedValue(x._1).addTypedValue(x._2)
           )
       }
+  }
 
-    private def addTypedValue(fieldNumber: Int, value: Value): this.type =
+  private final class UpgradeFriendlyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
+      extends ValueHashBuilder(version = 1.toByte, purpose = purpose, cid2Bytes = cid2Bytes) {
+
+    final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          this
+          addByte(0.toByte)
         case Value.ValueBool(b) =>
-          addBool(fieldNumber, b)
+          addBool(b)
         case Value.ValueInt64(v) =>
-          addLong(fieldNumber, v)
-        case Value.ValueNumeric(v) =>
-          addNumeric(fieldNumber, v)
-        case Value.ValueTimestamp(v) =>
-          addLong(fieldNumber, v.micros)
+          addLong(v)
         case Value.ValueDate(v) =>
-          addInt(fieldNumber, v.days)
+          addInt(v.days)
+        case Value.ValueTimestamp(v) =>
+          addLong(v.micros)
+        case Value.ValueNumeric(v) =>
+          addNumeric(v)
         case Value.ValueParty(v) =>
-          // No default
-          addInt(fieldNumber).addString(v)
+          addString(v)
         case Value.ValueText(v) =>
-          addString(fieldNumber, v)
+          addString(v)
         case Value.ValueContractId(cid) =>
-          // No default
-          addInt(fieldNumber).addCid(cid)
+          addCid(cid)
         case Value.ValueOptional(opt) =>
-          iterateOver(fieldNumber, opt)(_ addTypedValue _)
+          opt match {
+            case Some(value) => addByte(1.toByte).addTypedValue(value)
+            case None => addByte(0.toByte)
+          }
         case Value.ValueList(xs) =>
-          iterateOver(fieldNumber, xs.toImmArray)(_ addTypedValue _)
+          addList(xs)
         case Value.ValueTextMap(xs) =>
-          iterateOver(fieldNumber, xs.toImmArray)((acc, x) =>
-            acc.addString(x._1).addTypedValue(x._2)
-          )
+          addTextMap(xs)
         case Value.ValueRecord(_, fs) =>
-          // No default
-          addInt(fieldNumber).addRecord(fs)
+          addRecord(fs)
         case Value.ValueVariant(_, variant, v) =>
-          // No default
-          addInt(fieldNumber).addString(variant).addTypedValue(v)
+          addVariant(variant, v)
         case Value.ValueEnum(_, v) =>
-          // No default
-          addInt(fieldNumber).addString(v)
+          addString(v)
         case Value.ValueGenMap(entries) =>
-          iterateOver(fieldNumber, entries.iterator, entries.length)((acc, x) =>
-            acc.addTypedValue(x._1).addTypedValue(x._2)
-          )
+          addGenMap(entries)
       }
+
+    private def addGenMap(entries: ImmArray[(Value, Value)]): this.type =
+      iterateOver(entries.iterator, entries.length)((acc, x) =>
+        acc.addTypedValue(x._1).addTypedValue(x._2)
+      )
+
+    private def addVariant(variant: Name, v: Value): this.type =
+      addString(variant).addTypedValue(v)
+
+    private def addTextMap(xs: SortedLookupList[Value]): this.type =
+      iterateOver(xs.toImmArray)((acc, x) => acc.addString(x._1).addTypedValue(x._2))
+
+    private def addList(xs: FrontStack[Value]): this.type =
+      iterateOver(xs.toImmArray)(_ addTypedValue _)
+
+    // we add non default filed together with there field 1-based index,
+    // we end using 0 delimiter.
+    def addRecord(value: ImmArray[(_, Value)]): this.type = {
+      var i = 1
+      def addField: this.type = addInt(i)
+      value.foreach { case (_, value) =>
+        value match {
+          case leaf: Value.ValueCidlessLeaf =>
+            leaf match {
+              case Value.ValueEnum(_, value) =>
+                // No default value for enum
+                discard(addField.addString(value))
+              case Value.ValueInt64(value) =>
+                if (value != 0)
+                  discard(addField.addLong(value))
+              case Value.ValueNumeric(value) =>
+                if (value.signum() != 0)
+                  discard(addField.addNumeric(value))
+              case Value.ValueText(value) =>
+                if (value.nonEmpty)
+                  discard(addField.addString(value))
+              case Value.ValueTimestamp(value) =>
+                if (value.micros != 0)
+                  discard(addField.addLong(value.micros))
+              case Value.ValueDate(value) =>
+                if (value.days != 0)
+                  discard(addField.addInt(value.days))
+              case Value.ValueParty(value) =>
+                // No default value for party
+                discard(addField.addString(value))
+              case Value.ValueBool(value) =>
+                if (value)
+                  discard(addField.addByte(1.toByte))
+              case Value.ValueUnit =>
+            }
+          case Value.ValueRecord(_, fields) =>
+            // No default value for records
+            discard(addField.addRecord(fields))
+          case Value.ValueVariant(_, variant, value) =>
+            // No default value for variant
+            discard(addField.addVariant(variant, value))
+          case Value.ValueContractId(value) =>
+            // No default value for contractId
+            discard(addField.addCid(value))
+          case Value.ValueList(values) =>
+            if (values.nonEmpty)
+              discard(addField.addList(values))
+          case Value.ValueOptional(value) =>
+            value match {
+              case Some(value) =>
+                discard(addField.addTypedValue(value))
+              case None =>
+            }
+          case Value.ValueTextMap(value) =>
+            if (!value.isEmpty)
+              discard(addTextMap(value))
+          case Value.ValueGenMap(entries) =>
+            if (entries.nonEmpty)
+              discard(addGenMap(entries))
+        }
+        i += 1
+      }
+      addInt(0)
+    }
+
   }
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
@@ -347,42 +417,13 @@ object Hash {
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
       upgradable: Boolean = true,
-  ): Builder = new Builder(cid2Bytes, upgradable) {
+  ): ValueHashBuilder =
+    if (upgradable)
+      new UpgradeFriendlyBuilder(purpose, cid2Bytes)
+    else
+      new LegacyBuilder(purpose, cid2Bytes)
 
-    private val md = MessageDigestPrototype.Sha256.newDigest
-
-    override protected def update(a: ByteBuffer): Unit =
-      md.update(a)
-
-    override protected def update(a: Array[Byte]): Unit =
-      md.update(a)
-
-    override protected def doFinal(buf: Array[Byte]): Unit =
-      assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
-
-    md.update(version)
-    md.update(purpose.id)
-
-  }
-
-  private[crypto] def hMacBuilder(key: Hash): Builder =
-    new Builder(noCid2String, upgradable = true) {
-
-      private val macPrototype: MacPrototype = MacPrototype.HmacSha256
-      private val mac: Mac = macPrototype.newMac
-
-      mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
-
-      override protected def update(a: ByteBuffer): Unit =
-        mac.update(a)
-
-      override protected def update(a: Array[Byte]): Unit =
-        mac.update(a)
-
-      override protected def doFinal(buf: Array[Byte]): Unit =
-        mac.doFinal(buf, 0)
-
-    }
+  private[crypto] def hMacBuilder(key: Hash): Builder = new HashMacBuilder(key)
 
   def fromHexString(s: Ref.HexString): Either[String, Hash] = {
     val bytes = Ref.HexString.decode(s)
@@ -439,26 +480,19 @@ object Hash {
       templateId: Ref.Identifier,
       arg: Value,
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
-      langVersion: TransactionVersion,
-  ): Hash = {
-    import Ordering.Implicits._
-    val b = builder(
-      Purpose.ContractInstance,
-      aCid2Bytes,
-      langVersion >= TransactionVersion.minContractKeys,
-    )
-    discard(b.addString(packageName).addIdentifier(templateId))
-    discard(b.addTypedValue(arg))
-    b.build
-  }
+  ): Hash =
+    builder(Purpose.ContractInstance, aCid2Bytes)
+      .addString(packageName)
+      .addIdentifier(templateId)
+      .addTypedValue(arg)
+      .build
 
   def hashContractInstance(
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
       templateId: Ref.Identifier,
       arg: Value,
-      langVersion: TransactionVersion,
   ): Either[HashingError, Hash] =
-    handleError(assertHashContractInstance(templateId, arg, packageName, langVersion))
+    handleError(assertHashContractInstance(templateId, arg, packageName))
 
   def hashChangeId(
       applicationId: Ref.ApplicationId,
