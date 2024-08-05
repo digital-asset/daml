@@ -294,13 +294,7 @@ class IdeLedgerClient(
           .decodeFatContractInstance(d.blob.toByteString)
           .fold(
             err => throw new IllegalArgumentException(err.errorMessage),
-            c =>
-              command.DisclosedContract(
-                templateId = c.templateId,
-                contractId = c.contractId,
-                argument = c.createArg,
-                keyHash = c.contractKeyWithMaintainers.map(_.globalKey.hash),
-              ),
+            identity,
           )
       )
       val speedyDisclosures =

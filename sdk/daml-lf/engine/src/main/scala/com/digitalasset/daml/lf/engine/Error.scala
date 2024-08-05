@@ -127,23 +127,6 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
-    final case class UnexpectedDisclosedContractKeyHash(
-        contractId: Value.ContractId,
-        templateId: Ref.TypeConName,
-        hash: crypto.Hash,
-    ) extends Error {
-      override def message: String =
-        s"Unexpected contract key hash for the disclosed contract ${contractId.coid} ($templateId)"
-    }
-
-    final case class MissingDisclosedContractKeyHash(
-        contractId: Value.ContractId,
-        templateId: Ref.TypeConName,
-    ) extends Error {
-      override def message: String =
-        s"Missing contract key hash for the disclosed contract ${contractId.coid} ($templateId)"
-    }
-
     final case class DuplicateDisclosedContractId(
         contractId: Value.ContractId
     ) extends Error {

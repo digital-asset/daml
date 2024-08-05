@@ -27,8 +27,15 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId => _,
   _,
 }
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstanceImpl,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.speedy.Compiler
+
+import scala.collection.immutable
 
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
@@ -155,51 +162,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "preprocessDisclosedContracts" should {
-      "normalized contracts" should {
-        "accepted if fields are correctly ordered" in {
-          val preprocessor =
-            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-          val normalizedContract =
-            buildDisclosedContract(withNormalization = true, withFieldsReversed = false)
-
-          val finalResult = preprocessor
-            .preprocessDisclosedContracts(ImmArray(normalizedContract))
-            .consume(pkgs = pkgs)
-
-          acceptDisclosedContract(finalResult)
-        }
-
-        "rejected if fields are incorrectly ordered" in {
-          val preprocessor =
-            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-          val altNormalizedContract =
-            buildDisclosedContract(withNormalization = true, withFieldsReversed = true)
-          val finalResult = preprocessor
-            .preprocessDisclosedContracts(ImmArray(altNormalizedContract))
-            .consume(pkgs = pkgs)
-
-          inside(finalResult) { case Left(Error.Preprocessing(error)) =>
-            error shouldBe a[Error.Preprocessing.TypeMismatch]
-          }
-        }
-      }
-
-      "non-normalized contracts are accepted" in {
-        val nonNormalizedContract =
-          buildDisclosedContract(withNormalization = false, withFieldsReversed = false)
-        val altNonNormalizedContract =
-          buildDisclosedContract(withNormalization = false, withFieldsReversed = true)
-        forAll(Seq(nonNormalizedContract, altNonNormalizedContract)) { contract =>
-          val preprocessor =
-            new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-          val result =
-            preprocessor
-              .preprocessDisclosedContracts(ImmArray(contract))
-              .consume(pkgs = pkgs)
-
-          acceptDisclosedContract(result)
-        }
-      }
 
       "reject duplicate disclosed contract IDs" in {
         val preprocessor =
@@ -242,50 +204,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             succeed
         }
       }
-
-      "reject disclosed contract of a type without key but with a key hash " in {
-        val preprocessor =
-          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-        val contract =
-          buildDisclosedContract(contractId, templateId = withoutKeyTmplId, keyHash = Some(keyHash))
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(
-                  Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
-                    `contractId`,
-                    `withoutKeyTmplId`,
-                    `keyHash`,
-                  )
-                )
-              ) =>
-            succeed
-        }
-      }
-
-      "reject disclosed contract of a type with key but without key hash " in {
-        val preprocessor =
-          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-        val contract =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = None)
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(
-                  Error.Preprocessing
-                    .MissingDisclosedContractKeyHash(`contractId`, `withKeyTmplId`)
-                )
-              ) =>
-            succeed
-        }
-      }
-
     }
   }
 }
@@ -336,6 +254,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   val pkgName = pkg.pkgName
   val pkgs = Map(defaultPackageId -> pkg)
   val alice: Party = Ref.Party.assertFromString("Alice")
+  val signatories = immutable.TreeSet(alice)
   val parties: ValueList = ValueList(FrontStack(ValueParty(alice)))
   val testKeyName: String = "test-key"
   val contractId: ContractId =
@@ -365,20 +284,29 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       withNormalization: Boolean = true,
       withFieldsReversed: Boolean = false,
       keyHash: Option[Hash] = None,
-  ): command.DisclosedContract = {
+  ): FatContractInstanceImpl = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
       (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
         .ValueInt64(42L),
     )
-    command.DisclosedContract(
-      templateId,
-      contractId,
-      Value.ValueRecord(
+    FatContractInstanceImpl(
+      version = TransactionVersion.StableVersions.max,
+      contractId = contractId,
+      packageName = pkgName,
+      packageVersion = pkg.pkgVersion,
+      templateId = templateId,
+      createArg = Value.ValueRecord(
         if (withNormalization) None else Some(templateId),
         if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      keyHash,
+      signatories = signatories,
+      stakeholders = signatories,
+      contractKeyWithMaintainers = keyHash.map(_ =>
+        GlobalKeyWithMaintainers.assertBuild(templateId, key, signatories, pkgName)
+      ),
+      createdAt = data.Time.Timestamp.Epoch,
+      cantonData = Bytes.Empty,
     )
   }
 
