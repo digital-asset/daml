@@ -181,7 +181,7 @@ abstract class CantonNodeBootstrapBase[
 
   protected val ips = new IdentityProvidingServiceClient()
 
-  private def status: NodeStatus[NodeStatus.Status] =
+  protected def getNodeStatus: NodeStatus[T#Status] =
     getNode
       .map(_.status)
       .map(NodeStatus.Success(_))
@@ -216,7 +216,7 @@ abstract class CantonNodeBootstrapBase[
       .addService(
         StatusServiceGrpc.bindService(
           new GrpcStatusService(
-            status,
+            getNodeStatus,
             arguments.writeHealthDumpToFile,
             parameterConfig.processingTimeouts,
             loggerFactory,

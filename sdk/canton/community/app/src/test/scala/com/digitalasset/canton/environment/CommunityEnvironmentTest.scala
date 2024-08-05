@@ -86,13 +86,13 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       override def createParticipant(
           name: String,
           participantConfig: CommunityParticipantConfig,
-      ): ParticipantNodeBootstrap =
-        createParticipantMock(name, participantConfig)
+      ): Either[String, ParticipantNodeBootstrap] =
+        Right(createParticipantMock(name, participantConfig))
       override def createDomain(
           name: String,
           domainConfig: CommunityDomainConfig,
-      ): DomainNodeBootstrap =
-        createDomainMock(name, domainConfig)
+      ): Either[String, DomainNodeBootstrap] =
+        Right(createDomainMock(name, domainConfig))
     }
 
     protected def setupParticipantFactory(create: => ParticipantNodeBootstrap): Unit =
@@ -209,18 +209,28 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         environment.startAndReconnect(false) shouldBe Right(())
       }
 
-      "report exceptions" in new TestEnvironment {
+      "report exceptions as FailedToCreateNode" in new TestEnvironment {
         val exception = new RuntimeException("wurstsalat")
 
         Seq("p1", "p2").foreach(setupParticipantFactory(_, throw exception))
         Seq("d1", "d2").foreach(setupDomainFactory(_, throw exception))
 
-        assertThrows[RuntimeException](environment.startAndReconnect(false))
+        loggerFactory.assertLogs(
+          environment
+            .startAndReconnect(false) should (
+            be(Left(FailedToCreateNode("p1", "spezie"))) or
+              be(Left(FailedToCreateNode("d1", "wurstsalat")))
+          ),
+          logEntry =>
+            logEntry.errorMessage should (be("Failed to start d1: wurstsalat") or be(
+              "Failed to start p1: spezie"
+            )),
+        )
 
       }
     }
     "starting with startAll" should {
-      "report exceptions" in new TestEnvironment {
+      "report exceptions as FailedToCreateNode" in new TestEnvironment {
         val exception = new RuntimeException("nope")
 
         // p1, d1 and d2 will successfully come up
@@ -233,7 +243,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
         // p2 will fail to come up
         setupParticipantFactory("p2", throw exception)
-        the[RuntimeException] thrownBy environment.startAll() shouldBe exception
+        environment.startAll() shouldBe Left(FailedToCreateNode("p2", "nope"))
         // start all will kick off stuff in the background but the "parTraverseWithLimit"
         // will terminate eagerly. so we actually have to wait until the processes finished
         // in the background

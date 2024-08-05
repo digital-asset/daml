@@ -21,6 +21,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   LedgerApiCommands,
   ParticipantAdminCommands,
   PruningSchedulerCommands,
+  StatusAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
@@ -48,9 +49,9 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNode
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.v0.PruningServiceGrpc
@@ -90,8 +91,8 @@ import com.digitalasset.canton.{
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, TimeoutException}
 
 sealed trait DomainChoice
 object DomainChoice {
@@ -1756,4 +1757,10 @@ class ParticipantHealthAdministration(
       ParticipantStatus.fromProtoV0,
     )
     with FeatureFlagFilter
-    with ParticipantHealthAdministrationCommon
+    with ParticipantHealthAdministrationCommon {
+  implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+
+  override protected def nodeStatusCommand
+      : StatusAdminCommands.NodeStatusCommand[ParticipantStatus, _, _] =
+    ParticipantAdminCommands.Health.ParticipantStatusCommand()
+}

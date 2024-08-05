@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -255,10 +256,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         CommonMockMetrics.sequencerClient,
         LoggingConfig(),
         loggerFactory,
-        ProtocolVersionCompatibility.supportedProtocolsParticipant(
+        ProtocolVersionCompatibility.trySupportedProtocolsParticipant(
           includeUnstableVersions = BaseTest.testedProtocolVersion.isUnstable,
           includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
-          release = ReleaseVersion.current,
         ),
         Some(BaseTest.testedProtocolVersion),
       ).create(
@@ -285,7 +285,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       ).value,
       10.seconds,
     )
-    .fold(fail(_), Predef.identity)
+    .valueOr(fail(_))
 
   override def close(): Unit =
     Lifecycle.close(

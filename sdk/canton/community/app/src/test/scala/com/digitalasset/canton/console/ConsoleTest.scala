@@ -19,8 +19,6 @@ import com.digitalasset.canton.console.HeadlessConsole.{
 }
 import com.digitalasset.canton.domain.DomainNodeBootstrap
 import com.digitalasset.canton.environment.{
-  CantonNode,
-  CantonNodeBootstrap,
   CommunityConsoleEnvironment,
   CommunityEnvironment,
   DomainNodes,
@@ -100,7 +98,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         NoOpOnDemandMetricsReader$,
       )
     )
-    type NodeGroup = Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
+    type NodeGroup = Seq[(String, Nodes.GenericNodes)]
     when(environment.startNodes(any[NodeGroup])(anyTraceContext)).thenReturn(Right(()))
 
     when(participants.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))

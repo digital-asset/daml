@@ -1,0 +1,28 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.health.admin.v1;
+
+import "com/digitalasset/canton/health/admin/v0/status_service.proto";
+import "google/protobuf/duration.proto";
+
+message Failure {
+  string error_message = 1;
+}
+
+/*
+   Difference with v0:
+     - extra removed
+     - version added
+*/
+message Status {
+  string uid = 1;
+  google.protobuf.Duration uptime = 2;
+  map<string, int32> ports = 3;
+  bool active = 4; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+  com.digitalasset.canton.health.admin.v0.TopologyQueueStatus topology_queues = 5; // indicates the state of the topology queues (manager / dispatcher only where they exist)
+  repeated com.digitalasset.canton.health.admin.v0.NodeStatus.ComponentStatus components = 6; // Health state of component dependencies of the node
+  string version = 7; // Version of the binary
+}

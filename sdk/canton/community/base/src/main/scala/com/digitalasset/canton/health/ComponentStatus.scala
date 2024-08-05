@@ -6,7 +6,7 @@ package com.digitalasset.canton.health
 import cats.implicits.catsSyntaxEitherId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.health.ComponentHealthState.*
-import com.digitalasset.canton.health.admin.v0 as proto
+import com.digitalasset.canton.health.admin.v0 as protoV0
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.circe.Encoder
@@ -17,8 +17,8 @@ import scala.annotation.nowarn
 /** Simple representation of the health state of a component, easily (de)serializable (from)to protobuf or JSON
   */
 final case class ComponentStatus(name: String, state: ComponentHealthState) extends PrettyPrinting {
-  def toProtoV0: proto.NodeStatus.ComponentStatus =
-    proto.NodeStatus.ComponentStatus(
+  def toProtoV0: protoV0.NodeStatus.ComponentStatus =
+    protoV0.NodeStatus.ComponentStatus(
       name = name,
       status = state.toComponentStatusV0,
     )
@@ -27,26 +27,30 @@ final case class ComponentStatus(name: String, state: ComponentHealthState) exte
 }
 
 object ComponentStatus {
-  def fromProtoV0(dependency: proto.NodeStatus.ComponentStatus): ParsingResult[ComponentStatus] =
+  def fromProtoV0(dependency: protoV0.NodeStatus.ComponentStatus): ParsingResult[ComponentStatus] =
     dependency.status match {
-      case proto.NodeStatus.ComponentStatus.Status.Ok(value) =>
+      case protoV0.NodeStatus.ComponentStatus.Status.Empty =>
+        ProtoDeserializationError.FieldNotSet("ComponentStatus.staus").asLeft
+      case protoV0.NodeStatus.ComponentStatus.Status.Ok(value) =>
         ComponentStatus(
           dependency.name,
           ComponentHealthState.Ok(value.description),
         ).asRight
-      case proto.NodeStatus.ComponentStatus.Status
-            .Degraded(value: proto.NodeStatus.ComponentStatus.StatusData) =>
+      case protoV0.NodeStatus.ComponentStatus.Status.Degraded(value) =>
         ComponentStatus(
           dependency.name,
           Degraded(UnhealthyState(value.description)),
         ).asRight
-      case proto.NodeStatus.ComponentStatus.Status.Failed(value) =>
+      case protoV0.NodeStatus.ComponentStatus.Status.Failed(value) =>
         ComponentStatus(
           dependency.name,
           Failed(UnhealthyState(value.description)),
         ).asRight
-      case _ =>
-        ProtoDeserializationError.UnrecognizedField("Unknown state").asLeft
+      case protoV0.NodeStatus.ComponentStatus.Status.Fatal(value) =>
+        ComponentStatus(
+          dependency.name,
+          Fatal(UnhealthyState(value.description)),
+        ).asRight
     }
 
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072

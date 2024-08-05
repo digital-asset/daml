@@ -16,7 +16,6 @@ import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPr
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.health.{
   ComponentStatus,
   DependenciesHealthService,
@@ -25,6 +24,7 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.admin.{
   PackageDependencyResolver,
@@ -71,7 +71,12 @@ import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerT
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.digitalasset.canton.version.{
+  ProtocolVersion,
+  ProtocolVersionCompatibility,
+  ProtocolVersionValidation,
+  ReleaseVersion,
+}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
 
@@ -112,7 +117,7 @@ class ParticipantNodeBootstrap(
       ParticipantNodeParameters,
       ParticipantMetrics,
     ](arguments)
-    with ParticipantNodeBootstrapCommon {
+    with ParticipantNodeBootstrapCommon[ParticipantNode] {
 
   /** per session created admin token for in-process connections to ledger-api */
   val adminToken: CantonAdminToken = config.ledgerApi.adminToken.fold(
@@ -654,21 +659,30 @@ class ParticipantNode(
   def readyDomains: Map[DomainId, Boolean] =
     sync.readyDomains.values.toMap
 
+  private def supportedProtocolVersions: Seq[ProtocolVersion] = {
+    val supportedPvs = ProtocolVersionCompatibility.supportedProtocolsParticipant(nodeParameters)
+    nodeParameters.protocolConfig.minimumProtocolVersion match {
+      case Some(pv) => supportedPvs.filter(p => p >= pv)
+      case None => supportedPvs
+    }
+  }
+
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
     val domains = readyDomains
     val topologyQueues = identityPusher.queueStatus
 
     ParticipantStatus(
-      id.uid,
-      uptime(),
-      ports,
-      domains,
-      sync.isActive(),
-      topologyQueues,
-      healthData,
+      uid = id.uid,
+      uptime = uptime(),
+      ports = ports,
+      connectedDomains = domains,
+      active = sync.isActive(),
+      topologyQueue = topologyQueues,
+      components = healthData,
+      version = Some(ReleaseVersion.current),
+      supportedProtocolVersions = Some(supportedProtocolVersions),
     )
-
   }
 
   override def close(): Unit = {

@@ -26,6 +26,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
 import com.digitalasset.canton.participant.admin.*
+import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.v0.*
 import com.digitalasset.canton.participant.config.*
@@ -188,9 +189,9 @@ private[this] trait ParticipantComponentBootstrapFactory {
 
 }
 
-trait ParticipantNodeBootstrapCommon {
+trait ParticipantNodeBootstrapCommon[T <: ParticipantNodeCommon] {
   this: CantonNodeBootstrapBase[
-    _,
+    T,
     LocalParticipantConfig,
     ParticipantNodeParameters,
     ParticipantMetrics,
@@ -593,6 +594,12 @@ trait ParticipantNodeBootstrapCommon {
             executionContext,
           )
         )
+      adminServerRegistry.addServiceU(
+        ParticipantStatusServiceGrpc.bindService(
+          new GrpcParticipantStatusService(getNodeStatus, loggerFactory),
+          executionContext,
+        )
+      )
       // return values
       (
         partyNotifier,
@@ -612,6 +619,8 @@ abstract class ParticipantNodeCommon(
 ) extends CantonNode
     with NamedLogging
     with HasUptime {
+  override type Status = ParticipantStatus
+
   def reconnectDomainsIgnoreFailures()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
