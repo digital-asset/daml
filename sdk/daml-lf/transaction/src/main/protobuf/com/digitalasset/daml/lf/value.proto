@@ -49,7 +49,7 @@ message Value {
     int32 date = 4;
 
     // microseconds since the UNIX epoch. can go backwards. fixed
-    // since the vast majority Vof values will be greater than
+    // since the vast majority of values will be greater than
     // 2^28, since currently the number of microseconds since the
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
     // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
