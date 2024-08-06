@@ -160,9 +160,10 @@ main = tests
   , ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
   , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
   , broken ("queryInterfaceContractId uses highest version of view", queryInterfaceUpgrades)
-  , ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
+  -- Following two tests pending fix from 1da5e873554286320f82b334f3d4a6c405f86d41 making to Canton (see #19676)
+  , brokenOnCanton ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
-  , brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
+  , broken ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
