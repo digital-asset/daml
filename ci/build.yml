@@ -108,7 +108,7 @@ jobs:
 - template: macOS.yml
   parameters:
     job_name: m1_test
-    name: m1_test
+    name: macos
     assignment: test-builds
     test_mode: ${{parameters.test_mode}}
 
