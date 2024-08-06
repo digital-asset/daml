@@ -125,6 +125,20 @@ object SyncServiceError extends SyncServiceErrorGroup {
         with SyncServiceError
   }
 
+  @Explanation("This error results if a admin command is submitted to the passive replica.")
+  @Resolution("Send the admin command to the active replica.")
+  object SyncServicePassiveReplica
+      extends ErrorCode(
+        id = "SYNC_SERVICE_PASSIVE_REPLICA",
+        ErrorCategory.TransientServerFailure,
+      ) {
+    final case class Error()(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause = "Cannot process submitted command. This participant is the passive replica."
+        )
+        with SyncServiceError
+  }
+
   @Explanation(
     """This error is reported in case of validation failures when attempting to register new or change existing
        sequencer connections. This can be caused by unreachable nodes, a bad TLS configuration, or in case of
