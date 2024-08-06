@@ -4,7 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS   @basvangijzel-DA @dylant-da @gerolf-da @paulbrauner-da @remyhaemmerle-da 
-LATEST       @basvangijzel-DA @dylant-da @gerolf-da @paulbrauner-da @remyhaemmerle-da
+/sdk/LATEST @digital-asset/daml-release-owners
 
 # Build / CI / environment
 /ci/                   @digital-asset/daml-language
