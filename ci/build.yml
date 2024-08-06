@@ -105,6 +105,13 @@ jobs:
     assignment: m1-builds
     test_mode: ${{parameters.test_mode}}
 
+- template: macOS.yml
+  parameters:
+    job_name: m1-test
+    name: m1-test
+    assignment: m1-test
+    test_mode: ${{parameters.test_mode}}
+
 - template: blackduck.yml
 
 - job: Windows
