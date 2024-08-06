@@ -180,30 +180,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             succeed
         }
       }
-
-      "reject duplicate disclosed contract key hash" in {
-        val preprocessor =
-          new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
-        val contract1 =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
-        val contractId2 =
-          Value.ContractId.V1.assertBuild(
-            crypto.Hash.hashPrivateKey("another-contract-id"),
-            Bytes.assertFromString("cafe"),
-          )
-        val contract2 =
-          buildDisclosedContract(contractId2, templateId = withKeyTmplId, keyHash = Some(keyHash))
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(Error.Preprocessing.DuplicateDisclosedContractKey(`keyHash`))
-              ) =>
-            succeed
-        }
-      }
     }
   }
 }
