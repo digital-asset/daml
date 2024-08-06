@@ -95,7 +95,7 @@ jobs:
   parameters:
     job_name: macOS
     name: macos
-    assignment: default
+    assignment: test-builds
     test_mode: ${{parameters.test_mode}}
 
 - template: macOS.yml
@@ -103,13 +103,6 @@ jobs:
     job_name: m1
     name: m1
     assignment: m1-builds
-    test_mode: ${{parameters.test_mode}}
-
-- template: macOS.yml
-  parameters:
-    job_name: m1_test
-    name: macos
-    assignment: test-builds
     test_mode: ${{parameters.test_mode}}
 
 - template: blackduck.yml
