@@ -10,6 +10,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommands,
 }
+import com.digitalasset.canton.admin.api.client.data.NodeStatus
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.ConsoleMacros.utils
@@ -23,9 +24,8 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
-import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.health.admin.v0.HealthDumpChunk
-import com.digitalasset.canton.health.admin.{data, v0}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.ResourceUtil
@@ -34,7 +34,7 @@ import io.grpc.StatusRuntimeException
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{Await, Promise, TimeoutException}
 
-abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
+abstract class HealthAdministrationCommon[S <: NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     deserialize: v0.NodeStatus.Status => ParsingResult[S],
@@ -45,10 +45,10 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   import runner.*
 
   @Help.Summary("Get human (and machine) readable status info")
-  def status: data.NodeStatus[S] = consoleEnvironment.run {
+  def status: NodeStatus[S] = consoleEnvironment.run {
     CommandSuccessful(adminCommand(new StatusAdminCommands.GetStatus[S](deserialize)) match {
       case CommandSuccessful(success) => success
-      case err: CommandError => data.NodeStatus.Failure(err.cause)
+      case err: CommandError => NodeStatus.Failure(err.cause)
     })
   }
 
@@ -179,7 +179,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
 
 }
 
-abstract class HealthAdministration[S <: data.NodeStatus.Status](
+abstract class HealthAdministration[S <: NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     deserialize: v0.NodeStatus.Status => ParsingResult[S],

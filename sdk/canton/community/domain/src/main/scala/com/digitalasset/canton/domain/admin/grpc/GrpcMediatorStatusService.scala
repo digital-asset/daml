@@ -6,14 +6,14 @@ package com.digitalasset.canton.domain.admin.grpc
 import com.digitalasset.canton.domain.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.domain.admin.v0.MediatorStatusRequest
 import com.digitalasset.canton.domain.admin.v0 as domainV0
-import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v0, v1}
+import com.digitalasset.canton.health.NodeStatus
+import com.digitalasset.canton.health.admin.{v0, v1}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 
 import scala.concurrent.Future
 
 class GrpcMediatorStatusService(
-    status: => data.NodeStatus[MediatorNodeStatus],
+    status: => NodeStatus[MediatorNodeStatus],
     val loggerFactory: NamedLoggerFactory,
 ) extends domainV0.MediatorStatusServiceGrpc.MediatorStatusService
     with NamedLogging {

@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.manager
 
 import com.digitalasset.canton.domain.initialization.TopologyManagementComponents
 import com.digitalasset.canton.domain.topology.DomainTopologyManager
-import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
+import com.digitalasset.canton.health.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import io.grpc.ServerServiceDefinition
 

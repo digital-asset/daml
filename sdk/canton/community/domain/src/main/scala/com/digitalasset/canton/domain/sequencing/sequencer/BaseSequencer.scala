@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.{

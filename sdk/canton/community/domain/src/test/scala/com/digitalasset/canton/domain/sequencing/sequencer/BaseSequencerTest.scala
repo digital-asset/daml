@@ -13,8 +13,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
+import com.digitalasset.canton.health.{HealthListener, SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler

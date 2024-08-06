@@ -43,13 +43,14 @@ import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.domain.topology.*
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, TopologyQueueStatus}
 import com.digitalasset.canton.health.{
   ComponentStatus,
   DependenciesHealthService,
   LivenessHealthService,
   MutableHealthComponent,
   MutableHealthQuasiComponent,
+  SequencerHealthStatus,
+  TopologyQueueStatus,
 }
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableServer
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
@@ -765,17 +766,16 @@ class Domain(
       dispatcher = topologyManagementArtefacts.dispatcher.queueSize,
       clients = topologyManagementArtefacts.client.numPendingChanges,
     )
-    val domainParameters = config.init.domainParameters
     DomainStatus(
-      domainTopologyManager.id.uid,
+      domainTopologyManager.id,
       uptime(),
       ports,
       participants,
       sequencerHealth,
       topologyQueues,
       healthData,
-      version = Some(ReleaseVersion.current),
-      protocolVersion = domainParameters.protocolVersion.map(_.unwrap),
+      version = ReleaseVersion.current,
+      protocolVersion = staticDomainParameters.protocolVersion,
     )
   }
 

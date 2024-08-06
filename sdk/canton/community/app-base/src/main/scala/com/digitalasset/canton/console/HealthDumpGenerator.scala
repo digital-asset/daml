@@ -5,12 +5,11 @@ package com.digitalasset.canton.console
 
 import better.files.File
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands
-import com.digitalasset.canton.admin.api.client.data.CantonStatus
+import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v0}
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.metrics.MetricsSnapshot
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ReleaseVersion
@@ -41,7 +40,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
         None,
       ) match {
       case CommandSuccessful(value) => value
-      case err: CommandError => data.NodeStatus.Failure(err.cause)
+      case err: CommandError => NodeStatus.Failure(err.cause)
     }
 
   protected def statusMap[S <: NodeStatus.Status](

@@ -6,13 +6,13 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.admin.api.client.data.NodeStatus
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.health.admin.v0.{
   HealthDumpChunk,
   HealthDumpRequest,
   StatusServiceGrpc,
 }
-import com.digitalasset.canton.health.admin.{data, v0}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.empty.Empty
 import io.grpc.Context.CancellableContext
@@ -75,17 +75,17 @@ object StatusAdminCommands {
       service.status(request)
   }
 
-  class GetStatus[S <: data.NodeStatus.Status](
+  class GetStatus[S <: NodeStatus.Status](
       deserialize: v0.NodeStatus.Status => ParsingResult[S]
-  ) extends GetStatusBase[data.NodeStatus[S]] {
-    override def handleResponse(response: v0.NodeStatus): Either[String, data.NodeStatus[S]] =
+  ) extends GetStatusBase[NodeStatus[S]] {
+    override def handleResponse(response: v0.NodeStatus): Either[String, NodeStatus[S]] =
       ((response.response match {
         case v0.NodeStatus.Response.NotInitialized(notInitialized) =>
-          Right(data.NodeStatus.NotInitialized(notInitialized.active))
+          Right(NodeStatus.NotInitialized(notInitialized.active))
         case v0.NodeStatus.Response.Success(status) =>
-          deserialize(status).map(data.NodeStatus.Success(_))
+          deserialize(status).map(NodeStatus.Success(_))
         case v0.NodeStatus.Response.Empty => Left(ProtoDeserializationError.FieldNotSet("response"))
-      }): ParsingResult[data.NodeStatus[S]]).leftMap(_.toString)
+      }): ParsingResult[NodeStatus[S]]).leftMap(_.toString)
   }
 
   class GetHealthDump(

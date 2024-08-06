@@ -12,8 +12,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
-import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
+import com.digitalasset.canton.health.{
+  AtomicHealthElement,
+  CloseableHealthQuasiComponent,
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+}
 import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
 import com.digitalasset.canton.resource.Storage

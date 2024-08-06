@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import com.digitalasset.canton.health.admin.data.NodeStatus
+import com.digitalasset.canton.health.NodeStatus
 
 /** A running instance of a canton node */
 trait CantonNode extends AutoCloseable {

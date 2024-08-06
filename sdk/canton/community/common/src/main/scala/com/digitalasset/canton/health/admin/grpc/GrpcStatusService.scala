@@ -5,9 +5,10 @@ package com.digitalasset.canton.health.admin.grpc
 
 import better.files.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.health.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService.DefaultHealthDumpChunkSize
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.health.admin.v0.{HealthDumpChunk, HealthDumpRequest}
-import com.digitalasset.canton.health.admin.{data, v0}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.protobuf.ByteString
@@ -24,7 +25,7 @@ object GrpcStatusService {
 }
 
 class GrpcStatusService(
-    status: => data.NodeStatus[_],
+    status: => NodeStatus[_],
     healthDump: () => Future[File],
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
@@ -35,11 +36,11 @@ class GrpcStatusService(
 
   override def status(request: Empty): Future[v0.NodeStatus] = {
     val protoStatus = status match {
-      case data.NodeStatus.Success(status) =>
+      case NodeStatus.Success(status) =>
         v0.NodeStatus(v0.NodeStatus.Response.Success(status.toProtoV0))
-      case data.NodeStatus.NotInitialized(active) =>
+      case NodeStatus.NotInitialized(active) =>
         v0.NodeStatus(v0.NodeStatus.Response.NotInitialized(v0.NodeStatus.NotInitialized(active)))
-      case data.NodeStatus.Failure(_msg) =>
+      case NodeStatus.Failure(_msg) =>
         // The node's status should never return a Failure here.
         v0.NodeStatus(v0.NodeStatus.Response.Empty)
     }

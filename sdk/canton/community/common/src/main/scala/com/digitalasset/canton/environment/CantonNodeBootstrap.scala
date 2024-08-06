@@ -20,7 +20,6 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.v0.VaultServiceGrpc
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
 import com.digitalasset.canton.health.admin.v0.StatusServiceGrpc
 import com.digitalasset.canton.health.{
@@ -29,6 +28,7 @@ import com.digitalasset.canton.health.{
   GrpcHealthServer,
   HealthService,
   LivenessHealthService,
+  NodeStatus,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{

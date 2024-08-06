@@ -680,8 +680,8 @@ class ParticipantNode(
       active = sync.isActive(),
       topologyQueue = topologyQueues,
       components = healthData,
-      version = Some(ReleaseVersion.current),
-      supportedProtocolVersions = Some(supportedProtocolVersions),
+      version = ReleaseVersion.current,
+      supportedProtocolVersions = supportedProtocolVersions,
     )
   }
 

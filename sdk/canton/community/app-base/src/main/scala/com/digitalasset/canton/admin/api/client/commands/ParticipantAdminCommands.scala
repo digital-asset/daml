@@ -15,13 +15,13 @@ import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.Nod
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   ListConnectedDomainsResult,
+  NodeStatus,
   ParticipantPruningSchedule,
+  ParticipantStatus,
 }
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.grpc.{
   GrpcParticipantRepairService,
   TransferSearchResult,

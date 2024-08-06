@@ -20,7 +20,6 @@ import com.digitalasset.canton.console.{
   InstanceReferenceCommon,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DynamicDomainParameters as DynamicDomainParametersInternal
 import com.digitalasset.canton.topology.*
