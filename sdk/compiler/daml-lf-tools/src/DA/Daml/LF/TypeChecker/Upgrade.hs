@@ -25,11 +25,13 @@ import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
 import           Data.List (foldl')
-import           Data.Maybe (mapMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
 import           GHC.Generics (Generic)
+import Data.Maybe (catMaybes)
+import Safe (maximumByMay, minimumByMay)
+import Data.Function (on)
 
 data Upgrading a = Upgrading
     { _past :: a
@@ -61,9 +63,11 @@ unsafeZipUpgrading = foldU (zipWith Upgrading)
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
 
+type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, RawPackageVersion)
+
 data UpgradingEnv = UpgradingEnv
   { _upgradingGamma :: Upgrading Gamma
-  , _upgradingDeps :: [Upgrading LF.PackageId]
+  , _upgradingDeps :: UpgradingDeps
   }
 
 makeLenses ''UpgradingEnv
@@ -109,10 +113,10 @@ checkBothAndSingle world checkBoth checkSingle deps version upgradeInfo mbUpgrad
                     let upgradingWorld = Upgrading { _past = initWorldSelf [] pastPkg, _present = world }
                         upgradingGamma = fmap gamma upgradingWorld
                     in
-                    runGammaF upgradingGamma $ do
+                    runGammaF upgradingGamma $ when (uiTypecheckUpgrades upgradeInfo) $ do
                         deps <- checkUpgradeDependenciesM deps upgradedDeps
                         withReaderT (\gamma -> UpgradingEnv gamma deps) $
-                            when (uiTypecheckUpgrades upgradeInfo) (checkBoth (UpgradedPackageId pastPkgId) pastPkg)
+                            checkBoth (UpgradedPackageId pastPkgId) pastPkg
 
         singlePkgDiagnostics :: Either Error ((), [Warning])
         singlePkgDiagnostics =
@@ -165,36 +169,96 @@ checkModule world0 module_ =
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
     -> [(LF.PackageId, LF.Package)]
-    -> TcMF (Upgrading Gamma) [Upgrading LF.PackageId]
+    -> TcMF (Upgrading Gamma) UpgradingDeps
 checkUpgradeDependenciesM presentDeps pastDeps = do
-    let pkgToTriple :: LF.PackageId -> LF.Package -> Maybe (LF.PackageName, (LF.PackageVersion, LF.PackageId))
-        pkgToTriple packageId LF.Package{packageMetadata = Just LF.PackageMetadata{packageName, packageVersion}} = Just (packageName, (packageVersion, packageId))
-        pkgToTriple _ _ = Nothing
-        dalfPkgToTriple LF.DalfPackage{dalfPackageId,dalfPackagePkg} =
-          pkgToTriple dalfPackageId (extPackagePkg dalfPackagePkg)
-    let upgrading = Upgrading
-          { _past = HMS.fromList $ mapMaybe (uncurry pkgToTriple) pastDeps
-          , _present = HMS.fromList $ mapMaybe dalfPkgToTriple presentDeps
-          }
-    let (_del, existingDeps, _new) = extractDelExistNew upgrading
-    depRelations <- forM (HMS.toList existingDeps) $ \(depName, dep) ->
-        let versions = fmap fst dep
-            pkgIds = fmap snd dep
-        in
-        case foldU LF.comparePackageVersion versions of
-          Left (FirstVersionUnparseable presentVersion) -> do
-            diagnosticWithContextF present $
-              WEPresentDependencyHasUnparseableVersion depName presentVersion
-            pure []
-          Left (SecondVersionUnparseable pastVersion) -> do
-            diagnosticWithContextF present $
-              WEPastDependencyHasUnparseableVersion depName pastVersion
-            pure []
-          Right GT ->
-            throwWithContextF present $
-              EUpgradeDependencyHasLowerVersionDespiteUpgrade depName (_present versions) (_past versions)
-          _ -> pure [pkgIds] -- if past package is lesser than or equal, the dependency is a valid upgrade
-    pure (concat depRelations)
+    initialUpgradeablePackageMap <-
+      fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
+        let (pkgId, pkg@LF.Package{packageMetadata = mbMeta}) = pastDep
+        if LF.pkgSupportsUpgrades pkg
+          then
+            case mbMeta of
+              Nothing -> do
+                diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
+                pure Nothing
+              Just meta -> do
+                let LF.PackageMetadata {packageName, packageVersion} = meta
+                case splitPackageVersion id packageVersion of
+                  Left version -> do
+                    diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
+                    pure Nothing
+                  Right rawVersion ->
+                    pure $ Just (packageName, [(rawVersion, pkgId, pkg)])
+          else pure Nothing
+
+    upgradeablePackageMapToDeps <$> checkAllDeps initialUpgradeablePackageMap presentDeps
+    where
+    upgradeablePackageMapToDeps :: HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)] -> UpgradingDeps
+    upgradeablePackageMapToDeps upgradeablePackageMap =
+      HMS.fromList
+        [ (pkgId, (pkgName, pkgVersion))
+        | (pkgName, versions) <- HMS.toList upgradeablePackageMap
+        , (pkgVersion, pkgId, _) <- versions
+        ]
+
+    checkAllDeps
+      :: HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)]
+      -> [LF.DalfPackage]
+      -> TcMF (Upgrading Gamma) (HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)])
+    checkAllDeps upgradeablePackageMap [] = pure upgradeablePackageMap
+    checkAllDeps upgradeablePackageMap (pkg:rest) = do
+      mbNewDep <- checkOneDep upgradeablePackageMap pkg
+      let newUpgradeablePackageMap =
+            case mbNewDep of
+              Nothing -> upgradeablePackageMap
+              Just (name, pkgVersionIdAndAst) -> HMS.insertWith (<>) name [pkgVersionIdAndAst] upgradeablePackageMap
+      checkAllDeps newUpgradeablePackageMap rest
+
+    checkOneDep
+      :: HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)]
+      -> LF.DalfPackage
+      -> TcMF (Upgrading Gamma) (Maybe (LF.PackageName, (LF.RawPackageVersion, LF.PackageId, LF.Package)))
+    checkOneDep upgradeablePackageMap dalfPkg = do
+      let LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
+          presentPkg = extPackagePkg dalfPackagePkg
+      if not (LF.pkgSupportsUpgrades presentPkg)
+        then pure Nothing
+        else
+            case packageMetadata presentPkg of
+              Just meta -> do
+                case HMS.lookup (packageName meta) upgradeablePackageMap of
+                  Nothing -> pure Nothing
+                  Just upgradedPkgs -> do
+                    case splitPackageVersion id (packageVersion meta) of
+                      Left version -> do
+                        diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasUnparseableVersion (packageName meta) version UpgradedPackage
+                        pure Nothing
+                      Right presentVersion -> do
+                        let equivalent = filter (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradedPkgs
+                            ordFst = compare `on` (\(v,_,_) -> v)
+                            closestGreater = minimumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradedPkgs
+                            closestLesser = maximumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradedPkgs
+                        if not (null equivalent)
+                          then error "two upgradeable packages with same name and version"
+                          else do
+                            withReaderT (\gamma -> UpgradingEnv gamma (upgradeablePackageMapToDeps upgradeablePackageMap)) $ do
+                              case closestGreater of
+                                Just (_, greaterPkgId, greaterPkg) ->
+                                  check (presentPkgId, presentPkg) (greaterPkgId, greaterPkg)
+                                Nothing ->
+                                  pure ()
+                              case closestLesser of
+                                Just (_, lesserPkgId, lesserPkg) ->
+                                  check (lesserPkgId, lesserPkg) (presentPkgId, presentPkg)
+                                Nothing ->
+                                  pure ()
+                            pure $ Just (packageName meta, (presentVersion, presentPkgId, presentPkg))
+              Nothing -> do
+                diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
+                pure Nothing
+
+    check :: (LF.PackageId, LF.Package) -> (LF.PackageId, LF.Package) -> TcUpgradeM ()
+    check (pastPkgId, pastPkg) (_presentPkgId, presentPkg) =
+      checkUpgradeM (UpgradedPackageId pastPkgId) (Upgrading pastPkg presentPkg)
 
 checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM upgradedPackageId package = do
@@ -695,13 +759,16 @@ isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     deps <- view upgradingDeps
     let checkSelf = alphaTypeCon
-        checkImport t1 t2 =
-          case (qualPackage t1, qualPackage t2) of
-            (PRImport pkgId1, PRImport pkgId2) ->
-              pkgId1 == pkgId2 ||
-              Upgrading pkgId1 pkgId2 `elem` deps && removePkgId t1 == removePkgId t2
+        checkImport pastT presentT =
+          case (qualPackage pastT, qualPackage presentT) of
+            (PRImport pastPkgId, PRImport presentPkgId) ->
+              pastPkgId == presentPkgId ||
+              (case (pastPkgId `HMS.lookup` deps, presentPkgId `HMS.lookup` deps) of
+                (Just (pastName, pastVersion), Just (presentName, presentVersion)) -> pastName == presentName && pastVersion < presentVersion
+                _ -> False
+              ) && removePkgId pastT == removePkgId presentT
             _ -> False
-        tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
+        tconCheck pastT presentT = checkSelf pastT presentT || checkImport pastT presentT
     pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
 isStructurallyEquivalentType :: AlphaEnv -> [TypeConName] -> Upgrading Type -> TcUpgradeM Bool

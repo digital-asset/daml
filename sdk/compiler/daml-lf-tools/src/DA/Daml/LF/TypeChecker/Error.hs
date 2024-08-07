@@ -15,6 +15,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    PackageUpgradeOrigin(..),
     ) where
 
 import Control.Applicative
@@ -211,8 +212,8 @@ data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
-  | WEPastDependencyHasUnparseableVersion !PackageName !PackageVersion
-  | WEPresentDependencyHasUnparseableVersion !PackageName !PackageVersion
+  | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
+  | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   deriving (Show)
 
 instance Pretty WarnableError where
@@ -238,10 +239,18 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
-    WEPastDependencyHasUnparseableVersion pkgName version ->
-      "Dependency " <> pPrint pkgName <> " of upgrading package has a version which cannot be parsed: '" <> pPrint version <> "'"
-    WEPresentDependencyHasUnparseableVersion pkgName version ->
-      "Dependency " <> pPrint pkgName <> " of upgraded package has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
+      "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
+      "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
+
+data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
+  deriving (Eq, Ord, Show)
+
+instance Pretty PackageUpgradeOrigin where
+  pPrint = \case
+    UpgradingPackage -> "upgrading package"
+    UpgradedPackage -> "upgraded package"
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName

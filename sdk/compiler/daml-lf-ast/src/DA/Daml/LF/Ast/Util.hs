@@ -22,6 +22,7 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -47,6 +48,20 @@ topoSortPackage pkg@Package{packageModules = mods} = do
         G.CyclicSCC modCycle -> Left (map moduleName modCycle)
   mods <- traverse isAcyclic sccs
   pure pkg { packageModules = NM.fromList mods }
+
+isUtilityPackage :: Package -> Bool
+isUtilityPackage pkg =
+  all (\mod ->
+    null (moduleTemplates mod)
+      && null (moduleInterfaces mod)
+      && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
+  ) $ packageModules pkg
+
+
+pkgSupportsUpgrades :: Package -> Bool
+pkgSupportsUpgrades pkg =
+  not (isUtilityPackage pkg) &&
+    packageLfVersion pkg `supports` featurePackageUpgrades
 
 data Arg
   = TmArg Expr
@@ -333,25 +348,28 @@ splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), N
 -- a list of integers [Integer]
 splitPackageVersion
   :: (PackageVersion -> a) -> PackageVersion
-  -> Either a [Integer]
+  -> Either a RawPackageVersion
 splitPackageVersion mkError version@(PackageVersion raw) =
   let pieces = T.split (== '.') raw
   in
   case traverse (readMaybe . T.unpack) pieces of
     Nothing -> Left (mkError version)
-    Just versions -> Right versions
+    Just versions -> Right $ RawPackageVersion versions
 
-data ComparePackageVersionError
-  = FirstVersionUnparseable PackageVersion
-  | SecondVersionUnparseable PackageVersion
-  deriving (Show, Eq, Ord)
+newtype RawPackageVersion = RawPackageVersion [Integer]
+  deriving (Show)
 
-comparePackageVersion :: PackageVersion -> PackageVersion -> Either ComparePackageVersionError Ordering
-comparePackageVersion v1 v2 = do
-  v1Pieces <- splitPackageVersion FirstVersionUnparseable v1
-  v2Pieces <- splitPackageVersion SecondVersionUnparseable v2
+padEquivalent :: RawPackageVersion -> RawPackageVersion -> ([Integer], [Integer])
+padEquivalent (RawPackageVersion v1Pieces) (RawPackageVersion v2Pieces) =
   let pad xs target =
         take
           (length target `max` length xs)
           (xs ++ repeat 0)
-  pure $ compare (pad v1Pieces v2Pieces) (pad v2Pieces v1Pieces)
+  in
+  (pad v1Pieces v2Pieces, pad v2Pieces v1Pieces)
+
+instance Ord RawPackageVersion where
+  compare v1 v2 = uncurry compare $ padEquivalent v1 v2
+
+instance Eq RawPackageVersion where
+  (==) v1 v2 = uncurry (==) $ padEquivalent v1 v2

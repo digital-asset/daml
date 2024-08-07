@@ -419,8 +419,15 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "FailsWhenDepsDowngradeVersions"
-                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Dependency upgrades-example-FailsWhenDepsDowngradeVersions-dep has version 0.0.1 on the upgrading package, which is older than version 0.0.2 on the upgraded package.\n  Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages.")
+                      "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
+                      LF.versionDefault
+                      (SeparateDeps True)
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes"
+                      Succeed
                       LF.versionDefault
                       (SeparateDeps True)
                       False
