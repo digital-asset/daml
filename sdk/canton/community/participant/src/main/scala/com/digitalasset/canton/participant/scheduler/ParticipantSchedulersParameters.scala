@@ -4,9 +4,9 @@
 package com.digitalasset.canton.participant.scheduler
 
 import cats.Eval
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
-import com.digitalasset.canton.participant.ledger.api.CantonAdminToken
 import com.digitalasset.canton.participant.store.MultiDomainEventLog
 import com.digitalasset.canton.resource.Storage
 
