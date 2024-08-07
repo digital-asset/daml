@@ -3,68 +3,52 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da @remyhaemmerle-da
-LATEST       @gerolf-da @bame-da
+CODEOWNERS   @basvangijzel-DA @dylant-da @gerolf-da @paulbrauner-da @remyhaemmerle-da 
+/sdk/LATEST @digital-asset/daml-release-owners
 
 # Build / CI / environment
-/ci/                @paulbrauner-da
-/dev-env/           @paulbrauner-da
-/nix/               @paulbrauner-da
-azure-pipelines.yml @paulbrauner-da
-azure-cron.yml      @paulbrauner-da
-/release/           @paulbrauner-da
-/release.sh         @paulbrauner-da
+/ci/                   @digital-asset/daml-language
+/sdk/dev-env/          @digital-asset/daml-language
+/sdk/nix/              @digital-asset/daml-language
+azure-pipelines.yml    @digital-asset/daml-language
+azure-cron.yml         @digital-asset/daml-language
+sdk/release/           @digital-asset/daml-language
+sdk/release.sh         @digital-asset/daml-language
 
 # Blackduck
-NOTICES     @paulbrauner-da @dasormeter
+/sdk/NOTICES
 
 # Compatibility test
-/compatibility/     @basvangijzel-DA @paulbrauner-da @gerolf-da @remyhaemmerle-da
+/sdk/compatibility/     @digital-asset/daml-language @digital-asset/kv-participant
 
 # Language
-/daml-assistant/    @remyhaemmerle-da @filmackay
-/daml-script/       @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @moisesackerman-da @dylant-da @samuel-williams-da @paulbrauner-da
-/test-common/canton/            @remyhaemmerle-da
+/sdk/daml-assistant/    @digital-asset/daml-language
+/sdk/daml-script/       
+/sdk/compiler/          @digital-asset/daml-language
+/sdk/libs-haskell/      @digital-asset/daml-language
+/sdk/ghc-lib/           @digital-asset/daml-language
+/sdk/test-common/canton/ 
 
 # Runtime
-/daml-lf/ @remyhaemmerle-da @paulbrauner-da
-/daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
-/daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
+/sdk/daml-lf/ 
 
-# KV Participant
-/ledger/      @digital-asset/kv-participant
-/ledger-api/  @digital-asset/kv-participant
-
-# Ledger API Interfaces and Read/Write services are jointly owned between KV teams and @meiersi-da
-/ledger-api/grpc-definitions/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-
-# Owned by KV Participant with KV Committer added for notifications
-/ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Ecosystems
-/language-support/hs/       @remyhaemmerle-da
-/language-support/java/     @filmackay
-/language-support/scala/    @filmackay
-/language-support/ts/       @paulbrauner-da @filmackay
+/sdk/language-support/hs/       @digital-asset/daml-language
+/sdk/language-support/java/     
+/sdk/language-support/scala/    
+/sdk/language-support/ts/       
 
 # Application Runtime
-/ledger-service/       @filmackay
-/runtime-components/   @filmackay
+/sdk/ledger-service/
+/sdk/runtime-components/ 
 
 # Canton code drop
-/canton/               @remyhaemmerle-da
+/sdk/canton/
 
 # Misc
-/docs/              @digital-asset/daml-docs @hrischuk-da
-/libs-scala/nonempty/src/    @S11001001
-/libs-scala/nonempty-cats/src/    @S11001001
-/libs-scala/scala-utils/src/    @S11001001
-/libs-scala/scalatest-utils/src/    @S11001001
-/libs-scala/test-evidence/ @digital-asset/kv-participant @soren-da @matthiasS-da
+/sdk/docs/ 
+/sdk/libs-scala/
 
 # Observability related libraries
-/observability @digital-asset/platform-enablement
+/sdk/observability 
