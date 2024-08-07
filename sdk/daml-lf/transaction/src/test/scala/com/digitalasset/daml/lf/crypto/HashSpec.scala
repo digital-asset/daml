@@ -92,7 +92,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "c65eee0b19b2ec0d8ea727e3cc399c266e63fa174fe728857265fceca563d881"
+      val hash = "02e0bc59349374de68d5ea3be65d17cd728aabfc95a65e35ac21a354c38144ce"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value).toHexString shouldBe hash
@@ -118,7 +118,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in list of texts (1)" in {
+    "not produce collision in list of texts" in {
       // Testing whether strings are delimited: ["AA", "A"] vs ["A", "AA"]
       def list(elements: String*) = VA.list(VA.text).inj(elements.toVector)
       val value1 = list("AA", "A")
@@ -259,11 +259,12 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       hash1 should !==(hash2)
     }
 
-    "not produce collision in TextMap of records" in {
+    "not produce collision in Map of records" in {
       def ref4(x4: Long) = {
         ValueRecord(
           None,
           ImmArray(
+            None -> ValueUnit,
             None -> ValueUnit,
             None -> ValueUnit,
             None -> ValueUnit,
@@ -1067,10 +1068,10 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
 
     "be stable" in {
       Hash.deriveMaintainerContractKeyUUID(k1, p1) shouldBe Hash.assertFromString(
-        "6ac76f1cb2b75305a6c910641ae39463321e09104d49d9aa32638d1d3286430c"
+        "486880a422a8740654d4cc114789f789d8b1d65d644773a6c9574b1c5db39b49"
       )
       Hash.deriveMaintainerContractKeyUUID(k2, p2) shouldBe Hash.assertFromString(
-        "6874798ccf6ec1577955d61a6b6d96247f823515ef3afe8b1e086b3533a4fd56"
+        "ad67f68d68df9045dc348a1c2ddcc2be10834665b6828e92384f43bbc644322e"
       )
     }
   }
