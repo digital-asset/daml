@@ -201,8 +201,8 @@ object Hash {
       mac.doFinal(buf, 0)
   }
 
-  sealed abstract class ValueHashBuilder(
-      version: Byte,
+  private[crypto] sealed abstract class ValueHashBuilder(
+      version: Version,
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
   ) extends Builder {
@@ -226,12 +226,12 @@ object Hash {
     override protected def doFinal(buf: Array[Byte]): Unit =
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
-    md.update(version)
+    md.update(version.id)
     md.update(purpose.id)
   }
 
   private final class LegacyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
-      extends ValueHashBuilder(version = 0.toByte, purpose = purpose, cid2Bytes = cid2Bytes) {
+      extends ValueHashBuilder(version = Version.Legacy, purpose = purpose, cid2Bytes = cid2Bytes) {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
@@ -253,6 +253,8 @@ object Hash {
         case Value.ValueContractId(cid) =>
           addBytes(cid2Bytes(cid))
         case Value.ValueOptional(opt) =>
+          // We use Int instead of Byte for indicating Some vs None.
+          // This waist 3 unnecessary bytes, but we have to keep it for backward compatibility.
           opt match {
             case Some(value) =>
               addInt(1).addTypedValue(value)
@@ -277,7 +279,11 @@ object Hash {
   }
 
   private final class UpgradeFriendlyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
-      extends ValueHashBuilder(version = 1.toByte, purpose = purpose, cid2Bytes = cid2Bytes) {
+      extends ValueHashBuilder(
+        version = Version.UpgradeFriendly,
+        purpose = purpose,
+        cid2Bytes = cid2Bytes,
+      ) {
 
     final override def addTypedValue(value: Value): this.type =
       value match {
@@ -335,9 +341,8 @@ object Hash {
     // we add non-default fields together with their 1-based field index,
     // we end using 0 delimiter.
     def addRecord(value: ImmArray[(_, Value)]): this.type = {
-      var i = 1
-      def addField: this.type = addInt(i)
-      value.foreach { case (_, value) =>
+      value.iterator.zipWithIndex.foreach[Unit] { case ((_, value), i) =>
+        def addField: this.type = addInt(i)
         value match {
           case leaf: Value.ValueCidlessLeaf =>
             leaf match {
@@ -366,6 +371,7 @@ object Hash {
                 if (value)
                   discard(addField.addByte(1.toByte))
               case Value.ValueUnit =>
+              // We never write unit
             }
           case Value.ValueRecord(_, fields) =>
             // No default value for records
@@ -392,24 +398,32 @@ object Hash {
             if (entries.nonEmpty)
               discard(addGenMap(entries))
         }
-        i += 1
       }
-      addInt(0)
+      // This delimits the end of the record.
+      // Note it does not collide with the first byte of field numbers as those are always positives.
+      addByte(0xff.toByte)
     }
 
   }
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
   // Each purpose should be used at most once.
-  private[crypto] case class Purpose(id: Byte)
+  private[crypto] class Purpose private (val id: Byte)
 
   private[crypto] object Purpose {
-    val Testing = Purpose(1)
-    val ContractKey = Purpose(2)
-    val MaintainerContractKeyUUID = Purpose(4)
-    val PrivateKey = Purpose(3)
-    val ContractInstance = Purpose(5)
-    val ChangeId = Purpose(6)
+    val Testing = new Purpose(1)
+    val ContractKey = new Purpose(2)
+    val MaintainerContractKeyUUID = new Purpose(4)
+    val PrivateKey = new Purpose(3)
+    val ContractInstance = new Purpose(5)
+    val ChangeId = new Purpose(6)
+  }
+
+  private class Version private (val id: Byte)
+
+  private object Version {
+    val Legacy = new Version(0) // LF 1.x to LF 2.1
+    val UpgradeFriendly = new Version(1) // from LF 2.1
   }
 
   // package private for testing purpose.
