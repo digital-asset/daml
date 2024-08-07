@@ -196,7 +196,7 @@ object TypeSig {
                   SerializableType.Optional(toSerializableType(arg, List.empty))
                 case Ast.BTContractId =>
                   val typeId = arg match {
-                    case Ast.TTyCon(tycon) if args.isEmpty =>
+                    case Ast.TTyCon(tycon) =>
                       pkgInterface.lookupTemplateOrInterface(tycon) match {
                         case Right(data.TemplateOrInterface.Template(_)) =>
                           Some(TemplateOrInterface.Template(tycon))
