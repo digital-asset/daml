@@ -4,7 +4,6 @@
 package com.digitalasset.canton.health
 
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
@@ -32,8 +31,6 @@ class GrpcHealthServer(
   private val server = CantonServerBuilder
     .forConfig(
       config,
-      MetricName.Daml :+ "health",
-      metrics,
       executor,
       loggerFactory,
       apiConfig,

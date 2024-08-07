@@ -12,7 +12,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.crypto.{Fingerprint, Hash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.BaseQuery
@@ -31,6 +31,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
   TopologyMapping,
+  TopologyTransaction,
 }
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
@@ -774,6 +775,62 @@ object TopologyAdminCommands {
             SignedTopologyTransaction.fromProtoV30(ProtocolVersionValidation.NoValidation, tx)
           )
           .leftMap(_.message)
+    }
+
+    final case class GenerateTransactions(
+        proposals: Seq[GenerateTransactions.Proposal]
+    ) extends BaseWriteCommand[
+          GenerateTransactionsRequest,
+          GenerateTransactionsResponse,
+          Seq[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
+        ] {
+
+      override def createRequest(): Either[String, GenerateTransactionsRequest] =
+        Right(GenerateTransactionsRequest(proposals.map(_.toGenerateTransactionProposal)))
+      override def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: GenerateTransactionsRequest,
+      ): Future[GenerateTransactionsResponse] = service.generateTransactions(request)
+
+      override def handleResponse(
+          response: GenerateTransactionsResponse
+      ): Either[String, Seq[TopologyTransaction[TopologyChangeOp, TopologyMapping]]] =
+        response.generatedTransactions
+          .traverse { generatedTransaction =>
+            val serializedTransaction = generatedTransaction.serializedTransaction
+            val serializedHash = generatedTransaction.transactionHash
+            for {
+              parsedTopologyTransaction <-
+                TopologyTransaction
+                  .fromByteString(ProtocolVersionValidation.NoValidation)(serializedTransaction)
+                  .leftMap(_.message)
+              // We don't really need the hash from the response here because we can re-build it from the deserialized
+              // topology transaction. But users of the API without access to this code wouldn't be able to do that,
+              // which is why the hash is returned by the API. Let's still verify that they match here.
+              parsedHash <- Hash.fromByteString(serializedHash).leftMap(_.message)
+              _ = Either.cond(
+                parsedTopologyTransaction.hash.hash.compare(parsedHash) == 0,
+                (),
+                s"Response hash did not match transaction hash",
+              )
+            } yield parsedTopologyTransaction
+          }
+    }
+    object GenerateTransactions {
+      final case class Proposal(
+          mapping: TopologyMapping,
+          store: String,
+          change: TopologyChangeOp = TopologyChangeOp.Replace,
+          serial: Option[PositiveInt] = None,
+      ) {
+        def toGenerateTransactionProposal: GenerateTransactionsRequest.Proposal =
+          GenerateTransactionsRequest.Proposal(
+            change.toProto,
+            serial.map(_.value).getOrElse(0),
+            Some(mapping.toProtoV30),
+            store,
+          )
+      }
     }
 
     final case class Propose[M <: TopologyMapping: ClassTag](

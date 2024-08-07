@@ -43,11 +43,33 @@ trait HealthElement {
   private val listeners: concurrent.Map[HealthListener, Unit] =
     TrieMap.empty[HealthListener, Unit]
 
+  /** Listeners that will be run first on health state changes */
+  private val highPriorityListeners: concurrent.Map[HealthListener, Unit] =
+    TrieMap.empty[HealthListener, Unit]
+
+  /** Registers a high priority listener that gets poked upon each change of this element's health state.
+    *  This listener will be run before listeners registered via [[registerOnHealthChange]]
+    * @return Whether the listener was not registered before
+    */
+  def registerHighPriorityOnHealthChange(listener: HealthListener): Boolean = {
+    ErrorUtil.requireState(
+      !listeners.contains(listener),
+      "Listener is already registered as a low priority listener",
+    )(ErrorLoggingContext.fromTracedLogger(logger)(TraceContext.empty))
+    val isNew = highPriorityListeners.putIfAbsent(listener, ()).isEmpty
+    if (isNew) listener.poke()(TraceContext.empty)
+    isNew
+  }
+
   /** Registers a listener that gets poked upon each change of this element's health state.
     *
     * @return Whether the listener was not registered before
     */
   def registerOnHealthChange(listener: HealthListener): Boolean = {
+    ErrorUtil.requireState(
+      !highPriorityListeners.contains(listener),
+      "Listener is already registered as a high priority listener",
+    )(ErrorLoggingContext.fromTracedLogger(logger)(TraceContext.empty))
     val isNew = listeners.putIfAbsent(listener, ()).isEmpty
     if (isNew) listener.poke()(TraceContext.empty)
     isNew
@@ -58,7 +80,7 @@ trait HealthElement {
     * @return Whether the listener was registered before.
     */
   def unregisterOnHealthChange(listener: HealthListener): Boolean =
-    listeners.remove(listener).isDefined
+    listeners.remove(listener).isDefined || highPriorityListeners.remove(listener).isDefined
 
   /** The type of health states exposed by this component */
   type State
@@ -130,7 +152,9 @@ trait HealthElement {
     // When we're closing, force the value to `closingState`.
     // This ensures that `closingState` is sticky.
     val newStateValue = if (associatedOnShutdownRunner.isClosing) closingState else newState.value
-    logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")
+
+    if (oldState != newStateValue)
+      logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")
 
     val previous = internalState.getAndUpdate {
       case InternalState(_, Idle) => errorOnIdle
@@ -165,7 +189,9 @@ trait HealthElement {
     if (dur > 1.second) logger.warn(s"Listener ${listener.name} took $durationStr to run")
   }
 
-  private def notifyListeners(implicit traceContext: TraceContext): Unit =
+  private def notifyListenersInternal(
+      listeners: concurrent.Map[HealthListener, Unit]
+  )(implicit traceContext: TraceContext): Unit =
     listeners.foreachEntry { (listener, _) =>
       logger.debug(s"Notifying listener ${listener.name} of health state change from $name")
       val start = System.nanoTime()
@@ -174,6 +200,11 @@ trait HealthElement {
       }
       logIfLongPokeTime(listener, start)
     }
+
+  private def notifyListeners(implicit traceContext: TraceContext): Unit = {
+    notifyListenersInternal(highPriorityListeners)
+    notifyListenersInternal(listeners)
+  }
 
   private def logStateChange(
       oldState: State,

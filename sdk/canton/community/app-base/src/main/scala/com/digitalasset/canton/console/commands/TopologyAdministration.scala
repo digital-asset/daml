@@ -6,6 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.admin.api.client.data.DynamicDomainParameters as ConsoleDynamicDomainParameters
@@ -258,6 +259,16 @@ class TopologyAdministrationGroup(
         adminCommand(
           TopologyAdminCommands.Write
             .AddTransactions(transactions, store, ForceFlags(forceChanges*))
+        )
+      }
+
+    def generate(
+        proposals: Seq[GenerateTransactions.Proposal]
+    ): Seq[TopologyTransaction[TopologyChangeOp, TopologyMapping]] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .GenerateTransactions(proposals)
         )
       }
 

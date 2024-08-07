@@ -11,7 +11,12 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, InsertedValue, NotInserted}
 import com.digitalasset.canton.data.TaskScheduler.Scheduled
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
@@ -217,15 +222,15 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     * @return A future that completes when all sequencer counters up to the given timestamp have been signalled.
     *         [[scala.None$]] if all sequencer counters up to the given timestamp have already been signalled.
     */
-  def scheduleBarrier(
+  def scheduleBarrierUS(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]] = blocking {
+  )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] = blocking {
     lock.synchronized {
       if (latestPolledTimestamp.get >= timestamp) None
       else {
         val barrier = TaskScheduler.TimeBarrier(timestamp)
         barrierQueue.enqueue(barrier)
-        Some(barrier.completion.future)
+        Some(FutureUnlessShutdown(barrier.completion.future))
       }
     }
   }
@@ -406,12 +411,18 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     go()
   }
 
-  private[this] def completeBarriersUpTo(observedTime: CantonTimestamp): Unit = {
+  private[this] def completeBarriersUpTo(observedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Unit = {
     @tailrec def go(): Unit = barrierQueue.headOption match {
       case None => ()
       case Some(barrier) if barrier.timestamp > observedTime => ()
       case Some(barrier) =>
-        barrier.completion.success(())
+        performUnlessClosing(functionFullName)(
+          barrier.completion.success(UnlessShutdown.unit).discard
+        ).onShutdown(
+          barrier.completion.success(UnlessShutdown.AbortedDueToShutdown).discard
+        )
         barrierQueue.dequeue().discard
         go()
     }
@@ -461,7 +472,8 @@ object TaskScheduler {
   private final case class TimeBarrier(override val timestamp: CantonTimestamp)(implicit
       override val traceContext: TraceContext
   ) extends Scheduled {
-    private[TaskScheduler] val completion: Promise[Unit] = Promise[Unit]()
+    private[TaskScheduler] val completion: Promise[UnlessShutdown[Unit]] =
+      Promise[UnlessShutdown[Unit]]()
   }
 
   trait TimedTask extends Scheduled with PrettyPrinting with AutoCloseable {
