@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tls.TlsVersion
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
@@ -76,8 +74,6 @@ trait ServerConfig extends Product with Serializable {
   def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
-      metricsPrefix: MetricName,
-      metrics: LabeledMetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
   ): CantonServerInterceptors
@@ -88,8 +84,6 @@ trait CommunityServerConfig extends ServerConfig {
   override def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
-      metricsPrefix: MetricName,
-      metrics: LabeledMetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
   ) = new CantonCommunityServerInterceptors(

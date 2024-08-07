@@ -730,9 +730,16 @@ object Generators {
   }
 
   def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
-    import v2.TransactionOuterClass.TransactionTree
+    import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def idTreeEventPairGen =
-      eventIdGen.flatMap(id => treeEventGen.map(e => id -> e))
+      treeEventGen.map { e =>
+        val id = e.getKindCase match {
+          case TreeEvent.KindCase.CREATED => e.getCreated.getEventId
+          case TreeEvent.KindCase.EXERCISED => e.getExercised.getEventId
+          case TreeEvent.KindCase.KIND_NOT_SET => sys.error("unrecognized TreeEvent")
+        }
+        id -> e
+      }
     for {
       updateId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary

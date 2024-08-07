@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,

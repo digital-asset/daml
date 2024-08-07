@@ -1,17 +1,10 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.config
+package com.digitalasset.canton.config
 
 import com.auth0.jwt.algorithms.Algorithm
-import com.daml.jwt.{
-  ECDSAVerifier,
-  HMAC256Verifier,
-  JwksVerifier,
-  JwtTimestampLeeway,
-  JwtVerifier,
-  RSA256Verifier,
-}
+import com.daml.jwt.*
 import com.digitalasset.canton.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.logging.NamedLoggerFactory

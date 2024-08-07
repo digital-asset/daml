@@ -231,18 +231,16 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    for {
-      // TODO(#12950): Validate that group addresses map to at least one member
-      result <- sendAsyncInternal(
-        batch,
-        topologyTimestamp,
-        maxSequencingTime,
-        messageId,
-        aggregationRule,
-        callback,
-        amplify,
-      )
-    } yield result
+    // TODO(#12950): Validate that group addresses map to at least one member
+    sendAsyncInternal(
+      batch,
+      topologyTimestamp,
+      maxSequencingTime,
+      messageId,
+      aggregationRule,
+      callback,
+      amplify,
+    )
 
   private def checkRequestSize(
       request: SubmissionRequest,
@@ -796,7 +794,7 @@ class RichSequencerClientImpl(
           PeriodicAcknowledgements
             .create(
               config.acknowledgementInterval.underlying,
-              deferredSubscriptionHealth.getState.isOk,
+              isHealthy = deferredSubscriptionHealth.getState.isAlive,
               RichSequencerClientImpl.this,
               fetchCleanTimestamp,
               clock,
@@ -1556,7 +1554,7 @@ class SequencerClientImplPekko[E: Pretty](
           PeriodicAcknowledgements
             .create(
               config.acknowledgementInterval.underlying,
-              health.getState.isOk,
+              isHealthy = health.getState.isAlive,
               this,
               fetchCleanTimestamp,
               clock,

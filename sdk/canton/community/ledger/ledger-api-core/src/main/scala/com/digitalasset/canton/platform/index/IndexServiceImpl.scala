@@ -16,6 +16,8 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
@@ -78,6 +80,7 @@ private[index] class IndexServiceImpl(
     fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
+    idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
@@ -178,9 +181,23 @@ private[index] class IndexServiceImpl(
       cond: Boolean,
       fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
       responseFromCheckpoint: OffsetCheckpoint => T,
+      idleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
+        idleStreamOffsetCheckpointTimeout,
   ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
-    if (cond) injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint)
-    else
+    if (cond) {
+      // tick source so that we create a checkpoint for empty streams
+      val tick = Source
+        .tick(
+          idleStreamOffsetCheckpointTimeout.underlying,
+          idleStreamOffsetCheckpointTimeout.underlying,
+          Timeout: Carrier[T],
+        )
+        .map((Offset.beforeBegin, _))
+
+      Flow[(Offset, Carrier[T])]
+        .mergePreferred(tick, preferred = false, eagerComplete = true)
+        .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
+    } else
       Flow[(Offset, Carrier[T])].collect { case (off, Element(elem)) =>
         (off, elem)
       }
@@ -813,10 +830,13 @@ object IndexServiceImpl {
       responseFromCheckpoint: OffsetCheckpoint => T,
   ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
     Flow[(Offset, Carrier[T])]
-      .statefulMap[(Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[Offset]), Seq[
-        (Offset, T)
-      ]](create = () => (None, None, None))(
-        f = { case ((lastFetchedCheckpointO, lastStreamedCheckpointO, streamedOffsetO), elem) =>
+      .statefulMap[
+        (Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[(Offset, Carrier[T])]),
+        Seq[
+          (Offset, T)
+        ],
+      ](create = () => (None, None, None))(
+        f = { case ((lastFetchedCheckpointO, lastStreamedCheckpointO, processedElemO), elem) =>
           elem match {
             // range begin received
             case (startExclusive, RangeBegin) =>
@@ -828,7 +848,7 @@ object IndexServiceImpl {
                   fetchedCheckpointO.collect {
                     case c: OffsetCheckpoint
                         if c.offset == startExclusive
-                          && c.offset >= streamedOffsetO.getOrElse(Offset.beforeBegin) =>
+                          && c.offset >= processedElemO.map(_._1).getOrElse(Offset.beforeBegin) =>
                       (c.offset, responseFromCheckpoint(c))
                   }.toList
                 else Seq.empty
@@ -837,7 +857,7 @@ object IndexServiceImpl {
               val relevantCheckpointO = fetchedCheckpointO.collect {
                 case c: OffsetCheckpoint if c.offset > startExclusive => c
               }
-              ((relevantCheckpointO, streamedCheckpointO, streamedOffsetO), response)
+              ((relevantCheckpointO, streamedCheckpointO, Some(elem)), response)
             // regular element received
             case (currentOffset, Element(currElem)) =>
               val prepend = lastFetchedCheckpointO.collect {
@@ -849,7 +869,7 @@ object IndexServiceImpl {
                 lastFetchedCheckpointO.collect { case c: OffsetCheckpoint if prepend.isEmpty => c }
               val streamedCheckpointO =
                 if (prepend.nonEmpty) lastFetchedCheckpointO else lastStreamedCheckpointO
-              ((newCheckpointO, streamedCheckpointO, Some(currentOffset)), responses)
+              ((newCheckpointO, streamedCheckpointO, Some(elem)), responses)
             // range end indicator received
             case (endInclusive, RangeEnd) =>
               val responses = lastFetchedCheckpointO.collect {
@@ -862,18 +882,44 @@ object IndexServiceImpl {
                 }
               val streamedCheckpointO =
                 if (responses.nonEmpty) lastFetchedCheckpointO else lastStreamedCheckpointO
-              ((newCheckpointO, streamedCheckpointO, Some(endInclusive)), responses)
+              ((newCheckpointO, streamedCheckpointO, Some(elem)), responses)
+            case (_, Timeout) =>
+              val relevantCheckpointO = fetchOffsetCheckpoint().collect {
+                case c: OffsetCheckpoint
+                    if lastStreamedCheckpointO.fold(true)(_.offset < c.offset) &&
+                      // check that we are not in the middle of a range
+                      processedElemO.fold(true)(_._2.isRangeEnd) =>
+                  c
+              }
+              val response =
+                relevantCheckpointO.map(c => (c.offset, responseFromCheckpoint(c))).toList
+              (
+                (
+                  relevantCheckpointO.orElse(lastFetchedCheckpointO),
+                  relevantCheckpointO.orElse(lastStreamedCheckpointO),
+                  processedElemO,
+                ),
+                response,
+              )
           }
         },
         onComplete = _ => None,
       )
       .mapConcat(identity)
 
-  sealed abstract class Carrier[+T]
+  sealed abstract class Carrier[+T] {
+    def isRangeEnd: Boolean = false
+    def isTimeout: Boolean = false
+  }
 
   final case object RangeBegin extends Carrier[Nothing]
-  final case object RangeEnd extends Carrier[Nothing]
+  final case object RangeEnd extends Carrier[Nothing] {
+    override def isRangeEnd: Boolean = true
+  }
   final case class Element[T](element: T) extends Carrier[T]
+  final case object Timeout extends Carrier[Nothing] {
+    override def isTimeout: Boolean = true
+  }
 
   private def updatesResponse(
       offsetCheckpoint: OffsetCheckpoint

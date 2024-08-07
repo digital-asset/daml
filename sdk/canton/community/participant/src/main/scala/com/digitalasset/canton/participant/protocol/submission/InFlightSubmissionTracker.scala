@@ -256,19 +256,55 @@ class InFlightSubmissionTracker(
           //    a second chance of observing the timestamp when the sequencer counter becomes clean.
           _ <- FutureUnlessShutdown
             .outcomeF(domainState.observedTimestampTracker.increaseWatermark(upToInclusive))
-          timelyRejects <- FutureUnlessShutdown
-            .outcomeF(store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive))
-          events = timelyRejects.map(timelyRejectionEventFor)
-          skippedE <- participantEventPublisher.publishWithIds(events).value
-        } yield {
-          skippedE.valueOr { skipped =>
-            logger.info(
-              show"Skipping publication of timely rejections with IDs ${skipped
-                  .map(_.eventId.showValueOrNone)} as they are already there at offsets ${skipped
-                  .map(_.localOffset)}"
-            )
-          }
-        }
+          reject <- doTimelyReject(domainId, upToInclusive, participantEventPublisher)
+        } yield reject
+      }
+    }
+
+  /** Same as [[timelyReject]] except that this method may only be called if [[timelyReject]] has already been called
+    * previously with the same or a later timestamp for the same domain.
+    */
+  def timelyRejectAgain(
+      domainId: DomainId,
+      upToInclusive: CantonTimestamp,
+      participantEventPublisher: ParticipantEventPublisher,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    // No need to bump the watermark like `timelyReject` does because it had been bumped previously.
+    // This method therefore can run even if the domain is not connected.
+    //
+    // Sanity check that the watermark is sufficiently high. If the domain is not available, we skip the sanity check.
+    domainStates(domainId).foreach { state =>
+      val highWaterMark = state.observedTimestampTracker.highWatermark
+      ErrorUtil.requireState(
+        upToInclusive <= highWaterMark,
+        s"Bound $upToInclusive is above high watermark $highWaterMark despite this being a renotification",
+      )
+    }
+
+    doTimelyReject(domainId, upToInclusive, participantEventPublisher)
+  }
+
+  private def doTimelyReject(
+      domainId: DomainId,
+      upToInclusive: CantonTimestamp,
+      participantEventPublisher: ParticipantEventPublisher,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    for {
+      timelyRejects <- FutureUnlessShutdown
+        .outcomeF(store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive))
+      events = timelyRejects.map(timelyRejectionEventFor)
+      skippedE <- participantEventPublisher.publishWithIds(events).value
+    } yield {
+      skippedE.valueOr { skipped =>
+        logger.info(
+          show"Skipping publication of timely rejections with IDs ${skipped
+              .map(_.eventId.showValueOrNone)} as they are already there at offsets ${skipped
+              .map(_.localOffset)}"
+        )
       }
     }
 

@@ -51,6 +51,8 @@ final class GeneratorsTransaction(
     Arbitrary(Generators.nonEmptySetGen[LfPackageId].map(_.toSeq))
   implicit val topologyTransactionPublicKeysArb: Arbitrary[NonEmpty[Seq[PublicKey]]] =
     Arbitrary(Generators.nonEmptySetGen[PublicKey].map(_.toSeq))
+  implicit val topologyTransactionSigningPublicKeysArb: Arbitrary[NonEmpty[Seq[SigningPublicKey]]] =
+    Arbitrary(Generators.nonEmptySetGen[SigningPublicKey].map(_.toSeq))
   implicit val topologyTransactionMappingsArb: Arbitrary[NonEmpty[Seq[TopologyMapping]]] =
     Arbitrary(Generators.nonEmptySetGen[TopologyMapping].map(_.toSeq))
   implicit val topologyTransactionPartyIdsArb: Arbitrary[NonEmpty[Seq[PartyId]]] =

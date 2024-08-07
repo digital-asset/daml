@@ -1,17 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.ledger.api
+package com.digitalasset.canton.auth
 
-import com.digitalasset.canton.auth.{AuthService, ClaimSet}
+import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.crypto.RandomOps
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import io.grpc.Metadata
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-
-import AuthService.AUTHORIZATION_KEY
 
 final case class CantonAdminToken(secret: String)
 object CantonAdminToken {

@@ -58,7 +58,8 @@ class DbTrafficConsumedStore(
       sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
            from seq_traffic_control_consumed_journal
            where member = $member
-           order by sequencing_timestamp desc"""
+           order by sequencing_timestamp desc
+           limit 1"""
     storage.querySingle(query.as[TrafficConsumed].headOption, functionFullName).value
   }
 

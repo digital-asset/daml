@@ -23,7 +23,11 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
     case ComponentHealthState.Ok(_) => true
     case _ => false
   }
-  def isDegrading: Boolean = this match {
+  def isAlive: Boolean = this match {
+    case _: Ok | _: Degraded => true
+    case _: Fatal | _: Failed => false
+  }
+  def isDegraded: Boolean = this match {
     case ComponentHealthState.Degraded(_) => true
     case _ => false
   }

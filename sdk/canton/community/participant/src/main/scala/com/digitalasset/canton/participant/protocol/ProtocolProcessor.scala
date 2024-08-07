@@ -322,8 +322,10 @@ abstract class ProtocolProcessor[
         // because the regular timely rejection mechanism has already emitted the command timeout
         // or ongoing processing of the message that triggers the timeout will anyway pick up the old or the updated
         // tracking data.
-        _ = if (maxSequencingTime > timestamp)
+        _ = if (maxSequencingTime > timestamp) {
+          logger.debug(s"Renotifying the in-flight submission tracker for timestamp $timestamp")
           ephemeral.timelyRejectNotifier.notifyIfInPastAsync(timestamp)
+        }
       } yield tracked.onDefinitiveFailure
       FutureUnlessShutdown.outcomeF(fut)
     }
@@ -526,34 +528,39 @@ abstract class ProtocolProcessor[
 
     val removeF = for {
       domainParameters <- crypto.ips
-        .awaitSnapshot(submissionTimestamp)
-        .flatMap(_.findDynamicDomainParameters())
-        .flatMap(_.toFuture(new RuntimeException(_)))
+        .awaitSnapshotUS(submissionTimestamp)
+        .flatMap(snapshot => FutureUnlessShutdown.outcomeF(snapshot.findDynamicDomainParameters()))
+        .flatMap(_.toFutureUS(new RuntimeException(_)))
 
       decisionTime <- domainParameters.decisionTimeForF(submissionTimestamp)
       _ = ephemeral.timeTracker.requestTick(decisionTime)
-      _ <- ephemeral.requestTracker.awaitTimestamp(decisionTime).getOrElse(Future.unit).map { _ =>
-        steps.removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId).foreach {
-          submissionData =>
-            logger.debug(s"Removing sent submission $submissionId without a result.")
-            steps.postProcessResult(
-              Verdict.ParticipantReject(
-                NonEmpty(
-                  List,
-                  Set.empty[LfPartyId] ->
-                    LocalRejectError.TimeRejects.LocalTimeout
-                      .Reject()
-                      .toLocalReject(protocolVersion),
-                ),
-                protocolVersion,
+      _ <- ephemeral.requestTracker
+        .awaitTimestampUS(decisionTime)
+        .getOrElse(FutureUnlessShutdown.unit)
+    } yield {
+      steps.removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId).foreach {
+        submissionData =>
+          logger.debug(s"Removing sent submission $submissionId without a result.")
+          steps.postProcessResult(
+            Verdict.ParticipantReject(
+              NonEmpty(
+                List,
+                Set.empty[LfPartyId] ->
+                  LocalRejectError.TimeRejects.LocalTimeout
+                    .Reject()
+                    .toLocalReject(protocolVersion),
               ),
-              submissionData,
-            )
-        }
+              protocolVersion,
+            ),
+            submissionData,
+          )
       }
-    } yield ()
+    }
 
-    FutureUtil.doNotAwait(removeF, s"Failed to remove the pending submission $submissionId")
+    FutureUtil.doNotAwaitUnlessShutdown(
+      removeF,
+      s"Failed to remove the pending submission $submissionId",
+    )
   }
 
   private def handlerResultForRequest(

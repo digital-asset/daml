@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.ledger.api
 import cats.Eval
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.admin.participant.v30.{PackageServiceGrpc, PingServiceGrpc}
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
