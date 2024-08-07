@@ -94,7 +94,7 @@ object Hash {
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => throw HashingError.ForbiddenContractId()
 
-  sealed abstract class Builder {
+  private[crypto] sealed abstract class Builder {
 
     protected def update(a: ByteBuffer): Unit
 
