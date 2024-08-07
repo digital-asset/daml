@@ -105,6 +105,7 @@ object TypeSig {
     final case class Variant(tyCon: Ref.TypeConName, params: Seq[SerializableType])
         extends SerializableType
 
+    // None means the contract ID point to some type which is neither a template nor a interface
     final case class ContractId(typeId: Option[TemplateOrInterface]) extends SerializableType
 
     final case class List(typ: SerializableType) extends SerializableType
