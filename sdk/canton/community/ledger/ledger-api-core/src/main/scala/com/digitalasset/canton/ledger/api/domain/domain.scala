@@ -175,7 +175,7 @@ final case class DisclosedContract(
         keyOpt = keyWithWithMaintainer,
         version = transactionVersion,
       ),
-      createTime = Timestamp.Epoch,
+      createTime = createdAt,
       cantonData = driverMetadata,
     )
 }
