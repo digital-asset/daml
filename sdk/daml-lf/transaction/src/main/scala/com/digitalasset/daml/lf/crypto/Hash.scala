@@ -332,7 +332,7 @@ object Hash {
     private def addList(xs: FrontStack[Value]): this.type =
       iterateOver(xs.toImmArray)(_ addTypedValue _)
 
-    // we add non default filed together with there field 1-based index,
+    // we add non-default fields together with their 1-based field index,
     // we end using 0 delimiter.
     def addRecord(value: ImmArray[(_, Value)]): this.type = {
       var i = 1
