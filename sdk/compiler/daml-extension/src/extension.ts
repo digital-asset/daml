@@ -290,7 +290,7 @@ export function createLanguageClient(
     {
       args: serverArgs,
       command: command,
-      options: { cwd: vscode.workspace.rootPath },
+      options: { cwd: vscode.workspace.rootPath, shell: true },
     },
     clientOptions,
     true,
