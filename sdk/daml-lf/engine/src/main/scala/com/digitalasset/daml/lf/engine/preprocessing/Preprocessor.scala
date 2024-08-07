@@ -8,7 +8,7 @@ package preprocessing
 import com.digitalasset.daml.lf.data.{Ref, ImmArray}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Node}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -212,7 +212,7 @@ private[engine] final class Preprocessor(
     }
 
   def preprocessDisclosedContracts(
-      discs: data.ImmArray[command.DisclosedContract]
+      discs: data.ImmArray[FatContractInstance]
   ): Result[ImmArray[speedy.DisclosedContract]] =
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)

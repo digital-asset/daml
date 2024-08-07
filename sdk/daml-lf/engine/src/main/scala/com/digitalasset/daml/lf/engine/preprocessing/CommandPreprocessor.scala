@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -51,32 +52,17 @@ private[lf] final class CommandPreprocessor(
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContract(
-      disc: command.DisclosedContract
+      disc: FatContractInstance
   ): speedy.DisclosedContract = {
-    val tmpl = handleLookup(pkgInterface.lookupTemplate(disc.templateId))
-    (tmpl.key, disc.keyHash) match {
-      case (Some(_), None) =>
-        throw Error.Preprocessing.MissingDisclosedContractKeyHash(
-          disc.contractId,
-          disc.templateId,
-        )
-      case (None, Some(hash)) =>
-        throw Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
-          disc.contractId,
-          disc.templateId,
-          hash,
-        )
-      case _ =>
-    }
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //  for now we need the package of the disclosed contract
-    val arg = translateUpgradableArg(Ast.TTyCon(disc.templateId), disc.argument, strict = true)
+    val arg = translateUpgradableArg(Ast.TTyCon(disc.templateId), disc.createArg, strict = true)
     validateCid(disc.contractId)
     speedy.DisclosedContract(
       templateId = disc.templateId,
       contractId = disc.contractId,
       argument = arg,
-      keyHash = disc.keyHash,
+      keyHash = disc.contractKeyWithMaintainers.map(_.globalKey.hash),
     )
   }
 
@@ -303,20 +289,14 @@ private[lf] final class CommandPreprocessor(
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
-      discs: ImmArray[command.DisclosedContract]
+      discs: ImmArray[FatContractInstance]
   ): ImmArray[speedy.DisclosedContract] = {
     var contractIds: Set[Value.ContractId] = Set.empty
-    var contractKeys: Set[crypto.Hash] = Set.empty
 
     discs.map { disclosedContract =>
       if (contractIds.contains(disclosedContract.contractId))
         throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
       contractIds += disclosedContract.contractId
-      disclosedContract.keyHash.foreach { hash =>
-        if (contractKeys.contains(hash))
-          throw Error.Preprocessing.DuplicateDisclosedContractKey(hash)
-        contractKeys += hash
-      }
       unsafePreprocessDisclosedContract(disclosedContract)
     }
   }

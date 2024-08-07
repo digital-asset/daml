@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   Node,
   SubmittedTransaction,
   Versioned,
@@ -143,7 +144,7 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
-      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
+      disclosures: ImmArray[FatContractInstance] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
       engineLogger: Option[EngineLogger] = None,
