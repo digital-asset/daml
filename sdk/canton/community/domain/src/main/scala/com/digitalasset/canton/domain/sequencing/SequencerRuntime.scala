@@ -36,8 +36,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 import com.digitalasset.canton.domain.sequencing.service.*
 import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.domain.service.grpc.GrpcDomainService
-import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{
+import com.digitalasset.canton.health.{
+  HealthListener,
   SequencerAdminStatus,
   SequencerHealthStatus,
   TopologyQueueStatus,

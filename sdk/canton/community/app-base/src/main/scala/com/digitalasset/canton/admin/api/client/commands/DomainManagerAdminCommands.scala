@@ -5,14 +5,13 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.{toBifunctorOps, toTraverseOps}
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
-import com.digitalasset.canton.domain.admin.data.DomainManagerNodeStatus
+import com.digitalasset.canton.admin.api.client.data.{DomainManagerStatus, NodeStatus}
 import com.digitalasset.canton.domain.admin.v0.DomainManagerStatusServiceGrpc.DomainManagerStatusServiceStub
 import com.digitalasset.canton.domain.admin.v0.{
   DomainManagerStatusRequest,
   DomainManagerStatusResponse,
   DomainManagerStatusServiceGrpc,
 }
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import io.grpc.{ManagedChannel, Status}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +26,7 @@ object DomainManagerAdminCommands {
      */
     final case class DomainManagerStatusCommand()(implicit ec: ExecutionContext)
         extends NodeStatusCommand[
-          DomainManagerNodeStatus,
+          DomainManagerStatus,
           DomainManagerStatusRequest,
           DomainManagerStatusResponse,
         ] {
@@ -55,9 +54,9 @@ object DomainManagerAdminCommands {
       override def handleResponse(
           response: Either[Status.Code.UNIMPLEMENTED.type, DomainManagerStatusResponse]
       ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[
-        DomainManagerNodeStatus
+        DomainManagerStatus
       ]]] =
-        response.traverse(DomainManagerNodeStatus.fromProtoV1).leftMap(_.message)
+        response.traverse(DomainManagerStatus.fromProtoV1).leftMap(_.message)
     }
   }
 

@@ -6,10 +6,7 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.Show
 import com.digitalasset.canton.admin.api.client.data.CantonStatus.splitSuccessfulAndFailedStatus
 import com.digitalasset.canton.console.{DomainReference, ParticipantReference}
-import com.digitalasset.canton.domain.admin.data.DomainStatus
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.util.ShowUtil.*
 
 trait CantonStatus extends PrettyPrinting {
@@ -63,7 +60,7 @@ object CantonStatus {
 
 object CommunityCantonStatus {
   def getStatus(
-      domains: Map[String, () => NodeStatus[DomainStatus]],
+      domains: Map[String, () => NodeStatus[DomainNodeStatus]],
       participants: Map[String, () => NodeStatus[ParticipantStatus]],
   ): CommunityCantonStatus = {
     val (domainStatus, unreachableDomains) =
@@ -81,12 +78,12 @@ object CommunityCantonStatus {
 }
 
 final case class CommunityCantonStatus(
-    domainStatus: Map[String, DomainStatus],
+    domainStatus: Map[String, DomainNodeStatus],
     unreachableDomains: Map[String, NodeStatus.Failure],
     participantStatus: Map[String, ParticipantStatus],
     unreachableParticipants: Map[String, NodeStatus.Failure],
 ) extends CantonStatus {
-  def tupled: (Map[String, DomainStatus], Map[String, ParticipantStatus]) =
+  def tupled: (Map[String, DomainNodeStatus], Map[String, ParticipantStatus]) =
     (domainStatus, participantStatus)
 
   override def pretty: Pretty[CommunityCantonStatus] = prettyOfString { _ =>

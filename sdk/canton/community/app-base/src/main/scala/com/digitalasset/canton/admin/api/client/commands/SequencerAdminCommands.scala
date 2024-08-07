@@ -5,7 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
-import com.digitalasset.canton.domain.admin.data.SequencerNodeStatus
+import com.digitalasset.canton.admin.api.client.data.{NodeStatus, SequencerStatus}
 import com.digitalasset.canton.domain.admin.v0.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
 import com.digitalasset.canton.domain.admin.v0.SequencerStatusServiceGrpc.SequencerStatusServiceStub
 import com.digitalasset.canton.domain.admin.v0.{
@@ -15,7 +15,6 @@ import com.digitalasset.canton.domain.admin.v0.{
 }
 import com.digitalasset.canton.domain.admin.v0 as adminproto
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.google.protobuf.empty.Empty
 import io.grpc.{ManagedChannel, Status}
 
@@ -57,7 +56,7 @@ object SequencerAdminCommands {
      */
     final case class SequencerStatusCommand()(implicit ec: ExecutionContext)
         extends NodeStatusCommand[
-          SequencerNodeStatus,
+          SequencerStatus,
           SequencerStatusRequest,
           SequencerStatusResponse,
         ] {
@@ -84,8 +83,8 @@ object SequencerAdminCommands {
 
       override def handleResponse(
           response: Either[Status.Code.UNIMPLEMENTED.type, SequencerStatusResponse]
-      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[SequencerNodeStatus]]] =
-        response.traverse(SequencerNodeStatus.fromProtoV1).leftMap(_.message)
+      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[SequencerStatus]]] =
+        response.traverse(SequencerStatus.fromProtoV1).leftMap(_.message)
     }
   }
 }

@@ -11,11 +11,13 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{
+  DomainNodeStatus,
   DynamicDomainParameters,
   DynamicDomainParametersV0,
   DynamicDomainParametersV1,
   DynamicDomainParametersV2,
   ListParticipantDomainStateResult,
+  NodeStatus,
   StaticDomainParameters,
   StaticDomainParametersV0,
   StaticDomainParametersV1,
@@ -35,10 +37,8 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
-import com.digitalasset.canton.domain.admin.data.DomainStatus
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
@@ -628,11 +628,11 @@ class DomainHealthAdministration(
 ) extends HealthAdministration(
       runner,
       consoleEnvironment,
-      DomainStatus.fromProtoV0,
+      DomainNodeStatus.fromProtoV0,
     )
     with FeatureFlagFilter {
   implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
 
-  override protected def nodeStatusCommand: NodeStatusCommand[DomainStatus, _, _] =
+  override protected def nodeStatusCommand: NodeStatusCommand[DomainNodeStatus, _, _] =
     DomainAdminCommands.Health.DomainStatusCommand()
 }

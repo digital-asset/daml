@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
-import com.digitalasset.canton.domain.admin.data.DomainStatus
+import com.digitalasset.canton.admin.api.client.data.{
+  CommunityCantonStatus,
+  DomainNodeStatus,
+  ParticipantStatus,
+}
 import com.digitalasset.canton.environment.CommunityEnvironment
-import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
@@ -25,7 +27,7 @@ class CommunityHealthDumpGenerator(
 
   override def status(): CommunityCantonStatus = // TODO(#20498)
     CommunityCantonStatus.getStatus(
-      statusMap(environment.config.domainsByString, DomainStatus.fromProtoV0),
+      statusMap(environment.config.domainsByString, DomainNodeStatus.fromProtoV0),
       statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV0),
     )
 }

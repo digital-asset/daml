@@ -5,14 +5,13 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.{toBifunctorOps, toTraverseOps}
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
-import com.digitalasset.canton.domain.admin.data.MediatorNodeStatus
+import com.digitalasset.canton.admin.api.client.data.{MediatorStatus, NodeStatus}
 import com.digitalasset.canton.domain.admin.v0.MediatorStatusServiceGrpc.MediatorStatusServiceStub
 import com.digitalasset.canton.domain.admin.v0.{
   MediatorStatusRequest,
   MediatorStatusResponse,
   MediatorStatusServiceGrpc,
 }
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import io.grpc.{ManagedChannel, Status}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +26,7 @@ object MediatorAdminCommands {
      */
     final case class MediatorStatusCommand()(implicit ec: ExecutionContext)
         extends NodeStatusCommand[
-          MediatorNodeStatus,
+          MediatorStatus,
           MediatorStatusRequest,
           MediatorStatusResponse,
         ] {
@@ -54,8 +53,8 @@ object MediatorAdminCommands {
 
       override def handleResponse(
           response: Either[Status.Code.UNIMPLEMENTED.type, MediatorStatusResponse]
-      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[MediatorNodeStatus]]] =
-        response.traverse(MediatorNodeStatus.fromProtoV1).leftMap(_.message)
+      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[MediatorStatus]]] =
+        response.traverse(MediatorStatus.fromProtoV1).leftMap(_.message)
     }
   }
 

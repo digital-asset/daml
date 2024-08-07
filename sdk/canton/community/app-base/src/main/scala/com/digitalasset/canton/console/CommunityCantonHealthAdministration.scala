@@ -8,10 +8,13 @@ import cats.data.NonEmptyList
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.codahale.metrics
-import com.digitalasset.canton.admin.api.client.data.{CantonStatus, CommunityCantonStatus}
+import com.digitalasset.canton.admin.api.client.data.{
+  CantonStatus,
+  CommunityCantonStatus,
+  NodeStatus,
+}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.NoTracing

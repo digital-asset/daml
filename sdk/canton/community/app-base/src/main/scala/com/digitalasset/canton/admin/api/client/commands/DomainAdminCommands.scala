@@ -6,8 +6,11 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as StaticDomainParametersConfig
-import com.digitalasset.canton.domain.admin.data.DomainStatus
+import com.digitalasset.canton.admin.api.client.data.{
+  DomainNodeStatus,
+  NodeStatus,
+  StaticDomainParameters as StaticDomainParametersConfig,
+}
 import com.digitalasset.canton.domain.admin.v0.DomainStatusServiceGrpc.DomainStatusServiceStub
 import com.digitalasset.canton.domain.admin.v0.{
   DomainStatusRequest,
@@ -16,7 +19,6 @@ import com.digitalasset.canton.domain.admin.v0.{
 }
 import com.digitalasset.canton.domain.admin.v0 as adminproto
 import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.protocol.StaticDomainParameters as StaticDomainParametersInternal
 import com.google.protobuf.empty.Empty
 import io.grpc.{ManagedChannel, Status}
@@ -125,7 +127,7 @@ object DomainAdminCommands {
      */
     final case class DomainStatusCommand()(implicit ec: ExecutionContext)
         extends NodeStatusCommand[
-          DomainStatus,
+          DomainNodeStatus,
           DomainStatusRequest,
           DomainStatusResponse,
         ] {
@@ -152,8 +154,8 @@ object DomainAdminCommands {
 
       override def handleResponse(
           response: Either[Status.Code.UNIMPLEMENTED.type, DomainStatusResponse]
-      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[DomainStatus]]] =
-        response.traverse(DomainStatus.fromProtoV1).leftMap(_.message)
+      ): Either[String, Either[Status.Code.UNIMPLEMENTED.type, NodeStatus[DomainNodeStatus]]] =
+        response.traverse(DomainNodeStatus.fromProtoV1).leftMap(_.message)
     }
   }
 }

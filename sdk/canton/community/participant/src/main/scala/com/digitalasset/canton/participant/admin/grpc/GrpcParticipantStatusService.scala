@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
-import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v0, v1}
+import com.digitalasset.canton.health.NodeStatus
+import com.digitalasset.canton.health.admin.{v0, v1}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ParticipantStatus
 import com.digitalasset.canton.participant.admin.v0.{
@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.admin.v0.{
 import scala.concurrent.Future
 
 class GrpcParticipantStatusService(
-    status: => data.NodeStatus[ParticipantStatus],
+    status: => NodeStatus[ParticipantStatus],
     val loggerFactory: NamedLoggerFactory,
 ) extends ParticipantStatusServiceGrpc.ParticipantStatusService
     with NamedLogging {

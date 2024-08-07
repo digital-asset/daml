@@ -9,14 +9,14 @@ import com.digitalasset.canton.domain.admin.v0.{
   DomainManagerStatusResponse,
 }
 import com.digitalasset.canton.domain.admin.v0 as domainV0
-import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v0, v1}
+import com.digitalasset.canton.health.NodeStatus
+import com.digitalasset.canton.health.admin.{v0, v1}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 
 import scala.concurrent.Future
 
 class GrpcDomainManagerStatusService(
-    status: => data.NodeStatus[DomainManagerNodeStatus],
+    status: => NodeStatus[DomainManagerNodeStatus],
     val loggerFactory: NamedLoggerFactory,
 ) extends domainV0.DomainManagerStatusServiceGrpc.DomainManagerStatusService
     with NamedLogging {

@@ -1,24 +1,15 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.health.admin.data
+package com.digitalasset.canton.health
 
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
-import cats.syntax.traverse.*
-import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
-import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString, versionString}
+import com.digitalasset.canton.health.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.admin.{v0, v1}
-import com.digitalasset.canton.health.{
-  ComponentHealthState,
-  ComponentStatus,
-  ToComponentHealthState,
-}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.util.ShowUtil
@@ -86,23 +77,8 @@ object NodeStatus {
   def multiline(elements: Seq[String]): String =
     if (elements.isEmpty) "None" else elements.map(el => s"\n\t$el").mkString
 
-  def versionString(version: Option[ReleaseVersion]): Seq[String] =
-    version match {
-      case Some(version) => Seq(s"Version: ${version.fullVersion}")
-      case None => Seq()
-    }
-
-  def protocolVersionString(pv: Option[ProtocolVersion]): Seq[String] =
-    pv match {
-      case Some(pv) => Seq(s"Protocol version: ${pv.toString}")
-      case None => Seq()
-    }
-
-  def protocolVersionsString(pvs: Option[Seq[ProtocolVersion]]): Seq[String] =
-    pvs match {
-      case Some(pvs) => Seq(s"Supported protocol version(s): ${pvs.mkString(", ")}")
-      case None => Seq()
-    }
+  def protocolVersionsString(pvs: Seq[ProtocolVersion]): Seq[String] =
+    Seq(s"Supported protocol version(s): ${pvs.mkString(", ")}")
 }
 
 final case class SimpleStatus(
@@ -112,17 +88,18 @@ final case class SimpleStatus(
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
-    version: Option[ReleaseVersion],
+    version: ReleaseVersion,
 ) extends NodeStatus.Status {
   override def pretty: Pretty[SimpleStatus] =
     prettyOfString(_ =>
-      (Seq(
+      Seq(
         s"Node uid: ${uid.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Active: $active",
         s"Components: ${multiline(components.map(_.toString))}",
-      ) ++ versionString(version)).mkString(System.lineSeparator())
+        s"Version: ${version.fullVersion}",
+      ).mkString(System.lineSeparator())
     )
 
   override def toProtoV0: v0.NodeStatus.Status =
@@ -143,68 +120,8 @@ final case class SimpleStatus(
     active,
     topologyQueues = Some(topologyQueue.toProtoV0),
     components = components.map(_.toProtoV0),
-    version = version
-      .map(_.fullVersion)
-      .getOrElse(""), // TODO(#20463) valid value is expected
+    version = version.fullVersion,
   )
-}
-
-object SimpleStatus {
-  def fromProtoV0(proto: v0.NodeStatus.Status): ParsingResult[SimpleStatus] =
-    for {
-      uid <- UniqueIdentifier.fromProtoPrimitive(proto.id, "NodeStatus.Status.id")
-      uptime <- ProtoConverter
-        .required("NodeStatus.Status.uptime", proto.uptime)
-        .flatMap(DurationConverter.fromProtoPrimitive)
-      ports <- proto.ports.toList
-        .traverse { case (s, i) =>
-          Port.create(i).leftMap(InvariantViolation.toProtoDeserializationError).map(p => (s, p))
-        }
-        .map(_.toMap)
-      topology <- ProtoConverter.parseRequired(
-        TopologyQueueStatus.fromProto,
-        "TopologyQueueStatus.topology_queues",
-        proto.topologyQueues,
-      )
-      components <- proto.components.toList.traverse(ComponentStatus.fromProtoV0)
-
-    } yield SimpleStatus(
-      uid,
-      uptime,
-      ports,
-      proto.active,
-      topology,
-      components,
-      version = None,
-    )
-
-  def fromProtoV1(proto: v1.Status): ParsingResult[SimpleStatus] =
-    for {
-      uid <- UniqueIdentifier.fromProtoPrimitive(proto.uid, "v1.Status.uid")
-      uptime <- ProtoConverter
-        .required("v1.Status.uptime", proto.uptime)
-        .flatMap(DurationConverter.fromProtoPrimitive)
-      ports <- proto.ports.toList
-        .traverse { case (s, i) =>
-          Port.create(i).leftMap(InvariantViolation.toProtoDeserializationError).map(p => (s, p))
-        }
-        .map(_.toMap)
-      topology <- ProtoConverter.parseRequired(
-        TopologyQueueStatus.fromProto,
-        "TopologyQueueStatus.topology_queues",
-        proto.topologyQueues,
-      )
-      components <- proto.components.toList.traverse(ComponentStatus.fromProtoV0)
-      version <- ReleaseVersion.fromProtoPrimitive(proto.version, "v1.Status.version")
-    } yield SimpleStatus(
-      uid,
-      uptime,
-      ports,
-      proto.active,
-      topology,
-      components,
-      Some(version),
-    )
 }
 
 /** Health status of the sequencer component itself.
