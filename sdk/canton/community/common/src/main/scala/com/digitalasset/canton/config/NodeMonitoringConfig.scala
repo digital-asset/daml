@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -30,8 +28,6 @@ final case class GrpcHealthServerConfig(
   override def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
-      metricsPrefix: MetricName,
-      metrics: LabeledMetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
   ): CantonServerInterceptors =

@@ -958,14 +958,20 @@ class CantonSyncService(
 
   /** Reconnect to all configured domains that have autoStart = true */
   def reconnectDomains(
-      ignoreFailures: Boolean
+      ignoreFailures: Boolean,
+      mustBeActive: Boolean = true,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Seq[DomainAlias]] =
-    connectQueue.executeEUS(
-      performReconnectDomains(ignoreFailures),
-      "reconnect domains",
-    )
+    if (isActive() || !mustBeActive)
+      connectQueue.executeEUS(
+        performReconnectDomains(ignoreFailures),
+        "reconnect domains",
+      )
+    else {
+      logger.info("Not reconnecting to domains as instance is passive")
+      EitherT.leftT(SyncServiceError.SyncServicePassiveReplica.Error())
+    }
 
   private def performReconnectDomains(ignoreFailures: Boolean)(implicit
       traceContext: TraceContext

@@ -11,6 +11,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.CantonAdminTokenAuthService
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,

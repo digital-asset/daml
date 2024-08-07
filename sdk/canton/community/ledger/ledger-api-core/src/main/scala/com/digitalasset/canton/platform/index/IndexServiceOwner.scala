@@ -115,6 +115,7 @@ final class IndexServiceOwner(
         getPackageMetadataSnapshot = getPackageMetadataSnapshot,
         metrics = metrics,
         loggerFactory = loggerFactory,
+        idleStreamOffsetCheckpointTimeout = config.idleStreamOffsetCheckpointTimeout,
       )
     } yield new TimedIndexService(indexService, metrics)
   }
