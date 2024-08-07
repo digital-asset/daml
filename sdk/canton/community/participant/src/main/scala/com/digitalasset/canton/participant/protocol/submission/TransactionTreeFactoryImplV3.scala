@@ -66,7 +66,6 @@ class TransactionTreeFactoryImplV3(
   private[submission] def buildPackagePreference(
       decomposition: TransactionViewDecomposition
   ): Set[LfPackageId] = {
-
     def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
       case ex: LfNodeExercises if ex.interfaceId.isDefined =>
         ex.packageName match {
