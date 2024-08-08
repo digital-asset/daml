@@ -277,7 +277,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
   ): VersionedTransaction = {
     val effectiveAt = Time.Timestamp.now()
     def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
-      val enricher = new ValueEnricher(engine)
+      val enricher = new ValuePostprocessor(engine)
       def consume[V](res: Result[V]): V =
         res match {
           case ResultDone(x) => x

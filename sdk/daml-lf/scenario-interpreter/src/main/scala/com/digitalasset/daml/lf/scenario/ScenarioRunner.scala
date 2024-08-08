@@ -6,7 +6,7 @@ package scenario
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
+import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValuePostprocessor}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
@@ -405,7 +405,7 @@ private[lf] object ScenarioRunner {
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
-    val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
+    val enricher = new ValuePostprocessor(compiledPackages, translateValue, loadPackage)
     def consume[V](res: Result[V]): V =
       res match {
         case ResultDone(x) => x

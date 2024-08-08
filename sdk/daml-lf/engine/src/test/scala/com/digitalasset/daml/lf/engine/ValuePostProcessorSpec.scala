@@ -27,9 +27,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
+class ValuePostProcessorSpecV2 extends ValuePostProcessorSpec(LanguageMajorVersion.V2)
 
-class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
+class ValuePostProcessorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
@@ -107,7 +107,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .left
     .foreach(err => sys.error(err.message))
 
-  private[this] val enricher = new ValueEnricher(engine)
+  private[this] val enricher = new ValuePostprocessor(engine)
 
   "enrichValue" should {
 

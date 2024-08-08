@@ -198,4 +198,30 @@ object Error {
       override def message: String = mismatch.message
     }
   }
+
+  final case class Postprocessing(postProcessing: Postprocessing.Error) extends Error {
+    override def message = postProcessing.message
+  }
+
+  object Postprocessing {
+    sealed abstract class Error {
+      def message: String
+    }
+
+    final case class ReversioningMismatch(
+        contractId: Value.ContractId,
+        srcPackageName: Ref.PackageName,
+        srcQualifiedName: Ref.QualifiedName,
+        dstPackageName: Ref.PackageName,
+        dstQualifiedName: Ref.QualifiedName,
+    ) extends Error {
+      override def message: String = {
+        s"""Type mismatch for reversioning the contract $contractId:
+           | source template $srcPackageName:$srcQualifiedName,
+           | target template $dstPackageName:$dstQualifiedName.
+           |""".stripMargin
+      }
+    }
+  }
+
 }
