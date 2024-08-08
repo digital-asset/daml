@@ -8,18 +8,14 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.{
-  ApiCommands as LfCommands
+  ApiCommands as LfCommands,
+  DisclosedContract as LfDisclosedContract,
 }
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance as LfFatContractInstance,
-  GlobalKeyWithMaintainers,
-  Node as LfNode,
-  TransactionVersion
-}
+import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.Value as Lf
 import scalaz.@@
 import scalaz.syntax.tag.*
@@ -146,37 +142,12 @@ final case class DisclosedContract(
     driverMetadata: Bytes,
     transactionVersion: TransactionVersion,
 ) {
-
-  private[this] def keyWithWithMaintainer =
-    (keyValue, keyMaintainers) match {
-      case (None, None) => None
-      case (Some(value), Some(maintainers)) =>
-        Some(GlobalKeyWithMaintainers.assertBuild(
-          templateId,
-          value,
-          maintainers,
-          packageName
-        )
-        )
-      case _ =>
-        throw new Error("unexpected mismatch between keyValue and keyMaintainers")
-    }
-
-  def toLf =
-    LfFatContractInstance.fromCreateNode(
-      LfNode.Create(
-        coid = contractId,
-        packageName = packageName,
-        packageVersion = packageVersion,
-        templateId = templateId,
-        arg = argument,
-        signatories = signatories,
-        stakeholders = stakeholders,
-        keyOpt = keyWithWithMaintainer,
-        version = transactionVersion,
-      ),
-      createTime = createdAt,
-      cantonData = driverMetadata,
+  def toLf: LfDisclosedContract =
+    LfDisclosedContract(
+      templateId,
+      contractId,
+      argument,
+      keyHash,
     )
 }
 

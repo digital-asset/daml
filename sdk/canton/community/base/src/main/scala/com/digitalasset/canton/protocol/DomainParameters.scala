@@ -12,6 +12,7 @@ import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
@@ -797,10 +798,10 @@ final case class DynamicDomainParametersWithValidity(
     *
     * @return Left if the domain parameters are not valid at `activenessTime`, the decision time otherwise
     */
-  def decisionTimeForF(activenessTime: CantonTimestamp): Future[CantonTimestamp] =
+  def decisionTimeForF(activenessTime: CantonTimestamp): FutureUnlessShutdown[CantonTimestamp] =
     decisionTimeFor(activenessTime).fold(
-      err => Future.failed(new IllegalStateException(err)),
-      Future.successful,
+      err => FutureUnlessShutdown.failed(new IllegalStateException(err)),
+      FutureUnlessShutdown.pure,
     )
 
   def transferExclusivityLimitFor(baseline: CantonTimestamp): Either[String, CantonTimestamp] =

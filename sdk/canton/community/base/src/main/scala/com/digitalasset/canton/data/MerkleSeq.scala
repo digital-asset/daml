@@ -19,7 +19,9 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
 
 import scala.annotation.tailrec
 
@@ -638,4 +640,14 @@ object MerkleSeq
         right.addTo(Direction.Right :: pathFromRoot, subsequentPaths),
       )
   }
+
+  @VisibleForTesting
+  def unblindedElementsUnsafe[V <: VersionedMerkleTree[V]](
+      hashOps: HashOps,
+      protocolVersion: ProtocolVersion,
+  ): Lens[MerkleSeq[V], Seq[V]] =
+    Lens[MerkleSeq[V], Seq[V]](
+      _.unblindedElements
+    )((newSeq: Seq[V]) => _ => MerkleSeq.fromSeq(hashOps, protocolVersion)(newSeq))
+
 }

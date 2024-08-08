@@ -20,6 +20,9 @@ import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
 import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
 import com.digitalasset.canton.topology.SequencerId
 
+import scala.collection.mutable
+import scala.concurrent.blocking
+
 class BftOrderingHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
@@ -159,6 +162,10 @@ class BftOrderingMetrics(
 
   object global {
 
+    object labels {
+      val ReportingSequencer: String = "reporting-sequencer"
+    }
+
     private val prefix = histograms.global.prefix
 
     val blocksOrdered: Meter = openTelemetryMetricsFactory.meter(
@@ -172,7 +179,7 @@ class BftOrderingMetrics(
 
     object requestsOrderingLatency {
       object labels {
-        val ReceivingSequencer: String = "receivingSequencer"
+        val ReceivingSequencer: String = "receiving-sequencer"
       }
 
       val timer: Timer =
@@ -186,7 +193,7 @@ class BftOrderingMetrics(
     object labels {
       val Tag: String = "tag"
       val Sender: String = "sender"
-      val ForSequencer: String = "forSequencer"
+      val ForSequencer: String = "for-sequencer"
 
       object outcome {
         val Key: String = "outcome"
@@ -379,27 +386,79 @@ class BftOrderingMetrics(
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
-    val prepareVotesPercent: Gauge[Double] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "prepare-votes-percent",
-        summary = "Block vote % during prepare",
-        description =
-          "Percentage of BFT sequencers that voted for a block in the PBFT prepare stage.",
-        qualification = MetricQualification.Traffic,
-      ),
-      0.0d,
-    )
+    object votes {
 
-    val commitVotesPercent: Gauge[Double] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "commit-votes-percent",
-        summary = "Block vote % during commit",
-        description =
+      object labels {
+        val VotingSequencer: String = "voting-sequencer"
+      }
+
+      private val prepareGauges = mutable.Map[SequencerId, Gauge[Double]]()
+      private val commitGauges = mutable.Map[SequencerId, Gauge[Double]]()
+
+      def prepareVotesPercent(sequencerId: SequencerId): Gauge[Double] =
+        getOrElseUpdateGauge(
+          prepareGauges,
+          sequencerId,
+          "prepare-votes-percent",
+          "Block vote % during prepare",
+          "Percentage of BFT sequencers that voted for a block in the PBFT prepare stage.",
+        )
+
+      def commitVotesPercent(sequencerId: SequencerId): Gauge[Double] =
+        getOrElseUpdateGauge(
+          commitGauges,
+          sequencerId,
+          "commit-votes-percent",
+          "Block vote % during commit",
           "Percentage of BFT sequencers that voted for a block in the PBFT commit stage.",
-        qualification = MetricQualification.Traffic,
-      ),
-      0.0d,
-    )
+        )
+
+      def cleanupVoteGauges(keepOnly: Set[SequencerId]): Unit =
+        blocking {
+          synchronized {
+            keepOnlyGaugesFor(prepareGauges, keepOnly)
+            keepOnlyGaugesFor(commitGauges, keepOnly)
+          }
+        }
+
+      private def getOrElseUpdateGauge(
+          gauges: mutable.Map[SequencerId, Gauge[Double]],
+          sequencerId: SequencerId,
+          name: String,
+          summary: String,
+          description: String,
+      ): Gauge[Double] = {
+        val mc1 = mc.withExtraLabels(labels.VotingSequencer -> sequencerId.toProtoPrimitive)
+        blocking {
+          synchronized {
+            locally {
+              implicit val mc: MetricsContext = mc1
+              gauges.getOrElseUpdate(
+                sequencerId,
+                openTelemetryMetricsFactory.gauge(
+                  MetricInfo(
+                    prefix :+ name,
+                    summary,
+                    MetricQualification.Traffic,
+                    description,
+                  ),
+                  0.0d,
+                ),
+              )
+            }
+          }
+        }
+      }
+
+      private def keepOnlyGaugesFor[T](
+          gaugesMap: mutable.Map[SequencerId, Gauge[T]],
+          keepOnly: Set[SequencerId],
+      ): Unit =
+        gaugesMap.view.filterKeys(!keepOnly.contains(_)).foreach { case (id, gauge) =>
+          gauge.close()
+          gaugesMap.remove(id).discard
+        }
+    }
   }
 
   object output {
@@ -461,8 +520,8 @@ class BftOrderingMetrics(
       private val prefix = histograms.p2p.send.prefix
 
       object labels {
-        val TargetSequencer: String = "targetSequencer"
-        val DroppedAsUnauthenticated: String = "droppedAsUnauthenticated"
+        val TargetSequencer: String = "target-sequencer"
+        val DroppedAsUnauthenticated: String = "dropped-as-unauthenticated"
 
         object targetModule {
           val Key: String = "targetModule"
@@ -501,7 +560,7 @@ class BftOrderingMetrics(
       private val prefix = histograms.p2p.receive.prefix
 
       object labels {
-        val SourceSequencer: String = "sourceSequencer"
+        val SourceSequencer: String = "source-sequencer"
 
         object source {
           val Key: String = "targetModule"

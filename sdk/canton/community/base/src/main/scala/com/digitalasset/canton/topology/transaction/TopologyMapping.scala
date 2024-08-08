@@ -8,7 +8,11 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, UnrecognizedEnum}
+import com.digitalasset.canton.ProtoDeserializationError.{
+  FieldNotSet,
+  InvariantViolation,
+  UnrecognizedEnum,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
@@ -135,6 +139,7 @@ object TopologyMapping {
     object PurgeTopologyTransaction extends Code(15, "ptt")
     // Don't reuse 16, It was the TrafficControlState code mapping
     object SequencingDynamicParametersState extends Code(17, "sep")
+    object PartyToKeyMapping extends Code(18, "ptk")
 
     lazy val all: Seq[Code] = Seq(
       NamespaceDelegation,
@@ -152,6 +157,7 @@ object TopologyMapping {
       SequencerDomainState,
       OffboardParticipant,
       PurgeTopologyTransaction,
+      PartyToKeyMapping,
     )
 
     def fromString(code: String): ParsingResult[Code] =
@@ -320,6 +326,7 @@ object TopologyMapping {
       case Mapping.DecentralizedNamespaceDefinition(value) =>
         DecentralizedNamespaceDefinition.fromProtoV30(value)
       case Mapping.OwnerToKeyMapping(value) => OwnerToKeyMapping.fromProtoV30(value)
+      case Mapping.PartyToKeyMapping(value) => PartyToKeyMapping.fromProtoV30(value)
       case Mapping.DomainTrustCertificate(value) => DomainTrustCertificate.fromProtoV30(value)
       case Mapping.PartyHostingLimits(value) => PartyHostingLimits.fromProtoV30(value)
       case Mapping.ParticipantPermission(value) => ParticipantDomainPermission.fromProtoV30(value)
@@ -682,6 +689,117 @@ object OwnerToKeyMapping {
         .emptyStringAsNone(domainP)
         .traverse(DomainId.fromProtoPrimitive(_, "domain"))
     } yield OwnerToKeyMapping(member, domain, keysNE)
+  }
+
+}
+
+/** A party to key mapping
+  *
+  * In Canton, we can delegate the submission authorisation to a participant
+  * node, or we can sign the transaction outside of the node with a party
+  * key. This mapping is used to map the party to a set of public keys authorized to sign submissions.
+  */
+final case class PartyToKeyMapping private (
+    party: PartyId,
+    domain: Option[DomainId],
+    threshold: PositiveInt,
+    signingKeys: NonEmpty[Seq[SigningPublicKey]],
+) extends TopologyMapping {
+
+  def toProto: v30.PartyToKeyMapping = v30.PartyToKeyMapping(
+    party = party.toProtoPrimitive,
+    domain = domain.map(_.toProtoPrimitive).getOrElse(""),
+    threshold = threshold.unwrap,
+    signingKeys = signingKeys.map(_.toProtoV30),
+  )
+
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.PartyToKeyMapping(
+        toProto
+      )
+    )
+
+  def code: TopologyMapping.Code = Code.OwnerToKeyMapping
+
+  override def namespace: Namespace = party.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
+
+  override def restrictedToDomain: Option[DomainId] = domain
+
+  override def requiredAuth(
+      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
+  ): RequiredAuth =
+    RequiredUids(Set(party.uid), signingKeys.map(_.fingerprint).toSet)
+
+  override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party, domain)
+}
+
+object PartyToKeyMapping {
+
+  def create(
+      partyId: PartyId,
+      domainId: Option[DomainId],
+      threshold: PositiveInt,
+      signingKeys: NonEmpty[Seq[SigningPublicKey]],
+  ): Either[String, PartyToKeyMapping] = {
+    val noDuplicateKeys = {
+      val duplicateKeys = signingKeys.groupBy(_.fingerprint).values.filter(_.size > 1).toList
+      Either.cond(
+        duplicateKeys.isEmpty,
+        (),
+        s"All signing keys must be unique. Duplicate keys: $duplicateKeys",
+      )
+    }
+
+    val thresholdCanBeMet =
+      Either
+        .cond(
+          threshold.value <= signingKeys.size,
+          (),
+          s"Party $partyId cannot meet threshold of $threshold signing keys with participants ${signingKeys.size} keys",
+        )
+        .map(_ => PartyToKeyMapping(partyId, domainId, threshold, signingKeys))
+
+    noDuplicateKeys.flatMap(_ => thresholdCanBeMet)
+  }
+
+  def tryCreate(
+      partyId: PartyId,
+      domainId: Option[DomainId],
+      threshold: PositiveInt,
+      signingKeys: NonEmpty[Seq[SigningPublicKey]],
+  ): PartyToKeyMapping =
+    create(partyId, domainId, threshold, signingKeys).valueOr(err =>
+      throw new IllegalArgumentException(err)
+    )
+
+  def uniqueKey(party: PartyId, domain: Option[DomainId]): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(b =>
+      TopologyMapping.addDomainId(b.add(party.uid.toProtoPrimitive), domain)
+    )
+
+  def code: TopologyMapping.Code = Code.PartyToKeyMapping
+
+  def fromProtoV30(
+      value: v30.PartyToKeyMapping
+  ): ParsingResult[PartyToKeyMapping] = {
+    val v30.PartyToKeyMapping(partyP, domainP, thresholdP, signingKeysP) = value
+    for {
+      party <- PartyId.fromProtoPrimitive(partyP, "party")
+      signingKeysNE <-
+        ProtoConverter.parseRequiredNonEmpty(
+          SigningPublicKey.fromProtoV30,
+          "signing_keys",
+          signingKeysP,
+        )
+      domain <- OptionUtil
+        .emptyStringAsNone(domainP)
+        .traverse(DomainId.fromProtoPrimitive(_, "domain"))
+      threshold <- PositiveInt
+        .create(thresholdP)
+        .leftMap(InvariantViolation.toProtoDeserializationError("threshold", _))
+    } yield PartyToKeyMapping(party, domain, threshold, signingKeysNE)
   }
 
 }

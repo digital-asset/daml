@@ -127,6 +127,7 @@ class ReferenceSequencerDriver(
     Seq[AsyncOrSyncCloseable](
       SyncCloseable("sendQueue", sendQueue.complete()),
       AsyncCloseable("done", done, timeouts.closing),
+      SyncCloseable("store", store.close()),
       SyncCloseable("storage", storage.close()),
       SyncCloseable("closeable", closeable.close()),
     )

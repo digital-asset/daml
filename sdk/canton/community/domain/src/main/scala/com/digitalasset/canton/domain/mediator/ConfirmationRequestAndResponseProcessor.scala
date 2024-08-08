@@ -89,7 +89,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
         domainParameters.participantResponseDeadlineForF(timestamp)
       )
-      decisionTime <- FutureUnlessShutdown.outcomeF(domainParameters.decisionTimeForF(timestamp))
+      decisionTime <- domainParameters.decisionTimeForF(timestamp)
       confirmationResponseTimeout = domainParameters.parameters.confirmationResponseTimeout
       _ <-
         handleTimeouts(timestamp)(

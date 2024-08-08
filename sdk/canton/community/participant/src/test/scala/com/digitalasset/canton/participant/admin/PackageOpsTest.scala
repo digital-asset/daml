@@ -33,6 +33,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManager,
   DomainId,
+  ForceFlag,
   ForceFlags,
   ParticipantId,
   UniqueIdentifier,
@@ -331,7 +332,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Seq(participantId.fingerprint)),
           eqTo(testedProtocolVersion),
           eqTo(true),
-          eqTo(ForceFlags.none),
+          eqTo(ForceFlags(ForceFlag.PackageVettingRevocation)),
         )(anyTraceContext)
       ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
 

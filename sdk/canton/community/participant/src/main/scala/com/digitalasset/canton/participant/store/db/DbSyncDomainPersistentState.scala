@@ -172,6 +172,7 @@ class DbSyncDomainPersistentState(
       parameterStore,
       sequencerCounterTrackerStore,
       sendTrackerStore,
+      submissionTrackerStore,
     )(logger)
 
   override def isMemory: Boolean = false

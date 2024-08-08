@@ -8,7 +8,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
 import com.digitalasset.canton.time.Clock
@@ -29,6 +29,8 @@ import scala.jdk.DurationConverters.*
   * insignificant for the purpose of the sequencer acknowledgements (pruning hourly/daily).
   * Errors are logged at error level - periodic failures are likely not problematic however continuous errors
   * could eventually be problematic for the sequencer operator.
+  *
+  * @param isHealthy Ack is sent iff the value is true
   */
 class PeriodicAcknowledgements(
     isHealthy: => Boolean,
@@ -44,61 +46,66 @@ class PeriodicAcknowledgements(
     with HasFlushFuture {
   private val priorAckRef = new AtomicReference[Option[CantonTimestamp]](None)
 
-  private def update(): Unit =
-    withNewTraceContext { implicit traceContext =>
-      def ackIfChanged(
-          timestamp: CantonTimestamp
-      ): EitherT[FutureUnlessShutdown, String, Boolean] = {
-        val priorAck = priorAckRef.getAndSet(Some(timestamp))
-        val changed = !priorAck.contains(timestamp)
-        if (changed) {
-          logger.debug(s"Acknowledging clean timestamp: $timestamp")
-          acknowledge(Traced(timestamp))
-        } else EitherT.rightT(true)
-      }
-
-      if (isHealthy) {
-        val updateET: EitherT[Future, String, Boolean] =
-          performUnlessClosingEitherUSF(functionFullName) {
-            for {
-              latestClean <- EitherT
-                .right(fetchLatestCleanTimestamp(traceContext))
-              result <- latestClean.fold(EitherT.rightT[FutureUnlessShutdown, String](true))(
-                ackIfChanged
-              )
-            } yield result
-          }.onShutdown {
-            logger.debug("Acknowledging sequencer timestamp skipped due to shutdown")
-            Right(false)
-          }
-        // only log on future.failed
-        addToFlushAndLogError("periodic acknowledgement")(
-          updateET.value.map {
-            case Right(true) => // logged in sequencer client
-            case Right(false) =>
-              logger.info("Failed to acknowledge clean timestamp as sequencer was not available")
-            case Left(str) =>
-              logger.warn(
-                s"Failed to acknowledge clean timestamp (usually because sequencer is down): $str"
-              )
-          }
-        )
-      } else {
-        logger.debug("Skipping periodic acknowledgement because sequencer client is not healthy")
-      }
+  private def update()(implicit traceContext: TraceContext): Unit = {
+    def ackIfChanged(
+        timestamp: CantonTimestamp
+    ): EitherT[FutureUnlessShutdown, String, Boolean] = {
+      val priorAck = priorAckRef.getAndSet(Some(timestamp))
+      val changed = !priorAck.contains(timestamp)
+      if (changed) {
+        logger.debug(s"Acknowledging clean timestamp: $timestamp")
+        acknowledge(Traced(timestamp))
+      } else EitherT.rightT(true)
     }
 
+    if (isHealthy) {
+      val updateET: EitherT[Future, String, Boolean] =
+        performUnlessClosingEitherUSF(functionFullName) {
+          for {
+            latestClean <- EitherT
+              .right(fetchLatestCleanTimestamp(traceContext))
+            result <- latestClean.fold(EitherT.rightT[FutureUnlessShutdown, String](true))(
+              ackIfChanged
+            )
+          } yield result
+        }.onShutdown {
+          logger.debug("Acknowledging sequencer timestamp skipped due to shutdown")
+          Right(false)
+        }
+      // only log on future.failed
+      addToFlushAndLogError("periodic acknowledgement")(
+        updateET.value.map {
+          case Right(true) => // logged in sequencer client
+          case Right(false) =>
+            logger.info("Failed to acknowledge clean timestamp as sequencer was not available")
+          case Left(str) =>
+            logger.warn(
+              s"Failed to acknowledge clean timestamp (usually because sequencer is down): $str"
+            )
+        }
+      )
+    } else {
+      logger.debug("Skipping periodic acknowledgement because sequencer client is not healthy")
+    }
+  }
+
   private def scheduleNextUpdate(): Unit =
-    clock
-      .scheduleAfter(_ => update(), interval.toJava)
-      .map(_ => scheduleNextUpdate())
-      .discard[FutureUnlessShutdown[Unit]]
+    withNewTraceContext { implicit traceContext =>
+      performUnlessClosing(functionFullName)(
+        clock
+          .scheduleAfter(_ => update(), interval.toJava)
+          .map(_ => scheduleNextUpdate())
+          .discard[FutureUnlessShutdown[Unit]]
+      )
+    }.discard[UnlessShutdown[Unit]]
 
   @VisibleForTesting
   def flush(): Future[Unit] = doFlush()
 
   // perform one update immediate and then schedule the next
-  update()
+  withNewTraceContext { implicit traceContext =>
+    update()
+  }
   scheduleNextUpdate()
 }
 
@@ -106,7 +113,7 @@ object PeriodicAcknowledgements {
   type FetchCleanTimestamp = TraceContext => FutureUnlessShutdown[Option[CantonTimestamp]]
   val noAcknowledgements: FetchCleanTimestamp = _ => FutureUnlessShutdown.pure(None)
 
-  def create(
+  private[client] def create(
       interval: FiniteDuration,
       isHealthy: => Boolean,
       client: SequencerClient,
@@ -116,7 +123,7 @@ object PeriodicAcknowledgements {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PeriodicAcknowledgements =
     new PeriodicAcknowledgements(
-      isHealthy,
+      isHealthy = isHealthy,
       interval,
       fetchCleanTimestamp,
       Traced.lift((ts, tc) =>
