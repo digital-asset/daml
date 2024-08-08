@@ -33,7 +33,7 @@ object SignatureVerifier {
         hashPurpose: HashPurpose,
         sender: A => Member,
     )(implicit traceContext: TraceContext): EitherT[Future, String, SignedContent[A]] = {
-      val snapshot = cryptoApi.headSnapshot(traceContext)
+      val snapshot = cryptoApi.currentSnapshotApproximation
       val timestamp = snapshot.ipsSnapshot.timestamp
       signedContent
         .verifySignature(

@@ -142,7 +142,7 @@ object ProtocolVersion {
     (pv: ProtocolVersion, pp: PositionedParameters) => pp >> pv.v
 
   implicit val protocolVersionEncoder: Encoder[ProtocolVersion] =
-    Encoder.encodeInt.contramap[ProtocolVersion](_.v)
+    Encoder.encodeString.contramap[ProtocolVersion](p => if (p.isDev) "dev" else p.v.toString)
 
   /** Try to parse a semver version.
     * Return:
