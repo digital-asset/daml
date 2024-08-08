@@ -2972,7 +2972,7 @@ class AcsCommitmentProcessorTest
             reconciliationInterval,
             expectDegradation = true,
           )
-          _ = assert(processor.healthComponent.isDegrading)
+          _ = assert(processor.healthComponent.isDegraded)
         } yield {
           succeed
         }
@@ -3037,7 +3037,7 @@ class AcsCommitmentProcessorTest
           )
         } yield {
           if (expectDegradation)
-            assert(processor.healthComponent.isDegrading)
+            assert(processor.healthComponent.isDegraded)
           else {
             assert(processor.healthComponent.isOk)
           }
