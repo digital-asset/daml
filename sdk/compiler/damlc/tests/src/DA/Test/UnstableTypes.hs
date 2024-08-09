@@ -6,7 +6,6 @@ module DA.Test.UnstableTypes (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Data.Bifunctor
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
@@ -41,9 +40,9 @@ main = do
                       , LF.getIsSerializable (LF.dataSerializable ty)
                       ]
               if | "daml-prim" == takeBaseName dalf ->
-                   serializableTypes @?= sort damlPrimTypes
+                   serializableTypes @?= []
                  | "daml-stdlib" `isPrefixOf` takeBaseName dalf ->
-                   serializableTypes @?= sort damlStdlibTypes
+                   serializableTypes @?= []
                  | otherwise ->
                    assertFailure ("Unknown package: " <> show dalf)
               pure ()

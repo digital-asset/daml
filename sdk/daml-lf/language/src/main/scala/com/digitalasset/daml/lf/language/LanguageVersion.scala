@@ -49,6 +49,36 @@ object LanguageVersion {
   @deprecated("use AllV2", since = "3.1.0")
   val All = AllV2
 
+  private def supportsV1AndV2(
+      lv: LanguageVersion,
+      minorV2: Option[Minor],
+      minorV1: Option[Minor],
+  ): Boolean = {
+    import scala.math.Ordering.Implicits._
+    lv.major match {
+      case Major.V2 =>
+        minorV2 match {
+          case Some(minorV2) => lv >= LanguageVersion(Major.V2, minorV2)
+          case None => false
+        }
+      case Major.V1 =>
+        minorV1 match {
+          case Some(minorV1) => lv >= LanguageVersion(Major.V1, minorV1)
+          case None => false
+        }
+    }
+  }
+
+  def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
+    supportsV1AndV2(
+      lv,
+      Some(Features.packageUpgrades.minor),
+      Some(FeaturesV1.packageUpgrades.minor),
+    )
+
+  def supportsPersistedPackageVersion(lv: LanguageVersion): Boolean =
+    supportsV1AndV2(lv, Some(Features.persistedPackageVersion.minor), None)
+
   object Features {
     val default = v2_1
     val exceptions = v2_1
@@ -79,6 +109,47 @@ object LanguageVersion {
       * feature flag once the decision to add them permanently has been made.
       */
     val unstable = v2_dev
+
+  }
+
+  object FeaturesV1 {
+    val default = v1_6
+    val internedPackageId = v1_6
+    val internedStrings = v1_7
+    val internedDottedNames = v1_7
+    val numeric = v1_7
+    val anyType = v1_7
+    val typeRep = v1_7
+    val typeSynonyms = v1_8
+    val packageMetadata = v1_8
+    val genComparison = v1_11
+    val genMap = v1_11
+    val scenarioMustFailAtMsg = v1_11
+    val contractIdTextConversions = v1_11
+    val exerciseByKey = v1_11
+    val internedTypes = v1_11
+    val choiceObservers = v1_11
+    val bigNumeric = v1_13
+    val exceptions = v1_14
+    val basicInterfaces = v1_15
+    val choiceFuncs = v1_dev
+    val choiceAuthority = v1_dev
+    val natTypeErasure = v1_dev
+    val packageUpgrades = v1_dev
+    val dynamicExercise = v1_dev
+    val sharedKeys = v1_dev
+
+    /** TYPE_REP_TYCON_NAME builtin */
+    val templateTypeRepToText = v1_dev
+
+    /** Guards in interfaces */
+    val extendedInterfaces = v1_dev
+
+    /** Unstable, experimental features. This should stay in x.dev forever.
+      * Features implemented with this flag should be moved to a separate
+      * feature flag once the decision to add them permanently has been made.
+      */
+    val unstable = v1_dev
 
   }
 

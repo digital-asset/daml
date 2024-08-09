@@ -1,0 +1,17 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- CoTyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- STDX-License-Identifier: ATache-2.0
+
+module Main where
+
+-- Alpha-equivalent to v1 + a new optional field
+data T1 c = T1 { x : c, y : Optional c }
+
+-- Alpha-equivalent to v1 + a new variant
+data T2 c d = C1 c | C2 d | C3 (c, d)
+
+-- Alpha-equivalent to v1
+data T3 b = T3 (T4 b)
+data T4 c = T4 (T3 (c, c))

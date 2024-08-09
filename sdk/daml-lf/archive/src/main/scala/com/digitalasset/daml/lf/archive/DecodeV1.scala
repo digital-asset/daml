@@ -1057,47 +1057,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 private[lf] object DecodeV1 {
 
-  object Features {
-    import LV._
-    val default = v1_6
-    val internedPackageId = v1_6
-    val internedStrings = v1_7
-    val internedDottedNames = v1_7
-    val numeric = v1_7
-    val anyType = v1_7
-    val typeRep = v1_7
-    val typeSynonyms = v1_8
-    val packageMetadata = v1_8
-    val genComparison = v1_11
-    val genMap = v1_11
-    val scenarioMustFailAtMsg = v1_11
-    val contractIdTextConversions = v1_11
-    val exerciseByKey = v1_11
-    val internedTypes = v1_11
-    val choiceObservers = v1_11
-    val bigNumeric = v1_13
-    val exceptions = v1_14
-    val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
-    val choiceAuthority = v1_dev
-    val natTypeErasure = v1_dev
-    val packageUpgrades = v1_dev
-    val dynamicExercise = v1_dev
-    val sharedKeys = v1_dev
-
-    /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v1_dev
-
-    /** Guards in interfaces */
-    val extendedInterfaces = v1_dev
-
-    /** Unstable, experimental features. This should stay in x.dev forever.
-      * Features implemented with this flag should be moved to a separate
-      * feature flag once the decision to add them permanently has been made.
-      */
-    val unstable = v1_dev
-
-  }
+  val Features = LV.FeaturesV1
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)

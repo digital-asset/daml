@@ -101,6 +101,16 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
+      for {
+        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v21.dar")
+        result2 <- uploadPackage("test-common/upgrades-EmptyProject-v2dev.dar")
+      } yield {
+        // We expect both results to be error-free
+        assert(result1._2.isEmpty && result2._2.isEmpty)
+      }
+    }
+
     s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
@@ -111,10 +121,25 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
     s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+    s"report no upgrade errors for valid upgrades of parameterized data types ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-ValidParameterizedTypesUpgrade-v1.dar",
+        "test-common/upgrades-ValidParameterizedTypesUpgrade-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+    s"report no upgrade errors for alpha-equivalent complex key types ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-ValidKeyTypeEquality-v1.dar",
+        "test-common/upgrades-ValidKeyTypeEquality-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
@@ -624,6 +649,58 @@ trait LongTests { this: UpgradesSpec =>
         mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
         assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
       )
+
+    "Succeeds when v2 depends on v2dep which is a valid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
+          None,
+        ),
+      )
+
+    "report upgrade errors when v2 depends on v2dep which is an invalid upgrade of v1dep" in
+      testPackagePair(
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
+        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
+        assertPackageDependenciesUpgradeCheck(
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+          Some("The upgraded template A has changed the types of some of its original fields."),
+        ),
+      )
+
+    "Succeeds even when non-serializable types are incompatible" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
+        "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when comparing types from packages with different names" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type A has changed the types of some of its original fields.")
+        ),
+      )
+    }
+
+    "Fails when comparing type constructors from other packages that resolve to incompatible types" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type T has changed the types of some of its original fields.")
+        ),
+      )
+    }
   }
 }
 
@@ -691,11 +768,11 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     if (disableUpgradeValidation) {
-      filterLog(cantonLogSrc, testPackageV1Id) should include(
-        s"Skipping upgrade validation for package $testPackageV1Id"
+      filterLog(cantonLogSrc, testPackageV1Id) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageV1Id".r
       )
-      filterLog(cantonLogSrc, testPackageV2Id) should include(
-        s"Skipping upgrade validation for package $testPackageV2Id"
+      filterLog(cantonLogSrc, testPackageV2Id) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageV2Id".r
       )
       filterLog(cantonLogSrc, testPackageV2Id) should not include regex(
         s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade."
@@ -872,6 +949,21 @@ abstract class UpgradesSpec(val suffix: String)
         assertFirstToThird(firstUpload, thirdUpload)(rawCantonLog),
       )
     ) { a => a }
+  }
+
+  def assertPackageDependenciesUpgradeCheck(
+      v1dep: String,
+      v2dep: String,
+      failureMessage: Option[String],
+  )(
+      v1: (PackageId, Option[Throwable]),
+      v2: (PackageId, Option[Throwable]),
+  )(cantonLogSrc: String): Assertion = {
+    val v1depId = loadPackageIdAndBS(v1dep)._1
+    val v2depId = loadPackageIdAndBS(v2dep)._1
+    assertPackageUpgradeCheckGeneral(failureMessage)((v1depId, v1._2), (v2depId, v2._2), true)(
+      cantonLogSrc
+    )
   }
 
   def filterLog(log: String, str: String): String =
