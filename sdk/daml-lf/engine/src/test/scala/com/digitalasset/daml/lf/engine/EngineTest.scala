@@ -763,7 +763,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         key = usedContractSKey,
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = basicTestsPkg.languageVersion
       val expectedProcessedDisclosedContract = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = basicTestsPkg.pkgName,
@@ -1622,7 +1622,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = basicTestsPkg.languageVersion
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = basicTestsPkg.pkgName,
@@ -1676,7 +1676,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         coid = SContractId(usedDisclosedContract.contractId),
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val transactionVersion = basicTestsPkg.languageVersion
       val expectedDisclosedEvent = Node.Create(
         coid = usedDisclosedContract.contractId,
         packageName = basicTestsPkg.pkgName,

@@ -137,7 +137,7 @@ class TransactionCoderSpec
         ) {
           case Left(EncodeError(msg)) =>
             // fuzzy sort of "failed because of the version override" test
-            msg should include(tx2.version.protoValue)
+            msg should include(tx2.version.pretty)
           case Right(encodedTx) =>
             val decodedVersionedTx = assertRight(
               TransactionCoder.decodeTransaction(encodedTx)
@@ -173,7 +173,7 @@ class TransactionCoderSpec
       }
 
     "do tx with a lot of root nodes" in {
-      val version = TransactionVersion.maxNonDev
+      val version = TransactionVersion.StableVersions.max
       val node =
         Node.Create(
           coid = absCid("#test-cid"),
