@@ -33,6 +33,7 @@ fi
 if [[ -e "$out" ]]; then rm "$out"; fi
 cd "$target"
 tar czf "$out" .
+cd -
 
 # Synchronize new result
 bazel sync --only=ghcide_ghc_lib
