@@ -1826,32 +1826,34 @@ object AcsCommitmentProcessor extends HasLoggerName {
       byParticipant <-
         if (isActiveParticipant) {
           val allParties = runningCommitments.keySet.flatten
-          ipsSnapshot.activeParticipantsOfParties(allParties.toSeq).flatMap { participantsOf =>
-            IterableUtil
-              .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
-                ParticipantId,
-                Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-              ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
-                val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
-                // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
-                // hosted on this participant, but is now disabled
-                val pSet =
-                  if (participants.contains(participantId)) participants - participantId
-                  else Set.empty
-                val commitmentS =
-                  if (participants.contains(participantId)) Map(parties -> commitment)
-                  // Signal with an empty commitment that our participant does no longer host any
-                  // party in the stakeholder group
-                  else Map(parties -> emptyCommitment)
-                pSet.map(_ -> commitmentS).toMap
-              }(MapsUtil.mergeWith(_, _)(_ ++ _))
-              .map(
-                _.getOrElse(
-                  Map
-                    .empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+          ipsSnapshot
+            .activeParticipantsOfParties(allParties.toSeq)
+            .flatMap { participantsOf =>
+              IterableUtil
+                .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
+                  ParticipantId,
+                  Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+                ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
+                  val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
+                  // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
+                  // hosted on this participant, but is now disabled
+                  val pSet =
+                    if (participants.contains(participantId)) participants - participantId
+                    else Set.empty
+                  val commitmentS =
+                    if (participants.contains(participantId)) Map(parties -> commitment)
+                    // Signal with an empty commitment that our participant does no longer host any
+                    // party in the stakeholder group
+                    else Map(parties -> emptyCommitment)
+                  pSet.map(_ -> commitmentS).toMap
+                }(MapsUtil.mergeWith(_, _)(_ ++ _))
+                .map(
+                  _.getOrElse(
+                    Map
+                      .empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+                  )
                 )
-              )
-          }
+            }
         } else
           Future.successful(
             Map.empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]

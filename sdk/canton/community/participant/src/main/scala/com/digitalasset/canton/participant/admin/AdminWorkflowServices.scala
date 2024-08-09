@@ -32,7 +32,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   NoAppropriateSigningKeyInStore,
   SecretKeyNotInStore,
 }
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, Spanning, TraceContext, Traced, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.*
@@ -48,15 +48,15 @@ import org.apache.pekko.stream.scaladsl.Flow
 import java.io.InputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-/** Manages our admin workflow applications (ping, dar distribution).
-  * Currently each is individual application with their own ledger connection and acting independently.
+/** Manages our admin workflow applications (ping, party management).
+  * Currently each is an individual application with their own ledger connection and acting independently.
   */
 class AdminWorkflowServices(
     config: LocalParticipantConfig,
     parameters: ParticipantNodeParameters,
     packageService: PackageService,
     syncService: CantonSyncService,
-    adminPartyId: PartyId,
+    participantId: ParticipantId,
     adminToken: CantonAdminToken,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
@@ -90,7 +90,7 @@ class AdminWorkflowServices(
   ) { connection =>
     new PingService(
       connection,
-      adminPartyId,
+      participantId.adminParty,
       parameters.adminWorkflow.bongTestMaxLevel,
       parameters.adminWorkflow.retries,
       NonNegativeFiniteDuration.fromConfig(parameters.adminWorkflow.maxBongDuration),
@@ -109,21 +109,51 @@ class AdminWorkflowServices(
     )
   }
 
-  protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq[AsyncOrSyncCloseable](
-    AsyncCloseable(
-      "connection",
-      pingSubscription.map(conn => Lifecycle.close(conn)(logger)).recover { err =>
-        logger.warn(s"Skipping closing of defunct ping subscription due to ${err.getMessage}")
-      },
-      timeouts.unbounded,
-    ),
-    SyncCloseable(
-      "services",
-      Lifecycle.close(
-        ping
-      )(logger),
-    ),
-  )
+  val partyManagementO
+      : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationCoordinator)] =
+    Option.when(config.parameters.unsafeEnableOnlinePartyReplication)(
+      createService(
+        "party-management",
+        // TODO(#20637): Don't resubscribe if the ledger api has been pruned as that would mean missing updates that
+        //  the PartyReplicationCoordinator cares about. Instead let the ledger subscription fail after logging an error.
+        resubscribeIfPruned = false,
+      ) { connection =>
+        new PartyReplicationCoordinator(
+          connection,
+          participantId,
+          syncService,
+          clock,
+          futureSupervisor,
+          timeouts,
+          loggerFactory,
+        )
+      }
+    )
+
+  protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+    def adminServiceCloseables(
+        name: String,
+        subscription: Future[ResilientLedgerSubscription[?, ?]],
+        service: AdminWorkflowService,
+    ) =
+      Seq[AsyncOrSyncCloseable](
+        AsyncCloseable(
+          s"$name-subscription",
+          subscription.map(sub => Lifecycle.close(sub)(logger)).recover { err =>
+            logger.warn(s"Skipping closing of defunct $name subscription due to ${err.getMessage}")
+          },
+          timeouts.unbounded,
+        ),
+        SyncCloseable(s"$name-service", Lifecycle.close(service)(logger)),
+      )
+
+    adminServiceCloseables("ping", pingSubscription, ping)
+      ++ partyManagementO
+        .fold(Seq.empty[AsyncOrSyncCloseable]) {
+          case (partyManagementSubscription, partyManagement) =>
+            adminServiceCloseables("party-management", partyManagementSubscription, partyManagement)
+        }
+  }
 
   private def checkPackagesStatus(
       pkgs: Map[PackageId, Ast.Package],

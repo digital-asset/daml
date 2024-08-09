@@ -50,7 +50,6 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil}
 import com.google.rpc.status.Status
 import io.opentelemetry.api.trace.Tracer
-import org.slf4j.event.Level
 import scalaz.Tag
 
 import java.time.{Duration, Instant}
@@ -678,13 +677,10 @@ object PingService {
           }
         }
 
-      protected def reportFailure(reason: String, level: Level): Unit = {
-        val str = s"Failed ping id=$id: $reason"
-        LoggerUtil.logAtLevel(level, str)
+      private def recordFailure(error: String): Unit =
         requests
           .remove(id)
-          .foreach(_.promise.trySuccess(Failure(str)))
-      }
+          .foreach(_.promise.trySuccess(Failure(error)))
 
       override def pretty: Pretty[PingRequest] = prettyOfClass(
         param("id", _.id.singleQuoted),
@@ -726,22 +722,6 @@ object PingService {
               ),
             )
           }
-        def handleCommandResult(result: CommandResult): Unit = result match {
-          case CommandResult.Success(transactionId) =>
-            logger.info(
-              s"Successfully submitted ping $id with transactionId=$transactionId, waiting for response"
-            )
-          case CommandResult.Failed(_, errorStatus) =>
-            // warning as we failed premature
-            reportFailure(s"Failed to submit ping $id: $errorStatus", Level.WARN)
-          case CommandResult.AbortedDueToShutdown =>
-            reportFailure(s"Ping $id aborted due to shutdown", Level.INFO)
-          case CommandResult.TimeoutReached(_, lastErrorStatus) =>
-            reportFailure(
-              s"Timeout out while attempting to submit ping $id: $lastErrorStatus",
-              Level.INFO,
-            )
-        }
         withSpan("PingService.submit") { implicit traceContext => _span =>
           submitRetryingOnErrors(
             id,
@@ -753,7 +733,8 @@ object PingService {
             timeout,
           )
         }.onComplete {
-          case scala.util.Success(result) => handleCommandResult(result)
+          case scala.util.Success(result) =>
+            handleCommandResult(s"ping id=$id")(result).leftMap(recordFailure).discard
           case scala.util.Failure(exception) =>
             logger.error(
               s"Ping submission ${this} failed unexpectedly with an exception",

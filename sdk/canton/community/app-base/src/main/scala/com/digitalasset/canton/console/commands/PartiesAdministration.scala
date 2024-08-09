@@ -362,6 +362,30 @@ class ParticipantPartiesAdministrationGroup(
     )
   }
 
+  @Help.Summary("Start party replication from a source participant", FeatureFlag.Preview)
+  @Help.Description(
+    """Initiate replicating a party from the specified source participant to this participant on the specified domain.
+      |Performs some checks synchronously and then initiates the replication asynchronously. The optional `id`
+      |parameter allows identifying asynchronous progress and errors."""
+  )
+  def start_party_replication(
+      party: PartyId,
+      sourceParticipant: ParticipantId,
+      domain: DomainId,
+      id: String = "",
+  ): Unit = check(FeatureFlag.Preview) {
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.StartPartyReplication(
+          id,
+          party,
+          sourceParticipant,
+          domain,
+        )
+      )
+    }
+  }
+
   @Help.Summary("Waits for any topology changes to be observed", FeatureFlag.Preview)
   @Help.Description(
     "Will throw an exception if the given topology has not been observed within the given timeout."

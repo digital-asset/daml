@@ -185,7 +185,7 @@ object LightTransactionViewTree
       if (missingSubviews.isEmpty) {
         val fullSubviewsSeq = lightViewTree.subviewHashes.map(fullViewByHash)
         val fullSubviews = TransactionSubviews(fullSubviewsSeq)(protocolVersion, hashOps)
-        val fullView = lightViewTree.view.copy(subviews = fullSubviews)
+        val fullView = lightViewTree.view.tryCopy(subviews = fullSubviews)
         val fullViewTree = FullTransactionViewTree.tryCreate(
           lightViewTree.tree.mapUnblindedRootViews(_.replace(fullView.viewHash, fullView))
         )
@@ -227,7 +227,7 @@ object LightTransactionViewTree
       tvt: FullTransactionViewTree,
       protocolVersion: ProtocolVersion,
   ): LightTransactionViewTree = {
-    val withBlindedSubviews = tvt.view.copy(subviews = tvt.view.subviews.blindFully)
+    val withBlindedSubviews = tvt.view.tryCopy(subviews = tvt.view.subviews.blindFully)
     val genTransactionTree =
       tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, withBlindedSubviews))
     // By definition, the view in a TransactionViewTree has all subviews unblinded

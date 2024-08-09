@@ -189,7 +189,7 @@ object Update {
     *                          [[TransactionMeta.ledgerEffectiveTime]].
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
-    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.command.DisclosedContract]]s
+    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
     *                          when submitting transactions trough the [[WriteService]].
     *                          If a contract created by this transaction is not element of this map,
     *                          its metadata is equal to the empty byte array.

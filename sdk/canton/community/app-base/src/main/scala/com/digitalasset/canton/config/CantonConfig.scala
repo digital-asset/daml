@@ -392,6 +392,8 @@ trait CantonConfig {
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
         commandProgressTracking = participantParameters.commandProgressTracker,
+        unsafeEnableOnlinePartyReplication =
+          participantParameters.unsafeEnableOnlinePartyReplication,
       )
     }
 

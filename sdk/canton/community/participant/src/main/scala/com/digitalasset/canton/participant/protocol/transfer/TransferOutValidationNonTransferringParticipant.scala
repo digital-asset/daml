@@ -34,12 +34,12 @@ private[transfer] sealed abstract case class TransferOutValidationNonTransferrin
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     EitherT(
       FutureUnlessShutdown.outcomeF(
-        sourceTopology.activeParticipantsOfPartiesWithAttributes(request.stakeholders.toList).map {
+        sourceTopology.activeParticipantsOfPartiesWithInfo(request.stakeholders.toList).map {
           partyWithParticipants =>
             partyWithParticipants.toList
-              .traverse_ { case (stakeholder, participants) =>
+              .traverse_ { case (stakeholder, partyInfo) =>
                 val hasTransferringParticipant =
-                  participants.exists { case (participant, attributes) =>
+                  partyInfo.participants.exists { case (participant, attributes) =>
                     attributes.permission.canConfirm && request.adminParties.contains(
                       participant.adminParty.toLf
                     )

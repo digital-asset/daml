@@ -387,17 +387,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             _ <- update(store, ts6, add = Seq(tx6_MDS))
 
             proposalTransactions <- store.findEssentialStateAtSequencedTime(
-              asOfInclusive = SequencedTime(ts6),
-              excludeMappings = Nil,
+              asOfInclusive = SequencedTime(ts6)
             )
-
-            proposalTransactionsFiltered <- store.findEssentialStateAtSequencedTime(
-              asOfInclusive = SequencedTime(ts6),
-              excludeMappings = TopologyMapping.Code.all.diff(
-                Seq(DomainTrustCertificate.code, OwnerToKeyMapping.code)
-              ),
-            )
-
           } yield {
             expectTransactions(
               proposalTransactions,
@@ -405,13 +396,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
                 tx2_OTK,
                 tx5_DTC,
                 tx6_MDS,
-              ),
-            )
-            expectTransactions(
-              proposalTransactionsFiltered,
-              Seq(
-                tx2_OTK,
-                tx5_DTC,
               ),
             )
           }

@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.value.{
   *,
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
+import com.digitalasset.canton.ledger.api.DomainMocks
 import com.digitalasset.canton.ledger.api.DomainMocks.{
   applicationId,
   commandId,
@@ -22,12 +23,15 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
 }
 import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
-import com.digitalasset.canton.ledger.api.{DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  Node as LfNode,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.google.protobuf.duration.Duration
@@ -110,24 +114,24 @@ class SubmitRequestValidatorTest
       ),
     )
 
-    val disclosedContracts: ImmArray[domain.DisclosedContract] = ImmArray(
-      domain.DisclosedContract(
-        templateId = templateId,
-        contractId = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
-        argument = ValueRecord(
-          Some(templateId),
-          ImmArray.empty,
+    val disclosedContracts: ImmArray[FatContractInstance] = ImmArray(
+      FatContractInstance.fromCreateNode(
+        create = LfNode.Create(
+          coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
+          packageName = Ref.PackageName.assertFromString("package"),
+          packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
+          templateId = templateId,
+          arg = ValueRecord(
+            Some(templateId),
+            ImmArray.empty,
+          ),
+          signatories = Set(Ref.Party.assertFromString("party")),
+          stakeholders = Set(Ref.Party.assertFromString("party")),
+          keyOpt = None,
+          version = TransactionVersion.maxVersion,
         ),
-        createdAt = Time.Timestamp.now(),
-        keyHash = None,
-        driverMetadata = Bytes.Empty,
-        packageName = Ref.PackageName.assertFromString("package"),
-        packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
-        signatories = Set(Ref.Party.assertFromString("party")),
-        stakeholders = Set(Ref.Party.assertFromString("party")),
-        keyMaintainers = None,
-        keyValue = None,
-        transactionVersion = TransactionVersion.maxVersion,
+        createTime = Time.Timestamp.now(),
+        cantonData = Bytes.Empty,
       )
     )
 

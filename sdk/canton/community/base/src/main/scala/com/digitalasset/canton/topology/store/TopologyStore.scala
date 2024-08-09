@@ -333,8 +333,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]]
 
   def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime,
-      excludeMappings: Seq[TopologyMapping.Code] = Nil,
+      asOfInclusive: SequencedTime
   )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactions]
 
   protected def signedTxFromStoredTx(

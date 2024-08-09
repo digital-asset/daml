@@ -144,7 +144,7 @@ class AuthServicePrivilegedJWT(
       targetScope = Some(targetScope),
     ) {
   protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
-    // TODO(i20232) alternate between wildcard and plain admin claims depending on the config
+    // TODO(i20232): alternate between wildcard and plain admin claims depending on the config
     case payload: StandardJWTPayload =>
       ClaimSet.Claims(
         claims = ClaimSet.Claims.Wildcard.claims,

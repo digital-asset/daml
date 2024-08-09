@@ -22,6 +22,8 @@ final case class GrpcHealthServerConfig(
     override val keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
     parallelism: Int = 4,
 ) extends ServerConfig {
+  override def authServices: Seq[AuthServiceConfig] = Seq.empty
+  override def adminToken: Option[String] = None
   override val sslContext: Option[SslContext] = None
   override val serverCertChainFile: Option[RequireTypes.ExistingFile] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
@@ -30,12 +32,16 @@ final case class GrpcHealthServerConfig(
       apiLoggingConfig: ApiLoggingConfig,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[String],
   ): CantonServerInterceptors =
     new CantonCommunityServerInterceptors(
       tracingConfig,
       apiLoggingConfig,
       loggerFactory,
       grpcMetrics,
+      authServices,
+      adminToken,
     )
 
   def toRemoteConfig: ClientConfig =

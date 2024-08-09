@@ -162,6 +162,8 @@ object CantonServerBuilder {
         apiLoggingConfig,
         loggerFactory,
         grpcMetrics,
+        config.authServices,
+        config.adminToken,
       ),
     )
   }

@@ -102,7 +102,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransaction]] = {
-    logger.debug(s"Querying proposals for mapping hashes $hashes as of $asOfExclusive")
+    logger.debug(s"Querying transactions for mapping hashes $hashes as of $asOfExclusive")
 
     findAsOfExclusive(
       asOfExclusive,
@@ -452,16 +452,14 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   }
 
   override def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime,
-      excludeMappings: Seq[TopologyMapping.Code],
+      asOfInclusive: SequencedTime
   )(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions] = {
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
-    val mappingFilter = excludeMapping(excludeMappings.toSet)
     logger.debug(s"Querying essential state as of asOfInclusive")
 
-    queryForTransactions(timeFilter ++ mappingFilter, "essentialState").map(
+    queryForTransactions(timeFilter, "essentialState").map(
       _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals
     )
   }

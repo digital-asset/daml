@@ -1,0 +1,44 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Canton.Internal.PartyReplication where
+
+data PartyReplicationMetadata = PartyReplicationMetadata
+  with
+    id : Text -- uniquely identifies party replication, potentially across multiple generations of channel proposals and agreements
+    partyId : Party
+    timestamp : Time
+    startAtWatermark: Int -- "batch counter" assigned by source participant beginning at 0, but larger after restarting
+  deriving (Eq, Show)
+
+-- A ChannelProposal is created by the target participant to reach an agreement with the source participant to
+-- replicate the specified party using a channel via the specified domain and sequencer.
+template ChannelProposal
+  with
+    sourceParticipant : Party -- participant admin party
+    targetParticipant : Party -- participant admin party
+    domainId : Text
+    sequencerId : Text
+    payloadMetadata : PartyReplicationMetadata
+  where
+    signatory targetParticipant
+    observer sourceParticipant
+
+    -- The source participant decides whether to accept the channel
+    choice Accept : ContractId ChannelAgreement
+      controller sourceParticipant
+        do
+          channelAgreement <- create ChannelAgreement with sourceParticipant, targetParticipant, domainId, sequencerId, payloadMetadata
+          return channelAgreement
+
+-- A ChannelAgreement represents an agreement between the source and target participants to replicate the specified
+-- party using a channel via the specified sequencer in the specified domain.
+template ChannelAgreement
+  with
+    sourceParticipant : Party -- participant admin party
+    targetParticipant : Party -- participant admin party
+    domainId : Text
+    sequencerId : Text
+    payloadMetadata : PartyReplicationMetadata
+  where
+    signatory targetParticipant, sourceParticipant

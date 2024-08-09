@@ -4,6 +4,7 @@
 package com.digitalasset.canton.auth
 
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.AuthorizationInterceptor.PassThroughAuthorizer
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -24,6 +25,7 @@ class AuthorizationInterceptor(
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
     implicit val ec: ExecutionContext,
+    statelessAuthorizer: StatelessAuthorizer = PassThroughAuthorizer,
 ) extends ServerInterceptor
     with NamedLogging {
   import LoggingContextWithTrace.implicitExtractTraceContext
@@ -37,8 +39,10 @@ class AuthorizationInterceptor(
     // Contexts are immutable and safe to pass around.
     val prevCtx = Context.current
 
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
 
     // The method interceptCall() must return a Listener.
     // The target listener is created by calling `Contexts.interceptCall()`.
@@ -51,6 +55,10 @@ class AuthorizationInterceptor(
       }
 
       headerToClaims(headers)
+        .transform {
+          case Failure(f) => Failure(f)
+          case Success(claimSet) => statelessAuthorizer(claimSet)
+        }
         .onComplete {
           case Failure(error: StatusRuntimeException) =>
             closeWithError(error)
@@ -95,6 +103,13 @@ object AuthorizationInterceptor {
         )
       )
     else
+      Success(claimSet)
+  }
+
+  case object PassThroughAuthorizer extends StatelessAuthorizer {
+    override def apply(claimSet: ClaimSet)(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Try[ClaimSet] =
       Success(claimSet)
   }
 }

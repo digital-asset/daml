@@ -8,12 +8,11 @@ import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.requireContractId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.TransactionCoder
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, TransactionCoder}
 import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
@@ -21,7 +20,7 @@ import scala.collection.mutable
 class ValidateDisclosedContracts {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
+  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] =
     for {
       validatedDisclosedContracts <- validateDisclosedContracts(commands.disclosedContracts)
     } yield validatedDisclosedContracts
@@ -30,11 +29,11 @@ class ValidateDisclosedContracts {
       disclosedContracts: Seq[ProtoDisclosedContract]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
+  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] = {
     type ZeroType =
       Either[
         StatusRuntimeException,
-        mutable.Builder[DisclosedContract, ImmArray[DisclosedContract]],
+        mutable.Builder[FatContractInstance, ImmArray[FatContractInstance]],
       ]
 
     disclosedContracts
@@ -51,7 +50,7 @@ class ValidateDisclosedContracts {
       disclosedContract: ProtoDisclosedContract
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DisclosedContract] =
+  ): Either[StatusRuntimeException, FatContractInstance] =
     if (disclosedContract.createdEventBlob.isEmpty)
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))
     else
@@ -85,22 +84,5 @@ class ValidateDisclosedContracts {
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
           ),
         )
-      } yield {
-        import fatContractInstance.*
-        DisclosedContract(
-          contractId = validatedContractId,
-          templateId = templateId,
-          packageName = packageName,
-          packageVersion = packageVersion,
-          argument = createArg,
-          createdAt = createdAt,
-          keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),
-          driverMetadata = cantonData,
-          keyMaintainers = contractKeyWithMaintainers.map(_.maintainers),
-          signatories = signatories,
-          stakeholders = stakeholders,
-          keyValue = contractKeyWithMaintainers.map(_.value),
-          transactionVersion = version,
-        )
-      }
+      } yield fatContractInstance
 }

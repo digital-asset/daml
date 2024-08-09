@@ -51,6 +51,14 @@ trait ServerConfig extends Product with Serializable {
     */
   def sslContext: Option[SslContext]
 
+  /** If any defined, enforces token based authorization when accessing this node through the given `address` and `port`.
+    */
+  def authServices: Seq[AuthServiceConfig]
+
+  /** If defined, the admin-token based authoriztion will be supported when accessing this node through the given `address` and `port`.
+    */
+  def adminToken: Option[String]
+
   /** server cert chain file if TLS is defined
     *
     * Used for domain internal GRPC sequencer connections
@@ -76,6 +84,8 @@ trait ServerConfig extends Product with Serializable {
       apiLoggingConfig: ApiLoggingConfig,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[String],
   ): CantonServerInterceptors
 
 }
@@ -86,11 +96,15 @@ trait CommunityServerConfig extends ServerConfig {
       apiLoggingConfig: ApiLoggingConfig,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[String],
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
     grpcMetrics,
+    authServices,
+    adminToken,
   )
 }
 
@@ -128,6 +142,8 @@ final case class CommunityAdminServerConfig(
     tls: Option[TlsServerConfig] = None,
     keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    authServices: Seq[AuthServiceConfig] = Seq.empty,
+    adminToken: Option[String] = None,
 ) extends AdminServerConfig
     with CommunityServerConfig
 

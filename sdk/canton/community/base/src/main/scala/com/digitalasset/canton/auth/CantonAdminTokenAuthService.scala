@@ -27,13 +27,14 @@ object CantonAdminToken {
   *
   * Therefore, we create on each startup a master token which is only ever shared internally.
   */
-class CantonAdminTokenAuthService(adminToken: CantonAdminToken, parent: Seq[AuthService])
+class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken], parent: Seq[AuthService])
     extends AuthService {
   override def decodeMetadata(
       headers: Metadata
   )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] = {
     val bearerTokenRegex = "Bearer (.*)".r
     val authToken = for {
+      adminToken <- adminTokenO
       authKey <- Option(headers.get(AUTHORIZATION_KEY))
       token <- bearerTokenRegex.findFirstMatchIn(authKey).map(_.group(1))
       _ <- if (token == adminToken.secret) Some(()) else None

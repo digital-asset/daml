@@ -85,13 +85,13 @@ object UsableDomain {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, Nothing, Map[ParticipantId, Set[LfPackageId]]] = EitherT.right(
-    snapshot.activeParticipantsOfPartiesWithAttributes(requiredPackagesByParty.keySet.toSeq).map {
+    snapshot.activeParticipantsOfParties(requiredPackagesByParty.keySet.toSeq).map {
       partyToParticipants =>
         requiredPackagesByParty.toList.foldLeft(Map.empty[ParticipantId, Set[LfPackageId]]) {
           case (acc, (party, packages)) =>
-            val participants = partyToParticipants.getOrElse(party, Map.empty)
+            val participants = partyToParticipants.getOrElse(party, Set.empty)
             // add the required packages for this party to the set of required packages of this participant
-            participants.foldLeft(acc) { case (res, (participantId, _)) =>
+            participants.foldLeft(acc) { case (res, participantId) =>
               res.updated(participantId, res.getOrElse(participantId, Set()).union(packages))
             }
         }

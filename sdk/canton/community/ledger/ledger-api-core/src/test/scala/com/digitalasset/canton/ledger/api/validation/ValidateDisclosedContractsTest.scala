@@ -10,15 +10,13 @@ import com.daml.ledger.api.v2.commands.{
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
 import com.digitalasset.canton.LfValue
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,
   validateDisclosedContracts,
 }
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.google.protobuf.ByteString
@@ -37,7 +35,7 @@ class ValidateDisclosedContractsTest
   behavior of classOf[ValidateDisclosedContracts].getSimpleName
 
   it should "validate the disclosed contracts when enabled" in {
-    validateDisclosedContracts(api.protoCommands) shouldBe Right(lf.expectedDisclosedContracts)
+    validateDisclosedContracts(api.protoCommands) shouldBe Right(ImmArray(lf.fatContractInstance))
   }
 
   it should "fail validation on missing created event blob" in {
@@ -281,15 +279,13 @@ object ValidateDisclosedContractsTest {
       Ref.PackageName.assertFromString(api.packageName),
     )
 
-    private val keyHash: Hash = keyWithMaintainers.globalKey.hash
-
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
-      create = Node.Create(
+      create = LfNode.Create(
         coid = lf.lfContractId,
         templateId = lf.templateId,
         packageName = lf.packageName,
         packageVersion = Some(lf.packageVersion),
-        arg = lf.createArg,
+        arg = lf.createArgWithoutLabels,
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),
@@ -297,24 +293,6 @@ object ValidateDisclosedContractsTest {
       ),
       createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
       cantonData = lf.driverMetadataBytes,
-    )
-
-    val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(
-      DisclosedContract(
-        templateId = templateId,
-        packageName = packageName,
-        packageVersion = Some(packageVersion),
-        contractId = lfContractId,
-        argument = createArgWithoutLabels,
-        createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
-        keyHash = Some(keyHash),
-        keyMaintainers = Some(api.keyMaintainers),
-        driverMetadata = driverMetadataBytes,
-        keyValue = Some(keyWithMaintainers.value),
-        signatories = api.signatories,
-        stakeholders = api.stakeholders,
-        transactionVersion = testTxVersion,
-      )
     )
   }
 }

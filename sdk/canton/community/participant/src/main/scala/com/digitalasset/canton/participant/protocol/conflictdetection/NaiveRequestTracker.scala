@@ -314,10 +314,10 @@ private[participant] class NaiveRequestTracker(
     val _ = requests.remove(rc)
   }
 
-  override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
+  override def awaitTimestampUS(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Option[Future[Unit]] =
-    taskScheduler.scheduleBarrier(timestamp)
+  ): Option[FutureUnlessShutdown[Unit]] =
+    taskScheduler.scheduleBarrierUS(timestamp)
 
   /** Releases all locks that are held by the given request */
   private[this] def releaseAllLocks(rc: RequestCounter, requestTimestamp: CantonTimestamp)(implicit

@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
@@ -37,7 +37,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class CachingDomainTopologyClient(
-    delegate: DomainTopologyClientWithInit,
+    delegate: StoreBasedDomainTopologyClient,
     cachingConfigs: CachingConfigs,
     batchingConfig: BatchingConfig,
     val timeouts: ProcessingTimeout,
@@ -154,7 +154,7 @@ final class CachingDomainTopologyClient(
     delegate.scheduleAwait(condition, timeout)
 
   override def close(): Unit =
-    delegate.close()
+    Lifecycle.close(delegate)(logger)
 
   override def numPendingChanges: Int = delegate.numPendingChanges
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.client
 
+import com.daml.grpc.AuthCallCredentials.authorizingStub
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
 import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc
@@ -17,7 +18,6 @@ import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.api.v2.trace_context.TraceContext as LedgerApiTraceContext
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc
-import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
@@ -131,14 +131,14 @@ object LedgerClient {
 
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(
-      authenticatingStub(stub, _).withInterceptors(TraceContextGrpc.clientInterceptor)
+      authorizingStub(stub, _).withInterceptors(TraceContextGrpc.clientInterceptor)
     )
 
   private[client] def stubWithTracing[A <: AbstractStub[A]](stub: A, token: Option[String])(implicit
       traceContext: TraceContext
   ): A =
     token
-      .fold(stub)(authenticatingStub(stub, _))
+      .fold(stub)(authorizingStub(stub, _))
       .withInterceptors(TraceContextGrpc.clientInterceptor)
       .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
 

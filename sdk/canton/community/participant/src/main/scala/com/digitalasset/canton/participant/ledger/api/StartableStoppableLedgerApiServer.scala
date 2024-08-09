@@ -201,7 +201,7 @@ class StartableStoppableLedgerApiServer(
     val indexServiceConfig = config.serverConfig.indexService
 
     val authService = new CantonAdminTokenAuthService(
-      config.adminToken,
+      Some(config.adminToken),
       parent = config.serverConfig.authServices.map(
         _.create(
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,

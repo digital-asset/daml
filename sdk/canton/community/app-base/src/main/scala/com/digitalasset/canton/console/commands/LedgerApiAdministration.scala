@@ -144,8 +144,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def trees(
           partyIds: Set[PartyId],
           completeAfter: Int,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
@@ -153,8 +153,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
         trees_with_tx_filter(
           filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap),
           completeAfter = completeAfter,
-          beginOffset = beginOffset,
-          endOffset = endOffset,
+          beginOffsetExclusive = beginOffsetExclusive,
+          endOffsetInclusive = endOffsetInclusive,
           verbose = verbose,
           timeout = timeout,
           resultFilter = resultFilter,
@@ -176,15 +176,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def trees_with_tx_filter(
           filter: TransactionFilterProto,
           completeAfter: Int,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
       ): Seq[UpdateTreeWrapper] = check(FeatureFlag.Testing)({
         val observer = new RecordingStreamObserver[UpdateTreeWrapper](completeAfter, resultFilter)
         mkResult(
-          subscribe_trees(observer, filter, beginOffset, endOffset, verbose),
+          subscribe_trees(observer, filter, beginOffsetExclusive, endOffsetInclusive, verbose),
           "getUpdateTrees",
           observer,
           timeout,
@@ -206,8 +206,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def subscribe_trees(
           observer: StreamObserver[UpdateTreeWrapper],
           filter: TransactionFilterProto,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
       ): AutoCloseable =
         check(FeatureFlag.Testing)(
@@ -215,8 +215,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             ledgerApiCommand(
               LedgerApiCommands.UpdateService.SubscribeTrees(
                 observer,
-                beginOffset,
-                endOffset,
+                beginOffsetExclusive,
+                endOffsetInclusive,
                 filter,
                 verbose,
               )
@@ -238,8 +238,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def flat(
           partyIds: Set[PartyId],
           completeAfter: Int,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -247,7 +247,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         val observer = new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilter)
         val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
-          subscribe_flat(observer, filter, beginOffset, endOffset, verbose),
+          subscribe_flat(observer, filter, beginOffsetExclusive, endOffsetInclusive, verbose),
           "getUpdates",
           observer,
           timeout,
@@ -268,15 +268,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def flat_with_tx_filter(
           filter: TransactionFilterProto,
           completeAfter: Int,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
       ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
         val observer = new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilter)
         mkResult(
-          subscribe_flat(observer, filter, beginOffset, endOffset, verbose),
+          subscribe_flat(observer, filter, beginOffsetExclusive, endOffsetInclusive, verbose),
           "getUpdates",
           observer,
           timeout,
@@ -296,8 +296,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def subscribe_flat(
           observer: StreamObserver[UpdateWrapper],
           filter: TransactionFilterProto,
-          beginOffset: String = "",
-          endOffset: String = "",
+          beginOffsetExclusive: String = "",
+          endOffsetInclusive: String = "",
           verbose: Boolean = true,
       ): AutoCloseable =
         check(FeatureFlag.Testing)(
@@ -305,8 +305,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             ledgerApiCommand(
               LedgerApiCommands.UpdateService.SubscribeFlat(
                 observer,
-                beginOffset,
-                endOffset,
+                beginOffsetExclusive,
+                endOffsetInclusive,
                 filter,
                 verbose,
               )
@@ -714,7 +714,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           .list(
             partyId = submitter,
             atLeastNumCompletions = 1,
-            beginOffset = ledgerEndBefore,
+            beginOffsetExclusive = ledgerEndBefore,
             filter = _.commandId == commandId,
           )(0)
           .updateId
@@ -1286,7 +1286,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def list(
           partyId: PartyId,
           atLeastNumCompletions: Int,
-          beginOffset: String,
+          beginOffsetExclusive: String,
           applicationId: String = applicationId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
@@ -1295,7 +1295,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ledgerApiCommand(
             LedgerApiCommands.CommandCompletionService.CompletionRequest(
               partyId.toLf,
-              beginOffset,
+              beginOffsetExclusive,
               atLeastNumCompletions,
               timeout.asJavaApproximation,
               applicationId,
@@ -1315,7 +1315,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def subscribe(
           observer: StreamObserver[Completion],
           parties: Seq[PartyId],
-          beginOffset: String = "",
+          beginOffsetExclusive: String = "",
           applicationId: String = applicationId,
       ): AutoCloseable =
         check(FeatureFlag.Testing)(
@@ -1324,7 +1324,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               LedgerApiCommands.CommandCompletionService.Subscribe(
                 observer,
                 parties.map(_.toLf),
-                beginOffset,
+                beginOffsetExclusive,
                 applicationId,
               )
             )
@@ -2009,14 +2009,22 @@ trait BaseLedgerApiAdministration extends NoTracing {
         def trees(
             partyIds: Set[PartyId],
             completeAfter: Int,
-            beginOffset: String = "",
-            endOffset: String = "",
+            beginOffsetExclusive: String = "",
+            endOffsetInclusive: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateTreeWrapper => Boolean = _ => true,
         ): Seq[GetUpdateTreesResponse] = check(FeatureFlag.Testing)(
           ledger_api.updates
-            .trees(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
+            .trees(
+              partyIds,
+              completeAfter,
+              beginOffsetExclusive,
+              endOffsetInclusive,
+              verbose,
+              timeout,
+              resultFilter,
+            )
             .map {
               case tx: TransactionTreeWrapper =>
                 tx.transactionTree
@@ -2049,14 +2057,22 @@ trait BaseLedgerApiAdministration extends NoTracing {
         def flat(
             partyIds: Set[PartyId],
             completeAfter: Int,
-            beginOffset: String = "",
-            endOffset: String = "",
+            beginOffsetExclusive: String = "",
+            endOffsetInclusive: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
         ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)(
           ledger_api.updates
-            .flat(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
+            .flat(
+              partyIds,
+              completeAfter,
+              beginOffsetExclusive,
+              endOffsetInclusive,
+              verbose,
+              timeout,
+              resultFilter,
+            )
             .map {
               case tx: TransactionWrapper =>
                 tx.transaction
@@ -2089,8 +2105,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
         def flat_with_tx_filter(
             filter: TransactionFilter,
             completeAfter: Int,
-            beginOffset: String = "",
-            endOffset: String = "",
+            beginOffsetExclusive: String = "",
+            endOffsetInclusive: String = "",
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
@@ -2099,8 +2115,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
             .flat_with_tx_filter(
               TransactionFilterProto.fromJavaProto(filter.toProto),
               completeAfter,
-              beginOffset,
-              endOffset,
+              beginOffsetExclusive,
+              endOffsetInclusive,
               verbose,
               timeout,
               resultFilter,
@@ -2227,7 +2243,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         administration.ledger_api.updates
           .flat(
             partyIds = Set(queryPartyId),
-            beginOffset = from,
+            beginOffsetExclusive = from,
             completeAfter = 1,
             resultFilter = {
               case reassignmentW: ReassignmentWrapper =>

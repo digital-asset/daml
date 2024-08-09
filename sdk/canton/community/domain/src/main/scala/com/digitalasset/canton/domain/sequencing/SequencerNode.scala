@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
@@ -442,6 +443,11 @@ class SequencerNodeBootstrap(
     private val domainId = domainTopologyManager.store.storeId.domainId
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
+    // admin token is taken from the config or created per session
+    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
+      CantonAdminToken.create(crypto.pureCrypto)
+    )(token => CantonAdminToken(secret = token))
+
     preinitializedServer.foreach(x => addCloseable(x.publicServer))
 
     override protected def attempt()(implicit
@@ -702,6 +708,7 @@ class SequencerNodeBootstrap(
             config,
             clock,
             sequencerRuntime,
+            adminToken,
             domainLoggerFactory,
             server,
             (healthService.dependencies ++ sequencerPublicApiHealthService.dependencies).map(
@@ -798,6 +805,7 @@ class SequencerNode(
     config: SequencerNodeConfigCommon,
     override protected val clock: Clock,
     val sequencer: SequencerRuntime,
+    val adminToken: CantonAdminToken,
     protected val loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicDomainGrpcServer,
     healthData: => Seq[ComponentStatus],

@@ -102,6 +102,20 @@ message OwnerToKeyMapping {
   string domain = 3;
 }
 
+// mapping a party to a key
+// authorization: whoever controls the party uid
+// UNIQUE(party, domain)
+message PartyToKeyMapping {
+  // the party
+  string party = 1;
+  // optionally restricted to domain
+  string domain = 2;
+  // the authorization threshold
+  uint32 threshold = 3;
+  // the designated signing keys
+  repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 4;
+}
+
 // the trust certificate issued by the participant confirming that the participant
 // wishes to be present on the given domain
 // authorization: whoever controls the participant uid
@@ -312,6 +326,8 @@ message TopologyMapping {
     SequencerDomainState sequencer_domain_state = 13;
     PurgeTopologyTransaction purge_topology_txs = 14;
     DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15;
+
+    PartyToKeyMapping party_to_key_mapping = 16;
   }
 }
 

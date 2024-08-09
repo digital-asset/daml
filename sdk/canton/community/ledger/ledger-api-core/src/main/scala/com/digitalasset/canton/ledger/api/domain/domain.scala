@@ -7,20 +7,11 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.daml.lf.command.{
-  ApiCommands as LfCommands
-}
-import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance as LfFatContractInstance,
-  GlobalKeyWithMaintainers,
-  Node as LfNode,
-  TransactionVersion
-}
-import com.digitalasset.daml.lf.value.Value as Lf
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import scalaz.@@
 import scalaz.syntax.tag.*
 
@@ -106,7 +97,7 @@ final case class Commands(
     submittedAt: Timestamp,
     deduplicationPeriod: DeduplicationPeriod,
     commands: LfCommands,
-    disclosedContracts: ImmArray[DisclosedContract],
+    disclosedContracts: ImmArray[FatContractInstance],
     domainId: Option[DomainId] = None,
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
@@ -129,55 +120,6 @@ final case class Commands(
       indicateOmittedFields,
     )
   }
-}
-
-final case class DisclosedContract(
-    templateId: Ref.TypeConName,
-    packageName: Ref.PackageName,
-    packageVersion: Option[Ref.PackageVersion],
-    contractId: Lf.ContractId,
-    argument: Value,
-    createdAt: Timestamp,
-    keyHash: Option[crypto.Hash],
-    signatories: Set[Ref.Party],
-    stakeholders: Set[Ref.Party],
-    keyMaintainers: Option[Set[Ref.Party]],
-    keyValue: Option[Value],
-    driverMetadata: Bytes,
-    transactionVersion: TransactionVersion,
-) {
-
-  private[this] def keyWithWithMaintainer =
-    (keyValue, keyMaintainers) match {
-      case (None, None) => None
-      case (Some(value), Some(maintainers)) =>
-        Some(GlobalKeyWithMaintainers.assertBuild(
-          templateId,
-          value,
-          maintainers,
-          packageName
-        )
-        )
-      case _ =>
-        throw new Error("unexpected mismatch between keyValue and keyMaintainers")
-    }
-
-  def toLf =
-    LfFatContractInstance.fromCreateNode(
-      LfNode.Create(
-        coid = contractId,
-        packageName = packageName,
-        packageVersion = packageVersion,
-        templateId = templateId,
-        arg = argument,
-        signatories = signatories,
-        stakeholders = stakeholders,
-        keyOpt = keyWithWithMaintainer,
-        version = transactionVersion,
-      ),
-      createTime = createdAt,
-      cantonData = driverMetadata,
-    )
 }
 
 object Commands {

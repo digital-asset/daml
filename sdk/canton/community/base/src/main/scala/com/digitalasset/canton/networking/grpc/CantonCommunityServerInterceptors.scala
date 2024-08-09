@@ -4,7 +4,15 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.daml.metrics.grpc.{GrpcMetricsServerInterceptor, GrpcServerMetrics}
-import com.digitalasset.canton.config.ApiLoggingConfig
+import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.auth.{
+  AdminAuthorizer,
+  AuthorizationInterceptor,
+  CantonAdminToken,
+  CantonAdminTokenAuthService,
+}
+import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.{ApiLoggingConfig, AuthServiceConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.{TraceContextGrpc, TracingConfig}
 import io.grpc.ServerInterceptors.intercept
@@ -24,6 +32,8 @@ class CantonCommunityServerInterceptors(
     apiLoggingConfig: ApiLoggingConfig,
     loggerFactory: NamedLoggerFactory,
     grpcMetrics: GrpcServerMetrics,
+    authServices: Seq[AuthServiceConfig],
+    adminToken: Option[String],
 ) extends CantonServerInterceptors {
   private def interceptForLogging(
       service: ServerServiceDefinition,
@@ -49,6 +59,30 @@ class CantonCommunityServerInterceptors(
   ): ServerServiceDefinition =
     intercept(service, new GrpcMetricsServerInterceptor(grpcMetrics))
 
+  private def addAuthorizationInterceptor(
+      service: ServerServiceDefinition
+  ): ServerServiceDefinition = {
+    val authService = new CantonAdminTokenAuthService(
+      adminToken.map(CantonAdminToken(_)),
+      parent = authServices.map(
+        _.create(
+          // TODO(i20232): configure jwt leeway for admin api's
+          None,
+          loggerFactory,
+        )
+      ),
+    )
+    val interceptor = new AuthorizationInterceptor(
+      authService,
+      // TODO(i20232): add telemetry
+      NoOpTelemetry,
+      loggerFactory,
+      DirectExecutionContext(loggerFactory.getLogger(AuthorizationInterceptor.getClass)),
+      AdminAuthorizer,
+    )
+    intercept(service, interceptor)
+  }
+
   def addAllInterceptors(
       service: ServerServiceDefinition,
       withLogging: Boolean,
@@ -57,4 +91,5 @@ class CantonCommunityServerInterceptors(
       .pipe(interceptForLogging(_, withLogging))
       .pipe(addTraceContextInterceptor)
       .pipe(addMetricsInterceptor)
+      .pipe(addAuthorizationInterceptor)
 }

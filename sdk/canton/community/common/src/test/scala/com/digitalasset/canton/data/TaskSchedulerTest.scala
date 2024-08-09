@@ -116,7 +116,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
           val taskScheduler = mkTaskScheduler(initTs = CantonTimestamp.MinValue)
           val executionOrder = mutable.Queue.empty[Int]
 
-          val barrierFutures = barriers.map(timestamp => taskScheduler.scheduleBarrier(timestamp))
+          val barrierFutures = barriers.map(timestamp => taskScheduler.scheduleBarrierUS(timestamp))
 
           val barriersWithFutures =
             barriers.zip(barrierFutures).map { case (timestamp, optFuture) =>
@@ -135,7 +135,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
               val timestamp = allTicks(missingTick - 1)
               barriersWithFutures.parTraverse_ { case (barrierTimestamp, barrierCompletion) =>
                 if (barrierTimestamp <= timestamp) {
-                  barrierCompletion
+                  barrierCompletion.unwrap
                 } else {
                   assert(
                     !barrierCompletion.isCompleted,
@@ -193,12 +193,12 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
         )
       taskScheduler.scheduleTask(task1)
       taskScheduler.scheduleTask(task0)
-      val barrier1 = taskScheduler.scheduleBarrier(ofEpochMilli(1))
-      val barrier2 = taskScheduler.scheduleBarrier(ofEpochMilli(2))
-      val barrier3 = taskScheduler.scheduleBarrier(ofEpochMilli(3))
+      val barrier1 = taskScheduler.scheduleBarrierUS(ofEpochMilli(1)).map(_.unwrap)
+      val barrier2 = taskScheduler.scheduleBarrierUS(ofEpochMilli(2)).map(_.unwrap)
+      val barrier3 = taskScheduler.scheduleBarrierUS(ofEpochMilli(3)).map(_.unwrap)
       taskScheduler.addTick(SequencerCounter(1), ofEpochMilli(2))
       taskScheduler.addTick(SequencerCounter(0), ofEpochMilli(1))
-      val barrier0 = taskScheduler.scheduleBarrier(ofEpochMilli(1))
+      val barrier0 = taskScheduler.scheduleBarrierUS(ofEpochMilli(1)).map(_.unwrap)
       assert(barrier0.isEmpty, s"Barrier is before observed time of the task scheduler")
       for {
         _ <- task0.done()
@@ -368,7 +368,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
       capturingLoggerFactory.assertNoMoreEvents(timeoutMillis)
 
       // Schedule a blocked barrier and check that a log line is emitted.
-      taskScheduler.scheduleBarrier(CantonTimestamp.ofEpochSecond(3))(nonEmptyTraceContext2)
+      taskScheduler.scheduleBarrierUS(CantonTimestamp.ofEpochSecond(3))(nonEmptyTraceContext2)
       taskScheduler.addTick(SequencerCounter(3), CantonTimestamp.ofEpochSecond(3))
       clock.advance(alertEvery)
       assertInfoLogged(2, 1, tsOf1, nonEmptyTraceContext2)

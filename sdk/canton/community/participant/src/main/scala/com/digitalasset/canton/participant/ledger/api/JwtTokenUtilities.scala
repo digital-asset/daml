@@ -22,6 +22,7 @@ object JwtTokenUtilities {
       secret: String,
       userId: Option[String] = None,
       exp: Option[Instant] = None,
+      scope: Option[String] = None,
   ): String = {
     val payload = StandardJWTPayload(
       issuer = None,
@@ -30,7 +31,7 @@ object JwtTokenUtilities {
       exp = exp,
       format = StandardJWTTokenFormat.Scope,
       audiences = List.empty,
-      scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
+      scope = scope.fold(Some(AuthServiceJWTCodec.scopeLedgerApiFull))(Some(_)),
     )
     // stolen from com.digitalasset.canton.ledger.api.auth.Main
     val jwtPayload = AuthServiceJWTCodec.compactPrint(payload)

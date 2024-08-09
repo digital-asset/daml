@@ -17,6 +17,10 @@ trait PublicServerConfig extends ServerConfig {
 
   def tls: Option[TlsBaseServerConfig]
 
+  override def authServices: Seq[AuthServiceConfig] = Seq.empty
+
+  override def adminToken: Option[String] = None
+
   /** Expiration interval for a nonce that is generated for an
     * authentication challenge. as an authentication request is
     * expected to be followed up with almost immediately to generate

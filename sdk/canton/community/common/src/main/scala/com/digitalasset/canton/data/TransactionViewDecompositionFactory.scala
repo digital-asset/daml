@@ -260,14 +260,14 @@ case object TransactionViewDecompositionFactory {
     val informees = plainInformees ++ confirmingParties
 
     topologySnapshot
-      .activeParticipantsOfPartiesWithAttributes(informees.toSeq)
+      .activeParticipantsOfPartiesWithInfo(informees.toSeq)
       .map(informeesMap =>
-        informeesMap.map { case (partyId, attributes) =>
+        informeesMap.map { case (partyId, partyInfo) =>
           // confirming party
           if (confirmingParties.contains(partyId))
-            partyId -> (attributes.keySet, NonNegativeInt.one)
+            partyId -> (partyInfo.participants.keySet, NonNegativeInt.one)
           // plain informee
-          else partyId -> (attributes.keySet, NonNegativeInt.zero)
+          else partyId -> (partyInfo.participants.keySet, NonNegativeInt.zero)
         }
       )
       .map(informeesMap => (informeesMap, threshold))

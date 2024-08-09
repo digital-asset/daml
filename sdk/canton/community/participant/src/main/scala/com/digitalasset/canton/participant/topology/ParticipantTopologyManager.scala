@@ -39,49 +39,6 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a package vetting command failed due to packages not existing locally.
-      |This can be due to either the packages not being present or their dependencies being missing.
-      |When vetting a package, the package must exist on the participant, as otherwise the participant
-      |will not be able to process a transaction relying on a particular package."""
-  )
-  @Resolution(
-    "Ensure that the package exists locally before issuing such a transaction."
-  )
-  object CannotVetDueToMissingPackages
-      extends ErrorCode(
-        id = "CANNOT_VET_DUE_TO_MISSING_PACKAGES",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Missing(packages: PackageId)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = "Package vetting failed due to packages not existing on the local node"
-        )
-        with ParticipantTopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a dangerous package vetting command was rejected.
-      |This is the case if a vetting command, if not run correctly, could potentially lead to a ledger fork.
-      |The vetting authorization checks the participant for the presence of the given set of
-      |packages (including their dependencies) and allows only to vet for the given participant id.
-      |In rare cases where a more centralised topology manager is used, this behaviour can be overridden
-      |with force. However, if a package is vetted but not present on the participant, the participant will
-      |refuse to process any transaction of the given domain until the problematic package has been uploaded."""
-  )
-  @Resolution("Set force=true if you really know what you are doing.")
-  object DangerousVettingCommandsRequireForce
-      extends ErrorCode(
-        id = "DANGEROUS_VETTING_COMMANDS_REQUIRE_FORCE",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Reject()(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = "Package vetting failed due to packages not existing on the local node"
-        )
-        with ParticipantTopologyManagerError
-  }
-
-  @Explanation(
     """This error indicates a vetting request failed due to dependencies not being vetted.
       |On every vetting request, the set supplied packages is analysed for dependencies. The
       |system requires that not only the main packages are vetted explicitly but also all dependencies.

@@ -139,6 +139,8 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
   val consoleEnvironment: ConsoleEnvironment
   private[console] val nodes: Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]
 
+  def adminToken: Option[String]
+
   @Help.Summary("Database related operations")
   @Help.Group("Database")
   object db extends Helpful {
@@ -349,7 +351,7 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
   ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
       consoleEnvironment.grpcAdminCommandRunner
-        .runCommand(name, grpcCommand, config.clientAdminApi, None)
+        .runCommand(name, grpcCommand, config.clientAdminApi, adminToken)
     )
 
 }
@@ -663,7 +665,7 @@ class LocalParticipantReference(
     consoleEnvironment.environment.participants.getStarting(name)
 
   /** secret, not publicly documented way to get the admin token */
-  def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
   private lazy val testing_ =
     new LocalParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
@@ -1163,6 +1165,8 @@ class LocalSequencerReference(
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
 
+  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+
   @Help.Summary("Returns the sequencerx configuration")
   override def config: SequencerNodeConfigCommon =
     consoleEnvironment.environment.config.sequencersByString(name)
@@ -1291,6 +1295,8 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
 
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
+
+  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
   @Help.Summary("Returns the mediator configuration")
   override def config: MediatorNodeConfigCommon =

@@ -6,6 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.topology.*
 import com.digitalasset.canton.admin.api.client.data.DynamicDomainParameters as ConsoleDynamicDomainParameters
@@ -258,6 +259,16 @@ class TopologyAdministrationGroup(
         adminCommand(
           TopologyAdminCommands.Write
             .AddTransactions(transactions, store, ForceFlags(forceChanges*))
+        )
+      }
+
+    def generate(
+        proposals: Seq[GenerateTransactions.Proposal]
+    ): Seq[TopologyTransaction[TopologyChangeOp, TopologyMapping]] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .GenerateTransactions(proposals)
         )
       }
 
@@ -1204,6 +1215,63 @@ class TopologyAdministrationGroup(
       )
   }
 
+  @Help.Summary("Manage party to key mappings")
+  @Help.Group("Party to key mappings")
+  object party_to_key_mappings extends Helpful {
+
+    @Help.Summary("List party to key mapping transactions")
+    def list(
+        filterStore: String = "",
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
+        filterParty: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListPartyToKeyMappingResult] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Read.ListPartyToKeyMapping(
+            BaseQuery(
+              filterStore,
+              proposals,
+              timeQuery,
+              operation,
+              filterSigningKey,
+              protocolVersion.map(ProtocolVersion.tryCreate),
+            ),
+            filterParty,
+          )
+        )
+      }
+
+    @Help.Summary("Propose a party to key mapping")
+    def propose(
+        proposedMapping: PartyToKeyMapping,
+        serial: RequireTypes.PositiveNumeric[Int],
+        ops: TopologyChangeOp = TopologyChangeOp.Replace,
+        signedBy: Option[Fingerprint] = None,
+        store: String = AuthorizedStore.filterName,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+        force: ForceFlags = ForceFlags.none,
+    ): SignedTopologyTransaction[TopologyChangeOp, PartyToKeyMapping] =
+      synchronisation.runAdminCommand(synchronize)(
+        TopologyAdminCommands.Write.Propose(
+          mapping = proposedMapping,
+          signedBy = signedBy.toList,
+          store = store,
+          change = ops,
+          serial = Some(serial),
+          mustFullyAuthorize = mustFullyAuthorize,
+          forceChanges = force,
+        )
+      )
+  }
+
   @Help.Summary("Manage party to participant mappings")
   @Help.Group("Party to participant mappings")
   object party_to_participant_mappings extends Helpful {
@@ -1254,7 +1322,6 @@ class TopologyAdministrationGroup(
         party: PartyId,
         adds: List[(ParticipantId, ParticipantPermission)] = Nil,
         removes: List[ParticipantId] = Nil,
-        domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
@@ -1305,7 +1372,6 @@ class TopologyAdministrationGroup(
           party = party,
           newParticipants = newPermissions.toSeq,
           threshold = threshold,
-          domainId = domainId,
           signedBy = signedBy,
           operation = TopologyChangeOp.Replace,
           serial = newSerial,
@@ -1321,7 +1387,6 @@ class TopologyAdministrationGroup(
           party = party,
           newParticipants = existingPermissions.toSeq,
           threshold = threshold,
-          domainId = domainId,
           signedBy = signedBy,
           operation = TopologyChangeOp.Remove,
           serial = newSerial,
@@ -1367,7 +1432,6 @@ class TopologyAdministrationGroup(
         party: PartyId,
         newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
-        domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
@@ -1383,7 +1447,7 @@ class TopologyAdministrationGroup(
       val command = TopologyAdminCommands.Write.Propose(
         mapping = PartyToParticipant.create(
           partyId = party,
-          domainId = domainId,
+          domainId = None,
           threshold = threshold,
           participants = newParticipants.map((HostingParticipant.apply _) tupled),
           groupAddressing = groupAddressing,
@@ -1789,6 +1853,7 @@ class TopologyAdministrationGroup(
                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
                           satisfy the mapping's authorization requirements.
          signedBy: the fingerprint of the key to be used to sign this proposal
+         force: must be set when revoking the vetting of packagesIds
          |"""
     )
     def propose_delta(
@@ -1805,6 +1870,7 @@ class TopologyAdministrationGroup(
         signedBy: Option[Fingerprint] = Some(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
+        force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, VettedPackages] = {
 
       // compute the diff and then call the propose method
@@ -1836,6 +1902,7 @@ class TopologyAdministrationGroup(
             synchronize,
             Some(newSerial),
             signedBy,
+            force,
           )
       }
     }
@@ -1861,7 +1928,8 @@ class TopologyAdministrationGroup(
                     This transaction will be rejected if another fully authorized transaction with the same serial already
                     exists, or if there is a gap between this serial and the most recently used serial.
                     If None, the serial will be automatically selected by the node.
-        signedBy: the fingerprint of the key to be used to sign this proposal""")
+        signedBy: the fingerprint of the key to be used to sign this proposal
+        force: must be set when revoking the vetting of packagesIds""")
     def propose(
         participant: ParticipantId,
         packageIds: Seq[PackageId],
@@ -1875,6 +1943,7 @@ class TopologyAdministrationGroup(
         signedBy: Option[Fingerprint] = Some(
           instance.id.fingerprint
         ), // TODO(#12945) don't use the instance's root namespace key by default.
+        force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, VettedPackages] = {
 
       val topologyChangeOp =
@@ -1891,6 +1960,7 @@ class TopologyAdministrationGroup(
         change = topologyChangeOp,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
+        forceChanges = force,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)

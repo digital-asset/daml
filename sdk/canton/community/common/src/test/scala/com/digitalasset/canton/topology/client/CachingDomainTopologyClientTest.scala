@@ -41,10 +41,10 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
     val crypto = new TestingOwnerWithKeys(owner, loggerFactory, directExecutionContext)
     val mockTransaction = mock[GenericSignedTopologyTransaction]
 
-    val mockParent = mock[DomainTopologyClientWithInit]
-    val mockSnapshot0 = mock[TopologySnapshotLoader]
-    val mockSnapshot1 = mock[TopologySnapshotLoader]
-    val mockSnapshot2 = mock[TopologySnapshotLoader]
+    val mockParent = mock[StoreBasedDomainTopologyClient]
+    val mockSnapshot0 = mock[StoreBasedTopologySnapshot]
+    val mockSnapshot1 = mock[StoreBasedTopologySnapshot]
+    val mockSnapshot2 = mock[StoreBasedTopologySnapshot]
 
     val key1 = crypto.SigningKeys.key1
     val key2 = crypto.SigningKeys.key2

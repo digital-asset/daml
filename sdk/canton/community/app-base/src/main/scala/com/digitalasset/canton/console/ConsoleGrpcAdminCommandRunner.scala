@@ -88,6 +88,7 @@ class GrpcAdminCommandRunner(
                 channel = ClientChannelBuilder.createChannelToTrustedServer(clientConfig),
                 logger = logger,
                 timeout = commandTimeouts.bounded,
+                token,
               )
         }
       }

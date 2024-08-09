@@ -178,12 +178,12 @@ object RootHashMessageRecipients extends HasLoggerName {
     val superfluousInformees = informeesAddressedAsGroup.toSet -- request.allInformees
     for {
       allNonGroupAddressedInformeeParticipants <- topologySnapshot
-        .activeParticipantsOfPartiesWithAttributes(informeesNotAddressedAsGroups.toList)
-        .map(_.values.flatMap(_.keySet).toSet)
+        .activeParticipantsOfParties(informeesNotAddressedAsGroups.toList)
+        .map(_.values.toSet.flatten)
       participantsAddressedAsGroup <-
         topologySnapshot
-          .activeParticipantsOfPartiesWithAttributes(informeesAddressedAsGroup.toList)
-          .map(_.values.flatMap(_.keySet).toSet)
+          .activeParticipantsOfParties(informeesAddressedAsGroup.toList)
+          .map(_.values.toSet.flatten)
     } yield {
       val participantsSet = participants.toSet
       val missingInformeeParticipants =

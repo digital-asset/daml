@@ -51,6 +51,8 @@ final class GeneratorsTransaction(
     Arbitrary(Generators.nonEmptySetGen[LfPackageId].map(_.toSeq))
   implicit val topologyTransactionPublicKeysArb: Arbitrary[NonEmpty[Seq[PublicKey]]] =
     Arbitrary(Generators.nonEmptySetGen[PublicKey].map(_.toSeq))
+  implicit val topologyTransactionSigningPublicKeysArb: Arbitrary[NonEmpty[Seq[SigningPublicKey]]] =
+    Arbitrary(Generators.nonEmptySetGen[SigningPublicKey].map(_.toSeq))
   implicit val topologyTransactionMappingsArb: Arbitrary[NonEmpty[Seq[TopologyMapping]]] =
     Arbitrary(Generators.nonEmptySetGen[TopologyMapping].map(_.toSeq))
   implicit val topologyTransactionPartyIdsArb: Arbitrary[NonEmpty[Seq[PartyId]]] =
@@ -127,6 +129,20 @@ final class GeneratorsTransaction(
       groupAddressing <- Arbitrary.arbitrary[Boolean]
     } yield PartyToParticipant
       .create(partyId, domain, threshold, participants, groupAddressing)
+      .value
+  )
+
+  implicit val partyToKeyTopologyTransactionArb: Arbitrary[PartyToKeyMapping] = Arbitrary(
+    for {
+      partyId <- Arbitrary.arbitrary[PartyId]
+      domain <- Arbitrary.arbitrary[Option[DomainId]]
+      signingKeys <- Arbitrary.arbitrary[NonEmpty[Seq[SigningPublicKey]]]
+      // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
+      threshold <- Gen
+        .choose(1, signingKeys.size)
+        .map(PositiveInt.tryCreate)
+    } yield PartyToKeyMapping
+      .create(partyId, domain, threshold, signingKeys)
       .value
   )
 

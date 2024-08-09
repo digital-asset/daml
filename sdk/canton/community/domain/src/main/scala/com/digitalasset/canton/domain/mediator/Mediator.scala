@@ -272,9 +272,7 @@ private[mediator] class Mediator(
               .flatMap(_.toFuture(new RuntimeException(_)))
           )
 
-          decisionTime <- FutureUnlessShutdown.outcomeF(
-            domainParameters.decisionTimeForF(timestamp)
-          )
+          decisionTime <- domainParameters.decisionTimeForF(timestamp)
           _ <- verdictSender.sendReject(
             requestId,
             None,
