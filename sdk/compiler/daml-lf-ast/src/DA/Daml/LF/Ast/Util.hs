@@ -1,19 +1,24 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
+import Control.DeepSeq
+import           Control.Lens
+import           Control.Lens.Ast
 import Control.Monad
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
-import           Control.Lens
-import           Control.Lens.Ast
+import           Data.Data
 import           Data.Functor.Foldable
 import qualified Data.Graph as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
+import           GHC.Generics (Generic)
 import Module (UnitId, unitIdString, stringToUnitId)
 import System.FilePath
 import Text.Read (readMaybe)
@@ -357,7 +362,6 @@ splitPackageVersion mkError version@(PackageVersion raw) =
     Just versions -> Right $ RawPackageVersion versions
 
 newtype RawPackageVersion = RawPackageVersion [Integer]
-  deriving (Show)
 
 padEquivalent :: RawPackageVersion -> RawPackageVersion -> ([Integer], [Integer])
 padEquivalent (RawPackageVersion v1Pieces) (RawPackageVersion v2Pieces) =
@@ -373,3 +377,33 @@ instance Ord RawPackageVersion where
 
 instance Eq RawPackageVersion where
   (==) v1 v2 = uncurry (==) $ padEquivalent v1 v2
+
+instance Show RawPackageVersion where
+  show (RawPackageVersion pieces) = intercalate "." $ map show pieces
+
+data Upgrading a = Upgrading
+    { _past :: a
+    , _present :: a
+    }
+    deriving (Eq, Data, Generic, NFData, Show)
+
+makeLenses ''Upgrading
+
+instance Functor Upgrading where
+    fmap f Upgrading{..} = Upgrading (f _past) (f _present)
+
+instance Foldable Upgrading where
+    foldMap f Upgrading{..} = f _past <> f _present
+
+instance Traversable Upgrading where
+    traverse f Upgrading{..} = Upgrading <$> f _past <*> f _present
+
+instance Applicative Upgrading where
+    pure a = Upgrading a a
+    (<*>) f a = Upgrading { _past = _past f (_past a), _present = _present f (_present a) }
+
+foldU :: (a -> a -> b) -> Upgrading a -> b
+foldU f u = f (_past u) (_present u)
+
+unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
+unsafeZipUpgrading = foldU (zipWith Upgrading)

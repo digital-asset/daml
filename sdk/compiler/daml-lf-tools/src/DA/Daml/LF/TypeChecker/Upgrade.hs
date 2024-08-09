@@ -8,7 +8,6 @@ module DA.Daml.LF.TypeChecker.Upgrade (
         module DA.Daml.LF.TypeChecker.Upgrade
     ) where
 
-import           Control.DeepSeq
 import           Control.Monad (unless, forM, forM_, when)
 import           Control.Monad.Extra (allM, filterM)
 import           Control.Monad.Reader (withReaderT)
@@ -20,7 +19,6 @@ import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 import           DA.Daml.Options.Types (UpgradeInfo (..))
 import           Data.Bifunctor (first)
-import           Data.Data
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -28,37 +26,9 @@ import           Data.List (foldl')
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
-import           GHC.Generics (Generic)
 import Data.Maybe (catMaybes)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
-
-data Upgrading a = Upgrading
-    { _past :: a
-    , _present :: a
-    }
-    deriving (Eq, Data, Generic, NFData, Show)
-
-makeLenses ''Upgrading
-
-instance Functor Upgrading where
-    fmap f Upgrading{..} = Upgrading (f _past) (f _present)
-
-instance Foldable Upgrading where
-    foldMap f Upgrading{..} = f _past <> f _present
-
-instance Traversable Upgrading where
-    traverse f Upgrading{..} = Upgrading <$> f _past <*> f _present
-
-instance Applicative Upgrading where
-    pure a = Upgrading a a
-    (<*>) f a = Upgrading { _past = _past f (_past a), _present = _present f (_present a) }
-
-foldU :: (a -> a -> b) -> Upgrading a -> b
-foldU f u = f (_past u) (_present u)
-
-unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
-unsafeZipUpgrading = foldU (zipWith Upgrading)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -224,13 +194,15 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
         then pure Nothing
         else
             case packageMetadata presentPkg of
-              Just meta -> do
-                case HMS.lookup (packageName meta) upgradeablePackageMap of
+              Just meta ->
+                let PackageMetadata {packageName, packageVersion} = meta
+                in
+                case HMS.lookup packageName upgradeablePackageMap of
                   Nothing -> pure Nothing
                   Just upgradedPkgs -> do
-                    case splitPackageVersion id (packageVersion meta) of
+                    case splitPackageVersion id packageVersion of
                       Left version -> do
-                        diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasUnparseableVersion (packageName meta) version UpgradedPackage
+                        diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
                         pure Nothing
                       Right presentVersion -> do
                         let equivalent = filter (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradedPkgs
@@ -242,16 +214,18 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           else do
                             withReaderT (\gamma -> UpgradingEnv gamma (upgradeablePackageMapToDeps upgradeablePackageMap)) $ do
                               case closestGreater of
-                                Just (_, greaterPkgId, greaterPkg) ->
-                                  check (presentPkgId, presentPkg) (greaterPkgId, greaterPkg)
+                                Just (greaterPkgVersion, greaterPkgId, greaterPkg) ->
+                                  withContextF present' (ContextDefUpgrading packageName (Upgrading greaterPkgVersion presentVersion) ContextNone True) $
+                                    check (presentPkgId, presentPkg) (greaterPkgId, greaterPkg)
                                 Nothing ->
                                   pure ()
                               case closestLesser of
-                                Just (_, lesserPkgId, lesserPkg) ->
-                                  check (lesserPkgId, lesserPkg) (presentPkgId, presentPkg)
+                                Just (lesserPkgVersion, lesserPkgId, lesserPkg) ->
+                                  withContextF present' (ContextDefUpgrading packageName (Upgrading lesserPkgVersion presentVersion) ContextNone True) $
+                                    check (lesserPkgId, lesserPkg) (presentPkgId, presentPkg)
                                 Nothing ->
                                   pure ()
-                            pure $ Just (packageName meta, (presentVersion, presentPkgId, presentPkg))
+                            pure $ Just (packageName, (presentVersion, presentPkgId, presentPkg))
               Nothing -> do
                 diagnosticWithContextF present $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
                 pure Nothing

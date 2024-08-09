@@ -40,6 +40,7 @@ data Context
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
   | ContextDefInterface !Module !DefInterface !InterfacePart
+  | ContextDefUpgrading !PackageName !(Upgrading RawPackageVersion) !Context !Bool
 
 data TemplatePart
   = TPWhole
@@ -270,6 +271,7 @@ contextLocation = \case
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
   ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
+  ContextDefUpgrading _ _ _ _ -> Nothing
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
@@ -320,6 +322,13 @@ instance Show Context where
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
     ContextDefInterface m i p ->
       "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
+    ContextDefUpgrading pkgName pkgVersion subContext isDependency ->
+      let prettyPkgName =
+            if isDependency
+            then "dependency " <> T.unpack (unPackageName pkgName)
+            else T.unpack (unPackageName pkgName)
+      in
+      "upgrading " <> prettyPkgName <> " " <> show (_present pkgVersion) <> ", " <> show subContext
 
 instance Show TemplatePart where
   show = \case
@@ -384,11 +393,7 @@ instance Pretty Error where
     EUnwarnableError err -> pPrint err
     EWarnableError err -> pPrint err
     EWarningToError warning -> pPrint warning
-    EContext ctx err ->
-      vcat
-      [ "error type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
+    EContext ctx err -> prettyWithContext ctx (Right err)
 
 instance Pretty UnwarnableError where
   pPrint = \case
@@ -681,24 +686,42 @@ instance Pretty UpgradedRecordOrigin where
     InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 
-instance Pretty Context where
-  pPrint = \case
+prettyWithContext :: Context -> Either Warning Error -> Doc a
+prettyWithContext ctx warningOrErr =
+  let header prettyCtx =
+        vcat
+        [ case warningOrErr of
+            Right _ -> "error type checking " <> prettyCtx <> ":"
+            Left _ -> "warning while type checking " <> prettyCtx <> ":"
+        , nest 2 (either pretty pretty warningOrErr)
+        ]
+  in
+  case ctx of
     ContextNone ->
-      string "<none>"
+      header $ string "<none>"
     ContextDefModule m ->
-      hsep [ "module" , pretty (moduleName m) ]
+      header $ hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->
-      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
+      header $ hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
-      hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
+      header $ hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->
-      hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
+      header $ hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
-      hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+      header $ hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
-      hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
+      header $ hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
     ContextDefInterface m i p ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+      header $ hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+    ContextDefUpgrading pkgName pkgVersion subContext isDependency ->
+      let prettyPkgName = if isDependency then hsep ["dependency", pretty pkgName] else pretty pkgName
+          upgradeOrDowngrade = if _present pkgVersion > _past pkgVersion then "upgrade" else "downgrade"
+      in
+      vcat
+      [ hsep [ "error while validating that", prettyPkgName, "version", string (show (_present pkgVersion)), "is a valid", upgradeOrDowngrade, "of version", string (show (_past pkgVersion)) ]
+      , nest 2 $
+        prettyWithContext subContext warningOrErr
+      ]
 
 class ToDiagnostic a where
   toDiagnostic :: a -> Diagnostic
@@ -750,11 +773,7 @@ warningLocation = \case
 
 instance Pretty Warning where
   pPrint = \case
-    WContext ctx err ->
-      vcat
-      [ "warning while type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
     WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."

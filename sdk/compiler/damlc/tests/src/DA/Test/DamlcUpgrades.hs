@@ -434,7 +434,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenDependencyIsNotAValidUpgrade"
-                      (Succeed)
+                      (FailWithError "\ESC\\[0;91merror while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 0.0.2 is a valid upgrade of version 0.0.1\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but those fields are not Optional.")
                       versionDefault
                       (SeparateDeps False)
                       False
