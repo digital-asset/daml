@@ -182,6 +182,22 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
         } yield result
         name shouldBe Right(Some("${MY_NAME}"))
       }
+      "replace in object names (i.e. module prefixes)" in {
+        val name = for {
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            "module-prefixes:\n  ${MY_NAME}-0.0.1: V1",
+            Map(("MY_NAME", "package")),
+          )
+          result <- config.content.hcursor
+            .downField("module-prefixes")
+            .as[Option[Map[String, String]]]
+            .map(_.getOrElse(Map.empty))
+            .left
+            .map(e => ConfigParseError(e.getMessage))
+        } yield result
+        name shouldBe Right(Map(("package-0.0.1", "V1")))
+      }
     }
   }
 }
