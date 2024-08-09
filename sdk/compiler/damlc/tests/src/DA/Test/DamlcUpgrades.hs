@@ -421,15 +421,22 @@ tests damlc =
                 , test
                       "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes"
                       (FailWithError "\ESC\\[0;91merror type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
-                      LF.versionDefault
+                      versionDefault
                       (SeparateDeps True)
                       False
                       setUpgradeField
                 , test
                       "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes"
                       Succeed
-                      LF.versionDefault
+                      versionDefault
                       (SeparateDeps True)
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenDependencyIsNotAValidUpgrade"
+                      (Succeed)
+                      versionDefault
+                      (SeparateDeps False)
                       False
                       setUpgradeField
                 ]
