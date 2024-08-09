@@ -289,13 +289,14 @@ object DbStorageSetup {
       loggerFactory: NamedLoggerFactory,
       migrationMode: MigrationMode = MigrationMode.Standard,
       mkDbConfig: DbBasicConfig => Postgres = _.toPostgresDbConfig,
+      forceTestContainer: Boolean = false,
   )(implicit ec: ExecutionContext): PostgresDbStorageSetup = {
 
     val isCI = sys.env.contains("CI")
     val isMachine = sys.env.contains("MACHINE")
-    val forceTestContainer = sys.env.contains("DB_FORCE_TEST_CONTAINER")
+    val useTestContainerByForce = sys.env.contains("DB_FORCE_TEST_CONTAINER") || forceTestContainer
 
-    if (!forceTestContainer && (isCI && !isMachine))
+    if (!useTestContainerByForce && (isCI && !isMachine))
       new PostgresCISetup(migrationMode, mkDbConfig, loggerFactory).initialized()
     else new PostgresTestContainerSetup(migrationMode, mkDbConfig, loggerFactory).initialized()
   }
