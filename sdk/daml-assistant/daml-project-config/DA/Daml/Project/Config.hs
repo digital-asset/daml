@@ -31,10 +31,12 @@ import qualified Data.Aeson.Key as A
 import qualified Data.Array as Array
 import Data.Bifunctor (bimap)
 import Data.Generics.Uniplate.Data (transformM, universe)
+import Data.Monoid (Ap (..))
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Yaml as Y
 import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.Aeson.Key as Key
 import Data.Yaml ((.:?))
 import Data.Either.Extra
 import Data.Foldable
@@ -143,6 +145,11 @@ readVariableInterpolationField = \case
   Y.Object (KeyMap.lookup "environment-variable-interpolation" -> Just (Y.Bool b)) -> b
   _ -> True
 
+-- Applies an applicative function across all keys (as Text) of a KeyMap, without changing value.
+-- Returns first error encountered
+traverseKeyMapKeys :: Applicative f => (Text -> f Text) -> KeyMap.KeyMap a -> f (KeyMap.KeyMap a)
+traverseKeyMapKeys f = getAp . KeyMap.foldMapWithKey (\k v -> Ap $ flip KeyMap.singleton v . Key.fromText <$> f (Key.toText k))
+
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
 -- Also performs environment variable interpolation on all string fields in the form of ${ENV_VAR}.
@@ -159,6 +166,7 @@ readConfigWithEnv name path = do
       if shouldInterpolate
         then except $ flip transformM configValue $ \case
                Y.String str -> bimap Y.AesonException Y.String $ interpolateEnvVariables env str
+               Y.Object km -> bimap Y.AesonException Y.Object $ traverseKeyMapKeys (interpolateEnvVariables env) km
                v -> pure v
         else pure configValue
     case fromJSON configValueTransformed of

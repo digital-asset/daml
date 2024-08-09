@@ -35,10 +35,12 @@ da_scala_test_suite(
         "src/test/**/*Test.scala",
     ]),
     scala_deps = [
+        "@maven//:io_circe_circe_core",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_typelevel_cats_core",
     ],
     deps = [
         ":scala-daml-project-config",
