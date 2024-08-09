@@ -4,6 +4,7 @@
 package com.digitalasset.canton.resource
 
 import cats.data.EitherT
+import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, QueryCostMonitoringConfig}
 import com.digitalasset.canton.health.ComponentHealthState
@@ -11,7 +12,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, UnlessShu
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.resource.DatabaseStorageError.DatabaseConnectionLost.DatabaseConnectionLost
-import com.digitalasset.canton.resource.DbStorage.{DbAction, DbStorageCreationException}
+import com.digitalasset.canton.resource.DbStorage.{DbAction, DbStorageCreationException, Profile}
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
@@ -148,7 +149,37 @@ object DbStorageSingle {
   ): EitherT[UnlessShutdown, String, DbStorageSingle] = {
     val numCombined = config.numCombinedConnectionsCanton(connectionPoolForParticipant)
     val logger = loggerFactory.getTracedLogger(getClass)
+
     logger.info(s"Creating storage, num-combined: $numCombined")
+
+    val profile = DbStorage.profile(config)
+
+    val readOnlyCheckConfigO = profile match {
+      case _: Profile.Postgres =>
+        // Enable periodic read-only connection check on hikari for postgres
+        DbConfig
+          .toConfig(
+            Map(
+              // Run a query that checks if transaction_read_only is on and fail the test query with an exception.
+              "connectionTestQuery" ->
+                """
+                |DO $$DECLARE read_only text;
+                |BEGIN
+                | select current_setting('transaction_read_only') into read_only;
+                | if read_only = 'on' then
+                |  raise 'connection is read-only';
+                | end if;
+                |END$$;
+                """.stripMargin,
+              // Run the connection test query every 30 seconds
+              "keepaliveTime" -> "30000",
+            )
+          )
+          .some
+
+      case _ => None
+    }
+
     for {
       db <- DbStorage.createDatabase(
         config,
@@ -157,8 +188,8 @@ object DbStorageSingle {
         logQueryCost,
         scheduler,
         retryConfig = retryConfig,
+        additionalConfigDefaults = readOnlyCheckConfigO,
       )(loggerFactory)
-      profile = DbStorage.profile(config)
       storage = new DbStorageSingle(
         profile,
         config,

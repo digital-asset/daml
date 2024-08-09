@@ -34,7 +34,7 @@ object RequestSigner {
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): EitherT[Future, String, SignedContent[A]] = {
-      val snapshot = topologyClient.headSnapshot
+      val snapshot = topologyClient.currentSnapshotApproximation
       SignedContent
         .create(
           topologyClient.pureCrypto,

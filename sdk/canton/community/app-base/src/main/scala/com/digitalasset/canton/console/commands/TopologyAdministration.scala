@@ -490,8 +490,6 @@ class TopologyAdministrationGroup(
       require(currentKey.purpose == newKey.purpose, "The rotated keys must have the same purpose")
 
       // Authorize the new key
-      // The owner will now have two keys, but by convention the first one added is always
-      // used by everybody.
       authorize(
         TopologyChangeOp.Add,
         owner,

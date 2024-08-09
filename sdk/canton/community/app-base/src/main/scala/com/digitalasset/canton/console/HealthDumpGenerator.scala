@@ -5,9 +5,9 @@ package com.digitalasset.canton.console
 
 import better.files.File
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.LocalNodeConfig
-import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.metrics.MetricsSnapshot
@@ -15,8 +15,10 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ReleaseVersion
 import io.circe.Encoder
 import io.circe.syntax.*
+import io.grpc.Status as GrpcStatus
 
 import scala.annotation.nowarn
+import scala.concurrent.ExecutionContextExecutor
 
 /** Generates a health dump zip file containing information about the current Canton process
   * This is the core of the implementation of the HealthDump gRPC endpoint.
@@ -25,30 +27,68 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
   def status(): Status
   def environment: Environment
   def grpcAdminCommandRunner: GrpcAdminCommandRunner
+
+  protected implicit val executionContext: ExecutionContextExecutor =
+    environment.executionContext
+
   protected implicit val statusEncoder: Encoder[Status]
 
+  /** First try to get the status using the node specific endpoint introduced in 2.10
+    * If it does not work, get the status from the old/shared status endpoint
+    *
+    * @param deserializer Deserializer for the old proto (with node specific data encoded in `bytes extra` attribute)
+    * @param nodeStatusCommand Command that allows to query the new, node specific status endpoint
+    */
   protected def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
       nodeConfig: LocalNodeConfig,
       deserializer: v0.NodeStatus.Status => ParsingResult[S],
-  ): NodeStatus[S] =
-    grpcAdminCommandRunner
-      .runCommand(
-        nodeName,
-        new StatusAdminCommands.GetStatus[S](deserializer),
-        nodeConfig.clientAdminApi,
-        None,
-      ) match {
-      case CommandSuccessful(value) => value
-      case err: CommandError => NodeStatus.Failure(err.cause)
+      nodeStatusCommand: NodeStatusCommand[S, _, _],
+  ): NodeStatus[S] = {
+
+    def fallback =
+      grpcAdminCommandRunner
+        .runCommand(
+          nodeName,
+          new StatusAdminCommands.GetStatus[S](deserializer),
+          nodeConfig.clientAdminApi,
+          None,
+        )
+        .toEither match {
+        case Left(value) => CommandSuccessful(NodeStatus.Failure(value))
+        case Right(value) => CommandSuccessful(value)
+      }
+
+    val commandResult
+        : ConsoleCommandResult[Either[GrpcStatus.Code.UNIMPLEMENTED.type, NodeStatus[S]]] =
+      grpcAdminCommandRunner
+        .runCommand(
+          nodeName,
+          nodeStatusCommand,
+          nodeConfig.clientAdminApi,
+          None,
+        )
+
+    val result = commandResult.toEither match {
+      case Left(errorMessage) => CommandSuccessful(NodeStatus.Failure(errorMessage))
+      /* For backward compatibility:
+      Assumes getting a left of gRPC code means that the node specific status endpoint
+      is not available (because that Canton version does not include it), and thus we
+      want to fall back to the original status command.
+       */
+      case Right(Left(_code)) => fallback
+      case Right(Right(nodeStatus)) => CommandSuccessful(nodeStatus)
     }
+    result.value
+  }
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
       deserializer: v0.NodeStatus.Status => ParsingResult[S],
+      nodeStatusCommand: NodeStatusCommand[S, _, _],
   ): Map[String, () => NodeStatus[S]] =
     nodes.map { case (nodeName, nodeConfig) =>
-      nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer))
+      nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer, nodeStatusCommand))
     }
 
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072

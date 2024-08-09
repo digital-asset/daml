@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.console
 
+import com.digitalasset.canton.admin.api.client.commands.{
+  DomainAdminCommands,
+  ParticipantAdminCommands,
+}
 import com.digitalasset.canton.admin.api.client.data.{
   CommunityCantonStatus,
   DomainNodeStatus,
@@ -25,9 +29,17 @@ class CommunityHealthDumpGenerator(
     deriveEncoder[CommunityCantonStatus]
   }
 
-  override def status(): CommunityCantonStatus = // TODO(#20498)
+  override def status(): CommunityCantonStatus =
     CommunityCantonStatus.getStatus(
-      statusMap(environment.config.domainsByString, DomainNodeStatus.fromProtoV0),
-      statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV0),
+      statusMap(
+        environment.config.domainsByString,
+        DomainNodeStatus.fromProtoV0,
+        DomainAdminCommands.Health.DomainStatusCommand(),
+      ),
+      statusMap(
+        environment.config.participantsByString,
+        ParticipantStatus.fromProtoV0,
+        ParticipantAdminCommands.Health.ParticipantStatusCommand(),
+      ),
     )
 }
