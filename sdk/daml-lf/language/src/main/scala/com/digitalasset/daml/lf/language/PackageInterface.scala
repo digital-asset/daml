@@ -185,6 +185,18 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
     lookupTemplate(name, Reference.Template(name))
 
+  private[this] def lookupContractKey(
+      name: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, TemplateKeySignature] = {
+    lookupTemplate(name, context).flatMap(
+      _.key.toRight(LookupError.NotFound(Reference.ContractKey(name), context))
+    )
+  }
+
+  def lookupContractKey(name: TypeConName): Either[LookupError, TemplateKeySignature] =
+    lookupContractKey(name: TypeConName, Reference.ContractKey(name))
+
   private[this] def lookupInterface(
       name: TypeConName,
       context: => Reference,

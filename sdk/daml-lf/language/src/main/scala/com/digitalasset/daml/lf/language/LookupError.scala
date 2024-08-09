@@ -165,4 +165,8 @@ object Reference {
     override def pretty: String = s"exception $tyCon"
   }
 
+  final case class ContractKey(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"contract key for template $tyCon"
+  }
+
 }
