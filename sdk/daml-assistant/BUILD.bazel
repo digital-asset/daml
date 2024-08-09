@@ -124,6 +124,7 @@ da_haskell_test(
         "base",
         "conduit",
         "conduit-extra",
+        "containers",
         "directory",
         "extra",
         "filepath",
