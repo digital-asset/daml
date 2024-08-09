@@ -27,6 +27,7 @@ import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
 import Data.Bifunctor (second)
+import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Yaml as Y
 import Control.Exception (catch, displayException)
@@ -601,6 +602,9 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
         e -> Tasty.assertFailure $ "Expected failed to find environment variable error, got " <> show e
     , test "not interpolate when feature is disabled via field" [] "name: ${MY_NAME}\nenvironment-variable-interpolation: false" $ withSuccess $ \p ->
         queryTopLevelField p "name" @?= "${MY_NAME}"
+    , test "replace in object names (i.e. module prefixes)" [("MY_NAME", "package")] "module-prefixes:\n  ${MY_NAME}-0.0.1: V1" $ withSuccess $ \p ->
+        either (error . show) id (queryProjectConfigRequired @(Map.Map String String) ["module-prefixes"] p)
+          @?= Map.singleton "package-0.0.1" "V1"
     ]
   where
     test :: String -> [(String, String)] -> String -> (Either ConfigError ProjectConfig -> IO ()) -> Tasty.TestTree

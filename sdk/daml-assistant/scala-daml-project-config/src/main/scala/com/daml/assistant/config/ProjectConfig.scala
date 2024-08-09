@@ -6,7 +6,7 @@ package com.daml.assistant.config
 import java.io.File
 import java.nio.file.{Files, Path}
 
-import io.circe.{Json, yaml}
+import io.circe.{Json, JsonObject, yaml}
 import io.circe.optics.JsonOptics._
 import monocle.function.Plated
 
@@ -150,7 +150,15 @@ object ProjectConfig {
     )
 
   def interpolateEnvironmentVariables(json: Json, env: Map[String, String]): Json =
-    Plated.transform[Json](_.mapString(interpolateEnvironmentVariable(_, env)))(json)
+    Plated.transform[Json](
+      _.mapString(interpolateEnvironmentVariable(_, env))
+        .mapObject(interpolateJsonObjectKeys(_, env))
+    )(json)
+
+  def interpolateJsonObjectKeys(jsonObject: JsonObject, env: Map[String, String]): JsonObject =
+    JsonObject.fromIterable(jsonObject.toMap.map { case (k, v) =>
+      (interpolateEnvironmentVariable(k, env), v)
+    })
 
   /** Loads a project configuration from a string */
   def loadFromString(
