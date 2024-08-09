@@ -22,6 +22,7 @@ import com.digitalasset.canton.admin.participant.v30.EnterpriseParticipantReplic
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionServiceStub
 import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageServiceStub
 import com.digitalasset.canton.admin.participant.v30.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
+import com.digitalasset.canton.admin.participant.v30.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingServiceStub
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
@@ -343,6 +344,40 @@ object ParticipantAdminCommands {
         Right(response.dars)
     }
 
+  }
+
+  object PartyManagement {
+
+    final case class StartPartyReplication(
+        id: String,
+        party: PartyId,
+        sourceParticipant: ParticipantId,
+        domain: DomainId,
+    ) extends GrpcAdminCommand[StartPartyReplicationRequest, StartPartyReplicationResponse, Unit] {
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        PartyManagementServiceGrpc.stub(channel)
+
+      override def createRequest(): Either[String, StartPartyReplicationRequest] =
+        Right(
+          StartPartyReplicationRequest(
+            id = id,
+            partyUid = party.uid.toProtoPrimitive,
+            sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
+            domainUid = domain.uid.toProtoPrimitive,
+          )
+        )
+
+      override def submitRequest(
+          service: PartyManagementServiceStub,
+          request: StartPartyReplicationRequest,
+      ): Future[StartPartyReplicationResponse] =
+        service.startPartyReplication(request)
+
+      override def handleResponse(response: StartPartyReplicationResponse): Either[String, Unit] =
+        Right(())
+    }
   }
 
   object PartyNameManagement {

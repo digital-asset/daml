@@ -21,6 +21,9 @@ object ForceFlag {
   case object LedgerTimeRecordTimeToleranceIncrease
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE)
 
+  case object PackageVettingRevocation
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_PACKAGE_VETTING_REVOCATION)
+
   /** This should only be used internally in situations where
     * <ul>
     *   <li>the caller knows what they are doing</li>
@@ -29,7 +32,7 @@ object ForceFlag {
     * </ul>
     */
   val all: Map[v30.ForceFlag, ForceFlag] =
-    Seq[ForceFlag](AlienMember, LedgerTimeRecordTimeToleranceIncrease)
+    Seq[ForceFlag](AlienMember, LedgerTimeRecordTimeToleranceIncrease, PackageVettingRevocation)
       .map(ff => ff.toProtoV30 -> ff)
       .toMap
 

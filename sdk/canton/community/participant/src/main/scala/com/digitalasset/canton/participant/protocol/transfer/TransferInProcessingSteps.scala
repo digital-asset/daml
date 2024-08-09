@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
 import com.digitalasset.canton.data.ViewType.TransferInViewType
@@ -125,18 +126,16 @@ private[transfer] class TransferInProcessingSteps(
     def activeParticipantsOfParty(
         parties: Seq[LfPartyId]
     ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] = EitherT(
-      topologySnapshot.activeParticipantsOfPartiesWithAttributes(parties).map {
-        partyToParticipantAttributes =>
-          import cats.syntax.traverse.*
-          partyToParticipantAttributes.toSeq
-            .traverse { case (party, participants) =>
-              Either.cond(
-                participants.nonEmpty,
-                participants.keySet,
-                NoParticipantForReceivingParty(transferId, party),
-              )
-            }
-            .map(_.toSet.flatten)
+      topologySnapshot.activeParticipantsOfParties(parties).map { partyToParticipantAttributes =>
+        partyToParticipantAttributes.toSeq
+          .traverse { case (party, participants) =>
+            Either.cond(
+              participants.nonEmpty,
+              participants,
+              NoParticipantForReceivingParty(transferId, party),
+            )
+          }
+          .map(_.toSet.flatten)
       }
     )
 

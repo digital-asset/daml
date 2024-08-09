@@ -142,7 +142,7 @@ object RootHashMessage
       cast: RootHashMessagePayloadCast[Payload]
   ): ProtocolMessageContentCast[RootHashMessage[Payload]] =
     ProtocolMessageContentCast.create[RootHashMessage[Payload]]("RootHashMessage") {
-      case rhm: RootHashMessage[_] => rhm.traverse(cast.toKind)
+      case rhm: RootHashMessage[?] => rhm.traverse(cast.toKind)
       case _ => None
     }
 

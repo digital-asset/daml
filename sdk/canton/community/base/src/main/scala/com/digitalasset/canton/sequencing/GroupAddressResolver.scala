@@ -30,11 +30,9 @@ object GroupAddressResolver {
           if (parties.isEmpty)
             Future.successful(Map.empty[GroupRecipient, Set[Member]])
           else
-            for {
-              mapping <-
-                topologyOrSequencingSnapshot
-                  .activeParticipantsOfParties(parties.toSeq)
-            } yield asGroupRecipientsToMembers(mapping)
+            topologyOrSequencingSnapshot
+              .activeParticipantsOfParties(parties.toSeq)
+              .map(asGroupRecipientsToMembers)
         }
         mediatorGroupByMember <- {
           val mediatorGroups = groupRecipients.collect { case MediatorGroupRecipient(group) =>
