@@ -18,6 +18,7 @@ service TopologyManagerReadService {
   rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResponse);
 
   rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResponse);
+  rpc ListPartyToKeyMapping(ListPartyToKeyMappingRequest) returns (ListPartyToKeyMappingResponse);
 
   rpc ListDomainTrustCertificate(ListDomainTrustCertificateRequest) returns (ListDomainTrustCertificateResponse);
   rpc ListParticipantDomainPermission(ListParticipantDomainPermissionRequest) returns (ListParticipantDomainPermissionResponse);
@@ -140,6 +141,19 @@ message ListOwnerToKeyMappingResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.OwnerToKeyMapping item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListPartyToKeyMappingRequest {
+  BaseQuery base_query = 1;
+  string filter_party = 2;
+}
+
+message ListPartyToKeyMappingResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyToKeyMapping item = 2;
   }
   repeated Result results = 1;
 }

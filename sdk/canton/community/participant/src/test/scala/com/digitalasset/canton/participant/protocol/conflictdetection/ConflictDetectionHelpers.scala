@@ -186,48 +186,34 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       create: Set[LfContractId] = Set.empty,
       tfOut: Map[LfContractId, (DomainId, TransferCounter)] = Map.empty,
       tfIn: Map[LfContractId, TransferId] = Map.empty,
-  ): CommitSet = {
-    val contractHash = ExampleTransactionFactory.lfHash(0)
+  ): CommitSet =
     CommitSet(
       archivals = arch
         .map(
-          _ -> WithContractHash(
-            CommitSet.ArchivalCommit(Set.empty[LfPartyId]),
-            contractHash,
-          )
+          _ -> CommitSet.ArchivalCommit(Set.empty[LfPartyId])
         )
         .toMap,
       creations = create
         .map(
-          _ -> WithContractHash(
-            CommitSet.CreationCommit(
-              ContractMetadata.empty,
-              initialTransferCounter,
-            ),
-            contractHash,
+          _ -> CommitSet.CreationCommit(
+            ContractMetadata.empty,
+            initialTransferCounter,
           )
         )
         .toMap,
       transferOuts = tfOut.fmap { case (id, transferCounter) =>
-        WithContractHash(
-          CommitSet.TransferOutCommit(
-            TargetDomainId(id),
-            Set.empty,
-            transferCounter,
-          ),
-          contractHash,
+        CommitSet.TransferOutCommit(
+          TargetDomainId(id),
+          Set.empty,
+          transferCounter,
         )
       },
       transferIns = tfIn.fmap(id =>
-        WithContractHash(
-          CommitSet.TransferInCommit(
-            id,
-            ContractMetadata.empty,
-            initialTransferCounter,
-          ),
-          contractHash,
+        CommitSet.TransferInCommit(
+          id,
+          ContractMetadata.empty,
+          initialTransferCounter,
         )
       ),
     )
-  }
 }

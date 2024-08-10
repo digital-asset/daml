@@ -22,7 +22,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.time.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[mediator] trait MediatorEventDeduplicator {
 
@@ -87,27 +87,27 @@ private[mediator] object MediatorEventDeduplicator {
 
     def getDomainParameters(
         tracedRequestTime: Traced[CantonTimestamp]
-    ): Future[DynamicDomainParametersWithValidity] =
+    ): FutureUnlessShutdown[DynamicDomainParametersWithValidity] =
       tracedRequestTime.withTraceContext { implicit traceContext => requestTime =>
         for {
-          snapshot <- topologyClient.awaitSnapshot(requestTime)
-          domainParameters <- snapshot
-            .findDynamicDomainParameters()
-            .flatMap(_.toFuture(new RuntimeException(_)))
+          snapshot <- topologyClient.awaitSnapshotUS(requestTime)
+          domainParameters <- FutureUnlessShutdown.outcomeF(
+            snapshot
+              .findDynamicDomainParameters()
+              .flatMap(_.toFuture(new RuntimeException(_)))
+          )
         } yield domainParameters
       }
 
     def getDeduplicationTimeout(
         tracedRequestTime: Traced[CantonTimestamp]
-    ): FutureUnlessShutdown[Duration] = FutureUnlessShutdown.outcomeF(
+    ): FutureUnlessShutdown[Duration] =
       getDomainParameters(tracedRequestTime).map(_.mediatorDeduplicationTimeout.duration)
-    )
 
     def getDecisionTime(
         tracedRequestTime: Traced[CantonTimestamp]
-    ): FutureUnlessShutdown[CantonTimestamp] = FutureUnlessShutdown.outcomeF(
+    ): FutureUnlessShutdown[CantonTimestamp] =
       getDomainParameters(tracedRequestTime).flatMap(_.decisionTimeForF(tracedRequestTime.value))
-    )
 
     new DefaultMediatorEventDeduplicator(
       store,

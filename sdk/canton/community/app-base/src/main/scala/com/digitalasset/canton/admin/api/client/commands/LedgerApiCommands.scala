@@ -1502,7 +1502,7 @@ object LedgerApiCommands {
 
     final case class CompletionRequest(
         partyId: LfPartyId,
-        beginOffset: String,
+        beginOffsetExclusive: String,
         expectedCompletions: Int,
         timeout: java.time.Duration,
         applicationId: String,
@@ -1518,7 +1518,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = beginOffset,
+            beginExclusive = beginOffsetExclusive,
           )
         )
 
