@@ -6,7 +6,7 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
-import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
+import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
@@ -63,7 +63,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
 
 object AdminLedgerClient {
   private[grpcLedgerClient] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(authenticatingStub(stub, _))
+    token.fold(stub)(AuthCallCredentials.authorizingStub(stub, _))
 
   /** A convenient shortcut to build a [[AdminLedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
