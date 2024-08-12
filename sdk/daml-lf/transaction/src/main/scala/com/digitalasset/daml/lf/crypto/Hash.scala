@@ -206,9 +206,14 @@ object Hash {
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
   ) extends Builder {
-    // In order to avoid hash collision, this should be used together
-    // with another data representing uniquely the type of `value`.
-    // See for instance hash : Node.GlobalKey => SHA256Hash
+
+    /*
+     * In order to avoid hash collision, this should be used together
+     *  with another data representing uniquely the type of `value`.
+     * See for instance hash : Node.GlobalKey => SHA256Hash
+     */
+
+
     @throws[HashingError]
     def addTypedValue(value: Value): this.type
 
@@ -232,6 +237,26 @@ object Hash {
 
   private final class LegacyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
       extends ValueHashBuilder(version = Version.Legacy, purpose = purpose, cid2Bytes = cid2Bytes) {
+
+    /*
+     * In the legacy case (i.e. contract cannot be upgraded) we implemented  following collision resistance property:
+     *
+     * Given two Daml values `v1` and `v2` of the same ground type
+     * `T`, i.e., no type variables in T, if `hash(v1) == hash(v2)`,
+     * then either `v1 == v2` or we have found a hash collision in the
+     * underlying hash function.
+
+     * Given the construction as a plain hash of bytes, this
+     * equivalently means that `v1` and `v2`must serialize to
+     * different bytes if `v1 != v2`. In fact, for the encoding for
+     * compound types like lists and records to work, we require that
+     * the encoding of values of the same type is prefix-free, i.e.,
+     * `v1` and `v2`'s encodings are not prefixes of each other.
+     *
+     * In particular, collections require that values they contain are
+     * never encoded as an empty bytestring.
+     *
+     */
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
@@ -284,6 +309,59 @@ object Hash {
         purpose = purpose,
         cid2Bytes = cid2Bytes,
       ) {
+
+    /*
+     * With upgrading, the restriction that values of the same type
+     * (from the legacy case) is too strong. We want the following
+     * relax property:
+     *      
+     * Given two Daml values `v1` of type `T1` and `v2` of type `T2`
+     * such that there is a type `T` so that `v1` can be up/downgraded
+     * into `v1'` of type `T` and `v2` can be up/downgraded into `v2'`
+     * of type `T`, then `hash(v1) == hash(v2)` implies that `v1 ==
+     * v2` or we have found a hash collision in the underlying hash
+     * function.
+
+     *  For example, let `T1 = {1: Int, i: Option[Time]}` and `T2 =
+     *  {1: Int, j: Option[Long]}` with `v1 = {1 = 5, i = None} : T1`
+     *  and `v2 = {1 = 6, j = None}` for some field numbers `i` and
+     *  `j` greater than 1. Then `v1` and `v2` can be downgraded to `T
+     *  = {1: Int}` and so we don't want their hashes to be the
+     *  same. Conversely, they can both be upgraded to `T' = {1: Int,
+     *  i: Option[Time], j: Option[Long]}` if `i != j` and so their
+     *  hashes must be different for this reason to, even if the
+     *  fields `i` and `j` are not None. For `i = j`, however, there
+     *  is no such `T'`. So it is fine that `v1' = {1 = 5, i:
+     *  Some(Epoch)} : T1` and `v2' = {1 = 5, j = Some(0L)} : T2` have
+     *  same hash because there is no type that contains both `v1'` and
+     *  `v2'`.
+     * 
+     * To achive that the new ¨friendly upgrade" scheme introduce
+     * notion of default value, and simply ignore record fields with
+     * default value, so they do not contribute to the value hash.
+     *  
+     * For the sake of extensibility we decided to introduce default
+     * value for more most of the scala type, text and builtin
+     * collection, instead of only optional. Concrealty for
+     *  - scala types (default if equal to 0)
+     *  - text (defail if empty)
+     *  - collections: optional, list, maps (default if empty). 
+     * 
+     * On the other hand, user data types (in particular records) have
+     * no default value -- we could have consider a record with only
+     * field with default values, default itself. We decided to not go
+     * this way, as it is much more complicate to impelement (we would
+     * need to recursively inspect its fields before be able to
+     * declare it default). 
+     * 
+     * Following inspiration from protobuf, record field encoding
+     * prefixed with theire filed numbes only if they are not default,
+     * otherwise they are ignored. Note the encoding for records
+     * remains prefix-free (assuming that the field contents'
+     * encodings are prefix-free) because we add the the end
+     * terminator 0xFF which is not a prefix of any field number
+     * (field number are positive integer)
+     */
 
     final override def addTypedValue(value: Value): this.type =
       value match {

@@ -260,7 +260,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
     }
 
     "not produce collision in Map of records" in {
-      def ref4(x4: Long) = {
+      def ref8(x8: Long) = {
         ValueRecord(
           None,
           ImmArray(
@@ -272,7 +272,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
             None -> ValueUnit,
             None -> ValueUnit,
             None -> ValueUnit,
-            None -> ValueInt64(x4),
+            None -> ValueInt64(x8),
           ),
         )
       }
@@ -281,16 +281,16 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
         ValueGenMap(ImmArray.from(elements.map { case (k, v) => ValueText(k) -> v }))
       val value1 = genmap(
         "0" -> // '00000001' + '30'
-          ref4(0x3030303030303030L), // '00000008' + '3030303030303030'
+          ref8(0x3030303030303030L), // '00000008' + '3030303030303030'
         "00000000" -> // '00000008' + '3030303030303030'
-          ref4(0), // <empty>
-      )
+          ref8(0), // <empty>
+      ) // `FF`
       val value2 = genmap(
         "0" -> // '00000001' + '30'
-          ref4(0), // <empty>
-        "00000000" -> // '00000004' + '30303030'
-          ref4(0x3030303030303030L), // '00000004' + '30303030'
-      )
+          ref8(0), // <empty>
+        "00000000" -> // '00000008' + '30303030'
+          ref8(0x3030303030303030L), // '00000008' + '30303030'
+      ) // `FF`
 
       val tid = defRef("module", "name")
 
