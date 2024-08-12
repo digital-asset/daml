@@ -25,7 +25,6 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-  final override protected val remoteJavaDebugging: Boolean = true
 
   "Daml Script against authorized ledger" can {
     "auth" should {
