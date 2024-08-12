@@ -279,18 +279,20 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
 
       def genmap(elements: (String, Value)*) =
         ValueGenMap(ImmArray.from(elements.map { case (k, v) => ValueText(k) -> v }))
+
+      // Not that the hahes of value1 and value2 collide if the <record-end-termination> is empty
       val value1 = genmap(
         "0" -> // '00000001' + '30'
           ref8(0x3030303030303030L), // '00000008' + '3030303030303030'
         "00000000" -> // '00000008' + '3030303030303030'
-          ref8(0), // <empty>
-      ) // `FF`
+          ref8(0), // <record-end-termination>
+      ) // <record-end-termination>
       val value2 = genmap(
         "0" -> // '00000001' + '30'
-          ref8(0), // <empty>
+          ref8(0), // <record-end-termination>
         "00000000" -> // '00000008' + '30303030'
           ref8(0x3030303030303030L), // '00000008' + '30303030'
-      ) // `FF`
+      ) // <record-end-termination>
 
       val tid = defRef("module", "name")
 

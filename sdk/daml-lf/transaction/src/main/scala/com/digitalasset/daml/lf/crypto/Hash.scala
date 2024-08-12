@@ -335,26 +335,26 @@ object Hash {
      *  same hash because there is no type that contains both `v1'` and
      *  `v2'`.
      *
-     * To achive that the new ¨friendly upgrade" scheme introduce
-     * notion of default value, and simply ignore record fields with
+     * To achieve that, the new "friendly upgrade" scheme introduces
+     * notion of default values, and ignoresq record fields with
      * default value, so they do not contribute to the value hash.
      *
      * For the sake of extensibility we decided to introduce default
-     * value for more most of the scala type, text and builtin
-     * collection, instead of only optional. Concrealty for
+     * value for more most of the scala types, text and builtin
+     * collections, instead of only optional. Concretely for
      *  - scala types (default if equal to 0)
-     *  - text (defail if empty)
+     *  - text (default if empty)
      *  - collections: optional, list, maps (default if empty).
      *
      * On the other hand, user data types (in particular records) have
      * no default value -- we could have consider a record with only
      * field with default values, default itself. We decided to not go
-     * this way, as it is much more complicate to impelement (we would
+     * this way, as it is much more complicate to implement (we would
      * need to recursively inspect its fields before be able to
      * declare it default).
      *
      * Following inspiration from protobuf, record field encoding
-     * prefixed with theire filed numbes only if they are not default,
+     * prefixed with their filed numbers if they are not default,
      * otherwise they are ignored. Note the encoding for records
      * remains prefix-free (assuming that the field contents'
      * encodings are prefix-free) because we add the the end
