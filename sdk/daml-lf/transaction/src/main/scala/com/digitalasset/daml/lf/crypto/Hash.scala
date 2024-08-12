@@ -213,7 +213,6 @@ object Hash {
      * See for instance hash : Node.GlobalKey => SHA256Hash
      */
 
-
     @throws[HashingError]
     def addTypedValue(value: Value): this.type
 
@@ -314,7 +313,7 @@ object Hash {
      * With upgrading, the restriction that values of the same type
      * (from the legacy case) is too strong. We want the following
      * relax property:
-     *      
+     *
      * Given two Daml values `v1` of type `T1` and `v2` of type `T2`
      * such that there is a type `T` so that `v1` can be up/downgraded
      * into `v1'` of type `T` and `v2` can be up/downgraded into `v2'`
@@ -335,25 +334,25 @@ object Hash {
      *  Some(Epoch)} : T1` and `v2' = {1 = 5, j = Some(0L)} : T2` have
      *  same hash because there is no type that contains both `v1'` and
      *  `v2'`.
-     * 
+     *
      * To achive that the new ¨friendly upgrade" scheme introduce
      * notion of default value, and simply ignore record fields with
      * default value, so they do not contribute to the value hash.
-     *  
+     *
      * For the sake of extensibility we decided to introduce default
      * value for more most of the scala type, text and builtin
      * collection, instead of only optional. Concrealty for
      *  - scala types (default if equal to 0)
      *  - text (defail if empty)
-     *  - collections: optional, list, maps (default if empty). 
-     * 
+     *  - collections: optional, list, maps (default if empty).
+     *
      * On the other hand, user data types (in particular records) have
      * no default value -- we could have consider a record with only
      * field with default values, default itself. We decided to not go
      * this way, as it is much more complicate to impelement (we would
      * need to recursively inspect its fields before be able to
-     * declare it default). 
-     * 
+     * declare it default).
+     *
      * Following inspiration from protobuf, record field encoding
      * prefixed with theire filed numbes only if they are not default,
      * otherwise they are ignored. Note the encoding for records
