@@ -43,7 +43,6 @@ import qualified DA.Daml.Project.Types as DATypes
 import qualified DA.Daml.Assistant.Version as DAVersion
 import qualified DA.Daml.Assistant.Env as DAEnv
 import qualified DA.Daml.Assistant.Util as DAUtil
-import DA.Daml.LF.Ast.Version
 
 -- Version of the "@mojotech/json-type-validation" library we're using.
 jtvVersion :: T.Text
