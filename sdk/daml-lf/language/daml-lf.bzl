@@ -75,7 +75,7 @@ lf_version_latest = {
 lf_version_configuration = {
     "default": "1.15",
     "latest": lf_version_latest.get("1"),
-    "preview": "1.16",
+    "preview": "1.17",
     "dev": "1.dev",
 }
 
@@ -117,18 +117,18 @@ LF_VERSIONS = ([
     "1.13",
     "1.14",
     "1.15",
-    "1.16",
-] if is_intel else ["1.14", "1.15", "1.16"]) + LF_DEV_VERSIONS
+    "1.17",
+] if is_intel else ["1.14", "1.15", "1.17"]) + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
-SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15", "1.16"]
+SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15", "1.17"]
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["1.14", "1.15", "1.16"] + LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["1.14", "1.15", "1.17"] + LF_DEV_VERSIONS
 
 # All LF major versions
 LF_MAJOR_VERSIONS = ["1"]

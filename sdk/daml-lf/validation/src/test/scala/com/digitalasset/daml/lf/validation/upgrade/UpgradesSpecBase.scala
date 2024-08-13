@@ -98,7 +98,7 @@ trait LongTests { this: UpgradesSpec =>
 
     s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
       for {
-        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v116.dar")
+        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v117.dar")
         result2 <- uploadPackage("test-common/upgrades-EmptyProject-v1dev.dar")
       } yield {
         // We expect both results to be error-free
@@ -592,7 +592,7 @@ trait LongTests { this: UpgradesSpec =>
 
     "report no upgrade errors when the upgrade use a newer version of LF" in {
       testPackagePair(
-        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_17),
         mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v1_dev),
         assertPackageUpgradeCheck(None),
       )
@@ -601,7 +601,7 @@ trait LongTests { this: UpgradesSpec =>
     "report upgrade errors when the upgrade use a older version of LF" in
       testPackagePair(
         mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v1_dev),
-        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_17),
         assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
       )
 

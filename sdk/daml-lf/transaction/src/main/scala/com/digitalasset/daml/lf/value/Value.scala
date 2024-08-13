@@ -180,7 +180,7 @@ object Value {
       copy(arg = arg.mapCid(f))
 
     def upgradable: Boolean = {
-      // package is defined iff the package version of the template >= 1.16
+      // package is defined iff the package version of the template >= 1.17
       packageName.isDefined
     }
   }
