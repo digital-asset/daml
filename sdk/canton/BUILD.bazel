@@ -286,7 +286,7 @@ da_scala_library(
     name = "daml-common-staging_grpc-utils",
     srcs = glob([
         "daml-common-staging/grpc-utils/src/main/scala/**/*.scala",
-        "daml-common-staging/grpc-utils/src/main/scala/**/*.java"
+        "daml-common-staging/grpc-utils/src/main/scala/**/*.java",
     ]),
     scalacopts = [
         "-Xsource:3",
@@ -318,7 +318,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
 )
-
 
 ### daml-common-staging/util-external ###
 
