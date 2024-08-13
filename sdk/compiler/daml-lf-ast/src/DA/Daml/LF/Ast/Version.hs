@@ -276,9 +276,9 @@ featureDynamicExercise = Feature
 
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
-    { featureName = "Package upgrades POC"
+    { featureName = "Smart Contract Upgrade"
     , featureVersionReq = VersionReq \case
-        V1 ->  allMinorVersionsAfter (PointStable 16)
+        V1 -> allMinorVersionsAfter (PointStable 17)
         V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
