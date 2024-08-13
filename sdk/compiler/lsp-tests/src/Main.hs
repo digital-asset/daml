@@ -485,6 +485,26 @@ requestTests run runScripts = testGroup "requests"
               , _range = Just $ Range (Position 1 27) (Position 1 30)
               }
           closeDoc main'
+
+    , testCase "type on hover: record constructor" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "data MyRecord = MyRecord with v : String"
+              , "simple arg1 = MyRecord with v = arg1"
+              ]
+          Just fp <- pure $ uriToFilePath (main' ^. uri)
+          r <- getHover main' (Position 2 19)
+          liftIO $ r @?= Just Hover
+              { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
+                    [ "```daml"
+                    , "Main.MyRecord"
+                    , ": MyRecord"
+                    , "```"
+                    , "* * *"
+                    , "*Defined at " <> T.pack fp <> ":2:17*"]
+              , _range = Just $ Range (Position 2 14) (Position 2 36)
+              }
+          closeDoc main'
     , testCase "definition" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "module Test where"
@@ -496,6 +516,7 @@ requestTests run runScripts = testGroup "requests"
               , "bar = answerFromTest"
               , "foo thisIsAParam = thisIsAParam <> \" concatenated with a Text.\""
               , "aFunction = let letParam = 10 in letParam"
+              , "recordConst p c = SomeTemplate with p = p, c = c"
               , "template SomeTemplate"
               , "  with"
               , "    p : Party"
@@ -517,15 +538,18 @@ requestTests run runScripts = testGroup "requests"
           locs <- getDefinitions main' (Position 1 10)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 13 18)
+          locs <- getDefinitions main' (Position 14 18)
           liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+          -- recordConst
+          locs <- getDefinitions main' (Position 5 22)
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 6 9) (Position 6 21))]
 
           -- introduce syntax error
-          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 6 6) (Position 6 6))) Nothing "+\n"]
-          expectDiagnostics [("Main.daml", [(DsError, (6, 6), "Parse error")])]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 7 6) (Position 7 6))) Nothing "+\n"]
+          expectDiagnostics [("Main.daml", [(DsError, (7, 6), "Parse error")])]
 
           -- everything should still work because we use stale information.
           -- thisIsAParam
@@ -538,11 +562,14 @@ requestTests run runScripts = testGroup "requests"
           locs <- getDefinitions main' (Position 1 10)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 14 18)
+          locs <- getDefinitions main' (Position 15 18)
           liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
           liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+          -- recordConst
+          locs <- getDefinitions main' (Position 5 22)
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 6 9) (Position 6 21))]
 
           closeDoc main'
           closeDoc test
