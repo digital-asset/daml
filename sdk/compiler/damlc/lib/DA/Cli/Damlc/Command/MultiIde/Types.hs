@@ -308,6 +308,7 @@ data MultiIdeState = MultiIdeState
   , misSubIdeMessageHandler :: SubIdeMessageHandler
   , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
   , misSdkInstallDatasVar :: SdkInstallDatasVar
+  , misIdentifier :: T.Text
   }
 
 logError :: MultiIdeState -> String -> IO ()
@@ -326,11 +327,12 @@ newMultiIdeState
   :: FilePath
   -> PackageHome
   -> Logger.Priority
+  -> T.Text
   -> [String]
   -> (MultiIdeState -> SubIdeMessageHandler)
   -> (MultiIdeState -> UnsafeAddNewSubIdeAndSend)
   -> IO MultiIdeState
-newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend = do
+newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend = do
   (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   misSubIdesVar <- newTMVarIO @SubIdes mempty

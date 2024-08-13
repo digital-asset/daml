@@ -48,12 +48,12 @@ createDefaultPackage = do
     ]
   pure (PackageHome misDefaultPackagePath, cleanup)
 
-runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> [String] -> IO ()
-runMultiIde loggingThreshold args = do
+runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> T.Text -> [String] -> IO ()
+runMultiIde loggingThreshold identifier args = do
   homePath <- toPosixFilePath <$> getCurrentDirectory
   (misDefaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage
   let misSubIdeArgs = if loggingThreshold <= Logger.Debug then "--debug" : args else args
-  miState <- newMultiIdeState homePath misDefaultPackagePath loggingThreshold misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend
+  miState <- newMultiIdeState homePath misDefaultPackagePath loggingThreshold identifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend
   invalidPackageHomes <- updatePackageData miState
 
   -- Ensure we don't send messages to the client until it finishes initializing

@@ -69,6 +69,7 @@ subIdeMessageHandler miState unblock ide bs = do
       prefixer = 
         addProgressTokenPrefixToServerMessage (ideMessageIdPrefix ide)
           . addLspPrefixToServerMessage ide
+          . addCommandPrefixes miState
       mPrefixedMsg :: Maybe LSP.FromServerMessage
       mPrefixedMsg = prefixer <$> mMsg
 
@@ -176,19 +177,20 @@ clientMessageHandler miState unblock bs = do
       val = er "eitherDecode" $ Aeson.eitherDecodeStrict bs
 
   unPrefixedMsg <- either error id <$> parseClientMessageWithTracker (misFromServerMethodTrackerVar miState) val
-  let msg = addProgressTokenPrefixToClientMessage unPrefixedMsg
+  let msg = stripCommandPrefixes miState . addProgressTokenPrefixToClientMessage $ unPrefixedMsg
 
   case msg of
     -- Store the initialize params for starting subIdes, respond statically with what ghc-ide usually sends.
     LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
       putMVar (misInitParamsVar miState) _params
       -- Send initialized out first (skipping the queue), then unblock for other messages
-      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right initializeResult)
+      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right $ initializeResult $ misIdentifier miState)
       unblock
 
       -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
-      putFromServerCoordinatorMessage miState registerFileWatchersMessage
-      sendClient miState registerFileWatchersMessage
+      let watcherMessage = registerFileWatchersMessage $ misMultiPackageHome miState
+      putFromServerCoordinatorMessage miState watcherMessage
+      sendClient miState watcherMessage
 
     LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
       let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
@@ -282,10 +284,9 @@ clientMessageHandler miState unblock bs = do
 
     LSP.FromClientMess meth params ->
       case getMessageForwardingBehaviour miState meth params of
-        ForwardRequest mess (Single path) -> do
+        ForwardRequest _ (Single path) -> do
           logDebug miState $ "single req on method " <> show meth <> " over path " <> path
-          let LSP.RequestMessage {_id, _method} = mess
-              msg' = castFromClientMessage msg
+          let msg' = castFromClientMessage msg
           sendSubIdeByPath miState path msg'
 
         ForwardRequest mess (AllRequest combine) -> do
