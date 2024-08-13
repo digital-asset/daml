@@ -280,6 +280,45 @@ da_scala_library(
     ],
 )
 
+### daml-common-staging/grpc-utils ###
+
+da_scala_library(
+    name = "daml-common-staging_grpc-utils",
+    srcs = glob([
+        "daml-common-staging/grpc-utils/src/main/scala/**/*.scala",
+        "daml-common-staging/grpc-utils/src/main/scala/**/*.java",
+    ]),
+    scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+        # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
+        "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
+    ],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-grpc-utils:__VERSION__"],
+    unused_dependency_checker_mode = "error",
+    visibility = [
+        "//daml-lf/validation:__subpackages__",
+        "//daml-script:__subpackages__",
+        "//test-common/canton:__subpackages__",
+    ],
+    deps = [
+        ":daml-common-staging_daml-errors",
+        ":ledger_api_proto_scala",
+        ":pekko-stream-minus-patched-classes",
+        "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_slick_slick_2_13",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
 ### daml-common-staging/util-external ###
 
 da_scala_library(
@@ -360,6 +399,7 @@ da_scala_library(
     deps = [
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
+        ":daml-common-staging_grpc-utils",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -370,32 +410,21 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/grpc-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
-        "//libs-scala/timer-utils",
         "//observability/metrics",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
-        "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
-        "@maven//:commons_codec_commons_codec",
-        "@maven//:commons_io_commons_io",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_netty_netty_buffer",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
@@ -506,6 +535,7 @@ scala_library(
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
         ":daml-common-staging_daml-tls",
+        ":daml-common-staging_grpc-utils",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
@@ -1230,6 +1260,7 @@ scala_library(
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
+        ":daml-common-staging_grpc-utils",
         ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",

@@ -58,6 +58,7 @@ final case class CantonConfig(
     bootstrapScript: Option[String] = None,
     targetScope: Option[String] = None,
     disableUpgradeValidation: Boolean = false,
+    enableRemoteJavaDebugging: Boolean = false,
 ) {
 
   lazy val tlsConfig =
