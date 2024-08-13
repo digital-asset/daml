@@ -505,9 +505,9 @@ object Hash {
   private[crypto] def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
-      upgradable: Boolean = true,
+      upgradableFriendly: Boolean,
   ): ValueHashBuilder =
-    if (upgradable)
+    if (upgradableFriendly)
       new UpgradeFriendlyBuilder(purpose, cid2Bytes)
     else
       new LegacyBuilder(purpose, cid2Bytes)
@@ -533,7 +533,7 @@ object Hash {
     data.assertRight(fromString(s))
 
   def hashPrivateKey(s: String): Hash =
-    builder(Purpose.PrivateKey, noCid2String).addString(s).build
+    builder(Purpose.PrivateKey, noCid2String, upgradableFriendly = true).addString(s).build
 
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
@@ -544,7 +544,7 @@ object Hash {
       packageName: Ref.PackageName,
       key: Value,
   ): Hash = {
-    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
+    val hashBuilder = builder(Purpose.ContractKey, noCid2String, upgradableFriendly = true)
     hashBuilder
       .addQualifiedName(templateId.qualifiedName)
       .addString(packageName)
@@ -590,7 +590,7 @@ object Hash {
       commandId: Ref.CommandId,
       actAs: Set[Ref.Party],
   ): Hash =
-    builder(Purpose.ChangeId, noCid2String)
+    builder(Purpose.ChangeId, noCid2String, upgradableFriendly = true)
       .addString(applicationId)
       .addString(commandId)
       .addStringSet(actAs)
@@ -639,7 +639,7 @@ object Hash {
       keyHash: Hash,
       maintainer: Ref.Party,
   ): Hash =
-    builder(Purpose.MaintainerContractKeyUUID, noCid2String)
+    builder(Purpose.MaintainerContractKeyUUID, noCid2String, upgradableFriendly = true)
       .addHash(keyHash)
       .addString(maintainer)
       .build
