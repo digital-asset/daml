@@ -88,6 +88,14 @@ trait CantonFixtureWithResource[A]
   // temporary files after a test is done running
   protected val cantonFixtureDebugModeRemoveTmpFilesRegardless = false
 
+  // When true, the canton process is started with the necessary flags to enable remote debugging and is suspended until
+  // a debugger is attached. In order to use this feature, launch the test making use of the fixture from IntelliJ
+  // *in debug mode* and look for "Listening for transport dt_socket at address: 5005" in the console output. IntelliJ
+  // should display a clickable chip labelled "Attach debugger" next to this line. Clicking on this chip will attach the
+  // debugger to the canton process and resume execution. Breakpoints in the canton code under canton/* will then be
+  // taken into account by IntelliJ.
+  protected val remoteJavaDebugging: Boolean = false
+
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugModeIsDebug) {
@@ -127,6 +135,7 @@ trait CantonFixtureWithResource[A]
     bootstrapScript = bootstrapScript,
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
+    enableRemoteJavaDebugging = remoteJavaDebugging,
   )
 
   protected def info(msg: String): Unit =
