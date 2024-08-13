@@ -192,14 +192,17 @@ object CantonRunner {
     )
     var outputBuffer = ""
     val cmd = java ::
-      "-jar" ::
-      config.jarPath.toString ::
-      "daemon" ::
-      "-c" ::
-      files.configFile.toString ::
-      "--bootstrap" ::
-      files.bootstrapFile.toString ::
-      debugOptions
+      (if (config.enableRemoteJavaDebugging)
+         List("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
+       else List.empty) ++
+      ("-jar" ::
+        config.jarPath.toString ::
+        "daemon" ::
+        "-c" ::
+        files.configFile.toString ::
+        "--bootstrap" ::
+        files.bootstrapFile.toString ::
+        debugOptions)
     info(cmd.mkString("\\\n    "))
     for {
       proc <- Future(
