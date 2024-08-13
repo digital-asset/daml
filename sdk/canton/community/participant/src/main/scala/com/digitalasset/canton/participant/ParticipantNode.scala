@@ -607,7 +607,7 @@ class ParticipantNode(
     val metrics: ParticipantMetrics,
     val config: LocalParticipantConfig,
     val nodeParameters: ParticipantNodeParameters,
-    storage: Storage,
+    val storage: Storage,
     override protected val clock: Clock,
     val topologyManager: ParticipantTopologyManager,
     val cryptoPureApi: CryptoPureApi,
