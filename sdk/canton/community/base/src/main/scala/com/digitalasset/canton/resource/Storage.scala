@@ -677,6 +677,7 @@ object DbStorage {
       scheduler: Option[ScheduledExecutorService],
       forMigration: Boolean = false,
       retryConfig: DbStorage.RetryConfig = DbStorage.RetryConfig.failFast,
+      additionalConfigDefaults: Option[Config] = None,
   )(
       loggerFactory: NamedLoggerFactory
   )(implicit closeContext: CloseContext): EitherT[UnlessShutdown, String, Database] = {
@@ -685,12 +686,17 @@ object DbStorage {
 
     TraceContext.withNewTraceContext { implicit traceContext =>
       // Must be called to set proper defaults in case of H2
-      val configWithFallbacks: Config =
-        DbConfig.configWithFallback(config)(
-          numThreads,
-          s"slick-${loggerFactory.threadName}-${poolNameIndex.incrementAndGet()}",
-          logger,
-        )
+      val configWithFallbacks: Config = {
+        val cfg = DbConfig
+          .configWithFallback(config)(
+            numThreads,
+            s"slick-${loggerFactory.threadName}-${poolNameIndex.incrementAndGet()}",
+            logger,
+          )
+
+        // Apply the additional config defaults if they exists
+        additionalConfigDefaults.map(cfg.withFallback(_)).getOrElse(cfg)
+      }
 
       val configWithMigrationFallbacks: Config = if (forMigration) {
         if (configWithFallbacks.hasPath("numThreads")) {
