@@ -67,6 +67,7 @@ object CommunityConfigValidations
       developmentProtocolSafetyCheck,
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
+      adminTokensMatchOnParticipants,
     )
 
   /** Group node configs by db access to find matching db storage configs.
@@ -219,6 +220,21 @@ object CommunityConfigValidations
         !config.parameters.nonStandardConfig && participantConfig.ledgerApi.adminToken.nonEmpty
       )(
         s"Setting ledger-api.admin-token for participant ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
+      )
+    }
+    toValidated(errors)
+  }
+
+  private def adminTokensMatchOnParticipants(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.participants.toSeq.mapFilter { case (name, participantConfig) =>
+      Option.when(
+        participantConfig.ledgerApi.adminToken.exists(la =>
+          participantConfig.adminApi.adminToken.exists(_ != la)
+        )
+      )(
+        s"if both ledger-api.admin-token and admin-api.admin-token provided, they must match for participant ${name.unwrap}"
       )
     }
     toValidated(errors)

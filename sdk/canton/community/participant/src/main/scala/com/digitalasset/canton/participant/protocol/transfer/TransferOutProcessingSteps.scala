@@ -488,7 +488,7 @@ class TransferOutProcessingSteps(
         rc,
         sc,
         fullTree.tree.rootHash,
-        WithContractHash.fromContract(contract, fullTree.contractId),
+        fullTree.contractId,
         fullTree.transferCounter,
         contract.rawContractInstance.contractInstance.unversioned.template,
         contract.rawContractInstance.contractInstance.unversioned.packageName,
@@ -553,7 +553,7 @@ class TransferOutProcessingSteps(
       requestCounter,
       requestSequencerCounter,
       rootHash,
-      WithContractHash(contractId, contractHash),
+      contractId,
       transferCounter,
       templateId,
       packageName,
@@ -589,10 +589,7 @@ class TransferOutProcessingSteps(
           archivals = Map.empty,
           creations = Map.empty,
           transferOuts = Map(
-            contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
-              contractHash,
-            )
+            contractId -> CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter)
           ),
           transferIns = Map.empty,
         )
@@ -787,7 +784,7 @@ object TransferOutProcessingSteps {
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
-      contractIdAndHash: WithContractHash[LfContractId],
+      contractId: LfContractId,
       transferCounter: TransferCounter,
       templateId: LfTemplateId,
       packageName: LfPackageName,

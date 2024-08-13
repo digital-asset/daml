@@ -65,6 +65,7 @@ class GrpcSequencerConnectClient(
           builder.build(),
           logger,
           timeouts.network,
+          None, // TODO(i20232): pass the proper token here
         )
         .leftMap(err => Error.Transport(err))
       response <- CantonGrpcUtil
@@ -77,6 +78,7 @@ class GrpcSequencerConnectClient(
           logger = logger,
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None, // TODO(i20232): pass the proper token here
         )(_.getDomainId(v30.SequencerConnect.GetDomainIdRequest()))
         .leftMap(err => Error.Transport(err.toString))
 
@@ -107,6 +109,7 @@ class GrpcSequencerConnectClient(
         logger = logger,
         logPolicy = CantonGrpcUtil.silentLogPolicy,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        token = None, // TODO(i20232): pass the proper token here
       )(_.getDomainParameters(v30.SequencerConnect.GetDomainParametersRequest()))
       .leftMap(err => Error.Transport(err.toString))
 
@@ -131,6 +134,7 @@ class GrpcSequencerConnectClient(
         logger = logger,
         logPolicy = CantonGrpcUtil.silentLogPolicy,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        token = None, // TODO(i20232): pass the proper token here
       )(_.getDomainId(v30.SequencerConnect.GetDomainIdRequest()))
       .leftMap(err => Error.Transport(err.toString))
 
@@ -159,6 +163,7 @@ class GrpcSequencerConnectClient(
           logger = logger,
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None, // TODO(i20232): pass the proper token here
         )(_.handshake(SequencerConnect.HandshakeRequest(Some(request.toProtoV30))))
         .leftMap(err => Error.Transport(err.toString))
 
@@ -224,6 +229,7 @@ class GrpcSequencerConnectClient(
         logger = logger,
         logPolicy = CantonGrpcUtil.silentLogPolicy,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        token = None, // TODO(i20232): pass the proper token here
       )(
         _.registerOnboardingTopologyTransactions(
           SequencerConnect.RegisterOnboardingTopologyTransactionsRequest(

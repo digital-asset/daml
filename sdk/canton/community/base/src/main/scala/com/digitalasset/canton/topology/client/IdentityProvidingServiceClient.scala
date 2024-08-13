@@ -226,11 +226,11 @@ trait PartyTopologySnapshotClient {
       parties: Seq[LfPartyId]
   )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]]
 
-  def activeParticipantsOfPartiesWithAttributes(
+  def activeParticipantsOfPartiesWithInfo(
       parties: Seq[LfPartyId]
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]]
+  ): Future[Map[LfPartyId, PartyInfo]]
 
   /** Returns the set of active participants the given party is represented by as of the snapshot timestamp
     *
@@ -735,12 +735,14 @@ private[client] trait PartyTopologySnapshotBaseClient {
       parties: Set[LfPartyId],
       check: (ParticipantPermission => Boolean) = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit] = {
-    val fetchedF = activeParticipantsOfPartiesWithAttributes(parties.toSeq)
+    val fetchedF = activeParticipantsOfPartiesWithInfo(parties.toSeq)
     EitherT(
       fetchedF
         .map { fetched =>
-          fetched.foldLeft(Set.empty[LfPartyId]) { case (acc, (party, relationships)) =>
-            if (relationships.exists { case (_, attributes) => check(attributes.permission) })
+          fetched.foldLeft(Set.empty[LfPartyId]) { case (acc, (party, partyInfo)) =>
+            if (
+              partyInfo.participants.exists { case (_, attributes) => check(attributes.permission) }
+            )
               acc
             else acc + party
           }
@@ -756,9 +758,9 @@ private[client] trait PartyTopologySnapshotBaseClient {
       parties: Set[LfPartyId],
       check: (LfPartyId, ParticipantAttributes) => Boolean,
   )(implicit traceContext: TraceContext): Future[Set[LfPartyId]] =
-    activeParticipantsOfPartiesWithAttributes(parties.toSeq).map(partiesWithAttributes =>
+    activeParticipantsOfPartiesWithInfo(parties.toSeq).map(partiesWithInfo =>
       parties.filter(party =>
-        partiesWithAttributes.get(party).exists(_.values.exists(check(party, _)))
+        partiesWithInfo.get(party).map(_.participants).exists(_.values.exists(check(party, _)))
       )
     )
 
@@ -767,9 +769,9 @@ private[client] trait PartyTopologySnapshotBaseClient {
       participantId: ParticipantId,
   )(implicit traceContext: TraceContext): Future[Map[LfPartyId, ParticipantAttributes]] =
     // TODO(i4930) implement directly, must not return DISABLED
-    activeParticipantsOfPartiesWithAttributes(partyIds.toSeq).map(
-      _.flatMap { case (party, participants) =>
-        participants.get(participantId).map(party -> _)
+    activeParticipantsOfPartiesWithInfo(partyIds.toSeq).map(
+      _.flatMap { case (party, partyInfo) =>
+        partyInfo.participants.get(participantId).map(party -> _)
       }
     )
 
@@ -802,11 +804,14 @@ private[client] trait PartyTopologySnapshotBaseClient {
       parties: List[LfPartyId]
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Set[ParticipantId]] =
     EitherT(for {
-      withActiveParticipants <- activeParticipantsOfPartiesWithAttributes(parties)
+      withActiveParticipants <- activeParticipantsOfPartiesWithInfo(parties)
       (noActive, allActive) = withActiveParticipants.foldLeft(
         Set.empty[LfPartyId] -> Set.empty[ParticipantId]
-      ) { case ((noActive, allActive), (p, active)) =>
-        (if (active.isEmpty) noActive + p else noActive, allActive.union(active.keySet))
+      ) { case ((noActive, allActive), (p, partyInfo)) =>
+        (
+          if (partyInfo.participants.isEmpty) noActive + p else noActive,
+          allActive.union(partyInfo.participants.keySet),
+        )
       }
     } yield Either.cond(noActive.isEmpty, allActive, noActive))
 }
@@ -835,12 +840,10 @@ private[client] trait PartyTopologySnapshotLoader
   )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
     loadAndMapPartyInfos(parties, _.participants.keySet)
 
-  final override def activeParticipantsOfPartiesWithAttributes(
+  final override def activeParticipantsOfPartiesWithInfo(
       parties: Seq[LfPartyId]
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]] =
-    loadAndMapPartyInfos(parties, _.participants)
+  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, PartyInfo]] =
+    loadAndMapPartyInfos(parties, identity)
 
   final override def partiesWithGroupAddressing(parties: Seq[LfPartyId])(implicit
       traceContext: TraceContext

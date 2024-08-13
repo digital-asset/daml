@@ -398,7 +398,7 @@ private[participant] class ConflictDetector(
 
         lockedContracts.foreach { coid =>
           val isActivation = creations.contains(coid) || transferIns.contains(coid)
-          val transferOutO = transferOuts.get(coid).map(_.unwrap)
+          val transferOutO = transferOuts.get(coid)
           val isDeactivation = transferOutO.isDefined || archivals.contains(coid)
           if (isDeactivation) {
             if (isActivation) {
@@ -416,11 +416,11 @@ private[participant] class ConflictDetector(
             pendingContractWrites += coid
           } else if (isActivation) {
             val transferCounter = transferIns.get(coid) match {
-              case Some(value) => value.unwrap.transferCounter
+              case Some(value) => value.transferCounter
               case None =>
                 creations
                   .get(coid)
-                  .map(_.unwrap.transferCounter)
+                  .map(_.transferCounter)
                   .getOrElse(
                     ErrorUtil.internalError(
                       new IllegalStateException(
@@ -447,15 +447,13 @@ private[participant] class ConflictDetector(
          * but nevertheless record that the contract was transferred in from a certain domain.
          */
         val transfersToComplete =
-          transferIns.values.filter(t => checkedTransfers.contains(t.unwrap.transferId))
+          transferIns.values.filter(t => checkedTransfers.contains(t.transferId))
 
         // Synchronously complete all transfers in the TransferCache.
         // (Use a List rather than a Stream to ensure synchronicity!)
         // Writes to the TransferStore are still asynchronous.
         val pendingTransferWrites =
-          transfersToComplete.toList.map(t =>
-            transferCache.completeTransfer(t.unwrap.transferId, toc)
-          )
+          transfersToComplete.toList.map(t => transferCache.completeTransfer(t.transferId, toc))
 
         pendingEvictions
           .put(
@@ -480,8 +478,9 @@ private[participant] class ConflictDetector(
           val transferOutWrites =
             acs.transferOutContracts(
               transferOuts
-                .map { case (coid, wrapped) =>
-                  val CommitSet.TransferOutCommit(targetDomain, _, transferCounter) = wrapped.unwrap
+                .map { case (coid, transferOutCommit) =>
+                  val CommitSet.TransferOutCommit(targetDomain, _, transferCounter) =
+                    transferOutCommit
                   (coid, targetDomain, transferCounter, toc)
                 }
                 .to(LazyList)
@@ -490,9 +489,9 @@ private[participant] class ConflictDetector(
           val transferInWrites =
             acs.transferInContracts(
               transferIns
-                .map { case (coid, wrapped) =>
+                .map { case (coid, transferInCommit) =>
                   val CommitSet.TransferInCommit(transferId, _contractMetadata, transferCounter) =
-                    wrapped.unwrap
+                    transferInCommit
                   (coid, transferId.sourceDomain, transferCounter, toc)
                 }
                 .to(LazyList)

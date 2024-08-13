@@ -784,7 +784,6 @@ final class TransferOutProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val contractHash = ExampleTransactionFactory.lfHash(0)
       val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = TestHash.dummyRootHash
       val transferResult =
@@ -841,7 +840,7 @@ final class TransferOutProcessingStepsTest
           RequestCounter(1),
           SequencerCounter(1),
           rootHash,
-          WithContractHash(contractId, contractHash),
+          contractId,
           TransferCounter.Genesis,
           templateId = templateId,
           packageName = packageName,

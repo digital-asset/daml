@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.event
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
-import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, WithContractHash}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -29,22 +29,13 @@ trait AcsChangeListener {
 
 /** Represents a change to the ACS. The deactivated contracts are accompanied by their stakeholders.
   *
-  * Note that we include both the LfContractId (for uniqueness) and the LfHash (reflecting contract content).
+  * Note that we include the LfContractId (for uniqueness), but we do not include the contract hash because
+  * it already authenticates the contract contents.
   */
 final case class AcsChange(
-    activations: Map[LfContractId, WithContractHash[ContractMetadataAndTransferCounter]],
-    deactivations: Map[LfContractId, WithContractHash[ContractStakeholdersAndTransferCounter]],
+    activations: Map[LfContractId, ContractStakeholdersAndTransferCounter],
+    deactivations: Map[LfContractId, ContractStakeholdersAndTransferCounter],
 )
-
-final case class ContractMetadataAndTransferCounter(
-    contractMetadata: ContractMetadata,
-    transferCounter: TransferCounter,
-) extends PrettyPrinting {
-  override def pretty: Pretty[ContractMetadataAndTransferCounter] = prettyOfClass(
-    param("contract metadata", _.contractMetadata),
-    param("transfer counter", _.transferCounter),
-  )
-}
 
 final case class ContractStakeholdersAndTransferCounter(
     stakeholders: Set[LfPartyId],
@@ -114,15 +105,15 @@ object AcsChange extends HasLoggerName {
        transfer counter from the last create / transfer-in event on that contract.
      */
     val tmpActivations = commitSet.creations.map { case (contractId, data) =>
-      (
-        (contractId, data.unwrap.transferCounter),
-        WithContractHash(data.unwrap.contractMetadata, data.contractHash),
+      contractId -> ContractStakeholdersAndTransferCounter(
+        data.contractMetadata.stakeholders,
+        data.transferCounter,
       )
     }
       ++ commitSet.transferIns.map { case (contractId, data) =>
-        (
-          (contractId, data.unwrap.transferCounter),
-          WithContractHash(data.unwrap.contractMetadata, data.contractHash),
+        contractId -> ContractStakeholdersAndTransferCounter(
+          data.contractMetadata.stakeholders,
+          data.transferCounter,
         )
       }
 
@@ -130,79 +121,45 @@ object AcsChange extends HasLoggerName {
     Subtracting the transfer counter of transfer-outs to correctly match deactivated contracts as explained above
      */
     val tmpTransferOuts = commitSet.transferOuts.map { case (contractId, data) =>
-      (
-        (
-          contractId,
-          data.unwrap.transferCounter - 1,
-        ),
-        data.map(_.stakeholders),
+      contractId -> ContractStakeholdersAndTransferCounter(
+        data.stakeholders,
+        data.transferCounter - 1,
       )
     }
 
-    val tmpArchivalsClean = commitSet.archivals.collect {
+    val archivalDeactivations = commitSet.archivals.collect {
       case (contractId, data) if transferCounterOfNonTransientArchivals.contains(contractId) =>
-        (
-          (
+        contractId -> ContractStakeholdersAndTransferCounter(
+          data.stakeholders,
+          transferCounterOfNonTransientArchivals.getOrElse(
             contractId,
-            transferCounterOfNonTransientArchivals.getOrElse(
-              contractId,
-              // This should not happen (see assertion above)
-              ErrorUtil.internalError(
-                new IllegalStateException(s"Unable to find transfer counter for $contractId")
-              ),
+            // This should not happen (see assertion above)
+            ErrorUtil.internalError(
+              new IllegalStateException(s"Unable to find transfer counter for $contractId")
             ),
           ),
-          WithContractHash(data.unwrap.stakeholders, data.contractHash),
         )
     }
 
     val tmpArchivals = commitSet.archivals.collect {
       case (contractId, data) if transferCounterOfTransientArchivals.contains(contractId) =>
-        (
-          (
+        contractId -> ContractStakeholdersAndTransferCounter(
+          data.stakeholders,
+          transferCounterOfTransientArchivals.getOrElse(
             contractId,
-            transferCounterOfTransientArchivals.getOrElse(
-              contractId,
-              ErrorUtil.internalError(
-                new IllegalStateException(
-                  s"${transferCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
-                )
-              ),
+            ErrorUtil.internalError(
+              new IllegalStateException(
+                s"${transferCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
+              )
             ),
           ),
-          WithContractHash(data.unwrap.stakeholders, data.contractHash),
         )
     }
 
     val transient = tmpActivations.keySet.intersect((tmpArchivals ++ tmpTransferOuts).keySet)
-    val tmpActivationsClean = tmpActivations -- transient
-    val tmpTransferOutsClean = tmpTransferOuts -- transient
+    val activations = tmpActivations -- transient
+    val transferOutDeactivations = tmpTransferOuts -- transient
 
-    val activations = tmpActivationsClean.map { case ((contractId, transferCounter), metadata) =>
-      (
-        contractId,
-        metadata.map(data =>
-          ContractMetadataAndTransferCounter(
-            data,
-            transferCounter,
-          )
-        ),
-      )
-    }
-    val archivalDeactivations = tmpArchivalsClean.map {
-      case ((contractId, transferCounter), metadata) =>
-        (
-          contractId,
-          metadata.map(data => ContractStakeholdersAndTransferCounter(data, transferCounter)),
-        )
-    }
-    val transferOutDeactivations = tmpTransferOutsClean.map {
-      case ((contractId, transferCounter), metadata) =>
-        (
-          contractId,
-          metadata.map(data => ContractStakeholdersAndTransferCounter(data, transferCounter)),
-        )
-    }
     loggingContext.debug(
       show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
         show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts};" +
@@ -225,7 +182,7 @@ object AcsChange extends HasLoggerName {
     // We first search in transfer-ins, because they would have the most recent transfer counter.
     val transientCidsTransferredIn = commitSet.transferIns.collect {
       case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
-        (contractId, tcAndContractHash.unwrap.transferCounter)
+        (contractId, tcAndContractHash.transferCounter)
     }
 
     // Then we search in creations
@@ -233,7 +190,7 @@ object AcsChange extends HasLoggerName {
       case (contractId, tcAndContractHash)
           if commitSet.archivals.keySet.contains(contractId) && !transientCidsTransferredIn.keySet
             .contains(contractId) =>
-        (contractId, tcAndContractHash.unwrap.transferCounter)
+        (contractId, tcAndContractHash.transferCounter)
     }
 
     transientCidsTransferredIn ++ transientCidsCreated

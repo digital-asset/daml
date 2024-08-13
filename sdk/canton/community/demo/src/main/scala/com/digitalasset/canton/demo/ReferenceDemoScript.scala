@@ -258,9 +258,6 @@ class ReferenceDemoScript(
         "participant.dars.upload(<filename>)",
         () => {
           settings.foreach { case (name, participant, domains, dars) =>
-            // TODO(#14069) Uploading packages concurrently can lead to topology failures due to races between
-            //  vetting topology transactions, which can lead to the transaction serial not increasing and, thus,
-            //  to some transaction being rejected, so uploads are performed sequentially to avoid flakes.
             dars.map(darFile).foreach { dar =>
               logger.debug(s"Uploading dar $dar for $name")
               val _ = participant.dars.upload(dar)
@@ -479,7 +476,7 @@ class ReferenceDemoScript(
             if (additionalChecks) {
               val transactions =
                 participant5.ledger_api.updates
-                  .flat(Set(registry), completeAfter = 5, beginOffset = prunedOffset)
+                  .flat(Set(registry), completeAfter = 5, beginOffsetExclusive = prunedOffset)
               // ensure we don't see any transactions
               require(transactions.isEmpty, s"transactions should be empty but was $transactions")
             }
