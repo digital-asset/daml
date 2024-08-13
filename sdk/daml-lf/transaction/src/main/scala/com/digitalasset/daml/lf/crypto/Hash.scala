@@ -110,15 +110,13 @@ object Hash {
 
     /* add size delimited byte array. */
     def addBytes(bytes: Array[Byte]): this.type = {
-      discard(addInt(bytes.length))
-      update(bytes)
+      addInt(bytes.length).update(bytes)
       this
     }
 
     /* add size delimited byte string. */
     def addBytes(bytes: Bytes): this.type = {
-      discard(addInt(bytes.length))
-      update(bytes.toByteBuffer)
+      addInt(bytes.length).update(bytes.toByteBuffer)
       this
     }
 
@@ -278,7 +276,7 @@ object Hash {
           addBytes(cid2Bytes(cid))
         case Value.ValueOptional(opt) =>
           // We use Int instead of Byte for indicating Some vs None.
-          // This waist 3 unnecessary bytes, but we have to keep it for backward compatibility.
+          // This waists 3 unnecessary bytes, but we have to keep it for backward compatibility.
           opt match {
             case Some(value) =>
               addInt(1).addTypedValue(value)
@@ -336,7 +334,7 @@ object Hash {
      *  `v2'`.
      *
      * To achieve that, the new "friendly upgrade" scheme introduces
-     * notion of default values, and ignoresq record fields with
+     * notion of default values, and ignores record fields with
      * default value, so they do not contribute to the value hash.
      *
      * For the sake of extensibility we decided to introduce default
