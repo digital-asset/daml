@@ -4,8 +4,8 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import data.{Bytes, Ref, Time}
-import value.{CidContainer, Value}
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.value.{CidContainer, Value, ValueReVersioner}
 
 import scala.collection.immutable.TreeSet
 
@@ -31,6 +31,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
   def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(cantonData: Bytes): FatContractInstance
+  def reVersion(target: TransactionVersion): Either[String, FatContractInstance]
 
   def toCreateNode = Node.Create(
     coid = contractId,
@@ -82,6 +83,32 @@ private[lf] final case class FatContractInstanceImpl(
     assert(cantonData.nonEmpty)
     copy(cantonData = cantonData)
   }
+
+  def reVersion(target: TransactionVersion): Either[String, FatContractInstance] = {
+
+    def reV(v: Value): Either[String, Value] =
+      ValueReVersioner.reVersionValue(Versioned(version, v), target).map(_.unversioned)
+
+    for {
+      reCreateArg <- reV(createArg)
+      reContractKeyWithMaintainers <- (contractKeyWithMaintainers
+        .fold[Either[String, Option[GlobalKeyWithMaintainers]]](
+          Right[String, Option[GlobalKeyWithMaintainers]](None)
+        )(ck =>
+          for {
+            reCkValue <- reV(ck.value)
+            reCk <- GlobalKeyWithMaintainers.withRenormalizedValue(ck, reCkValue)
+          } yield Some(reCk)
+        ))
+    } yield {
+      copy(
+        version = target,
+        createArg = reCreateArg,
+        contractKeyWithMaintainers = reContractKeyWithMaintainers,
+      )
+    }
+  }
+
 }
 
 object FatContractInstance {

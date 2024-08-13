@@ -32,18 +32,17 @@ final class GlobalKey private (
 
 object GlobalKey {
 
+  def withRenormalizedValue(key: GlobalKey, value: Value): Either[String, GlobalKey] = {
+    Either.cond(
+      key.key == value ||
+        Hash.assertHashContractKey(key.templateId, key.packageName, value) == key.hash,
+      new GlobalKey(key.templateId, key.packageName, value, key.hash),
+      s"Hash must not change as a result of value renormalization key=$key, value=$value",
+    )
+  }
+
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
-    if (
-      key.key != value &&
-      Hash.assertHashContractKey(key.templateId, key.packageName, value) != key.hash
-    ) {
-      throw new IllegalArgumentException(
-        s"Hash must not change as a result of value renormalization key=$key, value=$value"
-      )
-    }
-
-    new GlobalKey(key.templateId, key.packageName, value, key.hash)
-
+    data.assertRight(withRenormalizedValue(key, value))
   }
 
   // Will fail if key contains contract ids
@@ -94,6 +93,15 @@ object GlobalKeyWithMaintainers {
       packageName: Ref.PackageName,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
     GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
+
+  def withRenormalizedValue(
+      key: GlobalKeyWithMaintainers,
+      value: Value,
+  ): Either[String, GlobalKeyWithMaintainers] = {
+    GlobalKey
+      .withRenormalizedValue(key.globalKey, value)
+      .map(GlobalKeyWithMaintainers(_, key.maintainers))
+  }
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.
