@@ -294,7 +294,7 @@ da_scala_library(
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
         "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
     ],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-util-external:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-common-staging-grpc-utils:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf/validation:__subpackages__",
