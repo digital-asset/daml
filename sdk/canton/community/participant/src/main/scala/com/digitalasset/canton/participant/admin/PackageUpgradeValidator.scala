@@ -180,9 +180,11 @@ class PackageUpgradeValidator(
       .minByOption { case (_, version) => version }
       .traverse { case (pId, _) =>
         lookupDar(pId, upgradingPackagesMap).map(
-          _.getOrElse(
-            throw new IllegalStateException("failed to look up dar present in package map")
-          )
+          _.getOrElse {
+            val errorMessage = s"failed to look up dar of package $pId present in package map"
+            logger.error(errorMessage)
+            throw new IllegalStateException(errorMessage)
+          }
         )
       }
   }
@@ -204,9 +206,11 @@ class PackageUpgradeValidator(
       .maxByOption { case (_, version) => version }
       .traverse { case (pId, _) =>
         lookupDar(pId, upgradingPackagesMap)(loggingContext).map(
-          _.getOrElse(
-            throw new IllegalStateException("failed to look up dar present in package map")
-          )
+          _.getOrElse {
+            val errorMessage = s"failed to look up dar of package $pId present in package map"
+            logger.error(errorMessage)
+            throw new IllegalStateException(errorMessage)
+          }
         )
       }
   }
