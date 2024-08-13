@@ -22,6 +22,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 sealed trait TopologyManagerError extends CantonError
 
@@ -112,6 +113,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
   }
+
   @Explanation(
     """This error indicates that the secret key with the respective fingerprint can not be found."""
   )
@@ -224,6 +226,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           cause = "The given topology transaction already exists."
         )
         with TopologyManagerError
+
     final case class ExistsAt(ts: CantonTimestamp)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
@@ -323,12 +326,9 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a dangerous owner to key mapping authorization was rejected.
-      |This is the case if a command is run that could break a node.
-      |If the command was run to assign a key for the given node, then the command
-      |was rejected because the key is not in the node's private store.
-      |If the command is run on a node to issue transactions for another node,
-      |then such commands must be run with force, as they are very dangerous and could easily break
+    """This error indicates that a dangerous command that could break a node was rejected.
+      |This is the case if a dangerous command is run on a node to issue transactions for another node.
+      |Such commands must be run with force, as they are very dangerous and could easily break
       |the node.
       |As an example, if we assign an encryption key to a participant that the participant does not
       |have, then the participant will be unable to process an incoming transaction. Therefore we must
@@ -336,15 +336,15 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
       | """
   )
   @Resolution("Set the ForceFlag.AlienMember if you really know what you are doing.")
-  object DangerousKeyUseCommandRequiresForce
+  object DangerousCommandRequiresForce
       extends ErrorCode(
-        id = "DANGEROUS_KEY_USE_COMMAND_REQUIRES_FORCE_ALIEN_MEMBER",
+        id = "DANGEROUS_COMMAND_REQUIRES_FORCE_ALIEN_MEMBER",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class AlienMember(member: Member)(implicit
+    final case class AlienMember(member: Member, topologyMapping: TopologyMapping.Code)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = "Issuing owner to key mappings for alien members requires ForceFlag.AlienMember"
+          cause = s"Issuing $topologyMapping for alien members requires ForceFlag.AlienMember"
         )
         with TopologyManagerError
   }
@@ -584,8 +584,8 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Reject(actual: TopologyMapping, expected: TopologyMapping)(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(cause = s"""REMOVE must not change the topology mapping:
-        |actual: $actual
-        |expected: $expected""".stripMargin)
+         |actual: $actual
+         |expected: $expected""".stripMargin)
         with TopologyManagerError {}
   }
 
@@ -608,6 +608,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           cause =
             s"The topology snapshot was rejected because it contained multiple effective transactions with the same unique key"
         )
+        with TopologyManagerError
   }
 
   object MissingTopologyMapping
@@ -700,6 +701,69 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   abstract class DomainErrorGroup extends ErrorGroup()
+
   abstract class ParticipantErrorGroup extends ErrorGroup()
 
+  object ParticipantTopologyManagerError extends ParticipantErrorGroup {
+    @Explanation(
+      """This error indicates that a dangerous package vetting command was rejected.
+        |This is the case when a command is revoking the vetting of a package.
+        |Use the force flag to revoke the vetting of a package."""
+    )
+    @Resolution("Set the ForceFlag.PackageVettingRevocation if you really know what you are doing.")
+    object DangerousVettingCommandsRequireForce
+        extends ErrorCode(
+          id = "DANGEROUS_VETTING_COMMAND_REQUIRES_FORCE_FLAG",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject()(implicit val loggingContext: ErrorLoggingContext)
+          extends CantonError.Impl(
+            cause = "Revoking a vetted package requires ForceFlag.PackageVettingRevocation"
+          )
+          with TopologyManagerError
+    }
+
+    @Explanation(
+      """This error indicates a vetting request failed due to dependencies not being vetted.
+        |On every vetting request, the set supplied packages is analysed for dependencies. The
+        |system requires that not only the main packages are vetted explicitly but also all dependencies.
+        |This is necessary as not all participants are required to have the same packages installed and therefore
+        |not every participant can resolve the dependencies implicitly."""
+    )
+    @Resolution("Vet the dependencies first and then repeat your attempt.")
+    object DependenciesNotVetted
+        extends ErrorCode(
+          id = "DEPENDENCIES_NOT_VETTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(unvetted: Set[PackageId])(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause = "Package vetting failed due to dependencies not being vetted"
+          )
+          with TopologyManagerError
+    }
+
+    @Explanation(
+      """This error indicates that a package vetting command failed due to packages not existing locally.
+        |This can be due to either the packages not being present or their dependencies being missing.
+        |When vetting a package, the package must exist on the participant, as otherwise the participant
+        |will not be able to process a transaction relying on a particular package."""
+    )
+    @Resolution(
+      "Ensure that the package exists locally before issuing such a transaction."
+    )
+    object CannotVetDueToMissingPackages
+        extends ErrorCode(
+          id = "CANNOT_VET_DUE_TO_MISSING_PACKAGES",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Missing(packages: PackageId)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause = "Package vetting failed due to packages not existing on the local node"
+          )
+          with TopologyManagerError
+    }
+  }
 }

@@ -338,11 +338,10 @@ class TransactionProcessingSteps(
         val allParties =
           (informeesCheckPartiesPerNode.flatten ++ signatoriesCheckPartiesPerNode.flatten).toSet
         val eligibleParticipantsF =
-          topologySnapshot.activeParticipantsOfPartiesWithAttributes(allParties.toSeq).map {
-            result =>
-              result.map { case (party, attributesMap) =>
-                (party, attributesMap.values.exists(_.permission.canConfirm))
-              }
+          topologySnapshot.activeParticipantsOfPartiesWithInfo(allParties.toSeq).map { result =>
+            result.map { case (party, info) =>
+              (party, info.participants.values.exists(_.permission.canConfirm))
+            }
           }
 
         eligibleParticipantsF.map { eligibleParticipants =>

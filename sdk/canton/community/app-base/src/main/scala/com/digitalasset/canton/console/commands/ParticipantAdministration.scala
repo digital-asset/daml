@@ -1106,9 +1106,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         path: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
-        synchronize: Option[NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.bounded
-        ),
     ): String = {
       val res = consoleEnvironment.runE {
         for {

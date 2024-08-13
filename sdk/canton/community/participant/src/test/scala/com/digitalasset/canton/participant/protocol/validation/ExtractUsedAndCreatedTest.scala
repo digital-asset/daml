@@ -21,10 +21,10 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     witnessed = Map.empty[LfContractId, SerializableContract],
     divulged = Map.empty[LfContractId, SerializableContract],
     checkActivenessTxInputs = Set.empty[LfContractId],
-    consumedInputsOfHostedStakeholders = Map.empty[LfContractId, WithContractHash[Set[LfPartyId]]],
+    consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
     used = Map.empty[LfContractId, SerializableContract],
     maybeCreated = Map.empty[LfContractId, Option[SerializableContract]],
-    transient = Map.empty[LfContractId, WithContractHash[Set[LfPartyId]]],
+    transient = Map.empty[LfContractId, Set[LfPartyId]],
   )
 
   private val singleExercise = etf.SingleExercise(etf.deriveNodeSeed(1))
@@ -79,10 +79,8 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         used = Map(singleExercise.contractId -> serializedContract),
         divulged = Map.empty,
         consumedOfHostedStakeholders = Map(
-          singleExercise.contractId -> WithContractHash(
-            informeeParties,
-            serializedContract.rawContractInstance.contractHash,
-          )
+          singleExercise.contractId ->
+            informeeParties
         ),
         contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
       )

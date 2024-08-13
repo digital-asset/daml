@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
@@ -354,6 +355,11 @@ class MediatorNodeBootstrap(
 
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
+    // admin token is taken from the config or created per session
+    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
+      CantonAdminToken.create(crypto.pureCrypto)
+    )(token => CantonAdminToken(secret = token))
+
     override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[MediatorNode]]] = {
@@ -464,6 +470,7 @@ class MediatorNodeBootstrap(
             replicaManager,
             storage,
             clock,
+            adminToken,
             domainLoggerFactory,
             healthData = healthService.dependencies.map(_.toComponentStatus),
           )
@@ -715,6 +722,7 @@ class MediatorNode(
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
+    val adminToken: CantonAdminToken,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
 ) extends CantonNode

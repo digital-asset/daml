@@ -6,6 +6,7 @@ package com.digitalasset.canton.networking.grpc
 import cats.data.EitherT
 import cats.implicits.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.error.CantonErrorGroups.GrpcErrorGroup
@@ -184,13 +185,16 @@ object CantonGrpcUtil {
       logger: TracedLogger,
       logPolicy: GrpcError => TracedLogger => TraceContext => Unit = err =>
         logger => traceContext => err.log(logger)(traceContext),
-      retryPolicy: GrpcError => Boolean = _.retry,
+      retryPolicy: GrpcError => Boolean,
+      token: Option[String],
   )(
       send: Svc => Future[Res]
   )(implicit traceContext: TraceContext): EitherT[Future, GrpcError, Res] = {
 
     val closeableChannel = Lifecycle.toCloseableChannel(channel, logger, "sendSingleGrpcRequest")
-    val stub = stubFactory(closeableChannel.channel)
+    val stub = token.foldLeft(stubFactory(closeableChannel.channel))((stub, token) =>
+      AuthCallCredentials.authorizingStub(stub, token)
+    )
 
     val res = sendGrpcRequest(stub, serverName)(
       send(_),
@@ -258,6 +262,7 @@ object CantonGrpcUtil {
       channel: ManagedChannel,
       logger: TracedLogger,
       timeout: config.NonNegativeDuration,
+      token: Option[String],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -273,6 +278,7 @@ object CantonGrpcUtil {
           logger = logger,
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = token,
         )(_.getApiInfo(GetApiInfoRequest()))
         .map(_.name)
         // TODO(i16458): Remove this special case once we have a stable release

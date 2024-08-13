@@ -120,7 +120,7 @@ object ExtractUsedAndCreated {
   private[validation] final case class InputContractPrep(
       used: Map[LfContractId, SerializableContract],
       divulged: Map[LfContractId, SerializableContract],
-      consumedOfHostedStakeholders: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
+      consumedOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
       contractIdsOfHostedInformeeStakeholder: Set[LfContractId],
   )
 
@@ -157,7 +157,7 @@ private[validation] class ExtractUsedAndCreated(
       Map.newBuilder[LfContractId, SerializableContract]
     val contractIdsOfHostedInformeeStakeholderB = Set.newBuilder[LfContractId]
     val consumedOfHostedStakeholdersB =
-      Map.newBuilder[LfContractId, WithContractHash[Set[LfPartyId]]]
+      Map.newBuilder[LfContractId, Set[LfPartyId]]
     val divulgedB =
       Map.newBuilder[LfContractId, SerializableContract]
 
@@ -180,7 +180,7 @@ private[validation] class ExtractUsedAndCreated(
           // Input contracts consumed under rollback node are not necessarily consumed in the transaction.
           if (!viewData.participant.rollbackContext.inRollback) {
             consumedOfHostedStakeholdersB +=
-              contract.contractId -> WithContractHash.fromContract(contract, stakeholders)
+              contract.contractId -> stakeholders
           }
         }
       } else if (hostsAny(stakeholders.diff(informees))) {
@@ -273,10 +273,10 @@ private[validation] class ExtractUsedAndCreated(
     val allConsumed =
       inputContracts.consumedOfHostedStakeholders.keySet.union(transientContracts)
 
-    val transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]] =
+    val transient: Map[LfContractId, Set[LfPartyId]] =
       maybeCreated.collect {
         case (cid, Some(contract)) if allConsumed.contains(cid) =>
-          cid -> WithContractHash.fromContract(contract, contract.metadata.stakeholders)
+          cid -> contract.metadata.stakeholders
       }
 
     val consumedInputsOfHostedStakeholders =
