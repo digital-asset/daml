@@ -48,7 +48,6 @@ final case class SerializableRawContractInstance private (
       contractInstance.unversioned.template,
       contractInstance.unversioned.arg,
       contractInstance.unversioned.packageName,
-      contractInstance.version,
     )
 
   @unused // needed for lenses

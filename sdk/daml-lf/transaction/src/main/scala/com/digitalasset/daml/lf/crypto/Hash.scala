@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.data.{
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import scalaz.Order
 
 import javax.crypto.Mac
@@ -570,14 +569,9 @@ object Hash {
       templateId: Ref.Identifier,
       arg: Value,
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
-      creationVersion: TransactionVersion,
+      upgradeFriendly: Boolean = false,
   ): Hash = {
-    import Ordering.Implicits._
-    builder(
-      Purpose.ContractInstance,
-      aCid2Bytes,
-      creationVersion >= TransactionVersion.minContractKeys,
-    )
+    builder(Purpose.ContractInstance, aCid2Bytes, upgradeFriendly)
       .addString(packageName)
       .addIdentifier(templateId)
       .addTypedValue(arg)
@@ -588,9 +582,8 @@ object Hash {
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
       templateId: Ref.Identifier,
       arg: Value,
-      creationVersion: TransactionVersion,
   ): Either[HashingError, Hash] =
-    handleError(assertHashContractInstance(templateId, arg, packageName, creationVersion))
+    handleError(assertHashContractInstance(templateId, arg, packageName, upgradeFriendly = true))
 
   def hashChangeId(
       applicationId: Ref.ApplicationId,
