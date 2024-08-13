@@ -297,6 +297,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-common-staging-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
+        "//daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],

@@ -78,6 +78,7 @@ da_scala_library(
         "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
+        "//canton:daml-common-staging_grpc-utils",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",

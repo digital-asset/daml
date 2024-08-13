@@ -7,7 +7,7 @@
 package com.digitalasset.daml.lf.validation
 package upgrade
 
-import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
+import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
 import io.grpc.Channel
@@ -56,7 +56,7 @@ private[validation] final class AdminLedgerClient(
 
 object AdminLedgerClient {
   def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(authenticatingStub(stub, _))
+    token.fold(stub)(AuthCallCredentials.authorizingStub(stub, _))
 
   def singleHost(
       port: Port,
