@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform
 
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
@@ -58,6 +59,10 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
       when(dispatcherState.isRunning).thenReturn(true)
+      when(mutableLedgerEndCache.apply()).thenReturn(Offset.beforeBegin -> 0L)
+      when(dispatcherState.getDispatcher).thenReturn(
+        Dispatcher("", Offset.beforeBegin, Offset.beforeBegin)
+      )
 
       for {
         // INITIALIZED THE STATE
@@ -103,6 +108,10 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           )
 
           when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+          when(mutableLedgerEndCache.apply()).thenReturn(initOffset -> initEventSequentialId)
+          when(dispatcherState.getDispatcher).thenReturn(
+            Dispatcher("", Offset.beforeBegin, initOffset)
+          )
         }
 
         // RE-INITIALIZE THE STATE
@@ -124,6 +133,12 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           when(dispatcherState.isRunning).thenReturn(true)
           inMemoryState.initialized shouldBe true
         }
+
+        // RE-INITIALIZE THE SAME STATE
+        _ <- inMemoryState.initializeTo(reInitLedgerEnd)
+
+        // ASSERT STATE RE-INITIALIZED
+        _ = inMemoryState.initialized shouldBe true
       } yield succeed
   }
 

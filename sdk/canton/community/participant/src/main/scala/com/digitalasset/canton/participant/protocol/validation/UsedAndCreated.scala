@@ -25,10 +25,10 @@ final case class UsedAndCreatedContracts(
     witnessed: Map[LfContractId, SerializableContract],
     divulged: Map[LfContractId, SerializableContract],
     checkActivenessTxInputs: Set[LfContractId],
-    consumedInputsOfHostedStakeholders: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
+    consumedInputsOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
     used: Map[LfContractId, SerializableContract],
     maybeCreated: Map[LfContractId, Option[SerializableContract]],
-    transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
+    transient: Map[LfContractId, Set[LfPartyId]],
 ) {
   def activenessCheck: ActivenessCheck[LfContractId] =
     ActivenessCheck.tryCreate(

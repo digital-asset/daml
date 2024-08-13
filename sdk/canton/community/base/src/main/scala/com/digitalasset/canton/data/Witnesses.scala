@@ -43,10 +43,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
           val parties = informees.toList
           for {
             informeeParticipants <- EitherT
-              .right[InvalidWitnesses](
-                topology
-                  .activeParticipantsOfParties(parties)
-              )
+              .right[InvalidWitnesses](topology.activeParticipantsOfParties(parties))
             _ <- {
               val informeesWithNoActiveParticipants =
                 informeeParticipants

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
@@ -49,7 +50,7 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{
@@ -143,6 +144,7 @@ class SequencerNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -151,6 +153,7 @@ class SequencerNodeBootstrap(
     new WaitForSequencerToDomainInit(
       storage,
       crypto,
+      adminServerRegistry,
       SequencerId(nodeId),
       manager,
       healthReporter,
@@ -178,6 +181,7 @@ class SequencerNodeBootstrap(
   private class WaitForSequencerToDomainInit(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       sequencerId: SequencerId,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -309,6 +313,7 @@ class SequencerNodeBootstrap(
         new StartupNode(
           storage,
           crypto,
+          adminServerRegistry,
           sequencerId,
           result.sequencerFactory,
           result.staticDomainParameters,
@@ -424,6 +429,7 @@ class SequencerNodeBootstrap(
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       sequencerId: SequencerId,
       sequencerFactory: SequencerFactory,
       staticDomainParameters: StaticDomainParameters,
@@ -441,6 +447,11 @@ class SequencerNodeBootstrap(
     // save one argument and grab the domainId from the store ...
     private val domainId = domainTopologyManager.store.storeId.domainId
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+
+    // admin token is taken from the config or created per session
+    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
+      CantonAdminToken.create(crypto.pureCrypto)
+    )(token => CantonAdminToken(secret = token))
 
     preinitializedServer.foreach(x => addCloseable(x.publicServer))
 
@@ -692,6 +703,7 @@ class SequencerNodeBootstrap(
             domainParamsLookup,
             preinitializedServer,
             healthReporter,
+            adminServerRegistry,
           )
         } yield {
           // if close handle hasn't been registered yet, register it now
@@ -702,6 +714,7 @@ class SequencerNodeBootstrap(
             config,
             clock,
             sequencerRuntime,
+            adminToken,
             domainLoggerFactory,
             server,
             (healthService.dependencies ++ sequencerPublicApiHealthService.dependencies).map(
@@ -775,6 +788,7 @@ class SequencerNodeBootstrap(
       domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
       server: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
+      adminServerRegistry: CantonMutableHandlerRegistry,
   ): EitherT[Future, String, DynamicDomainGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
@@ -798,6 +812,7 @@ class SequencerNode(
     config: SequencerNodeConfigCommon,
     override protected val clock: Clock,
     val sequencer: SequencerRuntime,
+    val adminToken: CantonAdminToken,
     protected val loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicDomainGrpcServer,
     healthData: => Seq[ComponentStatus],

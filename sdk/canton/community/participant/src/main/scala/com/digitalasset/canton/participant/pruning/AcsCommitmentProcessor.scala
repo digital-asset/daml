@@ -36,7 +36,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   AcsChangeListener,
-  ContractMetadataAndTransferCounter,
+  ContractStakeholdersAndTransferCounter,
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.CommitmentMetrics
@@ -50,12 +50,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriod,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{
-  AcsCommitmentsCatchUpConfig,
-  LfContractId,
-  LfHash,
-  WithContractHash,
-}
+import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, LfContractId}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
@@ -1618,46 +1613,41 @@ object AcsCommitmentProcessor extends HasLoggerName {
       have a transfer counter or none, depending on the protocol version.
        */
       def concatenate(
-          contractHash: LfHash,
           contractId: LfContractId,
           transferCounter: TransferCounter,
       ): Array[Byte] =
         (
-          contractHash.bytes.toByteString // hash always 32 bytes long per lf.crypto.Hash.underlyingLength
-            concat contractId.encodeDeterministically
+          contractId.encodeDeterministically
             concat TransferCounter.encodeDeterministically(transferCounter)
         ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
         lock.synchronized {
           this.rt = rt
-          change.activations.foreach {
-            case (cid, WithContractHash(metadataAndTransferCounter, hash)) =>
-              val sortedStakeholders =
-                SortedSet(metadataAndTransferCounter.contractMetadata.stakeholders.toSeq*)
-              val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.add(concatenate(hash, cid, metadataAndTransferCounter.transferCounter))
-              loggingContext.debug(
-                s"Adding to commitment activation cid $cid transferCounter ${metadataAndTransferCounter.transferCounter}"
-              )
-              deltaB += sortedStakeholders -> h
+          change.activations.foreach { case (cid, stakeholdersAndTransferCounter) =>
+            val sortedStakeholders =
+              SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
+            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+            h.add(concatenate(cid, stakeholdersAndTransferCounter.transferCounter))
+            loggingContext.debug(
+              s"Adding to commitment activation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
+            )
+            deltaB += sortedStakeholders -> h
           }
-          change.deactivations.foreach {
-            case (cid, WithContractHash(stakeholdersAndTransferCounter, hash)) =>
-              val sortedStakeholders =
-                SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
-              val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.remove(
-                concatenate(
-                  hash,
-                  cid,
-                  stakeholdersAndTransferCounter.transferCounter,
-                )
+          change.deactivations.foreach { case (cid, stakeholdersAndTransferCounter) =>
+            val sortedStakeholders =
+              SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
+            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+            h.remove(
+              concatenate(
+                cid,
+                stakeholdersAndTransferCounter.transferCounter,
               )
-              loggingContext.debug(
-                s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
-              )
-              deltaB += sortedStakeholders -> h
+            )
+            loggingContext.debug(
+              s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
+            )
+            deltaB += sortedStakeholders -> h
           }
         }
       }
@@ -1826,32 +1816,34 @@ object AcsCommitmentProcessor extends HasLoggerName {
       byParticipant <-
         if (isActiveParticipant) {
           val allParties = runningCommitments.keySet.flatten
-          ipsSnapshot.activeParticipantsOfParties(allParties.toSeq).flatMap { participantsOf =>
-            IterableUtil
-              .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
-                ParticipantId,
-                Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-              ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
-                val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
-                // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
-                // hosted on this participant, but is now disabled
-                val pSet =
-                  if (participants.contains(participantId)) participants - participantId
-                  else Set.empty
-                val commitmentS =
-                  if (participants.contains(participantId)) Map(parties -> commitment)
-                  // Signal with an empty commitment that our participant does no longer host any
-                  // party in the stakeholder group
-                  else Map(parties -> emptyCommitment)
-                pSet.map(_ -> commitmentS).toMap
-              }(MapsUtil.mergeWith(_, _)(_ ++ _))
-              .map(
-                _.getOrElse(
-                  Map
-                    .empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+          ipsSnapshot
+            .activeParticipantsOfParties(allParties.toSeq)
+            .flatMap { participantsOf =>
+              IterableUtil
+                .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
+                  ParticipantId,
+                  Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+                ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
+                  val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
+                  // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
+                  // hosted on this participant, but is now disabled
+                  val pSet =
+                    if (participants.contains(participantId)) participants - participantId
+                    else Set.empty
+                  val commitmentS =
+                    if (participants.contains(participantId)) Map(parties -> commitment)
+                    // Signal with an empty commitment that our participant does no longer host any
+                    // party in the stakeholder group
+                    else Map(parties -> emptyCommitment)
+                  pSet.map(_ -> commitmentS).toMap
+                }(MapsUtil.mergeWith(_, _)(_ ++ _))
+                .map(
+                  _.getOrElse(
+                    Map
+                      .empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+                  )
                 )
-              )
-          }
+            }
         } else
           Future.successful(
             Map.empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
@@ -2078,13 +2070,11 @@ object AcsCommitmentProcessor extends HasLoggerName {
         AcsChange(
           activations = storedActivatedContracts
             .map(c =>
-              c.contractId -> WithContractHash.fromContract(
-                c.contract,
-                ContractMetadataAndTransferCounter(
-                  c.contract.metadata,
+              c.contractId ->
+                ContractStakeholdersAndTransferCounter(
+                  c.contract.metadata.stakeholders,
                   activations(c.contractId),
-                ),
-              )
+                )
             )
             .toMap,
           deactivations = Map.empty,

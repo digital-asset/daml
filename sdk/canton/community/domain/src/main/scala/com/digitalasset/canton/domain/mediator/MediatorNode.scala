@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
@@ -38,7 +39,7 @@ import com.digitalasset.canton.health.admin.data.{
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.MediatorInitializationServiceGrpc
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.SequencerConnections
@@ -214,6 +215,7 @@ class MediatorNodeBootstrap(
   private class WaitForMediatorToDomainInit(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -275,6 +277,7 @@ class MediatorNodeBootstrap(
         new StartupNode(
           storage,
           crypto,
+          adminServerRegistry,
           mediatorId,
           staticDomainParameters,
           authorizedTopologyManager,
@@ -339,6 +342,7 @@ class MediatorNodeBootstrap(
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       mediatorId: MediatorId,
       staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
@@ -353,6 +357,11 @@ class MediatorNodeBootstrap(
       with HasCloseContext {
 
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
+
+    // admin token is taken from the config or created per session
+    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
+      CantonAdminToken.create(crypto.pureCrypto)
+    )(token => CantonAdminToken(secret = token))
 
     override protected def attempt()(implicit
         traceContext: TraceContext
@@ -443,6 +452,7 @@ class MediatorNodeBootstrap(
                   saveConfig,
                   storage,
                   crypto,
+                  adminServerRegistry,
                   staticDomainParameters,
                   domainTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
@@ -464,6 +474,7 @@ class MediatorNodeBootstrap(
             replicaManager,
             storage,
             clock,
+            adminToken,
             domainLoggerFactory,
             healthData = healthService.dependencies.map(_.toComponentStatus),
           )
@@ -498,6 +509,7 @@ class MediatorNodeBootstrap(
       saveConfig: MediatorDomainConfiguration => Future[Unit],
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       staticDomainParameters: StaticDomainParameters,
       domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
@@ -686,6 +698,7 @@ class MediatorNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
@@ -694,6 +707,7 @@ class MediatorNodeBootstrap(
     new WaitForMediatorToDomainInit(
       storage,
       crypto,
+      adminServerRegistry,
       MediatorId(nodeId),
       authorizedTopologyManager,
       healthService,
@@ -715,6 +729,7 @@ class MediatorNode(
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
+    val adminToken: CantonAdminToken,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
 ) extends CantonNode

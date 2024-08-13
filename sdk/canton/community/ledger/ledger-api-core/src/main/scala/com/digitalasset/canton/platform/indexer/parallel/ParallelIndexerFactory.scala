@@ -158,13 +158,15 @@ object ParallelIndexerFactory {
             dbDispatcher = dbDispatcher,
             initializeInMemoryState = initializeInMemoryState,
             readService = readService,
-          ).map(
+          ).map(initialized =>
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
               materializer = mat,
+              initialized = initialized,
               clock = clock,
+              repairMode = false, // TODO(i18695): wire in the big bang PR
             )
           )
         }

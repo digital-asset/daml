@@ -15,7 +15,6 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
   TargetDomainId,
   TransferId,
-  WithContractHash,
 }
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, TransferCounter}
@@ -36,10 +35,10 @@ import com.digitalasset.canton.{LfPartyId, TransferCounter}
   *                                            or `creations` overlaps with `transferIns`.
   */
 final case class CommitSet(
-    archivals: Map[LfContractId, WithContractHash[ArchivalCommit]],
-    creations: Map[LfContractId, WithContractHash[CreationCommit]],
-    transferOuts: Map[LfContractId, WithContractHash[TransferOutCommit]],
-    transferIns: Map[LfContractId, WithContractHash[TransferInCommit]],
+    archivals: Map[LfContractId, ArchivalCommit],
+    creations: Map[LfContractId, CreationCommit],
+    transferOuts: Map[LfContractId, TransferOutCommit],
+    transferIns: Map[LfContractId, TransferInCommit],
 ) extends PrettyPrinting {
   requireDisjoint(transferOuts.keySet -> "Transfer-outs", archivals.keySet -> "archivals")
   requireDisjoint(transferIns.keySet -> "Transfer-ins", creations.keySet -> "creations")
@@ -99,25 +98,18 @@ object CommitSet {
   def createForTransaction(
       activenessResult: ActivenessResult,
       requestId: RequestId,
-      consumedInputsOfHostedParties: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
-      transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
+      consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
+      transient: Map[LfContractId, Set[LfPartyId]],
       createdContracts: Map[LfContractId, SerializableContract],
   )(implicit loggingContext: ErrorLoggingContext): CommitSet =
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {
         case (cid, hostedStakeholders) =>
-          (
-            cid,
-            WithContractHash(
-              CommitSet.ArchivalCommit(hostedStakeholders.unwrap),
-              hostedStakeholders.contractHash,
-            ),
-          )
+          cid -> CommitSet.ArchivalCommit(hostedStakeholders)
       }
       val transferCounter = TransferCounter.Genesis
-      val creations = createdContracts.fmap(c =>
-        WithContractHash.fromContract(c, CommitSet.CreationCommit(c.metadata, transferCounter))
-      )
+      val creations =
+        createdContracts.fmap(c => CommitSet.CreationCommit(c.metadata, transferCounter))
       CommitSet(
         archivals = archivals,
         creations = creations,

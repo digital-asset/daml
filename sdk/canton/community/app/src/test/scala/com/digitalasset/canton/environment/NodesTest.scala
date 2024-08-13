@@ -33,6 +33,7 @@ import com.digitalasset.canton.metrics.{
   LedgerApiServerMetrics,
   OnDemandMetricsReader,
 }
+import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.resource.{
   CommunityDbMigrationsFactory,
   CommunityStorageFactory,
@@ -162,6 +163,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override protected def customNodeStages(
         storage: Storage,
         crypto: Crypto,
+        adminServerRegistry: CantonMutableHandlerRegistry,
         nodeId: UniqueIdentifier,
         manager: AuthorizedTopologyManager,
         healthReporter: GrpcHealthReporter,

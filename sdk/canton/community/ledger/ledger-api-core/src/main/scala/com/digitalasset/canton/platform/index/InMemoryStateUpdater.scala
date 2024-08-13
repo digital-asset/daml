@@ -56,8 +56,8 @@ private[platform] object InMemoryStateUpdaterFlow {
   )(
       inMemoryState: InMemoryState,
       prepare: (Vector[(Offset, Traced[Update])], Long, CantonTimestamp) => PrepareResult,
-      update: PrepareResult => Unit,
-  )(implicit traceContext: TraceContext): UpdaterFlow =
+      update: (PrepareResult, Boolean) => Unit,
+  )(implicit traceContext: TraceContext): UpdaterFlow = { repairMode =>
     Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
       .filter(_._1.nonEmpty)
       .via(updateOffsetCheckpointCacheFlow(inMemoryState, offsetCheckpointCacheUpdateInterval))
@@ -75,11 +75,12 @@ private[platform] object InMemoryStateUpdaterFlow {
       .async
       .mapAsync(1) { case (batch, result) =>
         Future {
-          update(result)
+          update(result, repairMode)
           metrics.index.ledgerEndSequentialId.updateValue(result.lastEventSequentialId)
           batch
         }(updateCachesExecutionContext)
       }
+  }
 
   private def updateOffsetCheckpointCacheFlow(
       inMemoryState: InMemoryState,
@@ -149,6 +150,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                   case Update.CommandRejected(recordTime, _, _, domainId, _, _) =>
                     Some((domainId, recordTime))
                   case _: Update.SequencerIndexMoved => None
+                  case _: Update.CommitRepair => None
                 }
 
                 val lastDomainTimes = lastOffsetCheckpointO.map(_.domainTimes).getOrElse(Map.empty)
@@ -188,7 +190,7 @@ private[platform] object InMemoryStateUpdater {
       lastTraceContext: TraceContext,
   )
   type UpdaterFlow =
-    Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp), Vector[
+    Boolean => Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp), Vector[
       (Offset, Traced[Update])
     ], NotUsed]
   def owner(
@@ -253,20 +255,24 @@ private[platform] object InMemoryStateUpdater {
   private[index] def update(
       inMemoryState: InMemoryState,
       logger: TracedLogger,
-  )(result: PrepareResult): Unit = {
-    updateCaches(inMemoryState, result.updates)
+  )(result: PrepareResult, repairMode: Boolean): Unit = {
+    updateCaches(inMemoryState, result.updates, result.lastOffset)
     // must be the last update: see the comment inside the method for more details
     // must be after cache updates: see the comment inside the method for more details
-    updateLedgerEnd(
-      inMemoryState,
-      result.lastOffset,
-      result.lastEventSequentialId,
-      result.lastPublicationTime,
-      logger,
-    )(
-      result.lastTraceContext
-    )
+    // in case of Repair Mode we will update directly, at the end from the indexer queue
+    if (!repairMode) {
+      updateLedgerEnd(
+        inMemoryState,
+        result.lastOffset,
+        result.lastEventSequentialId,
+        result.lastPublicationTime,
+        logger,
+      )(
+        result.lastTraceContext
+      )
+    }
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
+    // it is expected to be okay to run these in repair mode, as repair operations are not related to tracking
     trackSubmissions(inMemoryState.submissionTracker, result.updates)
     // can be done at any point in the pipeline, it is for debugging only
     trackCommandProgress(inMemoryState.commandProgressTracker, result.updates)
@@ -306,7 +312,8 @@ private[platform] object InMemoryStateUpdater {
   private def updateCaches(
       inMemoryState: InMemoryState,
       updates: Vector[Traced[TransactionLogUpdate]],
-  ): Unit =
+      lastOffset: Offset,
+  ): Unit = {
     updates.foreach { tracedTransaction =>
       // TODO(i12283) LLP: Batch update caches
       tracedTransaction.withTraceContext(implicit traceContext =>
@@ -319,8 +326,10 @@ private[platform] object InMemoryStateUpdater {
         }
       )
     }
+    inMemoryState.cachesUpdatedUpto.set(lastOffset)
+  }
 
-  private def updateLedgerEnd(
+  def updateLedgerEnd(
       inMemoryState: InMemoryState,
       lastOffset: Offset,
       lastEventSequentialId: Long,

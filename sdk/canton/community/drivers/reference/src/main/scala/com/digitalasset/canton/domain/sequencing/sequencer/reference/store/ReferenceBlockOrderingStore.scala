@@ -21,7 +21,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
-trait ReferenceBlockOrderingStore {
+trait ReferenceBlockOrderingStore extends AutoCloseable {
 
   def insertRequest(request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
@@ -157,4 +157,6 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
         }
       )
     else Seq.empty
+
+  override def close(): Unit = ()
 }

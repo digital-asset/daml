@@ -189,7 +189,7 @@ object Update {
     *                          [[TransactionMeta.ledgerEffectiveTime]].
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
-    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.command.DisclosedContract]]s
+    *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
     *                          when submitting transactions trough the [[WriteService]].
     *                          If a contract created by this transaction is not element of this map,
     *                          its metadata is equal to the empty byte array.
@@ -472,6 +472,20 @@ object Update {
         )
   }
 
+  final case class CommitRepair() extends Update {
+    override val persisted: Promise[Unit] = Promise()
+
+    override val domainIndexOpt: Option[(DomainId, DomainIndex)] = None
+
+    override def pretty: Pretty[CommitRepair] = prettyOfClass()
+
+    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
+      "Record time is not supposed to be overridden for CommitRepair events"
+    )
+
+    override val recordTime: Timestamp = Timestamp.now()
+  }
+
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: Init =>
       Init.`Init to LoggingValue`.toLoggingValue(update)
@@ -487,6 +501,8 @@ object Update {
       ReassignmentAccepted.`ReassignmentAccepted to LoggingValue`.toLoggingValue(update)
     case update: SequencerIndexMoved =>
       SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
+    case _: CommitRepair =>
+      LoggingValue.Empty
   }
 
   private object Logging {

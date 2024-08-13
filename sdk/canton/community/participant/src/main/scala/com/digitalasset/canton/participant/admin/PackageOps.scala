@@ -9,6 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
@@ -22,10 +23,16 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{AuthorizedTopologyManager, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  AuthorizedTopologyManager,
+  ForceFlag,
+  ForceFlags,
+  ParticipantId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{EitherTUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -66,9 +73,19 @@ class PackageOpsImpl(
     initialProtocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
+    exitOnFatalFailures: Boolean,
 )(implicit val ec: ExecutionContext)
     extends PackageOps
     with FlagCloseable {
+
+  private val vettingExecutionQueue = new SimpleExecutionQueue(
+    "sequential-vetting-queue",
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
+  )
 
   override def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
@@ -113,41 +130,49 @@ class PackageOpsImpl(
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
-    val packagesToBeAdded = new AtomicReference[Seq[PackageId]](List.empty)
-    for {
-      newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
-        // Keep deterministic order for testing and keep optimal O(n)
-        val existingPackagesSet = existingPackages.toSet
-        packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
-        existingPackages ++ packagesToBeAdded.get
-      }
-      // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
-      _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
-        synchronizeVetting.sync(packagesToBeAdded.get.toSet)
-      }
-    } yield ()
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
+    vettingExecutionQueue.executeEUS(
+      {
+        val packagesToBeAdded = new AtomicReference[Seq[PackageId]](List.empty)
+        for {
+          newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
+            // Keep deterministic order for testing and keep optimal O(n)
+            val existingPackagesSet = existingPackages.toSet
+            packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
+            existingPackages ++ packagesToBeAdded.get
+          }
+          // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
+          _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
+            synchronizeVetting.sync(packagesToBeAdded.get.toSet)
+          }
+        } yield ()
 
-  }
+      },
+      "vet packages",
+    )
 
   override def revokeVettingForPackages(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: DarDescriptor,
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] = {
-    val packagesToUnvet = packages.toSet
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+    vettingExecutionQueue.executeEUS(
+      {
+        val packagesToUnvet = packages.toSet
 
-    modifyVettedPackages(_.filterNot(packagesToUnvet)).leftWiden[CantonError].void
-  }
+        modifyVettedPackages(_.filterNot(packagesToUnvet)).leftWiden[CantonError].void
+      },
+      "revoke vetting",
+    )
 
-  /** Returns true if a new VettedPackages transaction was authorized. */
-  def modifyVettedPackages(
+  /** Returns true if a new VettedPackages transaction was authorized.
+    * modifyVettedPackages should not be called concurrently
+    */
+  private def modifyVettedPackages(
       action: Seq[LfPackageId] => Seq[LfPackageId]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
-    // TODO(#14069) this vetting extension might fail on concurrent requests
-
     for {
       currentMapping <- EitherT.right(
         performUnlessClosingF(functionFullName)(
@@ -188,6 +213,7 @@ class PackageOpsImpl(
               signingKeys = Seq(participantId.fingerprint),
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
+              forceChanges = ForceFlags(ForceFlag.PackageVettingRevocation),
             )
             .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
             .map(_ => ())

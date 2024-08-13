@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.utils
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.concurrent.Threading
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.{Assertion, Assertions}
@@ -12,7 +11,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
-@UnstableTest // TODO(#20340) Remove UnstableTest annotation once it is fixed
 final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
   behavior of "QueueBasedConcurrencyLimiter"
 
@@ -41,7 +39,8 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
   it should "limit the parallelism to the level of the execution context" in {
     ConcurrencyLimiterSpec.runTest(
       createLimiter = ec => new QueueBasedConcurrencyLimiter(8, ec),
-      waitTimeMillis = 1,
+      // Ensure the futures don't complete too fast, so that the target parallelism can be reached
+      waitTimeMillis = 10,
       threads = 4,
       items = 100,
       parallelism = 8,

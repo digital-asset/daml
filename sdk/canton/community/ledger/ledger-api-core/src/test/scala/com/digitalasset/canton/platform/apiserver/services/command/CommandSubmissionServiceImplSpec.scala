@@ -33,13 +33,13 @@ import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{LookupError, Reference}
-import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
   TransactionBuilder,
   TreeTransactionBuilder,
 }
+import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
 import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
 import io.grpc.{Status, StatusRuntimeException}
@@ -212,21 +212,20 @@ class CommandSubmissionServiceImplSpec
     val metrics = LedgerApiServerMetrics.ForTesting
 
     val disclosedContract =
-      com.digitalasset.canton.ledger.api.domain.DisclosedContract(
-        templateId = Identifier.assertFromString("some:pkg:identifier"),
-        contractId = TransactionBuilder.newCid,
-        argument = Value.ValueNil,
-        createdAt = Timestamp.Epoch,
-        keyHash = None,
-        driverMetadata = Bytes.Empty,
-        packageName = PackageName.assertFromString("pkg-name"),
-        packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
-        signatories = Set(Ref.Party.assertFromString("alice")),
-        stakeholders = Set(Ref.Party.assertFromString("alice")),
-        keyMaintainers = None,
-        keyValue = None,
-        // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-        transactionVersion = TransactionVersion.maxVersion,
+      FatContractInstance.fromCreateNode(
+        LfNode.Create(
+          coid = TransactionBuilder.newCid,
+          packageName = PackageName.assertFromString("pkg-name"),
+          packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
+          templateId = Identifier.assertFromString("some:pkg:identifier"),
+          arg = Value.ValueNil,
+          signatories = Set(Ref.Party.assertFromString("alice")),
+          stakeholders = Set(Ref.Party.assertFromString("alice")),
+          keyOpt = None,
+          version = TransactionVersion.maxVersion,
+        ),
+        createTime = Timestamp.Epoch,
+        cantonData = Bytes.Empty,
       )
 
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(

@@ -32,7 +32,11 @@ import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  CantonMutableHandlerRegistry,
+  StaticGrpcServices,
+}
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
@@ -74,7 +78,10 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.topology.TopologyManagerError.InvalidTopologyMapping
+import com.digitalasset.canton.topology.TopologyManagerError.{
+  InconsistentTopologySnapshot,
+  InvalidTopologyMapping,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
@@ -162,16 +169,18 @@ class ParticipantNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[ParticipantNode] =
-    new StartupNode(storage, crypto, nodeId, manager, healthService)
+    new StartupNode(storage, crypto, adminServerRegistry, nodeId, manager, healthService)
 
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -247,6 +256,8 @@ class ParticipantNodeBootstrap(
         initialProtocolVersion = ProtocolVersion.latest,
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,
+        futureSupervisor = futureSupervisor,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
       )
 
       addCloseable(packageOps)
@@ -262,30 +273,93 @@ class ParticipantNodeBootstrap(
       )(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = for {
-        ptp <- EitherT.fromEither[FutureUnlessShutdown](
-          PartyToParticipant
-            .create(
-              partyId,
-              None,
-              threshold = PositiveInt.one,
-              participants =
-                Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
-              groupAddressing = false,
+        storedTransactions <- EitherT
+          .right(
+            topologyManager.store.findPositiveTransactions(
+              asOf = CantonTimestamp.MaxValue,
+              asOfInclusive = false,
+              isProposal = false,
+              types = Seq(PartyToParticipant.code),
+              filterUid = Some(Seq(partyId.uid)),
+              filterNamespace = None,
             )
-            .leftMap(err =>
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
+
+        uniqueByKey = storedTransactions
+          .collectOfMapping[PartyToParticipant]
+          .collectLatestByUniqueKey
+        updateResult <- uniqueByKey.result match {
+          case Seq() =>
+            // no positive (i.e. REPLACE) transaction could mean:
+            // 1. this party has never existed before
+            // 2. this party has been created and deactivated (i.e. REMOVE)
+            EitherT
+              .fromEither[FutureUnlessShutdown](
+                PartyToParticipant
+                  .create(
+                    partyId,
+                    None,
+                    threshold = PositiveInt.one,
+                    participants =
+                      Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
+                    groupAddressing = false,
+                  )
+              )
+              .bimap(
+                err =>
+                  ParticipantTopologyManagerError.IdentityManagerParentError(
+                    InvalidTopologyMapping.Reject(err)
+                  ),
+                // leaving serial to None, because in case of a REMOVE we let the serial
+                // auto detection mechanism figure out the correct next serial
+                ptp => (None, ptp),
+              )
+
+          case Seq(existingPtpTx) =>
+            EitherT
+              .fromEither[FutureUnlessShutdown](
+                PartyToParticipant.create(
+                  existingPtpTx.mapping.partyId,
+                  existingPtpTx.mapping.domainId,
+                  existingPtpTx.mapping.threshold,
+                  existingPtpTx.mapping.participants
+                    .filterNot(_.participantId == participantId) :+ HostingParticipant(
+                    participantId,
+                    ParticipantPermission.Submission,
+                  ),
+                  existingPtpTx.mapping.groupAddressing,
+                )
+              )
+              .bimap(
+                err =>
+                  ParticipantTopologyManagerError.IdentityManagerParentError(
+                    InvalidTopologyMapping.Reject(err)
+                  ),
+                // leaving serial to None, because in case of a REMOVE we let the serial
+                // auto detection mechanism figure out the correct next serial
+                ptp => (Some(existingPtpTx.serial.increment), ptp),
+              )
+
+          case multiple =>
+            EitherT.leftT[FutureUnlessShutdown, (Option[PositiveInt], PartyToParticipant)](
               ParticipantTopologyManagerError.IdentityManagerParentError(
-                InvalidTopologyMapping.Reject(err)
+                InconsistentTopologySnapshot
+                  .MultipleEffectiveMappingsPerUniqueKey(
+                    multiple.groupBy(_.mapping.uniqueKey)
+                  )
               )
             )
-        )
-        // TODO(#14069) make this "extend" / not replace
-        //    this will also be potentially racy!
+        }
+
+        (nextSerial, updatedPTP) = updateResult
+
         _ <- performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               TopologyChangeOp.Replace,
-              ptp,
-              serial = None,
+              updatedPTP,
+              serial = nextSerial,
               // TODO(#12390) auto-determine signing keys
               signingKeys = Seq(partyId.uid.namespace.fingerprint),
               protocolVersion,
@@ -314,9 +388,9 @@ class ParticipantNodeBootstrap(
       addCloseable(partyMetadataStore)
 
       // admin token is taken from the config or created per session
-      val adminToken: CantonAdminToken = config.ledgerApi.adminToken.fold(
-        CantonAdminToken.create(crypto.pureCrypto)
-      )(token => CantonAdminToken(secret = token))
+      val adminToken: CantonAdminToken = config.ledgerApi.adminToken
+        .orElse(config.adminApi.adminToken)
+        .fold(CantonAdminToken.create(crypto.pureCrypto))(token => CantonAdminToken(secret = token))
 
       // upstream party information update generator
       val partyNotifierFactory = (eventPublisher: ParticipantEventPublisher) => {
@@ -341,6 +415,7 @@ class ParticipantNodeBootstrap(
       createParticipantServices(
         participantId,
         crypto,
+        adminServerRegistry,
         storage,
         persistentStateFactory,
         packageServiceFactory,
@@ -472,6 +547,7 @@ class ParticipantNodeBootstrap(
   protected def createParticipantServices(
       participantId: ParticipantId,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       storage: Storage,
       persistentStateFactory: ParticipantNodePersistentStateFactory,
       packageServiceFactory: PackageServiceFactory,
