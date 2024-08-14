@@ -120,7 +120,7 @@ object JdbcIndexer {
           excludedPackageIds = excludedPackageIds,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
-          stringInterningView = inMemoryState.stringInterningView,
+          inMemoryState = inMemoryState,
           reassignmentOffsetPersistence = reassignmentOffsetPersistence,
           postProcessor = postProcessor,
           tracer = tracer,

@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -17,6 +18,7 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.Handle
 import com.digitalasset.canton.platform.indexer.parallel.AsyncSupport.*
@@ -24,20 +26,17 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.*
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
-import com.digitalasset.canton.platform.store.interning.{
-  InternizingStringInterningView,
-  StringInterning,
-}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink}
 import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
 import scala.util.chaining.*
 
@@ -58,7 +57,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     excludedPackageIds: Set[Ref.PackageId],
     metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
-    stringInterningView: StringInterning & InternizingStringInterningView,
+    inMemoryState: InMemoryState,
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
     tracer: Tracer,
@@ -77,77 +76,111 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
       materializer: Materializer,
+      initialized: InitializeParallelIngestion.Initialized,
       clock: Clock,
-  )(implicit traceContext: TraceContext): InitializeParallelIngestion.Initialized => Handle = {
-    initialized =>
-      import MetricsContext.Implicits.empty
-      val storeLedgerEndF = storeLedgerEnd(
-        parameterStorageBackend.updateLedgerEnd,
-        dbDispatcher,
-        metrics,
-        logger,
-      )
-      val storePostProcessingEndF = storePostProcessingEnd(
-        parameterStorageBackend.updatePostProcessingEnd,
-        dbDispatcher,
-        metrics,
-        logger,
-      )
-      val (killSwitch, completionFuture) = initialized.readServiceSource
-        .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
-        .via(
-          BatchingParallelIngestionPipe(
-            submissionBatchSize = submissionBatchSize,
-            inputMappingParallelism = inputMappingParallelism,
-            inputMapper = inputMapperExecutor.execute(
-              inputMapper(
-                metrics,
-                mapInSpan(
-                  UpdateToDbDto(
-                    participantId = participantId,
-                    translation = translation,
-                    compressionStrategy = compressionStrategy,
-                    metrics = metrics,
-                  )
-                ),
-                UpdateToMeteringDbDto(
-                  metrics = metrics.indexerEvents,
-                  excludedPackageIds = excludedPackageIds,
-                ),
-                logger,
-              )
-            ),
-            seqMapperZero = seqMapperZero(
-              initialized.initialEventSeqId,
-              initialized.initialStringInterningId,
-              initialized.initialLastPublicationTime,
-            ),
-            seqMapper = seqMapper(
-              dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
-              metrics,
-              clock,
-              logger,
-            ),
-            batchingParallelism = batchingParallelism,
-            batcher = batcherExecutor.execute(
-              batcher(ingestionStorageBackend.batch(_, stringInterningView))
-            ),
-            ingestingParallelism = ingestionParallelism,
-            ingester = ingester(
-              ingestFunction = ingestionStorageBackend.insertBatch,
-              reassignmentOffsetPersistence = reassignmentOffsetPersistence,
-              zeroDbBatch = ingestionStorageBackend.batch(Vector.empty, stringInterningView),
-              dbDispatcher = dbDispatcher,
-              logger = logger,
-              metrics = metrics,
-            ),
-            maxTailerBatchSize = maxTailerBatchSize,
-            ingestTail = ingestTail[DB_BATCH](
-              storeLedgerEndF,
-              logger,
-            ),
-          )
+      repairMode: Boolean,
+  )(implicit traceContext: TraceContext): Handle = {
+    import MetricsContext.Implicits.empty
+    val aggregatedLedgerEndForRepair: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])] =
+      new AtomicReference(
+        (
+          // this necessarily will be overridden as successfull repair has at least a CommitRepair Update, which carries the LedgerEnd forward
+          LedgerEnd.beforeBegin,
+          Map.empty,
         )
+      )
+    val storeLedgerEndF = storeLedgerEnd(
+      parameterStorageBackend.updateLedgerEnd,
+      dbDispatcher,
+      metrics,
+      logger,
+    )
+    val storePostProcessingEndF = storePostProcessingEnd(
+      parameterStorageBackend.updatePostProcessingEnd,
+      dbDispatcher,
+      metrics,
+      logger,
+    )
+    val (killSwitch, completionFuture) = initialized.readServiceSource
+      .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
+      .takeWhile(
+        // The queue is only consumed until the first CommitRepair:
+        //   - in case Repair Mode, it is invalid to use this queue after committed,
+        //   - in case normal indexing, CommitRepair is invalid.
+        // The queue and stream processing completes after the CommitRepair.
+        !_._2.value.isInstanceOf[CommitRepair],
+        // the stream also must hold the CommitRepair event itself
+        inclusive = true,
+      )
+      .via(
+        BatchingParallelIngestionPipe(
+          submissionBatchSize = submissionBatchSize,
+          inputMappingParallelism = inputMappingParallelism,
+          inputMapper = inputMapperExecutor.execute(
+            inputMapper(
+              metrics,
+              mapInSpan(
+                UpdateToDbDto(
+                  participantId = participantId,
+                  translation = translation,
+                  compressionStrategy = compressionStrategy,
+                  metrics = metrics,
+                )
+              ),
+              UpdateToMeteringDbDto(
+                metrics = metrics.indexerEvents,
+                excludedPackageIds = excludedPackageIds,
+              ),
+              logger,
+            )
+          ),
+          seqMapperZero = seqMapperZero(
+            initialized.initialEventSeqId,
+            initialized.initialStringInterningId,
+            initialized.initialLastPublicationTime,
+          ),
+          seqMapper = seqMapper(
+            dtos =>
+              inMemoryState.stringInterningView
+                .internize(DbDtoToStringsForInterning(dtos)),
+            metrics,
+            clock,
+            logger,
+          ),
+          batchingParallelism = batchingParallelism,
+          batcher = batcherExecutor.execute(
+            batcher(
+              ingestionStorageBackend.batch(
+                _,
+                inMemoryState.stringInterningView,
+              )
+            )
+          ),
+          ingestingParallelism = ingestionParallelism,
+          ingester = ingester(
+            ingestFunction = ingestionStorageBackend.insertBatch,
+            reassignmentOffsetPersistence = reassignmentOffsetPersistence,
+            zeroDbBatch = ingestionStorageBackend.batch(
+              Vector.empty,
+              inMemoryState.stringInterningView,
+            ),
+            dbDispatcher = dbDispatcher,
+            logger = logger,
+            metrics = metrics,
+          ),
+          maxTailerBatchSize = maxTailerBatchSize,
+          ingestTail =
+            if (repairMode)
+              aggregateLedgerEndForRepair[DB_BATCH](
+                aggregatedLedgerEndForRepair
+              )
+            else
+              ingestTail[DB_BATCH](
+                storeLedgerEndF,
+                logger,
+              ),
+        )
+      )
 // TODO(i18695): FIXME on big bang rollout
 //        .async
 //        .mapAsync(postProcessingParallelism)(
@@ -157,30 +190,59 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
 //            logger,
 //          )
 //        )
-        .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
-        .mapAsync(1)(
-          ingestPostProcessEnd[DB_BATCH](
-            storePostProcessingEndF,
-            logger,
+      .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
+      .via(
+        if (repairMode) {
+          // no need to aggregate the postProcessingEnd for repair: this will be done implicitly by aggregating the ledger end
+          Flow.apply
+        } else {
+          Flow.apply.mapAsync(1)(
+            ingestPostProcessEnd[DB_BATCH](
+              storePostProcessingEndF,
+              logger,
+            )
           )
-        )
-        .mapConcat(
-          _.map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
-        )
-        .buffered(
-          counter = metrics.parallelIndexer.outputBatchedBufferLength,
-          size = maxOutputBatchedBufferSize,
-        )
-        .via(inMemoryStateUpdaterFlow)
-        .map { updates =>
-          updates.foreach { case (_, Traced(update)) =>
-            discard(update.persisted.trySuccess(()))
-          }
         }
-        .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-        .toMat(Sink.ignore)(Keep.both)
-        .run()(materializer)
-      Handle(completionFuture.map(_ => ())(materializer.executionContext), killSwitch)
+      )
+      .mapConcat(
+        _.map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
+      )
+      .buffered(
+        counter = metrics.parallelIndexer.outputBatchedBufferLength,
+        size = maxOutputBatchedBufferSize,
+      )
+      .via(inMemoryStateUpdaterFlow(repairMode))
+      .via(
+        if (repairMode) {
+          Flow.apply.mapAsync(1)(
+            commitRepair(
+              storeLedgerEndF,
+              storePostProcessingEndF,
+              ledgerEnd =>
+                InMemoryStateUpdater.updateLedgerEnd(
+                  inMemoryState = inMemoryState,
+                  lastOffset = ledgerEnd.lastOffset,
+                  lastEventSequentialId = ledgerEnd.lastEventSeqId,
+                  lastPublicationTime = ledgerEnd.lastPublicationTime,
+                  logger,
+                ),
+              aggregatedLedgerEndForRepair,
+              logger,
+            )
+          )
+        } else {
+          Flow.apply
+        }
+      )
+      .map { updates =>
+        updates.foreach { case (_, Traced(update)) =>
+          discard(update.persisted.trySuccess(()))
+        }
+      }
+      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      .toMat(Sink.ignore)(Keep.both)
+      .run()(materializer)
+    Handle(completionFuture.map(_ => ())(materializer.executionContext), killSwitch)
   }
 }
 
@@ -484,6 +546,21 @@ object ParallelIndexerSubscription {
           }
       }
 
+  def aggregateLedgerEndForRepair[DB_BATCH](
+      aggregatedLedgerEnd: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])]
+  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = { batchOfBatches =>
+    batchOfBatches.lastOption.foreach(lastBatch =>
+      discard(aggregatedLedgerEnd.updateAndGet { case (_, oldDomainIndexes) =>
+        // this will also have at the end the offset bump for the CommitRepair Update as well, we accept this for sake of simplicity
+        val newLedgerEnd = ledgerEndFrom(lastBatch)
+        val newDomainIndexes =
+          ledgerEndDomainIndexFrom(oldDomainIndexes.toVector)
+        (newLedgerEnd, newDomainIndexes)
+      })
+    )
+    Future.successful(batchOfBatches)
+  }
+
   def postProcess[DB_BATCH](
       processor: (Vector[PostPublishData], TraceContext) => Future[Unit],
       logger: TracedLogger,
@@ -534,6 +611,40 @@ object ParallelIndexerSubscription {
           )(loggingContext.traceContext)
         }
     }
+
+  def commitRepair[DB_BATCH](
+      storeLedgerEnd: (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit],
+      storePostProcessingEnd: Offset => Future[Unit],
+      updateInMemoryState: LedgerEnd => Unit,
+      aggregatedLedgerEnd: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])],
+      logger: TracedLogger,
+  )(implicit
+      traceContext: TraceContext
+  ): Vector[(Offset, Traced[Update])] => Future[Vector[(Offset, Traced[Update])]] = {
+    implicit val ec: DirectExecutionContext = DirectExecutionContext(logger)
+    offsetsAndUpdates =>
+      offsetsAndUpdates.lastOption match {
+        case Some((_, Traced(CommitRepair()))) =>
+          val (ledgerEnd, domainIndexes) = aggregatedLedgerEnd.get()
+          for {
+            // this order is important to respect crash recovery rules
+            _ <- storeLedgerEnd(ledgerEnd, domainIndexes)
+            _ <- storePostProcessingEnd(ledgerEnd.lastOffset)
+            _ = updateInMemoryState(ledgerEnd)
+          } yield {
+            logger.info("Repair committed, Ledger End stored and updated successfully.")
+            offsetsAndUpdates
+          }
+
+        case Some(_) =>
+          Future.successful(offsetsAndUpdates)
+
+        case None =>
+          val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
+          logger.error(message)
+          Future.failed(new IllegalStateException(message))
+      }
+  }
 
   private def cleanUnusedBatch[DB_BATCH](
       zeroDbBatch: DB_BATCH

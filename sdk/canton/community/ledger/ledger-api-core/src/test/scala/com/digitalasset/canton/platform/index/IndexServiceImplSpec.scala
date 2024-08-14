@@ -32,12 +32,14 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.mockito.MockitoSugar
 import org.scalatest.Inspectors.forAll
+import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.concurrent.ScalaFutures.convertScalaFuture
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, OptionValues}
 
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 
 class IndexServiceImplSpec
     extends AnyFlatSpec
@@ -850,9 +852,9 @@ class IndexServiceImplSpec
     }
   }
 
-  it should "add a checkpoint invoked from timeout when its offset is greater than last streamed checkpoint" in new Scope {
+  it should "add a checkpoint invoked from timeout when its offset is at the last streamed element" in new Scope {
     val elements = 1L to end
-    val checkpoint = 11L
+    val checkpoint = 10L
 
     val out: Seq[Long] =
       createSource(elements)
@@ -886,7 +888,7 @@ class IndexServiceImplSpec
 
   it should "not add the same checkpoint invoked from timeout" in new Scope {
     val elements = 1L to end
-    val checkpoint = 11L
+    val checkpoint = 10L
 
     val out: Seq[Long] =
       createSource(elements)
@@ -1055,7 +1057,7 @@ class IndexServiceImplSpec
       Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO)
     ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
 
-    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(42))
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3))
 
     val out: Seq[(Offset, Option[Unit])] =
       source
@@ -1066,7 +1068,55 @@ class IndexServiceImplSpec
         .futureValue
 
     out shouldBe
-      Seq((1, u), (2, u), (3, u), (42, None)).map { case (o, elem) =>
+      Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "add checkpoints at the right spot when streaming far from history" in new Scope {
+    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (3, RB), (4, RE), (4, RB), 5, (5, RE) -shouldBe> 1, 2, 3, 5, C5
+
+    private val source = Source(
+      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, (3, RB), (4, RE), (4, RB), (5, e), (5, RE))
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] =
+      mutable.Queue(None, Some(5), Some(5), Some(5))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (5, u), (5, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "add checkpoints at the right spot when streaming far from history when ranges empty" in new Scope {
+    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (3, RB), (4, RE), (4, RB), (5, RE) -shouldBe> 1, 2, 3, C5
+
+    private val source = Source(
+      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, (3, RB), (4, RE), (4, RB), (5, RE))
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] =
+      mutable.Queue(None, Some(5), Some(5), Some(5))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (5, None)).map { case (o, elem) =>
         (Offset.fromLong(o.toLong), elem)
       }
   }
@@ -1110,6 +1160,29 @@ class IndexServiceImplSpec
         )
         .runWith(Sink.seq)
         .futureValue
+
+    out shouldBe
+      Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
+        (Offset.fromLong(o.toLong), elem)
+      }
+  }
+
+  it should "not emit checkpoints when timeout is the first" in new Scope {
+    // e.g. NC, (TO), (0,RB), 1, 2, (2,RE), (2, RB), 3, (3, RE) -shouldBe> 1, 2, 3, C3
+
+    private val source = Source(
+      Seq(TO, (0, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3), Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+        )
+        .runWith(Sink.seq)
+        .futureValue(timeout = PatienceConfiguration.Timeout(1.second))
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>

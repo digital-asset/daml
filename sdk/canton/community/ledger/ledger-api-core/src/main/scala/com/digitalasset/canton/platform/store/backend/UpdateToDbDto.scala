@@ -420,6 +420,9 @@ object UpdateToDbDto {
         case u: SequencerIndexMoved =>
           // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
           Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
+
+        case _: CommitRepair =>
+          Iterator.empty
       }
   }
 

@@ -313,15 +313,11 @@ abstract class SequencerClientImpl(
         case _: ParticipantId => true
         case _ => false
       }
-      val domainParamsF = EitherTUtil
-        .fromFuture(
-          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults),
-          throwable =>
-            SendAsyncClientError.RequestFailed(
-              s"failed to retrieve maxRequestSize because ${throwable.getMessage}"
-            ),
+      val domainParamsF = EitherT.liftF(
+        FutureUnlessShutdown.outcomeF(
+          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
+      )
 
       if (replayEnabled) {
         val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
@@ -1104,10 +1100,8 @@ class RichSequencerClientImpl(
             failure
           }
 
-          def handleException(
-              error: Throwable,
-              syncProcessing: Boolean,
-          ): ApplicationHandlerFailure = {
+          def handleException(error: Throwable, syncProcessing: Boolean)
+              : ApplicationHandlerFailure = {
             val sync = if (syncProcessing) "Synchronous" else "Asynchronous"
 
             error match {
@@ -1136,34 +1130,33 @@ class RichSequencerClientImpl(
           def handleAsyncResult(
               asyncResultF: Future[UnlessShutdown[AsyncResult]]
           ): EitherT[Future, ApplicationHandlerFailure, Unit] =
-            EitherTUtil
-              .fromFuture(asyncResultF, handleException(_, syncProcessing = true))
-              .subflatMap {
-                case UnlessShutdown.Outcome(asyncResult) =>
-                  val asyncSignalledF = asyncResult.unwrap.transformIntoSuccess { result =>
-                    // record errors and shutdown in `applicationHandlerFailure` and move on
-                    result match {
-                      case Success(outcome) =>
-                        outcome
-                          .onShutdown(
-                            putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
-                          )
-                          .discard
-                      case Failure(error) =>
-                        handleException(error, syncProcessing = false).discard
-                    }
-                    UnlessShutdown.unit
-                  }.unwrap
-                  // note, we are adding our async processing to the flush future, so we know once the async processing has finished
-                  addToFlushAndLogError(
-                    s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
-                  )(asyncSignalledF)
-                  // we do not wait for the async results to finish, we are done here once the synchronous part is done
-                  Right(())
-                case UnlessShutdown.AbortedDueToShutdown =>
-                  putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
-                  Left(ApplicationHandlerShutdown)
-              }
+            EitherT(asyncResultF.transform {
+              case Success(UnlessShutdown.Outcome(asyncResult)) =>
+                val asyncSignalledF = asyncResult.unwrap.transformIntoSuccess { result =>
+                  // record errors and shutdown in `applicationHandlerFailure` and move on
+                  result match {
+                    case Success(outcome) =>
+                      outcome.onShutdown(
+                        putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
+                      )
+                    case Failure(error) =>
+                      handleException(error, syncProcessing = false).discard
+                  }
+                  UnlessShutdown.unit
+                }.unwrap
+                // note, we are adding our async processing to the flush future, so we know once the async processing has finished
+                addToFlushAndLogError(
+                  s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
+                )(asyncSignalledF)
+                // we do not wait for the async results to finish, we are done here once the synchronous part is done
+                Success(Right(()))
+              case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
+                Success(Left(ApplicationHandlerShutdown))
+              case Failure(ex) =>
+                val failure = handleException(ex, syncProcessing = true)
+                Success(Left(failure))
+            })
 
           // note, here, we created the asyncResultF, which means we've completed the synchronous processing part.
           asyncResultFT.fold(

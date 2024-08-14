@@ -32,7 +32,11 @@ import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  CantonMutableHandlerRegistry,
+  StaticGrpcServices,
+}
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
@@ -165,16 +169,18 @@ class ParticipantNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[ParticipantNode] =
-    new StartupNode(storage, crypto, nodeId, manager, healthService)
+    new StartupNode(storage, crypto, adminServerRegistry, nodeId, manager, healthService)
 
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -409,6 +415,7 @@ class ParticipantNodeBootstrap(
       createParticipantServices(
         participantId,
         crypto,
+        adminServerRegistry,
         storage,
         persistentStateFactory,
         packageServiceFactory,
@@ -540,6 +547,7 @@ class ParticipantNodeBootstrap(
   protected def createParticipantServices(
       participantId: ParticipantId,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       storage: Storage,
       persistentStateFactory: ParticipantNodePersistentStateFactory,
       packageServiceFactory: PackageServiceFactory,

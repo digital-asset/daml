@@ -163,7 +163,7 @@ class InMemoryStateUpdaterSpec
   }
 
   "update" should "update the in-memory state" in new Scope {
-    InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult)
+    InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, false)
 
     // TODO(i12283) LLP: Unit test contract state event conversion and cache updating
 
@@ -180,6 +180,37 @@ class InMemoryStateUpdaterSpec
 
     inOrder.verify(ledgerEndCache).set((lastOffset, lastEventSeqId, lastPublicationTime))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
+    inOrder
+      .verify(submissionTracker)
+      .onCompletion(
+        tx_accepted_completionDetails.completionStreamResponse -> tx_accepted_submitters
+      )
+
+    inOrder
+      .verify(submissionTracker)
+      .onCompletion(
+        tx_rejected_completionDetails.completionStreamResponse -> tx_rejected_submitters
+      )
+
+    inOrder.verifyNoMoreInteractions()
+  }
+
+  "update" should "update the in-memory state, but not the ledger-end and the dispatcher in repair mode" in new Scope {
+    InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, true)
+
+    // TODO(i12283) LLP: Unit test contract state event conversion and cache updating
+
+    inOrder
+      .verify(inMemoryFanoutBuffer)
+      .push(
+        tx_accepted_withCompletionDetails_offset,
+        tx_accepted_withCompletionDetails,
+      )
+    inOrder
+      .verify(inMemoryFanoutBuffer)
+      .push(tx_accepted_withoutCompletionDetails_offset, tx_accepted_withoutCompletionDetails)
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
+
     inOrder
       .verify(submissionTracker)
       .onCompletion(
@@ -270,7 +301,7 @@ object InMemoryStateUpdaterSpec {
 
     val cacheUpdates = ArrayBuffer.empty[PrepareResult]
     val cachesUpdateCaptor =
-      (v: PrepareResult) => cacheUpdates.addOne(v).pipe(_ => ())
+      (v: PrepareResult, _: Boolean) => cacheUpdates.addOne(v).pipe(_ => ())
 
     val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
       prepareUpdatesParallelism = 2,
@@ -514,7 +545,7 @@ object InMemoryStateUpdaterSpec {
         input: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
     )(implicit mat: Materializer): Done =
       Source(input)
-        .via(inMemoryStateUpdater)
+        .via(inMemoryStateUpdater(false))
         .runWith(Sink.ignore)
         .futureValue
   }

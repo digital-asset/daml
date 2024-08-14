@@ -39,7 +39,7 @@ import com.digitalasset.canton.health.admin.data.{
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.MediatorInitializationServiceGrpc
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.SequencerConnections
@@ -215,6 +215,7 @@ class MediatorNodeBootstrap(
   private class WaitForMediatorToDomainInit(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -276,6 +277,7 @@ class MediatorNodeBootstrap(
         new StartupNode(
           storage,
           crypto,
+          adminServerRegistry,
           mediatorId,
           staticDomainParameters,
           authorizedTopologyManager,
@@ -340,6 +342,7 @@ class MediatorNodeBootstrap(
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       mediatorId: MediatorId,
       staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
@@ -449,6 +452,7 @@ class MediatorNodeBootstrap(
                   saveConfig,
                   storage,
                   crypto,
+                  adminServerRegistry,
                   staticDomainParameters,
                   domainTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
@@ -505,6 +509,7 @@ class MediatorNodeBootstrap(
       saveConfig: MediatorDomainConfiguration => Future[Unit],
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       staticDomainParameters: StaticDomainParameters,
       domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
@@ -693,6 +698,7 @@ class MediatorNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
@@ -701,6 +707,7 @@ class MediatorNodeBootstrap(
     new WaitForMediatorToDomainInit(
       storage,
       crypto,
+      adminServerRegistry,
       MediatorId(nodeId),
       authorizedTopologyManager,
       healthService,

@@ -50,7 +50,7 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{
@@ -144,6 +144,7 @@ class SequencerNodeBootstrap(
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -152,6 +153,7 @@ class SequencerNodeBootstrap(
     new WaitForSequencerToDomainInit(
       storage,
       crypto,
+      adminServerRegistry,
       SequencerId(nodeId),
       manager,
       healthReporter,
@@ -179,6 +181,7 @@ class SequencerNodeBootstrap(
   private class WaitForSequencerToDomainInit(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       sequencerId: SequencerId,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -310,6 +313,7 @@ class SequencerNodeBootstrap(
         new StartupNode(
           storage,
           crypto,
+          adminServerRegistry,
           sequencerId,
           result.sequencerFactory,
           result.staticDomainParameters,
@@ -425,6 +429,7 @@ class SequencerNodeBootstrap(
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       sequencerId: SequencerId,
       sequencerFactory: SequencerFactory,
       staticDomainParameters: StaticDomainParameters,
@@ -691,13 +696,13 @@ class SequencerNodeBootstrap(
             runtimeReadyPromise,
           )
           _ <- sequencerRuntime.initializeAll()
-          // TODO(#14073) subscribe to processor BEFORE sequencer client is created
           _ = addCloseable(sequencer)
           server <- createSequencerServer(
             sequencerRuntime,
             domainParamsLookup,
             preinitializedServer,
             healthReporter,
+            adminServerRegistry,
           )
         } yield {
           // if close handle hasn't been registered yet, register it now
@@ -782,6 +787,7 @@ class SequencerNodeBootstrap(
       domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
       server: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
+      adminServerRegistry: CantonMutableHandlerRegistry,
   ): EitherT[Future, String, DynamicDomainGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {

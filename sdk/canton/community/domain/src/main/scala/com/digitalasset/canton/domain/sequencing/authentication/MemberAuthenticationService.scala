@@ -327,6 +327,17 @@ class MemberAuthenticationServiceImpl(
             s"$participant is disabled until ${cert.loginAfter}. Removing any token and booting the participant"
           )
           invalidateAndExpire(isParticipantActive)(participant)
+        case TopologyTransaction(
+              TopologyChangeOp.Remove,
+              _serial,
+              cert: ParticipantDomainPermission,
+            ) =>
+          val participant = cert.participantId
+          logger.info(
+            s"$participant's access has been revoked by the domain. Removing any token and booting the participant"
+          )
+          invalidateAndExpire(isParticipantActive)(participant)
+
         case _ =>
       }
     })

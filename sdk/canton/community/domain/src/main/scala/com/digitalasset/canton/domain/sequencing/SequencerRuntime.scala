@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing
 import cats.data.EitherT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
@@ -44,7 +43,6 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
-import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.protocol.{
   DomainParametersLookup,
   DynamicDomainParametersLookup,
@@ -61,15 +59,7 @@ import com.digitalasset.canton.sequencing.handlers.{
   EnvelopeOpener,
   StripSignature,
 }
-import com.digitalasset.canton.sequencing.protocol.SequencedEvent
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
-import com.digitalasset.canton.sequencing.{
-  BoxedEnvelope,
-  HandlerResult,
-  SubscriptionStart,
-  UnsignedEnvelopeBox,
-  UnsignedProtocolEventHandler,
-}
 import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStore}
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
@@ -427,37 +417,7 @@ class SequencerRuntime(
 
   sequencer.rateLimitManager.foreach(rlm => trafficProcessor.subscribe(rlm.balanceUpdateSubscriber))
 
-  // TODO(i17434): Use topologyHandler.combineWith(trafficProcessorHandler)
-  private def handler(domainId: DomainId): UnsignedProtocolEventHandler =
-    new UnsignedProtocolEventHandler {
-      override def name: String = s"sequencer-runtime-$domainId"
-
-      override def subscriptionStartsAt(
-          start: SubscriptionStart,
-          domainTimeTracker: DomainTimeTracker,
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        Seq(
-          topologyProcessor.subscriptionStartsAt(start, domainTimeTracker),
-          trafficProcessor.subscriptionStartsAt(start),
-        ).sequence_
-
-      override def apply(
-          tracedEvents: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
-      ): HandlerResult =
-        tracedEvents.withTraceContext { implicit traceContext => events =>
-          NonEmpty.from(events).fold(HandlerResult.done)(handle)
-        }
-
-      private def handle(tracedEvents: NonEmpty[Seq[Traced[SequencedEvent[DefaultOpenEnvelope]]]])(
-          implicit traceContext: TraceContext
-      ): HandlerResult =
-        for {
-          topology <- topologyHandler(Traced(tracedEvents))
-          _ <- trafficProcessor.handle(tracedEvents)
-        } yield topology
-    }
-
-  private val eventHandler = StripSignature(handler(domainId))
+  private val eventHandler = StripSignature(topologyHandler.combineWith(trafficProcessor))
 
   private val sequencerAdministrationService =
     new GrpcSequencerAdministrationService(

@@ -888,7 +888,7 @@ object IndexServiceImpl {
                 case c: OffsetCheckpoint
                     if lastStreamedCheckpointO.fold(true)(_.offset < c.offset) &&
                       // check that we are not in the middle of a range
-                      processedElemO.fold(true)(_._2.isRangeEnd) =>
+                      processedElemO.fold(false)(e => e._2.isRangeEnd && e._1 == c.offset) =>
                   c
               }
               val response =
