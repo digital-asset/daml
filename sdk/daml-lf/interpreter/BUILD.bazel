@@ -43,6 +43,8 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
+        "@maven//:com_dylibso_chicory_runtime",
+        "@maven//:com_dylibso_chicory_wasm",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_apache_commons_commons_text",
         "@maven//:org_slf4j_slf4j_api",
@@ -80,7 +82,9 @@ da_scala_test_suite(
             "src/test/scala/com/daml/daml/lf/speedy/SBuiltinBigNumericTest.scala",
         ],
     ),
+    data = glob(["src/test/resources/*.wasm"]),
     scala_deps = [
+        "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -95,6 +99,7 @@ da_scala_test_suite(
     deps = [
         ":interpreter",
         ":interpreter-test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -104,7 +109,9 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
