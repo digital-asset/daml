@@ -626,10 +626,17 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         user <- client.getUser(userId)
-        user <- Converter.toFuture(
+        userValue <- Converter.toFuture(
           Converter.fromOptional(user, Converter.fromUser(env.scriptIds, _))
         )
-      } yield SEValue(user)
+      } yield {
+        (participant, user.flatMap(_.primaryParty)) match {
+          case (Some(participant), Some(party)) =>
+            env.addPartyParticipantMapping(party, participant)
+          case _ =>
+        }
+        SEValue(userValue)
+      }
   }
 
   final case class DeleteUser(
