@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.data.{
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import scalaz.Order
 
 import javax.crypto.Mac
@@ -506,9 +505,9 @@ object Hash {
   private[crypto] def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
-      upgradable: Boolean = true,
+      upgradeFriendly: Boolean,
   ): ValueHashBuilder =
-    if (upgradable)
+    if (upgradeFriendly)
       new UpgradeFriendlyBuilder(purpose, cid2Bytes)
     else
       new LegacyBuilder(purpose, cid2Bytes)
@@ -534,7 +533,7 @@ object Hash {
     data.assertRight(fromString(s))
 
   def hashPrivateKey(s: String): Hash =
-    builder(Purpose.PrivateKey, noCid2String).addString(s).build
+    builder(Purpose.PrivateKey, noCid2String, upgradeFriendly = true).addString(s).build
 
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
@@ -545,7 +544,7 @@ object Hash {
       packageName: Ref.PackageName,
       key: Value,
   ): Hash = {
-    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
+    val hashBuilder = builder(Purpose.ContractKey, noCid2String, upgradeFriendly = true)
     hashBuilder
       .addQualifiedName(templateId.qualifiedName)
       .addString(packageName)
@@ -570,14 +569,9 @@ object Hash {
       templateId: Ref.Identifier,
       arg: Value,
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
-      creationVersion: TransactionVersion,
+      upgradeFriendly: Boolean = false,
   ): Hash = {
-    import Ordering.Implicits._
-    builder(
-      Purpose.ContractInstance,
-      aCid2Bytes,
-      creationVersion >= TransactionVersion.minContractKeys,
-    )
+    builder(Purpose.ContractInstance, aCid2Bytes, upgradeFriendly)
       .addString(packageName)
       .addIdentifier(templateId)
       .addTypedValue(arg)
@@ -588,16 +582,15 @@ object Hash {
       packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
       templateId: Ref.Identifier,
       arg: Value,
-      creationVersion: TransactionVersion,
   ): Either[HashingError, Hash] =
-    handleError(assertHashContractInstance(templateId, arg, packageName, creationVersion))
+    handleError(assertHashContractInstance(templateId, arg, packageName, upgradeFriendly = true))
 
   def hashChangeId(
       applicationId: Ref.ApplicationId,
       commandId: Ref.CommandId,
       actAs: Set[Ref.Party],
   ): Hash =
-    builder(Purpose.ChangeId, noCid2String)
+    builder(Purpose.ChangeId, noCid2String, upgradeFriendly = true)
       .addString(applicationId)
       .addString(commandId)
       .addStringSet(actAs)
@@ -646,7 +639,7 @@ object Hash {
       keyHash: Hash,
       maintainer: Ref.Party,
   ): Hash =
-    builder(Purpose.MaintainerContractKeyUUID, noCid2String)
+    builder(Purpose.MaintainerContractKeyUUID, noCid2String, upgradeFriendly = true)
       .addHash(keyHash)
       .addString(maintainer)
       .build
