@@ -400,7 +400,7 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
       for {
         keyTy <- env.lookupKeyTy(id)
         translatorConfig =
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Coerceable
+          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
           else preprocessing.ValueTranslator.Config.Strict
         translated <- env.valueTranslator
           .translateValue(keyTy, v, translatorConfig)
