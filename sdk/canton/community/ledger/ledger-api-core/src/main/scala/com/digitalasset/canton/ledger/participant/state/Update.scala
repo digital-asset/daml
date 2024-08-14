@@ -472,6 +472,20 @@ object Update {
         )
   }
 
+  final case class CommitRepair() extends Update {
+    override val persisted: Promise[Unit] = Promise()
+
+    override val domainIndexOpt: Option[(DomainId, DomainIndex)] = None
+
+    override def pretty: Pretty[CommitRepair] = prettyOfClass()
+
+    override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
+      "Record time is not supposed to be overridden for CommitRepair events"
+    )
+
+    override val recordTime: Timestamp = Timestamp.now()
+  }
+
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: Init =>
       Init.`Init to LoggingValue`.toLoggingValue(update)
@@ -487,6 +501,8 @@ object Update {
       ReassignmentAccepted.`ReassignmentAccepted to LoggingValue`.toLoggingValue(update)
     case update: SequencerIndexMoved =>
       SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
+    case _: CommitRepair =>
+      LoggingValue.Empty
   }
 
   private object Logging {

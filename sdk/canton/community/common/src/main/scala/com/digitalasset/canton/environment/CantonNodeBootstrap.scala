@@ -58,7 +58,11 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonServerBuilder}
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  CantonMutableHandlerRegistry,
+  CantonServerBuilder,
+}
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
@@ -229,45 +233,6 @@ abstract class CantonNodeBootstrapImpl[
       )
       .discard // we still want to report the health even if the node is closed
 
-  // The admin-API services
-  logger.info(s"Starting admin-api services on $adminApiConfig")
-  protected val (adminServer, adminServerRegistry) = {
-    val builder = CantonServerBuilder
-      .forConfig(
-        adminApiConfig,
-        executionContext,
-        loggerFactory,
-        parameterConfig.loggingConfig.api,
-        parameterConfig.tracing,
-        arguments.metrics.grpcMetrics,
-      )
-
-    val registry = builder.mutableHandlerRegistry()
-
-    val server = builder
-      .addService(
-        StatusServiceGrpc.bindService(
-          new GrpcStatusService(
-            status,
-            arguments.writeHealthDumpToFile,
-            parameterConfig.processingTimeouts,
-            loggerFactory,
-          ),
-          executionContext,
-        )
-      )
-      .addService(ProtoReflectionService.newInstance(), withLogging = false)
-      .addService(
-        ApiInfoServiceGrpc.bindService(
-          new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
-          executionContext,
-        )
-      )
-      .build
-      .start()
-    (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
-  }
-
   protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService)
@@ -314,6 +279,7 @@ abstract class CantonNodeBootstrapImpl[
   protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -416,6 +382,28 @@ abstract class CantonNodeBootstrapImpl[
       )
       with HasCloseContext {
 
+    private def createAdminServerRegistry: CantonMutableHandlerRegistry = {
+      // The admin-API services
+      logger.info(s"Starting admin-api services on $adminApiConfig")
+      val builder = CantonServerBuilder
+        .forConfig(
+          adminApiConfig,
+          executionContext,
+          bootstrapStageCallback.loggerFactory,
+          parameterConfig.loggingConfig.api,
+          parameterConfig.tracing,
+          arguments.metrics.grpcMetrics,
+        )
+
+      val registry = builder.mutableHandlerRegistry()
+
+      val server = builder.build
+        .start()
+      addCloseable(Lifecycle.toCloseableServer(server, logger, "AdminServer"))
+      addCloseable(registry)
+      registry
+    }
+
     override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] =
@@ -434,6 +422,26 @@ abstract class CantonNodeBootstrapImpl[
           )
           .map { crypto =>
             addCloseable(crypto)
+            val adminServerRegistry = createAdminServerRegistry
+            adminServerRegistry.addServiceU(
+              StatusServiceGrpc.bindService(
+                new GrpcStatusService(
+                  status,
+                  arguments.writeHealthDumpToFile,
+                  parameterConfig.processingTimeouts,
+                  bootstrapStageCallback.loggerFactory,
+                ),
+                executionContext,
+              )
+            )
+            adminServerRegistry
+              .addServiceU(ProtoReflectionService.newInstance().bindService(), withLogging = false)
+            adminServerRegistry.addServiceU(
+              ApiInfoServiceGrpc.bindService(
+                new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+                executionContext,
+              )
+            )
             adminServerRegistry.addServiceU(
               VaultServiceGrpc.bindService(
                 arguments.grpcVaultServiceFactory
@@ -446,7 +454,9 @@ abstract class CantonNodeBootstrapImpl[
                 executionContext,
               )
             )
-            Some(new SetupNodeId(storage, crypto, healthReporter, healthService))
+            Some(
+              new SetupNodeId(storage, crypto, adminServerRegistry, healthReporter, healthService)
+            )
           }
       )
   }
@@ -454,6 +464,7 @@ abstract class CantonNodeBootstrapImpl[
   private class SetupNodeId(
       storage: Storage,
       val crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, GenerateOrAwaitNodeTopologyTx, UniqueIdentifier](
@@ -509,6 +520,7 @@ abstract class CantonNodeBootstrapImpl[
           authorizedStore,
           storage,
           crypto,
+          adminServerRegistry,
           healthReporter,
           healthService,
         )
@@ -550,6 +562,7 @@ abstract class CantonNodeBootstrapImpl[
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
       storage: Storage,
       crypto: Crypto,
+      adminServerRegistry: CantonMutableHandlerRegistry,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
@@ -678,6 +691,7 @@ abstract class CantonNodeBootstrapImpl[
         customNodeStages(
           storage,
           crypto,
+          adminServerRegistry,
           nodeId,
           topologyManager,
           healthReporter,
@@ -751,7 +765,7 @@ abstract class CantonNodeBootstrapImpl[
   }
 
   override protected def onClosed(): Unit = {
-    Lifecycle.close(clock, initQueue, adminServerRegistry, adminServer, startupStage)(
+    Lifecycle.close(clock, initQueue, startupStage)(
       logger
     )
     super.onClosed()
