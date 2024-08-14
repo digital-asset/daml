@@ -628,7 +628,7 @@ private[lf] object SBuiltinFun {
   // 3. `KFoldr1Reduce` is for the second reduce from right-to-left stage when
   //    `f` is missing only one argument.
   //
-  // We could have omitted the special casse for `f` missing only one argument,
+  // We could have omitted the special case for `f` missing only one argument,
   // if the semantics of `foldr` had been implemented as
   // ```
   // foldr f z [] = z
@@ -1456,12 +1456,12 @@ private[lf] object SBuiltinFun {
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
-        case SOptional(mb) =>
-          mb.map {
-            case SContractId(coid) => coid
-            case _ => crash(s"Non contract id value when inserting lookup node")
+        case SList(list) =>
+          list match {
+            case FrontStackCons(SContractId(coid), _) => Some(coid)
+            case _ => None
           }
-        case _ => crash(s"Non option value when inserting lookup node")
+        case _ => crash(s"Non list value when inserting lookup node")
       }
       machine.ptx.insertLookup(
         optLocation = machine.getLastLocation,
@@ -1511,17 +1511,17 @@ private[lf] object SBuiltinFun {
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
       override def handleKeyFound(cid: V.ContractId): Control.Value = {
-        Control.Value(SOptional(Some(SContractId(cid))))
+        Control.Value(SList(FrontStack(SContractId(cid))))
       }
       override def handleKeyNotFound(key: GlobalKey): (Control[Nothing], Boolean) = {
-        (Control.Value(SValue.SValue.None), true)
+        (Control.Value(SValue.SValue.EmptyList), true)
       }
     }
   }
 
   private[speedy] sealed abstract class SBUKeyBuiltin(
       operation: KeyOperation
-  ) extends UpdateBuiltin(1)
+  ) extends UpdateBuiltin(2)
       with Product {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1530,7 +1530,7 @@ private[lf] object SBuiltinFun {
 
       val templateId = operation.templateId
 
-      val keyValue = args.get(0)
+      val keyValue = args.get(1)
       val version = machine.tmplId2TxVersion(templateId)
       val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
       val cachedKey =

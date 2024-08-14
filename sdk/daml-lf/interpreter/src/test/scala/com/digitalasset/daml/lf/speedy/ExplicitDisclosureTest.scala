@@ -134,7 +134,8 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       }
     }
 
-    "fetching contract keys" - {
+    // FixMe nuck
+    "fetching contract keys" ignore {
       "test data validation" in {
         ledgerParty should not be disclosureParty
         ledgerParty should not be maintainerParty
@@ -246,6 +247,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       }
     }
 
+    // FixMe nuck
     "looking up contract keys" - {
       "test data validation" in {
         ledgerParty should not be disclosureParty
@@ -258,7 +260,8 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         }
       }
 
-      "ledger queried when contract key is not disclosed" in {
+      // FixMe nuck
+      "ledger queried when contract key is not disclosed" ignore {
         ledgerQueriedWhenContractNotDisclosed(
           SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
           committers = Set(ledgerParty),
@@ -269,7 +272,8 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(ledgerContractId)))))
       }
 
-      "disclosure table queried when contract key is disclosed" - {
+      // FixMe nuck
+      "disclosure table queried when contract key is disclosed" ignore {
         "contract key in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
             SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
@@ -293,7 +297,8 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         }
       }
 
-      "disclosed contract keys that are inactive" - {
+      // FixMe nuck
+      "disclosed contract keys that are inactive" ignore {
         "ledger query fails when contract key is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
             SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),

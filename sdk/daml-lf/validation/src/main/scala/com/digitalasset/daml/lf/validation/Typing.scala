@@ -1373,13 +1373,13 @@ private[validation] object Typing {
       case UpdateFetchByKey(templateId) =>
         val keyType = handleLookup(ctx, pkgInterface.lookupTemplateKey(templateId)).typ
         Ret(
-          keyType ->:
+          TInt64 ->: keyType ->:
             TUpdate(TTuple2(TContractId(TTyCon(templateId)), TTyCon(templateId)))
         )
       case UpdateLookupByKey(templateId) =>
         val keyType = handleLookup(ctx, pkgInterface.lookupTemplateKey(templateId)).typ
         Ret(
-          keyType ->: TUpdate(TOptional(TContractId(TTyCon(templateId))))
+          TInt64 ->: keyType ->: TUpdate(TList(TContractId(TTyCon(templateId))))
         )
       case UpdateTryCatch(typ, body, binder, handler) =>
         checkType(typ, KStar)

@@ -321,10 +321,10 @@ object Ast {
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
-          "(" + fields.iterator
+          "<" + fields.iterator
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
-            .mkString(", ") + ")"
+            .mkString(", ") + ">"
       }
 
       def prettyForAll(t: Type): String = t match {
