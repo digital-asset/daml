@@ -196,6 +196,8 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
             "//test-common:upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
             "//test-common:upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
+            "//test-common:upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+            "//test-common:upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
             "//test-common:upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
             "//test-common:upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
             "//test-common:upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",

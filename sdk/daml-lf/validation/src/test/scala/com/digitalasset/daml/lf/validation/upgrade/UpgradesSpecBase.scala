@@ -208,6 +208,13 @@ trait LongTests { this: UpgradesSpec =>
         assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
       )
     }
+    s"Succeeds when template upgrades its key type ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+        "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
     s"Fails when template removes key type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
