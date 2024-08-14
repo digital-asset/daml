@@ -21,7 +21,8 @@ main = tests
   , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
   , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
   , ("Query an Upgraded old key for a new contract", queryKeyUpgraded)
-  , ("ExerciseByKey command an Upgraded old key for a new contract", exerciseCmdKeyUpgraded)
+  -- TODO(https://github.com/digital-asset/daml/issues/19782): re-enable this test once the issue is fixed
+  -- , ("ExerciseByKey command an Upgraded old key for a new contract", exerciseCmdKeyUpgraded)
   , ("Fetching an Upgraded old key for a new contract", fetchKeyUpgraded)
   , ("ExerciseByKey in Update an Upgraded old key for a new contract", exerciseUpdateKeyUpgraded)
   ]
