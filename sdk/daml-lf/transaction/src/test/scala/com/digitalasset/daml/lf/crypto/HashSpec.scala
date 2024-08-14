@@ -694,7 +694,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
       val actualOutput = stabilityTestCases
         .map { value =>
           val hash = Hash
-            .builder(Hash.Purpose.Testing, Hash.aCid2Bytes, upgradableFriendly = false)
+            .builder(Hash.Purpose.Testing, Hash.aCid2Bytes, upgradeFriendly = false)
             .addTypedValue(value)
             .build
             .toHexString
@@ -709,7 +709,7 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
   "addTypeValue upgradable values" should {
 
     def hash(x: Value) = Hash
-      .builder(Hash.Purpose.Testing, Hash.aCid2Bytes, upgradableFriendly = true)
+      .builder(Hash.Purpose.Testing, Hash.aCid2Bytes, upgradeFriendly = true)
       .addTypedValue(x)
       .build
 
