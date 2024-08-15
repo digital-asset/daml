@@ -18,6 +18,7 @@ import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.api.v2.trace_context.TraceContext as LedgerApiTraceContext
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc
+import com.digitalasset.canton.ledger.client.LedgerClient.stubWithTracing
 import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
@@ -102,6 +103,11 @@ final class LedgerClient private (
     )
 
   override def close(): Unit = GrpcChannel.close(channel)
+
+  def serviceClient[A <: AbstractStub[A]](stub: Channel => A, token: Option[String])(implicit
+      traceContext: TraceContext
+  ): A =
+    stubWithTracing(stub(channel), token)
 }
 
 object LedgerClient {

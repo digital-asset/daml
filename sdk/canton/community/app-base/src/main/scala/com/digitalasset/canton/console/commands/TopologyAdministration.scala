@@ -64,6 +64,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
+import scala.util.control.NoStackTrace
 
 class TopologyAdministrationGroup(
     instance: InstanceReference,
@@ -595,7 +596,7 @@ class TopologyAdministrationGroup(
                 This transaction will be rejected if another fully authorized transaction with the same serial already
                 exists, or if there is a gap between this serial and the most recently used serial.
                 If None, the serial will be automatically selected by the node.""")
-    def propose(
+    def propose_new(
         owners: Set[Namespace],
         threshold: PositiveInt,
         store: String,
@@ -623,7 +624,7 @@ class TopologyAdministrationGroup(
           ownersNE,
         )
         .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
-      authorize(
+      propose(
         decentralizedNamespace,
         store,
         mustFullyAuthorize,
@@ -633,7 +634,25 @@ class TopologyAdministrationGroup(
       )
     }
 
-    def authorize(
+    @Help.Summary("Propose changes to a decentralized namespace")
+    @Help.Description("""
+        decentralizedNamespace: the DecentralizedNamespaceDefinition to propose
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements.
+        signedBy: the fingerprint of the key to be used to sign this proposal
+        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                This transaction will be rejected if another fully authorized transaction with the same serial already
+                exists, or if there is a gap between this serial and the most recently used serial.
+                If None, the serial will be automatically selected by the node.""")
+    def propose(
         decentralizedNamespace: DecentralizedNamespaceDefinition,
         store: String,
         mustFullyAuthorize: Boolean = false,
@@ -656,18 +675,6 @@ class TopologyAdministrationGroup(
 
       synchronisation.runAdminCommand(synchronize)(command)
     }
-
-    def join(
-        decentralizedNamespace: Fingerprint,
-        owner: Option[Fingerprint] = Some(instance.id.fingerprint),
-    ): GenericSignedTopologyTransaction =
-      ???
-
-    def leave(
-        decentralizedNamespace: Fingerprint,
-        owner: Option[Fingerprint] = Some(instance.id.fingerprint),
-    ): ByteString =
-      ByteString.EMPTY
   }
 
   @Help.Summary("Manage namespace delegations")
@@ -1624,7 +1631,11 @@ class TopologyAdministrationGroup(
 
     // TODO(#14057) document console command
     def active(domainId: DomainId, participantId: ParticipantId): Boolean =
-      list(filterStore = domainId.filterString).exists { x =>
+      list(
+        filterStore = domainId.filterString,
+        filterUid = participantId.filterString,
+        operation = Some(TopologyChangeOp.Replace),
+      ).exists { x =>
         x.item.domainId == domainId && x.item.participantId == participantId
       }
 
@@ -1717,6 +1728,7 @@ class TopologyAdministrationGroup(
         store: Option[String] = None,
         mustFullyAuthorize: Boolean = false,
         serial: Option[PositiveInt] = None,
+        change: TopologyChangeOp = TopologyChangeOp.Replace,
     ): SignedTopologyTransaction[TopologyChangeOp, ParticipantDomainPermission] = {
       val cmd = TopologyAdminCommands.Write.Propose(
         mapping = ParticipantDomainPermission(
@@ -1730,10 +1742,65 @@ class TopologyAdministrationGroup(
         serial = serial,
         store = store.getOrElse(domainId.filterString),
         mustFullyAuthorize = mustFullyAuthorize,
+        change = change,
       )
 
       synchronisation.runAdminCommand(synchronize)(cmd)
     }
+
+    @Help.Summary("Revokes the domain permissions of a participant.")
+    @Help.Description(
+      """Domain operators may use this command to revoke a participant's permissions on a domain.
+
+        domainId: the target domain
+        participantId: the participant whose permissions should be revoked
+
+        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                               propagated to connected domains, if applicable.
+               - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
+                                storing it locally first. This also means it will _not_ be synchronized to other domains
+                                automatically.
+        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                            satisfy the mapping's authorization requirements."""
+    )
+    def revoke(
+        domainId: DomainId,
+        participantId: ParticipantId,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        mustFullyAuthorize: Boolean = false,
+        store: Option[String] = None,
+    ): SignedTopologyTransaction[TopologyChangeOp, ParticipantDomainPermission] =
+      list(
+        filterStore = store.getOrElse(domainId.filterString),
+        filterUid = participantId.filterString,
+      ) match {
+        case Seq() =>
+          throw new IllegalStateException(
+            s"No ParticipantDomainPermission found for participant $participantId."
+          ) with NoStackTrace
+        case Seq(result) =>
+          val item = result.item
+          propose(
+            item.domainId,
+            item.participantId,
+            item.permission,
+            item.loginAfter,
+            item.limits,
+            synchronize,
+            store = store,
+            serial = Some(result.context.serial.increment),
+            mustFullyAuthorize = mustFullyAuthorize,
+            change = TopologyChangeOp.Remove,
+          )
+        case otherwise =>
+          throw new IllegalStateException(
+            s"Found more than one ParticipantDomainPermission for participant $participantId on domain $domainId"
+          ) with NoStackTrace
+      }
 
     def list(
         filterStore: String = "",
@@ -1758,6 +1825,16 @@ class TopologyAdministrationGroup(
         )
       )
     }
+
+    @Help.Summary("Looks up the participant permission for a participant on a domain")
+    @Help.Description("""Returns the optional participant domain permission.""")
+    def find(
+        domainId: DomainId,
+        participantId: ParticipantId,
+    ): Option[ListParticipantDomainPermissionResult] =
+      expectAtMostOneResult(
+        list(filterStore = domainId.filterString, filterUid = participantId.filterString)
+      ).filter(p => p.item.participantId == participantId && p.item.domainId == domainId)
   }
 
   @Help.Summary("Inspect participant domain states")
@@ -2562,7 +2639,6 @@ class TopologyAdministrationGroup(
       val newParameters = update(ConsoleDynamicDomainParameters(previousParameters.item))
 
       // Avoid topology manager ALREADY_EXISTS error by not submitting a no-op proposal.
-      // TODO(#15817): Move such ux-resilience avoiding error to write_service
       if (ConsoleDynamicDomainParameters(previousParameters.item) != newParameters) {
         propose(
           domainId,

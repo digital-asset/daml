@@ -657,7 +657,7 @@ class SyncDomain(
           )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
             Seq(
               topologyProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
-              trafficProcessor.subscriptionStartsAt(start)(traceContext),
+              trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
             ).parSequence_
 
           override def apply(

@@ -187,7 +187,7 @@ class CommandService(
       case -\/((templateId, contractKey)) =>
         Commands.exerciseByKey(
           templateId = refApiIdentifier(templateId),
-          // TODO #14549 somehow pass choiceSource
+          // TODO daml-14549 somehow pass choiceSource
           contractKey = contractKey,
           choice = input.choice,
           argument = input.argument,
@@ -202,7 +202,7 @@ class CommandService(
     }
   }
 
-  // TODO #14549 somehow use the choiceInterfaceId
+  // TODO daml-14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
       input: CreateAndExerciseCommand.LAVResolved
   ): lav2.commands.Command.Command.CreateAndExercise =

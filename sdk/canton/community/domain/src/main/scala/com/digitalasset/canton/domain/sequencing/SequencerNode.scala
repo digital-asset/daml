@@ -28,7 +28,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   SequencerDomainConfigurationStore,
 }
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationService
-import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
+import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{
   SequencerHealthStatus,
@@ -211,7 +211,7 @@ class SequencerNodeBootstrap(
     // Holds the gRPC server started when the node is started, even when non initialized
     // If non initialized the server will expose the gRPC health service only
     protected val nonInitializedSequencerNodeServer =
-      new AtomicReference[Option[DynamicDomainGrpcServer]](None)
+      new AtomicReference[Option[DynamicGrpcServer]](None)
     addCloseable(new AutoCloseable() {
       override def close(): Unit =
         nonInitializedSequencerNodeServer.getAndSet(None).foreach(_.publicServer.close())
@@ -248,7 +248,7 @@ class SequencerNodeBootstrap(
         nonInitializedSequencerNodeServer
           .set(
             Some(
-              makeDynamicDomainServer(
+              makeDynamicGrpcServer(
                 // We use max value for the request size here as this is the default for a non initialized sequencer
                 MaxRequestSize(NonNegativeInt.maxValue),
                 healthReporter,
@@ -435,7 +435,7 @@ class SequencerNodeBootstrap(
       staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
       domainTopologyManager: DomainTopologyManager,
-      preinitializedServer: Option[DynamicDomainGrpcServer],
+      preinitializedServer: Option[DynamicGrpcServer],
       sequencerSnapshot: Option[SequencerSnapshot],
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
@@ -696,7 +696,6 @@ class SequencerNodeBootstrap(
             runtimeReadyPromise,
           )
           _ <- sequencerRuntime.initializeAll()
-          // TODO(#14073) subscribe to processor BEFORE sequencer client is created
           _ = addCloseable(sequencer)
           server <- createSequencerServer(
             sequencerRuntime,
@@ -766,18 +765,17 @@ class SequencerNodeBootstrap(
     (readiness, liveness)
   }
 
-  // Creates a dynamic domain server that initially only exposes a health endpoint, and can later be
-  // setup with the sequencer runtime to provide the full sequencer domain API
-  private def makeDynamicDomainServer(
+  // Creates a dynamic GRPC server that initially only exposes a health endpoint, and can later be
+  // setup with the sequencer runtime to provide the full sequencer API
+  private def makeDynamicGrpcServer(
       maxRequestSize: MaxRequestSize,
       grpcHealthReporter: GrpcHealthReporter,
   ) =
-    new DynamicDomainGrpcServer(
+    new DynamicGrpcServer(
       loggerFactory,
       maxRequestSize,
       arguments.parameterConfig,
       config.publicApi,
-      arguments.metrics.openTelemetryMetricsFactory,
       arguments.metrics.grpcMetrics,
       grpcHealthReporter,
       sequencerPublicApiHealthService,
@@ -786,10 +784,10 @@ class SequencerNodeBootstrap(
   private def createSequencerServer(
       runtime: SequencerRuntime,
       domainParamsLookup: DynamicDomainParametersLookup[SequencerDomainParameters],
-      server: Option[DynamicDomainGrpcServer],
+      server: Option[DynamicGrpcServer],
       healthReporter: GrpcHealthReporter,
       adminServerRegistry: CantonMutableHandlerRegistry,
-  ): EitherT[Future, String, DynamicDomainGrpcServer] = {
+  ): EitherT[Future, String, DynamicGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
       maxRequestSize <- EitherT
@@ -799,7 +797,7 @@ class SequencerNodeBootstrap(
         )
       sequencerNodeServer = server
         .getOrElse(
-          makeDynamicDomainServer(maxRequestSize, healthReporter)
+          makeDynamicGrpcServer(maxRequestSize, healthReporter)
         )
         .initialize(runtime)
       // wait for the server to be initialized before reporting a serving health state
@@ -814,7 +812,7 @@ class SequencerNode(
     val sequencer: SequencerRuntime,
     val adminToken: CantonAdminToken,
     protected val loggerFactory: NamedLoggerFactory,
-    sequencerNodeServer: DynamicDomainGrpcServer,
+    sequencerNodeServer: DynamicGrpcServer,
     healthData: => Seq[ComponentStatus],
 )(implicit executionContext: ExecutionContextExecutorService)
     extends CantonNode

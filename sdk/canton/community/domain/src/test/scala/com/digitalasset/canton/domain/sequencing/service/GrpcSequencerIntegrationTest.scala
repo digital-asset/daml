@@ -177,7 +177,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
-      mockDomainTopologyManager,
       topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
     )

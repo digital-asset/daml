@@ -1274,8 +1274,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     )
     def active(domainAlias: DomainAlias): Boolean =
       list_connected().exists { r =>
-        // TODO(#14053): Filter out participants that are not permissioned on the domain. The TODO is because the daml 2.x
-        //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermission?
         r.domainAlias == domainAlias &&
         r.healthy &&
         participantIsActiveOnDomain(r.domainId, id)

@@ -14,7 +14,7 @@ import com.digitalasset.canton.http.domain.ContractTypeId.ResolvedOf
 import com.digitalasset.canton.http.domain.Choice
 import com.digitalasset.canton.http.util.IdentifierConverters
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
-import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
+import com.digitalasset.canton.ledger.service.LedgerReader.{PackageStore, Signatures}
 import com.digitalasset.canton.ledger.service.{LedgerReader, TemplateIds}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -48,6 +48,7 @@ class PackageService(
 
     def append(diff: PackageStore): State = {
       val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
+
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
@@ -62,8 +63,11 @@ class PackageService(
     // `diff` but with interface-inherited choices resolved
     private[this] def resolveChoicesIn(diff: PackageStore): PackageStore = {
       def lookupIf(pkgId: Ref.PackageId) = (packageStore get pkgId) orElse (diff get pkgId)
-      val findIface = typesig.PackageSignature.findInterface(Function unlift lookupIf)
-      diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
+      val findIface =
+        typesig.PackageSignature.findInterface((Function unlift lookupIf).andThen(_.typesig))
+      diff.transform((_, iface) =>
+        Signatures(iface.typesig.resolveChoicesAndIgnoreUnresolvedChoices(findIface), iface.pack)
+      )
     }
 
   }
@@ -378,8 +382,12 @@ object PackageService {
     import TemplateIds.{getInterfaceIds, getTemplateIds}
     val packageSigs = packageStore.values.toSet
     (
-      buildTemplateIdMap(getTemplateIds(packageSigs) map ContractTypeId.Template.fromLedgerApi),
-      buildTemplateIdMap(getInterfaceIds(packageSigs) map ContractTypeId.Interface.fromLedgerApi),
+      buildTemplateIdMap(
+        getTemplateIds(packageSigs.map(_.typesig)) map ContractTypeId.Template.fromLedgerApi
+      ),
+      buildTemplateIdMap(
+        getInterfaceIds(packageSigs.map(_.typesig)) map ContractTypeId.Interface.fromLedgerApi
+      ),
     )
   }
 
@@ -448,7 +456,7 @@ object PackageService {
     b(pkgId, qn.module.dottedName, qn.name.dottedName)
 
   private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
-    packageStore.values.view.flatMap(getChoices).toMap
+    packageStore.values.view.map(_.typesig).flatMap(getChoices).toMap
 
   private def getChoices(
       signature: typesig.PackageSignature
@@ -507,7 +515,7 @@ object PackageService {
     }
 
   private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
-    packageStore.flatMap { case (_, interface) => getKeys(interface) }
+    packageStore.flatMap { case (_, interface) => getKeys(interface.typesig) }
 
   private def getKeys(
       interface: typesig.PackageSignature

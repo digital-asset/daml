@@ -144,7 +144,6 @@ class ParticipantNodeBootstrap(
       ParticipantMetrics,
     ](arguments) {
 
-  // TODO(#12946) clean up to remove SingleUseCell
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =

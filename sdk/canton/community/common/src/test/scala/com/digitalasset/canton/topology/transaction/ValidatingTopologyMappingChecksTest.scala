@@ -604,6 +604,40 @@ class ValidatingTopologyMappingChecksTest
           )
         )
       }
+
+      "report MediatorsAlreadyAssignedToGroups for duplicate mediator assignments" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2, med3), transactions) = generateMemberIdentities(3, MediatorId(_))
+
+        val Seq(group0, group1, group2) = Seq(
+          NonNegativeInt.zero -> Seq(med1),
+          NonNegativeInt.one -> Seq(med2),
+          NonNegativeInt.two -> Seq(med1, med2, med3),
+        ).map { case (group, mediators) =>
+          factory.mkAdd(
+            MediatorDomainState
+              .create(
+                domainId,
+                group,
+                PositiveInt.one,
+                active = mediators,
+                Seq.empty,
+              )
+              .value,
+            // the signing key is not relevant for the test
+            factory.SigningKeys.key1,
+          )
+        }
+
+        addToStore(store, (transactions :+ group0 :+ group1)*)
+
+        checkTransaction(checks, group2, None) shouldBe Left(
+          TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
+            NonNegativeInt.two,
+            Map(med1 -> NonNegativeInt.zero, med2 -> NonNegativeInt.one),
+          )
+        )
+      }
     }
 
     "validating SequencerDomainState" should {

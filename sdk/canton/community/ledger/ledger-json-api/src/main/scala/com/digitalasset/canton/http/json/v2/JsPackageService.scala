@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
-import com.digitalasset.canton.http.json2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.api.v2.package_service
@@ -16,10 +16,12 @@ import sttp.tapir.path
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import JsPackageCodecs.*
-import com.digitalasset.canton.http.json2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
+
+import scala.annotation.nowarn
 
 class JsPackageService(
     packageClient: PackageClient,
@@ -59,14 +61,14 @@ class JsPackageService(
       caller: CallerContext
   ): TracedInput[Unit] => Future[Either[JsCantonError, package_service.ListPackagesResponse]] = {
     req =>
-      packageClient.listPackages(caller.token())(req.traceContext).toRight
+      packageClient.listPackages(caller.token())(req.traceContext).resultToRight
   }
 
   private def status(
       caller: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, package_service.GetPackageStatusResponse]
-  ] = req => packageClient.getPackageStatus(req.in)(req.traceContext).toRight
+  ] = req => packageClient.getPackageStatus(req.in)(req.traceContext).resultToRight
 
   private def upload(caller: CallerContext) = {
     (tracedInput: TracedInput[Source[util.ByteString, Any]]) =>
@@ -92,7 +94,7 @@ class JsPackageService(
       )
   }
 }
-
+@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsPackageCodecs {
   implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] = deriveCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =

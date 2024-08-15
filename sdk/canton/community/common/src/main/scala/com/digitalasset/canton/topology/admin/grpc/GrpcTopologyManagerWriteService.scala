@@ -69,7 +69,6 @@ class GrpcTopologyManagerWriteService(
                 .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
             )
           signedTopoTx <-
-            // TODO(#14067) understand when and why force needs to come in effect
             manager
               .accept(
                 txHash,

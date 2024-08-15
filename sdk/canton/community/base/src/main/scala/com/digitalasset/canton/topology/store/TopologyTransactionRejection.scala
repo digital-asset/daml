@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.{Fingerprint, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -235,5 +235,18 @@ object TopologyTransactionRejection {
         param("participantId", _.participantId),
         param("partyId", _.partyId),
       )
+  }
+
+  final case class MediatorsAlreadyInOtherGroups(
+      group: NonNegativeInt,
+      mediators: Map[MediatorId, NonNegativeInt],
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Tried to add mediators to group $group, but they are already assigned to other groups: ${mediators.toSeq
+          .sortBy(_._1.toProtoPrimitive)
+          .mkString(", ")}"
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MediatorsAlreadyInOtherGroups.Reject(group, mediators)
   }
 }
