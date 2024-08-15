@@ -425,7 +425,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(
+                tx,
+                _,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedCreateEvents,
+                contractPackages,
+              )
             ) =>
           deps(tx).flatMap { deps =>
             val meta = Tx.Metadata(
@@ -436,6 +443,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,
+              contractPackages = contractPackages,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)

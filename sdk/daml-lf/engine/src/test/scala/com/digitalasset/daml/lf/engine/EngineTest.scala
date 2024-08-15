@@ -363,6 +363,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         case Right(()) => ()
       }
     }
+
+    "return contract id package in metadata" in {
+      txMeta.contractPackages shouldBe Map(cid -> templateId.packageId)
+    }
   }
 
   "exercise-by-key command with missing key" should {
@@ -2663,6 +2667,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
           disclosedEvents = ImmArray.empty,
+          contractPackages = Map.empty,
         ),
       )
     )
