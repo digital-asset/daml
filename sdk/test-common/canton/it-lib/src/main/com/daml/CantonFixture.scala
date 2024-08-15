@@ -77,7 +77,7 @@ trait CantonFixtureWithResource[A]
   final case object CantonFixtureDebugRemoveTmpFiles extends CantonFixtureDebugMode
   final case object CantonFixtureDontDebug extends CantonFixtureDebugMode
 
-  protected val cantonFixtureDebugMode: CantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
+  protected val cantonFixtureDebugMode: CantonFixtureDebugMode = CantonFixtureDontDebug
   def cantonFixtureDebugModeIsDebug: Boolean = cantonFixtureDebugMode match {
     case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => true
     case _ => false
