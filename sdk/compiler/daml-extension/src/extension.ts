@@ -21,6 +21,9 @@ const versionContextKey = "version";
 
 var damlLanguageClients: { [projectPath: string]: DamlLanguageClient } = {};
 var webviewFiles: WebviewFiles;
+var outputChannel: vscode.OutputChannel = vscode.window.createOutputChannel(
+  "Daml Extension Host",
+);
 
 // Extension activation
 // Note: You can log debug information by using `console.log()`
@@ -132,7 +135,7 @@ function parseIdeManifest(path: string): IdeManifest | null {
     }
     return manifest;
   } catch (e) {
-    console.log(e);
+    outputChannel.appendLine("Failed to parse ide-manifest file: " + e);
     return null;
   }
 }
@@ -193,8 +196,15 @@ async function startLanguageServers(context: ExtensionContext) {
       });
       isGradleProject = true;
     } catch (e) {
-      // Probably do something here
-      console.log(e);
+      outputChannel.appendLine("Gradle setup failure: " + e);
+      vscode.window
+        .showInformationMessage(
+          "Daml is starting without gradle environment.",
+          "See Output",
+        )
+        .then((resp: string | undefined) => {
+          if (resp) outputChannel.show();
+        });
     }
   }
 

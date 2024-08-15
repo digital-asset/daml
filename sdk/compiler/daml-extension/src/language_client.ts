@@ -221,8 +221,6 @@ export class DamlLanguageClient {
       telemetryConsent,
       identifier,
     );
-    console.log(serverArgs);
-    console.log(envVars);
 
     const languageClient = new LanguageClient(
       "daml-language-server-" + identifier,
