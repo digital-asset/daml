@@ -6,11 +6,26 @@ module ContractKeys (main) where
 import UpgradeTestLib
 import qualified V1.ContractKeys as V1
 import qualified V2.ContractKeys as V2
+import qualified V1.UpgradedContractKeys as V1
+import qualified V2.UpgradedContractKeys as V2
 
 {- PACKAGE
 name: contract-key-upgrades
 versions: 2
 -}
+
+main : TestTree
+main = tests
+  [ ("Query an unchanged old key for a new contract", queryKeyUnchanged)
+  , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
+  , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
+  , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+  , ("Query an Upgraded old key for a new contract", queryKeyUpgraded)
+  -- TODO(https://github.com/digital-asset/daml/issues/19782): re-enable this test once the issue is fixed
+  -- , ("ExerciseByKey command an Upgraded old key for a new contract", exerciseCmdKeyUpgraded)
+  , ("Fetching an Upgraded old key for a new contract", fetchKeyUpgraded)
+  , ("ExerciseByKey in Update an Upgraded old key for a new contract", exerciseUpdateKeyUpgraded)
+  ]
 
 {- MODULE
 package: contract-key-upgrades
@@ -53,14 +68,6 @@ contents: |
         do exerciseByKey @UnchangedKey k UnchangedKeyCall
 -}
 
-main : TestTree
-main = tests
-  [ ("Query an unchanged old key for a new contract", queryKeyUnchanged)
-  , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
-  , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
-  , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
-  ]
-
 queryKeyUnchanged : Test
 queryKeyUnchanged = test $ do
   a <- allocateParty "alice"
@@ -92,3 +99,76 @@ exerciseUpdateKeyUnchanged = test $ do
   res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
   res === "V2"
 
+{- MODULE
+package: contract-key-upgrades
+contents: |
+  module UpgradedContractKeys where
+
+  data UpgradedKeyKey = UpgradedKeyKey with
+      p : Party
+      n : Int
+      m : Optional Int                                -- @V 2
+    deriving (Eq, Show)
+
+  template UpgradedKey
+    with
+      party : Party
+      n : Int
+      m : Optional Int                                -- @V 2
+    where
+      signatory party
+      key (UpgradedKeyKey party n) : UpgradedKeyKey   -- @V 1
+      key (UpgradedKeyKey party n m) : UpgradedKeyKey -- @V 2
+      maintainer key.p
+
+      choice UpgradedKeyCall : Text
+        controller party
+        do pure "V1"                                  -- @V 1
+        do pure "V2"                                  -- @V 2
+
+  template UpgradedKeyHelper
+    with
+      party : Party
+    where
+      signatory party
+      choice UpgradedKeyFetch : (ContractId UpgradedKey, UpgradedKey) with
+          k : UpgradedKeyKey
+        controller party
+        do fetchByKey k
+
+      choice UpgradedKeyExercise : Text with
+          k : UpgradedKeyKey
+        controller party
+        do exerciseByKey @UpgradedKey k UpgradedKeyCall
+-}
+
+queryKeyUpgraded : Test
+queryKeyUpgraded = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UpgradedKey a 1)
+  keyRes <- queryContractKey a $ V2.UpgradedKeyKey a 1 None
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UpgradedKey a 1 None -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UpgradedKey a 1 None) <> ", got " <> show keyRes
+
+exerciseCmdKeyUpgraded : Test
+exerciseCmdKeyUpgraded = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UpgradedKey a 1)
+  res <- a `submit` exerciseByKeyExactCmd @V2.UpgradedKey (V2.UpgradedKeyKey a 1 None) V2.UpgradedKeyCall
+  res === "V2"
+
+fetchKeyUpgraded : Test
+fetchKeyUpgraded = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createCmd (V1.UpgradedKey a 1)
+  (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.UpgradedKeyHelper a) (V2.UpgradedKeyFetch $ V2.UpgradedKeyKey a 1 None)
+  foundContract === V2.UpgradedKey a 1 None
+  show foundCid === show cid
+
+exerciseUpdateKeyUpgraded : Test
+exerciseUpdateKeyUpgraded = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createCmd (V1.UpgradedKey a 1)
+  res <- a `submit` createAndExerciseCmd (V2.UpgradedKeyHelper a) (V2.UpgradedKeyExercise $ V2.UpgradedKeyKey a 1 None)
+  res === "V2"
