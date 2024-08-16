@@ -9,6 +9,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommands,
 }
+import com.digitalasset.canton.admin.health.v30
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.console.ConsoleMacros.utils
@@ -22,8 +23,8 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.grpc.FileStreamObserver
+import com.digitalasset.canton.health.admin.data
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.grpc.Context
 

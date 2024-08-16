@@ -37,9 +37,9 @@ import com.digitalasset.canton.networking.grpc.{
   CantonMutableHandlerRegistry,
   StaticGrpcServices,
 }
-import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
+import com.digitalasset.canton.participant.admin.{PackageDependencyResolver, *}
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
@@ -66,6 +66,7 @@ import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
+  ParticipantPackageVettingValidation,
   ParticipantTopologyDispatcher,
   ParticipantTopologyManagerError,
   ParticipantTopologyManagerOps,
@@ -89,7 +90,7 @@ import com.digitalasset.canton.topology.client.{
   StoreBasedDomainTopologyClient,
   StoreBasedTopologySnapshot,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
@@ -144,9 +145,13 @@ class ParticipantNodeBootstrap(
       ParticipantMetrics,
     ](arguments) {
 
-  // TODO(#12946) clean up to remove SingleUseCell
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
+  private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
 
+  private def tryGetPackageDependencyResolver(): PackageDependencyResolver =
+    packageDependencyResolver.getOrElse(
+      sys.error("packageDependencyResolver should be defined")
+    )
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyStore
@@ -177,6 +182,53 @@ class ParticipantNodeBootstrap(
   ): BootstrapStageOrLeaf[ParticipantNode] =
     new StartupNode(storage, crypto, adminServerRegistry, nodeId, manager, healthService)
 
+  override protected def createAuthorizedTopologyManager(
+      nodeId: UniqueIdentifier,
+      crypto: Crypto,
+      authorizedStore: TopologyStore[AuthorizedStore],
+      storage: Storage,
+  ): AuthorizedTopologyManager = {
+    val resolver = new PackageDependencyResolver(
+      DamlPackageStore(
+        storage,
+        arguments.futureSupervisor,
+        arguments.parameterConfig,
+        exitOnFatalFailures = parameters.exitOnFatalFailures,
+        loggerFactory,
+      ),
+      arguments.parameterConfig.processingTimeouts,
+      loggerFactory,
+    )
+    val _ = packageDependencyResolver.putIfAbsent(resolver)
+
+    val topologyManager = new AuthorizedTopologyManager(
+      nodeId,
+      clock,
+      crypto,
+      authorizedStore,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
+      bootstrapStageCallback.timeouts,
+      futureSupervisor,
+      bootstrapStageCallback.loggerFactory,
+    ) with ParticipantPackageVettingValidation {
+
+      override def validatePackages(
+          currentlyVettedPackages: Set[LfPackageId],
+          nextPackageIds: Set[LfPackageId],
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkPackageDependencies(
+          currentlyVettedPackages,
+          nextPackageIds,
+          resolver,
+          forceFlags,
+        )
+    }
+    topologyManager
+  }
+
   private class StartupNode(
       storage: Storage,
       crypto: Crypto,
@@ -192,18 +244,6 @@ class ParticipantNodeBootstrap(
 
     private val participantId = ParticipantId(nodeId)
 
-    private val packageDependencyResolver = new PackageDependencyResolver(
-      DamlPackageStore(
-        storage,
-        arguments.futureSupervisor,
-        arguments.parameterConfig,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        loggerFactory,
-      ),
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
-    )
-
     private def createSyncDomainAndTopologyDispatcher(
         aliasResolution: DomainAliasResolution,
         indexedStringStore: IndexedStringStore,
@@ -214,9 +254,9 @@ class ParticipantNodeBootstrap(
         storage,
         indexedStringStore,
         parameters,
-        config.topology,
         crypto,
         clock,
+        tryGetPackageDependencyResolver(),
         futureSupervisor,
         loggerFactory,
       )
@@ -430,7 +470,7 @@ class ParticipantNodeBootstrap(
         partyNotifierFactory,
         adminToken,
         participantOps,
-        packageDependencyResolver,
+        tryGetPackageDependencyResolver(),
         createSyncDomainAndTopologyDispatcher,
         createPackageOps,
       ).map {
@@ -453,7 +493,7 @@ class ParticipantNodeBootstrap(
           addCloseable(sync)
           addCloseable(ledgerApiServer)
           addCloseable(ledgerApiDependentServices)
-          addCloseable(packageDependencyResolver)
+          addCloseable(tryGetPackageDependencyResolver())
           val node = new ParticipantNode(
             participantId,
             arguments.metrics,
@@ -704,7 +744,7 @@ class ParticipantNodeBootstrap(
       sequencerInfoLoader = new SequencerInfoLoader(
         parameterConfig.processingTimeouts,
         parameterConfig.tracing.propagation,
-        ProtocolVersionCompatibility.supportedProtocolsParticipant(parameterConfig),
+        ProtocolVersionCompatibility.supportedProtocols(parameterConfig),
         parameterConfig.protocolConfig.minimumProtocolVersion,
         parameterConfig.protocolConfig.dontWarnOnDeprecatedPV,
         loggerFactory,
@@ -1105,21 +1145,21 @@ class ParticipantNode(
   def readyDomains: Map[DomainId, Boolean] =
     sync.readyDomains.values.toMap
 
-  override def status: Future[ParticipantStatus] = {
+  override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
     val domains = readyDomains
     val topologyQueues = identityPusher.queueStatus
-    Future.successful(
-      ParticipantStatus(
-        id.uid,
-        uptime(),
-        ports,
-        domains,
-        sync.isActive(),
-        topologyQueues,
-        healthData,
-      )
+
+    ParticipantStatus(
+      id.uid,
+      uptime(),
+      ports,
+      domains,
+      sync.isActive(),
+      topologyQueues,
+      healthData,
     )
+
   }
 
   override def isActive: Boolean = storage.isActive

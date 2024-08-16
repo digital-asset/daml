@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -18,6 +17,7 @@ import com.digitalasset.canton.environment.{
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.domain.{DomainAliasResolution, DomainRegistryError}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
@@ -50,9 +50,9 @@ class SyncDomainPersistentStateManager(
     storage: Storage,
     val indexedStringStore: IndexedStringStore,
     parameters: ParticipantNodeParameters,
-    topologyConfig: TopologyConfig,
     crypto: Crypto,
     clock: Clock,
+    packageDependencyResolver: PackageDependencyResolver,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -206,6 +206,7 @@ class SyncDomainPersistentStateManager(
       crypto,
       parameters,
       indexedStringStore,
+      packageDependencyResolver,
       loggerFactory,
       futureSupervisor,
     )

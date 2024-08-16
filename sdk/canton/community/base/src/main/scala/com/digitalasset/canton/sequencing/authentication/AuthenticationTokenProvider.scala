@@ -17,6 +17,7 @@ import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
   AuthenticateResponse,
   ChallengeRequest,
   ChallengeResponse,
+  LogoutRequest,
 }
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -27,9 +28,10 @@ import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Pause}
 import com.digitalasset.canton.version.ProtocolVersion
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Configures authentication token fetching
   *
@@ -179,4 +181,22 @@ class AuthenticationTokenProvider(
       }.mapK(FutureUnlessShutdown.outcomeK)
     } yield token
 
+  def logout(
+      authenticationClient: SequencerAuthenticationServiceStub
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
+    for {
+      // Generate a new token to use as "entry point" to invalidate all tokens
+      tokenWithExpiry <- generateToken(authenticationClient)
+      token = tokenWithExpiry.token
+
+      _ <- EitherT(
+        authenticationClient
+          .logout(LogoutRequest(token.toProtoPrimitive))
+          .transform {
+            case Failure(exc: StatusRuntimeException) => Success(Left(exc.getStatus))
+            case Failure(exc) => Success(Left(Status.INTERNAL.withDescription(exc.getMessage)))
+            case Success(_) => Success(Right(()))
+          }
+      ).mapK(FutureUnlessShutdown.outcomeK)
+    } yield ()
 }

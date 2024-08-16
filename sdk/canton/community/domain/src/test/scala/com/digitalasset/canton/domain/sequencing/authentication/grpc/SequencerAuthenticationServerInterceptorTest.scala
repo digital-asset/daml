@@ -28,7 +28,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.stub.StreamObserver
-import io.grpc.{ManagedChannel, ServerInterceptors, Status, StatusRuntimeException}
+import io.grpc.{ManagedChannel, ServerInterceptors, Status}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -56,7 +56,7 @@ class SequencerAuthenticationServerInterceptorTest
 
     lazy val service = new GrpcHelloService()
 
-    lazy val store: MemberAuthenticationStore = new InMemoryMemberAuthenticationStore()
+    lazy val store: MemberAuthenticationStore = new MemberAuthenticationStore()
     lazy val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("popo::pipi"))
 
     lazy val authService = new MemberAuthenticationService(
@@ -114,7 +114,6 @@ class SequencerAuthenticationServerInterceptorTest
       loggerFactory.suppressWarningsAndErrors(new GrpcContext {
         store
           .saveToken(StoredAuthenticationToken(participantId, neverExpire, token.token))
-          .futureValue
 
         channel = InProcessChannelBuilder.forName(channelName).build()
         val client = HelloServiceGrpc.stub(channel)
@@ -128,7 +127,6 @@ class SequencerAuthenticationServerInterceptorTest
     "succeed request if participant use interceptor with correct token information" in new GrpcContext {
       store
         .saveToken(StoredAuthenticationToken(participantId, neverExpire, token.token))
-        .futureValue
 
       val obtainToken = NonEmpty
         .mk(
@@ -164,7 +162,6 @@ class SequencerAuthenticationServerInterceptorTest
     "fail request if participant use interceptor with incorrect token information" in new GrpcContext {
       store
         .saveToken(StoredAuthenticationToken(participantId, neverExpire, token.token))
-        .futureValue
 
       val obtainToken = NonEmpty
         .mk(
@@ -201,47 +198,6 @@ class SequencerAuthenticationServerInterceptorTest
         case status: io.grpc.StatusRuntimeException =>
           status.getStatus.getCode shouldBe io.grpc.Status.UNAUTHENTICATED.getCode
       }
-    }
-
-    "fail if the sequencer has become passive" in new GrpcContext {
-      override lazy val store: MemberAuthenticationStore =
-        new PassiveSequencerMemberAuthenticationStore()
-
-      val obtainToken = NonEmpty
-        .mk(
-          Seq,
-          (
-            Endpoint("localhost", Port.tryCreate(10)),
-            (_ => EitherT.pure[FutureUnlessShutdown, Status](token)): TraceContext => EitherT[
-              FutureUnlessShutdown,
-              Status,
-              AuthenticationTokenWithExpiry,
-            ],
-          ),
-        )
-        .toMap
-
-      val clientAuthentication =
-        SequencerClientTokenAuthentication(
-          domainId,
-          participantId,
-          obtainToken,
-          isClosed = false,
-          AuthenticationTokenManagerConfig(),
-          AuthenticationTokenManagerTest.mockClock,
-          loggerFactory,
-        )
-      channel = InProcessChannelBuilder
-        .forName(channelName)
-        .build()
-      val client = clientAuthentication(HelloServiceGrpc.stub(channel))
-
-      val exception = client.hello(Hello.Request("hi")).failed.futureValue
-      exception shouldBe a[StatusRuntimeException]
-
-      val status = exception.asInstanceOf[StatusRuntimeException].getStatus
-      status.getCode shouldBe Status.UNAVAILABLE.getCode
-      status.getDescription shouldBe s"Verification failed for member $participantId: Sequencer is currently passive. Connect to a different sequencer and retry the request or wait for the sequencer to become active again."
     }
   }
 }

@@ -679,7 +679,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               .map(_.transaction)
 
           existingDnsO.getOrElse(
-            owner.topology.decentralized_namespaces.propose(
+            owner.topology.decentralized_namespaces.propose_new(
               owners.map(_.namespace).toSet,
               PositiveInt.tryCreate(1.max(owners.size - 1)),
               store = store,

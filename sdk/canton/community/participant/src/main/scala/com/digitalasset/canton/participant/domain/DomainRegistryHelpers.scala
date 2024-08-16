@@ -184,7 +184,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           metrics(config.domain).sequencerClient,
           participantNodeParameters.loggingConfig,
           domainLoggerFactory,
-          ProtocolVersionCompatibility.supportedProtocolsParticipant(participantNodeParameters),
+          ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
           participantNodeParameters.protocolConfig.minimumProtocolVersion,
         )
       }

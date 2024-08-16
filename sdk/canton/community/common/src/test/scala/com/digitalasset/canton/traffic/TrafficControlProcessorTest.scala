@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.traffic
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
@@ -160,16 +159,17 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   "the traffic control processor" should {
     "notify subscribers of all event timestamps" in {
       val batch = Batch.of(testedProtocolVersion, mkTopoTx() -> Recipients.cc(participantId))
-      val events = NonEmpty(
-        Seq,
-        mkDeliver(sc1, ts1, batch),
-        mkDeliverError(sc2, ts2),
-        mkDeliver(sc3, ts3, batch),
-      ).map(v => Traced(v))
+      val events = Traced(
+        Seq(
+          mkDeliver(sc1, ts1, batch),
+          mkDeliverError(sc2, ts2),
+          mkDeliver(sc3, ts3, batch),
+        ).map(v => Traced(v))
+      )
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 
-      tcp.handle(events).futureValueUS
+      tcp(events).futureValueUS.unwrap.futureValueUS
 
       observedTs.get().result() shouldBe Seq(ts1, ts2, ts3)
       updates.get().result() shouldBe Seq.empty

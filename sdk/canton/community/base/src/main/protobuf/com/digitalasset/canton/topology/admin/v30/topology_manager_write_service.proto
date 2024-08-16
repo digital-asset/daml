@@ -175,5 +175,9 @@ enum ForceFlag {
   /** Required when increasing the ledger time record time tolerance */
   FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2;
   /** Required when revoking the vetting of a package */
-  FORCE_FLAG_PACKAGE_VETTING_REVOCATION = 3;
+  FORCE_FLAG_ALLOW_UNVET_PACKAGE = 3;
+  /** Required when vetting unknown packages (not uploaded). */
+  FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
+  /** Required when vetting a package with unvetted dependencies */
+  FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES = 5;
 }

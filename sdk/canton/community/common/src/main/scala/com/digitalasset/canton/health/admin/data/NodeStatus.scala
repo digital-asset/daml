@@ -8,11 +8,11 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, UnrecognizedEnum}
+import com.digitalasset.canton.admin.health.v30
+import com.digitalasset.canton.admin.health.v30.StatusResponse.NotInitialized.WaitingForExternalInput as V30WaitingForExternalInput
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
 import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
-import com.digitalasset.canton.health.admin.v30
-import com.digitalasset.canton.health.admin.v30.StatusResponse.NotInitialized.WaitingForExternalInput as V30WaitingForExternalInput
 import com.digitalasset.canton.health.{
   ComponentHealthState,
   ComponentStatus,

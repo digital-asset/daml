@@ -6,13 +6,14 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.health.admin.data.WaitingForExternalInput
-import com.digitalasset.canton.health.admin.v30.{
+import com.digitalasset.canton.admin.health.v30
+import com.digitalasset.canton.admin.health.v30.{
   HealthDumpRequest,
   HealthDumpResponse,
   StatusServiceGrpc,
 }
-import com.digitalasset.canton.health.admin.{data, v30}
+import com.digitalasset.canton.health.admin.data
+import com.digitalasset.canton.health.admin.data.WaitingForExternalInput
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver

@@ -540,7 +540,28 @@ class ValidatingTopologyMappingChecks(
     val newMediators = (toValidate.mapping.allMediatorsInGroup.toSet -- inStore.toList.flatMap(
       _.mapping.allMediatorsInGroup
     )).map(identity[Member])
-    checkMissingNsdAndOtkMappings(effectiveTime, newMediators)
+    for {
+      _ <- checkMissingNsdAndOtkMappings(effectiveTime, newMediators)
+
+      result <- loadFromStore(effectiveTime, MediatorDomainState.code)
+      mediatorsAlreadyAssignedToGroups = result.collectLatestByUniqueKey
+        .collectOfMapping[MediatorDomainState]
+        .collectOfType[TopologyChangeOp.Replace]
+        .result
+        .flatMap(tx =>
+          tx.mapping.allMediatorsInGroup.collect {
+            case med if newMediators.contains(med) => med -> tx.mapping.group
+          }
+        )
+        .toMap
+      _ <- EitherTUtil.condUnitET[Future](
+        mediatorsAlreadyAssignedToGroups.isEmpty,
+        TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
+          toValidate.mapping.group,
+          mediatorsAlreadyAssignedToGroups,
+        ): TopologyTransactionRejection,
+      )
+    } yield ()
   }
 
   private def checkSequencerDomainStateReplace(

@@ -5,8 +5,8 @@ package com.digitalasset.canton.health
 
 import cats.implicits.catsSyntaxEitherId
 import com.digitalasset.canton.*
+import com.digitalasset.canton.admin.health.v30 as proto
 import com.digitalasset.canton.health.ComponentHealthState.*
-import com.digitalasset.canton.health.admin.v30 as proto
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.circe.Encoder

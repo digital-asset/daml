@@ -33,6 +33,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.Status
 
 import java.nio.file.Path
 import java.time.Duration as JDuration
@@ -52,6 +53,9 @@ class ReplayingEventsSequencerClientTransport(
     extends SequencerClientTransport
     with SequencerClientTransportPekko
     with NamedLogging {
+
+  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    EitherT.pure(())
 
   /** Does nothing */
   override def sendAsyncSigned(

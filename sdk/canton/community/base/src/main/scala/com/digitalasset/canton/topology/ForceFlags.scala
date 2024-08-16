@@ -21,8 +21,12 @@ object ForceFlag {
   case object LedgerTimeRecordTimeToleranceIncrease
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE)
 
-  case object PackageVettingRevocation
-      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_PACKAGE_VETTING_REVOCATION)
+  case object AllowUnvetPackage extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE)
+
+  case object AllowUnknownPackage extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE)
+
+  case object AllowUnvettedDependencies
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES)
 
   /** This should only be used internally in situations where
     * <ul>
@@ -32,7 +36,13 @@ object ForceFlag {
     * </ul>
     */
   val all: Map[v30.ForceFlag, ForceFlag] =
-    Seq[ForceFlag](AlienMember, LedgerTimeRecordTimeToleranceIncrease, PackageVettingRevocation)
+    Seq[ForceFlag](
+      AlienMember,
+      LedgerTimeRecordTimeToleranceIncrease,
+      AllowUnvetPackage,
+      AllowUnknownPackage,
+      AllowUnvettedDependencies,
+    )
       .map(ff => ff.toProtoV30 -> ff)
       .toMap
 
