@@ -10,15 +10,22 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, PromiseUnlessShutdown}
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.mediator.admin.v30.SequencerConnectionServiceGrpc.SequencerConnectionService
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.{
   RequestSigner,
   RichSequencerClient,
+  SequencerClient,
   SequencerClientTransportFactory,
 }
 import com.digitalasset.canton.sequencing.{
@@ -28,7 +35,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{EitherTUtil, retry}
 import io.grpc.{Status, StatusException}
@@ -45,8 +52,11 @@ class GrpcSequencerConnectionService(
       String,
       Unit,
     ],
+    logout: () => EitherT[FutureUnlessShutdown, Status, Unit],
+    protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends v30.SequencerConnectionServiceGrpc.SequencerConnectionService {
+    extends v30.SequencerConnectionServiceGrpc.SequencerConnectionService
+    with NamedLogging {
   override def getConnection(request: v30.GetConnectionRequest): Future[v30.GetConnectionResponse] =
     fetchConnection()
       .map {
@@ -115,6 +125,22 @@ class GrpcSequencerConnectionService(
             .asException()
         )
     }
+
+  /** Revoke the authentication tokens on a sequencer and disconnect the sequencer client
+    */
+  override def logout(
+      request: v30.LogoutRequest
+  ): Future[v30.LogoutResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val ret = for {
+      _ <- logout()
+        .leftMap(err => err.asRuntimeException())
+        .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
+    } yield v30.LogoutResponse()
+
+    EitherTUtil.toFuture(ret)
+  }
 }
 
 object GrpcSequencerConnectionService {
@@ -133,6 +159,8 @@ object GrpcSequencerConnectionService {
       sequencerInfoLoader: SequencerInfoLoader,
       domainAlias: DomainAlias,
       domainId: DomainId,
+      sequencerClient: SequencerClient,
+      loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionServiceFactory: ExecutionSequencerFactory,
@@ -194,6 +222,8 @@ object GrpcSequencerConnectionService {
                   }(_.changeTransport(sequencerTransports))
               )
             } yield (),
+          sequencerClient.logout _,
+          loggerFactory,
         ),
         executionContext,
       )

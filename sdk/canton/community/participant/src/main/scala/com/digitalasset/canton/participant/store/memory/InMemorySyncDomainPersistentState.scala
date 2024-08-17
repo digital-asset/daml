@@ -3,12 +3,17 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import cats.data.EitherT
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
+import com.digitalasset.canton.participant.topology.ParticipantPackageVettingValidation
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.memory.{
   InMemorySendTrackerStore,
@@ -19,7 +24,14 @@ import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager, ParticipantId}
+import com.digitalasset.canton.topology.{
+  DomainOutboxQueue,
+  DomainTopologyManager,
+  ForceFlags,
+  ParticipantId,
+  TopologyManagerError,
+}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -33,6 +45,7 @@ class InMemorySyncDomainPersistentState(
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
     exitOnFatalFailures: Boolean,
+    packageDependencyResolver: PackageDependencyResolver,
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -74,7 +87,22 @@ class InMemorySyncDomainPersistentState(
     timeouts,
     futureSupervisor,
     loggerFactory,
-  )
+  ) with ParticipantPackageVettingValidation {
+
+    override def validatePackages(
+        currentlyVettedPackages: Set[LfPackageId],
+        nextPackageIds: Set[LfPackageId],
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkPackageDependencies(
+        currentlyVettedPackages,
+        nextPackageIds,
+        packageDependencyResolver,
+        forceFlags,
+      )
+  }
 
   override def isMemory: Boolean = true
 

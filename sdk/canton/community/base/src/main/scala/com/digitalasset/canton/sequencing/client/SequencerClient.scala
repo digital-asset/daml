@@ -77,6 +77,7 @@ import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
+import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
@@ -92,6 +93,11 @@ import scala.concurrent.duration.*
 import scala.util.{Failure, Success, Try}
 
 trait SequencerClient extends SequencerClientSend with FlagCloseable {
+
+  /** Provides an entry point to revoke all the authentication tokens for a member on a given
+    * sequencer, and close the connection to that sequencer.
+    */
+  def logout(): EitherT[FutureUnlessShutdown, Status, Unit]
 
   /** The sequencer client computes the cost of submission requests sent to the sequencer,
     * and update the traffic state when receiving confirmation that the event has been sequenced.
@@ -207,6 +213,11 @@ abstract class SequencerClientImpl(
     with NamedLogging
     with Spanning
     with HasCloseContext {
+
+  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    sequencerTransports.sequencerIdToTransportMap.values.toSeq.parTraverse_ { transport =>
+      transport.clientTransport.logout()
+    }
 
   protected val sequencersTransportState: SequencersTransportState =
     new SequencersTransportState(

@@ -4,9 +4,10 @@
 package com.digitalasset.canton.health.admin.grpc
 
 import better.files.*
+import com.digitalasset.canton.admin.health.v30
+import com.digitalasset.canton.admin.health.v30.{HealthDumpRequest, HealthDumpResponse}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.health.admin.v30.{HealthDumpRequest, HealthDumpResponse}
-import com.digitalasset.canton.health.admin.{data, v30}
+import com.digitalasset.canton.health.admin.data
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.GrpcStreamingUtils
@@ -21,7 +22,7 @@ object GrpcStatusService {
 }
 
 class GrpcStatusService(
-    status: => Future[data.NodeStatus[_]],
+    status: => data.NodeStatus[_],
     healthDump: File => Future[Unit],
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
@@ -30,8 +31,8 @@ class GrpcStatusService(
 ) extends v30.StatusServiceGrpc.StatusService
     with NamedLogging {
 
-  override def status(request: v30.StatusRequest): Future[v30.StatusResponse] =
-    status.map {
+  override def status(request: v30.StatusRequest): Future[v30.StatusResponse] = {
+    val protoStatus = status match {
       case data.NodeStatus.Success(status) =>
         v30.StatusResponse(v30.StatusResponse.Response.Success(status.toProtoV30))
       case data.NodeStatus.NotInitialized(active, waitingFor) =>
@@ -51,6 +52,8 @@ class GrpcStatusService(
         // The node's status should never return a Failure here.
         v30.StatusResponse(v30.StatusResponse.Response.Empty)
     }
+    Future.successful(protoStatus)
+  }
 
   override def healthDump(
       request: HealthDumpRequest,

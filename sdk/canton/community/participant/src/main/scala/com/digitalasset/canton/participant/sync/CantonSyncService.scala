@@ -110,6 +110,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.google.protobuf.ByteString
+import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
@@ -1517,6 +1518,24 @@ class CantonSyncService(
       s"disconnect from $domain",
     )
   }
+
+  def logout(domainAlias: DomainAlias)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
+    for {
+      domainId <- EitherT.fromOption[FutureUnlessShutdown](
+        aliasManager.domainIdForAlias(domainAlias),
+        Status.INVALID_ARGUMENT.withDescription(
+          s"The domain with alias ${domainAlias.unwrap} is unknown."
+        ),
+      )
+      _ <- connectedDomainsMap
+        .get(domainId)
+        .fold(EitherT.pure[FutureUnlessShutdown, Status] {
+          logger.info(show"Nothing to do, as we are not connected to $domainAlias")
+          ()
+        })(syncDomain => syncDomain.logout())
+    } yield ()
 
   private def performDomainDisconnect(
       domain: DomainAlias

@@ -7,6 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
 import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
@@ -59,6 +60,7 @@ object SyncDomainPersistentState {
       crypto: Crypto,
       parameters: ParticipantNodeParameters,
       indexedStringStore: IndexedStringStore,
+      packageDependencyResolver: PackageDependencyResolver,
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
@@ -74,6 +76,7 @@ object SyncDomainPersistentState {
           parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
+          packageDependencyResolver,
           domainLoggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
@@ -88,6 +91,7 @@ object SyncDomainPersistentState {
           crypto,
           parameters,
           indexedStringStore,
+          packageDependencyResolver,
           domainLoggerFactory,
           futureSupervisor,
         )

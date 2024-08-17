@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, Symboli
 import com.digitalasset.canton.data.ViewType.TransferInViewType
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
@@ -136,6 +137,7 @@ class TransferInProcessingStepsTest
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
+        packageDependencyResolver = mock[PackageDependencyResolver],
         loggerFactory = loggerFactory,
         exitOnFatalFailures = true,
         timeouts = timeouts,

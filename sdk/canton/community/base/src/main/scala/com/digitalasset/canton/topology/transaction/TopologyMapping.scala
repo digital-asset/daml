@@ -22,6 +22,7 @@ import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, DynamicSequencingParameters, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth.*
@@ -1516,12 +1517,12 @@ object DynamicSequencingParametersState {
 /** Mediator definition for a domain
   *
   * Each domain needs at least one mediator (group), but can have multiple.
-  * Mediators can be temporarily be turned off by making them observers. This way,
+  * Mediators can be temporarily turned off by making them observers. This way,
   * they get informed but they don't have to reply.
   */
 final case class MediatorDomainState private (
     domain: DomainId,
-    group: NonNegativeInt,
+    group: MediatorGroupIndex,
     threshold: PositiveInt,
     active: NonEmpty[Seq[MediatorId]],
     observers: Seq[MediatorId],
@@ -1561,14 +1562,14 @@ final case class MediatorDomainState private (
 
 object MediatorDomainState {
 
-  def uniqueKey(domainId: DomainId, group: NonNegativeInt): MappingHash =
+  def uniqueKey(domainId: DomainId, group: MediatorGroupIndex): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(domainId.toProtoPrimitive).add(group.unwrap))
 
   def code: TopologyMapping.Code = Code.MediatorDomainState
 
   def create(
       domain: DomainId,
-      group: NonNegativeInt,
+      group: MediatorGroupIndex,
       threshold: PositiveInt,
       active: Seq[MediatorId],
       observers: Seq[MediatorId],
@@ -1578,10 +1579,17 @@ object MediatorDomainState {
       (),
       s"threshold ($threshold) of mediator domain state higher than number of mediators ${active.length}",
     )
+    mediatorsBothActiveAndObserver = active.intersect(observers)
+    _ <- Either.cond(
+      mediatorsBothActiveAndObserver.isEmpty,
+      (),
+      s"the following mediators were defined both as active and observer: ${mediatorsBothActiveAndObserver
+          .mkString(", ")}",
+    )
     activeNE <- NonEmpty
-      .from(active)
+      .from(active.distinct)
       .toRight("mediator domain state requires at least one active mediator")
-  } yield MediatorDomainState(domain, group, threshold, activeNE, observers)
+  } yield MediatorDomainState(domain, group, threshold, activeNE, observers.distinct)
 
   def fromProtoV30(
       value: v30.MediatorDomainState
@@ -1671,10 +1679,17 @@ object SequencerDomainState {
       (),
       s"threshold ($threshold) of sequencer domain state higher than number of active sequencers ${active.length}",
     )
+    sequencersBothActiveAndObserver = active.intersect(observers)
+    _ <- Either.cond(
+      sequencersBothActiveAndObserver.isEmpty,
+      (),
+      s"the following sequencers were defined both as active and observer: ${sequencersBothActiveAndObserver
+          .mkString(", ")}",
+    )
     activeNE <- NonEmpty
-      .from(active)
+      .from(active.distinct)
       .toRight("sequencer domain state requires at least one active sequencer")
-  } yield SequencerDomainState(domain, threshold, activeNE, observers)
+  } yield SequencerDomainState(domain, threshold, activeNE, observers.distinct)
 
   def fromProtoV30(
       value: v30.SequencerDomainState

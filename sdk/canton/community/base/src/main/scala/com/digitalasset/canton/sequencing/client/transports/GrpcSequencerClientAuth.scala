@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.sequencing.client.transports
 
+import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.grpc.SequencerClientTokenAuthentication
@@ -20,8 +21,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.ProtocolVersion
-import io.grpc.ManagedChannel
 import io.grpc.stub.AbstractStub
+import io.grpc.{ManagedChannel, Status}
 
 import scala.concurrent.ExecutionContext
 
@@ -50,6 +51,11 @@ class GrpcSequencerClientAuth(
       timeouts,
       loggerFactory,
     )
+
+  def logout(channel: ManagedChannel): EitherT[FutureUnlessShutdown, Status, Unit] = {
+    val authenticationClient = new SequencerAuthenticationServiceStub(channel)
+    tokenProvider.logout(authenticationClient)
+  }
 
   /** Wrap a grpc client with components to appropriately perform authentication */
   def apply[S <: AbstractStub[S]](client: S): S = {

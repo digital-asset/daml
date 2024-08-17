@@ -13,12 +13,17 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
+import io.grpc.Status
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 /** Implementation dependent operations for a client to write to a domain sequencer. */
 trait SequencerClientTransportCommon extends FlagCloseable {
+
+  /** Revoke all the authentication tokens on this sequencer and close the connection.
+    */
+  def logout(): EitherT[FutureUnlessShutdown, Status, Unit]
 
   /** Sends a signed submission request to the sequencer.
     * If we failed to make the request, an error will be returned.

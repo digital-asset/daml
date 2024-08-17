@@ -4,29 +4,22 @@
 package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.JwtDecoder
-import com.daml.jwt.Jwt
+import com.daml.jwt.{Jwt, JwtDecoder}
+import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.http.json.{
-  ApiValueToJsValueConverter,
-  DomainJsonDecoder,
-  DomainJsonEncoder,
-  JsValueToApiValueConverter,
-}
+import com.digitalasset.canton.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
-import com.digitalasset.canton.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-}
+import com.digitalasset.canton.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration}
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.service.LedgerReader
 import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
@@ -47,7 +40,7 @@ import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
 import com.daml.tls.TlsConfiguration
-import com.digitalasset.canton.http.json2.V2Routes
+import com.digitalasset.canton.http.json.v2.V2Routes
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Using
@@ -86,6 +79,7 @@ class HttpService(
 
     val ledgerClient: DamlLedgerClient =
       DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
+
     import org.apache.pekko.http.scaladsl.server.Directives.*
     val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] = for {
       _ <- eitherT(Future.successful(\/-(ledgerClient)))
@@ -158,6 +152,7 @@ class HttpService(
 
       v2Routes = V2Routes(
         ledgerClient,
+        packageService,
         mat.executionContext,
         mat,
         loggerFactory,

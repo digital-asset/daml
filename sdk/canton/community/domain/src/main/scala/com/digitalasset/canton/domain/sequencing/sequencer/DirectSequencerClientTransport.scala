@@ -38,6 +38,7 @@ import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.Status
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
@@ -60,6 +61,10 @@ class DirectSequencerClientTransport(
     with SequencerClientTransportPekko
     with NamedLogging {
   import DirectSequencerClientTransport.*
+
+  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    // In-process connection is not authenticated
+    EitherT.pure(())
 
   private val subscriptionFactory =
     new DirectSequencerSubscriptionFactory(sequencer, timeouts, loggerFactory)

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.party_management_service
 import com.digitalasset.canton.ledger.client.services.admin.PartyManagementClient
@@ -10,11 +10,12 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.digitalasset.canton.http.json2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import sttp.tapir.{path, query}
+import scala.annotation.nowarn
 
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,
@@ -69,7 +70,7 @@ class JsPartyManagementService(
       partyManagementClient
         .serviceStub(ctx.token())(req.traceContext)
         .listKnownParties(party_management_service.ListKnownPartiesRequest())
-        .toRight
+        .resultToRight
   // TODO (i19538) paging
 
   private val getParty
@@ -84,7 +85,7 @@ class JsPartyManagementService(
     partyManagementClient
       .serviceStub(ctx.token())(req.traceContext)
       .getParties(partyRequest)
-      .toRight
+      .resultToRight
   }
 
   private val getParticipantId: CallerContext => TracedInput[Unit] => Future[
@@ -93,7 +94,7 @@ class JsPartyManagementService(
     partyManagementClient
       .serviceStub(ctx.token())(req.traceContext)
       .getParticipantId(party_management_service.GetParticipantIdRequest())
-      .toRight
+      .resultToRight
   }
 
   private val allocateParty: CallerContext => (
@@ -105,7 +106,7 @@ class JsPartyManagementService(
         partyManagementClient
           .serviceStub(caller.token())(req.traceContext)
           .allocateParty(body)
-          .toRight
+          .resultToRight
 
   private val updateParty: CallerContext => (
       TracedInput[String],
@@ -117,7 +118,7 @@ class JsPartyManagementService(
           partyManagementClient
             .serviceStub(caller.token())(req.traceContext)
             .updatePartyDetails(body)
-            .toRight
+            .resultToRight
         } else {
           implicit val traceContext = req.traceContext
           error(
@@ -129,7 +130,7 @@ class JsPartyManagementService(
           )
         }
 }
-
+@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsPartyManagementCodecs {
 
   implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveCodec

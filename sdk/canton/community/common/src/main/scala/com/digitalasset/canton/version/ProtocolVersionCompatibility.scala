@@ -20,9 +20,11 @@ import pureconfig.{ConfigReader, ConfigWriter}
 
 object ProtocolVersionCompatibility {
 
-  /** Returns the protocol versions supported by the participant of the current release.
+  /** Returns the protocol versions supported by the canton node parameters and the release.
+    *
+    * @param release defaults to the current release
     */
-  def supportedProtocolsParticipant(
+  def supportedProtocols(
       cantonNodeParameters: CantonNodeParameters,
       release: ReleaseVersion = ReleaseVersion.current,
   ): NonEmpty[List[ProtocolVersion]] = {
@@ -34,19 +36,20 @@ object ProtocolVersionCompatibility {
         ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
       else List.empty
 
-    ReleaseVersionToProtocolVersions.getOrElse(
+    val supportedPVs = ReleaseVersionToProtocolVersions.getOrElse(
       release,
       sys.error(
-        s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
+        s"Please review the supported protocol versions of release version $release in `ReleaseVersionToProtocolVersions.scala`."
       ),
     ) ++ unstableAndBeta
+
+    // If the release contains an unstable, alpha or beta protocol version, it is mentioned twice in the result
+    supportedPVs.distinct
   }
 
-  /** Returns the protocol versions supported by the participant of the specified release.
-    * includeAlphaVersions: include alpha versions
-    * includeBetaVersions: include beta versions
+  /** Returns the protocol versions supported by the release.
     */
-  def supportedProtocolsParticipant(
+  def supportedProtocols(
       includeAlphaVersions: Boolean,
       includeBetaVersions: Boolean,
       release: ReleaseVersion,
@@ -61,62 +64,15 @@ object ProtocolVersionCompatibility {
         ProtocolVersion.alpha.forgetNE
       else List.empty
 
-    ReleaseVersionToProtocolVersions.getOrElse(
+    val supportedPVs = ReleaseVersionToProtocolVersions.getOrElse(
       release,
       sys.error(
-        s"Please add the supported protocol versions of a participant of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
+        s"Please review the supported protocol versions of release version $release in `ReleaseVersionToProtocolVersions.scala`."
       ),
     ) ++ beta ++ alpha
-  }
 
-  /** Returns the protocol versions supported by the domain of the current release.
-    * Fails if no stable protocol versions are found
-    */
-  def trySupportedProtocolsDomain(
-      cantonNodeParameters: CantonNodeParameters,
-      release: ReleaseVersion = ReleaseVersion.current,
-  ): NonEmpty[List[ProtocolVersion]] = {
-    val unstableAndBeta =
-      if (cantonNodeParameters.alphaVersionSupport && cantonNodeParameters.nonStandardConfig)
-        ProtocolVersion.alpha.forgetNE ++ ReleaseVersionToProtocolVersions
-          .getBetaProtocolVersions(release)
-      else if (cantonNodeParameters.betaVersionSupport)
-        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
-      else List.empty
-
-    ReleaseVersionToProtocolVersions.getOrElse(
-      release,
-      sys.error(
-        s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
-      ),
-    ) ++ unstableAndBeta
-  }
-
-  /** Returns the protocol versions supported by the domain of the specified release.
-    * includeAlphaVersions: include alpha versions
-    * includeBetaVersions: include beta versions
-    */
-  def trySupportedProtocolsDomain(
-      includeAlphaVersions: Boolean,
-      includeBetaVersions: Boolean,
-      release: ReleaseVersion,
-  ): NonEmpty[List[ProtocolVersion]] = {
-    val beta =
-      if (includeBetaVersions)
-        ReleaseVersionToProtocolVersions.getBetaProtocolVersions(release)
-      else List.empty
-
-    val alpha =
-      if (includeAlphaVersions)
-        ProtocolVersion.alpha.forgetNE
-      else List.empty
-
-    ReleaseVersionToProtocolVersions.getOrElse(
-      release,
-      sys.error(
-        s"Please add the supported protocol versions of domain nodes of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
-      ),
-    ) ++ beta ++ alpha
+    // If the release contains an unstable, alpha or beta protocol version, it is mentioned twice in the result
+    supportedPVs.distinct
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
@@ -128,34 +84,27 @@ object ProtocolVersionCompatibility {
   /** Returns successfully if the client and server should be compatible.
     * Otherwise returns an error message.
     *
-    * The client and server are compatible if the protocol version required by the server is not lower than
-    * the clientMinimumVersion and the protocol version required by the server is among the protocol versions supported
-    * by the client (exact string match).
+    * The client and server are compatible if both of the following conditions are true:
+    *   - The protocol version required by the server is among the protocol versions supported by the client.
+    *   - The protocol version required by the server is not lower than `clientMinimumVersion`.
     *
-    * Note that this compatibility check cannot be implemented by simply verifying whether the supported
-    * version by the client is larger than the required version by the server as this may lead to issues with
-    * patches for old minor versions.
-    * For example, if the latest release version is 1.3.0 but we release patch release version 1.1.1 after
-    * the release of version 1.3.0, a node on version 1.3.0 which only checks whether
-    * are versions are smaller, would mistakenly indicate that it is compatible with a node running version 1.1.1.
-    * This issue is avoided if the client sends all protocol versions it supports and an exact string match is required.
-    * Generally, this sort of error can occur because Canton is operated in a distributed environment where not every
-    * node is on the same version.
+    * Note that the second condition is not enforced if support for development versions is active for both
+    * client and server.
     */
   def canClientConnectToServer(
       clientSupportedVersions: Seq[ProtocolVersion],
-      server: ProtocolVersion,
-      clientMinimumProtocolVersion: Option[ProtocolVersion],
+      serverVersion: ProtocolVersion,
+      clientMinimumVersion: Option[ProtocolVersion],
   ): Either[HandshakeError, Unit] = {
-    val clientSupportsRequiredVersion = clientSupportedVersions.contains(server)
-    val clientMinVersionLargerThanReqVersion = clientMinimumProtocolVersion.exists(_ > server)
+    val clientSupportsRequiredVersion = clientSupportedVersions.contains(serverVersion)
+    val clientMinVersionLargerThanReqVersion = clientMinimumVersion.exists(_ > serverVersion)
     // if dev-version support is on for participant and domain, ignore the min protocol version
-    if (clientSupportsRequiredVersion && server.isAlpha)
+    if (clientSupportsRequiredVersion && serverVersion.isAlpha)
       Right(())
     else if (clientMinVersionLargerThanReqVersion)
-      Left(MinProtocolError(server, clientMinimumProtocolVersion, clientSupportsRequiredVersion))
+      Left(MinProtocolError(serverVersion, clientMinimumVersion, clientSupportsRequiredVersion))
     else if (!clientSupportsRequiredVersion)
-      Left(VersionNotSupportedError(server, clientSupportedVersions))
+      Left(VersionNotSupportedError(serverVersion, clientSupportedVersions))
     else Right(())
   }
 }
@@ -241,7 +190,7 @@ object DomainProtocolVersion {
           // we support development versions when parsing, but catch dev versions without
           // the safety flag during config validation
           ProtocolVersionCompatibility
-            .trySupportedProtocolsDomain(
+            .supportedProtocols(
               includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
@@ -250,7 +199,7 @@ object DomainProtocolVersion {
           (),
           UnsupportedVersion(
             version,
-            ProtocolVersionCompatibility.trySupportedProtocolsDomain(
+            ProtocolVersionCompatibility.supportedProtocols(
               includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
@@ -281,7 +230,7 @@ object ParticipantProtocolVersion {
         _ <- Either.cond(
           // same as domain: support parsing of dev
           ProtocolVersionCompatibility
-            .supportedProtocolsParticipant(
+            .supportedProtocols(
               includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,
@@ -290,7 +239,7 @@ object ParticipantProtocolVersion {
           (),
           UnsupportedVersion(
             version,
-            ProtocolVersionCompatibility.supportedProtocolsParticipant(
+            ProtocolVersionCompatibility.supportedProtocols(
               includeAlphaVersions = true,
               includeBetaVersions = true,
               release = ReleaseVersion.current,

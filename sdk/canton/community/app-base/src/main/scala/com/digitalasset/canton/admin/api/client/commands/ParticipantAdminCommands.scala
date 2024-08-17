@@ -911,6 +911,23 @@ object ParticipantAdminCommands {
 
       override def handleResponse(response: ModifyDomainResponse): Either[String, Unit] = Right(())
     }
+
+    final case class Logout(domainAlias: DomainAlias)
+        extends Base[LogoutRequest, LogoutResponse, Unit] {
+
+      override def createRequest(): Either[String, LogoutRequest] =
+        Right(LogoutRequest(domainAlias.toProtoPrimitive))
+
+      override def submitRequest(
+          service: DomainConnectivityServiceStub,
+          request: LogoutRequest,
+      ): Future[LogoutResponse] =
+        service.logout(request)
+
+      override def handleResponse(response: LogoutResponse): Either[String, Unit] = Right(
+        ()
+      )
+    }
   }
 
   object Resources {

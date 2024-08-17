@@ -14,6 +14,8 @@ import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
   AuthenticateResponse,
   ChallengeRequest,
   ChallengeResponse,
+  LogoutRequest,
+  LogoutResponse,
 }
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationService
@@ -24,9 +26,12 @@ import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAuthentica
 import com.digitalasset.canton.domain.service.HandshakeValidator
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.authentication.MemberAuthentication
-import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
+import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
+  AuthenticationError,
+  LogoutTokenDoesNotExist,
+}
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
+import com.digitalasset.canton.sequencing.authentication.{AuthenticationToken, MemberAuthentication}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -76,7 +81,7 @@ class GrpcSequencerAuthenticationService(
                 .discard
               true
             } else {
-              // create error message to appropriate log this incident
+              // create error message to appropriately log this incident
               SequencerAuthenticationFailure
                 .AuthenticationFailure(request.member, error)
                 .discard
@@ -161,13 +166,12 @@ class GrpcSequencerAuthenticationService(
   private def handleAuthError(err: AuthenticationError): Status = {
     def maliciousOrFaulty(): Status =
       Status.INTERNAL.withDescription(err.reason)
+
     err match {
       case MemberAuthentication.MemberAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
       case MemberAuthentication.NonMatchingDomainId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)
-      case MemberAuthentication.PassiveSequencer =>
-        Status.UNAVAILABLE.withDescription(err.reason)
       case MemberAuthentication.NoKeysRegistered(_) => maliciousOrFaulty()
       case MemberAuthentication.FailedToSign(_, _) => maliciousOrFaulty()
       case MemberAuthentication.MissingNonce(_) => maliciousOrFaulty()
@@ -175,6 +179,7 @@ class GrpcSequencerAuthenticationService(
       case MemberAuthentication.MissingToken(_) => maliciousOrFaulty()
       case MemberAuthentication.TokenVerificationException(_) => maliciousOrFaulty()
       case MemberAuthentication.AuthenticationNotSupportedForMember(_) => maliciousOrFaulty()
+      case MemberAuthentication.LogoutTokenDoesNotExist => maliciousOrFaulty()
     }
   }
 
@@ -194,6 +199,35 @@ class GrpcSequencerAuthenticationService(
       .clientIsCompatible(protocolVersion, request.memberProtocolVersions, minClientVersionP = None)
       .leftMap(err => Status.FAILED_PRECONDITION.withDescription(err))
 
+  /** Unconditionally revoke a member's authentication tokens and disconnect it
+    */
+  override def logout(request: LogoutRequest): Future[LogoutResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      providedToken <- AuthenticationToken.fromProtoPrimitive(request.token) match {
+        case Right(token) => Future.successful(token)
+        case Left(err) =>
+          Future.failed(
+            Status.INVALID_ARGUMENT
+              .withDescription(s"Failed to deserialize token: $err")
+              .asRuntimeException()
+          )
+      }
+      logoutResult <- authenticationService.invalidateMemberWithToken(providedToken)
+      _ <- logoutResult match {
+        case Right(()) => Future.successful(())
+        case Left(err @ LogoutTokenDoesNotExist) =>
+          Future.failed(
+            Status.FAILED_PRECONDITION
+              .withDescription(s"Failed to logout: $err")
+              .asRuntimeException()
+          )
+      }
+    } yield ()
+
+    result.map(_ => LogoutResponse())
+  }
 }
 
 object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErrorGroup {
@@ -228,8 +262,8 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
             s"Authentication for $member rejected with ${response.getCode}/${response.getDescription}"
         )
         with CantonError
-
   }
+
   @Explanation(
     """This error indicates that a client failed to authenticate with the sequencer due to a reason possibly
       |pointing out to faulty or malicious behaviour. The message is logged on the server in order to support an

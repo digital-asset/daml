@@ -4,8 +4,8 @@
 package com.digitalasset.canton.health
 
 import com.daml.error.BaseError
+import com.digitalasset.canton.admin.health.v30 as proto
 import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Fatal, Ok}
-import com.digitalasset.canton.health.admin.v30 as proto
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.util.ShowUtil

@@ -28,6 +28,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -243,6 +244,7 @@ class ProtocolProcessorTest
   ) = {
 
     val multiDomainEventLog = mock[MultiDomainEventLog]
+    val packageDependencyResolver = mock[PackageDependencyResolver]
     val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
       new InMemorySyncDomainPersistentState(
@@ -254,6 +256,7 @@ class ProtocolProcessorTest
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         exitOnFatalFailures = true,
+        packageDependencyResolver,
         loggerFactory,
         timeouts,
         futureSupervisor,

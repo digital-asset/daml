@@ -70,4 +70,21 @@ object EnterpriseSequencerConnectionAdminCommands {
     override def handleResponse(response: v30.SetConnectionResponse): Either[String, Unit] =
       Either.unit
   }
+
+  final case class Logout()
+      extends BaseSequencerConnectionAdminCommand[v30.LogoutRequest, v30.LogoutResponse, Unit] {
+
+    override def createRequest(): Either[String, v30.LogoutRequest] =
+      Right(v30.LogoutRequest())
+
+    override def submitRequest(
+        service: v30.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
+        request: v30.LogoutRequest,
+    ): Future[v30.LogoutResponse] =
+      service.logout(request)
+
+    override def handleResponse(response: v30.LogoutResponse): Either[String, Unit] = Right(
+      ()
+    )
+  }
 }

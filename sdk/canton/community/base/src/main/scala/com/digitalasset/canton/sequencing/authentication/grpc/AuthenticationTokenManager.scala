@@ -66,7 +66,7 @@ class AuthenticationTokenManager(
   def getToken: EitherT[FutureUnlessShutdown, Status, AuthenticationToken] =
     refreshToken(refreshWhenHaveToken = false)
 
-  /** Invalid the current token if it matches the provided value.
+  /** Invalidate the current token if it matches the provided value.
     * Although unlikely, the token must be provided here in case a response terminates after a new token has already been generated.
     */
   def invalidateToken(invalidToken: AuthenticationToken): Unit = {
