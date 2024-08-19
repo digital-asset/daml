@@ -177,7 +177,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencerSubscriptionFactory,
       domainParamsLookup,
       params,
-      mockDomainTopologyManager,
       topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
     )
@@ -222,6 +221,10 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
             )
         )
       )
+    override def logout(
+        request: v30.SequencerAuthentication.LogoutRequest
+    ): Future[v30.SequencerAuthentication.LogoutResponse] =
+      Future.successful(v30.SequencerAuthentication.LogoutResponse())
   }
   private val serverPort = UniquePortGenerator.next
   logger.debug(s"Using port $serverPort for integration test")
@@ -264,7 +267,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         CommonMockMetrics.sequencerClient,
         LoggingConfig(),
         loggerFactory,
-        ProtocolVersionCompatibility.supportedProtocolsParticipant(
+        ProtocolVersionCompatibility.supportedProtocols(
           includeAlphaVersions = BaseTest.testedProtocolVersion.isAlpha,
           includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
           release = ReleaseVersion.current,

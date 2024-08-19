@@ -15,6 +15,7 @@ import com.digitalasset.canton.error.BaseCantonError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.domain.{
   DomainAliasManager,
@@ -31,6 +32,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -126,6 +128,27 @@ class GrpcDomainConnectivityService(
       _ <- sync.disconnectDomain(alias).leftWiden[BaseCantonError]
     } yield v30.DisconnectDomainResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
+  }
+
+  override def logout(request: v30.LogoutRequest): Future[v30.LogoutResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.LogoutRequest(domainAliasP) = request
+
+    val ret = for {
+      domainAlias <- EitherT
+        .fromEither[Future](DomainAlias.create(domainAliasP))
+        .leftMap(err =>
+          Status.INVALID_ARGUMENT
+            .withDescription(s"Failed to parse domain alias: $err")
+            .asRuntimeException()
+        )
+      _ <- sync
+        .logout(domainAlias)
+        .leftMap(err => err.asRuntimeException())
+        .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
+    } yield v30.LogoutResponse()
+
+    EitherTUtil.toFuture(ret)
   }
 
   override def listConnectedDomains(

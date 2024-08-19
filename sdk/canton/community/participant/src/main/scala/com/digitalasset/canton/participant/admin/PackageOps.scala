@@ -213,7 +213,7 @@ class PackageOpsImpl(
               signingKeys = Seq(participantId.fingerprint),
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
-              forceChanges = ForceFlags(ForceFlag.PackageVettingRevocation),
+              forceChanges = ForceFlags(ForceFlag.AllowUnvetPackage),
             )
             .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
             .map(_ => ())

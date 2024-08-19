@@ -436,7 +436,6 @@ object TopologyStore {
   lazy val initialParticipantDispatchingSet = Set(
     TopologyMapping.Code.DomainTrustCertificate,
     TopologyMapping.Code.OwnerToKeyMapping,
-    // TODO(#14060) - potentially revisit this once we implement TopologyStore.filterInitialParticipantDispatchingTransactions
     TopologyMapping.Code.NamespaceDelegation,
   )
 
@@ -445,39 +444,11 @@ object TopologyStore {
       domainId: DomainId,
       transactions: Seq[GenericStoredTopologyTransaction],
   ): Seq[GenericSignedTopologyTransaction] =
-    // TODO(#14060): Extend filtering along the lines of:
-    //  TopologyStore.filterInitialParticipantDispatchingTransactions
-    transactions.map(_.transaction).collect {
-      case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, DomainTrustCertificate(`participantId`, `domainId`)),
-            _,
-            _,
-          ) =>
-        tx
-      case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, OwnerToKeyMapping(`participantId`, _, _)),
-            _,
-            _,
-          ) =>
-        tx
-      case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, NamespaceDelegation(ns, _, _)),
-            _,
-            _,
-          ) if ns == participantId.namespace =>
-        tx
-      case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, IdentifierDelegation(uid, _)),
-            _,
-            _,
-          ) if uid == participantId.uid =>
-        tx
-      case tx @ SignedTopologyTransaction(
-            TopologyTransaction(_, _, _: DecentralizedNamespaceDefinition),
-            _,
-            _,
-          ) =>
-        tx
+    transactions.map(_.transaction).filter { signedTx =>
+      initialParticipantDispatchingSet.contains(signedTx.mapping.code) &&
+      signedTx.mapping.maybeUid.forall(_ == participantId.uid) &&
+      signedTx.mapping.namespace == participantId.namespace &&
+      signedTx.mapping.restrictedToDomain.forall(_ == domainId)
     }
 
   /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target domain */

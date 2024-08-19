@@ -97,7 +97,6 @@ class GrpcSequencerServiceTest
     val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
     private val topologyClient = mock[DomainTopologyClient]
     private val mockTopologySnapshot = mock[TopologySnapshot]
-    private val mockDomainTopologyManager = mock[DomainTopologyManager]
     when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
       .thenReturn(mockTopologySnapshot)
     when(
@@ -166,7 +165,6 @@ class GrpcSequencerServiceTest
         sequencerSubscriptionFactory,
         domainParamLookup,
         params,
-        mockDomainTopologyManager,
         topologyInitService,
         BaseTest.testedProtocolVersion,
         maxItemsInTopologyResponse = PositiveInt.tryCreate(maxItemsInTopologyBatch),

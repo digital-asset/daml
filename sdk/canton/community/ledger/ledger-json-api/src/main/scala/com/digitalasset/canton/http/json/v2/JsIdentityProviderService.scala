@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
-import com.digitalasset.canton.http.json2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import io.circe.Codec
@@ -14,6 +14,7 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 
+import scala.annotation.nowarn
 import scala.language.existentials
 import scala.concurrent.Future
 
@@ -68,7 +69,7 @@ class JsIdentityProviderService(
       .listIdentityProviderConfigs(
         new identity_provider_config_service.ListIdentityProviderConfigsRequest()
       )
-      .toRight
+      .resultToRight
 
   private def createIdps(
       callerContext: CallerContext
@@ -82,7 +83,7 @@ class JsIdentityProviderService(
       identityProviderConfigClient
         .serviceStub(callerContext.token())(req.traceContext)
         .createIdentityProviderConfig(body)
-        .toRight
+        .resultToRight
 
   private def updateIdp(
       callerContext: CallerContext
@@ -97,7 +98,7 @@ class JsIdentityProviderService(
         identityProviderConfigClient
           .serviceStub(callerContext.token())(req.traceContext)
           .updateIdentityProviderConfig(body)
-          .toRight
+          .resultToRight
       } else {
         implicit val traceContext = req.traceContext
         error(
@@ -121,7 +122,7 @@ class JsIdentityProviderService(
           identity_provider_config_service
             .GetIdentityProviderConfigRequest(identityProviderId = req.in)
         )
-        .toRight
+        .resultToRight
 
   private def deleteIdp(
       callerContext: CallerContext
@@ -135,10 +136,10 @@ class JsIdentityProviderService(
           identity_provider_config_service
             .DeleteIdentityProviderConfigRequest(identityProviderId = req.in)
         )
-        .toRight
+        .resultToRight
 
 }
-
+@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsIdentityProviderCodecs {
   implicit val identityProviderConfig
       : Codec[identity_provider_config_service.IdentityProviderConfig] =

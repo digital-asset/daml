@@ -148,7 +148,6 @@ message ParticipantDomainPermission {
   // optional earliest time when participant can log in (again)
   // used to temporarily disable participants
   // In microseconds of UTC time since Unix epoch
-  // TODO(#14049) implement participant deny list
   google.protobuf.Int64Value login_after = 5;
 }
 

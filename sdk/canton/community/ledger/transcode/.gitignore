@@ -1,0 +1,5 @@
+/out/
+/.idea/
+/.bsp/
+/.daml-sdk/
+/target/

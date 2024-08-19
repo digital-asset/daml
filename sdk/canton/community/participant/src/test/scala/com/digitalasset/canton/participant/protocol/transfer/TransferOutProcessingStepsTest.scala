@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   TransferSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
@@ -147,6 +148,7 @@ final class TransferOutProcessingStepsTest
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
       exitOnFatalFailures = true,
+      packageDependencyResolver = mock[PackageDependencyResolver],
       loggerFactory,
       timeouts,
       futureSupervisor,

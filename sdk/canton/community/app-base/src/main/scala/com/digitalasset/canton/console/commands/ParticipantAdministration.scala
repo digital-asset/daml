@@ -1274,8 +1274,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     )
     def active(domainAlias: DomainAlias): Boolean =
       list_connected().exists { r =>
-        // TODO(#14053): Filter out participants that are not permissioned on the domain. The TODO is because the daml 2.x
-        //  also asks the domain whether the participant is permissioned, i.e. do we need to for a ParticipantDomainPermission?
         r.domainAlias == domainAlias &&
         r.healthy &&
         participantIsActiveOnDomain(r.domainId, id)
@@ -1705,6 +1703,22 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ).toEither
         } yield ()
       }
+
+    @Help.Summary(
+      "Revoke this participant's authentication tokens and close all the sequencer connections in the given domain"
+    )
+    @Help.Description("""
+      domainAlias: the domain alias from which to logout
+      On all the sequencers from the specified domain, all existing authentication tokens for this participant
+      will be revoked.
+      Note that the participant is not disconnected from the domain; only the connections to the sequencers are closed.
+      The participant will automatically reopen connections, perform a challenge-response and obtain new tokens.
+      """)
+    def logout(domainAlias: DomainAlias): Unit = consoleEnvironment.run {
+      adminCommand(
+        ParticipantAdminCommands.DomainConnectivity.Logout(domainAlias)
+      )
+    }
   }
 
   @Help.Summary("Functionality for managing resources")
@@ -1764,7 +1778,6 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration,
       domainId: Option[DomainId],
-      workflowId: String,
       id: String,
   ): Either[String, Duration] =
     consoleEnvironment.run {
@@ -1793,7 +1806,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       id: String = "",
   ): Duration = {
     val adminApiRes: Either[String, Duration] =
-      ping_internal(participantId, timeout, domainId, "", id)
+      ping_internal(participantId, timeout, domainId, id)
     consoleEnvironment.runE(
       adminApiRes.leftMap { reason =>
         s"Unable to ping $participantId within ${LoggerUtil
@@ -1813,7 +1826,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       domainId: Option[DomainId] = None,
       id: String = "",
   ): Option[Duration] = check(FeatureFlag.Testing) {
-    ping_internal(participantId, timeout, domainId, "", id).toOption
+    ping_internal(participantId, timeout, domainId, id).toOption
   }
 }
 

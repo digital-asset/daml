@@ -38,7 +38,7 @@ import com.digitalasset.canton.util.EitherTUtil.syntax.*
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
-import io.grpc.{CallOptions, Context, ManagedChannel}
+import io.grpc.{CallOptions, Context, ManagedChannel, Status}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -58,6 +58,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     materializer: Materializer,
 ) extends SequencerClientTransportCommon
     with NamedLogging {
+
+  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    clientAuth.logout(channel)
 
   protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
     new SequencerServiceStub(channel, options = callOptions)

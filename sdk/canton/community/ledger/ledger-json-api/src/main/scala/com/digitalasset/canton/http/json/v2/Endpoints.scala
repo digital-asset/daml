@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
 //TODO (i19539) repackage eventually
 import com.daml.error.utils.DecodedCantonError
-import com.digitalasset.canton.http.json2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import io.circe.{Decoder, Encoder}
 import io.grpc.StatusRuntimeException
@@ -16,7 +16,7 @@ import sttp.capabilities.WebSockets
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.model.Header
 import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.{jsonBody, *}
+import sttp.tapir.json.circe.*
 import sttp.tapir.server.ServerEndpoint.Full
 import sttp.tapir.*
 
@@ -37,13 +37,27 @@ trait Endpoints {
     .securityIn(
       auth
         .bearer[Option[String]]()
-        .map(bearer => CallerContext(bearer.map(Jwt)))(
-          _.jwt.map(_.token)
+        .map(bearer => bearer.map(Jwt))(
+          _.map(_.token)
         )
         .description("Ledger API standard JWT token")
+        .and(
+          auth
+            .apiKey(header[Option[String]]("Sec-WebSocket-Protocol"))
+            .map { bearer =>
+              bearer.map(Jwt)
+            }(_.map(_.token))
+            .description("Ledger API standard JWT token (websocket)")
+        )
+        .map(tokens => CallerContext(tokens._1.orElse(tokens._2)))(cc => (cc.jwt, cc.jwt))
     )
     .errorOut(jsonBody[JsCantonError])
     .in("v2")
+
+//  lazy val wsEndpoint: Endpoint[CallerContext, Unit, JsCantonError, Unit, Any] = endpoint
+//
+//    .errorOut(jsonBody[JsCantonError])
+//    .in("v2")
 
   private val wsSubprotocol = sttp.model.Header("Sec-WebSocket-Protocol", "daml.ws.auth")
 
@@ -101,25 +115,9 @@ trait Endpoints {
       .out(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()))
       .serverLogic(jwt =>
         i =>
-          service(jwt)(i).toRight
+          service(jwt)(i).resultToRight
             .transform(handleErrorResponse)(ExecutionContext.parasitic)
       )
-
-  def getWebSocket[HI, I: Decoder: Encoder: Schema, O: Decoder: Encoder: Schema](
-      endpoint: Endpoint[CallerContext, HI, JsCantonError, Unit, Any],
-      service: CallerContext => HI => Flow[I, O, Any],
-  ): Full[CallerContext, CallerContext, HI, JsCantonError, Flow[
-    I,
-    O,
-    Any,
-  ], Any with PekkoStreams with WebSockets, Future] =
-    endpoint.get
-      .in(header(wsSubprotocol))
-      .out(header(wsSubprotocol))
-      .serverSecurityLogicSuccess(Future.successful)
-      .out(webSocketBody[I, CodecFormat.Json, O, CodecFormat.Json](PekkoStreams))
-      // TODO(i19398): Handle error result
-      .serverLogicSuccess(jwt => i => Future.successful(service(jwt)(i)))
 
   def jsonWithBody[I: Decoder: Encoder: Schema, R: Decoder: Encoder: Schema, P](
       endpoint: Endpoint[CallerContext, P, JsCantonError, Unit, Any],
@@ -131,11 +129,11 @@ trait Endpoints {
       .in(jsonBody[I])
       .serverSecurityLogicSuccess(Future.successful)
       .out(jsonBody[R])
-      .serverLogic(callerContext => { i =>
+      .serverLogic { callerContext => i =>
         service(callerContext)
           .tupled(i)
           .transform(handleErrorResponse)(ExecutionContext.parasitic)
-      })
+      }
 
   def json[R: Decoder: Encoder: Schema, P](
       endpoint: Endpoint[CallerContext, P, JsCantonError, Unit, Any],
@@ -150,6 +148,24 @@ trait Endpoints {
         i => service(callerContext)(i).transform(handleErrorResponse)(ExecutionContext.parasitic)
       )
 
+  protected def websocket[HI, I: Decoder: Encoder: Schema, O: Decoder: Encoder: Schema](
+      endpoint: Endpoint[CallerContext, HI, JsCantonError, Unit, Any],
+      service: CallerContext => HI => Flow[I, O, Any],
+  ): Full[CallerContext, CallerContext, HI, JsCantonError, Flow[
+    I,
+    O,
+    Any,
+  ], Any with PekkoStreams with WebSockets, Future] =
+    endpoint
+      // .in(header(wsSubprotocol))  We send wsSubprotocol header, but we do not enforce it
+      .out(header(wsSubprotocol))
+      .serverSecurityLogicSuccess(Future.successful)
+      .out(webSocketBody[I, CodecFormat.Json, O, CodecFormat.Json](PekkoStreams))
+      // TODO(19398): Handle error result
+      .serverLogicSuccess { jwt => i =>
+        Future.successful(service(jwt)(i))
+      }
+
   def traceHeadersMapping[I]() = new Mapping[(I, List[sttp.model.Header]), TracedInput[I]] {
 
     override def rawDecode(input: (I, List[Header])): DecodeResult[TracedInput[I]] =
@@ -163,18 +179,17 @@ trait Endpoints {
         )
       )
 
-    override def encode(h: TracedInput[I]): (I, List[Header]) = {
+    override def encode(h: TracedInput[I]): (I, List[Header]) =
       (
         h.in,
         W3CTraceContext.extractHeaders(h.traceContext).map { case (k, v) => Header(k, v) }.toList,
       )
-    }
 
     override def validator: Validator[TracedInput[I]] = Validator.pass
   }
 
   implicit class FutureOps[R](future: Future[R]) {
-    def toRight: Future[Either[JsCantonError, R]] =
+    def resultToRight: Future[Either[JsCantonError, R]] =
       future.map(Right(_))(ExecutionContext.parasitic)
   }
 

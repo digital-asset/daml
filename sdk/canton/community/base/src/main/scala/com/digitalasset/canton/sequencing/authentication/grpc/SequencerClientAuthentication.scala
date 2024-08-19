@@ -95,10 +95,6 @@ private[grpc] class SequencerClientTokenAuthentication(
             applier.apply(generateMetadata(token, maybeEndpoint))
         }
     }
-
-    override def thisUsesUnstableApi(): Unit = {
-      // yes, we know - cheers grpc
-    }
   }
 
   /** Will invalidate the current token if an UNAUTHORIZED response is observed.

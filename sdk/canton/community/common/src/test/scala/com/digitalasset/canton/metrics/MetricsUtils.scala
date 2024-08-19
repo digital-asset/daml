@@ -36,6 +36,14 @@ trait MetricsUtils { this: BaseTest =>
         .flatMap(_.attributes.get(key)) shouldBe Some(value)
     }
 
+  def assertNotInContext(name: String, key: String)(implicit
+      onDemandMetricsReader: OnDemandMetricsReader
+  ): Assertion =
+    clue(s"metric $name has value $value for key $key in context") {
+      getMetricValues[MetricValue.LongPoint](name).headOption
+        .flatMap(_.attributes.get(key)) shouldBe empty
+    }
+
   def assertSenderIsInContext(name: String, sender: Member)(implicit
       onDemandMetricsReader: OnDemandMetricsReader
   ): Assertion =

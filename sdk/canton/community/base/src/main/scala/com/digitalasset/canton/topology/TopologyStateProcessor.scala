@@ -67,7 +67,6 @@ class TopologyStateProcessor(
       ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
   }
 
-  // TODO(#14063) use cache instead and remember empty
   private val txForMapping = TrieMap[MappingHash, MaybePending]()
   private val proposalsByMapping = TrieMap[MappingHash, Seq[TxHash]]()
   private val proposalsForTx = TrieMap[TxHash, MaybePending]()
@@ -110,7 +109,6 @@ class TopologyStateProcessor(
     val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
     val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
     val duplicatesF = findDuplicates(effective, transactions)
-    // TODO(#14064) preload authorization data
     val ret = for {
       _ <- EitherT.right[Lft](preloadProposalsForTxF)
       _ <- EitherT.right[Lft](preloadTxsForMappingF)

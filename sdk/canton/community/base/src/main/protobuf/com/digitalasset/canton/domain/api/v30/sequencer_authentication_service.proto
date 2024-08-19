@@ -8,14 +8,16 @@ package com.digitalasset.canton.domain.api.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "google/protobuf/timestamp.proto";
 
-// Operations to generate an authentication token for calling sequencer operations
+// Operations related to authentication tokens for calling sequencer operations
 service SequencerAuthenticationService {
-  // If provided with a supported protocol version and crypto type,
+  // If provided with a supported protocol version,
   // will return a nonce and fingerprint of the expected key to sign this nonce
   rpc Challenge(SequencerAuthentication.ChallengeRequest) returns (SequencerAuthentication.ChallengeResponse) {}
-  // If provided with a correctly signed nonce, will return a authentication token
+  // If provided with a correctly signed nonce, will return an authentication token
   // to be supplied to SequencerService operations
   rpc Authenticate(SequencerAuthentication.AuthenticateRequest) returns (SequencerAuthentication.AuthenticateResponse) {}
+  // Unconditionally revoke a member's authentication tokens and disconnect it
+  rpc Logout(SequencerAuthentication.LogoutRequest) returns (SequencerAuthentication.LogoutResponse) {}
 }
 
 message SequencerAuthentication {
@@ -52,6 +54,7 @@ message SequencerAuthentication {
     // nonce value that was signed is sent back to identify the challenge
     bytes nonce = 3;
   }
+
   message AuthenticateResponse {
     message Success {
       bytes token = 1;
@@ -66,4 +69,11 @@ message SequencerAuthentication {
       Failure failure = 2;
     }
   }
+
+  message LogoutRequest {
+    // token to identify the member to invalidate
+    bytes token = 1;
+  }
+
+  message LogoutResponse {}
 }

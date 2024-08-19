@@ -1,18 +1,19 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
 import com.daml.error.*
 import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
+import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
 import io.circe.generic.semiauto.deriveCodec
-import io.circe.{Codec, Decoder, Encoder}
+import io.circe.{Codec, Decoder, Encoder, Json}
 import io.grpc.Status
 import org.slf4j.event.Level
 import sttp.tapir.CodecFormat.TextPlain
@@ -20,10 +21,94 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
+/** JSON wrappers that do not belong to a particular service */
 object JsSchema {
+
+  final case class JsTransaction(
+      update_id: String,
+      command_id: String,
+      workflow_id: String,
+      effective_at: com.google.protobuf.timestamp.Timestamp,
+      events: Seq[JsEvent.Event],
+      offset: String,
+      domain_id: String,
+      trace_context: Option[TraceContext],
+      record_time: com.google.protobuf.timestamp.Timestamp,
+  )
+
+  final case class JsTransactionTree(
+      update_id: String,
+      command_id: String,
+      workflow_id: String,
+      effective_at: Option[protobuf.timestamp.Timestamp],
+      offset: String,
+      events_by_id: Map[String, JsTreeEvent.TreeEvent],
+      root_event_ids: Seq[String],
+      domain_id: String,
+      trace_context: Option[TraceContext],
+      record_time: protobuf.timestamp.Timestamp,
+  )
+
+  final case class JsStatus(
+      code: Int,
+      message: String,
+      details: String,
+  )
+
+  final case class JsInterfaceView(
+      interface_id: String,
+      view_status: JsStatus,
+      view_value: Option[Json],
+  )
+
+  object JsEvent {
+    sealed trait Event
+
+    final case class CreatedEvent(
+        event_id: String,
+        contract_id: String,
+        template_id: String,
+        contract_key: Option[Json],
+        create_argument: Option[Json],
+        created_event_blob: protobuf.ByteString,
+        interface_views: Seq[JsInterfaceView],
+        witness_parties: Seq[String],
+        signatories: Seq[String],
+        observers: Seq[String],
+        created_at: protobuf.timestamp.Timestamp,
+        package_name: String,
+    ) extends Event
+
+    final case class ArchivedEvent(
+        event_id: String,
+        contract_id: String,
+        template_id: String,
+        witness_parties: Seq[String],
+        package_name: String,
+    ) extends Event
+  }
+
+  object JsTreeEvent {
+    sealed trait TreeEvent
+
+    final case class ExercisedTreeEvent(
+        contract_id: String,
+        template_id: String,
+        choice_argument: Json,
+        exercise_result: Json,
+    ) extends TreeEvent
+
+    final case class CreatedTreeEvent(
+        contract_id: String,
+        template_id: String,
+        create_argument: Json,
+    ) extends TreeEvent
+
+  }
 
   final case class JsCantonError(
       code: String,
@@ -36,6 +121,7 @@ object JsSchema {
       grpcCodeValue: Option[Int],
   )
 
+  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   object JsCantonError {
     implicit val rw: Codec[JsCantonError] = deriveCodec
 
@@ -92,27 +178,11 @@ object JsSchema {
         resources = jsCantonError.resources.map { case (k, v) => (ErrorResource(k), v) },
       )
   }
-
-  implicit def eitherDecoder[A, B](implicit
-      a: Decoder[A],
-      b: Decoder[B],
-  ): Decoder[Either[A, B]] = {
-    val left: Decoder[Either[A, B]] = a.map(Left.apply)
-    val right: Decoder[Either[A, B]] = b.map(scala.util.Right.apply)
-    // Always try to decode first the happy path
-    right or left
-  }
-
-  implicit def eitherEncoder[A, B](implicit
-      a: Encoder[A],
-      b: Encoder[B],
-  ): Encoder[Either[A, B]] =
-    Encoder.instance(_.fold(a.apply, b.apply))
-
+  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   object DirectScalaPbRwImplicits {
 
     implicit val om: Codec[ObjectMeta] = deriveCodec
-
+    implicit val traceContext: Codec[TraceContext] = deriveCodec
     implicit val encodeDuration: Encoder[Duration] =
       Encoder.encodeString.contramap[Duration](_.toString)
 
@@ -151,7 +221,7 @@ object JsSchema {
     implicit val timestampCodec: sttp.tapir.Codec[String, protobuf.timestamp.Timestamp, TextPlain] =
       sttp.tapir.Codec.instant.mapDecode { (time: Instant) =>
         DecodeResult.Value(protobuf.timestamp.Timestamp(time.getEpochSecond, time.getNano))
-      } { timestamp => Instant.ofEpochSecond(timestamp.seconds, timestamp.nanos.toLong) }
+      }(timestamp => Instant.ofEpochSecond(timestamp.seconds, timestamp.nanos.toLong))
 
     implicit val decodeStruct: Decoder[protobuf.struct.Struct] =
       Decoder.decodeJson.map { json =>
@@ -169,6 +239,26 @@ object JsSchema {
           case Left(error) => throw new IllegalStateException(s"Failed to parse JSON: $error")
         }
       }
-  }
 
+    implicit val encodeIdentifier: Encoder[com.daml.ledger.api.v2.value.Identifier] =
+      Encoder.encodeString.contramap { identifier =>
+        IdentifierConverter.toJson(identifier)
+      }
+
+    implicit val decodeIdentifier: Decoder[com.daml.ledger.api.v2.value.Identifier] =
+      Decoder.decodeString.map(IdentifierConverter.fromJson)
+
+    implicit val jsEvent: Codec[JsEvent.Event] = deriveCodec
+
+    implicit val jsStatus: Codec[JsStatus] = deriveCodec
+    implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveCodec
+    implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec
+    implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveCodec
+    implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveCodec
+    implicit val jsSubmitAndWaitForTransactionTreeResponse
+        : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveCodec
+    implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveCodec
+    implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveCodec
+    implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveCodec
+  }
 }

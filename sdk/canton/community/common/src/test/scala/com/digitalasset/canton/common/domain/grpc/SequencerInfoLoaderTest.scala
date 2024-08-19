@@ -213,7 +213,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
     val sequencerInfoLoader = new SequencerInfoLoader(
       ProcessingTimeout(),
       TracingConfig.Propagation.Disabled,
-      clientProtocolVersions = ProtocolVersionCompatibility.supportedProtocolsParticipant(
+      clientProtocolVersions = ProtocolVersionCompatibility.supportedProtocols(
         includeAlphaVersions = true,
         includeBetaVersions = true,
         release = ReleaseVersion.current,

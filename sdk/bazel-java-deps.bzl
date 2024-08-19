@@ -52,6 +52,7 @@ protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
 tapir_version = "1.8.5"
+ujson_version = "2.0.0"
 
 guava_version = "31.1-jre"
 
@@ -98,9 +99,13 @@ def install_java_deps():
             "com.lihaoyi:ammonite-util_{}:2.5.9".format(scala_major_version),
             "com.lihaoyi:ammonite_{}:2.5.9".format(scala_version),
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
+            "com.lihaoyi:geny_{}:1.1.1".format(scala_major_version),
             "com.lihaoyi:os-lib_{}:0.8.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
+            "com.lihaoyi:ujson_{}:{}".format(scala_major_version, ujson_version),
+            "com.lihaoyi:ujson-circe_{}:{}".format(scala_major_version, ujson_version),
+            "com.lihaoyi:upickle-core_{}:{}".format(scala_major_version, ujson_version),
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
             "com.softwaremill.sttp.tapir:tapir-json-circe_{}:{}".format(scala_major_version, tapir_version),

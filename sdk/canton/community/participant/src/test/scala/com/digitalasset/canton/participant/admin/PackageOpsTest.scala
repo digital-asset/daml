@@ -327,7 +327,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Seq(participantId.fingerprint)),
           eqTo(testedProtocolVersion),
           eqTo(true),
-          eqTo(ForceFlags(ForceFlag.PackageVettingRevocation)),
+          eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),
         )(anyTraceContext)
       ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
 

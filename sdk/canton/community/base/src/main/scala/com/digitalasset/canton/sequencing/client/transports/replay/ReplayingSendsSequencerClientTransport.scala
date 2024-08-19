@@ -36,6 +36,7 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.Status
 import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
@@ -435,6 +436,9 @@ class ReplayingSendsSequencerClientTransportImpl(
     )
     with SequencerClientTransport
     with SequencerClientTransportPekko {
+  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    EitherT.pure(())
+
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {

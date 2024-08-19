@@ -14,7 +14,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.daml.lf.data.Ref.PackageId
 
 trait ParticipantTopologyManagerOps {
   def allocateParty(
@@ -36,44 +35,6 @@ object ParticipantTopologyManagerError extends ParticipantErrorGroup {
   ) extends ParticipantTopologyManagerError
       with ParentCantonError[TopologyManagerError] {
     override def logOnCreation: Boolean = false
-  }
-
-  @Explanation(
-    """This error indicates a vetting request failed due to dependencies not being vetted.
-      |On every vetting request, the set supplied packages is analysed for dependencies. The
-      |system requires that not only the main packages are vetted explicitly but also all dependencies.
-      |This is necessary as not all participants are required to have the same packages installed and therefore
-      |not every participant can resolve the dependencies implicitly."""
-  )
-  @Resolution("Vet the dependencies first and then repeat your attempt.")
-  object DependenciesNotVetted
-      extends ErrorCode(
-        id = "DEPENDENCIES_NOT_VETTED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Reject(unvetted: Set[PackageId])(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Package vetting failed due to dependencies not being vetted"
-        )
-        with ParticipantTopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a request involving topology management was attempted on a participant that is not yet initialised.
-      |During initialisation, only namespace and identifier delegations can be managed."""
-  )
-  @Resolution("Initialise the participant and retry.")
-  object UninitializedParticipant
-      extends ErrorCode(
-        id = "UNINITIALIZED_PARTICIPANT",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Reject(_cause: String)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = _cause
-        )
-        with ParticipantTopologyManagerError
   }
 
   @Explanation(

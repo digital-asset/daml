@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
@@ -642,6 +642,30 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    """This error indicates that a topology transaction attempts to add mediators to multiple mediator groups."""
+  )
+  @Resolution(
+    "Either first remove the mediators from their current groups or choose other mediators to add."
+  )
+  object MediatorsAlreadyInOtherGroups
+      extends ErrorCode(
+        id = "MEDIATORS_ALREADY_IN_OTHER_GROUPS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        group: NonNegativeInt,
+        mediators: Map[MediatorId, NonNegativeInt],
+    )(implicit override val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause =
+            s"Tried to add mediators to group $group, but they are already assigned to other groups: ${mediators.toSeq
+                .sortBy(_._1.toProtoPrimitive)
+                .mkString(", ")}"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error indicates that the namespace is already used by another entity."""
   )
   @Resolution(
@@ -751,7 +775,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         |will not be able to process a transaction relying on a particular package."""
     )
     @Resolution(
-      "Ensure that the package exists locally before issuing such a transaction."
+      "Upload the package locally first before issuing such a transaction."
     )
     object CannotVetDueToMissingPackages
         extends ErrorCode(
