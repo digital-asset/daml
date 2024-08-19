@@ -81,7 +81,6 @@ final case class DisclosedContract(
     templateId: Identifier,
     contractId: ContractId,
     argument: SValue,
-    keyHash: Option[crypto.Hash],
 )
 
 final case class InterfaceView(

@@ -1107,26 +1107,25 @@ private[lf] final class Compiler(
     var env = env0
 
     s.SELet(
-      disclosures.toList.flatMap {
-        case DisclosedContract(templateId, contractId, argument, keyHash) =>
-          // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
-          // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
+      disclosures.toList.flatMap { case DisclosedContract(templateId, contractId, argument) =>
+        // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
+        // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
 
-          val expr1 =
-            s.SEApp(
-              s.SEVal(t.ToContractInfoDefRef(templateId)),
-              List(s.SEValue(argument), s.SEValue.None),
-            )
-          val contractPos = env.nextPosition
-          env = env.pushVar
-          val expr2 =
-            app(
-              s.SEBuiltin(SBCacheDisclosedContract(contractId, keyHash)),
-              env.toSEVar(contractPos),
-            )
-          env = env.pushVar
+        val expr1 =
+          s.SEApp(
+            s.SEVal(t.ToContractInfoDefRef(templateId)),
+            List(s.SEValue(argument), s.SEValue.None),
+          )
+        val contractPos = env.nextPosition
+        env = env.pushVar
+        val expr2 =
+          app(
+            s.SEBuiltin(SBCacheDisclosedContract(contractId)),
+            env.toSEVar(contractPos),
+          )
+        env = env.pushVar
 
-          List(expr1, expr2)
+        List(expr1, expr2)
       },
       s.SEValue.Unit,
     )
