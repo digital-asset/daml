@@ -14,12 +14,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Versioned,
-}
+import com.digitalasset.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
@@ -581,7 +576,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       templateId: Ref.Identifier,
       keyLabel: String = "",
   ): DisclosedContract = {
-    val withKey = keyLabel.nonEmpty
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -593,23 +587,10 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         SValue.SParty(maintainer),
       ),
     )
-    val globalKey =
-      if (withKey) {
-        Some(
-          GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue, pkg.pkgName),
-            Set(maintainer),
-          )
-        )
-      } else {
-        None
-      }
-    val keyHash = globalKey.map(_.globalKey.hash)
     val disclosedContract = DisclosedContract(
       templateId,
       contractId,
       key,
-      keyHash,
     )
 
     disclosedContract
@@ -624,7 +605,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       templateId,
       contractId,
       preCondContract(precondition = precondition),
-      None,
     )
   }
 }

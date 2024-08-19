@@ -62,7 +62,6 @@ private[lf] final class CommandPreprocessor(
       templateId = disc.templateId,
       contractId = disc.contractId,
       argument = arg,
-      keyHash = disc.contractKeyWithMaintainers.map(_.globalKey.hash),
     )
   }
 
