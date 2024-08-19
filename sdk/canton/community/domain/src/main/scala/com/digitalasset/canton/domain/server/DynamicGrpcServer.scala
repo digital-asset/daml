@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.server
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.config.PublicServerConfig
@@ -22,34 +21,33 @@ import io.grpc.protobuf.services.ProtoReflectionService
 
 import scala.concurrent.ExecutionContextExecutorService
 
-/** Creates a dynamic public domain server to which domain services can be added at a later time,
+/** Creates a dynamic public server to which services can be added at a later time,
   * while providing a gRPC health service from the start.
-  * This is useful to bring up the embedded domain or sequencer node endpoint with health service, prior to them being
+  * This is useful to bring up the sequencer node endpoint with health service, prior to being
   * initialized.
   */
-class DynamicDomainGrpcServer(
+class DynamicGrpcServer(
     val loggerFactory: NamedLoggerFactory,
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    metrics: LabeledMetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
-    domainHealthService: DependenciesHealthService,
+    healthService: DependenciesHealthService,
 )(implicit executionContext: ExecutionContextExecutorService)
     extends NamedLogging {
-  private lazy val grpcDomainHealthManager =
+  private lazy val grpcHealthManager =
     ServiceHealthStatusManager(
-      "Domain API",
+      "Health API",
       new io.grpc.protobuf.services.HealthStatusManager(),
-      Set(domainHealthService),
+      Set(healthService),
     )
 
-  grpcHealthReporter.registerHealthManager(grpcDomainHealthManager)
+  grpcHealthReporter.registerHealthManager(grpcHealthManager)
 
   // Upon initialization, register all gRPC services into their dynamic slot
-  def initialize(runtime: SequencerRuntime): DynamicDomainGrpcServer = {
-    runtime.domainServices.foreach(registry.addServiceU(_))
+  def initialize(runtime: SequencerRuntime): DynamicGrpcServer = {
+    runtime.sequencerServices.foreach(registry.addServiceU(_))
     this
   }
 
@@ -72,7 +70,7 @@ class DynamicDomainGrpcServer(
     val registry = serverBuilder.mutableHandlerRegistry()
 
     serverBuilder
-      .addService(grpcDomainHealthManager.manager.getHealthService.bindService())
+      .addService(grpcHealthManager.manager.getHealthService.bindService())
       .addService(ProtoReflectionService.newInstance(), withLogging = false)
       .discard[CantonServerBuilder]
 

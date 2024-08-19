@@ -571,6 +571,7 @@ class BftOrderingMetrics(
             case class Empty(from: SequencerId) extends SourceValue
             case class Availability(from: SequencerId) extends SourceValue
             case class Consensus(from: SequencerId) extends SourceValue
+            case class StateTransfer(from: SequencerId) extends SourceValue
           }
         }
       }

@@ -32,6 +32,8 @@ service DomainConnectivityService {
   rpc ListConfiguredDomains(ListConfiguredDomainsRequest) returns (ListConfiguredDomainsResponse);
   // Get the domain id of the given domain alias
   rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
+  // Revoke the authentication tokens for all the sequencers on a domain and disconnect the sequencer clients
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
 }
 
 message DomainConnectionConfig {
@@ -133,4 +135,11 @@ message GetDomainIdRequest {
 
 message GetDomainIdResponse {
   string domain_id = 2;
+}
+
+message LogoutRequest {
+  string domain_alias = 1;
+}
+
+message LogoutResponse {
 }

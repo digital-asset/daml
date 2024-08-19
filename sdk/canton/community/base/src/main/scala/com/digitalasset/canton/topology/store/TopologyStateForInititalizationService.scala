@@ -31,8 +31,8 @@ final class StoreBasedTopologyStateForInitializationService(
     * 1. Determine the first MediatorDomainState or DomainTrustCertificate that mentions the member to onboard.
     * 2. Take its effective time (here t0')
     * 3. Find all transactions with sequence time <= t0'
-    * 4. Find the maximum effective time of the transactions returned in 3. (here ts1')
-    * 5. Set all validUntil > ts1' to None
+    * 4. Find the maximum effective time of the transactions returned in 3. (here t1')
+    * 5. Set all validUntil > t1' to None
     *
     * {{{
     *

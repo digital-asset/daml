@@ -88,6 +88,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
+import io.grpc.Status
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
@@ -1100,6 +1101,9 @@ class SequencerClientTest
       extends SequencerClientTransport
       with SequencerClientTransportPekko
       with NamedLogging {
+
+    override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+      EitherT.pure(())
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 

@@ -1,13 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.json2
+package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.user_management_service
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.digitalasset.canton.http.json2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
@@ -17,6 +17,7 @@ import sttp.model.QueryParams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.*
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class JsUserManagementService(
@@ -95,7 +96,7 @@ class JsUserManagementService(
     userManagementClient
       .serviceStub(callerContext.token())(req.traceContext)
       .createUser(body)
-      .toRight
+      .resultToRight
 
   private def listUsers(
       callerContext: CallerContext
@@ -105,7 +106,7 @@ class JsUserManagementService(
     userManagementClient
       .serviceStub(callerContext.token())(req.traceContext)
       .listUsers(user_management_service.ListUsersRequest())
-      .toRight
+      .resultToRight
   // TODO (i19538) paging
 
   private def getUser(
@@ -117,7 +118,7 @@ class JsUserManagementService(
           userManagementClient
             .serviceStub(callerContext.token())(req.traceContext)
             .getUser(user_management_service.GetUserRequest(userId = userId))
-            .toRight
+            .resultToRight
         case Left(error) => malformedUserId(error)(req.traceContext)
 
       }
@@ -131,7 +132,7 @@ class JsUserManagementService(
       userManagementClient
         .serviceStub(callerContext.token())(req.traceContext)
         .updateUser(body)
-        .toRight
+        .resultToRight
     } else {
       unmatchedUserId(req.traceContext, req.in, body.user.map(_.id))
     }
@@ -143,7 +144,7 @@ class JsUserManagementService(
       case Right(userId) =>
         userManagementClient
           .deleteUser(userId, callerContext.jwt.map(_.token))(req.traceContext)
-          .toRight
+          .resultToRight
       case Left(errorMsg) =>
         malformedUserId(errorMsg)(req.traceContext)
     }
@@ -158,7 +159,7 @@ class JsUserManagementService(
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
           .listUserRights(new user_management_service.ListUserRightsRequest(userId = userId))
-          .toRight
+          .resultToRight
       case Left(error) => malformedUserId(error)(req.traceContext)
     }
 
@@ -172,7 +173,7 @@ class JsUserManagementService(
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
           .grantUserRights(body)
-          .toRight
+          .resultToRight
       } else {
         unmatchedUserId(req.traceContext, req.in, Some(body.userId))
       }
@@ -187,7 +188,7 @@ class JsUserManagementService(
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
           .revokeUserRights(body)
-          .toRight
+          .resultToRight
       } else {
         unmatchedUserId(req.traceContext, req.in, Some(body.userId))
       }
@@ -201,7 +202,7 @@ class JsUserManagementService(
       userManagementClient
         .serviceStub(callerContext.token())(req.traceContext)
         .updateUserIdentityProviderId(body)
-        .toRight
+        .resultToRight
     } else {
       unmatchedUserId(req.traceContext, req.in, Some(body.userId))
     }
@@ -223,6 +224,7 @@ class JsUserManagementService(
     )
 }
 
+@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsUserManagementCodecs {
 
   implicit val user: Codec[user_management_service.User] = deriveCodec

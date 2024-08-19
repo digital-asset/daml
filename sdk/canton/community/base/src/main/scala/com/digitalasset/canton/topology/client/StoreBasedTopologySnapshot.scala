@@ -86,42 +86,17 @@ class StoreBasedTopologySnapshot(
       }
     )
 
-    val requiredPackagesF = store.storeId match {
-      case _: TopologyStoreId.DomainStore =>
-        FutureUnlessShutdown.outcomeF(
-          findTransactions(
-            asOfInclusive = false,
-            types = Seq(TopologyMapping.Code.DomainParametersState),
-            filterUid = None,
-            filterNamespace = None,
-          ).map { transactions =>
-            collectLatestMapping(
-              TopologyMapping.Code.DomainParametersState,
-              transactions.collectOfMapping[DomainParametersState].result,
-            ).getOrElse(throw new IllegalStateException("Unable to locate domain parameters state"))
-              .discard
-            // TODO(#14054) Once the non-proto DynamicDomainParameters is available, use it
-            //   _.parameters.requiredPackages
-            Set.empty[PackageId]
-          }
-        )
-
-      case TopologyStoreId.AuthorizedStore =>
-        FutureUnlessShutdown.pure(Set.empty)
-    }
-
     lazy val dependenciesET = packageDependencyResolver.packageDependencies(packageId).value
 
     EitherT(for {
       vetted <- vettedF
-      requiredPackages <- requiredPackagesF
       // check that the main package is vetted
       res <-
         if (!vetted.contains(packageId))
           FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
         else {
           // check which of the dependencies aren't vetted
-          dependenciesET.map(_.map(_ ++ requiredPackages -- vetted))
+          dependenciesET.map(_.map(_ -- vetted))
         }
     } yield res)
 
@@ -570,15 +545,31 @@ class StoreBasedTopologySnapshot(
       // 3. Attempt to look up permissions/trust from participant domain permission
       val participantDomainPermissions =
         getParticipantDomainPermissions(storedTxs, participantsWithCertAndKeys)
-      // 4. Apply default permissions/trust of submission/ordinary if missing participant domain permission and
-      // grab rate limits from dynamic domain parameters if not specified
-      val participantIdDomainPermissionsMap = participantsWithCertAndKeys.map { pid =>
-        pid -> participantDomainPermissions
-          .getOrElse(
-            pid,
-            ParticipantDomainPermission.default(domainParametersState.domain, pid),
+
+      val participantIdDomainPermissionsMap = participantsWithCertAndKeys.toSeq.mapFilter { pid =>
+        if (
+          domainParametersState.parameters.onboardingRestriction.isRestricted && !participantDomainPermissions
+            .contains(pid)
+        ) {
+          // 4a. If the domain is restricted, we must have found a ParticipantDomainPermission for the participants, otherwise
+          // the participants shouldn't have been able to onboard to the domain in the first place.
+          // In case we don't find a ParticipantDomainPermission, we don't return the participant with default permissions, but we skip it.
+          logger.warn(
+            s"Unable to find ParticipantDomainPermission for participant $pid on domain ${domainParametersState.domain} with onboarding restrictions ${domainParametersState.parameters.onboardingRestriction} at $referenceTime"
           )
-          .setDefaultLimitIfNotSet(DynamicDomainParameters.defaultParticipantDomainLimits)
+          None
+        } else {
+          // 4b. Apply default permissions/trust of submission/ordinary if missing participant domain permission and
+          // grab rate limits from dynamic domain parameters if not specified
+          Some(
+            pid -> participantDomainPermissions
+              .getOrElse(
+                pid,
+                ParticipantDomainPermission.default(domainParametersState.domain, pid),
+              )
+              .setDefaultLimitIfNotSet(DynamicDomainParameters.defaultParticipantDomainLimits)
+          )
+        }
       }.toMap
       participantIdDomainPermissionsMap
     }

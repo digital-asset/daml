@@ -33,7 +33,7 @@ import com.daml.metrics.Timed
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.Jwt
-import com.digitalasset.canton.http.json2.V2Routes
+import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing

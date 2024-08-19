@@ -591,27 +591,10 @@ class MediatorNodeBootstrap(
         arguments.metrics.sequencerClient,
         parameters.loggingConfig,
         domainLoggerFactory,
-        ProtocolVersionCompatibility.trySupportedProtocolsDomain(parameters),
+        ProtocolVersionCompatibility.supportedProtocols(parameters),
         None,
       )
-      sequencerClientRef =
-        GrpcSequencerConnectionService.setup[MediatorDomainConfiguration](mediatorId)(
-          adminServerRegistry,
-          fetchConfig,
-          saveConfig,
-          Lens[MediatorDomainConfiguration, SequencerConnections](_.sequencerConnections)(
-            connection => conf => conf.copy(sequencerConnections = connection)
-          ),
-          RequestSigner(
-            syncCryptoApi,
-            domainConfig.domainParameters.protocolVersion,
-            loggerFactory,
-          ),
-          sequencerClientFactory,
-          sequencerInfoLoader,
-          domainAlias,
-          domainId,
-        )
+
       // we wait here until the sequencer becomes active. this allows to reconfigure the
       // sequencer client address
       info <- GrpcSequencerConnectionService
@@ -637,6 +620,27 @@ class MediatorNodeBootstrap(
           info.expectedSequencers,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
+
+      sequencerClientRef =
+        GrpcSequencerConnectionService.setup[MediatorDomainConfiguration](mediatorId)(
+          adminServerRegistry,
+          fetchConfig,
+          saveConfig,
+          Lens[MediatorDomainConfiguration, SequencerConnections](_.sequencerConnections)(
+            connection => conf => conf.copy(sequencerConnections = connection)
+          ),
+          RequestSigner(
+            syncCryptoApi,
+            domainConfig.domainParameters.protocolVersion,
+            loggerFactory,
+          ),
+          sequencerClientFactory,
+          sequencerInfoLoader,
+          domainAlias,
+          domainId,
+          sequencerClient,
+          loggerFactory,
+        )
 
       _ <- {
         val headSnapshot = topologyClient.headSnapshot
@@ -738,18 +742,17 @@ class MediatorNode(
 
   def isActive: Boolean = replicaManager.isActive
 
-  def status: Future[MediatorNodeStatus] = {
+  def status: MediatorNodeStatus = {
     val ports = Map("admin" -> config.adminApi.port)
-    Future.successful(
-      MediatorNodeStatus(
-        mediatorId.uid,
-        domainId,
-        uptime(),
-        ports,
-        replicaManager.isActive,
-        replicaManager.getTopologyQueueStatus,
-        healthData,
-      )
+
+    MediatorNodeStatus(
+      mediatorId.uid,
+      domainId,
+      uptime(),
+      ports,
+      replicaManager.isActive,
+      replicaManager.getTopologyQueueStatus,
+      healthData,
     )
   }
 

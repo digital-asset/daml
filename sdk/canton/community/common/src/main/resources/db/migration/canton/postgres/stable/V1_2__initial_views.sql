@@ -536,21 +536,6 @@ create or replace view debug.par_pruning_schedules as
     prune_internally_only
   from par_pruning_schedules;
 
-create or replace view debug.sequencer_authentication_nonces as
-  select
-    nonce,
-    member,
-    debug.canton_timestamp(generated_at_ts) as generated_at_ts,
-    debug.canton_timestamp(expire_at_ts) as expire_at_ts
-  from sequencer_authentication_nonces;
-
-create or replace view debug.sequencer_authentication_tokens as
-  select
-    token,
-    member,
-    debug.canton_timestamp(expire_at_ts) as expire_at_ts
-  from sequencer_authentication_tokens;
-
 create or replace view debug.par_in_flight_submission as
   select
     change_id_hash,

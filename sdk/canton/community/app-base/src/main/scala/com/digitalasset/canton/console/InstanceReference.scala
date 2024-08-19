@@ -5,6 +5,7 @@ package com.digitalasset.canton.console
 
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.*
+import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantDomainPermissionResult
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
@@ -596,8 +597,35 @@ abstract class ParticipantReference(
   override protected def participantIsActiveOnDomain(
       domainId: DomainId,
       participantId: ParticipantId,
-  ): Boolean = topology.domain_trust_certificates.active(domainId, participantId)
+  ): Boolean = {
+    val hasDomainTrustCertificate =
+      topology.domain_trust_certificates.active(domainId, participantId)
+    val isDomainRestricted = topology.domain_parameters
+      .get_dynamic_domain_parameters(domainId)
+      .onboardingRestriction
+      .isRestricted
+    val domainPermission = topology.participant_domain_permissions.find(domainId, participantId)
 
+    // notice the `exists`, expressing the requirement of a permission to exist
+    val hasRequiredDomainPermission = domainPermission.exists(noLoginRestriction)
+    // notice the forall, expressing optionality for the permission to exist
+    val hasOptionalDomainPermission = domainPermission.forall(noLoginRestriction)
+
+    // for a participant to be considered active, it must have a domain trust certificate
+    hasDomainTrustCertificate &&
+    (
+      // if the domain is restricted, the participant MUST have the permission
+      (isDomainRestricted && hasRequiredDomainPermission) ||
+        // if the domain is UNrestricted, the participant may still be restricted by the domain
+        (!isDomainRestricted && hasOptionalDomainPermission)
+    )
+  }
+
+  private def noLoginRestriction(result: ListParticipantDomainPermissionResult): Boolean =
+    result.item.loginAfter
+      .forall(
+        _ <= consoleEnvironment.environment.clock.now
+      )
 }
 object ParticipantReference {
   val InstanceType = "Participant"
@@ -1167,7 +1195,7 @@ class LocalSequencerReference(
 
   override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
-  @Help.Summary("Returns the sequencerx configuration")
+  @Help.Summary("Returns the sequencer configuration")
   override def config: SequencerNodeConfigCommon =
     consoleEnvironment.environment.config.sequencersByString(name)
 

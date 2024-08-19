@@ -11,6 +11,7 @@ import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.health.v30.StatusServiceGrpc
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -41,7 +42,6 @@ import com.digitalasset.canton.health.admin.data.{
   WaitingForNodeTopology,
 }
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
-import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
   DependenciesHealthService,
   GrpcHealthReporter,
@@ -78,7 +78,7 @@ import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
   IdentityProvidingServiceClient,
 }
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
@@ -185,6 +185,22 @@ abstract class CantonNodeBootstrapImpl[
   override def timeouts: ProcessingTimeout = arguments.parameterConfig.processingTimeouts
   override def loggerFactory: NamedLoggerFactory = arguments.loggerFactory
   protected def futureSupervisor: FutureSupervisor = arguments.futureSupervisor
+  protected def createAuthorizedTopologyManager(
+      nodeId: UniqueIdentifier,
+      crypto: Crypto,
+      authorizedStore: TopologyStore[AuthorizedStore],
+      storage: Storage,
+  ): AuthorizedTopologyManager =
+    new AuthorizedTopologyManager(
+      nodeId,
+      clock,
+      crypto,
+      authorizedStore,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
+      bootstrapStageCallback.timeouts,
+      futureSupervisor,
+      bootstrapStageCallback.loggerFactory,
+    )
 
   protected val cryptoConfig: CryptoConfig = config.crypto
   protected val initConfig: InitConfigBase = config.init
@@ -205,12 +221,11 @@ abstract class CantonNodeBootstrapImpl[
 
   private val adminApiConfig = config.adminApi
 
-  private def status: Future[NodeStatus[NodeStatus.Status]] =
+  private def status: NodeStatus[NodeStatus.Status] =
     getNode
-      .map(_.status.map(NodeStatus.Success(_)))
-      .getOrElse(
-        Future.successful(NodeStatus.NotInitialized(isActive, waitingFor))
-      )
+      .map(_.status)
+      .map(NodeStatus.Success(_))
+      .getOrElse(NodeStatus.NotInitialized(isActive, waitingFor))
 
   private def waitingFor: Option[WaitingForExternalInput] = {
     def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] =
@@ -229,7 +244,7 @@ abstract class CantonNodeBootstrapImpl[
     arguments.metrics.healthMetrics
       .registerHealthGauge(
         name.toProtoPrimitive,
-        () => getNode.map(_.status.map(_.active)).getOrElse(Future(false)),
+        () => getNode.exists(_.status.active),
       )
       .discard // we still want to report the health even if the node is closed
 
@@ -573,16 +588,7 @@ abstract class CantonNodeBootstrapImpl[
       ) {
 
     private val topologyManager: AuthorizedTopologyManager =
-      new AuthorizedTopologyManager(
-        nodeId,
-        clock,
-        crypto,
-        authorizedStore,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        bootstrapStageCallback.timeouts,
-        futureSupervisor,
-        bootstrapStageCallback.loggerFactory,
-      )
+      createAuthorizedTopologyManager(nodeId, crypto, authorizedStore, storage)
     addCloseable(topologyManager)
     adminServerRegistry
       .addServiceU(

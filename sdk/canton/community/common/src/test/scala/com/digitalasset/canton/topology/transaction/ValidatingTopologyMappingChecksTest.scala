@@ -604,6 +604,55 @@ class ValidatingTopologyMappingChecksTest
           )
         )
       }
+
+      "report MediatorsAlreadyAssignedToGroups for duplicate mediator assignments" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2, med3), transactions) = generateMemberIdentities(3, MediatorId(_))
+
+        val Seq(group0, group1, group2) = Seq(
+          NonNegativeInt.zero -> Seq(med1),
+          NonNegativeInt.one -> Seq(med2),
+          NonNegativeInt.two -> Seq(med1, med2, med3),
+        ).map { case (group, mediators) =>
+          factory.mkAdd(
+            MediatorDomainState
+              .create(
+                domainId,
+                group,
+                PositiveInt.one,
+                active = mediators,
+                Seq.empty,
+              )
+              .value,
+            // the signing key is not relevant for the test
+            factory.SigningKeys.key1,
+          )
+        }
+
+        addToStore(store, (transactions :+ group0 :+ group1)*)
+
+        checkTransaction(checks, group2, None) shouldBe Left(
+          TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
+            NonNegativeInt.two,
+            Map(med1 -> NonNegativeInt.zero, med2 -> NonNegativeInt.one),
+          )
+        )
+      }
+
+      "report mediators defined both as active and observers" in {
+        val (Seq(med1, med2), _transactions) = generateMemberIdentities(2, MediatorId(_))
+
+        MediatorDomainState
+          .create(
+            domainId,
+            NonNegativeInt.zero,
+            PositiveInt.one,
+            active = Seq(med1, med2),
+            observers = Seq(med1),
+          ) shouldBe Left(
+          s"the following mediators were defined both as active and observer: $med1"
+        )
+      }
     }
 
     "validating SequencerDomainState" should {
@@ -679,6 +728,20 @@ class ValidatingTopologyMappingChecksTest
               seq4 -> Seq(Code.NamespaceDelegation, Code.OwnerToKeyMapping),
             )
           )
+        )
+      }
+
+      "report sequencers defined both as active and observers" in {
+        val (Seq(seq1, seq2), _transactions) = generateMemberIdentities(2, SequencerId(_))
+
+        SequencerDomainState
+          .create(
+            domainId,
+            PositiveInt.one,
+            active = Seq(seq1, seq2),
+            observers = Seq(seq1),
+          ) shouldBe Left(
+          s"the following sequencers were defined both as active and observer: $seq1"
         )
       }
     }

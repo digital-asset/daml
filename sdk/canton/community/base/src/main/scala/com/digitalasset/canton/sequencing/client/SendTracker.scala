@@ -55,7 +55,6 @@ class SendTracker(
     with FlagCloseableAsync
     with AutoCloseable {
 
-  private implicit val metricsContext: MetricsContext = MetricsContext("sender" -> member.toString)
   private implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(
     noTracingLogger
   )
@@ -70,6 +69,7 @@ class SendTracker(
       callback: SendCallback,
       startedAt: Option[Instant],
       traceContext: TraceContext,
+      metricsContext: MetricsContext,
   )
 
   private val pendingSends: TrieMap[MessageId, PendingSend] =
@@ -81,6 +81,7 @@ class SendTracker(
           SendCallback.empty,
           startedAt = None,
           TraceContext.empty,
+          MetricsContext.Empty,
         )
     }).result()
 
@@ -89,7 +90,8 @@ class SendTracker(
       maxSequencingTime: CantonTimestamp,
       callback: SendCallback = SendCallback.empty,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] =
     performUnlessClosingEitherU(s"track $messageId") {
       for {
@@ -102,6 +104,7 @@ class SendTracker(
             callback,
             startedAt = Some(Instant.now()),
             traceContext,
+            metricsContext,
           ),
         ) match {
           case Some(previousMaxSequencingTime) =>
@@ -161,7 +164,7 @@ class SendTracker(
       timestamp: CantonTimestamp
   ): Future[Unit] = {
     val timedOut = pendingSends.collect {
-      case (messageId, PendingSend(maxSequencingTime, _, _, traceContext))
+      case (messageId, PendingSend(maxSequencingTime, _, _, traceContext, _))
           if maxSequencingTime < timestamp =>
         Traced(messageId)(traceContext)
     }.toList
@@ -241,16 +244,35 @@ class SendTracker(
         None
     }
 
+    // Metrics context extracted from the pending send
+    // This allows to get labels such as the request type and application ID back and use them to update
+    // event specific metrics
+    val eventSpecificMetricsContext = current
+      .map(_.metricsContext)
+      .getOrElse(
+        // If we there's no pending send, set the application id and type labels to unknown to get consistent
+        // labelling even during crash recovery (when we may not have corresponding pending sends for the receipts)
+        MetricsContext(
+          "application-id" -> "unknown",
+          "type" -> "unknown",
+        )
+      )
     // Update the traffic controller with the traffic consumed in the receipt
     (trafficStateController, resultO) match {
       case (Some(tsc), Some(UnlessShutdown.Outcome(Success(deliver)))) =>
-        deliver.trafficReceipt.foreach(tsc.updateWithReceipt(_, deliver.timestamp, None))
+        deliver.trafficReceipt.foreach(
+          tsc.updateWithReceipt(_, deliver.timestamp, None, eventSpecificMetricsContext)
+        )
       case (Some(tsc), Some(UnlessShutdown.Outcome(Error(deliverError)))) =>
         deliverError.trafficReceipt.foreach(
           tsc.updateWithReceipt(
             _,
             deliverError.timestamp,
-            BaseCantonError.statusErrorCodes(deliverError.reason).headOption.orElse(Some("unknown")),
+            BaseCantonError
+              .statusErrorCodes(deliverError.reason)
+              .headOption
+              .orElse(Some("unknown")),
+            eventSpecificMetricsContext,
           )
         )
       case (Some(tsc), Some(UnlessShutdown.Outcome(Timeout(timestamp)))) =>

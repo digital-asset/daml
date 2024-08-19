@@ -96,5 +96,19 @@ trait SequencerConnectionAdministration extends Helpful {
         } yield ()
       }
 
+    @Help.Summary(
+      "Revoke this sequencer client node's authentication tokens and close all the sequencers connections."
+    )
+    @Help.Description("""
+      On all the sequencers, all existing authentication tokens for this sequencer client node will be revoked.
+      Note that the node is not disconnected from the domain; only the connections to the sequencers are closed.
+      The node will automatically reopen connections, perform a challenge-response and obtain new tokens.
+      """)
+    def logout(): Unit = consoleEnvironment.run {
+      adminCommand(
+        EnterpriseSequencerConnectionAdminCommands.Logout()
+      )
+    }
+
   }
 }

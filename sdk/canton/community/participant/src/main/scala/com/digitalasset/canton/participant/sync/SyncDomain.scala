@@ -90,6 +90,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.daml.lf.engine.Engine
+import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -657,7 +658,7 @@ class SyncDomain(
           )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
             Seq(
               topologyProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
-              trafficProcessor.subscriptionStartsAt(start)(traceContext),
+              trafficProcessor.subscriptionStartsAt(start, domainTimeTracker)(traceContext),
             ).parSequence_
 
           override def apply(
@@ -900,6 +901,9 @@ class SyncDomain(
     }
 
   def numberOfDirtyRequests(): Int = ephemeral.requestJournal.numberOfDirtyRequests
+
+  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    sequencerClient.logout()
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     // As the commitment and protocol processors use the sequencer client to send messages, close

@@ -6,11 +6,12 @@ package com.digitalasset.canton.console
 import better.files.File
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands
 import com.digitalasset.canton.admin.api.client.data.CantonStatus
+import com.digitalasset.canton.admin.health.v30
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.environment.Environment
+import com.digitalasset.canton.health.admin.data
 import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.health.admin.{data, v30}
 import com.digitalasset.canton.metrics.MetricsSnapshot
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ReleaseVersion

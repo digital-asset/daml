@@ -27,9 +27,9 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   @Help.Summary(
     "Download sequencer snapshot at given point in time to bootstrap another sequencer"
   )
+  @Help.Description("""It is recommended to use onboarding_state_for_sequencer for onboarding
+      |a new sequencer.""")
   def snapshot(timestamp: CantonTimestamp): SequencerSnapshot =
-    // TODO(#14074) add something like "snapshot for sequencer-id", rather than timestamp based
-    //      we still need to keep the timestamp based such that we can provide recovery for corrupted sequencers
     consoleEnvironment.run {
       runner.adminCommand(EnterpriseSequencerAdminCommands.Snapshot(timestamp))
     }
