@@ -11,8 +11,8 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.{
-  SBCacheDisclosedContract,
   SBCrash,
+  SBImportInputContract,
   SBuildContractInfoStruct,
 }
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash}
@@ -23,8 +23,10 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
+  Node,
   TransactionVersion,
   Versioned,
 }
@@ -1626,7 +1628,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCacheDisclosedContract" - {
     "updates on ledger cached contract map" - {
-      val version = TransactionVersion.minVersion
       val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
 
       "when no template key is defined" in {
@@ -1656,13 +1657,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltinFun(SBCacheDisclosedContract(contractId)),
+                SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
                 Array(SELocS(1)),
               ),
             ),
             getContract = Map(
               contractId -> Versioned(
-                version = version,
+                version = txVersion,
                 Value.ContractInstance(
                   packageName = pkg.pkgName,
                   packageVersion = pkg.pkgVersion,
@@ -1680,7 +1681,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers))) =
+        val (disclosedContract, Some(key)) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val cachedKey = CachedKey(
           pkgName,
@@ -1703,7 +1704,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           SEValue(disclosedContract.argument),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
-          SEValue(SOptional(Some(keyWithMaintainers))),
+          SEValue(SOptional(Some(keyWithMaintainers(key, alice)))),
         )
 
         inside(
@@ -1711,13 +1712,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltinFun(SBCacheDisclosedContract(contractId)),
+                SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
                 Array(SELocS(1)),
               ),
             ),
             getContract = Map(
               contractId -> Versioned(
-                version = version,
+                version = txVersion,
                 Value.ContractInstance(
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
@@ -1896,13 +1897,23 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       case _ => sys.error(s"litToText: unexpected $x")
     }
 
+  def keyWithMaintainers(key: SValue, maintainer: Party) = SStruct(
+    Struct.assertFromNameSeq(
+      Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
+    ),
+    ArrayList(
+      key,
+      SValue.SList(FrontStack(SValue.SParty(maintainer))),
+    ),
+  )
+
   def buildDisclosedContract(
       contractId: Value.ContractId,
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue)]) = {
+  ): (DisclosedContract, Option[SValue]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1914,17 +1925,8 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         SValue.SList(FrontStack(SValue.SParty(maintainer))),
       ),
     )
-    val keyWithMaintainers = SStruct(
-      Struct.assertFromNameSeq(
-        Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
-      ),
-      ArrayList(
-        key,
-        SValue.SList(FrontStack(SValue.SParty(maintainer))),
-      ),
-    )
     val fields = if (withKey) ImmArray("i", "u", "name", "k") else ImmArray("i", "u", "name")
-    val values: util.ArrayList[SValue] =
+    val svalues: util.ArrayList[SValue] =
       if (withKey) {
         ArrayList(
           SValue.SParty(owner),
@@ -1935,17 +1937,40 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       } else {
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
       }
-    val disclosedContract = DisclosedContract(
+    val sarg = SValue.SRecord(
       templateId,
-      contractId,
-      SValue.SRecord(
-        templateId,
-        fields.map(Ref.Name.assertFromString),
-        values,
+      fields.map(Ref.Name.assertFromString),
+      svalues,
+    )
+    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val keyOpt =
+      if (withKey)
+        Some(
+          GlobalKeyWithMaintainers
+            .assertBuild(templateId, key.toNormalizedValue(version), Set(maintainer), pkgName)
+        )
+      else
+        None
+    val disclosedContract = DisclosedContract(
+      FatContractInstance.fromCreateNode(
+        Node.Create(
+          coid = contractId,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
+          templateId = templateId,
+          arg = sarg.toNormalizedValue(version),
+          signatories = Set(maintainer),
+          stakeholders = Set(maintainer),
+          keyOpt = keyOpt,
+          version = version,
+        ),
+        createTime = Time.Timestamp.now(),
+        cantonData = Bytes.Empty,
       ),
+      sarg,
     )
 
-    (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)
+    (disclosedContract, keyOpt.map(_ => key))
   }
 
   val witness = Numeric.Scale.values.map(n => SNumeric(Numeric.assertFromBigDecimal(n, 1)))

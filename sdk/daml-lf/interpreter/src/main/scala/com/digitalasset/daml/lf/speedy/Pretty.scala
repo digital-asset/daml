@@ -126,6 +126,13 @@ private[lf] object Pretty {
         text(s"Value exceeds maximum nesting value of $limit")
       case Dev(_, error) =>
         error match {
+          case Dev.Conformance(provided, recomputed, details) =>
+            text(
+              s"""Contract Conformance fails ($details):
+                 | provided create:  $provided
+                 | recomputed create: $recomputed
+                 |""".stripMargin
+            )
           case Dev.Limit(error) =>
             error match {
               case Dev.Limit.ContractSignatories(

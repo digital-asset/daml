@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.transaction.TransactionErrors.{
 }
 import com.digitalasset.daml.lf.transaction.{
   ContractStateMachine,
+  FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
@@ -1947,22 +1948,43 @@ private[lf] object SBuiltinFun {
 
   }
 
-  /** $cacheDisclosedContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
-  private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
-      extends UpdateBuiltin(1) {
+  /** $cacheInputContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
+  private[speedy] final case class SBImportInputContract(
+      contract: FatContractInstance,
+      targetTmplId: Ref.TypeConName,
+  ) extends UpdateBuiltin(1) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val contractInfoStruct = args.get(0)
-      val contract = extractContractInfo(
+      val contractInfo = extractContractInfo(
         machine.tmplId2TxVersion,
         machine.tmplId2PackageNameVersion,
         contractInfoStruct,
       )
-      machine.addDisclosedContracts(contractId, contract)
-      Control.Value(SUnit)
+      val recomputed = contractInfo.toCreateNode(contract.contractId)
+      val provided = contract.toCreateNode
+      if (provided != recomputed) {
+        val mismatchingFields =
+          provided.productElementNames.zipWithIndex.collect {
+            case (field, i) if provided.productElement(i) != recomputed.productElement(i) => field
+          }
+        Control.Error(
+          IE.Dev(
+            NameOf.qualifiedNameOfCurrentFunc,
+            IE.Dev.Conformance(
+              provided,
+              recomputed,
+              details = s"field(s) ${mismatchingFields.mkString(",")} mismatched",
+            ),
+          )
+        )
+      } else {
+        machine.addDisclosedContracts(contract.contractId, contractInfo)
+        Control.Value(SUnit)
+      }
     }
   }
 
