@@ -25,14 +25,14 @@ public class ParametrizedContractIdTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("fixedContractId")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
                             .setRecord(
                                 ValueOuterClass.Record.newBuilder()
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("parametrizedContractId")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()

@@ -211,25 +211,25 @@ public class GenMapTest {
         .build();
   }
 
-  private static ValueOuterClass.Value buildMap(ValueOuterClass.GenMap.Entry... entries) {
-    ValueOuterClass.GenMap.Builder builder = ValueOuterClass.GenMap.newBuilder();
-    for (ValueOuterClass.GenMap.Entry entry : entries) builder.addEntries(entry);
-    return ValueOuterClass.Value.newBuilder().setGenMap(builder).build();
+  private static ValueOuterClass.Value buildMap(ValueOuterClass.Map.Entry... entries) {
+    ValueOuterClass.Map.Builder builder = ValueOuterClass.Map.newBuilder();
+    for (ValueOuterClass.Map.Entry entry : entries) builder.addEntries(entry);
+    return ValueOuterClass.Value.newBuilder().setMap(builder).build();
   }
 
-  private static ValueOuterClass.GenMap.Entry buildEntryMap(
+  private static ValueOuterClass.Map.Entry buildEntryMap(
       ValueOuterClass.Value key, ValueOuterClass.Value value) {
-    return ValueOuterClass.GenMap.Entry.newBuilder().setKey(key).setValue(value).build();
+    return ValueOuterClass.Map.Entry.newBuilder().setKey(key).setValue(value).build();
   }
 
-  private static ValueOuterClass.RecordField buildRecordField(
+  private static ValueOuterClass.Record.Field buildRecordField(
       String field, ValueOuterClass.Value value) {
-    return ValueOuterClass.RecordField.newBuilder().setLabel(field).setValue(value).build();
+    return ValueOuterClass.Record.Field.newBuilder().setLabel(field).setValue(value).build();
   }
 
-  private static ValueOuterClass.Value buildRecord(ValueOuterClass.RecordField... fields) {
+  private static ValueOuterClass.Value buildRecord(ValueOuterClass.Record.Field... fields) {
     ValueOuterClass.Record.Builder builder = ValueOuterClass.Record.newBuilder();
-    for (ValueOuterClass.RecordField field : fields) builder.addFields(field);
+    for (ValueOuterClass.Record.Field field : fields) builder.addFields(field);
     return ValueOuterClass.Value.newBuilder().setRecord(builder).build();
   }
 

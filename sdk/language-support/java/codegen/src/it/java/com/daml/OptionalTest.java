@@ -63,7 +63,7 @@ public class OptionalTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("intOpt")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -71,7 +71,7 @@ public class OptionalTest {
                                 ValueOuterClass.Optional.newBuilder()
                                     .setValue(ValueOuterClass.Value.newBuilder().setInt64(42)))))
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("unitOpt")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -114,7 +114,7 @@ public class OptionalTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("list")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -150,7 +150,7 @@ public class OptionalTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("list")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()

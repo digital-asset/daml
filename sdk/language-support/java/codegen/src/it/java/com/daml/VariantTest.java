@@ -99,7 +99,7 @@ public class VariantTest {
                     .setRecord(
                         ValueOuterClass.Record.newBuilder()
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("x")
                                     .setValue(ValueOuterClass.Value.newBuilder().setInt64(42)))))
             .build();
@@ -217,7 +217,7 @@ public class VariantTest {
                     .setRecord(
                         ValueOuterClass.Record.newBuilder()
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("y")
                                     .setValue(
                                         ValueOuterClass.Value.newBuilder()
@@ -270,15 +270,15 @@ public class VariantTest {
                     .setRecord(
                         ValueOuterClass.Record.newBuilder()
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("x1")
                                     .setValue(ValueOuterClass.Value.newBuilder().setInt64(42L)))
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("x2")
                                     .setValue(ValueOuterClass.Value.newBuilder().setInt64(69L)))
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("x3")
                                     .setValue(
                                         ValueOuterClass.Value.newBuilder()

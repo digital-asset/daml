@@ -41,8 +41,8 @@ object ValueRemapper {
   ): value.Record =
     record match {
       case value.Record(id, fields) =>
-        val remappedFields = fields.map { case value.RecordField(label, v) =>
-          value.RecordField(label, v.map(remapValue(remapContractId, remapParty)))
+        val remappedFields = fields.map { case value.Record.Field(label, v) =>
+          value.Record.Field(label, v.map(remapValue(remapContractId, remapParty)))
         }
         value.Record(id, remappedFields)
     }
@@ -65,9 +65,9 @@ object ValueRemapper {
         value.Value.Sum.TextMap(value.TextMap(entries.map { case value.TextMap.Entry(k, v) =>
           value.TextMap.Entry(k, v.map(remapValue(remapContractId, remapParty)))
         }))
-      case value.Value.Sum.GenMap(value.GenMap(entries)) =>
-        value.Value.Sum.GenMap(value.GenMap(entries.map { case value.GenMap.Entry(k, v) =>
-          value.GenMap.Entry(k, v.map(remapValue(remapContractId, remapParty)))
+      case value.Value.Sum.Map(value.Map(entries)) =>
+        value.Value.Sum.Map(value.Map(entries.map { case value.Map.Entry(k, v) =>
+          value.Map.Entry(k, v.map(remapValue(remapContractId, remapParty)))
         }))
       case value.Value.Sum.Variant(value.Variant(id, constructor, v)) =>
         value.Value.Sum.Variant(

@@ -60,14 +60,14 @@ class ValueConversionRoundTripTest
         Sum.Optional(api.Optional(None)),
         Sum.Optional(api.Optional(Some(DomainMocks.values.validApiParty))),
         Sum.TextMap(api.TextMap(List.empty)),
-        Sum.GenMap(api.GenMap(List.empty)),
-        Sum.GenMap(
-          api.GenMap(
+        Sum.Map(api.Map(List.empty)),
+        Sum.Map(
+          api.Map(
             List(
-              api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(1)))),
-              api.GenMap.Entry(Some(api.Value(Sum.Text("key3"))), Some(api.Value(Sum.Int64(3)))),
-              api.GenMap.Entry(Some(api.Value(Sum.Text("key2"))), Some(api.Value(Sum.Int64(2)))),
-              api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(0)))),
+              api.Map.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(1)))),
+              api.Map.Entry(Some(api.Value(Sum.Text("key3"))), Some(api.Value(Sum.Int64(3)))),
+              api.Map.Entry(Some(api.Value(Sum.Text("key2"))), Some(api.Value(Sum.Int64(2)))),
+              api.Map.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(0)))),
             )
           )
         ),
@@ -75,9 +75,9 @@ class ValueConversionRoundTripTest
           api.Record(
             Some(recordId),
             Seq(
-              api.RecordField("label1", Some(api.Value(Sum.Int64(1)))),
-              api.RecordField("label2", Some(api.Value(Sum.Int64(2)))),
-              api.RecordField("label0", Some(api.Value(Sum.Int64(3)))),
+              api.Record.Field("label1", Some(api.Value(Sum.Int64(1)))),
+              api.Record.Field("label2", Some(api.Value(Sum.Int64(2)))),
+              api.Record.Field("label0", Some(api.Value(Sum.Int64(3)))),
             ),
           )
         ),

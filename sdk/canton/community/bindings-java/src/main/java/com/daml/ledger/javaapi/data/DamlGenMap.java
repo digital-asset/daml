@@ -70,17 +70,17 @@ public final class DamlGenMap extends Value {
 
   @Override
   public ValueOuterClass.Value toProto() {
-    ValueOuterClass.GenMap.Builder mb = ValueOuterClass.GenMap.newBuilder();
+    ValueOuterClass.Map.Builder mb = ValueOuterClass.Map.newBuilder();
     map.forEach(
         (key, value) ->
             mb.addEntries(
-                ValueOuterClass.GenMap.Entry.newBuilder()
+                ValueOuterClass.Map.Entry.newBuilder()
                     .setKey(key.toProto())
                     .setValue(value.toProto())));
-    return ValueOuterClass.Value.newBuilder().setGenMap(mb).build();
+    return ValueOuterClass.Value.newBuilder().setMap(mb).build();
   }
 
-  public static @NonNull DamlGenMap fromProto(ValueOuterClass.GenMap map) {
+  public static @NonNull DamlGenMap fromProto(ValueOuterClass.Map map) {
     return map.getEntriesList().stream()
         .collect(
             DamlCollectors.toDamlGenMap(

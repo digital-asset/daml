@@ -38,7 +38,7 @@ public class TextMapTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("mapField")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -89,7 +89,7 @@ public class TextMapTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("field")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -115,7 +115,8 @@ public class TextMapTest {
                                                                                     .newBuilder()
                                                                                     .addFields(
                                                                                         ValueOuterClass
-                                                                                            .RecordField
+                                                                                            .Record
+                                                                                            .Field
                                                                                             .newBuilder()
                                                                                             .setLabel(
                                                                                                 "value")
@@ -143,7 +144,8 @@ public class TextMapTest {
                                                                                     .newBuilder()
                                                                                     .addFields(
                                                                                         ValueOuterClass
-                                                                                            .RecordField
+                                                                                            .Record
+                                                                                            .Field
                                                                                             .newBuilder()
                                                                                             .setLabel(
                                                                                                 "value")
@@ -180,7 +182,8 @@ public class TextMapTest {
                                                                                     .newBuilder()
                                                                                     .addFields(
                                                                                         ValueOuterClass
-                                                                                            .RecordField
+                                                                                            .Record
+                                                                                            .Field
                                                                                             .newBuilder()
                                                                                             .setLabel(
                                                                                                 "value")
@@ -208,7 +211,8 @@ public class TextMapTest {
                                                                                     .newBuilder()
                                                                                     .addFields(
                                                                                         ValueOuterClass
-                                                                                            .RecordField
+                                                                                            .Record
+                                                                                            .Field
                                                                                             .newBuilder()
                                                                                             .setLabel(
                                                                                                 "value")
@@ -316,7 +320,7 @@ public class TextMapTest {
                     .setRecord(
                         ValueOuterClass.Record.newBuilder()
                             .addFields(
-                                ValueOuterClass.RecordField.newBuilder()
+                                ValueOuterClass.Record.Field.newBuilder()
                                     .setLabel("x")
                                     .setValue(
                                         ValueOuterClass.Value.newBuilder()
@@ -405,12 +409,12 @@ public class TextMapTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("owner")
                     .setValue(ValueOuterClass.Value.newBuilder().setParty("party1").build())
                     .build())
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("valueMap")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()

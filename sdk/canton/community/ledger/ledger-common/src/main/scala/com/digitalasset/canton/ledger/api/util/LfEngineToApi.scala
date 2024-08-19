@@ -47,11 +47,11 @@ object LfEngineToApi {
   ): Either[String, api.Record] =
     recordValue match {
       case Lf.ValueRecord(tycon, fields) =>
-        val fs = fields.foldLeft[Either[String, Vector[api.RecordField]]](Right(Vector.empty)) {
+        val fs = fields.foldLeft[Either[String, Vector[api.Record.Field]]](Right(Vector.empty)) {
           case (Left(e), _) => Left(e)
           case (Right(acc), (mbLabel, value)) =>
             lfValueToApiValue(verbose, value)
-              .map(v => api.RecordField(if (verbose) mbLabel.getOrElse("") else "", Some(v)))
+              .map(v => api.Record.Field(if (verbose) mbLabel.getOrElse("") else "", Some(v)))
               .map(acc :+ _)
         }
         val mbId = if (verbose) {
@@ -106,15 +106,15 @@ object LfEngineToApi {
           .map(list => api.Value(api.Value.Sum.TextMap(api.TextMap(list))))
       case Lf.ValueGenMap(entries) =>
         entries.reverseIterator
-          .foldLeft[Either[String, List[api.GenMap.Entry]]](Right(List.empty)) {
+          .foldLeft[Either[String, List[api.Map.Entry]]](Right(List.empty)) {
             case (acc, (k, v)) =>
               for {
                 tail <- acc
                 key <- lfValueToApiValue(verbose, k)
                 value <- lfValueToApiValue(verbose, v)
-              } yield api.GenMap.Entry(Some(key), Some(value)) :: tail
+              } yield api.Map.Entry(Some(key), Some(value)) :: tail
           }
-          .map(list => api.Value(api.Value.Sum.GenMap(api.GenMap(list))))
+          .map(list => api.Value(api.Value.Sum.Map(api.Map(list))))
       case Lf.ValueList(vs) =>
         vs.toImmArray.toList.traverseU(lfValueToApiValue(verbose, _)) map { xs =>
           api.Value(api.Value.Sum.List(api.List(xs)))
@@ -145,7 +145,7 @@ object LfEngineToApi {
       case Lf.ValueRecord(tycon, fields) =>
         fields.toList.traverseU { field =>
           lfValueToApiValue(verbose, field._2) map { x =>
-            api.RecordField(
+            api.Record.Field(
               if (verbose)
                 field._1.getOrElse("")
               else

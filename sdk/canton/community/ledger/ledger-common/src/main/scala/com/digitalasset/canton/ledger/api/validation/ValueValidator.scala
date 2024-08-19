@@ -21,7 +21,7 @@ abstract class ValueValidator {
   protected def validateNumeric(s: String): Option[Numeric]
 
   private[validation] def validateRecordFields(
-      recordFields: Seq[api.RecordField]
+      recordFields: Seq[api.Record.Field]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
@@ -129,11 +129,11 @@ abstract class ValueValidator {
           .map(invalidArgument)
       } yield Lf.ValueTextMap(map)
 
-    case Sum.GenMap(genMap0) =>
+    case Sum.Map(genMap0) =>
       val genMap = genMap0.entries
         .foldLeft[Either[StatusRuntimeException, BackStack[(domain.Value, domain.Value)]]](
           Right(BackStack.empty)
-        ) { case (acc, api.GenMap.Entry(key0, value0)) =>
+        ) { case (acc, api.Map.Entry(key0, value0)) =>
           for {
             stack <- acc
             key <- requirePresence(key0, "key")

@@ -24,11 +24,11 @@ class DamlRecordSpec extends AnyFlatSpec with Matchers {
 
   it should "build a record with an empty field map if there are no labels" in {
     val fields = List(
-      ValueOuterClass.RecordField
+      ValueOuterClass.Record.Field
         .newBuilder()
         .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L))
         .build(),
-      ValueOuterClass.RecordField
+      ValueOuterClass.Record.Field
         .newBuilder()
         .setValue(ValueOuterClass.Value.newBuilder().setInt64(2L))
         .build(),
@@ -44,12 +44,12 @@ class DamlRecordSpec extends AnyFlatSpec with Matchers {
 
   it should "build a record with a full field map if there are labels" in {
     val fields = List(
-      ValueOuterClass.RecordField
+      ValueOuterClass.Record.Field
         .newBuilder()
         .setLabel("label1")
         .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L))
         .build(),
-      ValueOuterClass.RecordField
+      ValueOuterClass.Record.Field
         .newBuilder()
         .setLabel("label2")
         .setValue(ValueOuterClass.Value.newBuilder().setInt64(2L))

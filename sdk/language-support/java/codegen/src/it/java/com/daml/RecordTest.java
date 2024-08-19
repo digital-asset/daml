@@ -150,61 +150,61 @@ public class RecordTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("inner")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
                             .setRecord(
                                 ValueOuterClass.Record.newBuilder()
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldX1")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
                                                     .setText("Text1")))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldX2")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
                                                     .setText("Text2")))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldY")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder().setBool(true)))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldInt")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder().setInt64(42L)))
                                     .build()))
                     .build())
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("innerFixed")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
                             .setRecord(
                                 ValueOuterClass.Record.newBuilder()
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldX1")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder().setInt64(42L)))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldX2")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder().setInt64(69L)))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldY")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
                                                     .setText("Text2")))
                                     .addFields(
-                                        ValueOuterClass.RecordField.newBuilder()
+                                        ValueOuterClass.Record.Field.newBuilder()
                                             .setLabel("fieldInt")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder().setInt64(69L)))

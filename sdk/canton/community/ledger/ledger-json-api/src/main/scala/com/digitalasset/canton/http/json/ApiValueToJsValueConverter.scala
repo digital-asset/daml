@@ -22,7 +22,7 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
   def apiRecordToJsObject[O >: JsObject](a: lav2.value.Record): JsonError \/ O =
     a.fields.toList.traverse(convertField).map(fs => JsObject(fs.toMap))
 
-  private def convertField(field: lav2.value.RecordField): JsonError \/ (String, JsValue) =
+  private def convertField(field: lav2.value.Record.Field): JsonError \/ (String, JsValue) =
     field.value match {
       case None => \/-(field.label -> JsObject.empty)
       case Some(v) => apiValueToJsValue(v).map(field.label -> _)

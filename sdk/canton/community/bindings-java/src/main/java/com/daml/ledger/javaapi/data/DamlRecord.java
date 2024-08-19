@@ -56,7 +56,7 @@ public final class DamlRecord extends Value {
   public static DamlRecord fromProto(ValueOuterClass.Record record) {
     ArrayList<Field> fields = new ArrayList<>(record.getFieldsCount());
     HashMap<String, Value> fieldsMap = new HashMap<>(record.getFieldsCount());
-    for (ValueOuterClass.RecordField recordField : record.getFieldsList()) {
+    for (ValueOuterClass.Record.Field recordField : record.getFieldsList()) {
       Field field = Field.fromProto(recordField);
       fields.add(field);
       if (field.getLabel().isPresent()) {
@@ -146,14 +146,14 @@ public final class DamlRecord extends Value {
       return value;
     }
 
-    public static Field fromProto(ValueOuterClass.RecordField field) {
+    public static Field fromProto(ValueOuterClass.Record.Field field) {
       String label = field.getLabel();
       Value value = Value.fromProto(field.getValue());
       return label.isEmpty() ? new Field(value) : new Field(label, value);
     }
 
-    public ValueOuterClass.RecordField toProto() {
-      ValueOuterClass.RecordField.Builder builder = ValueOuterClass.RecordField.newBuilder();
+    public ValueOuterClass.Record.Field toProto() {
+      ValueOuterClass.Record.Field.Builder builder = ValueOuterClass.Record.Field.newBuilder();
       this.label.ifPresent(builder::setLabel);
       builder.setValue(this.value.toProto());
       return builder.build();

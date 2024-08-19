@@ -8,10 +8,13 @@ import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as Deduplica
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value.{
+  Identifier,
   List as ApiList,
   Optional as ApiOptional,
+  Record,
   TextMap as ApiTextMap,
-  *,
+  Value,
+  Variant,
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.DomainMocks
@@ -72,7 +75,7 @@ class SubmitRequestValidatorTest
             Some(
               Record(
                 Some(Identifier(packageId, moduleName = moduleName, entityName = entityName)),
-                Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+                Seq(Record.Field("something", Some(Value(Value.Sum.Bool(true))))),
               )
             ),
           )
@@ -776,7 +779,7 @@ class SubmitRequestValidatorTest
         val record =
           Value(
             Sum.Record(
-              Record(Some(api.identifier), Seq(RecordField(api.label, Some(Value(api.int64)))))
+              Record(Some(api.identifier), Seq(Record.Field(api.label, Some(Value(api.int64)))))
             )
           )
         val expected =
@@ -789,7 +792,7 @@ class SubmitRequestValidatorTest
 
       "tolerate missing identifiers in records" in {
         val record =
-          Value(Sum.Record(Record(None, Seq(RecordField(api.label, Some(Value(api.int64)))))))
+          Value(Sum.Record(Record(None, Seq(Record.Field(api.label, Some(Value(api.int64)))))))
         val expected =
           Lf.ValueRecord(None, ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
         testedValueValidator.validateValue(record) shouldEqual Right(expected)
@@ -797,7 +800,7 @@ class SubmitRequestValidatorTest
 
       "tolerate missing labels in record fields" in {
         val record =
-          Value(Sum.Record(Record(None, Seq(RecordField("", Some(Value(api.int64)))))))
+          Value(Sum.Record(Record(None, Seq(Record.Field("", Some(Value(api.int64)))))))
         val expected =
           ValueRecord(None, ImmArray(None -> DomainMocks.values.int64))
         testedValueValidator.validateValue(record) shouldEqual Right(expected)
@@ -805,7 +808,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing record values" in {
         val record =
-          Value(Sum.Record(Record(Some(api.identifier), Seq(RecordField(api.label, None)))))
+          Value(Sum.Record(Record(Some(api.identifier), Seq(Record.Field(api.label, None)))))
         requestMustFailWith(
           request = testedValueValidator.validateValue(record),
           code = INVALID_ARGUMENT,

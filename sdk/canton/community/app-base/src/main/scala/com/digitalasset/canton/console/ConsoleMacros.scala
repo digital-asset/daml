@@ -17,7 +17,6 @@ import com.daml.ledger.api.v2.value.{
   List as ListV1,
   Optional,
   Record,
-  RecordField,
   Value,
 }
 import com.daml.nonempty.NonEmpty
@@ -477,7 +476,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       Record(fields =
         product.productIterator
           .map(mapToLedgerApiValue)
-          .map(v => RecordField(value = Some(v)))
+          .map(v => Record.Field(value = Some(v)))
           .toSeq
       )
     )
@@ -513,8 +512,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       Value(x)
     }
 
-    private def mapToRecordField(item: (String, Any)): RecordField =
-      RecordField(
+    private def mapToRecordField(item: (String, Any)): Record.Field =
+      Record.Field(
         label = item._1,
         value = Some(mapToLedgerApiValue(item._2)),
       )

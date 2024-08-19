@@ -34,7 +34,7 @@ public class ListTest {
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
                 Arrays.asList(
-                    ValueOuterClass.RecordField.newBuilder()
+                    ValueOuterClass.Record.Field.newBuilder()
                         .setLabel("intList")
                         .setValue(
                             ValueOuterClass.Value.newBuilder()
@@ -49,7 +49,7 @@ public class ListTest {
                                                     .setInt64(2)
                                                     .build()))))
                         .build(),
-                    ValueOuterClass.RecordField.newBuilder()
+                    ValueOuterClass.Record.Field.newBuilder()
                         .setLabel("unitList")
                         .setValue(
                             ValueOuterClass.Value.newBuilder()
@@ -59,7 +59,7 @@ public class ListTest {
                                             ValueOuterClass.Value.newBuilder()
                                                 .setUnit(Empty.getDefaultInstance()))))
                         .build(),
-                    ValueOuterClass.RecordField.newBuilder()
+                    ValueOuterClass.Record.Field.newBuilder()
                         .setLabel("itemList")
                         .setValue(
                             ValueOuterClass.Value.newBuilder()
@@ -120,7 +120,7 @@ public class ListTest {
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
                 Arrays.asList(
-                    ValueOuterClass.RecordField.newBuilder()
+                    ValueOuterClass.Record.Field.newBuilder()
                         .setLabel("itemList")
                         .setValue(
                             ValueOuterClass.Value.newBuilder()
@@ -214,7 +214,7 @@ public class ListTest {
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
                 Arrays.asList(
-                    ValueOuterClass.RecordField.newBuilder()
+                    ValueOuterClass.Record.Field.newBuilder()
                         .setLabel("colors")
                         .setValue(
                             ValueOuterClass.Value.newBuilder()
@@ -258,7 +258,7 @@ public class ListTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("list")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
@@ -307,7 +307,7 @@ public class ListTest {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
-                ValueOuterClass.RecordField.newBuilder()
+                ValueOuterClass.Record.Field.newBuilder()
                     .setLabel("list")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()

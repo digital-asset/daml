@@ -40,8 +40,8 @@ public abstract class Value {
         return DamlOptional.fromProto(value.getOptional());
       case TEXT_MAP:
         return DamlTextMap.fromProto(value.getTextMap());
-      case GEN_MAP:
-        return DamlGenMap.fromProto(value.getGenMap());
+      case MAP:
+        return DamlGenMap.fromProto(value.getMap());
       case SUM_NOT_SET:
         throw new SumNotSetException(value);
       default:

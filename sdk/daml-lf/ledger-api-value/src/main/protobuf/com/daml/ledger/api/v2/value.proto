@@ -68,18 +68,18 @@ message Value {
     // Represents a homogeneous list of values.
     List list = 11;
 
-    // The TextMap type
-    TextMap text_map = 12;
-
     // The GenMap type
-    GenMap gen_map = 13;
+    Map map = 12;
 
-    Record record = 14;
+    // The TextMap type
+    TextMap text_map = 1001; // *Available in versions >= 2.dev
 
-    Variant variant = 15;
+    Record record = 13;
+
+    Variant variant = 14;
 
     // The Enum type
-    Enum enum = 16;
+    Enum enum = 15;
   }
 }
 
@@ -87,25 +87,25 @@ message Value {
 message Record {
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
-  Identifier record_id = 1;
+  Identifier record_id = 1001;
 
   // The nested values of the record.
   // Required
-  repeated RecordField fields = 2;
-}
+  repeated Field fields = 1;
 
-// A named nested value within a record.
-message RecordField {
-  // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
-  // When submitting a commmand, it's optional:
-  //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
-  //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
-  // Must be a valid NameString
-  string label = 1;
+  // A named nested value within a record.
+  message Field {
+    // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
+    // When submitting a commmand, it's optional:
+    //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
+    //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
+    // Must be a valid NameString
+    string label = 1001;
 
-  // A nested value of a record.
-  // Required
-  Value value = 2;
+    // A nested value of a record.
+    // Required
+    Value value = 1;
+  }
 }
 
 // Unique identifier of an entity.
@@ -128,28 +128,28 @@ message Identifier {
 message Variant {
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
-  Identifier variant_id = 1;
+  Identifier variant_id = 1001;
 
   // Determines which of the Variant's alternatives is encoded in this message.
   // Must be a valid NameString.
   // Required
-  string constructor = 2;
+  string constructor = 1;
 
   // The value encoded within the Variant.
   // Required
-  Value value = 3;
+  Value value = 2;
 }
 
 // A value with finite set of alternative representations.
 message Enum {
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
-  Identifier enum_id = 1;
+  Identifier enum_id = 1001;
 
   // Determines which of the Variant's alternatives is encoded in this message.
   // Must be a valid NameString.
   // Required
-  string constructor = 2;
+  string constructor = 1;
 }
 
 // A homogenous collection of values.
@@ -175,7 +175,7 @@ message TextMap {
   repeated Entry entries = 1;
 }
 
-message GenMap {
+message Map {
   message Entry {
     Value key = 1;
     Value value = 2;

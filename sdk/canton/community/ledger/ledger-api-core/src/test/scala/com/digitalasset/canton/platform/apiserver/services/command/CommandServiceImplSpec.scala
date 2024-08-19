@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWait
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v2.value.{Identifier, Record, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.ledger.api.validation.{
@@ -296,7 +296,7 @@ object CommandServiceImplSpec {
         Some(
           Record(
             Some(Identifier("package", moduleName = "module", entityName = "entity")),
-            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+            Seq(Record.Field("something", Some(Value(Value.Sum.Bool(true))))),
           )
         ),
       )

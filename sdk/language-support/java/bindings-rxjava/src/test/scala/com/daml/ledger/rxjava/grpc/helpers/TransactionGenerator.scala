@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.event._
 import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.Value.Sum
-import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.api.v2.value.{Identifier, Record, Value, Variant}
 import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
@@ -68,13 +68,13 @@ object TransactionGenerator {
     new data.Identifier(packageId, moduleName, entityName),
   )
 
-  def recordFieldGen(withLabel: Boolean, height: Int): Gen[(RecordField, data.DamlRecord.Field)] =
+  def recordFieldGen(withLabel: Boolean, height: Int): Gen[(Record.Field, data.DamlRecord.Field)] =
     for {
       label <- if (withLabel) nonEmptyId else Gen.const("")
       (scalaValue, javaValue) <- valueGen(height)
     } yield {
       (
-        RecordField(label, Some(scalaValue)),
+        Record.Field(label, Some(scalaValue)),
         if (withLabel) new data.DamlRecord.Field(label, javaValue)
         else new data.DamlRecord.Field(javaValue),
       )

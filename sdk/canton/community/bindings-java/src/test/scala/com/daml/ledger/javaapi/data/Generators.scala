@@ -77,14 +77,14 @@ object Generators {
       tail <- Arbitrary.arbString.arbitrary
     } yield head +: tail
 
-  def recordFieldGen(withLabel: Boolean): Gen[v2.ValueOuterClass.RecordField] =
+  def recordFieldGen(withLabel: Boolean): Gen[v2.ValueOuterClass.Record.Field] =
     if (withLabel) {
       for {
         label <- recordLabelGen
         value <- valueGen
-      } yield v2.ValueOuterClass.RecordField.newBuilder().setLabel(label).setValue(value).build()
+      } yield v2.ValueOuterClass.Record.Field.newBuilder().setLabel(label).setValue(value).build()
     } else {
-      valueGen.flatMap(v2.ValueOuterClass.RecordField.newBuilder().setValue(_).build())
+      valueGen.flatMap(v2.ValueOuterClass.Record.Field.newBuilder().setValue(_).build())
     }
 
   def unitValueGen: Gen[v2.ValueOuterClass.Value] =
@@ -158,7 +158,7 @@ object Generators {
   def textMapValueGen: Gen[v2.ValueOuterClass.Value] =
     textMapGen.map(v2.ValueOuterClass.Value.newBuilder().setTextMap(_).build())
 
-  def genMapGen: Gen[v2.ValueOuterClass.GenMap] =
+  def genMapGen: Gen[v2.ValueOuterClass.Map] =
     Gen
       .sized(height =>
         for {
@@ -168,13 +168,13 @@ object Generators {
           keys <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
           values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
         } yield (keys zip values).map { case (k, v) =>
-          v2.ValueOuterClass.GenMap.Entry.newBuilder().setKey(k).setValue(v).build()
+          v2.ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
         }
       )
-      .map(x => v2.ValueOuterClass.GenMap.newBuilder().addAllEntries(x.asJava).build())
+      .map(x => v2.ValueOuterClass.Map.newBuilder().addAllEntries(x.asJava).build())
 
   def genMapValueGen: Gen[v2.ValueOuterClass.Value] =
-    genMapGen.map(v2.ValueOuterClass.Value.newBuilder().setGenMap(_).build())
+    genMapGen.map(v2.ValueOuterClass.Value.newBuilder().setMap(_).build())
 
   def int64ValueGen: Gen[v2.ValueOuterClass.Value] =
     Arbitrary.arbLong.arbitrary.map(v2.ValueOuterClass.Value.newBuilder().setInt64(_).build())

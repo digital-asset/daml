@@ -67,8 +67,8 @@ public class NumericTest {
     return ValueOuterClass.Record.newBuilder();
   }
 
-  ValueOuterClass.RecordField.Builder recordFieldBuilder() {
-    return ValueOuterClass.RecordField.newBuilder();
+  ValueOuterClass.Record.Field.Builder recordFieldBuilder() {
+    return ValueOuterClass.Record.Field.newBuilder();
   }
 
   ValueOuterClass.Value.Builder valueBuilder() {

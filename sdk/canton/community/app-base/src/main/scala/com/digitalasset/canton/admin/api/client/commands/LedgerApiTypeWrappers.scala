@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteAssigned,
   IncompleteUnassigned,
 }
-import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v2.value.{Record, Value}
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.LfContractId
@@ -125,7 +125,7 @@ object LedgerApiTypeWrappers {
       event.createArguments.toList.flatMap(_.fields).flatMap(flatten(Seq(), _)).toMap
   }
 
-  private def flatten(prefix: Seq[String], field: RecordField): Seq[(String, Any)] = {
+  private def flatten(prefix: Seq[String], field: Record.Field): Seq[(String, Any)] = {
     def extract(args: Value.Sum): Seq[(String, Any)] =
       args match {
         case x: Value.Sum.Record => x.value.fields.flatMap(flatten(prefix :+ field.label, _))
