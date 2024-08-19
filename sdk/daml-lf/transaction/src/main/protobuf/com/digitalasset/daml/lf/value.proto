@@ -34,21 +34,20 @@ message Identifier {
 // architecture-handbook-entry-begin: Value
 message Value {
   oneof sum {
-
-    // literals
-
+    // This value is used for example for choices that don't take any arguments.
     google.protobuf.Empty unit = 1;
 
+    // True or false.
     bool bool = 2;
 
     sint64 int64 = 3;
 
-    // days since the unix epoch. can go backwards. limited from
+    // Days since the unix epoch. Can go backwards. Limited from
     // 0001-01-01 to 9999-12-31, also to be compatible with
     // https://www.ietf.org/rfc/rfc3339.txt
     int32 date = 4;
 
-    // microseconds since the UNIX epoch. can go backwards. fixed
+    // Microseconds since the UNIX epoch. Can go backwards. Fixed
     // since the vast majority of values will be greater than
     // 2^28, since currently the number of microseconds since the
     // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
@@ -56,30 +55,35 @@ message Value {
     // https://www.ietf.org/rfc/rfc3339.txt
     sfixed64 timestamp = 5;
 
-    // This field expressed a number in base-10 with at most
-    // 38 digits from which at most 37 can be used in the right hand side
-    // of the decimal point.
-    //
-    // See value.rst for the exact syntaxes.
-    string numeric = 6; // the field was named decimal in SDK 0.13.26 or earlier
+    // A Numeric, that is a decimal value with precision 38 (at most 38 significant digits) and a
+    // scale between 0 and 37 (significant digits on the right of the decimal point).
+    // The field has to match the regex
+    //   [+-]?\d{1,38}(.\d{0,37})?
+    // and should be representable by a Numeric without loss of precision.
+    string numeric = 6;
 
+    // An agent operating on the ledger.
+    // Must be a valid PartyIdString.
     string party = 7;
 
+    // A string.
     string text = 8;
 
+    // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
+    // Must encode a valid LedgerString.
     bytes contract_id = 9;
 
-    // native data structures
-
+    // The Optional type, None or Some
     Optional optional = 10;
 
+    // Represents a homogeneous list of values.
     List list = 11;
 
+    // The generic Map type
     Map map = 12;
 
+    // The TextMap type
     TextMap text_map = 1001;  // *Available in versions >= 2.dev
-
-    // user-defined datas
 
     Record record = 13;
 
@@ -106,10 +110,15 @@ message Value {
     string value = 1;
   }
 
+// A homogenous collection of values.
   message List {
+  // The elements must all be of the same concrete value type.
     repeated Value elements = 1;
   }
 
+// Corresponds to Java's Optional type, Scala's Option, and Haskell's Maybe.
+// The reason why we need to wrap this in an additional ``message`` is that we
+// need to be able to encode the ``None`` case in the ``Value`` oneof.
   message Optional {
     Value value = 1; // optional
   }
@@ -128,6 +137,7 @@ message Value {
       Value key = 1;
       Value value = 2;
     }
+
     repeated Entry entries = 1;
   }
 }

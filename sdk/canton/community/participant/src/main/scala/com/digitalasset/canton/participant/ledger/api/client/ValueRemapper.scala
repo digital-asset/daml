@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.value
+import com.google.protobuf.ByteString
 
 /** Utilities for modifying ledger api values, e.g. to make them suitable for importing into canton:
   *
@@ -54,7 +55,7 @@ object ValueRemapper {
   ): value.Value =
     value.Value(v.sum match {
       case value.Value.Sum.ContractId(cid) =>
-        value.Value.Sum.ContractId(remapContractId(cid))
+        value.Value.Sum.ContractId(ByteString.copyFromUtf8(remapContractId(cid.toStringUtf8)))
       case value.Value.Sum.Party(party) =>
         value.Value.Sum.Party(remapParty(party))
       case value.Value.Sum.Record(record) =>

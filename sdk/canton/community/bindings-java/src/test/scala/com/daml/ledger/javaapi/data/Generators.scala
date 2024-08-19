@@ -115,8 +115,11 @@ object Generators {
   def optionalValueGen: Gen[v2.ValueOuterClass.Value] =
     optionalGen.map(v2.ValueOuterClass.Value.newBuilder().setOptional(_).build())
 
+  def contractIdGen: Gen[String] =
+    Arbitrary.arbString.arbitrary
+
   def contractIdValueGen: Gen[v2.ValueOuterClass.Value] =
-    Arbitrary.arbString.arbitrary.map(
+    byteStringGen.map(
       v2.ValueOuterClass.Value.newBuilder().setContractId(_).build()
     )
 
@@ -253,7 +256,7 @@ object Generators {
 
   val createdEventGen: Gen[v2.EventOuterClass.CreatedEvent] =
     for {
-      contractId <- contractIdValueGen.map(_.getContractId)
+      contractId <- contractIdGen
       templateId <- identifierGen
       packageName <- packageNameGen
       createArgument <- recordGen
@@ -279,7 +282,7 @@ object Generators {
 
   val archivedEventGen: Gen[v2.EventOuterClass.ArchivedEvent] =
     for {
-      contractId <- contractIdValueGen.map(_.getContractId)
+      contractId <- contractIdGen
       templateId <- identifierGen
       eventId <- eventIdGen
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -294,7 +297,7 @@ object Generators {
 
   val exercisedEventGen: Gen[v2.EventOuterClass.ExercisedEvent] =
     for {
-      contractId <- contractIdValueGen.map(_.getContractId)
+      contractId <- contractIdGen
       templateId <- identifierGen
       actingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       eventId <- eventIdGen
@@ -432,7 +435,7 @@ object Generators {
   def unassignedEventGen: Gen[v2.ReassignmentOuterClass.UnassignedEvent] =
     for {
       unassignId <- Arbitrary.arbString.arbitrary
-      contractId <- contractIdValueGen.map(_.getContractId)
+      contractId <- contractIdGen
       templateId <- identifierGen
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary

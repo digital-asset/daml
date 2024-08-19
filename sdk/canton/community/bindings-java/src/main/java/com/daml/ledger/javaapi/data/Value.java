@@ -17,7 +17,7 @@ public abstract class Value {
       case ENUM:
         return DamlEnum.fromProto(value.getEnum());
       case CONTRACT_ID:
-        return new ContractId(value.getContractId());
+        return new ContractId(value.getContractId().toStringUtf8());
       case LIST:
         return DamlList.fromProto(value.getList());
       case INT64:

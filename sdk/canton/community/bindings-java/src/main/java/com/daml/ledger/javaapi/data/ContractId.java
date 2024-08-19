@@ -20,7 +20,7 @@ public final class ContractId extends Value {
 
   @Override
   public ValueOuterClass.Value toProto() {
-    return ValueOuterClass.Value.newBuilder().setContractId(this.value).build();
+    return ValueOuterClass.Value.newBuilder().setContractId(com.google.protobuf.ByteString.copyFromUtf8(this.value)).build();
   }
 
   @Override

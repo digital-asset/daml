@@ -497,7 +497,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         case x: String => Value.Sum.Text(x)
         case x: Boolean => Value.Sum.Bool(x)
         case x: Seq[Any] => Value.Sum.List(value = ListV1(x.map(mapToLedgerApiValue)))
-        case x: LfContractId => Value.Sum.ContractId(x.coid)
+        case x: LfContractId => Value.Sum.ContractId(x.toBytes.toByteString)
         case x: Instant => Value.Sum.Timestamp(x.toEpochMilli * 1000L)
         case x: Option[Any] => Value.Sum.Optional(Optional(value = x.map(mapToLedgerApiValue)))
         case x: Value.Sum => x

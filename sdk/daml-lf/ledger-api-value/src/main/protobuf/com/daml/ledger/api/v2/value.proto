@@ -11,6 +11,22 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ValueOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
+// Unique identifier of an entity.
+message Identifier {
+  // The identifier of the Daml package that contains the entity.
+  // Must be a valid PackageIdString.
+  // Required
+  string package_id = 1;
+
+  // The dot-separated module name of the identifier.
+  // Required
+  string module_name = 2;
+
+  // The dot-separated name of the entity (e.g. record, template, ...) within the module.
+  // Required
+  string entity_name = 3;
+}
+
 // Encodes values that the ledger accepts as command arguments and emits as contract arguments.
 //
 // The values encoding use different classes of non-empty strings as identifiers. Those classes are
@@ -59,8 +75,8 @@ message Value {
     string text = 8;
 
     // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
-    // Must be a valid LedgerString.
-    string contract_id = 9;
+    // Must encode a valid LedgerString.
+    bytes contract_id = 9;
 
     // The Optional type, None or Some
     Optional optional = 10;
@@ -68,7 +84,7 @@ message Value {
     // Represents a homogeneous list of values.
     List list = 11;
 
-    // The GenMap type
+    // The generic Map type
     Map map = 12;
 
     // The TextMap type
@@ -78,7 +94,6 @@ message Value {
 
     Variant variant = 14;
 
-    // The Enum type
     Enum enum = 15;
   }
 }
@@ -106,22 +121,6 @@ message Record {
     // Required
     Value value = 1;
   }
-}
-
-// Unique identifier of an entity.
-message Identifier {
-  // The identifier of the Daml package that contains the entity.
-  // Must be a valid PackageIdString.
-  // Required
-  string package_id = 1;
-
-  // The dot-separated module name of the identifier.
-  // Required
-  string module_name = 2;
-
-  // The dot-separated name of the entity (e.g. record, template, ...) within the module.
-  // Required
-  string entity_name = 3;
 }
 
 // A value with alternative representations.

@@ -93,7 +93,7 @@ class CommandService(
   ): Future[Error \/ ExerciseResponse[lav2.value.Value]] =
     withEnrichedLoggingContext(
       label[lav2.value.Value],
-      "contract_id" -> input.argument.getContractId,
+      "contract_id" -> input.argument.getContractId.toStringUtf8,
     ).run(implicit lc =>
       withTemplateChoiceLoggingContext(input.reference.fold(_._1, _._1), input.choice)
         .run { implicit lc =>

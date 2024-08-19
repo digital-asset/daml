@@ -36,7 +36,9 @@ public class ParametrizedContractIdTest {
                                             .setLabel("parametrizedContractId")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
-                                                    .setContractId("SomeID"))))))
+                                                    .setContractId(
+                                                        com.google.protobuf.ByteString.copyFromUtf8(
+                                                            "SomeID")))))))
             .build();
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     FixedContractId fromValue = FixedContractId.valueDecoder().decode(dataRecord);

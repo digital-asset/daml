@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value as api
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueUnit}
@@ -51,7 +52,7 @@ abstract class ValueValidator {
   ): Either[StatusRuntimeException, domain.Value] = v0.sum match {
     case Sum.ContractId(cId) =>
       ContractId
-        .fromString(cId)
+        .fromBytes(Bytes.fromByteString(cId))
         .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
       validateNumeric(value) match {

@@ -145,7 +145,7 @@ object TransactionGenerator {
     )
 
   val contractIdValueGen: Gen[(Sum.ContractId, data.ContractId)] = nonEmptyId.map { contractId =>
-    (Sum.ContractId(contractId), new data.ContractId(contractId))
+    (Sum.ContractId(ByteString.copyFromUtf8(contractId)), new data.ContractId(contractId))
   }
 
   def listValueGen(height: Int): Gen[(Sum.List, data.DamlList)] =
