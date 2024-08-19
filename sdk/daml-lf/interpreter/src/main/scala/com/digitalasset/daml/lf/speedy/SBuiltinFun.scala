@@ -1948,10 +1948,8 @@ private[lf] object SBuiltinFun {
   }
 
   /** $cacheDisclosedContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
-  private[speedy] final case class SBCacheDisclosedContract(
-      contractId: V.ContractId,
-      keyHash: Option[crypto.Hash],
-  ) extends UpdateBuiltin(1) {
+  private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
+      extends UpdateBuiltin(1) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1963,20 +1961,8 @@ private[lf] object SBuiltinFun {
         machine.tmplId2PackageNameVersion,
         contractInfoStruct,
       )
-      (keyHash, contract.keyOpt) match {
-        case (Some(hash), Some(key)) if hash != key.globalKey.hash =>
-          Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
-        case _ =>
-          // Command preprocessing should enforce the following invariant
-          val invariant = (keyHash.isDefined == contract.keyOpt.isDefined)
-          if (!invariant)
-            InternalError.assertionException(
-              NameOf.qualifiedNameOfCurrentFunc,
-              "unexpected mismatching contract key",
-            )
-          machine.addDisclosedContracts(contractId, contract)
-          Control.Value(SUnit)
-      }
+      machine.addDisclosedContracts(contractId, contract)
+      Control.Value(SUnit)
     }
   }
 

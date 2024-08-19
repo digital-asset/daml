@@ -1656,7 +1656,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltinFun(SBCacheDisclosedContract(contractId, None)),
+                SEBuiltinFun(SBCacheDisclosedContract(contractId)),
                 Array(SELocS(1)),
               ),
             ),
@@ -1711,7 +1711,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltinFun(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
+                SEBuiltinFun(SBCacheDisclosedContract(contractId)),
                 Array(SELocS(1)),
               ),
             ),
@@ -1923,20 +1923,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         SValue.SList(FrontStack(SValue.SParty(maintainer))),
       ),
     )
-    val globalKey =
-      if (withKey) {
-        Some(
-          GlobalKeyWithMaintainers.assertBuild(
-            templateId,
-            key.toUnnormalizedValue,
-            Set(maintainer),
-            pkg.pkgName,
-          )
-        )
-      } else {
-        None
-      }
-    val keyHash = globalKey.map(_.globalKey.hash)
     val fields = if (withKey) ImmArray("i", "u", "name", "k") else ImmArray("i", "u", "name")
     val values: util.ArrayList[SValue] =
       if (withKey) {
@@ -1957,7 +1943,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         fields.map(Ref.Name.assertFromString),
         values,
       ),
-      keyHash,
     )
 
     (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)

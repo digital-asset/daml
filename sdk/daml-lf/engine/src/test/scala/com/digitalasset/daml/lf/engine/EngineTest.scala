@@ -729,13 +729,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
       val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minVersion)
-      val unusedContractKey = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueInt64(69),
-        ),
-      )
       val usedDisclosedContract = DisclosedContract(
         templateId,
         toContractId("BasicTests:WithKey:1"),
@@ -744,7 +737,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -753,9 +745,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
-        ),
-        Some(
-          crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, unusedContractKey)
         ),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
@@ -1588,13 +1577,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           None -> Value.ValueInt64(42),
         ),
       )
-      val unusedContractKey = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueInt64(69),
-        ),
-      )
       val usedDisclosedContract = DisclosedContract(
         templateId,
         toContractId("BasicTests:WithKey:1"),
@@ -1603,7 +1585,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1612,9 +1593,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
-        ),
-        Some(
-          crypto.Hash.assertHashContractKey(templateId, basicTestsPkg.pkgName, unusedContractKey)
         ),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
@@ -1657,7 +1635,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      None,
     )
     val unusedDisclosedContract = DisclosedContract(
       templateId,
@@ -1667,7 +1644,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      None,
     )
 
     "unused disclosed contracts not saved to ledger" in {
