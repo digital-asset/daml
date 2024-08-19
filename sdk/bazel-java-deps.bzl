@@ -52,7 +52,7 @@ protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
 tapir_version = "1.8.5"
-ujson_version = "4.0.0"
+ujson_version = "2.0.0"
 
 guava_version = "31.1-jre"
 
