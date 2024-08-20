@@ -117,7 +117,7 @@ checkUpgradeSingle :: Maybe Context -> LF.Package -> TcMF (Version, UpgradeInfo)
 checkUpgradeSingle mbContext pkg =
   let presentWorld = initWorldSelf [] pkg
       withMbContext :: TcM () -> TcM ()
-      withMbContext = maybe id withContext context
+      withMbContext = maybe id withContext mbContext
   in
   withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo presentWorld) $
     withMbContext $ do
