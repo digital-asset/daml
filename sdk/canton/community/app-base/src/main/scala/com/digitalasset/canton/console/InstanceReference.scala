@@ -6,7 +6,13 @@ package com.digitalasset.canton.console
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantDomainPermissionResult
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  MediatorStatus,
+  NodeStatus,
+  ParticipantStatus,
+  SequencerStatus,
+  StaticDomainParameters as ConsoleStaticDomainParameters,
+}
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
@@ -34,7 +40,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.domain.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricValue
@@ -738,7 +743,7 @@ abstract class SequencerReference(
 ) extends InstanceReference
     with ConsoleCommandGroup {
 
-  override type Status = SequencerNodeStatus
+  override type Status = SequencerStatus
 
   override protected def runner: AdminCommandRunner = this
 
@@ -800,10 +805,10 @@ abstract class SequencerReference(
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")
   override def health =
-    new HealthAdministration[SequencerNodeStatus](
+    new SequencerHealthAdministration(
       this,
       consoleEnvironment,
-      SequencerNodeStatus.fromProtoV30,
+      loggerFactory,
     )
 
   private lazy val sequencerTrafficControl = new TrafficControlSequencerAdministrationGroup(
@@ -1246,7 +1251,7 @@ object MediatorReference {
 abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, name: String)
     extends InstanceReference
     with ConsoleCommandGroup {
-  override type Status = MediatorNodeStatus
+  override type Status = MediatorStatus
 
   override protected def runner: AdminCommandRunner = this
 
@@ -1270,10 +1275,10 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")
   override def health =
-    new HealthAdministration[MediatorNodeStatus](
+    new MediatorHealthAdministration(
       this,
       consoleEnvironment,
-      MediatorNodeStatus.fromProtoV30,
+      loggerFactory,
     )
 
   private lazy val topology_ =

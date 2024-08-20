@@ -3,328 +3,232 @@
 
 package com.digitalasset.canton.topology.processing
 
-import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
-  FutureUnlessShutdown,
-  PromiseUnlessShutdown,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.*
+import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.transaction.DomainParametersState
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.digitalasset.canton.util.ErrorUtil
 
-import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future}
 
-/** Compute and synchronise the effective timestamps
+/** Computes the effective timestamps of topology transactions
   *
-  * Transaction validation and processing depends on the topology state at the given sequencer time.
-  * Therefore, we would have to inspect every event first if there is a topology state and wait until all
-  * the topology processing has finished before evaluating the transaction. This would be slow and sequential.
+  * Transaction validation and processing depends on the topology state at the given sequencing time.
+  * If topology transactions became effective immediately,
+  * we would have to inspect every event first if there is a topology state and wait until all
+  * the topology processing has finished before evaluating the transaction. This would cause a sequential bottleneck.
   *
-  * Therefore, we future date our topology transactions with an "effective time", computed from
-  * the sequencerTime + domainParameters.topologyChangeDelay.
+  * To avoid this bottleneck, topology transactions become effective only in the future at an "effective time", where
+  * effective time >= sequencingTime + domainParameters.topologyChangeDelay.
   *
-  * However, the domainParameters can change and so can the topologyChangeDelay. Therefore we need to be a bit careful
-  * when computing the effective time and track the changes to the topologyChangeDelay parameter accordingly.
+  * However, the domainParameters can change and so can the topologyChangeDelay.
+  * So it is non-trivial to apply the right topologyChangeDelay. Also, if the topologyChangeDelay is decreased,
+  * the effective timestamps of topology transactions could "run backwards", which would break topology management.
   *
-  * This class (hopefully) takes care of this logic
+  * This class computes the effective timestamps of topology transactions from their sequencing timestamps.
+  * It makes sure that effective timestamps are strictly monotonically increasing.
+  * For better performance, it keeps the current as well as all future topologyChangeDelays in memory, so that all
+  * computations can be performed without reading from the database.
   */
 class TopologyTimestampPlusEpsilonTracker(
+    store: TopologyStore[TopologyStoreId.DomainStore],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
-    futureSupervisor: FutureSupervisor,
-) extends NamedLogging
-    with TimeAwaiter
-    with FlagCloseable {
+)(implicit executionContext: ExecutionContext)
+    extends NamedLogging {
 
-  override protected def onClosed(): Unit = {
-    expireTimeAwaiter()
-    super.onClosed()
+  /** Stores a topologyChangeDelay together with its validity. */
+  private case class State(topologyChangeDelay: NonNegativeFiniteDuration, validFrom: EffectiveTime)
+
+  /** The currently active as well as all future states, sorted by `State.validFrom` in descending order */
+  private val state = new AtomicReference[List[State]](List.empty)
+
+  /** The maximum effective time assigned to a topology transaction.
+    * Used to enforce that the effective time is strictly monotonically increasing.
+    *
+    * A value of `EffectiveTime.MaxValue` indicates that the tracker has not yet been initialized.
+    */
+  private val maximumEffectiveTime =
+    new AtomicReference[EffectiveTime](EffectiveTime.MaxValue)
+
+  /** Computes the effective time for a given sequencing time.
+    * The computed effective time is strictly monotonically increasing if requested
+    * and monotonically increasing otherwise.
+    *
+    * The computed effective time is at least sequencingTime + topologyChangeDelay(sequencingTime).
+    *
+    * The methods of this tracker must be called as follows:
+    * 1. Make sure the topologyStore contains all topology transactions effective at `sequencedTime`.
+    * 2. Call trackAndComputeEffectiveTime for the first sequenced event. This will also initialize the tracker.
+    * 3. Call adjustTopologyChangeDelay, if the sequenced event at `sequencedTime` contains a valid topology transaction that changes the topologyChangeDelay.
+    * 4. Call trackAndComputeEffectiveTime for the next sequenced event.
+    * 5. Go to 3.
+    *
+    * @param strictMonotonicity whether the returned effective time must be strictly greater than the previous one computed.
+    *                           As it changes internal state, all domain members must call `trackAndComputeEffectiveTime(sequencedTime, true)`
+    *                           for exactly the same `sequencedTime`s (in ascending order).
+    *                           In practice, `strictMonotonicity` should be true iff the underlying sequenced event contains at least one topology transaction,
+    *                           it is addressed to [[com.digitalasset.canton.sequencing.protocol.AllMembersOfDomain]] and
+    *                           it has no topologyTimestamp.
+    */
+  def trackAndComputeEffectiveTime(sequencedTime: SequencedTime, strictMonotonicity: Boolean)(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[EffectiveTime] = for {
+    // initialize the tracker, if necessary
+    _ <-
+      if (maximumEffectiveTime.get() == EffectiveTime.MaxValue)
+        FutureUnlessShutdown.outcomeF(initialize(sequencedTime))
+      else FutureUnlessShutdown.unit
+  } yield {
+    cleanup(sequencedTime)
+
+    // This is sequencedTime + topologyChangeDelay(sequencedTime)
+    val rawEffectiveTime = rawEffectiveTimeOf(sequencedTime)
+
+    if (strictMonotonicity) {
+      // All domain members run this branch for the same sequenced times.
+      // Therefore, all members will update maximumEffectiveTime in the same way.
+
+      val effectiveTime =
+        maximumEffectiveTime.updateAndGet(_.immediateSuccessor() max rawEffectiveTime)
+
+      if (effectiveTime != rawEffectiveTime) {
+        // For simplicity, let's allow the domain to decrease the topologyChangeDelay arbitrarily.
+        // During a transition period, the effective time needs to be corrected.
+        logger.info(
+          s"Computed effective time of $rawEffectiveTime would go backwards. Using $effectiveTime instead."
+        )
+      }
+      effectiveTime
+    } else {
+      // We do not update the state here, as different members run this piece of codes with different sequencing times.
+      // The effective times computed here are monotonically increasing, even when rawEffectiveTime goes backwards,
+      // as we bump maximumEffectiveTime whenever a DomainParameterState transaction expires.
+      maximumEffectiveTime.get() max rawEffectiveTime
+    }
   }
 
-  /** track changes to epsilon carefully.
-    *
-    * increasing the epsilon is straight forward. reducing it requires more care
-    *
-    * @param epsilon the epsilon is the time we add to the timestamp
-    * @param validFrom from when on should this one be valid (as with all topology transactions, the time is exclusive)
-    */
-  private case class State(epsilon: NonNegativeFiniteDuration, validFrom: EffectiveTime)
+  private def initialize(
+      sequencedTime: SequencedTime
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = for {
+    // find the current and upcoming change delays
+    currentAndUpcomingChangeDelays <- store.findCurrentAndUpcomingChangeDelays(sequencedTime.value)
+    currentChangeDelay = currentAndUpcomingChangeDelays.last1
 
-  /** sorted list of epsilon updates (in descending order of sequencing) */
-  private val state = new AtomicReference[List[State]](List())
+    // Find the maximum stored effective time for initialization of maximumEffectiveTime.
+    // Note that this must include rejections and proposals,
+    // as trackAndComputeEffectiveTime may change maximumEffectiveTime based on proposals / rejections.
+    maximumTimestampInStoreO <- store.maxTimestamp(sequencedTime.value, includeRejected = true)
+    maximumEffectiveTimeInStore = maximumTimestampInStoreO
+      .map { case (_, effective) => effective }
+      .getOrElse(EffectiveTime.MinValue)
 
-  /** protect us against broken domains that send topology transactions in times when they've just reduced the
-    * epsilon in a way that could lead the second topology transaction to take over the epsilon change.
-    */
-  private val uniqueUpdateTime = new AtomicReference[EffectiveTime](EffectiveTime.MinValue)
-
-  private val lastEffectiveTimeProcessed =
-    new AtomicReference[EffectiveTime](EffectiveTime.MinValue)
-
-  private val sequentialWait =
-    new AtomicReference[FutureUnlessShutdown[EffectiveTime]](
-      FutureUnlessShutdown.pure(EffectiveTime.MinValue)
+    // Find all topologyChangeDelay transactions that have expired
+    // - at or after sequencing the current delay
+    // - before sequencedTime (so that the expiry is in the past)
+    expiredTopologyDelays <- store.findExpiredChangeDelays(
+      validUntilMinInclusive = currentChangeDelay.sequenced.value,
+      validUntilMaxExclusive = sequencedTime.value,
     )
+  } yield {
 
-  override protected def currentKnownTime: CantonTimestamp = lastEffectiveTimeProcessed.get().value
+    // Initialize state based on current and upcoming change delays
+    val initialStates = currentAndUpcomingChangeDelays.map {
+      case Change.TopologyDelay(_, validFrom, _, changeDelay) => State(changeDelay, validFrom)
+    }
+    logger.info(s"Initialising with $initialStates...")
+    state.set(initialStates)
 
-  private def adjustByEpsilon(
+    // Initialize maximumEffectiveTime based on the maximum effective time in the store.
+    // This will cover all adjustments made within trackAndComputeEffectiveTime.
+    logger.info(s"Maximum effective time in store is $maximumEffectiveTimeInStore.")
+    maximumEffectiveTime.set(maximumEffectiveTimeInStore)
+
+    // Make sure that maximumEffectiveTime is at least:
+    // - the maximum effective time a change delay can "produce"
+    // - taken over all expired topology change delays.
+    // This will cover all adjustments made within cleanup.
+    val maximumEffectiveTimeAtExpiryO = expiredTopologyDelays.collect {
+      case Change.TopologyDelay(_, _, Some(validUntil), changeDelay) =>
+        validUntil + changeDelay
+    }.maxOption
+    logger.info(s"Maximum effective time at expiry is $maximumEffectiveTimeAtExpiryO.")
+    maximumEffectiveTimeAtExpiryO.foreach(t => maximumEffectiveTime.updateAndGet(_ max t).discard)
+  }
+
+  /** Adds the correct `topologyChangeDelay` to the given `sequencingTime`.
+    * The resulting effective time may be non-monotonic.
+    */
+  private def rawEffectiveTimeOf(
       sequencingTime: SequencedTime
   )(implicit traceContext: TraceContext): EffectiveTime = {
-    @tailrec
-    def go(items: List[State]): NonNegativeFiniteDuration = items match {
-      case item :: _ if sequencingTime.value > item.validFrom.value =>
-        item.epsilon
-      case last :: Nil =>
-        if (sequencingTime.value < last.validFrom.value)
-          logger.error(
-            s"Bad sequencing time $sequencingTime with last known epsilon update at $last"
-          )
-        last.epsilon
-      case Nil =>
-        logger.error(
-          s"Epsilon tracker is not initialised at sequencing time $sequencingTime, will use default value ${DynamicDomainParameters.topologyChangeDelayIfAbsent}"
-        )
-        DynamicDomainParameters.topologyChangeDelayIfAbsent // we use this (0) as a safe default
-      case _ :: rest => go(rest)
-    }
-    val epsilon = go(state.get())
-    EffectiveTime(sequencingTime.value.plus(epsilon.duration))
-  }
-
-  // must call effectiveTimeProcessed in due time
-  def adjustTimestampForUpdate(sequencingTime: SequencedTime)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[EffectiveTime] =
-    synchronize(
-      sequencingTime, {
-        val adjusted = adjustByEpsilon(sequencingTime)
-        val monotonic =
-          // if a broken domain manager sends us an update too early after an epsilon reduction, we'll catch that and
-          // ensure that we don't store txs in an out of order way
-          // i.e. if we get at t1 an update with epsilon_1 < epsilon_0, then we do have to ensure that no topology
-          // transaction is sent until t1 + (epsilon_0 - epsilon_1) (as this is the threshold for any message just before t1)
-          // but if the topology manager still does it, we'll just work-around
-          uniqueUpdateTime.updateAndGet(cur =>
-            if (cur.value >= adjusted.value) EffectiveTime(cur.value.immediateSuccessor)
-            else adjusted
-          )
-        if (monotonic != adjusted) {
-          logger.error(
-            s"Broken or malicious domain topology manager is sending transactions during epsilon changes at ts=$sequencingTime!"
-          )
-        }
-        monotonic
-      },
-    )
-
-  private def synchronize(
-      sequencingTime: SequencedTime,
-      computeEffective: => EffectiveTime,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[EffectiveTime] = {
-    // note, this is a side effect free chain await
-    def chainUpdates(previousEffectiveTime: EffectiveTime): FutureUnlessShutdown[EffectiveTime] =
-      FutureUnlessShutdown(
-        FutureUtil.logOnFailure(
-          {
-            val synchronizeAt = previousEffectiveTime.value.min(sequencingTime.value)
-            awaitKnownTimestampUS(synchronizeAt) match {
-              case None => FutureUnlessShutdown.pure(computeEffective)
-              case Some(value) =>
-                logger.debug(
-                  s"Need to wait until topology processing has caught up at $sequencingTime (must reach $synchronizeAt with current=$currentKnownTime)"
-                )
-                value.map { _ =>
-                  logger.debug(s"Topology processing caught up at $sequencingTime")
-                  computeEffective
-                }
-            }
-          }.unwrap,
-          "chaining of sequential waits failed",
-        )
-      )
-    val nextChainP = new PromiseUnlessShutdown[EffectiveTime](
-      "synchronized-chain-promise",
-      futureSupervisor,
-    )
-    val ret =
-      sequentialWait.getAndUpdate(cur => cur.flatMap(_ => FutureUnlessShutdown(nextChainP.future)))
-    ret.onComplete {
-      case Success(UnlessShutdown.AbortedDueToShutdown) =>
-        nextChainP.shutdown()
-      case Success(UnlessShutdown.Outcome(previousEffectiveTime)) =>
-        chainUpdates(previousEffectiveTime)
-          .map { effectiveTime =>
-            nextChainP.outcome(effectiveTime)
-          }
-          .onShutdown(nextChainP.shutdown())
-          .discard
-      case Failure(exception) => nextChainP.failure(exception)
-    }
-    nextChainP.futureUS
-  }
-
-  def effectiveTimeProcessed(effectiveTime: EffectiveTime): Unit = {
-    val updated = lastEffectiveTimeProcessed.updateAndGet(_.max(effectiveTime))
-    notifyAwaitedFutures(updated.value)(TraceContext.empty)
-  }
-
-  def adjustTimestampForTick(sequencingTime: SequencedTime)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[EffectiveTime] = synchronize(
-    sequencingTime, {
-      val adjusted = adjustByEpsilon(sequencingTime)
-      val monotonic = uniqueUpdateTime.updateAndGet(_.max(adjusted))
-      effectiveTimeProcessed(monotonic)
-      monotonic
-    },
-  )
-
-  /** adjust epsilon if it changed
-    *
-    * @return [[scala.None$]] if epsilon is unchanged or wasn't set before (e.g. when called for the first time),
-    *         otherwise [[scala.Some$]] the previous epsilon
-    */
-  def adjustEpsilon(
-      effectiveTime: EffectiveTime,
-      sequencingTime: SequencedTime,
-      epsilon: NonNegativeFiniteDuration,
-  )(implicit traceContext: TraceContext): Option[NonNegativeFiniteDuration] = {
-    val oldStates = state.get()
-    val currentState = oldStates.headOption
-    val ext = State(epsilon, effectiveTime)
-    ErrorUtil.requireArgument(
-      currentState.forall(_.validFrom.value < effectiveTime.value),
-      s"Invalid epsilon adjustment from $currentState to $ext",
-    )
-    if (!currentState.exists(_.epsilon == epsilon)) {
-      // we prepend this new datapoint and
-      // keep everything which is not yet valid and the first item which is valid before the sequencing time
-      val (effectivesAtOrAfterSequencing, effectivesBeforeSequencing) =
-        oldStates.span(_.validFrom.value >= sequencingTime.value)
-      val newStates =
-        ext +: (effectivesAtOrAfterSequencing ++ effectivesBeforeSequencing.headOption.toList)
-
-      if (!state.compareAndSet(oldStates, newStates)) {
+    val topologyChangeDelay = state
+      .get()
+      .collectFirst {
+        case state if sequencingTime.value > state.validFrom.value =>
+          state.topologyChangeDelay
+      }
+      .getOrElse(
         ErrorUtil.internalError(
-          new ConcurrentModificationException(
-            s"Topology change delay was updated concurrently. Effective time $effectiveTime, sequencing time $sequencingTime, epsilon $epsilon"
+          new IllegalArgumentException(
+            s"Unable to determine effective time for $sequencingTime. State: ${state.get()}"
           )
         )
-      }
-      currentState.map(_.epsilon)
-    } else None
+      )
+
+    EffectiveTime(sequencingTime.value) + topologyChangeDelay
   }
 
-}
-
-object TopologyTimestampPlusEpsilonTracker {
-
-  /** Initialize tracker
-    *
-    * @param processorTs Timestamp strictly (just) before the first message that will be passed:
-    *                    No sequenced events may have been passed in earlier crash epochs whose
-    *                    timestamp is strictly between `processorTs` and the first message that
-    *                    will be passed if these events affect the topology change delay.
-    *                    Normally, it's the timestamp of the last message that was successfully
-    *                    processed before the one that will be passed first.
+  /** Remove states that have expired before sequencedTime.
+    * Bump maximumEffectiveTime to topologyChangeDelay + validUntil(topologyChangeDelay), if topologyChangeDelay has expired.
     */
-  def initialize(
-      tracker: TopologyTimestampPlusEpsilonTracker,
-      store: TopologyStore[TopologyStoreId.DomainStore],
-      processorTs: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[EffectiveTime] = for {
-    // find the epsilon of a dpc asOf processorTs (which means it is exclusive)
-    epsilonAtProcessorTs <- epsilonForTimestamp(store, processorTs)
-    // find also all upcoming changes which have effective >= processorTs && sequenced <= processorTs
-    // the change that makes up the epsilon at processorTs would be grabbed by the statement above
-    upcoming <- tracker.performUnlessClosingF(functionFullName)(
-      store
-        .findUpcomingEffectiveChanges(processorTs)
-        .map(_.collect {
-          case tdc: TopologyStore.Change.TopologyDelay
-              // filter anything out that might be replayed
-              if tdc.sequenced.value <= processorTs =>
-            tdc
-        })
-    )
-    allPending = (epsilonAtProcessorTs +: upcoming).sortBy(_.sequenced)
-    _ = {
-      tracker.logger.debug(
-        s"Initialising with $allPending"
-      )
-      // Now, replay all the older epsilon updates that might get activated shortly
-      allPending.foreach { change =>
-        tracker
-          .adjustEpsilon(
-            change.effective,
-            change.sequenced,
-            change.epsilon,
-          )
-          .discard[Option[NonNegativeFiniteDuration]]
-      }
-    }
-    eff <- tracker.adjustTimestampForTick(SequencedTime(processorTs))
-  } yield eff
+  private def cleanup(sequencedTime: SequencedTime): Unit = {
+    val oldStates = state
+      .getAndUpdate { oldStates =>
+        val (futureStates, pastStates) = oldStates.span(_.validFrom.value >= sequencedTime.value)
 
-  def epsilonForTimestamp(
-      store: TopologyStore[TopologyStoreId.DomainStore],
-      asOfExclusive: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] =
-    FutureUnlessShutdown
-      .outcomeF(
-        store
-          .findPositiveTransactions(
-            asOf = asOfExclusive,
-            asOfInclusive = false,
-            isProposal = false,
-            types = Seq(DomainParametersState.code),
-            filterUid = None,
-            filterNamespace = None,
-          )
-      )
-      .map { txs =>
-        txs.result
-          .map(x => (x.mapping, x))
-          .collectFirst { case (change: DomainParametersState, tx) =>
-            TopologyStore.Change.TopologyDelay(
-              tx.sequenced,
-              tx.validFrom,
-              change.parameters.topologyChangeDelay,
-            )
-          }
-          .getOrElse(
-            TopologyStore.Change.TopologyDelay(
-              SequencedTime(CantonTimestamp.MinValue),
-              EffectiveTime(CantonTimestamp.MinValue),
-              DynamicDomainParameters.topologyChangeDelayIfAbsent,
-            )
-          )
+        val currentStateO = pastStates.headOption
+        futureStates ++ currentStateO.toList
       }
 
+    val pastStates: List[State] = oldStates.filter(_.validFrom.value < sequencedTime.value)
+    pastStates
+      .sliding(2)
+      .toSeq
+      .collect { case Seq(next, prev) =>
+        // Note that next.validFrom == prev.validUntil.
+        maximumEffectiveTime.getAndUpdate(_ max next.validFrom + prev.topologyChangeDelay).discard
+      }
+      .discard
+  }
+
+  /** Inform the tracker about a potential change to topologyChangeDelay.
+    * Must be called whenever a [[com.digitalasset.canton.topology.transaction.DomainParametersState]] is committed.
+    * Must not be called for rejections, proposals, and transactions that expire immediately.
+    *
+    * @throws java.lang.IllegalArgumentException if effectiveTime is not strictly monotonically increasing
+    */
+  def adjustTopologyChangeDelay(
+      effectiveTime: EffectiveTime,
+      newTopologyChangeDelay: NonNegativeFiniteDuration,
+  )(implicit traceContext: TraceContext): Unit =
+    state
+      .getAndUpdate { oldStates =>
+        val oldHeadState = oldStates.headOption
+        val newHeadState = State(newTopologyChangeDelay, effectiveTime)
+        ErrorUtil.requireArgument(
+          oldHeadState.forall(_.validFrom.value < effectiveTime.value),
+          s"Invalid adjustment of topologyChangeDelay from $oldHeadState to $newHeadState",
+        )
+        logger.info(s"Updated topology change delay from=$oldHeadState to $newHeadState.")
+        newHeadState +: oldStates
+      }
+      .discard[List[State]]
 }

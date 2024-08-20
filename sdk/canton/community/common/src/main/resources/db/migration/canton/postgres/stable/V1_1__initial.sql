@@ -931,9 +931,9 @@ create table seq_traffic_control_consumed_journal (
 -- Individual blocks/transactions exist in separate table
 create table ord_completed_epochs (
   -- strictly-increasing, contiguous epoch number
-  epoch_number bigint not null primary key ,
+  epoch_number bigint not null primary key,
   -- first block sequence number (globally) of the epoch
-  start_block_number bigint not null ,
+  start_block_number bigint not null,
   -- number of total blocks in the epoch
   epoch_length integer not null,
   -- enable idempotent writes: "on conflict, do nothing"

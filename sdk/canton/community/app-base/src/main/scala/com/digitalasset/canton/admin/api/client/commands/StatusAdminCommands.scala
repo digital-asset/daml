@@ -5,16 +5,13 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import ch.qos.logback.classic.Level
-import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForExternalInput}
 import com.digitalasset.canton.admin.health.v30
 import com.digitalasset.canton.admin.health.v30.{
   HealthDumpRequest,
   HealthDumpResponse,
   StatusServiceGrpc,
 }
-import com.digitalasset.canton.health.admin.data
-import com.digitalasset.canton.health.admin.data.WaitingForExternalInput
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Context, ManagedChannel}
@@ -22,42 +19,52 @@ import io.grpc.{Context, ManagedChannel}
 import scala.concurrent.Future
 
 object StatusAdminCommands {
-  abstract class StatusServiceCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
-    override type Svc = v30.StatusServiceGrpc.StatusServiceStub
 
-    override def createService(channel: ManagedChannel): v30.StatusServiceGrpc.StatusServiceStub =
-      v30.StatusServiceGrpc.stub(channel)
+  abstract class NodeStatusCommand[
+      S <: NodeStatus.Status,
+      GrpcReq,
+      GrpcResponse,
+  ] extends GrpcAdminCommand[GrpcReq, GrpcResponse, NodeStatus[S]] {
+    def createRequest(): Either[String, GrpcReq]
+
+    def getStatus(service: Svc, request: GrpcReq): Future[GrpcResponse]
+
+    def submitReq(
+        service: Svc,
+        request: GrpcReq,
+    ): Future[GrpcResponse] = getStatus(service, request)
   }
-  abstract class GetStatusBase[Result]
-      extends StatusServiceCommand[v30.StatusRequest, v30.StatusResponse, Result] {
-    override def createRequest(): Either[String, v30.StatusRequest] = Right(v30.StatusRequest())
 
-    override def submitRequest(
-        service: v30.StatusServiceGrpc.StatusServiceStub,
-        request: v30.StatusRequest,
-    ): Future[v30.StatusResponse] =
-      service.status(request)
+  /** Query the shared part of the status endpoint and project to an attribute
+    * @param cmd Comment to query the node status endpoint
+    * @param projector Projector from the node status to the attribute
+    */
+  final case class NodeStatusElement[S <: NodeStatus.Status, GrpcReq, GrpcResponse, T](
+      cmd: NodeStatusCommand[S, GrpcReq, GrpcResponse],
+      projector: NodeStatus[NodeStatus.Status] => T,
+  ) extends GrpcAdminCommand[GrpcReq, GrpcResponse, T] {
+    override type Svc = cmd.Svc
+
+    override def createService(channel: ManagedChannel): Svc = cmd.createService(channel)
+
+    override def submitRequest(service: Svc, request: GrpcReq): Future[GrpcResponse] =
+      cmd.submitRequest(service, request)
+
+    override def createRequest(): Either[String, GrpcReq] = cmd.createRequest()
+
+    override def handleResponse(response: GrpcResponse): Either[String, T] =
+      cmd.handleResponse(response).map(projector)
   }
 
-  class GetStatus[S <: data.NodeStatus.Status](
-      deserialize: v30.StatusResponse.Status => ParsingResult[S]
-  ) extends GetStatusBase[data.NodeStatus[S]] {
-    override def handleResponse(response: v30.StatusResponse): Either[String, data.NodeStatus[S]] =
-      ((response.response match {
-        case v30.StatusResponse.Response.NotInitialized(notInitialized) =>
-          WaitingForExternalInput
-            .fromProtoV30(notInitialized.waitingForExternalInput)
-            .map(waitingFor =>
-              data.NodeStatus.NotInitialized(
-                notInitialized.active,
-                waitingFor,
-              )
-            )
-        case v30.StatusResponse.Response.Success(status) =>
-          deserialize(status).map(data.NodeStatus.Success(_))
-        case v30.StatusResponse.Response.Empty =>
-          Left(ProtoDeserializationError.FieldNotSet("response"))
-      }): ParsingResult[data.NodeStatus[S]]).leftMap(_.toString)
+  object NodeStatusElement {
+    def isWaitingForExternalInput(
+        s: NodeStatus[NodeStatus.Status],
+        kind: WaitingForExternalInput,
+    ): Boolean =
+      s match {
+        case _: NodeStatus.Failure | _: NodeStatus.Success[?] => false
+        case NodeStatus.NotInitialized(_active, waitingFor) => waitingFor.contains(kind)
+      }
   }
 
   class GetHealthDump(
@@ -86,48 +93,11 @@ object StatusAdminCommands {
 
   }
 
-  object IsRunning
-      extends StatusAdminCommands.FromStatus({
-        case v30.StatusResponse.Response.Empty => false
-        case _ => true
-      })
+  abstract class StatusServiceCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
+    override type Svc = v30.StatusServiceGrpc.StatusServiceStub
 
-  object IsInitialized
-      extends StatusAdminCommands.FromStatus({
-        case v30.StatusResponse.Response.Success(_) => true
-        case _ => false
-      })
-
-  sealed abstract class IsReadyForExternalInput(
-      externalInput: v30.StatusResponse.NotInitialized.WaitingForExternalInput
-  ) extends StatusAdminCommands.FromStatus({
-        case v30.StatusResponse.Response
-              .NotInitialized(v30.StatusResponse.NotInitialized(active, `externalInput`)) =>
-          true
-        case _ => false
-      })
-
-  object IsReadyForId
-      extends IsReadyForExternalInput(
-        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_ID
-      )
-  object IsReadyForNodeTopology
-      extends IsReadyForExternalInput(
-        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY
-      )
-  object IsReadyForInitialization
-      extends IsReadyForExternalInput(
-        v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION
-      )
-
-  class FromStatus(predicate: v30.StatusResponse.Response => Boolean)
-      extends GetStatusBase[Boolean] {
-    override def handleResponse(response: v30.StatusResponse): Either[String, Boolean] =
-      (response.response match {
-        case v30.StatusResponse.Response.Empty =>
-          Left(ProtoDeserializationError.FieldNotSet("response"))
-        case other => Right(predicate(other))
-      }).leftMap(_.toString)
+    override def createService(channel: ManagedChannel): v30.StatusServiceGrpc.StatusServiceStub =
+      v30.StatusServiceGrpc.stub(channel)
   }
 
   class SetLogLevel(level: Level)

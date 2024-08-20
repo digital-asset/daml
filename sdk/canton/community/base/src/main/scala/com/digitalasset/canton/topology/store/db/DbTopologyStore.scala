@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store.db
 
+import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -335,7 +336,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             ++ sql")"
         )
         ++ sql")",
-      storage.limit(limit),
+      limit = storage.limit(limit),
+      operation = functionFullName,
     )
       .map(
         _.result.toSet
@@ -479,15 +481,43 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND valid_from >= $asOfInclusive ",
       orderBy = " ORDER BY valid_from",
       operation = "upcomingEffectiveChanges",
-    ).map(res => TopologyStore.accumulateUpcomingEffectiveChanges(res.result))
+    ).map(res => res.result.map(TopologyStore.Change.selectChange).distinct)
   }
 
-  override def maxTimestamp()(implicit
+  protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Iterable[GenericStoredTopologyTransaction]] = queryForTransactions(
+    sql""" AND transaction_type = ${DomainParametersState.code}
+             AND (valid_from >= $sequencedTime OR valid_until is NULL OR valid_until >= $sequencedTime)
+             AND (valid_until is NULL or valid_from != valid_until)
+             AND sequenced < $sequencedTime
+             AND is_proposal = false """,
+    operation = functionFullName,
+  ).map(_.result)
+
+  override def findExpiredChangeDelays(
+      validUntilMinInclusive: CantonTimestamp,
+      validUntilMaxExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TopologyStore.Change.TopologyDelay]] =
+    queryForTransactions(
+      sql"AND transaction_type = ${DomainParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false ",
+      operation = functionFullName,
+    ).map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
+
+  override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): Future[Option[(SequencedTime, EffectiveTime)]] = {
     logger.debug(s"Querying max timestamp")
 
-    queryForTransactions(sql"", storage.limit(1), orderBy = " ORDER BY id DESC")
+    queryForTransactions(
+      sql" AND sequenced < $sequencedTime ",
+      includeRejected = includeRejected,
+      limit = storage.limit(1),
+      orderBy = " ORDER BY valid_from DESC",
+      operation = functionFullName,
+    )
       .map(_.result.headOption.map(tx => (tx.sequenced, tx.validFrom)))
   }
 
@@ -503,7 +533,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
     logger.debug(s"Querying dispatching transactions after $timestampExclusive")
 
-    queryForTransactions(subQuery, limitQ)
+    queryForTransactions(subQuery, limit = limitQ, operation = functionFullName)
   }
 
   override def findStored(

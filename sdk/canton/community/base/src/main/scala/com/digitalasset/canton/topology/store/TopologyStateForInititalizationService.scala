@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -82,13 +83,17 @@ final class StoreBasedTopologyStateForInitializationService(
           domainTopologyStore.findEssentialStateAtSequencedTime(referenceSequencedTime)
         }
         .getOrElse(
-          domainTopologyStore.maxTimestamp().flatMap { maxTimestamp =>
-            Future.failed(
-              Status.FAILED_PRECONDITION
-                .withDescription(s"No onboarding transaction found for $member as of $maxTimestamp")
-                .asException()
-            )
-          }
+          domainTopologyStore
+            .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false)
+            .flatMap { maxTimestamp =>
+              Future.failed(
+                Status.FAILED_PRECONDITION
+                  .withDescription(
+                    s"No onboarding transaction found for $member as of $maxTimestamp"
+                  )
+                  .asException()
+              )
+            }
         )
     }
   }

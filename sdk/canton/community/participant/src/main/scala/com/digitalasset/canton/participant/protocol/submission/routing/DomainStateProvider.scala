@@ -57,7 +57,7 @@ class DomainStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
     connectedDomains.snapshot
       .collect {
         // only look at domains that are ready for submission
-        case (_, syncDomain: SyncDomain) if syncDomain.readyForSubmission => syncDomain
+        case (_, syncDomain: SyncDomain) if syncDomain.readyForSubmission.unwrap => syncDomain
       }
       .toList
       .foldM[Future, Acc]((coids, Map.empty[LfContractId, DomainId]): Acc) {

@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.
 import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   DomainParametersState,
   TopologyChangeOp,
@@ -84,7 +85,7 @@ class TopologyTransactionProcessor(
   )
 
   private val timeAdjuster =
-    new TopologyTimestampPlusEpsilonTracker(timeouts, loggerFactory, futureSupervisor)
+    new TopologyTimestampPlusEpsilonTracker(store, timeouts, loggerFactory)
 
   private val serializer = new SimpleExecutionQueue(
     "topology-transaction-processor-queue",
@@ -135,10 +136,10 @@ class TopologyTransactionProcessor(
       // we have (ts+e, ts) and quite a few te in the future, so we create list of upcoming changes and sort them
 
       val head = (
-        EffectiveTime(sequencedTs.value.plus(currentEpsilon.epsilon.unwrap)),
+        EffectiveTime(sequencedTs.value.plus(currentEpsilon.changeDelay.unwrap)),
         ApproximateTime(sequencedTs.value),
       )
-      val tail = upcoming.map(x => (x.effective, x.effective.toApproximate))
+      val tail = upcoming.map(x => (x.validFrom, x.validFrom.toApproximate))
 
       NonEmpty(Seq, head, tail*).sortBy { case (effectiveTime, _) => effectiveTime.value }
     }
@@ -147,8 +148,10 @@ class TopologyTransactionProcessor(
       stateStoreTsO <- performUnlessClosingF(functionFullName)(
         maxTimestampFromStore()
       )
-      (processorTs, clientTs) = subscriptionTimestamp(start, stateStoreTsO)
-      _ <- initializeTopologyTimestampPlusEpsilonTracker(processorTs)
+      clientTs = subscriptionTimestamp(
+        start,
+        stateStoreTsO.map { case (_, effective) => effective },
+      )
 
       clientInitTimes <- clientTs match {
         case Left(sequencedTs) =>
@@ -224,50 +227,40 @@ class TopologyTransactionProcessor(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       updates: List[TopologyTransactionsBroadcast],
-  )(implicit traceContext: TraceContext): HandlerResult = {
-    def computeEffectiveTime(
-        updates: List[TopologyTransactionsBroadcast]
-    ): FutureUnlessShutdown[EffectiveTime] =
-      if (updates.nonEmpty) {
-        val effectiveTimeF =
-          futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
-            timeAdjuster.adjustTimestampForUpdate(sequencedTime)
-          )
-
-        // we need to inform the acs commitment processor about the incoming change
-        effectiveTimeF.map { effectiveTime =>
-          // this is safe to do here, as the acs commitment processor `publish` method will only be
-          // invoked long after the outer future here has finished processing
-          acsCommitmentScheduleEffectiveTime(Traced(effectiveTime))
-          effectiveTime
-        }
-      } else {
-        futureSupervisor.supervisedUS(s"adjust ts=$sequencedTime for update")(
-          timeAdjuster.adjustTimestampForTick(sequencedTime)
-        )
-      }
-
+  )(implicit traceContext: TraceContext): HandlerResult =
     for {
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
         s"Topology client for $domainId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
       )
-      // compute effective time
-      effectiveTime <- computeEffectiveTime(updates)
     } yield {
+      val txs = updates.flatMap(_.broadcasts).flatMap(_.transactions)
+
       // the rest, we'll run asynchronously, but sequential
       val scheduledF =
         serializer.executeUS(
-          if (updates.nonEmpty) {
-            process(sequencedTime, effectiveTime, sc, updates)
-          } else {
-            tickleListeners(sequencedTime, effectiveTime)
+          {
+            val hasTransactions = txs.nonEmpty
+            for {
+              effectiveTime <-
+                timeAdjuster.trackAndComputeEffectiveTime(sequencedTime, hasTransactions)
+              _ <-
+                if (hasTransactions) {
+                  // we need to inform the acs commitment processor about the incoming change
+                  // this is safe to do here, as the acs commitment processor `publish` method will only be
+                  // invoked long after the outer future here has finished processing
+                  acsCommitmentScheduleEffectiveTime(Traced(effectiveTime))
+
+                  process(sequencedTime, effectiveTime, sc, txs)
+                } else {
+                  tickleListeners(sequencedTime, effectiveTime)
+                }
+            } yield ()
           },
           "processing topology transactions",
         )
       AsyncResult(scheduledF)
     }
-  }
 
   private def tickleListeners(
       sequencedTimestamp: SequencedTime,
@@ -369,10 +362,7 @@ class TopologyTransactionProcessor(
   }
 
   override def onClosed(): Unit =
-    Lifecycle.close(
-      timeAdjuster,
-      serializer,
-    )(logger)
+    Lifecycle.close(serializer)(logger)
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext(implicit traceContext =>
@@ -390,16 +380,12 @@ class TopologyTransactionProcessor(
   private def epsilonForTimestamp(asOfExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Change.TopologyDelay] =
-    TopologyTimestampPlusEpsilonTracker.epsilonForTimestamp(store, asOfExclusive)
+    FutureUnlessShutdown.outcomeF(store.currentChangeDelay(asOfExclusive))
 
   private def maxTimestampFromStore()(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] = store.maxTimestamp()
-
-  private def initializeTopologyTimestampPlusEpsilonTracker(
-      processorTs: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[EffectiveTime] =
-    TopologyTimestampPlusEpsilonTracker.initialize(timeAdjuster, store, processorTs)
+  ): Future[Option[(SequencedTime, EffectiveTime)]] =
+    store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
 
   /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
   private def extractTopologyUpdatesWithValidRecipients(
@@ -422,10 +408,8 @@ class TopologyTransactionProcessor(
       sequencingTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       sc: SequencerCounter,
-      messages: List[TopologyTransactionsBroadcast],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val tx = messages.flatMap(_.broadcasts).flatMap(_.transactions)
-
+      txs: Seq[GenericSignedTopologyTransaction],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     // processing an event with a sequencing time less than what was already in the store
     // when initializing TopologyTransactionProcessor means that is it is being replayed
     // after crash recovery (eg reconnecting to a domain or restart after a crash)
@@ -439,7 +423,7 @@ class TopologyTransactionProcessor(
 
       _ = if (eventIsBeingReplayed) {
         logger.info(
-          s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $tx"
+          s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $txs"
         )
       }
       validated <- performUnlessClosingF("process-topology-transaction")(
@@ -447,13 +431,12 @@ class TopologyTransactionProcessor(
           .validateAndApplyAuthorization(
             sequencingTimestamp,
             effectiveTimestamp,
-            tx,
+            txs,
             expectFullAuthorization = false,
           )
       )
 
       _ = inspectAndAdvanceTopologyTransactionDelay(
-        sequencingTimestamp,
         effectiveTimestamp,
         validated,
       )
@@ -484,46 +467,37 @@ class TopologyTransactionProcessor(
         terminateProcessing.terminate(sc, sequencingTimestamp, effectiveTimestamp)
       )
     } yield ()
-  }
 
   private def inspectAndAdvanceTopologyTransactionDelay(
-      sequencingTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       validated: Seq[GenericValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit = {
-    def applyEpsilon(mapping: DomainParametersState) = {
-      timeAdjuster
-        .adjustEpsilon(
-          effectiveTimestamp,
-          sequencingTimestamp,
-          mapping.parameters.topologyChangeDelay,
-        )
-        .foreach { previous =>
-          logger.info(
-            s"Updated topology change delay from=$previous to ${mapping.parameters.topologyChangeDelay}"
-          )
-        }
-      timeAdjuster.effectiveTimeProcessed(effectiveTimestamp)
-    }
-
     val domainParamChanges = validated.flatMap(
       _.collectOf[TopologyChangeOp.Replace, DomainParametersState]
-        .filter(tx => tx.rejectionReason.isEmpty && !tx.transaction.isProposal)
+        .filter(tx =>
+          tx.rejectionReason.isEmpty && !tx.transaction.isProposal && !tx.expireImmediately
+        )
         .map(_.mapping)
     )
 
-    NonEmpty.from(domainParamChanges) match {
-      // normally, we shouldn't have any adjustment
-      case None => timeAdjuster.effectiveTimeProcessed(effectiveTimestamp)
-      case Some(changes) =>
-        // if there is one, there should be exactly one
-        // If we have several, let's panic now. however, we just pick the last and try to keep working
-        if (changes.lengthCompare(1) > 0) {
-          logger.error(
-            s"Broken or malicious domain topology manager has sent (${changes.length}) domain parameter adjustments at $effectiveTimestamp, will ignore all of them except the last"
+    domainParamChanges match {
+      case Seq() => // normally, we shouldn't have any adjustment
+      case Seq(domainParametersState) =>
+        // Report adjustment of topologyChangeDelay
+        timeAdjuster.adjustTopologyChangeDelay(
+          effectiveTimestamp,
+          domainParametersState.parameters.topologyChangeDelay,
+        )
+
+      case _: Seq[DomainParametersState] =>
+        // As all DomainParametersState transactions have the same `uniqueKey`,
+        // the topologyTransactionProcessor ensures that only the last one is committed.
+        // All other DomainParameterState are rejected or expired immediately.
+        ErrorUtil.internalError(
+          new IllegalStateException(
+            s"Unable to commit several DomainParametersState transactions at the same effective time.\n$validated"
           )
-        }
-        applyEpsilon(changes.last1)
+        )
     }
   }
 
@@ -581,59 +555,51 @@ object TopologyTransactionProcessor {
     }
   }
 
-  /** Returns the timestamps for initializing the processor and client for a restarted or fresh subscription. */
+  /** Returns the timestamps for initializing the client for a restarted or fresh subscription. */
   def subscriptionTimestamp(
       start: SubscriptionStart,
-      storedTimestamps: Option[(SequencedTime, EffectiveTime)],
-  ): (CantonTimestamp, Either[SequencedTime, EffectiveTime]) = {
+      maxStoredEffectiveTimeO: Option[EffectiveTime],
+  ): Either[SequencedTime, EffectiveTime] = {
     import SubscriptionStart.*
     start match {
       case restart: ResubscriptionStart =>
         resubscriptionTimestamp(restart)
       case FreshSubscription =>
-        storedTimestamps.fold(
+        maxStoredEffectiveTimeO.fold(
           // Fresh subscription with an empty domain topology store
-          // processor: init at ts = min
           // client: init at ts = min
-          (CantonTimestamp.MinValue, Right(EffectiveTime(CantonTimestamp.MinValue)))
-        ) { case (sequenced, effective) =>
+          Right(EffectiveTime(CantonTimestamp.MinValue))
+        ) { effective =>
           // Fresh subscription with a bootstrapping timestamp
           // NOTE: we assume that the bootstrapping topology snapshot does not contain the first message
           // that we are going to receive from the domain
-          // processor: init at max(sequence-time) of bootstrapping transactions
           // client: init at max(effective-time) of bootstrapping transactions
-          (sequenced.value, Right(effective))
+          Right(effective)
         }
     }
   }
 
-  /** Returns the timestamps for initializing the processor and client for a restarted subscription. */
+  /** Returns the timestamps for initializing the client for a restarted subscription. */
   def resubscriptionTimestamp(
       start: ResubscriptionStart
-  ): (CantonTimestamp, Either[SequencedTime, EffectiveTime]) = {
+  ): Either[SequencedTime, EffectiveTime] = {
     import SubscriptionStart.*
     start match {
       // clean-head subscription. this means that the first event we are going to get is > cleanPrehead
       // and all our stores are clean.
-      // processor: initialise with ts = cleanPrehead
       // client: approximate time: cleanPrehead, knownUntil = cleanPrehead + epsilon
       //         plus, there might be "effective times" > cleanPrehead, so we need to schedule the adjustment
       //         of the approximate time to the effective time
       case CleanHeadResubscriptionStart(cleanPrehead) =>
-        (cleanPrehead, Left(SequencedTime(cleanPrehead)))
+        Left(SequencedTime(cleanPrehead))
       // dirty or replay subscription.
-      // processor: initialise with firstReplayed.predecessor, as the next message we'll be getting is the firstReplayed
       // client: same as clean-head resubscription
-      case ReplayResubscriptionStart(firstReplayed, Some(cleanPrehead)) =>
-        (firstReplayed.immediatePredecessor, Left(SequencedTime(cleanPrehead)))
+      case ReplayResubscriptionStart(_, Some(cleanPrehead)) =>
+        Left(SequencedTime(cleanPrehead))
       // dirty re-subscription of a node that crashed before fully processing the first event
-      // processor: initialise with firstReplayed.predecessor, as the next message we'll be getting is the firstReplayed
       // client: initialise client with firstReplayed (careful: firstReplayed is known, but firstReplayed.immediateSuccessor not)
       case ReplayResubscriptionStart(firstReplayed, None) =>
-        (
-          firstReplayed.immediatePredecessor,
-          Right(EffectiveTime(firstReplayed.immediatePredecessor)),
-        )
+        Right(EffectiveTime(firstReplayed.immediatePredecessor))
     }
   }
 }

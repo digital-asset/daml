@@ -16,6 +16,7 @@ import com.digitalasset.canton.domain.block.BlockSequencerStateManagerBase
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.update.{BlockUpdateGeneratorImpl, LocalBlockUpdate}
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
   EventSource,
@@ -38,7 +39,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficPurchasedStore
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

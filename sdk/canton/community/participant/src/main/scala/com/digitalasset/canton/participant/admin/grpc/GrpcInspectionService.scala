@@ -9,11 +9,13 @@ import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.Inspe
 import com.digitalasset.canton.admin.participant.v30.{
   GetConfigForSlowCounterParticipants,
   GetIntervalsBehindForCounterParticipants,
+  InspectCommitmentContracts,
   LookupContractDomain,
   LookupOffsetByIndex,
   LookupOffsetByTime,
   LookupReceivedAcsCommitments,
   LookupSentAcsCommitments,
+  OpenCommitment,
   SetConfigForSlowCounterParticipants,
 }
 import com.digitalasset.canton.data.CantonTimestamp
@@ -21,6 +23,7 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
+import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 
 import scala.annotation.nowarn
@@ -134,4 +137,20 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
   override def lookupReceivedAcsCommitments(
       request: LookupReceivedAcsCommitments.Request
   ): Future[LookupReceivedAcsCommitments.Response] = ???
+
+  /** Request metadata about shared contracts used in commitment computation at a specific time
+    * Subject to the data still being available on the participant
+    * TODO(#9557) R2
+    */
+  override def openCommitment(
+      request: OpenCommitment.Request,
+      responseObserver: StreamObserver[OpenCommitment.Response],
+  ): Unit = ???
+
+  /** TODO(#9557) R2
+    */
+  override def inspectCommitmentContracts(
+      request: InspectCommitmentContracts.Request,
+      responseObserver: StreamObserver[InspectCommitmentContracts.Response],
+  ): Unit = ???
 }

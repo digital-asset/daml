@@ -3,9 +3,13 @@
 
 package com.digitalasset.canton.version
 
+import cats.syntax.either.*
+import com.digitalasset.canton.ProtoDeserializationError.ValueDeserializationError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.VersionUtil
+import io.circe.Encoder
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -110,4 +114,10 @@ object ReleaseVersion {
 
   /** The release this process belongs to. */
   val current: ReleaseVersion = ReleaseVersion.tryCreate(BuildInfo.version)
+
+  implicit val releaseVersionEncoder: Encoder[ReleaseVersion] =
+    Encoder.encodeString.contramap[ReleaseVersion](_.fullVersion)
+
+  def fromProtoPrimitive(proto: String, fieldName: String): ParsingResult[ReleaseVersion] =
+    create(proto).leftMap(ValueDeserializationError(fieldName, _))
 }

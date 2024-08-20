@@ -29,7 +29,6 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
-import com.digitalasset.canton.health.admin.data.ParticipantStatus
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{
@@ -43,6 +42,7 @@ import com.digitalasset.canton.participant.admin.{PackageDependencyResolver, *}
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
+import com.digitalasset.canton.participant.health.admin.ParticipantStatus
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.{
   IndexerLockIds,
   LedgerApiServerState,
@@ -62,6 +62,7 @@ import com.digitalasset.canton.participant.scheduler.{
   SchedulersWithParticipantPruning,
 }
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{
@@ -104,6 +105,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
   ReleaseProtocolVersion,
+  ReleaseVersion,
 }
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.ServerServiceDefinition
@@ -498,6 +500,7 @@ class ParticipantNodeBootstrap(
             participantId,
             arguments.metrics,
             config,
+            parameters,
             storage,
             clock,
             crypto.pureCrypto,
@@ -541,6 +544,12 @@ class ParticipantNodeBootstrap(
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
     (readiness, liveness)
   }
+
+  override protected def bindNodeStatusService(): ServerServiceDefinition =
+    ParticipantStatusServiceGrpc.bindService(
+      new GrpcParticipantStatusService(getNodeStatus, loggerFactory),
+      executionContext,
+    )
 
   private def setPostInitCallbacks(
       sync: CantonSyncService
@@ -1125,6 +1134,7 @@ class ParticipantNode(
     val id: ParticipantId,
     val metrics: ParticipantMetrics,
     val config: LocalParticipantConfig,
+    nodeParameters: ParticipantNodeParameters,
     val storage: Storage,
     override protected val clock: Clock,
     val cryptoPureApi: CryptoPureApi,
@@ -1140,10 +1150,20 @@ class ParticipantNode(
     with NamedLogging
     with HasUptime {
 
+  override type Status = ParticipantStatus
+
   override def close(): Unit = () // closing is done in the bootstrap class
 
-  def readyDomains: Map[DomainId, Boolean] =
+  def readyDomains: Map[DomainId, SubmissionReady] =
     sync.readyDomains.values.toMap
+
+  private def supportedProtocolVersions: Seq[ProtocolVersion] = {
+    val supportedPvs = ProtocolVersionCompatibility.supportedProtocols(nodeParameters)
+    nodeParameters.protocolConfig.minimumProtocolVersion match {
+      case Some(pv) => supportedPvs.filter(p => p >= pv)
+      case None => supportedPvs
+    }
+  }
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
@@ -1158,6 +1178,8 @@ class ParticipantNode(
       sync.isActive(),
       topologyQueues,
       healthData,
+      version = ReleaseVersion.current,
+      supportedProtocolVersions = supportedProtocolVersions,
     )
 
   }

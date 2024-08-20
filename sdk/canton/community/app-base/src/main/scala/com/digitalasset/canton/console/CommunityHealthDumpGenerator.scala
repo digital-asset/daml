@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.console
 
+import com.digitalasset.canton.admin.api.client.commands.{
+  MediatorAdminCommands,
+  ParticipantAdminCommands,
+  SequencerAdminCommands,
+}
 import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
 import com.digitalasset.canton.environment.CommunityEnvironment
-import com.digitalasset.canton.health.admin.data.{
-  MediatorNodeStatus,
-  ParticipantStatus,
-  SequencerNodeStatus,
-}
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
@@ -28,8 +28,17 @@ class CommunityHealthDumpGenerator(
 
   override def status(): CommunityCantonStatus =
     CommunityCantonStatus.getStatus(
-      statusMap(environment.config.sequencersByString, SequencerNodeStatus.fromProtoV30),
-      statusMap(environment.config.mediatorsByString, MediatorNodeStatus.fromProtoV30),
-      statusMap(environment.config.participantsByString, ParticipantStatus.fromProtoV30),
+      statusMap(
+        environment.config.sequencersByString,
+        SequencerAdminCommands.Health.SequencerStatusCommand(),
+      ),
+      statusMap(
+        environment.config.mediatorsByString,
+        MediatorAdminCommands.Health.MediatorStatusCommand(),
+      ),
+      statusMap(
+        environment.config.participantsByString,
+        ParticipantAdminCommands.Health.ParticipantStatusCommand(),
+      ),
     )
 }

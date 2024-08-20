@@ -38,7 +38,7 @@ private[routing] class ContractsTransfer(
           SourceDomainId(sourceDomainId),
           TargetDomainId(domainRankTarget.domainId),
           TransferSubmitterMetadata(
-            lfParty,
+            submitter = lfParty,
             submittingParticipant,
             submitterInfo.commandId,
             submitterInfo.submissionId,
@@ -58,7 +58,6 @@ private[routing] class ContractsTransfer(
       submitterMetadata: TransferSubmitterMetadata,
       contractId: LfContractId,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
-
     val transfer = for {
       sourceSyncDomain <- EitherT.fromEither[Future](
         connectedDomains.get(sourceDomain.unwrap).toRight("Not connected to the source domain")

@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableCo
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.util.{ByteStringUtil, ResourceUtil}
+import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -101,33 +101,13 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       }
     } yield contracts
 
-  @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   private def loadFromSource(
       source: InputStream
-  ): Either[String, List[ActiveContract]] = {
-    // assume we can load everything into memory
-    val buf = scala.collection.mutable.ListBuffer.empty[ActiveContract]
-
-    var hasDataInStream = true
-    var errorMessageO: Option[String] = None
-
-    while (hasDataInStream && errorMessageO.isEmpty) {
-      ActiveContract.parseDelimitedFromTrusted(source) match {
-        case None =>
-          // parseDelimitedFrom returns None to indicate that there is no more data to read from the input stream
-          hasDataInStream = false
-        case Some(activeContractE) =>
-          activeContractE match {
-            case Left(parsingError) =>
-              // if there is a deserialization error, let's stop processing and return the error message
-              errorMessageO = Some(parsingError.message)
-            case Right(activeContract) =>
-              buf.addOne(activeContract)
-          }
-      }
-    }
-
-    errorMessageO.toLeft(buf.toList)
-  }
-
+  ): Either[String, List[ActiveContract]] =
+    GrpcStreamingUtils
+      .parseDelimitedFromTrusted[ActiveContract](
+        source,
+        ActiveContract,
+      )
+      .map(_.toList)
 }

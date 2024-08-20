@@ -7,6 +7,10 @@ import better.files.File.newTemporaryFile
 import better.files.{DisposeableExtensions, File, *}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.grpc.ByteStringStreamObserverWithContext
+import com.digitalasset.canton.version.{
+  HasProtocolVersionedCompanion,
+  HasRepresentativeProtocolVersion,
+}
 import com.google.protobuf.ByteString
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
@@ -144,6 +148,35 @@ object GrpcStreamingUtils {
       }
       finishStream(context, responseObserver)(processingResult, processingTimeout)
     }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
+  def parseDelimitedFromTrusted[T <: HasRepresentativeProtocolVersion](
+      stream: InputStream,
+      objectType: HasProtocolVersionedCompanion[T],
+  ): Either[String, Seq[T]] = {
+    var hasDataInStream = true
+    var errorMessageO: Option[String] = None
+    // assume we can load everything into memory
+    val output =
+      scala.collection.mutable.ListBuffer.empty[T]
+
+    while (hasDataInStream && errorMessageO.isEmpty) {
+      objectType.parseDelimitedFromTrusted(stream) match {
+        case None =>
+          // parseDelimitedFrom returns None to indicate that there is no more data to read from the input stream
+          hasDataInStream = false
+        case Some(contractMetadataE) =>
+          contractMetadataE match {
+            case Left(parsingError) =>
+              // if there is a deserialization error, let's stop processing and return the error message
+              errorMessageO = Some(parsingError.message)
+            case Right(activeContract) =>
+              output.addOne(activeContract)
+          }
+      }
+    }
+    errorMessageO.toLeft(output.toList)
   }
 
   private def streamResponseChunks[T](

@@ -5,7 +5,9 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
 
 /**
  * Inspection Service
@@ -23,6 +25,12 @@ service InspectionService {
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
   // Look up the ledger offset by an index, e.g. 1 returns the first offset, 2 the second, etc.
   rpc LookupOffsetByIndex(LookupOffsetByIndex.Request) returns (LookupOffsetByIndex.Response);
+  // Request metadata about shared contracts used in commitment computation at a specific time
+  // Subject to the data still being available on the participant
+  // TODO(#9557) R2
+  rpc OpenCommitment(OpenCommitment.Request) returns (stream OpenCommitment.Response);
+  // TODO(#9557) R2
+  rpc InspectCommitmentContracts(InspectCommitmentContracts.Request) returns (stream InspectCommitmentContracts.Response);
   // TODO(#18452) R5
   // Look up the ACS commitments computed and sent by a participant
   rpc LookupSentAcsCommitments(LookupSentAcsCommitments.Request) returns (LookupSentAcsCommitments.Response);
@@ -94,6 +102,50 @@ message LookupOffsetByIndex {
     string offset = 1;
   }
 }
+
+message OpenCommitment {
+  message Request {
+    // the commitment to be opened
+    bytes commitment = 1;
+    string domain_id = 2;
+    // the participant for whom the receiving participant computed the commitment
+    string computed_for_counter_participant_uid = 3;
+    // interval end tick which the commitment corresponds to
+    google.protobuf.Timestamp periodEndTick = 4;
+  }
+
+  message Response {
+    // commitment contracts metadata
+    bytes chunk = 1;
+  }
+}
+
+// Contract ids (cids) need to be authenticated, otherwise the cid does not uniquely identify the stakeholders and
+// the contract hash
+message CommitmentContractMeta {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  bytes cid = 1;
+  int64 reassignment_counter = 2;
+}
+
+// The participant needs to be authorized to see the requested contracts, for example using JWT authorization
+message InspectCommitmentContracts {
+  message Request {
+    repeated bytes cids = 1;
+  }
+
+  message Response {
+    // commitment contracts
+    bytes chunk = 1;
+  }
+}
+
+message CommitmentContract {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  Contract serialized_contract = 1;
+  bytes creating_tx_id = 2;
+}
+
 
 // list the commitments received from counter-participants
 // optional filtering by domain, time ranges, counter participants, commitment state and verbosity

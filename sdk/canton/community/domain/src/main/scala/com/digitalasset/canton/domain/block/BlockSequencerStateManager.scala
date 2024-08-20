@@ -723,7 +723,7 @@ class BlockSequencerStateManager(
             SequencerCounter.Genesis
         }
       Dispatcher(
-        name = show"${sequencerId.uid.identifier.str}-$member",
+        name = show"${sequencerId.identifier.str}-$member",
         zeroIndex = SequencerCounter.Genesis - 1,
         headAtInitialization = head,
       )

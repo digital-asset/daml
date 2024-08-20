@@ -217,7 +217,7 @@ object CachingDomainTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    store.maxTimestamp().map { x =>
+    store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false).map { x =>
       x.foreach { case (_, effective) =>
         caching
           .updateHead(effective, effective.toApproximate, potentialTopologyChange = true)

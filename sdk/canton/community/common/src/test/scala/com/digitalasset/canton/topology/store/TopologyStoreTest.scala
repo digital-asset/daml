@@ -165,7 +165,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
             _ <- update(store, ts5, add = Seq(tx5_DTC))
             _ <- update(store, ts6, add = Seq(tx6_MDS))
 
-            maxTs <- store.maxTimestamp()
+            maxTs <- store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false)
             retrievedTx <- store.findStored(CantonTimestamp.MaxValue, tx1_NSD_Proposal)
             txProtocolVersion <- store.findStoredForVersion(
               CantonTimestamp.MaxValue,

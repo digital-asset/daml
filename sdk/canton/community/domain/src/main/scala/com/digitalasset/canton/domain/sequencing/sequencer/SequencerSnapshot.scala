@@ -8,8 +8,8 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
+import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus.implicitPrettyString
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus.implicitPrettyString
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRule}

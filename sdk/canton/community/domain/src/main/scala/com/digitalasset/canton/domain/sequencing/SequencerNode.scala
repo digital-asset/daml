@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import com.digitalasset.canton.admin.domain.v30.SequencerStatusServiceGrpc
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -13,6 +14,10 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.admin.data.{
+  SequencerHealthStatus,
+  SequencerNodeStatus,
+}
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
@@ -27,15 +32,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   SequencerDomainConfiguration,
   SequencerDomainConfigurationStore,
 }
-import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationService
+import com.digitalasset.canton.domain.sequencing.service.{
+  GrpcSequencerInitializationService,
+  GrpcSequencerStatusService,
+}
 import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
-import com.digitalasset.canton.health.admin.data.{
-  SequencerHealthStatus,
-  SequencerNodeStatus,
-  WaitingForExternalInput,
-  WaitingForInitialization,
-}
+import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, WaitingForInitialization}
 import com.digitalasset.canton.health.{
   ComponentStatus,
   DependenciesHealthService,
@@ -91,7 +94,7 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
 
@@ -719,6 +722,7 @@ class SequencerNodeBootstrap(
             (healthService.dependencies ++ sequencerPublicApiHealthService.dependencies).map(
               _.toComponentStatus
             ),
+            staticDomainParameters.protocolVersion,
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
@@ -764,6 +768,12 @@ class SequencerNodeBootstrap(
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
     (readiness, liveness)
   }
+
+  override protected def bindNodeStatusService(): ServerServiceDefinition =
+    SequencerStatusServiceGrpc.bindService(
+      new GrpcSequencerStatusService(getNodeStatus, loggerFactory),
+      executionContext,
+    )
 
   // Creates a dynamic GRPC server that initially only exposes a health endpoint, and can later be
   // setup with the sequencer runtime to provide the full sequencer API
@@ -814,9 +824,12 @@ class SequencerNode(
     protected val loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicGrpcServer,
     healthData: => Seq[ComponentStatus],
+    protocolVersion: ProtocolVersion,
 ) extends CantonNode
     with NamedLogging
     with HasUptime {
+
+  override type Status = SequencerNodeStatus
 
   logger.info(s"Creating sequencer server with public api ${config.publicApi}")(TraceContext.empty)
 
@@ -841,6 +854,8 @@ class SequencerNode(
       topologyQueue = sequencer.topologyQueue,
       admin = sequencer.adminStatus,
       healthData,
+      ReleaseVersion.current,
+      protocolVersion,
     )
   }
 

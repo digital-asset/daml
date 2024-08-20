@@ -159,7 +159,7 @@ class GrpcDomainConnectivityService(
         new v30.ListConnectedDomainsResponse.Result(
           domainAlias = alias.unwrap,
           domainId = domainId.toProtoPrimitive,
-          healthy = healthy,
+          healthy = healthy.unwrap,
         )
     }.toSeq))
 

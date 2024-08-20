@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.admin.domain.v30.MediatorStatusServiceGrpc.MediatorStatusService
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -18,11 +19,15 @@ import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, CryptoHandshakeValidator, DomainSyncCryptoClient}
 import com.digitalasset.canton.domain.Domain
+import com.digitalasset.canton.domain.mediator.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorResponse,
 }
-import com.digitalasset.canton.domain.mediator.service.GrpcMediatorInitializationService
+import com.digitalasset.canton.domain.mediator.service.{
+  GrpcMediatorInitializationService,
+  GrpcMediatorStatusService,
+}
 import com.digitalasset.canton.domain.mediator.store.{
   MediatorDomainConfiguration,
   MediatorDomainConfigurationStore,
@@ -31,11 +36,7 @@ import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.service.GrpcSequencerConnectionService
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
-import com.digitalasset.canton.health.admin.data.{
-  MediatorNodeStatus,
-  WaitingForExternalInput,
-  WaitingForInitialization,
-}
+import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, WaitingForInitialization}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.MediatorInitializationServiceGrpc
@@ -58,7 +59,12 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatibility}
+import com.digitalasset.canton.version.{
+  ProtocolVersion,
+  ProtocolVersionCompatibility,
+  ReleaseVersion,
+}
+import io.grpc.ServerServiceDefinition
 import monocle.Lens
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.actor.ActorSystem
@@ -211,6 +217,12 @@ class MediatorNodeBootstrap(
     )
     (readiness, liveness)
   }
+
+  override protected def bindNodeStatusService(): ServerServiceDefinition =
+    MediatorStatusService.bindService(
+      new GrpcMediatorStatusService(getNodeStatus, loggerFactory),
+      executionContext,
+    )
 
   private class WaitForMediatorToDomainInit(
       storage: Storage,
@@ -477,6 +489,7 @@ class MediatorNodeBootstrap(
             adminToken,
             domainLoggerFactory,
             healthData = healthService.dependencies.map(_.toComponentStatus),
+            staticDomainParameters.protocolVersion,
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
@@ -736,9 +749,12 @@ class MediatorNode(
     val adminToken: CantonAdminToken,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
+    protocolVersion: ProtocolVersion,
 ) extends CantonNode
     with NamedLogging
     with HasUptime {
+
+  override type Status = MediatorNodeStatus
 
   def isActive: Boolean = replicaManager.isActive
 
@@ -753,6 +769,8 @@ class MediatorNode(
       replicaManager.isActive,
       replicaManager.getTopologyQueueStatus,
       healthData,
+      ReleaseVersion.current,
+      protocolVersion,
     )
   }
 

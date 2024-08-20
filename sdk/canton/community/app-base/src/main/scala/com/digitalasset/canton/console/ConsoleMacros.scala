@@ -5,7 +5,6 @@ package com.digitalasset.canton.console
 
 import better.files.File
 import cats.syntax.either.*
-import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import ch.qos.logback.classic.Level
@@ -24,7 +23,13 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.ContractData
 import com.digitalasset.canton.admin.api.client.data
-import com.digitalasset.canton.admin.api.client.data.{ListPartiesResult, TemplateId}
+import com.digitalasset.canton.admin.api.client.data.{
+  ListPartiesResult,
+  MediatorStatus,
+  NodeStatus,
+  SequencerStatus,
+  TemplateId,
+}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -32,11 +37,6 @@ import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.admin.data.{
-  MediatorNodeStatus,
-  NodeStatus,
-  SequencerNodeStatus,
-}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
@@ -78,6 +78,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.*
 
 trait ConsoleMacros extends NamedLogging with NoTracing {
+
   import scala.reflect.runtime.universe.*
 
   @Help.Summary("Console utilities")
@@ -101,8 +102,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Wait for a condition to become true, using default timeouts")
     @Help.Description("""
-       |Wait until condition becomes true, with a timeout taken from the parameters.timeouts.console.bounded
-       |configuration parameter.""")
+        |Wait until condition becomes true, with a timeout taken from the parameters.timeouts.console.bounded
+        |configuration parameter.""")
     final def retry_until_true(
         condition: => Boolean
     )(implicit
@@ -155,6 +156,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       private val filename = "participant-config.json"
 
       case class LedgerApi(host: String, port: Int)
+
       // Keys in the exported JSON should have snake_case
       case class Participants(
           default_participant: Option[LedgerApi],
@@ -172,6 +174,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         def participantReference(p: ParticipantId) = if (useParticipantAlias)
           uidToAlias.getOrElse(p, p.uid.toProtoPrimitive)
         else p.uid.toProtoPrimitive
+
         def partyIdToParticipant(p: ListPartiesResult) = p.participants.headOption.map {
           participantDomains =>
             (p.party.filterString, participantReference(participantDomains.participant))
@@ -564,6 +567,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         opt.getOrElse(
           throw new IllegalArgumentException(s"Corrupt created event $event without $desc")
         )
+
       exercise(
         getOrThrow(
           "packageId",
@@ -749,14 +753,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         instance.health.status match {
           case nonFailure if nonFailure.isActive.contains(false) =>
             Left(s"${instance.id.member} is currently not active")
-          case NodeStatus.Success(status: SequencerNodeStatus) =>
+          case NodeStatus.Success(status: SequencerStatus) =>
             // sequencer is already fully initialized for this domain
             Either.cond(
               status.domainId == domainId,
               true,
               s"${instance.id.member} has already been initialized for domain ${status.domainId} instead of $domainId.",
             )
-          case NodeStatus.Success(status: MediatorNodeStatus) =>
+          case NodeStatus.Success(status: MediatorStatus) =>
             // mediator is already fully initialized for this domain
             Either.cond(
               status.domainId == domainId,
@@ -973,6 +977,77 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     }
   }
 
+  object commitments extends Helpful {
+    // TODO(#9557) R2
+    @Help.Summary(
+      "Inspect ACS commitment mismatch as part of the reconciliation protocol.",
+      FeatureFlag.Preview,
+    )
+    @Help.Description(
+      """ Inspect commitment mismatch between computed local commitment and received commitment from counter-participant.
+        | Writes to files the contracts that cause the mismatch and the transactions that activated them.
+        | Assumes that the console is connected to both participants that observed the mismatch.
+        | The commands outputs an error if the counter-participant sent several commitments for the same interval end
+        | and domain, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
+        | given commitment anymore.
+        | The arguments are:
+        | - domain: The domain where the mismatch occurred
+        | - mismatchTimestamp: The domain timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
+        | - targetParticipant: The participant that reported the mismatch and wants to fix it on its side.
+        | - counterParticipant: The counter participant that sent the mismatching commitment, and with which we interact
+        |   to retrieve the mismatching contracts.
+        | - timeout: Time limit for each streaming grpc calls in the command to complete.
+        |   Optional argument. If not given, the time is unbounded.
+        | - integrityChecks: If true, the command performs additional checks:
+        |    - check that, at the given mismatch timestamp, the participant's own commitment and received
+        |    counterCommitment indeed mismatch
+        |    - check that the received contract metadata matches the counterCommitment
+        | - binaryOutputFile: File where to write the mismatch information in binary format. This can be passed to the
+        | command reconciling the mismatch. The mismatch information has the type CommitmentInspectContracts.
+        |   Optional argument. If not given, the default file name on the console is used.
+        | - readableOutputFile: File where to write the mismatch information in human-readable format. This file can
+        | be edited by users to indicate how to fix mismatches: keep, delete, etc. The data type is CommitmentMismatchInfo
+        | written in json format.
+        | Optional argument. If not given, the default file name on the console is used.""".stripMargin
+    )
+    def inspect_acs_commitment_mismatch(
+        domain: DomainId,
+        mismatchTimestamp: CantonTimestamp,
+        targetParticipant: ParticipantReference,
+        // TODO(#20583) Pass only the ParticipantId and change to participant-to-participant communication when available.
+        counterParticipant: ParticipantReference,
+        timeout: Option[NonNegativeDuration] = None,
+        integrityChecks: Boolean = true,
+        binaryOutputFile: Option[String] = None,
+        readableOutputFile: Option[String] = None,
+    ): Unit = {
+      // TODO(#9557) 0. If integrityChecks is true, check that, at the given mismatch timestamp, the target
+      //  participant's own commitment and received counterCommitment indeed mismatch
+      //  We read these commitment from the target participant's store using R5 endpoints
+
+      // TODO(#9557) 1. Downloading the shared contract metadata from counter-participant:
+      //  counterParticipant.commitments.open_commitment(...)
+
+      // TODO(#9557) 2. If integrityChecks is true, check that the contract metadata sent matches the counter commitment
+      //  by uploading the contract metadata to the target participant.
+      //  The retrieved data might be insufficient for the check, because for example the target participant has never
+      //  seen some of the received cids, therefore it does not know the stakeholders and cannot properly compute the
+      //  hierarchical commitments. In this case, we can perform the check as the last step, after we retrieve the
+      //  contract payloads from the counter-participant.
+
+      // TODO(#9557) 3. Identify mismatching contracts by checking the counterParticipant's contracts metadata
+      //  against the ACS contracts of the target participant:
+      //  targetParticipant.commitments.active_contracts_mismatches(...)
+      // TODO(#20583) Investigate fetching the ACS snapshot via LAPI without the contract payload. LAPI has longer lived data
+      //  and allows for party filtering.
+
+      // TODO(#9557) 4. Request contract payloads from the counterParticipant for shared contracts that cause mismatches
+      //   and write them to the binary output file:
+      //   counterParticipant.commitments.download_contract_reconciliation_payloads(...)
+
+      // TODO(#9557) 5. Write user-readable data in the readable output file regarding mismatching contracts ids
+    }
+  }
 }
 
 object ConsoleMacros extends ConsoleMacros with NamedLogging {

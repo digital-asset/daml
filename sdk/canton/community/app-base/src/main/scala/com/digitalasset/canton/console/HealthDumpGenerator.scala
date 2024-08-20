@@ -4,16 +4,12 @@
 package com.digitalasset.canton.console
 
 import better.files.File
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands
-import com.digitalasset.canton.admin.api.client.data.CantonStatus
-import com.digitalasset.canton.admin.health.v30
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
+import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.health.admin.data
-import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.metrics.MetricsSnapshot
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ReleaseVersion
 import io.circe.Encoder
 import io.circe.syntax.*
@@ -27,30 +23,31 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
   def status(): Status
   def environment: Environment
   def grpcAdminCommandRunner: GrpcAdminCommandRunner
+
   protected implicit val statusEncoder: Encoder[Status]
 
   private def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
       nodeConfig: LocalNodeConfig,
-      deserializer: v30.StatusResponse.Status => ParsingResult[S],
+      nodeStatusCommand: NodeStatusCommand[S, _, _],
   ): NodeStatus[S] =
     grpcAdminCommandRunner
       .runCommand(
         nodeName,
-        new StatusAdminCommands.GetStatus[S](deserializer),
+        nodeStatusCommand,
         nodeConfig.clientAdminApi,
         None,
       ) match {
       case CommandSuccessful(value) => value
-      case err: CommandError => data.NodeStatus.Failure(err.cause)
+      case err: CommandError => NodeStatus.Failure(err.cause)
     }
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
-      deserializer: v30.StatusResponse.Status => ParsingResult[S],
+      nodeStatusCommand: NodeStatusCommand[S, _, _],
   ): Map[String, () => NodeStatus[S]] =
     nodes.map { case (nodeName, nodeConfig) =>
-      nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer))
+      nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, nodeStatusCommand))
     }
 
   @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072

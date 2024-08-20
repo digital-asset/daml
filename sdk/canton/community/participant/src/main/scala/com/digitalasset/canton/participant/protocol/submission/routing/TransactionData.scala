@@ -13,15 +13,18 @@ import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Bundle together some data needed to route the transaction.
   *
   * @param requiredPackagesPerParty Required packages per informee of the transaction
-  * @param submitters Submitters of the transaction.
+  * @param actAs Act as of the submitted command
+  * @param readAs Read as of the submitted command
   * @param inputContractsDomainData Information about the input contracts
   * @param prescribedDomainO If non-empty, thInvalidWorkflowIde prescribed domain will be chosen for routing.
   *                          In case this domain is not admissible, submission will fail.
@@ -29,20 +32,23 @@ import scala.concurrent.{ExecutionContext, Future}
 private[routing] final case class TransactionData private (
     transaction: LfVersionedTransaction,
     requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
-    submitters: Set[LfPartyId],
+    actAs: Set[LfPartyId],
+    readAs: Set[LfPartyId],
     inputContractsDomainData: ContractsDomainData,
     prescribedDomainO: Option[DomainId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
-  val version = transaction.version
+  val version: TransactionVersion = transaction.version
+  val readers: Set[LfPartyId] = actAs.union(readAs)
 }
 
 private[routing] object TransactionData {
   def create(
-      submitters: Set[LfPartyId],
+      actAs: Set[LfPartyId],
+      readAs: Set[LfPartyId],
       transaction: LfVersionedTransaction,
       domainStateProvider: DomainStateProvider,
-      contractRoutingParties: Map[LfContractId, Set[Party]],
+      contractsStakeholders: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
       prescribedDomainIdO: Option[DomainId],
   )(implicit
@@ -54,7 +60,7 @@ private[routing] object TransactionData {
         ContractsDomainData
           .create(
             domainStateProvider,
-            contractRoutingParties,
+            contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
           .leftMap[TransactionRoutingError](cids =>
@@ -64,7 +70,8 @@ private[routing] object TransactionData {
     } yield TransactionData(
       transaction = transaction,
       requiredPackagesPerParty = Blinding.partyPackages(transaction),
-      submitters = submitters,
+      actAs = actAs,
+      readAs = readAs,
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainIdO,
     )
@@ -73,31 +80,30 @@ private[routing] object TransactionData {
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
       domainStateProvider: DomainStateProvider,
-      contractRoutingParties: Map[LfContractId, Set[Party]],
+      inputContractStakeholders: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
       prescribedDomainO: Option[DomainId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] =
+  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+    def parseReader(party: Ref.Party) = LfPartyId
+      .fromString(party)
+      .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error)
+
     for {
-      submitters <- EitherT.fromEither[Future](
-        submitterInfo.actAs
-          .traverse(submitter =>
-            LfPartyId
-              .fromString(submitter)
-              .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidSubmitter.Error)
-          )
-          .map(_.toSet)
-      )
+      actAs <- EitherT.fromEither[Future](submitterInfo.actAs.traverse(parseReader).map(_.toSet))
+      readers <- EitherT.fromEither[Future](submitterInfo.readAs.traverse(parseReader).map(_.toSet))
 
       transactionData <- create(
-        submitters,
+        actAs = actAs,
+        readAs = readers,
         transaction,
         domainStateProvider,
-        contractRoutingParties,
+        inputContractStakeholders,
         disclosedContracts,
         prescribedDomainO,
       )
     } yield transactionData
+  }
 }
