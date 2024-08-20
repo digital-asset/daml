@@ -265,7 +265,7 @@ class AcsCommitmentProcessor(
   val runningCommitments: Future[RunningCommitments] = initRunningCommitments(store)
 
   private val cachedCommitments: Option[CachedCommitments] =
-    if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.uid.identifier.str))
+    if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.identifier.str))
       None
     else Some(new CachedCommitments())
 

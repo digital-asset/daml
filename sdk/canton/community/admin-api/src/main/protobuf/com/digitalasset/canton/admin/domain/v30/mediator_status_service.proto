@@ -1,0 +1,27 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.domain.v30;
+
+import "com/digitalasset/canton/admin/health/v30/status_service.proto";
+
+service MediatorStatusService {
+  rpc MediatorStatus(MediatorStatusRequest) returns (MediatorStatusResponse);
+}
+
+message MediatorStatusRequest {}
+
+message MediatorStatusResponse {
+  oneof kind {
+    MediatorStatusResponseStatus status = 1;
+    com.digitalasset.canton.admin.health.v30.NotInitialized not_initialized = 2;
+  }
+
+  message MediatorStatusResponseStatus {
+    com.digitalasset.canton.admin.health.v30.Status common_status = 1;
+    string domain_id = 2;
+    int32 protocol_version = 3;
+  }
+}

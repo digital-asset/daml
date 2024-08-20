@@ -723,7 +723,7 @@ final case class PartyToKeyMapping private (
       )
     )
 
-  def code: TopologyMapping.Code = Code.OwnerToKeyMapping
+  def code: TopologyMapping.Code = Code.PartyToKeyMapping
 
   override def namespace: Namespace = party.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
@@ -732,8 +732,15 @@ final case class PartyToKeyMapping private (
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth =
-    RequiredUids(Set(party.uid), signingKeys.map(_.fingerprint).toSet)
+  ): RequiredAuth = {
+    val previouslyRegisteredKeys = previous
+      .flatMap(_.select[TopologyChangeOp.Replace, PartyToKeyMapping])
+      .toList
+      .flatMap(_.mapping.signingKeys.forgetNE)
+      .toSet
+    val newKeys = signingKeys.toSet -- previouslyRegisteredKeys
+    RequiredUids(Set(party.uid), newKeys.map(_.fingerprint))
+  }
 
   override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party, domain)
 }

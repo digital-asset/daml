@@ -136,6 +136,10 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
   def selectOp[TargetOp <: TopologyChangeOp: ClassTag]: Option[TopologyTransaction[TargetOp, M]] =
     operation.select[TargetOp].map(_ => this.asInstanceOf[TopologyTransaction[TargetOp, M]])
 
+  def select[TargetOp <: TopologyChangeOp: ClassTag, TargetMapping <: TopologyMapping: ClassTag]
+      : Option[TopologyTransaction[TargetOp, TargetMapping]] =
+    selectOp[TargetOp].flatMap(_.selectMapping[TargetMapping])
+
   /** returns hash of the given transaction */
   lazy val hash: TxHash =
     TxHash(

@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.time.RefinedDuration
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 final case class EffectiveTime(value: CantonTimestamp) {
@@ -15,6 +16,8 @@ final case class EffectiveTime(value: CantonTimestamp) {
   def toLf: LfTimestamp = value.toLf
   def max(that: EffectiveTime): EffectiveTime =
     EffectiveTime(value.max(that.value))
+  def immediateSuccessor(): EffectiveTime = EffectiveTime(value.immediateSuccessor)
+  def +(duration: RefinedDuration): EffectiveTime = EffectiveTime(value + duration)
 }
 object EffectiveTime {
   val MinValue: EffectiveTime = EffectiveTime(CantonTimestamp.MinValue)

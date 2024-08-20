@@ -8,6 +8,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.admin.data.{
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
@@ -19,7 +23,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler

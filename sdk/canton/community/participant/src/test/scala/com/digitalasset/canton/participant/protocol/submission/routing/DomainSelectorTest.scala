@@ -511,10 +511,11 @@ private[routing] object DomainSelectorTest {
 
       private val transactionDataET = TransactionData
         .create(
-          submitters = Set(signatory),
+          actAs = Set(signatory),
+          readAs = Set(),
           transaction = tx,
           domainStateProvider = TestDomainStateProvider,
-          contractRoutingParties = inputContractStakeholders,
+          contractsStakeholders = inputContractStakeholders,
           prescribedDomainIdO = prescribedSubmitterDomainId,
           disclosedContracts = Nil,
         )

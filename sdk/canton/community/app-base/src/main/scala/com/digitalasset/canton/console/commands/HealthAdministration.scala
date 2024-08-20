@@ -5,9 +5,19 @@ package com.digitalasset.canton.console.commands
 
 import better.files.File
 import ch.qos.logback.classic.Level
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.{
+  NodeStatusCommand,
+  NodeStatusElement,
+}
 import com.digitalasset.canton.admin.api.client.commands.{
   StatusAdminCommands,
   TopologyAdminCommands,
+}
+import com.digitalasset.canton.admin.api.client.data.{
+  NodeStatus,
+  WaitingForId,
+  WaitingForInitialization,
+  WaitingForNodeTopology,
 }
 import com.digitalasset.canton.admin.health.v30
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
@@ -23,30 +33,29 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.grpc.FileStreamObserver
-import com.digitalasset.canton.health.admin.data
-import com.digitalasset.canton.health.admin.data.NodeStatus
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.grpc.Context
 
 import java.util.concurrent.atomic.AtomicReference
 
-class HealthAdministration[S <: data.NodeStatus.Status](
+abstract class HealthAdministration[S <: NodeStatus.Status](
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
-    deserialize: v30.StatusResponse.Status => ParsingResult[S],
 ) extends Helpful {
   private val initializedCache = new AtomicReference[Boolean](false)
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
 
   import runner.*
 
-  @Help.Summary("Get human (and machine) readable status info")
-  def status: data.NodeStatus[S] = consoleEnvironment.run {
-    CommandSuccessful(adminCommand(new StatusAdminCommands.GetStatus[S](deserialize)) match {
-      case CommandSuccessful(success) => success
-      case err: CommandError => data.NodeStatus.Failure(err.cause)
-    })
-  }
+  protected def nodeStatusCommand: NodeStatusCommand[S, _, _]
+
+  @Help.Summary("Get human (and machine) readable status information")
+  def status: NodeStatus[S] =
+    consoleEnvironment.run {
+      CommandSuccessful(adminCommand(nodeStatusCommand) match {
+        case CommandSuccessful(success) => success
+        case err: CommandError => NodeStatus.Failure(err.cause)
+      })
+    }
 
   @Help.Summary("Returns true if the node has an identity")
   def has_identity(): Boolean = adminCommand(
@@ -84,13 +93,10 @@ class HealthAdministration[S <: data.NodeStatus.Status](
   }
 
   private def runningCommand =
-    adminCommand(
-      StatusAdminCommands.IsRunning
-    )
+    adminCommand(NodeStatusElement(nodeStatusCommand, _.isRunning))
+
   private def initializedCommand =
-    adminCommand(
-      StatusAdminCommands.IsInitialized
-    )
+    adminCommand(NodeStatusElement(nodeStatusCommand, _.isInitialized))
 
   private def falseIfUnreachable(command: ConsoleCommandResult[Boolean]): Boolean =
     consoleEnvironment.run(CommandSuccessful(command match {
@@ -104,19 +110,36 @@ class HealthAdministration[S <: data.NodeStatus.Status](
     falseIfUnreachable(runningCommand)
 
   @Help.Summary("Check if the node is ready for setting the node's id")
-  def is_ready_for_id(): Boolean = falseIfUnreachable(
-    adminCommand(StatusAdminCommands.IsReadyForId)
-  )
+  def is_ready_for_id(): Boolean =
+    falseIfUnreachable(
+      adminCommand(
+        NodeStatusElement(
+          nodeStatusCommand,
+          NodeStatusElement.isWaitingForExternalInput(_, WaitingForId),
+        )
+      )
+    )
 
   @Help.Summary("Check if the node is ready for uploading the node's identity topology")
   def is_ready_for_node_topology(): Boolean = falseIfUnreachable(
-    adminCommand(StatusAdminCommands.IsReadyForNodeTopology)
+    adminCommand(
+      NodeStatusElement(
+        nodeStatusCommand,
+        NodeStatusElement.isWaitingForExternalInput(_, WaitingForNodeTopology),
+      )
+    )
   )
 
   @Help.Summary("Check if the node is ready for initialization")
-  def is_ready_for_initialization(): Boolean = falseIfUnreachable(
-    adminCommand(StatusAdminCommands.IsReadyForInitialization)
-  )
+  def is_ready_for_initialization(): Boolean =
+    falseIfUnreachable(
+      adminCommand(
+        NodeStatusElement(
+          nodeStatusCommand,
+          NodeStatusElement.isWaitingForExternalInput(_, WaitingForInitialization),
+        )
+      )
+    )
 
   @Help.Summary("Check if the node is running and is the active instance (mediator, participant)")
   def active: Boolean = status match {

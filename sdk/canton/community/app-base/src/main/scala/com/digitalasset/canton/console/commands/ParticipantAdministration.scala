@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.console.commands
 
+import better.files.File
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
@@ -38,12 +39,21 @@ import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
+  ParticipantStatus,
 }
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
+import com.digitalasset.canton.admin.participant.v30.{
+  InspectCommitmentContracts,
+  OpenCommitment,
+  PruningServiceGrpc,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, NonNegativeDuration}
+import com.digitalasset.canton.config.{
+  ConsoleCommandTimeout,
+  DomainTimeTrackerConfig,
+  NonNegativeDuration,
+}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
@@ -61,7 +71,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.admin.data.ParticipantStatus
+import com.digitalasset.canton.grpc.{ByteStringStreamObserver, FileStreamObserver}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.ResourceLimits
@@ -71,12 +81,13 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
   SentCmtState,
 }
-import com.digitalasset.canton.protocol.SerializableContract
+import com.digitalasset.canton.participant.pruning.{CommitmentContractMetadata, MismatchReason}
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
   SignedProtocolMessage,
 }
+import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.sequencing.{
   PossiblyIgnoredProtocolEvent,
   SequencerConnection,
@@ -91,8 +102,11 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{DomainAlias, SequencerAlias, config}
+import io.grpc.Context
+import spray.json.DeserializationException
 
 import java.time.Instant
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
 sealed trait DomainChoice
@@ -630,11 +644,9 @@ class ParticipantPruningAdministrationGroup(
 
 class LocalCommitmentsAdministrationGroup(
     runner: AdminCommandRunner with BaseInspection[ParticipantNode],
-    val consoleEnvironment: ConsoleEnvironment,
-    val loggerFactory: NamedLoggerFactory,
-) extends FeatureFlagFilter
-    with Helpful
-    with NoTracing {
+    override val consoleEnvironment: ConsoleEnvironment,
+    override val loggerFactory: NamedLoggerFactory,
+) extends CommitmentsAdministrationGroup(runner, consoleEnvironment, loggerFactory) {
 
   import runner.*
 
@@ -705,6 +717,149 @@ class LocalCommitmentsAdministrationGroup(
         timestampFromInstant(endAtOrBefore),
       )
     }
+}
+
+class CommitmentsAdministrationGroup(
+    runner: AdminCommandRunner,
+    val consoleEnvironment: ConsoleEnvironment,
+    val loggerFactory: NamedLoggerFactory,
+) extends FeatureFlagFilter
+    with Helpful
+    with NoTracing {
+
+  import runner.*
+
+  // TODO(#9557) R2
+  @Help.Summary(
+    "Opens a commitment by retrieving the metadata of active contracts shared with the counter-participant.",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """ Retrieves the contract ids and the transfer counters of the shared active contracts at the given timestamp
+      | and on the given domain.
+      | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
+      | The arguments are:
+      | - commitment: The commitment to be opened
+      | - domain: The domain for which the commitment was computed
+      | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
+      | - counterParticipant: The counter participant to whom we previously sent the commitment
+      | - timeout: Time limit for the grpc call to complete
+      """.stripMargin
+  )
+  def open_commitment(
+      commitment: AcsCommitment.CommitmentType,
+      domain: DomainId,
+      timestamp: CantonTimestamp,
+      counterParticipant: ParticipantId,
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): Seq[CommitmentContractMetadata] =
+    check(FeatureFlag.Preview) {
+      val counterContracts = consoleEnvironment.run {
+        val responseObserver =
+          new ByteStringStreamObserver[OpenCommitment.Response](_.chunk)
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
+          adminCommand(
+            ParticipantAdminCommands.Inspection.OpenCommitment(
+              responseObserver,
+              commitment,
+              domain,
+              counterParticipant,
+              timestamp,
+            )
+          )
+
+        processResult(
+          call,
+          responseObserver.resultBytes,
+          timeout,
+          "Retrieving the shared contract metadata",
+        )
+      }
+
+      val counterContractsMetadata =
+        GrpcStreamingUtils.parseDelimitedFromTrusted[CommitmentContractMetadata](
+          counterContracts.newInput(),
+          CommitmentContractMetadata,
+        ) match {
+          case Left(msg) => throw DeserializationException(msg)
+          case Right(output) => output
+        }
+      logger.debug(
+        s"Retrieved metadata for ${counterContractsMetadata.size} contracts shared with $counterParticipant at time $timestamp on domain $domain"
+      )
+      counterContractsMetadata
+    }
+
+  // TODO(#9557) R2. We'll either reuse the existing export ACS mechanism or, if that doesn't work, we'll introduce a
+  //  new gRPC download endpoint, and filter by parties hosted on the counter-participant. The output will be contracts
+  //  for parties hosted by both the counter-participant and the local participant, as the local participant doesn't have
+  //  access to contracts of parties that it doesn't host.
+  @Help.Summary(
+    "From a given set of contract ids and transfer counters, identify the contracts that are either not active, or have" +
+      "a different transfer counter, or are not shared with the given counter-participant.",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """ Returns the contract ids and the mismatch reason.
+      | Returns an error if the participant cannot anymore retrieve the data for the given contracts.
+      | The arguments are:
+      | - contracts: The contract ids and transfer counters that we check against our ACS
+      | - expectedDomain: The domain that the counterParticipant believes the given contracts reside on
+      | - timestamp: The timestamp when the given contracts are active on the counter-participant
+      | - counterParticipant: The counter participant with whom the contracts should be shared
+      | - timeout: Time limit for the grpc call to complete
+      """.stripMargin
+  )
+  def active_contracts_mismatches(
+      contracts: Seq[CommitmentContractMetadata],
+      expectedDomain: DomainId,
+      timestamp: CantonTimestamp,
+      counterParticipant: ParticipantId,
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): Map[LfContractId, MismatchReason] =
+    check(FeatureFlag.Preview)(Map.empty[LfContractId, MismatchReason])
+
+  @Help.Summary(
+    "Download the contract payloads from the counter participant necessary for reconciliation",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """ Returns the contract ids and the mismatch reason.
+      | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
+      | The arguments are:
+      | - contracts: The contract ids whose payload we want to download from the counterParticipant
+      | - timeout: Time limit for the grpc call to complete
+      | - binaryOutputFile: The file where to write the payload and mismatch information for the given mismatching
+      """.stripMargin
+  )
+  def download_contract_reconciliation_payloads(
+      contracts: Seq[LfContractId],
+      timeout: NonNegativeDuration = timeouts.unbounded,
+      binaryOutputFile: String = CommitmentsAdministrationGroup.ExportMismatchDefaultBinaryFile,
+  ): Unit = check(FeatureFlag.Preview) {
+    val file = File(binaryOutputFile)
+    consoleEnvironment.run {
+      val responseObserver =
+        new FileStreamObserver[InspectCommitmentContracts.Response](file, _.chunk)
+
+      def call: ConsoleCommandResult[Context.CancellableContext] =
+        adminCommand(
+          ParticipantAdminCommands.Inspection.CommitmentContracts(
+            responseObserver,
+            contracts,
+          )
+        )
+
+      processResult(
+        call,
+        responseObserver.result,
+        timeout,
+        request = "Downloading contract from counter-participant that cause mismatch",
+        cleanupOnError = () => file.delete(),
+      )
+    }
+  }
 
   // TODO(#18451) R5
   @Help.Summary(
@@ -990,6 +1145,14 @@ class LocalCommitmentsAdministrationGroup(
         )
       )
     )
+
+  private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
+  private implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+}
+
+object CommitmentsAdministrationGroup {
+  private val ExportMismatchDefaultBinaryFile = "canton-acs-mismatch-export.gz"
+  private val ExportMismatchDefaultReadableFile = "canton-acs-mismatch-export.json"
 }
 
 class ParticipantReplicationAdministrationGroup(
@@ -1007,7 +1170,6 @@ class ParticipantReplicationAdministrationGroup(
         ParticipantAdminCommands.Replication.SetPassiveCommand()
       )
     }
-
 }
 
 /** Administration commands supported by a participant.
@@ -1834,10 +1996,13 @@ class ParticipantHealthAdministration(
     val runner: AdminCommandRunner,
     val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,
-) extends HealthAdministration(
+) extends HealthAdministration[ParticipantStatus](
       runner,
       consoleEnvironment,
-      ParticipantStatus.fromProtoV30,
     )
     with FeatureFlagFilter
-    with ParticipantHealthAdministrationCommon
+    with ParticipantHealthAdministrationCommon {
+  override protected def nodeStatusCommand
+      : StatusAdminCommands.NodeStatusCommand[ParticipantStatus, _, _] =
+    ParticipantAdminCommands.Health.ParticipantStatusCommand()
+}

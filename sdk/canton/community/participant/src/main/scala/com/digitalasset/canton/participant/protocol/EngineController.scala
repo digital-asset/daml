@@ -51,7 +51,7 @@ final case class EngineController(
 
   /** Return the engine abort status for this request. */
   def abortStatus: EngineAbortStatus = {
-    testHookFor(participantId.uid.identifier.str).apply()
+    testHookFor(participantId.identifier.str).apply()
 
     EngineAbortStatus(abortStatusRef.get)
   }

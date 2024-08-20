@@ -182,7 +182,7 @@ private[routing] final class AdmissibleDomains(
         if (!canUseDomain) {
           val context = Map(
             "unknown submitters" -> unknownSubmitters,
-            "incorrect permissions" -> incorrectPermissionSubmitters.toSeq,
+            "incorrect permissions" -> incorrectPermissionSubmitters,
           )
           logger.debug(s"Cannot use domain $domainId: $context")
         }

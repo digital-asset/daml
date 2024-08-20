@@ -56,6 +56,7 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
@@ -440,9 +441,9 @@ class SyncDomain(
       EitherT.right(store.findUpcomingEffectiveChanges(timestamp).map { changes =>
         changes.headOption.foreach { head =>
           logger.debug(
-            s"Initialising the acs commitment processor with ${changes.length} effective times starting from: ${head.effective}"
+            s"Initialising the acs commitment processor with ${changes.length} effective times starting from: ${head.validFrom}"
           )
-          acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.effective).toList)
+          acsCommitmentProcessor.initializeTicksOnStartup(changes.map(_.validFrom).toList)
         }
       })
     }
@@ -815,8 +816,8 @@ class SyncDomain(
   /** A [[SyncDomain]] is ready when it has resubscribed to the sequencer client. */
   def ready: Boolean = !ephemeral.isFailed
 
-  def readyForSubmission: Boolean =
-    ready && !isFailed && !sequencerClient.healthComponent.isFailed
+  def readyForSubmission: SubmissionReady =
+    SubmissionReady(ready && !isFailed && !sequencerClient.healthComponent.isFailed)
 
   /** @return The outer future completes after the submission has been registered as in-flight.
     *          The inner future completes after the submission has been sequenced or if it will never be sequenced.
@@ -937,6 +938,11 @@ class SyncDomain(
 
 object SyncDomain {
   val healthName: String = "sync-domain"
+
+  // Whether the sync domain is ready for submission
+  final case class SubmissionReady(v: Boolean) extends AnyVal {
+    def unwrap: Boolean = v
+  }
 
   private class EventProcessingMonitor(
       startingPoints: ProcessingStartingPoints,

@@ -27,22 +27,22 @@ private[routing] object ContractsDomainData {
    */
   def create(
       domainStateProvider: DomainStateProvider,
-      contractRoutingParties: Map[LfContractId, Set[Party]],
+      contractsStakeholders: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, NonEmpty[Seq[LfContractId]], ContractsDomainData] = {
     val result = domainStateProvider
-      .getDomainsOfContracts(contractRoutingParties.keySet.toSeq)
+      .getDomainsOfContracts(contractsStakeholders.keySet.toSeq)
       .map { domainMap =>
         // Collect domains of input contracts, ignoring contracts that cannot be found in the ACS.
         // Such contracts need to be ignored, because they could be divulged contracts.
-        val (bad, good) = contractRoutingParties.toSeq
-          .partitionMap { case (coid, routingParties) =>
+        val (bad, good) = contractsStakeholders.toSeq
+          .partitionMap { case (coid, stakeholders) =>
             domainMap.get(coid) match {
               case Some(domainId) =>
-                Right(ContractData(coid, domainId, routingParties))
+                Right(ContractData(coid, domainId, stakeholders))
               case None => Left(coid)
             }
           }

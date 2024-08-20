@@ -17,6 +17,7 @@ import com.digitalasset.canton.version.ProtocolVersion.{
   stable,
   supported,
 }
+import io.circe.Encoder
 import pureconfig.error.FailureReason
 import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -138,6 +139,9 @@ object ProtocolVersion {
 
   implicit val setParameterProtocolVersion: SetParameter[ProtocolVersion] =
     (pv: ProtocolVersion, pp: PositionedParameters) => pp >> pv.v
+
+  implicit val protocolVersionEncoder: Encoder[ProtocolVersion] =
+    Encoder.encodeString.contramap[ProtocolVersion](p => if (p.isDev) "dev" else p.v.toString)
 
   private[version] def unsupportedErrorMessage(
       pv: ProtocolVersion,

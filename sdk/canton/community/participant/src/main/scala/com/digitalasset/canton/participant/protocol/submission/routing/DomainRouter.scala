@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
 }
-import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractRoutingParties
+import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractsStakeholders
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
   MultiDomainSupportNotEnabled,
@@ -128,19 +128,18 @@ class DomainRouter(
           .leftMap(RoutingInternalError.IllformedTransaction)
       )
 
-      contractRoutingParties = inputContractRoutingParties(wfTransaction.unwrap)
+      contractsStakeholders = inputContractsStakeholders(wfTransaction.unwrap)
 
       transactionData <- TransactionData.create(
         submitterInfo,
         transaction,
         snapshotProvider,
-        contractRoutingParties,
+        contractsStakeholders,
         inputDisclosedContracts.map(_.contractId),
         optDomainId,
       )
 
       domainSelector <- domainSelectorFactory.create(transactionData)
-
       inputDomains = transactionData.inputContractsDomainData.domains
 
       isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId)
@@ -233,17 +232,17 @@ class DomainRouter(
       }
     }
 
-    // Check that at least one submitter is a stakeholder so that we can transfer the contract if needed. This check
-    // is overly strict on behalf of contracts that turn out not to need to be transferred.
-    val submitterNotBeingStakeholder = contractData.filter { data =>
-      data.stakeholders.intersect(transactionData.submitters).isEmpty
+    // Check that at least one party listed in actAs or readAs is a stakeholder so that we can transfer the contract if needed.
+    // This check is overly strict on behalf of contracts that turn out not to need to be transferred.
+    val readerNotBeingStakeholder = contractData.filter { data =>
+      data.stakeholders.intersect(transactionData.readers).isEmpty
     }
 
     for {
-      // Check: submitter
+      // Check: reader
       _ <- EitherTUtil.condUnitET[Future](
-        submitterNotBeingStakeholder.isEmpty,
-        SubmitterAlwaysStakeholder.Error(submitterNotBeingStakeholder.map(_.id)),
+        readerNotBeingStakeholder.isEmpty,
+        SubmitterAlwaysStakeholder.Error(readerNotBeingStakeholder.map(_.id)),
       )
 
       // Check: connected domains
@@ -366,7 +365,7 @@ object DomainRouter {
   )(implicit ec: ExecutionContext): EitherT[Future, TransactionRoutingError, T] =
     eitherT.leftMap(subm => TransactionRoutingError.SubmissionError(domainId, subm))
 
-  private[routing] def inputContractRoutingParties(
+  private[routing] def inputContractsStakeholders(
       tx: LfVersionedTransaction
   ): Map[LfContractId, Set[Ref.Party]] = {
 

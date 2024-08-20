@@ -87,7 +87,6 @@ final class GeneratorsProtocol(
       for {
         sender <- Arbitrary.arbitrary[Member]
         messageId <- Arbitrary.arbitrary[MessageId]
-        isRequest <- Arbitrary.arbitrary[Boolean]
         envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](closedEnvelopeArb)
         batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
         maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]

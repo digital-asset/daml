@@ -31,30 +31,6 @@ class GrpcStatusService(
 ) extends v30.StatusServiceGrpc.StatusService
     with NamedLogging {
 
-  override def status(request: v30.StatusRequest): Future[v30.StatusResponse] = {
-    val protoStatus = status match {
-      case data.NodeStatus.Success(status) =>
-        v30.StatusResponse(v30.StatusResponse.Response.Success(status.toProtoV30))
-      case data.NodeStatus.NotInitialized(active, waitingFor) =>
-        v30.StatusResponse(
-          v30.StatusResponse.Response.NotInitialized(
-            v30.StatusResponse.NotInitialized(
-              active,
-              waitingFor
-                .map(_.toProtoV30)
-                .getOrElse(
-                  v30.StatusResponse.NotInitialized.WaitingForExternalInput.WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED
-                ),
-            )
-          )
-        )
-      case data.NodeStatus.Failure(_msg) =>
-        // The node's status should never return a Failure here.
-        v30.StatusResponse(v30.StatusResponse.Response.Empty)
-    }
-    Future.successful(protoStatus)
-  }
-
   override def healthDump(
       request: HealthDumpRequest,
       responseObserver: StreamObserver[HealthDumpResponse],

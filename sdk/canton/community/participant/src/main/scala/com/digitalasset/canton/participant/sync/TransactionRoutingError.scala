@@ -101,40 +101,20 @@ object TransactionRoutingError extends RoutingErrorGroup {
   object MalformedInputErrors extends ErrorGroup() {
 
     @Explanation(
-      """The party defined as a submitter can not be parsed into a valid Canton party."""
+      """The party defined as a reader (actAs or readAs) can not be parsed into a valid Canton party."""
     )
     @Resolution(
       """Check that you only use correctly setup party names in your application."""
     )
-    object InvalidSubmitter
+    object InvalidReader
         extends ErrorCode(
-          id = "INVALID_SUBMITTER",
+          id = "INVALID_READER",
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
       final case class Error(submitter: String)
           extends TransactionErrorImpl(
-            cause = "Unable to parse submitter."
-          )
-          with TransactionRoutingError
-    }
-
-    // TODO(i17634): remove or adapt description
-    @Explanation(
-      """The WorkflowID defined in the transaction metadata contains an invalid domain id."""
-    )
-    @Resolution(
-      """Check that the workflow ID (if specified) corresponds to a valid domain ID after the ``domain-id:`` marker string."""
-    )
-    object InvalidDomainId
-        extends ErrorCode(
-          id = "INVALID_DOMAIN_ID",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Error(invalidDomainId: String)
-          extends TransactionErrorImpl(
-            cause = "Unable to parse workflow ID."
+            cause = "Unable to parse reader (actAs or readAs)."
           )
           with TransactionRoutingError
     }
@@ -344,7 +324,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
         ) {
       final case class Error(cids: Seq[LfContractId])
           extends TransactionErrorImpl(
-            cause = "The given contracts can not be transferred as no submitter is a stakeholder."
+            cause = "The given contracts cannot be transferred as no submitter is a stakeholder."
           )
           with TransactionRoutingError
     }

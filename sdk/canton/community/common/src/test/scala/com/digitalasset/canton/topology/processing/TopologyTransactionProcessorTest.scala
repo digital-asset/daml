@@ -100,13 +100,7 @@ abstract class TopologyTransactionProcessorTest
           SequencedTime(ts),
           EffectiveTime(ts),
           SequencerCounter(sc),
-          List(
-            TopologyTransactionsBroadcast.create(
-              DefaultTestIdentities.domainId,
-              Seq(Broadcast(String255.tryCreate("some request"), txs)),
-              testedProtocolVersion,
-            )
-          ),
+          txs,
         )
         .onShutdown(fail())
         .futureValue

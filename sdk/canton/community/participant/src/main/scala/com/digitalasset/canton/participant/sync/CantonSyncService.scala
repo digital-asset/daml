@@ -74,6 +74,7 @@ import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.Mis
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
+import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceDomainBecamePassive,
   SyncServiceDomainDisabledUs,
@@ -799,7 +800,7 @@ class CantonSyncService(
   }
 
   /** Returns the ready domains this sync service is connected to. */
-  def readyDomains: Map[DomainAlias, (DomainId, Boolean)] =
+  def readyDomains: Map[DomainAlias, (DomainId, SubmissionReady)] =
     connectedDomainsMap
       .to(LazyList)
       .mapFilter {
@@ -1799,22 +1800,23 @@ class CantonSyncService(
 
     val result = readyDomains
       // keep only healthy domains
-      .collect { case (domainAlias, (domainId, true)) =>
-        for {
-          topology <- getSnapshot(domainAlias, domainId)
-          partyWithAttributes <- topology.hostedOn(
-            Set(request.party),
-            participantId = participantId,
-          )
-        } yield partyWithAttributes
-          .get(request.party)
-          .map(attributes =>
-            ConnectedDomainResponse.ConnectedDomain(
-              domainAlias,
-              domainId,
-              attributes.permission,
+      .collect {
+        case (domainAlias, (domainId, submissionReady)) if submissionReady.unwrap =>
+          for {
+            topology <- getSnapshot(domainAlias, domainId)
+            partyWithAttributes <- topology.hostedOn(
+              Set(request.party),
+              participantId = participantId,
             )
-          )
+          } yield partyWithAttributes
+            .get(request.party)
+            .map(attributes =>
+              ConnectedDomainResponse.ConnectedDomain(
+                domainAlias,
+                domainId,
+                attributes.permission,
+              )
+            )
       }.toSeq
 
     Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
