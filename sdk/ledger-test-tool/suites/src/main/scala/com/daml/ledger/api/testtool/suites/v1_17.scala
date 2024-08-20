@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.tls.TlsConfiguration
 
-package object v1_16 {
+package object v1_17 {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
     v1_15.default(timeoutScaleFactor) ++ Vector(new UpgradingIT)
 

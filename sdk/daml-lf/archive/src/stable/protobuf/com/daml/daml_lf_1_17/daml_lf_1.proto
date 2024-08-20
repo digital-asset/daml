@@ -49,6 +49,8 @@
 // * 13 -- 2021-04-06: Add BigNumeric
 // * 14 -- 2021-03-06: Add Exception
 // * 15 -- 2022-06-18: Add Interfaces
+// * 16 -- 2024-08-13: **Declared broken**
+// * 17 -- 2024-08-13: Upgrade support
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";

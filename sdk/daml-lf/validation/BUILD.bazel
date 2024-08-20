@@ -174,7 +174,7 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
-            "//test-common:upgrades-EmptyProject-v116.dar",
+            "//test-common:upgrades-EmptyProject-v117.dar",
             "//test-common:upgrades-EmptyProject-v1dev.dar",
             "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
             "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",

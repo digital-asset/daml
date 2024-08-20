@@ -237,7 +237,7 @@ da_scala_dar_resources_library(
         visibility = ["//visibility:public"],
     )
     for lf_version in [
-        "1.16",
+        "1.17",
         "1.dev",
     ]
 ]

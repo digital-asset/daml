@@ -246,7 +246,7 @@ daml_compile(
     name = "upgrade-test-v1",
     srcs = glob(["test-data/upgrade-test-v1/Main.daml"]),
     project_name = "some-package",
-    target = "1.16",
+    target = "1.17",
     version = "1.0.0",
 )
 
@@ -254,6 +254,6 @@ daml_compile(
     name = "upgrade-test-v2",
     srcs = glob(["test-data/upgrade-test-v2/Main.daml"]),
     project_name = "some-package",
-    target = "1.16",
+    target = "1.17",
     version = "2.0.0",
 )

@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.TransactionVersion.V16
+import com.daml.lf.transaction.TransactionVersion.V17
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -207,9 +207,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V16, contract)))
+      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V17, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
+        val v = sv.toNormalizedValue(V17)
         (v, uvs)
       }
   }
@@ -228,7 +228,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val contractInfo: Speedy.ContractInfo =
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
-        version = V16,
+        version = V17,
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
@@ -242,7 +242,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
+        val v = sv.toNormalizedValue(V17)
         (v, uvs)
       }
   }
@@ -266,12 +266,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       i"'-pkg1-':M:T",
       ValueParty(alice),
       Set(alice),
-      crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+      crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
     )
 
   "upgrade attempted" - {
 
-    "contract is LF < 1.16 -- should be reject" in {
+    "contract is LF < 1.17 -- should be reject" in {
       val v =
         makeRecord(
           ValueParty(alice),
@@ -445,7 +445,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           i"'-pkg1-':M:T",
           ValueParty(bob),
           Set(bob),
-          crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+          crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
         )
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
