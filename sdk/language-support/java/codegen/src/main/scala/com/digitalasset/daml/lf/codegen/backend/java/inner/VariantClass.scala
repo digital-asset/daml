@@ -63,6 +63,7 @@ private[inner] object VariantClass extends StrictLogging {
           ).asJava
         )
         .addField(createPackageIdField(typeWithContext.interface.packageId))
+        .addType(FromJsonGenerator.decoderAccessorClass(variantClassName, typeArguments))
         .build()
       val (constructors, constructorStaticImports) = generateConstructorClasses(
         typeArguments,

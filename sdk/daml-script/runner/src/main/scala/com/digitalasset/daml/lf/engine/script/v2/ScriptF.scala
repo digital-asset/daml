@@ -591,10 +591,17 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
       for {
         client <- converter.toFuture(env.clients.getParticipant(participant))
         user <- client.getUser(userId)
-        user <- converter.toFuture(
+        userValue <- converter.toFuture(
           converter.fromOptional(user, converter.fromUser(env.scriptIds, _))
         )
-      } yield SEValue(user)
+      } yield {
+        (participant, user.flatMap(_.primaryParty)) match {
+          case (Some(participant), Some(party)) =>
+            env.addPartyParticipantMapping(party, participant)
+          case _ =>
+        }
+        SEValue(userValue)
+      }
   }
 
   sealed case class DeleteUser(

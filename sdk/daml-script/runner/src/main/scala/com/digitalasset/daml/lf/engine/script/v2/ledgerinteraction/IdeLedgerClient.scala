@@ -36,6 +36,7 @@ import scalaz.syntax.foldable._
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import scala.math.Ordered.orderingToOrdered
 
 // Client for the script service.
 class IdeLedgerClient(
@@ -100,6 +101,16 @@ class IdeLedgerClient(
       else originalCompiledPackages
     preprocessor = makePreprocessor
   }
+
+  // Returns false if the package is unknown, leaving the packageId unmodified
+  // so later computation can throw a better formulated error
+  def packageSupportsUpgrades(packageId: PackageId): Boolean =
+    compiledPackages.pkgInterface
+      .lookupPackage(packageId)
+      .fold(
+        _ => false,
+        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+      )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -483,28 +494,21 @@ class IdeLedgerClient(
     makeEmptySubmissionError(scenario.Error.PartiesNotAllocated(unallocatedSubmitters))
 
   /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
-   * ApiCommand. If the CommandWithMeta has an explicit package id,
+   * ApiCommand. If the CommandWithMeta has an explicit package id, or is <LF1.16,
    * the ApiCommand will have the same PackageRef, otherwise it will be
-   * replaced with the PackageId of the most recent (newest version) package
-   * of the same name in the original compiled packages.
+   * replaced with PackageRef.Name, such that the preprocess will replace it
+   * according to package resolution
    */
   private def toCommand(
-      cmdWithMeta: ScriptLedgerClient.CommandWithMeta
+      cmdWithMeta: ScriptLedgerClient.CommandWithMeta,
+      // This map only contains packageIds >=LF1.16
+      packageIdMap: PartialFunction[PackageId, ScriptLedgerClient.ReadablePackageId],
   ): ApiCommand = {
-    def adjustPackageRef(old: PackageRef): PackageRef =
-      old match {
-        case PackageRef.Id(id) =>
-          PackageRef.Id(newestPackageId(id))
-        case PackageRef.Name(_) =>
-          // TODO: https://github.com/digital-asset/daml/issues/17995
-          //  add support for package name
-          throw new IllegalArgumentException("package name not supported")
-      }
-
     def adjustTypeConRef(old: TypeConRef): TypeConRef =
       old match {
-        case TypeConRef(pkgRef, qName) =>
-          TypeConRef(adjustPackageRef(pkgRef), qName)
+        case TypeConRef(PackageRef.Id(packageIdMap(nameVersion)), qName) =>
+          TypeConRef(PackageRef.Name(nameVersion.name), qName)
+        case ref => ref
       }
 
     val ScriptLedgerClient.CommandWithMeta(cmd, explicitPackageId) = cmdWithMeta
@@ -545,6 +549,7 @@ class IdeLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
+      packagePreference: List[PackageId],
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
   ): Either[
@@ -556,6 +561,8 @@ class IdeLedgerClient(
     if (unallocatedSubmitters.nonEmpty) {
       Left(makePartiesNotAllocatedError(unallocatedSubmitters))
     } else {
+      val reversePackageIdMap = getPackageIdReverseMap()
+      val packageMap = calculatePackageMap(packagePreference, reversePackageIdMap)
       @tailrec
       def loop(
           result: ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
@@ -603,8 +610,10 @@ class IdeLedgerClient(
         try {
           Right(
             preprocessor.unsafePreprocessApiCommands(
-              Map.empty,
-              commands.map(toCommand(_)).to(ImmArray),
+              packageMap,
+              commands
+                .map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
+                .to(ImmArray),
             )
           )
         } catch {
@@ -656,6 +665,7 @@ class IdeLedgerClient(
             translated,
             optLocation,
             nextSeed(),
+            packageMap,
             traceLog,
             warningLog,
           )(Script.DummyLoggingContext)
@@ -681,11 +691,15 @@ class IdeLedgerClient(
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
-    optPackagePreference.foreach(_ =>
-      throw new IllegalArgumentException("IDE Ledger does not support Package Preference")
-    )
     synchronized {
-      unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
+      unsafeSubmit(
+        actAs,
+        readAs,
+        disclosures,
+        optPackagePreference.getOrElse(List()),
+        commands,
+        optLocation,
+      ) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
@@ -874,21 +888,38 @@ class IdeLedgerClient(
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
-  /* Given a PackageId, returns the PackageId with the same name and
-   * greatest version found in the original compiled packages.
-   * If the impossible happens and there's no package with that name in the
-   * original compiled packages, returns the argument unchanged.
+  /* Generate a package name map based on package preference then highest version
    */
-  def newestPackageId(old: PackageId): PackageId = {
-    for {
-      oldReadable <- getPackageIdReverseMap().get(old)
-      oldName = oldReadable.name
-      newest <- getPackageIdMap().maxByOption {
-        case (k, _) if k.name == oldName => Some(k.version);
-        case _ => None;
-      }
-    } yield newest._2
-  }.getOrElse(old)
+  def calculatePackageMap(
+      packagePreference: List[PackageId],
+      reverseMap: Map[PackageId, ScriptLedgerClient.ReadablePackageId],
+  ): Map[PackageName, PackageId] = {
+    // Map containing only elements of the package preference
+    val pkgPrefMap: Map[PackageName, PackageId] = packagePreference
+      .map(pkgId =>
+        (
+          reverseMap
+            .getOrElse(pkgId, throw new IllegalArgumentException(s"No such PackageId $pkgId"))
+            .name,
+          if (packageSupportsUpgrades(pkgId)) pkgId
+          else throw new IllegalArgumentException(s"Package $pkgId does not support Upgrades."),
+        )
+      )
+      .toMap
+    val ordering: Ordering[(PackageVersion, PackageId)] = Ordering[PackageVersion].on(_._1)
+    // Map containing only highest versions of upgrades compatible packages, could be cached
+    val highestVersionMap: Map[PackageName, PackageId] = getPackageIdMap()
+      .filter { case (_, pkgId) => packageSupportsUpgrades(pkgId) }
+      .groupMapReduce(_._1.name) { case (nameVersion, packageId) =>
+        (nameVersion.version, packageId)
+      }(ordering.max)
+      .view
+      .mapValues(_._2)
+      .toMap
+
+    // Preference overrides highest version
+    highestVersionMap ++ pkgPrefMap
+  }
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
     getPackageIdPairs().toMap

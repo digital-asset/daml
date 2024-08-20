@@ -1,0 +1,10 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+-- We import V1.Main to ensure that v1 is embedded in v2's dar.
+import qualified V1.Main as V1
+
+-- T is a valid upgrade of v1's T.
+data T = T { x : Optional Int }

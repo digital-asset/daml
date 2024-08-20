@@ -1,0 +1,9 @@
+diff a/sdk/test-common/BUILD.bazel b/sdk/test-common/BUILD.bazel	(rejected hunks)
+@@ -108,6 +108,7 @@ da_scala_dar_resources_library(
+         "MissingChoice",
+         "RecordFieldsNewNonOptional",
+         "TemplateChangedKeyType",
++        "TemplateChangedKeyType2",
+         "ValidUpgrade",
+ 
+         # Ported from DamlcUpgrades.hs
