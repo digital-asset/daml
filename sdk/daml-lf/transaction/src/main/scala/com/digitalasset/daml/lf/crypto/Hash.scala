@@ -568,7 +568,7 @@ object Hash {
   def assertHashContractInstance(
       templateId: Ref.Identifier,
       arg: Value,
-      packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
+      packageName: Ref.PackageName,
       upgradeFriendly: Boolean = false,
   ): Hash = {
     builder(Purpose.ContractInstance, aCid2Bytes, upgradeFriendly)
@@ -579,7 +579,7 @@ object Hash {
   }
 
   def hashContractInstance(
-      packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
+      packageName: Ref.PackageName,
       templateId: Ref.Identifier,
       arg: Value,
   ): Either[HashingError, Hash] =
