@@ -563,14 +563,12 @@ object Hash {
   def assertHashContractInstance(
       templateId: Ref.Identifier,
       arg: Value,
-      packageName: Ref.PackageName = Ref.PackageName.assertFromString("default"),
   ): Hash = {
     builder(
       Purpose.ContractInstance,
       aCid2Bytes,
       false,
     )
-      .addString(packageName)
       .addIdentifier(templateId)
       .addTypedValue(arg)
       .build
