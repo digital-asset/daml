@@ -17,6 +17,7 @@ import com.digitalasset.transcode.Codec
 import com.digitalasset.transcode.schema.DynamicValue.*
 import com.digitalasset.transcode.schema.*
 import com.google.protobuf.empty.Empty
+import com.google.protobuf.ByteString
 
 /** This codec converts Ledger API GRPC values. */
 object GrpcValueCodec extends SchemaVisitor {
@@ -31,7 +32,7 @@ object GrpcValueCodec extends SchemaVisitor {
 
     override def fromDynamicValue(dv: DynamicValue): value.Value = {
       val fs = dv.record.iterator zip codecs map { case (f, c) =>
-        value.RecordField(value = Some(c.fromDynamicValue(f)))
+        value.Record.Field(value = Some(c.fromDynamicValue(f)))
       }
       value.Value(Sum.Record(value.Record(fields = fs.toSeq)))
     }
@@ -114,14 +115,14 @@ object GrpcValueCodec extends SchemaVisitor {
   override def genMap(keyCodec: Type, valueCodec: Type): Type = new Type {
     override def fromDynamicValue(dv: DynamicValue): value.Value = {
       val entries = dv.genMap.iterator.map { case (k, v) =>
-        value.GenMap.Entry(Some(keyCodec.fromDynamicValue(k)), Some(valueCodec.fromDynamicValue(v)))
+        value.Map.Entry(Some(keyCodec.fromDynamicValue(k)), Some(valueCodec.fromDynamicValue(v)))
       }
-      value.Value(Sum.GenMap(value.GenMap(entries = entries.toSeq)))
+      value.Value(Sum.Map(value.Map(entries = entries.toSeq)))
     }
 
     override def toDynamicValue(a: value.Value): DynamicValue = {
       val entries =
-        a.getGenMap.entries.view.map(e =>
+        a.getMap.entries.view.map(e =>
           keyCodec.toDynamicValue(e.getKey) -> valueCodec.toDynamicValue(e.getValue)
         )
       DynamicValue.GenMap(entries)
@@ -153,7 +154,7 @@ object GrpcValueCodec extends SchemaVisitor {
     primitive(v => Sum.Date(v.date), v => DynamicValue.Date(v.getDate))
 
   override def contractId(template: Type): Type =
-    primitive(v => Sum.ContractId(v.contractId), v => DynamicValue.ContractId(v.getContractId))
+    primitive(v => Sum.ContractId(ByteString.copyFromUtf8(v.contractId)), v => DynamicValue.ContractId(v.getContractId.toStringUtf8))
 
   override def interface(id: Identifier): Type = unit
 
