@@ -6,12 +6,6 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.Show
 import com.digitalasset.canton.admin.api.client.data.CantonStatus.splitSuccessfulAndFailedStatus
 import com.digitalasset.canton.console.{MediatorReference, ParticipantReference, SequencerReference}
-import com.digitalasset.canton.health.admin.data.{
-  MediatorNodeStatus,
-  NodeStatus,
-  ParticipantStatus,
-  SequencerNodeStatus,
-}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -24,7 +18,7 @@ trait CantonStatus extends PrettyPrinting {
 
     val success = sort(statusMap)
       .map { case (d, status) =>
-        show"Status for ${instanceType.unquoted} ${d.singleQuoted}:\n$status"
+        show"Status for ${instanceType.unquoted} ${d.singleQuoted}:${System.lineSeparator()}$status"
       }
 
     val failure = sort(failureMap)
@@ -66,8 +60,8 @@ object CantonStatus {
 
 object CommunityCantonStatus {
   def getStatus(
-      sequencers: Map[String, () => NodeStatus[SequencerNodeStatus]],
-      mediators: Map[String, () => NodeStatus[MediatorNodeStatus]],
+      sequencers: Map[String, () => NodeStatus[SequencerStatus]],
+      mediators: Map[String, () => NodeStatus[MediatorStatus]],
       participants: Map[String, () => NodeStatus[ParticipantStatus]],
   ): CommunityCantonStatus = {
     val (sequencerStatus, unreachableSequencers) =
@@ -89,14 +83,14 @@ object CommunityCantonStatus {
 }
 
 final case class CommunityCantonStatus(
-    sequencerStatus: Map[String, SequencerNodeStatus],
+    sequencerStatus: Map[String, SequencerStatus],
     unreachableSequencers: Map[String, NodeStatus.Failure],
-    mediatorStatus: Map[String, MediatorNodeStatus],
+    mediatorStatus: Map[String, MediatorStatus],
     unreachableMediators: Map[String, NodeStatus.Failure],
     participantStatus: Map[String, ParticipantStatus],
     unreachableParticipants: Map[String, NodeStatus.Failure],
 ) extends CantonStatus {
-  def tupled: (Map[String, SequencerNodeStatus], Map[String, ParticipantStatus]) =
+  def tupled: (Map[String, SequencerStatus], Map[String, ParticipantStatus]) =
     (sequencerStatus, participantStatus)
 
   override def pretty: Pretty[CommunityCantonStatus] = prettyOfString { _ =>

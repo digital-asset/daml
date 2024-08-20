@@ -91,6 +91,7 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
+import io.grpc.ServerServiceDefinition
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -221,7 +222,7 @@ abstract class CantonNodeBootstrapImpl[
 
   private val adminApiConfig = config.adminApi
 
-  private def status: NodeStatus[NodeStatus.Status] =
+  protected def getNodeStatus: NodeStatus[T#Status] =
     getNode
       .map(_.status)
       .map(NodeStatus.Success(_))
@@ -251,6 +252,10 @@ abstract class CantonNodeBootstrapImpl[
   protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService)
+
+  // Node specific status service need to be bound early
+  protected def bindNodeStatusService(): ServerServiceDefinition
+
   protected def mkHealthComponents(
       nodeHealthService: DependenciesHealthService,
       livenessService: LivenessHealthService,
@@ -438,10 +443,13 @@ abstract class CantonNodeBootstrapImpl[
           .map { crypto =>
             addCloseable(crypto)
             val adminServerRegistry = createAdminServerRegistry
+
+            adminServerRegistry.addServiceU(bindNodeStatusService())
+
             adminServerRegistry.addServiceU(
               StatusServiceGrpc.bindService(
                 new GrpcStatusService(
-                  status,
+                  getNodeStatus,
                   arguments.writeHealthDumpToFile,
                   parameterConfig.processingTimeouts,
                   bootstrapStageCallback.loggerFactory,

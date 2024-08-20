@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import cats.data.EitherT
+import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
@@ -14,6 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -26,11 +28,14 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
+import com.digitalasset.canton.topology.store.TopologyStore.Change
+import com.digitalasset.canton.topology.store.TopologyStore.Change.TopologyDelay
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Duplicate
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   GenericTopologyTransaction,
@@ -212,7 +217,114 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Seq[TopologyStore.Change]]
 
-  def maxTimestamp()(implicit
+  /** Yields the currently valid and all upcoming topology change delays.
+    * Namely:
+    * - The change delay with validFrom < sequencedTime and validUntil.forall(_ >= sequencedTime), or
+    *   the initial default value, if no such change delay exists.
+    * - All change delays with validFrom >= sequencedTime and sequenced < sequencedTime.
+    * Excludes:
+    * - Proposals
+    * - Rejected transactions
+    * - Transactions with `validUntil.contains(validFrom)`
+    *
+    * The result is sorted descending by validFrom. So the current change delay comes last.
+    */
+  def findCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[NonEmpty[List[TopologyStore.Change.TopologyDelay]]] = for {
+    storedTransactions <- doFindCurrentAndUpcomingChangeDelays(sequencedTime)
+  } yield {
+    val storedDelays = storedTransactions.toList
+      .mapFilter(TopologyStore.Change.selectTopologyDelay)
+      // First sort ascending as lists are optimized for prepending.
+      // Below, we'll reverse the final list.
+      .sortBy(_.validFrom)
+
+    val currentO = storedDelays.headOption.filter(_.validFrom.value < sequencedTime)
+    val initialDefaultO = currentO match {
+      case Some(_) => None
+      case None =>
+        Some(
+          TopologyDelay(
+            SequencedTime.MinValue,
+            EffectiveTime.MinValue,
+            storedDelays.headOption.map(_.validFrom),
+            DynamicDomainParameters.topologyChangeDelayIfAbsent,
+          )
+        )
+    }
+
+    NonEmpty
+      .from((initialDefaultO.toList ++ storedDelays).reverse)
+      // The sequence must be non-empty, as either currentO or initialDefaultO is defined.
+      .getOrElse(throw new NoSuchElementException("Unexpected empty sequence."))
+  }
+
+  /** Implementation specific parts of findCurrentAndUpcomingChangeDelays.
+    * Implementations must filter by validFrom, validUntil, sequenced, isProposal, and rejected.
+    * Implementations may or may not apply further filters.
+    * Implementations should not spend resources for sorting.
+    */
+  protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Iterable[GenericStoredTopologyTransaction]]
+
+  /** Yields the topologyChangeDelay valid at a given time or, if there is none in the store,
+    * the initial default value.
+    */
+  def currentChangeDelay(
+      asOfExclusive: CantonTimestamp
+  )(implicit
+      traceContext: TraceContext
+  ): Future[TopologyStore.Change.TopologyDelay] =
+    for {
+      txs <- findPositiveTransactions(
+        asOf = asOfExclusive,
+        asOfInclusive = false,
+        isProposal = false,
+        types = Seq(DomainParametersState.code),
+        filterUid = None,
+        filterNamespace = None,
+      )
+    } yield {
+      txs.collectLatestByUniqueKey
+        .collectOfMapping[DomainParametersState]
+        .result
+        .headOption
+        .map(tx =>
+          Change.TopologyDelay(
+            tx.sequenced,
+            tx.validFrom,
+            tx.validUntil,
+            tx.mapping.parameters.topologyChangeDelay,
+          )
+        )
+        .getOrElse(
+          TopologyStore.Change.TopologyDelay(
+            SequencedTime(CantonTimestamp.MinValue),
+            EffectiveTime(CantonTimestamp.MinValue),
+            None,
+            DynamicDomainParameters.topologyChangeDelayIfAbsent,
+          )
+        )
+    }
+
+  /** Yields all topologyChangeDelays that have expired within a given time period.
+    * Does not yield any proposals or rejections.
+    */
+  def findExpiredChangeDelays(
+      validUntilMinInclusive: CantonTimestamp,
+      validUntilMaxExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TopologyStore.Change.TopologyDelay]]
+
+  /** Finds the transaction with maximum effective time that has been sequenced before `sequencedTime` and
+    * yields the sequenced / effective time of that transaction.
+    *
+    * @param includeRejected whether to include rejected transactions
+    */
+  def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): Future[Option[(SequencedTime, EffectiveTime)]]
 
@@ -390,31 +502,46 @@ object TopologyStore {
 
   sealed trait Change extends Product with Serializable {
     def sequenced: SequencedTime
-    def effective: EffectiveTime
+    def validFrom: EffectiveTime
   }
 
   object Change {
     final case class TopologyDelay(
         sequenced: SequencedTime,
-        effective: EffectiveTime,
-        epsilon: NonNegativeFiniteDuration,
+        validFrom: EffectiveTime,
+        validUntil: Option[EffectiveTime],
+        changeDelay: NonNegativeFiniteDuration,
     ) extends Change
 
-    final case class Other(sequenced: SequencedTime, effective: EffectiveTime) extends Change
-  }
+    final case class Other(sequenced: SequencedTime, validFrom: EffectiveTime) extends Change
 
-  def accumulateUpcomingEffectiveChanges(
-      items: Seq[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): Seq[Change] =
-    items
-      .map(x => (x, x.mapping))
-      .map {
+    def selectChange(tx: GenericStoredTopologyTransaction): Change =
+      (tx, tx.mapping) match {
         case (tx, x: DomainParametersState) =>
-          Change.TopologyDelay(tx.sequenced, tx.validFrom, x.parameters.topologyChangeDelay)
+          Change.TopologyDelay(
+            tx.sequenced,
+            tx.validFrom,
+            tx.validUntil,
+            x.parameters.topologyChangeDelay,
+          )
         case (tx, _) => Change.Other(tx.sequenced, tx.validFrom)
       }
-      .sortBy(_.effective)
-      .distinct
+
+    def selectTopologyDelay(
+        tx: GenericStoredTopologyTransaction
+    ): Option[TopologyDelay] = (tx.operation, tx.mapping) match {
+      case (Replace, DomainParametersState(_, parameters)) =>
+        Some(
+          Change.TopologyDelay(
+            tx.sequenced,
+            tx.validFrom,
+            tx.validUntil,
+            parameters.topologyChangeDelay,
+          )
+        )
+      case (_: TopologyChangeOp, _: TopologyMapping) => None
+    }
+  }
 
   def apply[StoreID <: TopologyStoreId](
       storeId: StoreID,

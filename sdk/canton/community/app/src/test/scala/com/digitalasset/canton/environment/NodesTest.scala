@@ -49,6 +49,7 @@ import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.ServerServiceDefinition
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import org.scalatest.Outcome
@@ -176,6 +177,9 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
         storage: Storage
     ): (DependenciesHealthService, LivenessHealthService) =
       ???
+
+    override protected def bindNodeStatusService(): ServerServiceDefinition = ???
+
     override def start(): EitherT[Future, String, Unit] =
       EitherT.pure[Future, String](())
     override protected def lookupTopologyClient(

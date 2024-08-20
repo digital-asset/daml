@@ -9,7 +9,6 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
 service StatusService {
-  rpc Status(StatusRequest) returns (StatusResponse);
   // Streams back a zip file as byte chunks, containing a health dump of the full canton process (including other nodes)
   rpc HealthDump(HealthDumpRequest) returns (stream HealthDumpResponse);
   // Toggle log levels
@@ -30,48 +29,39 @@ message TopologyQueueStatus {
   uint32 clients = 3;
 }
 
-message StatusRequest {}
+message ComponentStatus {
+  string name = 1;
+  oneof status {
+    StatusData ok = 2;
+    StatusData degraded = 3;
+    StatusData failed = 4;
+    StatusData fatal = 5;
+  }
+  message StatusData {
+    google.protobuf.StringValue description = 1;
+  }
+}
 
-message StatusResponse {
-  message Status {
-    string id = 1;
-    google.protobuf.Duration uptime = 2;
-    map<string, int32> ports = 3;
-    bytes extra = 4; // contains extra information depending on the node type
-    bool active = 5; // Indicate if the node is active, usually true unless it's a replicated node that is passive
-    TopologyQueueStatus topology_queues = 6; // indicates the state of the topology queues (manager / dispatcher only where they exist)
-    repeated ComponentStatus components = 7; // Health state of component dependencies of the node
+message NotInitialized {
+  enum WaitingForExternalInput {
+    WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED = 0;
+    WAITING_FOR_EXTERNAL_INPUT_ID = 1;
+    WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY = 2;
+    WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION = 3;
   }
 
-  message ComponentStatus {
-    string name = 1;
-    oneof status {
-      StatusData ok = 2;
-      StatusData degraded = 3;
-      StatusData failed = 4;
-      StatusData fatal = 5;
-    }
-    message StatusData {
-      google.protobuf.StringValue description = 1;
-    }
-  }
+  bool active = 1; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+  WaitingForExternalInput waiting_for_external_input = 2; // Indicates whether the node is waiting for external input
+}
 
-  message NotInitialized {
-    enum WaitingForExternalInput {
-      WAITING_FOR_EXTERNAL_INPUT_UNSPECIFIED = 0;
-      WAITING_FOR_EXTERNAL_INPUT_ID = 1;
-      WAITING_FOR_EXTERNAL_INPUT_NODE_TOPOLOGY = 2;
-      WAITING_FOR_EXTERNAL_INPUT_INITIALIZATION = 3;
-    }
-
-    bool active = 1; // Indicate if the node is active, usually true unless it's a replicated node that is passive
-    WaitingForExternalInput waiting_for_external_input = 2; // Indicates whether the node is waiting for external input
-  }
-
-  oneof response {
-    NotInitialized not_initialized = 1; // node is running but has not been initialized yet
-    Status success = 2; // successful response from a running and initialized node
-  }
+message Status {
+  string uid = 1;
+  google.protobuf.Duration uptime = 2;
+  map<string, int32> ports = 3;
+  bool active = 4; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+  TopologyQueueStatus topology_queues = 5; // indicates the state of the topology queues (manager / dispatcher only where they exist)
+  repeated ComponentStatus components = 6; // Health state of component dependencies of the node
+  string version = 7; // Version of the binary
 }
 
 message HealthDumpRequest {
@@ -82,45 +72,6 @@ message HealthDumpRequest {
 
 message HealthDumpResponse {
   bytes chunk = 1; // A chunk of of the health dump file
-}
-
-// participant node specific extra status info
-message ParticipantStatusInfo {
-  message ConnectedDomain {
-    string domain = 1;
-    bool healthy = 2;
-  }
-  repeated ConnectedDomain connected_domains = 1;
-  // Indicate if the participant node is active
-  // True if the participant node is replicated and is the active replica, or true if not replicated
-  bool active = 2;
-}
-
-message SequencerNodeStatus {
-  repeated string connected_participant_uids = 1;
-  // required - status of the sequencer component it is running
-  SequencerHealthStatus sequencer = 2;
-  string domain_id = 3;
-  SequencerAdminStatus admin = 4;
-}
-
-// status of the sequencer component
-message SequencerHealthStatus {
-  // is the sequencer component active - can vary by implementation for what this means
-  bool active = 1;
-  // optionally set details on how sequencer is healthy/unhealthy
-  google.protobuf.StringValue details = 2;
-}
-
-// status of sequencer node administration
-message SequencerAdminStatus {
-  // Indicate if the sequencer node accepts administration changes, particularly relevant for HA sequencers
-  // where admin change ability is determined via active-passive model
-  bool accepts_admin_changes = 1;
-}
-
-message MediatorNodeStatus {
-  string domain_id = 1;
 }
 
 message SetLogLevelRequest {

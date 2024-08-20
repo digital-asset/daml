@@ -164,6 +164,18 @@ class ValidatingTopologyMappingChecks(
           .select[TopologyChangeOp.Replace, NamespaceDelegation]
           .map(checkNamespaceDelegationReplace(effective, _))
 
+      case (Code.DomainParametersState, None | Some(Code.DomainParametersState)) =>
+        toValidate
+          .select[TopologyChangeOp.Remove, DomainParametersState]
+          .map(_ =>
+            EitherT.leftT[Future, Unit](
+              TopologyTransactionRejection
+                .Other(
+                  "Removal of DomainParameterState is not supported. Use Replace instead."
+                ): TopologyTransactionRejection
+            )
+          )
+
       case _otherwise => None
     }
 

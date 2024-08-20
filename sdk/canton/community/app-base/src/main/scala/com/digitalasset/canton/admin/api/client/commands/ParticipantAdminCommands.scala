@@ -11,10 +11,13 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   ServerEnforcedTimeout,
   TimeoutType,
 }
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   ListConnectedDomainsResult,
+  NodeStatus,
   ParticipantPruningSchedule,
+  ParticipantStatus,
 }
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
@@ -22,6 +25,7 @@ import com.digitalasset.canton.admin.participant.v30.EnterpriseParticipantReplic
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionServiceStub
 import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageServiceStub
 import com.digitalasset.canton.admin.participant.v30.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
+import com.digitalasset.canton.admin.participant.v30.ParticipantStatusServiceGrpc.ParticipantStatusServiceStub
 import com.digitalasset.canton.admin.participant.v30.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.PartyNameManagementServiceGrpc.PartyNameManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingServiceStub
@@ -1034,6 +1038,79 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
+    // TODO(#9557) R2 The code below should be sufficient
+    final case class OpenCommitment(
+        observer: StreamObserver[v30.OpenCommitment.Response],
+        commitment: AcsCommitment.CommitmentType,
+        domainId: DomainId,
+        computedForCounterParticipant: ParticipantId,
+        toInclusive: CantonTimestamp,
+    ) extends Base[
+          v30.OpenCommitment.Request,
+          CancellableContext,
+          CancellableContext,
+        ] {
+      override def createRequest() = Right(
+        v30.OpenCommitment
+          .Request(
+            AcsCommitment.commitmentTypeToProto(commitment),
+            domainId.toProtoPrimitive,
+            computedForCounterParticipant.uid.toProtoPrimitive,
+            Some(toInclusive.toProtoTimestamp),
+          )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.OpenCommitment.Request,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.openCommitment(request, observer))
+        Future.successful(context)
+      }
+
+      override def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      //  command might take a long time
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
+    // TODO(#9557) R2 The code below should be sufficient
+    final case class CommitmentContracts(
+        observer: StreamObserver[v30.InspectCommitmentContracts.Response],
+        contracts: Seq[LfContractId],
+    ) extends Base[
+          v30.InspectCommitmentContracts.Request,
+          CancellableContext,
+          CancellableContext,
+        ] {
+      override def createRequest() = Right(
+        v30.InspectCommitmentContracts.Request(
+          contracts.map(_.toBytes.toByteString)
+        )
+      )
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.InspectCommitmentContracts.Request,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.inspectCommitmentContracts(request, observer))
+        Future.successful(context)
+      }
+
+      override def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      //  command might take a long time
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
     // TODO(#18451) R5: The code below should be sufficient.
     final case class LookupReceivedAcsCommitments(
         domainTimeRanges: Seq[DomainTimeRange],
@@ -1830,6 +1907,41 @@ object ParticipantAdminCommands {
               .leftMap(_.message)
           }
           .getOrElse(Left("No traffic state available"))
+    }
+  }
+
+  object Health {
+    final case class ParticipantStatusCommand()
+        extends NodeStatusCommand[
+          ParticipantStatus,
+          ParticipantStatusRequest,
+          ParticipantStatusResponse,
+        ] {
+
+      override type Svc = ParticipantStatusServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantStatusServiceStub =
+        ParticipantStatusServiceGrpc.stub(channel)
+
+      override def getStatus(
+          service: ParticipantStatusServiceStub,
+          request: ParticipantStatusRequest,
+      ): Future[ParticipantStatusResponse] = service.participantStatus(request)
+
+      override def submitRequest(
+          service: ParticipantStatusServiceStub,
+          request: ParticipantStatusRequest,
+      ): Future[ParticipantStatusResponse] =
+        submitReq(service, request)
+
+      override def createRequest(): Either[String, ParticipantStatusRequest] = Right(
+        ParticipantStatusRequest()
+      )
+
+      override def handleResponse(
+          response: ParticipantStatusResponse
+      ): Either[String, NodeStatus[ParticipantStatus]] =
+        ParticipantStatus.fromProtoV30(response).leftMap(_.message)
     }
   }
 

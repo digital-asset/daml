@@ -14,6 +14,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.admin.data.{
+  SequencerAdminStatus,
+  SequencerHealthStatus,
+}
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.{
   SequencerAuthenticationServerInterceptor,
   SequencerConnectServerInterceptor,
@@ -27,11 +31,7 @@ import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.service.*
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.{
-  SequencerAdminStatus,
-  SequencerHealthStatus,
-  TopologyQueueStatus,
-}
+import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -273,8 +273,7 @@ class SequencerRuntime(
     clients = topologyClient.numPendingChanges,
   )
 
-  def adminStatus: SequencerAdminStatus =
-    sequencer.adminStatus
+  def adminStatus: SequencerAdminStatus = sequencer.adminStatus
 
   def fetchActiveMembers(): Seq[Member] =
     sequencerService.membersWithActiveSubscriptions

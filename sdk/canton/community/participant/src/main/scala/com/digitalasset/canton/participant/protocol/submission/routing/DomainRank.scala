@@ -36,7 +36,7 @@ private[routing] class DomainRankComputation(
   def compute(
       contracts: Seq[ContractData],
       targetDomain: DomainId,
-      submitters: Set[LfPartyId],
+      readers: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -57,14 +57,14 @@ private[routing] class DomainRankComputation(
             sourceSnapshot <- EitherT
               .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractDomain))
             targetSnapshot <- targetSnapshotET
-            submitter <- findSubmitterThatCanTransferContract(
+            submitter <- findReaderThatCanTransferContract(
               sourceSnapshot = sourceSnapshot,
               sourceDomainId = SourceDomainId(contractDomain),
               targetSnapshot = targetSnapshot,
               targetDomainId = TargetDomainId(targetDomain),
               contractId = c.id,
               contractStakeholders = c.stakeholders,
-              submitters = submitters,
+              readers = readers,
             )
           } yield Chain(c.id -> (submitter, contractDomain))
         }
@@ -79,42 +79,42 @@ private[routing] class DomainRankComputation(
     )
   }
 
-  private def findSubmitterThatCanTransferContract(
+  private def findReaderThatCanTransferContract(
       sourceSnapshot: TopologySnapshot,
       sourceDomainId: SourceDomainId,
       targetSnapshot: TopologySnapshot,
       targetDomainId: TargetDomainId,
       contractId: LfContractId,
       contractStakeholders: Set[LfPartyId],
-      submitters: Set[LfPartyId],
+      readers: Set[LfPartyId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, LfPartyId] = {
     logger.debug(
-      s"Computing submitter that can submit transfer of $contractId with stakeholders $contractStakeholders from $sourceDomainId to $targetDomainId. Candidates are: $submitters"
+      s"Computing submitter that can submit transfer of $contractId with stakeholders $contractStakeholders from $sourceDomainId to $targetDomainId. Candidates are: $readers"
     )
 
     // Building the transfer out requests lets us check whether contract can be transferred to target domain
     def go(
-        submitters: List[LfPartyId],
+        readers: List[LfPartyId],
         errAccum: List[String] = List.empty,
     ): EitherT[Future, String, LfPartyId] =
-      submitters match {
+      readers match {
         case Nil =>
           EitherT.leftT(
             show"Cannot transfer contract $contractId from $sourceDomainId to $targetDomainId: ${errAccum
                 .mkString(",")}"
           )
-        case submitter :: rest =>
+        case reader :: rest =>
           val result =
             for {
               _ <- CanSubmitTransfer.transferOut(
                 contractId,
                 sourceSnapshot,
-                submitter,
+                reader,
                 participantId,
               )
               adminParties <- AdminPartiesAndParticipants(
                 contractId,
-                submitter,
+                reader,
                 contractStakeholders,
                 sourceSnapshot,
                 targetSnapshot,
@@ -124,12 +124,12 @@ private[routing] class DomainRankComputation(
           result
             .onShutdown(Left(TransferOutProcessorError.AbortedDueToShutdownOut(contractId)))
             .biflatMap(
-              left => go(rest, errAccum :+ show"Submitter $submitter cannot transfer: $left"),
-              _ => EitherT.rightT(submitter),
+              left => go(rest, errAccum :+ show"Read $reader cannot transfer: $left"),
+              _ => EitherT.rightT(reader),
             )
       }
 
-    go(submitters.intersect(contractStakeholders).toList).leftMap(errors =>
+    go(readers.intersect(contractStakeholders).toList).leftMap(errors =>
       AutomaticTransferForTransactionFailure.Failed(errors)
     )
   }

@@ -35,7 +35,7 @@ private[routing] class DomainSelectorFactory(
   ): EitherT[Future, TransactionRoutingError, DomainSelector] =
     for {
       admissibleDomains <- admissibleDomains.forParties(
-        submitters = transactionData.submitters,
+        submitters = transactionData.actAs,
         informees = transactionData.informees,
       )
     } yield new DomainSelector(
@@ -70,8 +70,6 @@ private[routing] class DomainSelector(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  private val submitters = transactionData.submitters
-
   /** Choose the appropriate domain for a transaction.
     * The domain is chosen as follows:
     * 1. Domain whose id equals `transactionData.prescribedDomainO` (if non-empty)
@@ -89,7 +87,7 @@ private[routing] class DomainSelector(
           domainRank <- domainRankComputation.compute(
             contracts,
             prescribedDomain,
-            transactionData.submitters,
+            transactionData.readers,
           )
         } yield domainRank
 
@@ -264,7 +262,11 @@ private[routing] class DomainSelector(
       rankedDomains <- domains.forgetNE.toList
         .parTraverseFilter(targetDomain =>
           domainRankComputation
-            .compute(contracts, targetDomain, submitters)
+            .compute(
+              contracts,
+              targetDomain,
+              transactionData.readers,
+            )
             .toOption
             .value
         )

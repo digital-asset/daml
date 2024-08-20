@@ -3,29 +3,28 @@
 
 package com.digitalasset.canton.topology.processing
 
-import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransaction}
-import com.digitalasset.canton.topology.transaction.DomainParametersState
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.store.{
+  TopologyStoreId,
+  TopologyTransactionRejection,
+  ValidatedTopologyTransaction,
+}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import org.scalatest.Outcome
+import org.scalactic.source
 import org.scalatest.wordspec.FixtureAnyWordSpec
-
-import scala.concurrent.Future
+import org.scalatest.{Assertion, Outcome}
 
 class TopologyTimestampPlusEpsilonTrackerTest
     extends FixtureAnyWordSpec
     with BaseTest
     with HasExecutionContext {
-
-  import com.digitalasset.canton.topology.client.EffectiveTimeTestHelpers.*
 
   protected class Fixture {
     val crypto = new TestingOwnerWithKeys(
@@ -38,14 +37,34 @@ class TopologyTimestampPlusEpsilonTrackerTest
       loggerFactory,
       timeouts,
     )
-    val tracker =
-      new TopologyTimestampPlusEpsilonTracker(
+
+    var tracker: TopologyTimestampPlusEpsilonTracker = _
+    reInit()
+
+    def reInit(): Unit =
+      tracker = new TopologyTimestampPlusEpsilonTracker(
+        store,
         DefaultProcessingTimeouts.testing,
         loggerFactory,
-        FutureSupervisor.Noop,
       )
 
-    def appendEps(
+    def commitChangeDelay(sequenced: Long, effective: Long, topologyChangeDelay: Long): Unit = {
+      val sequencedTimeTyped = SequencedTime(CantonTimestamp.ofEpochMicro(sequenced))
+      val effectiveTimeTyped = EffectiveTime(CantonTimestamp.ofEpochMicro(effective))
+      val topologyChangeDelayTyped = NonNegativeFiniteDuration.tryOfMicros(topologyChangeDelay)
+
+      tracker.adjustTopologyChangeDelay(
+        effectiveTimeTyped,
+        topologyChangeDelayTyped,
+      )
+      storeChangeDelay(
+        sequencedTimeTyped,
+        effectiveTimeTyped,
+        topologyChangeDelayTyped,
+      )
+    }
+
+    def storeChangeDelay(
         sequenced: SequencedTime,
         effective: EffectiveTime,
         topologyChangeDelay: NonNegativeFiniteDuration,
@@ -60,220 +79,196 @@ class TopologyTimestampPlusEpsilonTrackerTest
         ),
         crypto.SigningKeys.key1,
       )
-      append(sequenced, effective, tx)
-    }
-
-    def append(
-        sequenced: SequencedTime,
-        effective: EffectiveTime,
-        txs: GenericSignedTopologyTransaction*
-    ): Unit = {
-      logger.debug(s"Storing $sequenced $effective $txs")
       store
         .update(
           sequenced,
           effective,
-          removeMapping = Map.empty,
+          removeMapping = Map(tx.mapping.uniqueKey -> PositiveInt.one),
           removeTxs = Set.empty,
-          txs.map(ValidatedTopologyTransaction(_, None)).toList,
+          List(ValidatedTopologyTransaction(tx, None)),
         )
         .futureValue
     }
 
-    def initTracker(ts: CantonTimestamp): Unit =
-      unwrap(TopologyTimestampPlusEpsilonTracker.initialize(tracker, store, ts)).futureValue
+    def storeRejection(sequenced: Long, effective: Long): Unit = {
 
-    def init(): Unit = {
-      val myTs = ts.immediatePredecessor
-      val topologyChangeDelay = epsilonFD
-      appendEps(
-        SequencedTime(myTs),
-        EffectiveTime(myTs),
-        topologyChangeDelay,
+      val tx = ValidatedTopologyTransaction(
+        crypto.TestingTransactions.p1p1,
+        Some(TopologyTransactionRejection.NotAuthorized),
       )
-      initTracker(myTs)
+
+      store
+        .update(
+          SequencedTime(CantonTimestamp.ofEpochMicro(sequenced)),
+          EffectiveTime(CantonTimestamp.ofEpochMicro(effective)),
+          removeMapping = Map.empty,
+          removeTxs = Set.empty,
+          Seq(tx),
+        )
+        .futureValue
     }
+
+    def assertEffectiveTime(
+        sequenced: Long,
+        strictMonotonicity: Boolean,
+        expectedEffective: Long,
+    )(implicit pos: source.Position): Assertion =
+      tracker
+        .trackAndComputeEffectiveTime(
+          SequencedTime(CantonTimestamp.ofEpochMicro(sequenced)),
+          strictMonotonicity,
+        )
+        .futureValueUS
+        .value shouldBe CantonTimestamp.ofEpochMicro(expectedEffective)
   }
 
   type FixtureParam = Fixture
 
-  override protected def withFixture(test: OneArgTest): Outcome =
-    test(new Fixture)
+  override protected def withFixture(test: OneArgTest): Outcome = test(new Fixture)
 
-  private def unwrap[T](fut: FutureUnlessShutdown[T]): Future[T] =
-    fut.onShutdown(fail("should not receive a shutdown"))
+  "The tracker" should {
 
-  private lazy val ts = CantonTimestamp.Epoch
-  private lazy val epsilonFD = NonNegativeFiniteDuration.tryOfMillis(250)
-  private lazy val epsilon = epsilonFD.duration
+    "correctly compute effective times with constant topologyChangeDelay" in { f =>
+      import f.*
+      commitChangeDelay(-1, -1, 250)
 
-  private def assertEffectiveTimeForUpdate(
-      tracker: TopologyTimestampPlusEpsilonTracker,
-      ts: CantonTimestamp,
-      expected: CantonTimestamp,
-  ) = {
-    val eff = unwrap(tracker.adjustTimestampForUpdate(ts)).futureValue
-    eff.value shouldBe expected
-    tracker.effectiveTimeProcessed(eff)
-  }
-
-  private def adjustEpsilon(
-      tracker: TopologyTimestampPlusEpsilonTracker,
-      newEpsilon: NonNegativeFiniteDuration,
-  ) = {
-
-    val adjustedTs = unwrap(tracker.adjustTimestampForUpdate(ts)).futureValue
-    tracker.adjustEpsilon(adjustedTs, ts, newEpsilon)
-    tracker.effectiveTimeProcessed(adjustedTs)
-
-    // until adjustedTs, we should still get the old epsilon
-    forAll(Seq(1L, 100L, 250L)) { delta =>
-      val ts1 = ts.plusMillis(delta)
-      assertEffectiveTimeForUpdate(tracker, ts1, ts1.plus(epsilon))
+      assertEffectiveTime(0, strictMonotonicity = true, 250)
+      assertEffectiveTime(5, strictMonotonicity = true, 255)
+      assertEffectiveTime(5, strictMonotonicity = false, 255)
     }
 
-  }
-
-  "timestamp plus epsilon" should {
-
-    "epsilon is constant properly project the timestamp" in { f =>
+    "correctly compute effective times when the topologyChangeDelay increases" in { f =>
       import f.*
-      init()
-      assertEffectiveTimeForUpdate(tracker, ts, ts.plus(epsilon))
-      assertEffectiveTimeForUpdate(tracker, ts.plusSeconds(5), ts.plusSeconds(5).plus(epsilon))
-      unwrap(
-        tracker
-          .adjustTimestampForTick(ts.plusSeconds(5))
-      ).futureValue.value shouldBe ts.plusSeconds(5).plus(epsilon)
+      // initialize delay
+      commitChangeDelay(-1, -1, 250)
 
+      // increase delay
+      assertEffectiveTime(0, strictMonotonicity = true, 250)
+      commitChangeDelay(0, 250, 1000)
+
+      // until 250, we should get the old delay
+      assertEffectiveTime(1, strictMonotonicity = true, 251)
+      assertEffectiveTime(100, strictMonotonicity = true, 350)
+      assertEffectiveTime(250, strictMonotonicity = true, 500)
+
+      // after 250, we should get the new delay
+      assertEffectiveTime(251, strictMonotonicity = true, 1251)
+      assertEffectiveTime(260, strictMonotonicity = true, 1260)
+      assertEffectiveTime(350, strictMonotonicity = true, 1350)
+      assertEffectiveTime(500, strictMonotonicity = true, 1500)
     }
 
-    "properly project during epsilon increase" in { f =>
+    "correctly compute effective times when the topologyChangeDelay decreases" in { f =>
       import f.*
-      init()
-      val newEpsilon = NonNegativeFiniteDuration.tryOfSeconds(1)
-      adjustEpsilon(tracker, newEpsilon)
-      // after adjusted ts, we should get the new epsilon
-      forAll(Seq(0L, 100L, 250L)) { delta =>
-        val ts1 = ts.plus(epsilon).immediateSuccessor.plusMillis(delta)
-        assertEffectiveTimeForUpdate(tracker, ts1, ts1.plus(newEpsilon.duration))
-      }
+
+      // initialize delay
+      commitChangeDelay(-1, -1, 250)
+
+      // increase delay
+      assertEffectiveTime(0, strictMonotonicity = true, 250)
+      commitChangeDelay(0, 250, 100)
+
+      // until 250, we should get the old delay
+      assertEffectiveTime(1, strictMonotonicity = false, 251)
+      assertEffectiveTime(100, strictMonotonicity = false, 350)
+      assertEffectiveTime(250, strictMonotonicity = false, 500)
+
+      // after 250, we should get the new delay, but with corrections to guarantee monotonicity
+      assertEffectiveTime(251, strictMonotonicity = false, 500)
+      assertEffectiveTime(252, strictMonotonicity = false, 500)
+      assertEffectiveTime(253, strictMonotonicity = true, 501)
+      assertEffectiveTime(254, strictMonotonicity = false, 501)
+      assertEffectiveTime(300, strictMonotonicity = false, 501)
+      assertEffectiveTime(300, strictMonotonicity = true, 502)
+
+      // after 402, we should get the new delay without corrections
+      assertEffectiveTime(403, strictMonotonicity = true, 503)
+      assertEffectiveTime(404, strictMonotonicity = false, 504)
+      assertEffectiveTime(410, strictMonotonicity = true, 510)
+      assertEffectiveTime(500, strictMonotonicity = false, 600)
+      assertEffectiveTime(600, strictMonotonicity = true, 700)
     }
 
-    "properly deal with epsilon decrease" in { f =>
+    "initialization should load upcoming epsilon changes" in { f =>
       import f.*
-      init()
-      val newEpsilon = NonNegativeFiniteDuration.tryOfMillis(100)
-      adjustEpsilon(tracker, newEpsilon)
 
-      // after adjusted ts, we should get the new epsilon, avoiding the "deadzone" of ts + 2*oldEpsilon
-      forAll(Seq(150L, 250L, 500L)) { case delta =>
-        val ts1 = ts.plus(epsilon).immediateSuccessor.plusMillis(delta)
-        assertEffectiveTimeForUpdate(tracker, ts1, ts1.plus(newEpsilon.duration))
-      }
+      // Commit a series of changes and check effective times.
+      assertEffectiveTime(0, strictMonotonicity = true, 0)
+      commitChangeDelay(0, 0, 100) // delay1
+      assertEffectiveTime(10, strictMonotonicity = true, 110)
+      commitChangeDelay(10, 110, 110) // delay2
+      assertEffectiveTime(100, strictMonotonicity = false, 200)
+      assertEffectiveTime(111, strictMonotonicity = true, 221)
+      storeRejection(111, 221)
+      assertEffectiveTime(120, strictMonotonicity = true, 230)
+      commitChangeDelay(120, 230, 120) // delay3
+      assertEffectiveTime(231, strictMonotonicity = false, 351)
+
+      // Now re-initialize tracker and check if up-coming changes are loaded from store
+      reInit()
+      // This will initialize the tracker to sequencedTime = 100, i.e. delay1 is effective, delay2 is upcoming, and delay3 not yet processed.
+      // delay1 should be loaded from the store, as it is effective
+      assertEffectiveTime(100, strictMonotonicity = false, 200)
+      // delay2 should be loaded from the store, as it has been upcoming during initialization
+      assertEffectiveTime(111, strictMonotonicity = true, 221)
+      storeRejection(111, 221)
+      assertEffectiveTime(120, strictMonotonicity = true, 230)
+      // delay3 needs to be replayed as its sequencing time is after the init time of 100
+      commitChangeDelay(120, 230, 120)
+      assertEffectiveTime(231, strictMonotonicity = false, 351)
     }
 
-    "correctly initialise with pending changes" in { f =>
+    "initialization should load upcoming transactions (including rejections)" in { f =>
       import f.*
 
-      val eS1 = NonNegativeFiniteDuration.tryOfMillis(100)
-      val tsS1 = ts.minusSeconds(1)
-      appendEps(SequencedTime(tsS1), EffectiveTime(tsS1), eS1)
+      assertEffectiveTime(0, strictMonotonicity = true, 0)
+      commitChangeDelay(0, 0, 100) // set initial delay1
+      assertEffectiveTime(10, strictMonotonicity = true, 110)
+      commitChangeDelay(10, 110, 50) // decrease delay to delay2
 
-      val eM100 = NonNegativeFiniteDuration.tryOfMillis(100)
-      val tsM100 = ts.minusMillis(100)
+      // delay1 is still effective
+      assertEffectiveTime(110, strictMonotonicity = true, 210)
+      storeRejection(110, 210)
 
-      appendEps(SequencedTime(tsM100), EffectiveTime(ts), eM100)
+      // delay2 is now effective, but the effective time is corrected
+      assertEffectiveTime(111, strictMonotonicity = true, 211)
+      storeRejection(111, 211)
+      assertEffectiveTime(120, strictMonotonicity = true, 212)
+      storeRejection(120, 212)
+      assertEffectiveTime(130, strictMonotonicity = false, 212)
+      // delay2 is now effective without any correction
+      assertEffectiveTime(164, strictMonotonicity = true, 214)
+      storeRejection(164, 214)
 
-      val tsM75 = ts.minusMillis(75)
-      append(
-        SequencedTime(ts),
-        EffectiveTime(tsM75.plusMillis(100)),
-        f.crypto.TestingTransactions.ns1k2,
-        f.crypto.TestingTransactions.p1p1,
-      )
-
-      val eM50 = NonNegativeFiniteDuration.tryOfMillis(200)
-      val tsM50 = ts.minusMillis(50)
-      appendEps(SequencedTime(tsM50), EffectiveTime(tsM50.plusMillis(100)), eM50)
-
-      f.initTracker(ts)
-
-      assertEffectiveTimeForUpdate(tracker, ts.plusMillis(10), ts.plusMillis(110))
-
+      // Now re-initialize and check if previous transactions are reloaded
+      reInit()
+      // delay2 is already effective, but the effective time is corrected
+      assertEffectiveTime(130, strictMonotonicity = false, 212)
+      // delay2 is now effective without any correction
+      assertEffectiveTime(164, strictMonotonicity = true, 214)
+      storeRejection(164, 214)
     }
 
-    "gracefully deal with epsilon decrease on a buggy domain" in { f =>
+    "initialization should load expired domainParametersChanges" in { f =>
       import f.*
-      init()
-      val newEpsilon = NonNegativeFiniteDuration.tryOfMillis(100)
-      adjustEpsilon(tracker, newEpsilon)
 
-      // after adjusted ts, we should get a warning and an adjustment in the "deadzone" of ts + 2*oldEpsilon
-      val (_, prepared) = Seq(0L, 100L, 149L).foldLeft(
-        (ts.plus(epsilon).plus(epsilon).immediateSuccessor, Seq.empty[(CantonTimestamp, Long)])
-      ) { case ((expected, res), delta) =>
-        // so expected timestamp is at 2*epsilon
-        (expected.immediateSuccessor, res :+ ((expected, delta)))
-      }
-      forAll(prepared) { case (expected, delta) =>
-        val ts1 = ts.plus(epsilon).immediateSuccessor.plusMillis(delta)
-        // tick should not advance the clock
-        unwrap(
-          tracker.adjustTimestampForTick(ts1)
-        ).futureValue.value shouldBe expected.immediatePredecessor
-        // update should advance the clock
-        val res = loggerFactory.assertLogs(
-          unwrap(tracker.adjustTimestampForUpdate(ts1)).futureValue,
-          _.errorMessage should include("Broken or malicious domain"),
-        )
-        res.value shouldBe expected
-        tracker.effectiveTimeProcessed(res)
-      }
-    }
+      assertEffectiveTime(0, strictMonotonicity = true, 0)
+      commitChangeDelay(0, 0, 100) // set initial delay1
+      assertEffectiveTime(10, strictMonotonicity = true, 110)
+      commitChangeDelay(10, 110, 50) // decrease delay to delay2
 
-    "block until we are in sync again" in { f =>
-      import f.*
-      init()
-      val eps3 = epsilon.dividedBy(3)
-      val eps2 = epsilon.dividedBy(2)
-      epsilon.toMillis shouldBe 250 // this test assumes this
-      // first, we'll kick off the computation at ts (note epsilon is active for ts on)
-      val fut1 = unwrap(tracker.adjustTimestampForUpdate(ts)).futureValue
-      // now, we need to confirm this effective time, which will "unlock" the any sequenced event update
-      // within ts + eps
-      tracker.effectiveTimeProcessed(fut1)
-      // then, we tick another update with a third and with half epsilon
-      val fut2 = unwrap(tracker.adjustTimestampForUpdate(ts.plus(eps3))).futureValue
-      val fut3 = unwrap(tracker.adjustTimestampForUpdate(ts.plus(eps2))).futureValue
-      // if we didn't get stuck by now, we didn't get blocked. now, let's get futures that gets blocked
-      val futB = unwrap(tracker.adjustTimestampForUpdate(ts.plus(epsilon).plusSeconds(1)))
-      val futB1 = unwrap(tracker.adjustTimestampForUpdate(ts.plus(epsilon).plusMillis(1001)))
-      val futB2 = unwrap(tracker.adjustTimestampForUpdate(ts.plus(epsilon).plusMillis(1200)))
-      val futC = unwrap(tracker.adjustTimestampForTick(ts.plus(epsilon).plusSeconds(2)))
-      Threading.sleep(500) // just to be sure that the future truly is blocked
-      futB.isCompleted shouldBe false
-      futB1.isCompleted shouldBe false
-      futB2.isCompleted shouldBe false
-      futC.isCompleted shouldBe false
-      // now, release the first one, we should complete the first, but not the second
-      Seq(fut2, fut3, fut1).foreach(tracker.effectiveTimeProcessed)
-      val effB = futB.futureValue
-      // now, clearing the effB should release B1 and B2, but not C, as C must wait until B2 is finished
-      // as there might have been an epsilon change
-      tracker.effectiveTimeProcessed(effB)
-      // the one following within epsilon should complete as well
-      val effB1 = futB1.futureValue
-      val effB2 = futB2.futureValue
-      // finally, release
-      Seq(effB1, effB2).foreach { ts =>
-        Threading.sleep(500) // just to be sure that the future is truly blocked
-        // should only complete after we touched the last one
-        futC.isCompleted shouldBe false
-        tracker.effectiveTimeProcessed(ts)
-      }
-      // finally, should complete now
-      futC.futureValue
+      // delay1 is still effective
+      assertEffectiveTime(110, strictMonotonicity = false, 210)
+      // delay2 is now effective, but the effective time is corrected
+      assertEffectiveTime(120, strictMonotonicity = false, 210)
+      // delay2 is now effective without any correction
+      assertEffectiveTime(162, strictMonotonicity = false, 212)
+
+      // Now re-initialize and check if the expiry of delay1 is reloaded
+      reInit()
+      assertEffectiveTime(120, strictMonotonicity = false, 210)
+      // delay2 is now effective without any correction
+      assertEffectiveTime(162, strictMonotonicity = false, 212)
     }
   }
 

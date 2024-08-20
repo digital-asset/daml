@@ -3,18 +3,29 @@
 
 package com.digitalasset.canton.console.commands
 
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
   InitializeFromGenesisState,
   InitializeFromOnboardingState,
 }
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
+import com.digitalasset.canton.admin.api.client.commands.{
+  EnterpriseSequencerAdminCommands,
+  SequencerAdminCommands,
+  StatusAdminCommands,
+}
+import com.digitalasset.canton.admin.api.client.data.{SequencerStatus, StaticDomainParameters}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
-import com.digitalasset.canton.console.{Help, SequencerReference}
+import com.digitalasset.canton.console.{
+  AdminCommandRunner,
+  ConsoleEnvironment,
+  FeatureFlagFilter,
+  Help,
+  SequencerReference,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateResponse
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
@@ -116,4 +127,18 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
     }
   }
 
+}
+
+class SequencerHealthAdministration(
+    val runner: AdminCommandRunner,
+    val consoleEnvironment: ConsoleEnvironment,
+    override val loggerFactory: NamedLoggerFactory,
+) extends HealthAdministration[SequencerStatus](
+      runner,
+      consoleEnvironment,
+    )
+    with FeatureFlagFilter {
+  override protected def nodeStatusCommand
+      : StatusAdminCommands.NodeStatusCommand[SequencerStatus, _, _] =
+    SequencerAdminCommands.Health.SequencerStatusCommand()
 }

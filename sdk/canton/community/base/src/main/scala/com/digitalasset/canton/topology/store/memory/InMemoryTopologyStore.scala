@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store.memory
 
+import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -363,7 +364,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       entry => {
         timeFilter(entry.from.value, entry.until.map(_.value)) &&
         types.contains(entry.mapping.code) &&
-        (pathFilter(entry.mapping)) &&
+        pathFilter(entry.mapping) &&
         entry.transaction.isProposal == isProposal
       },
     )
@@ -484,22 +485,67 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     Future {
       blocking {
         synchronized {
-          TopologyStore.accumulateUpcomingEffectiveChanges(
-            topologyTransactionStore
-              .filter(_.from.value >= asOfInclusive)
-              .map(_.toStoredTransaction)
-              .toSeq
-          )
+          topologyTransactionStore
+            .filter(entry => entry.from.value >= asOfInclusive && entry.rejected.isEmpty)
+            .map(_.toStoredTransaction)
+            .map(TopologyStore.Change.selectChange)
+            .toSeq
+            .sortBy(_.validFrom)
+            .distinct
         }
       }
     }
 
-  override def maxTimestamp()(implicit
+  protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Iterable[GenericStoredTopologyTransaction]] = Future.successful {
+    blocking {
+      synchronized {
+        topologyTransactionStore
+          .filter(entry =>
+            (entry.from.value >= sequencedTime || entry.until.forall(_.value >= sequencedTime)) &&
+              !entry.until.contains(entry.from) &&
+              entry.sequenced.value < sequencedTime &&
+              entry.rejected.isEmpty &&
+              !entry.transaction.isProposal
+          )
+          .map(_.toStoredTransaction)
+      }
+    }
+  }
+
+  override def findExpiredChangeDelays(
+      validUntilMinInclusive: CantonTimestamp,
+      validUntilMaxExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TopologyStore.Change.TopologyDelay]] =
+    Future.successful {
+      blocking {
+        synchronized {
+          topologyTransactionStore
+            .filter(
+              _.until.exists(until =>
+                validUntilMinInclusive <= until.value && until.value < validUntilMaxExclusive
+              )
+            )
+            .map(_.toStoredTransaction)
+            .toSeq
+            .mapFilter(TopologyStore.Change.selectTopologyDelay)
+        }
+      }
+    }
+
+  override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): Future[Option[(SequencedTime, EffectiveTime)]] = Future {
     blocking {
       synchronized {
-        topologyTransactionStore.lastOption.map(x => (x.sequenced, x.from))
+        topologyTransactionStore
+          .findLast(entry =>
+            entry.sequenced.value < sequencedTime && (includeRejected || entry.rejected.isEmpty)
+          )
+          .map(x => (x.sequenced, x.from))
       }
     }
   }

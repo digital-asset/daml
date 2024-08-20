@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
 import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.health.admin.data.{NodeStatus, WaitingForInitialization}
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
   SharedCommunityEnvironment,
