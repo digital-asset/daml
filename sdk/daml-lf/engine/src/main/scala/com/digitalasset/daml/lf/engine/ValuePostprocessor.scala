@@ -4,15 +4,17 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   IncompleteTransaction,
-  Transaction,
   Node,
   NodeId,
+  Transaction,
+  TransactionVersion,
   Versioned,
   VersionedTransaction,
 }
@@ -24,10 +26,10 @@ import com.digitalasset.daml.lf.speedy.SValue
 // - type constructor in records, variants, and enums
 // - Records' field names
 
-final class ValueEnricher(
+final class ValuePostprocessor(
     compiledPackages: CompiledPackages,
     translateValue: (Ast.Type, Value) => Result[SValue],
-    loadPackage: (PackageId, language.Reference) => Result[Unit],
+    loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
 ) {
 
   def this(engine: Engine) =
@@ -63,7 +65,7 @@ final class ValueEnricher(
     } yield contract.map(_.copy(arg = arg))
 
   def enrichView(
-      interfaceId: Identifier,
+      interfaceId: Ref.TypeConName,
       viewValue: Value,
   ): Result[Value] = for {
     iface <- handleLookup(
@@ -73,13 +75,13 @@ final class ValueEnricher(
   } yield r
 
   def enrichVersionedView(
-      interfaceId: Identifier,
+      interfaceId: Ref.TypeConName,
       viewValue: VersionedValue,
   ): Result[VersionedValue] = for {
     view <- enrichView(interfaceId, viewValue.unversioned)
   } yield viewValue.copy(unversioned = view)
 
-  def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
+  def enrichContract(tyCon: Ref.TypeConName, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
   private[this] def pkgInterface = compiledPackages.pkgInterface
@@ -99,24 +101,24 @@ final class ValueEnricher(
   }
 
   def enrichChoiceArgument(
-      templateId: Identifier,
-      interfaceId: Option[Identifier],
-      choiceName: Name,
+      templateId: Ref.TypeConName,
+      interfaceId: Option[Ref.TypeConName],
+      choiceName: Ref.Name,
       value: Value,
   ): Result[Value] =
     handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
-      templateId: Identifier,
-      interfaceId: Option[Identifier],
-      choiceName: Name,
+      templateId: Ref.TypeConName,
+      interfaceId: Option[Ref.TypeConName],
+      choiceName: Ref.Name,
       value: Value,
   ): Result[Value] =
     handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
       .flatMap(choice => enrichValue(choice.returnType, value))
 
-  def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
+  def enrichContractKey(tyCon: Ref.TypeConName, value: Value): Result[Value] =
     handleLookup(pkgInterface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
@@ -218,4 +220,68 @@ final class ValueEnricher(
     enrichTransaction(incompleteTx.transaction).map(transaction =>
       incompleteTx.copy(transaction = transaction)
     )
+
+  /*
+    This will renormalize a contract w.r.t a (up/down)grade template.
+    In practice this potentially
+     - adds/removes none fields
+     - change the transaction version.
+   */
+  private[this] def reversionValue(
+      typ: Ast.Type,
+      value: Value,
+      dstVer: TransactionVersion,
+  ): Result[Value] =
+    translateValue(typ, value).map(_.toNormalizedValue(dstVer))
+
+  // This
+  def reversion(
+      contract: FatContractInstance,
+      dstTmplId: Ref.TypeConName,
+  ): Result[FatContractInstance] = {
+    if (contract.templateId == dstTmplId)
+      ResultDone(contract)
+    else
+      for {
+        dstPkg <- handleLookup(compiledPackages.pkgInterface.lookupPackage(dstTmplId.packageId))
+        _ <-
+          if (
+            dstPkg.pkgName == contract.packageName && dstTmplId.qualifiedName == contract.templateId.qualifiedName
+          )
+            Result.unit
+          else
+            ResultError(
+              Error.Postprocessing.ReversioningMismatch(
+                contract.contractId,
+                dstPkg.pkgName,
+                dstTmplId.qualifiedName,
+                contract.packageName,
+                contract.templateId.qualifiedName,
+              )
+            )
+        dstTxVersion = TransactionVersion.assignNodeVersion(dstPkg.languageVersion)
+        dstArgType = Ast.TTyCon(dstTmplId)
+        createArg <- reversionValue(dstArgType, contract.createArg, dstTxVersion)
+        keyOpt <- contract.contractKeyWithMaintainers match {
+          case Some(GlobalKeyWithMaintainers(globalKey, maintainers)) =>
+            for {
+              keyDef <- handleLookup(compiledPackages.pkgInterface.lookupContractKey(dstTmplId))
+              keyVal <- reversionValue(keyDef.typ, globalKey.key, dstTxVersion)
+            } yield Some(
+              GlobalKeyWithMaintainers.assertBuild(
+                dstTmplId,
+                keyVal,
+                maintainers,
+                dstPkg.pkgName,
+              )
+            )
+          case None => ResultNone
+        }
+      } yield contract.toImplementation.copy(
+        createArg = createArg,
+        contractKeyWithMaintainers = keyOpt,
+        version = dstTxVersion,
+      )
+  }
+
 }

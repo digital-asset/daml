@@ -98,6 +98,8 @@ object ResultError {
     ResultError(Error.Interpretation(interpretationError, details))
   def apply(validationError: Error.Validation.Error): ResultError =
     ResultError(Error.Validation(validationError))
+  def apply(postprocessingError: Error.Postprocessing.Error): ResultError =
+    ResultError(Error.Postprocessing(postprocessingError))
 }
 
 /** Intermediate result indicating that a [[ContractInstance]] is required to complete the computation.
