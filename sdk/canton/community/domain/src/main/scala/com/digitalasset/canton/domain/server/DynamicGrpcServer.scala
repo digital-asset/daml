@@ -55,6 +55,7 @@ class DynamicGrpcServer(
     val serverBuilder = CantonServerBuilder
       .forConfig(
         serverConfig,
+        None,
         executionContext,
         loggerFactory,
         nodeParameters.loggingConfig.api,

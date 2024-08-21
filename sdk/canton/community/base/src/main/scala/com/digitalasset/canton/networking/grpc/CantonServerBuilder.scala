@@ -4,6 +4,7 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -136,6 +137,7 @@ object CantonServerBuilder {
     */
   def forConfig(
       config: ServerConfig,
+      adminToken: Option[CantonAdminToken],
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,
@@ -163,7 +165,7 @@ object CantonServerBuilder {
         loggerFactory,
         grpcMetrics,
         config.authServices,
-        config.adminToken,
+        adminToken,
       ),
     )
   }

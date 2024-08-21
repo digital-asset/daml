@@ -33,7 +33,7 @@ class CantonCommunityServerInterceptors(
     loggerFactory: NamedLoggerFactory,
     grpcMetrics: GrpcServerMetrics,
     authServices: Seq[AuthServiceConfig],
-    adminToken: Option[String],
+    adminToken: Option[CantonAdminToken],
 ) extends CantonServerInterceptors {
   private def interceptForLogging(
       service: ServerServiceDefinition,
@@ -63,7 +63,7 @@ class CantonCommunityServerInterceptors(
       service: ServerServiceDefinition
   ): ServerServiceDefinition = {
     val authService = new CantonAdminTokenAuthService(
-      adminToken.map(CantonAdminToken(_)),
+      adminToken,
       parent = authServices.map(
         _.create(
           // TODO(i20232): configure jwt leeway for admin api's
