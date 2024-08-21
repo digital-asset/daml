@@ -44,8 +44,8 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       shouldStorePkgNameAndVersion = false,
     )
 
-    s"persist LF ${LanguageVersion.v1_16} packages" in testPackagePersistence(
-      testLanguageVersion = LanguageVersion.v1_16,
+    s"persist LF ${LanguageVersion.v1_17} packages" in testPackagePersistence(
+      testLanguageVersion = LanguageVersion.v1_17,
       shouldStorePkgNameAndVersion = true,
     )
 
@@ -55,7 +55,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
     )
 
     "handle persistence failures" in {
-      val recoveryPkgId = Ref.PackageId.assertFromString(lf1_16_archive.getHash)
+      val recoveryPkgId = Ref.PackageId.assertFromString(lf1_17_archive.getHash)
       val failingPackageStore = {
         val pkgStore = mock[InMemoryDamlPackageStore]
         when(
@@ -76,7 +76,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         )
         when(
           pkgStore.getPackage(recoveryPkgId)(traceContext)
-        ).thenReturn(Future.successful(Some(lf1_16_archive)))
+        ).thenReturn(Future.successful(Some(lf1_17_archive)))
         pkgStore
       }
 
@@ -156,7 +156,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
     ) { env =>
       import env.*
 
-      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.16)
+      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.17)
       // Same package-name and package-version
       val pkg_lf_1_15 = lfArchiveTemplate(
         pkgName,
@@ -172,11 +172,11 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         LanguageVersion.v1_15,
         Ref.PackageId.assertFromString("somePkgId"),
       )
-      val pkg_lf_1_16 = lfArchiveTemplate(
+      val pkg_lf_1_17 = lfArchiveTemplate(
         pkgName,
         pkgVersion1,
         "someParty: Party",
-        LanguageVersion.v1_16,
+        LanguageVersion.v1_17,
         Ref.PackageId.assertFromString("somePkgId"),
       )
 
@@ -202,7 +202,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .value
       val pkgId3 = sut
         .validateAndStoreDar(
-          encodeDarArchive(pkg_lf_1_16),
+          encodeDarArchive(pkg_lf_1_17),
           Some("fileName3"),
           LedgerSubmissionId.assertFromString("sub-1"),
         )
@@ -254,7 +254,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
             Seq(
               // Entries with empty package names and versions should not be loaded on initialization
               (lf1_15_archive, None, None),
-              (lf1_16_archive, Some(pkgName), Some(pkgVersion2)),
+              (lf1_17_archive, Some(pkgName), Some(pkgVersion2)),
               (archive_max_stable_LF, Some(pkgName), Some(pkgVersion3)),
             ),
             String256M("DarFileName")(),
@@ -263,7 +263,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
           .futureValueUS
         sut.initialize.futureValue
 
-        val expectedPkgId1 = Ref.PackageId.assertFromString(lf1_16_archive.getHash)
+        val expectedPkgId1 = Ref.PackageId.assertFromString(lf1_17_archive.getHash)
         val expectedPkgId2 = Ref.PackageId.assertFromString(archive_max_stable_LF.getHash)
 
         val actualLoadedEntries = sut.upgradablePackageResolutionMapRef.get().value
@@ -436,11 +436,11 @@ object PackageUploaderTest {
     LanguageVersion.v1_15,
     Ref.PackageId.assertFromString("somePkgId"),
   )
-  private val lf1_16_archive = lfArchiveTemplate(
+  private val lf1_17_archive = lfArchiveTemplate(
     pkgName,
     pkgVersion2,
     "discriminator: Text",
-    LanguageVersion.v1_16,
+    LanguageVersion.v1_17,
     Ref.PackageId.assertFromString("somePkgId"),
   )
   private val archive_max_stable_LF = lfArchiveTemplate(

@@ -144,7 +144,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       }
     }
 
-    "append the package name and version for language version 1.16" in withEnv { env =>
+    "append the package name and version for language version 1.17" in withEnv { env =>
       import env.*
 
       val fileName = "CantonExamples.dar"
@@ -163,7 +163,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-      }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
+      }(LanguageVersion.v1_17, Ref.PackageId.assertFromString("-self-"))
 
       val pkgId = DamlPackageStore.readPackageId(archive)
       val expectedPackageIdAndState = PackageDescription(
@@ -425,5 +425,5 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-    }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
+    }(LanguageVersion.v1_17, Ref.PackageId.assertFromString("-self-"))
 }

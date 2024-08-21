@@ -175,7 +175,7 @@ class PackageUploader(
         val upgradingPkg =
           astPackage.languageVersion >= LanguageVersion.Features.packageUpgrades && !astPackage.isUtilityPackage
         // Package-name and package versions are only relevant for packages that support smart contract upgrading
-        // This is defined as LF >= 1.16 and not a "utility package" - which is a package that does not define any serializable types/templates/interfaces
+        // This is defined as LF >= 1.17 and not a "utility package" - which is a package that does not define any serializable types/templates/interfaces
         //   and as such, does not interact with upgrades at runtime.
         val pkgNameO = astPackage.metadata.filter(_ => upgradingPkg).map(_.name)
         val pkgVersionO = astPackage.metadata.filter(_ => upgradingPkg).map(_.version)
@@ -206,7 +206,7 @@ class PackageUploader(
           case _other =>
             // Do nothing as package-name and package-version were filtered before to only be present
             // for packages that support smart contract upgrading.
-            // This is defined as LF >= 1.16 and not a "utility package" - which is a package that does not define any serializable types/templates/interfaces
+            // This is defined as LF >= 1.17 and not a "utility package" - which is a package that does not define any serializable types/templates/interfaces
             //   and as such, does not interact with upgrades at runtime.
             ()
         }
@@ -324,7 +324,7 @@ class PackageUploader(
           case (acc, PackageDescription(packageId, _, Some(packageName), Some(packageVersion))) =>
             acc + (packageId -> (packageName -> packageVersion))
           case (acc, _) =>
-            // Only upgradable packages (i.e. have language version >= 1.16) are stored with name and version populated
+            // Only upgradable packages (i.e. have language version >= 1.17) are stored with name and version populated
             acc
         })
         .map { packageResolutionMap =>

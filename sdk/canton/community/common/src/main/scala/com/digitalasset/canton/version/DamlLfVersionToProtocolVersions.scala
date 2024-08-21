@@ -4,7 +4,6 @@
 package com.digitalasset.canton.version
 
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.transaction.TransactionVersion.*
 
 import scala.collection.immutable.SortedMap
 import scala.math.Ordered.orderingToOrdered
@@ -18,7 +17,7 @@ object DamlLfVersionToProtocolVersions {
       // Interfaces
       TransactionVersion.V15 -> ProtocolVersion.v5,
       // Upgrade
-      TransactionVersion.V16 -> ProtocolVersion.v6,
+      TransactionVersion.V17 -> ProtocolVersion.v6,
       // Dev
       TransactionVersion.VDev -> ProtocolVersion.dev,
     )
