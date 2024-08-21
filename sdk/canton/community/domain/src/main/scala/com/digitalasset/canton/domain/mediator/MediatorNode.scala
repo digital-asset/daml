@@ -178,6 +178,8 @@ class MediatorNodeBootstrap(
 
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
 
+  override protected def adminTokenConfig: Option[String] = config.adminApi.adminToken
+
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
@@ -228,6 +230,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -242,6 +245,8 @@ class MediatorNodeBootstrap(
         config.init.autoInit,
       )
       with GrpcMediatorInitializationService.Callback {
+
+    override def getAdminToken: Option[String] = Some(adminToken.secret)
 
     adminServerRegistry
       .addServiceU(
@@ -290,6 +295,7 @@ class MediatorNodeBootstrap(
           storage,
           crypto,
           adminServerRegistry,
+          adminToken,
           mediatorId,
           staticDomainParameters,
           authorizedTopologyManager,
@@ -355,6 +361,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       mediatorId: MediatorId,
       staticDomainParameters: StaticDomainParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
@@ -369,11 +376,6 @@ class MediatorNodeBootstrap(
       with HasCloseContext {
 
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
-
-    // admin token is taken from the config or created per session
-    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
-      CantonAdminToken.create(crypto.pureCrypto)
-    )(token => CantonAdminToken(secret = token))
 
     override protected def attempt()(implicit
         traceContext: TraceContext
@@ -465,6 +467,7 @@ class MediatorNodeBootstrap(
                   storage,
                   crypto,
                   adminServerRegistry,
+                  adminToken,
                   staticDomainParameters,
                   domainTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
@@ -523,6 +526,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       staticDomainParameters: StaticDomainParameters,
       domainTopologyStore: TopologyStore[DomainStore],
       topologyManagerStatus: TopologyManagerStatus,
@@ -716,6 +720,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       nodeId: UniqueIdentifier,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
@@ -725,6 +730,7 @@ class MediatorNodeBootstrap(
       storage,
       crypto,
       adminServerRegistry,
+      adminToken,
       MediatorId(nodeId),
       authorizedTopologyManager,
       healthService,
@@ -746,7 +752,7 @@ class MediatorNode(
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
-    val adminToken: CantonAdminToken,
+    override val adminToken: CantonAdminToken,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
     protocolVersion: ProtocolVersion,

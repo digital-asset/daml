@@ -150,6 +150,9 @@ class ParticipantNodeBootstrap(
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
   private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
 
+  override protected val adminTokenConfig: Option[String] =
+    config.ledgerApi.adminToken.orElse(config.adminApi.adminToken)
+
   private def tryGetPackageDependencyResolver(): PackageDependencyResolver =
     packageDependencyResolver.getOrElse(
       sys.error("packageDependencyResolver should be defined")
@@ -177,12 +180,21 @@ class ParticipantNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
   ): BootstrapStageOrLeaf[ParticipantNode] =
-    new StartupNode(storage, crypto, adminServerRegistry, nodeId, manager, healthService)
+    new StartupNode(
+      storage,
+      crypto,
+      adminServerRegistry,
+      adminToken,
+      nodeId,
+      manager,
+      healthService,
+    )
 
   override protected def createAuthorizedTopologyManager(
       nodeId: UniqueIdentifier,
@@ -235,6 +247,7 @@ class ParticipantNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -244,6 +257,7 @@ class ParticipantNodeBootstrap(
       )
       with HasCloseContext {
 
+    override def getAdminToken: Option[String] = Some(adminToken.secret)
     private val participantId = ParticipantId(nodeId)
 
     private def createSyncDomainAndTopologyDispatcher(
@@ -429,11 +443,6 @@ class ParticipantNodeBootstrap(
         PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
       addCloseable(partyMetadataStore)
 
-      // admin token is taken from the config or created per session
-      val adminToken: CantonAdminToken = config.ledgerApi.adminToken
-        .orElse(config.adminApi.adminToken)
-        .fold(CantonAdminToken.create(crypto.pureCrypto))(token => CantonAdminToken(secret = token))
-
       // upstream party information update generator
       val partyNotifierFactory = (eventPublisher: ParticipantEventPublisher) => {
         val partyNotifier = new LedgerServerPartyNotifier(
@@ -458,6 +467,7 @@ class ParticipantNodeBootstrap(
         participantId,
         crypto,
         adminServerRegistry,
+        adminToken,
         storage,
         persistentStateFactory,
         packageServiceFactory,
@@ -470,7 +480,6 @@ class ParticipantNodeBootstrap(
         replicationServiceFactory,
         createSchedulers,
         partyNotifierFactory,
-        adminToken,
         participantOps,
         tryGetPackageDependencyResolver(),
         createSyncDomainAndTopologyDispatcher,
@@ -597,6 +606,7 @@ class ParticipantNodeBootstrap(
       participantId: ParticipantId,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       storage: Storage,
       persistentStateFactory: ParticipantNodePersistentStateFactory,
       packageServiceFactory: PackageServiceFactory,
@@ -612,7 +622,6 @@ class ParticipantNodeBootstrap(
       replicationServiceFactory: Storage => ServerServiceDefinition,
       createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning],
       createPartyNotifierAndSubscribe: ParticipantEventPublisher => LedgerServerPartyNotifier,
-      adminToken: CantonAdminToken,
       topologyManager: ParticipantTopologyManagerOps,
       packageDependencyResolver: PackageDependencyResolver,
       createSyncDomainAndTopologyDispatcher: (
@@ -1141,7 +1150,7 @@ class ParticipantNode(
     identityPusher: ParticipantTopologyDispatcher,
     private[canton] val ips: IdentityProvidingServiceClient,
     private[canton] val sync: CantonSyncService,
-    val adminToken: CantonAdminToken,
+    override val adminToken: CantonAdminToken,
     val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     val replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     val loggerFactory: NamedLoggerFactory,

@@ -114,6 +114,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(participants.isRunning(anyString())).thenReturn(true)
     when(participants.getRunning(anyString())).thenReturn(Some(participantBootstrap))
     when(participantBootstrap.getNode).thenReturn(Some(participant))
+    when(participantBootstrap.getAdminToken).thenReturn(Some(adminToken))
     when(participant.adminToken).thenReturn(CantonAdminToken(adminToken))
 
     val adminCommandRunner: ConsoleGrpcAdminCommandRunner = mock[ConsoleGrpcAdminCommandRunner]
