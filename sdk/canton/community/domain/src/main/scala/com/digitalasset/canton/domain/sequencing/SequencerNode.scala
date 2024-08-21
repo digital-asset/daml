@@ -148,6 +148,7 @@ class SequencerNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -157,11 +158,14 @@ class SequencerNodeBootstrap(
       storage,
       crypto,
       adminServerRegistry,
+      adminToken,
       SequencerId(nodeId),
       manager,
       healthReporter,
       healthService,
     )
+
+  override protected val adminTokenConfig: Option[String] = config.adminApi.adminToken
 
   private val domainTopologyManager = new SingleUseCell[DomainTopologyManager]()
   private val topologyClient = new SingleUseCell[DomainTopologyClient]()
@@ -185,6 +189,7 @@ class SequencerNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       sequencerId: SequencerId,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -196,6 +201,8 @@ class SequencerNodeBootstrap(
         config.init.autoInit,
       )
       with GrpcSequencerInitializationService.Callback {
+
+    override def getAdminToken: Option[String] = Some(adminToken.secret)
 
     // add initialization service
     adminServerRegistry.addServiceU(
@@ -317,6 +324,7 @@ class SequencerNodeBootstrap(
           storage,
           crypto,
           adminServerRegistry,
+          adminToken,
           sequencerId,
           result.sequencerFactory,
           result.staticDomainParameters,
@@ -433,6 +441,7 @@ class SequencerNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
       sequencerId: SequencerId,
       sequencerFactory: SequencerFactory,
       staticDomainParameters: StaticDomainParameters,
@@ -447,14 +456,10 @@ class SequencerNodeBootstrap(
         bootstrapStageCallback,
       )
       with HasCloseContext {
+    override def getAdminToken: Option[String] = Some(adminToken.secret)
     // save one argument and grab the domainId from the store ...
     private val domainId = domainTopologyManager.store.storeId.domainId
     private val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
-
-    // admin token is taken from the config or created per session
-    val adminToken: CantonAdminToken = config.adminApi.adminToken.fold(
-      CantonAdminToken.create(crypto.pureCrypto)
-    )(token => CantonAdminToken(secret = token))
 
     preinitializedServer.foreach(x => addCloseable(x.publicServer))
 
@@ -706,6 +711,7 @@ class SequencerNodeBootstrap(
             preinitializedServer,
             healthReporter,
             adminServerRegistry,
+            adminToken,
           )
         } yield {
           // if close handle hasn't been registered yet, register it now
@@ -797,6 +803,7 @@ class SequencerNodeBootstrap(
       server: Option[DynamicGrpcServer],
       healthReporter: GrpcHealthReporter,
       adminServerRegistry: CantonMutableHandlerRegistry,
+      adminToken: CantonAdminToken,
   ): EitherT[Future, String, DynamicGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
@@ -820,7 +827,7 @@ class SequencerNode(
     config: SequencerNodeConfigCommon,
     override protected val clock: Clock,
     val sequencer: SequencerRuntime,
-    val adminToken: CantonAdminToken,
+    override val adminToken: CantonAdminToken,
     protected val loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicGrpcServer,
     healthData: => Seq[ComponentStatus],

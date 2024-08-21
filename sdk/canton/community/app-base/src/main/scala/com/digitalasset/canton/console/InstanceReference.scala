@@ -698,7 +698,7 @@ class LocalParticipantReference(
     consoleEnvironment.environment.participants.getStarting(name)
 
   /** secret, not publicly documented way to get the admin token */
-  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+  override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   private lazy val testing_ =
     new LocalParticipantTestingGroup(this, consoleEnvironment, loggerFactory)
@@ -1198,7 +1198,7 @@ class LocalSequencerReference(
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
 
-  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+  override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   @Help.Summary("Returns the sequencer configuration")
   override def config: SequencerNodeConfigCommon =
@@ -1329,7 +1329,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
 
-  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+  override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   @Help.Summary("Returns the mediator configuration")
   override def config: MediatorNodeConfigCommon =

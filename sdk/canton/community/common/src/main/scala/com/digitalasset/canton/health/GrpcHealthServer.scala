@@ -31,6 +31,7 @@ class GrpcHealthServer(
   private val server = CantonServerBuilder
     .forConfig(
       config,
+      None,
       executor,
       loggerFactory,
       apiConfig,

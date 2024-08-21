@@ -502,7 +502,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[Seq[TopologyStore.Change.TopologyDelay]] =
     queryForTransactions(
-      sql"AND transaction_type = ${DomainParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false ",
+      sql" AND transaction_type = ${DomainParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false ",
       operation = functionFullName,
     ).map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
 

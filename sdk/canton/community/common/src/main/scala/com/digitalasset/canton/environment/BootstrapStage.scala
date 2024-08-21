@@ -35,6 +35,8 @@ sealed trait BootstrapStageOrLeaf[T <: CantonNode]
 
   def start()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit]
   def getNode: Option[T]
+
+  def getAdminToken: Option[String]
   protected def bootstrap: BootstrapStage.Callback
 
   protected def timeouts: ProcessingTimeout = bootstrap.timeouts
@@ -50,6 +52,8 @@ class RunningNode[T <: CantonNode](
 
   def description: String = "Node up and running"
   override def getNode: Option[T] = Some(node)
+
+  override def getAdminToken: Option[String] = Some(node.adminToken.secret)
 
   override def start()(implicit
       traceContext: TraceContext
@@ -151,6 +155,8 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
 
   def next: Option[StageResult] = stageResult.get()
   def getNode: Option[T] = next.flatMap(_.getNode)
+
+  override def getAdminToken: Option[String] = next.flatMap(_.getAdminToken)
 
   override protected def onClosed(): Unit = {
     super.onClosed()

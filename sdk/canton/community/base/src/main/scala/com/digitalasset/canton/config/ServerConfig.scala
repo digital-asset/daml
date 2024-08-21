@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tls.TlsVersion
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.config.SequencerConnectionConfig.CertificateFile
@@ -85,7 +86,7 @@ trait ServerConfig extends Product with Serializable {
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
-      adminToken: Option[String],
+      adminToken: Option[CantonAdminToken],
   ): CantonServerInterceptors
 
 }
@@ -97,7 +98,7 @@ trait CommunityServerConfig extends ServerConfig {
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
-      adminToken: Option[String],
+      adminToken: Option[CantonAdminToken],
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,

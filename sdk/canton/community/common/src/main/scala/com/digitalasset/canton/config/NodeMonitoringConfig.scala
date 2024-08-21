@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{
@@ -33,7 +34,7 @@ final case class GrpcHealthServerConfig(
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
-      adminToken: Option[String],
+      adminToken: Option[CantonAdminToken],
   ): CantonServerInterceptors =
     new CantonCommunityServerInterceptors(
       tracingConfig,

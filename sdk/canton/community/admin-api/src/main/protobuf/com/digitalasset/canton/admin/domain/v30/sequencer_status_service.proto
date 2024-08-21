@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.domain.v30;
 
 import "com/digitalasset/canton/admin/health/v30/status_service.proto";
-import "google/protobuf/wrappers.proto";
 
 service SequencerStatusService {
   rpc SequencerStatus(SequencerStatusRequest) returns (SequencerStatusResponse);
