@@ -1305,7 +1305,8 @@ private[lf] object SBuiltin {
   // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
-      tplId: TypeConName
+      ifaceId: TypeConName,
+      tplId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1315,20 +1316,29 @@ private[lf] object SBuiltin {
 
       if (tplId == tyCon) {
         Control.Value(SOptional(Some(record)))
-      } else if (tplId.qualifiedName == tyCon.qualifiedName) {
-        val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
-        val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
-        val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
-        val oTyConPkgName = machine.tmplId2PackageName(tyCon, tyConTemplateVersion)
-        (oTplIdPkgName, oTyConPkgName) match {
-          case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
-            importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
-              Control.Value(SOptional(Some(templateArg)))
-            }
-          case _ => Control.Value(SOptional(None))
-        }
       } else {
-        Control.Value(SOptional(None))
+        machine.ensurePackageIsLoaded(tyCon.packageId, language.Reference.Template(tyCon)) { () =>
+          if (
+            tplId.qualifiedName == tyCon.qualifiedName &&
+            machine.compiledPackages.pkgInterface
+              .lookupTemplate(tyCon)
+              .exists(_.implements.contains(ifaceId))
+          ) {
+            val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
+            val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
+            val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
+            val oTyConPkgName = machine.tmplId2PackageName(tyCon, tyConTemplateVersion)
+            (oTplIdPkgName, oTyConPkgName) match {
+              case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
+                importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
+                  Control.Value(SOptional(Some(templateArg)))
+                }
+              case _ => Control.Value(SOptional(None))
+            }
+          } else {
+            Control.Value(SOptional(None))
+          }
+        }
       }
     }
   }

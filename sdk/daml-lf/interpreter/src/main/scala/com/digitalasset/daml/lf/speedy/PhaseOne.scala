@@ -325,7 +325,7 @@ private[lf] final class PhaseOne(
         }
       case EFromInterface(iface @ _, tpl, exp) =>
         compileExp(env, exp) { exp =>
-          Return(SBFromInterface(tpl)(exp))
+          Return(SBFromInterface(iface, tpl)(exp))
         }
       case EUnsafeFromInterface(iface @ _, tpl, cidExp, ifaceExp) =>
         compileExp(env, cidExp) { cidExp =>
