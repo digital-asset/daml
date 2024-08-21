@@ -1248,9 +1248,9 @@ object Ast {
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
       if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
-        None
-      else
         Some(metadata.version)
+      else
+        None
     }
     private[lf] def pkgNameVersion: (Ref.PackageName, Option[Ref.PackageVersion]) =
       pkgName -> pkgVersion
