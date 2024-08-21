@@ -1254,17 +1254,19 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Only for interface fetches
   final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val optTargetTemplateId: Option[TypeConName] = None // no upgrading
+      val templateId = getSAnyContract(args, 0)._1
       val e = SEBuiltin(
         SBUInsertFetchNode(
-          getSAnyContract(args, 0)._1,
-          optTargetTemplateId,
+          templateId,
+          Some(templateId),
           byKey = false,
+          isInterfaceFetch = true,
         )
       )
       Control.Expression(e)
@@ -1304,13 +1306,29 @@ private[lf] object SBuiltin {
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
       tplId: TypeConName
-  ) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       val (tyCon, record) = getSAnyContract(args, 0)
+
       if (tplId == tyCon) {
-        SOptional(Some(record))
+        Control.Value(SOptional(Some(record)))
+      } else if (tplId.qualifiedName == tyCon.qualifiedName) {
+        val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
+        val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
+        val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
+        val oTyConPkgName = machine.tmplId2PackageName(tyCon, tyConTemplateVersion)
+        (oTplIdPkgName, oTyConPkgName) match {
+          case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
+            importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
+              Control.Value(SOptional(Some(templateArg)))
+            }
+          case _ => Control.Value(SOptional(None))
+        }
       } else {
-        SOptional(None)
+        Control.Value(SOptional(None))
       }
     }
   }
@@ -1432,6 +1450,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       byKey: Boolean,
+      isInterfaceFetch: Boolean,
   ) extends UpdateBuiltin(2) {
 
     protected def executeUpdate(
@@ -1449,6 +1468,7 @@ private[lf] object SBuiltin {
             optLocation = machine.getLastLocation,
             byKey = byKey,
             version = version,
+            isInterfaceFetch = isInterfaceFetch,
           ) match {
             case Right(ptx) =>
               machine.ptx = ptx

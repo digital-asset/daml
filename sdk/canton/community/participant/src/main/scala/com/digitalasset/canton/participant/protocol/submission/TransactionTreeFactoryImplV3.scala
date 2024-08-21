@@ -66,14 +66,16 @@ class TransactionTreeFactoryImplV3(
   private[submission] def buildPackagePreference(
       decomposition: TransactionViewDecomposition
   ): Set[LfPackageId] = {
+    def anyNodePref(n: LfActionNode): (LfPackageName, LfPackageId) =
+      n.packageName match {
+        case Some(packageName) => (packageName, n.templateId.packageId)
+        case None =>
+          throw new IllegalStateException(s"LF 1.17 nodes must have package name [$n]")
+      }
 
     def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
-      case ex: LfNodeExercises if ex.interfaceId.isDefined =>
-        ex.packageName match {
-          case Some(packageName) => Set((packageName, ex.templateId.packageId))
-          case None =>
-            throw new IllegalStateException(s"LF 1.17 nodes must have package name [$ex]")
-        }
+      case ex: LfNodeExercises if ex.interfaceId.isDefined => Set(anyNodePref(n))
+      case fn: LfNodeFetch if fn.isInterfaceFetch => Set(anyNodePref(n))
       case _ => Set.empty
     }
 
