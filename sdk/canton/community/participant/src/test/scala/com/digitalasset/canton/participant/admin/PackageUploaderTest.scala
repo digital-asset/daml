@@ -44,8 +44,8 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       shouldStorePkgNameAndVersion = false,
     )
 
-    s"persist LF ${LanguageVersion.v1_17} packages" in testPackagePersistence(
-      testLanguageVersion = LanguageVersion.v1_17,
+    s"persist LF ${LanguageVersion.v1_16} packages" in testPackagePersistence(
+      testLanguageVersion = LanguageVersion.v1_16,
       shouldStorePkgNameAndVersion = true,
     )
 
@@ -156,7 +156,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
     ) { env =>
       import env.*
 
-      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.17)
+      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.16)
       // Same package-name and package-version
       val pkg_lf_1_15 = lfArchiveTemplate(
         pkgName,
@@ -176,7 +176,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         pkgName,
         pkgVersion1,
         "someParty: Party",
-        LanguageVersion.v1_17,
+        LanguageVersion.v1_16,
         Ref.PackageId.assertFromString("somePkgId"),
       )
 
@@ -440,7 +440,7 @@ object PackageUploaderTest {
     pkgName,
     pkgVersion2,
     "discriminator: Text",
-    LanguageVersion.v1_17,
+    LanguageVersion.v1_16,
     Ref.PackageId.assertFromString("somePkgId"),
   )
   private val archive_max_stable_LF = lfArchiveTemplate(

@@ -60,7 +60,7 @@ class TransactionTreeFactoryImplV3(
       if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
     )
 
-  /* LF 1.17 will be enabled as part of ProtocolVersion.v6 */
+  /* LF 1.16 will be enabled as part of ProtocolVersion.v6 */
   private def supportsUpgrading(tv: LfTransactionVersion) = Util.sharedKey(tv)
 
   private[submission] def buildPackagePreference(

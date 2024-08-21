@@ -405,7 +405,7 @@ object BaseTest {
 
   lazy val pvTransactionVersion: TransactionVersion = testedProtocolVersion match {
     case ProtocolVersion.`dev` => TransactionVersion.maxVersion
-    case ProtocolVersion.`v6` => TransactionVersion.V17
+    case ProtocolVersion.`v6` => TransactionVersion.V16
     case ProtocolVersion.`v5` => TransactionVersion.V15
     case unexpectedPV => sys.error(s"Unexpected protocol version $unexpectedPV.")
   }

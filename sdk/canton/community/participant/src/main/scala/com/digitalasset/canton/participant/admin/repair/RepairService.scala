@@ -1455,7 +1455,7 @@ object RepairService {
         argsVersionedValue = LfVersioned(
           // Version is ignored by daml engine upon RepairService.addContract
           // However, it's needed for passing the contract_id recomputation checks
-          // for LF versions at least 1.17 (see recompute_contract_ids),
+          // for LF versions at least 1.16 (see recompute_contract_ids),
           // for which we can extract it from the created_event_blob.
           transactionVersion.getOrElse(protocol.DummyTransactionVersion),
           argsValue,
