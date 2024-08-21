@@ -1310,6 +1310,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -1356,6 +1358,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -1388,6 +1392,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
               )
           }
         }
@@ -1649,6 +1655,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -1679,6 +1687,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -2375,6 +2385,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "ends test",
             )
           }
@@ -2421,6 +2433,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
             )
           }
         }
@@ -2450,6 +2464,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
               )
           }
         }
@@ -2957,6 +2973,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "ends test",
             )
           }
@@ -2982,6 +3000,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
               "contract agreement",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
             )
           }
         }
@@ -3011,6 +3031,8 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "contract agreement",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
               )
           }
         }

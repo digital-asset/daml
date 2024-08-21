@@ -306,10 +306,10 @@ private[lf] final class Compiler(
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun1(body))
 
-  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
-      body: (Position, Position, Env) => s.SExpr
+  private[this] def unlabelledTopLevelFunction1(ref: t.SDefinitionRef)(
+      body: (Position, Env) => s.SExpr
   ): (t.SDefinitionRef, SDefinition) =
-    ref -> SDefinition(pipeline(fun2(body)))
+    ref -> SDefinition(pipeline(fun1(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -775,8 +775,7 @@ private[lf] final class Compiler(
       optTargetTemplateId,
       byKey = mbKey.isDefined,
     )(
-      env.toSEVar(cidPos),
-      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+      env.toSEVar(cidPos)
     )
 
   }
@@ -821,7 +820,6 @@ private[lf] final class Compiler(
               SBResolveSBUInsertFetchNode(
                 env.toSEVar(payloadPos),
                 env.toSEVar(cidPos),
-                s.SEValue.None,
               ),
             ) { (_, env) =>
               env.toSEVar(payloadPos)
@@ -860,7 +858,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+    unlabelledTopLevelFunction1(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, env) =>
       // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
       // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
@@ -875,24 +873,15 @@ private[lf] final class Compiler(
                         case None =>
                           s.SEValue.None
                         case Some(tmplKey) =>
-                          s.SECase(
-                            env.toSEVar(mbKeyPos),
-                            List(
-                              s.SCaseAlt(
-                                t.SCPNone,
-                                let(
-                                  env,
-                                  translateExp(
-                                    env.bindExprVar(tmpl.param, tmplArgPos),
-                                    tmplKey.body,
-                                  ),
-                                ) { (keyPos, env) =>
-                                  SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                                },
-                              ),
-                              s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                          let(
+                            env,
+                            translateExp(
+                              env.bindExprVar(tmpl.param, tmplArgPos),
+                              tmplKey.body,
                             ),
-                          )
+                          ) { (keyPos, env) =>
+                            SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                          }
                       }
                       let(env, body) { (bodyPos, env) =>
                         SBuildContractInfoStruct(
@@ -1174,7 +1163,7 @@ private[lf] final class Compiler(
           val expr1 =
             s.SEApp(
               s.SEVal(t.ToContractInfoDefRef(templateId)),
-              List(s.SEValue(argument), s.SEValue.None),
+              List(s.SEValue(argument)),
             )
           val contractPos = env.nextPosition
           env = env.pushVar

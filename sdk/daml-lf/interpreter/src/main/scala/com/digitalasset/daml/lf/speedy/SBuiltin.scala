@@ -956,9 +956,8 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val templateArg: SValue = args.get(0)
-      val keyOpt: SValue = SOptional(None)
 
-      computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
+      computeContractInfo(machine, templateId, templateArg) { contract =>
         contract.keyOpt match {
           case Some(contractKey) if contractKey.maintainers.isEmpty =>
             Control.Error(
@@ -1017,9 +1016,8 @@ private[lf] object SBuiltin {
 
       val coid = getSContractId(args, 1)
       val templateArg: SValue = args.get(5)
-      val keyOpt: SValue = SOptional(None)
 
-      getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+      getContractInfo(machine, coid, templateId, templateArg) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val pkgName = machine.tmplId2PackageName(templateId, templateVersion)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
@@ -1159,8 +1157,7 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
-      val keyOpt = args.get(1)
-      fetchAny(machine, optTargetTemplateId, coid, keyOpt) { sv =>
+      fetchAny(machine, optTargetTemplateId, coid) { sv =>
         Control.Value(sv)
       }
     }
@@ -1172,8 +1169,7 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
-      val keyOpt = args.get(1)
-      softFetchInterface(machine, coid, keyOpt)(Control.Value)
+      softFetchInterface(machine, coid)(Control.Value)
     }
   }
 
@@ -1432,16 +1428,15 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       byKey: Boolean,
-  ) extends UpdateBuiltin(2) {
+  ) extends UpdateBuiltin(1) {
 
     protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
-      val keyOpt: SValue = args.get(1)
-      fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) { templateArg =>
-        getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+      fetchContract(machine, templateId, optTargetTemplateId, coid) { templateArg =>
+        getContractInfo(machine, coid, templateId, templateArg) { contract =>
           val version = machine.tmplId2TxVersion(templateId)
           machine.ptx.insertFetch(
             coid = coid,
@@ -1567,18 +1562,16 @@ private[lf] object SBuiltin {
           )
         )
       } else {
-        val keyOpt = SOptional(Some(keyValue))
         val gkey = cachedKey.globalKey
         machine.ptx.contractState.resolveKey(gkey) match {
           case Right((keyMapping, next)) =>
             machine.ptx = machine.ptx.copy(contractState = next)
             keyMapping match {
               case ContractStateMachine.KeyActive(coid) =>
-                fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                  templateArg =>
-                    getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
-                      machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
-                    }
+                fetchContract(machine, templateId, optTargetTemplateId, coid) { templateArg =>
+                  getContractInfo(machine, coid, templateId, templateArg) { contract =>
+                    machine.checkKeyVisibility(gkey, coid, operation.handleKeyFound, contract)
+                  }
                 }
 
               case ContractStateMachine.KeyInactive =>
@@ -1592,17 +1585,15 @@ private[lf] object SBuiltin {
               keyMapping match {
                 case ContractStateMachine.KeyActive(coid) =>
                   val c =
-                    fetchContract(machine, templateId, optTargetTemplateId, coid, keyOpt) {
-                      templateArg =>
-                        getContractInfo(machine, coid, templateId, templateArg, keyOpt) {
-                          contract =>
-                            machine.checkKeyVisibility(
-                              gkey,
-                              coid,
-                              operation.handleKeyFound,
-                              contract,
-                            )
-                        }
+                    fetchContract(machine, templateId, optTargetTemplateId, coid) { templateArg =>
+                      getContractInfo(machine, coid, templateId, templateArg) { contract =>
+                        machine.checkKeyVisibility(
+                          gkey,
+                          coid,
+                          operation.handleKeyFound,
+                          contract,
+                        )
+                      }
                     }
                   (c, true)
                 case ContractStateMachine.KeyInactive =>
@@ -2180,9 +2171,8 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
-      keyOpt: SValue,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
+    fetchAny(machine, optTargetTemplateId, coid) { fetched =>
       // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
       // This is because the contract got up/down-graded when imported by importValue.
 
@@ -2205,7 +2195,6 @@ private[lf] object SBuiltin {
       machine: UpdateMachine,
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
-      keyOpt: SValue,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
     machine.getIfLocalContract(coid) match {
       case Some((templateId, templateArg)) =>
@@ -2230,7 +2219,7 @@ private[lf] object SBuiltin {
               language.Reference.Template(dstTmplId),
             ) { () =>
               importValue(machine, dstTmplId, coinstArg) { templateArg =>
-                getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                getContractInfo(machine, coid, dstTmplId, templateArg) { contract =>
                   ensureContractActive(machine, coid, contract.templateId) {
 
                     machine.checkContractVisibility(coid, contract)
@@ -2267,7 +2256,6 @@ private[lf] object SBuiltin {
   private def softFetchInterface(
       machine: UpdateMachine,
       coid: V.ContractId,
-      keyOpt: SValue,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
     machine.getIfLocalContract(coid) match {
       case Some((templateId, templateArg)) =>
@@ -2286,7 +2274,7 @@ private[lf] object SBuiltin {
                     language.Reference.Template(dstTmplId),
                   ) { () =>
                     importValue(machine, dstTmplId, coinstArg) { templateArg =>
-                      getContractInfo(machine, coid, dstTmplId, templateArg, keyOpt) { contract =>
+                      getContractInfo(machine, coid, dstTmplId, templateArg) { contract =>
                         ensureContractActive(machine, coid, contract.templateId) {
 
                           machine.checkContractVisibility(coid, contract)
@@ -2379,7 +2367,6 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       templateId: Identifier,
       templateArg: SValue,
-      keyOpt: SValue,
   )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
     machine.contractInfoCache.get((coid, templateId.packageId)) match {
       case Some(contract) =>
@@ -2387,7 +2374,7 @@ private[lf] object SBuiltin {
         assert(contract.templateId == templateId)
         f(contract)
       case None =>
-        computeContractInfo(machine, templateId, templateArg, keyOpt) { contract =>
+        computeContractInfo(machine, templateId, templateArg) { contract =>
           machine.insertContractInfoCache(coid, contract)
           f(contract)
         }
@@ -2398,14 +2385,10 @@ private[lf] object SBuiltin {
       machine: Machine[Q],
       templateId: Identifier,
       templateArg: SValue,
-      keyOpt: SValue,
   )(f: ContractInfo => Control[Q]): Control[Q] = {
     val e: SExpr = SEApp(
       SEVal(ToContractInfoDefRef(templateId)),
-      Array(
-        templateArg,
-        keyOpt,
-      ),
+      Array(templateArg),
     )
     executeExpression(machine, e) { contractInfoStruct =>
       val contract = extractContractInfo(
