@@ -314,14 +314,14 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenAnInstanceIsAddedSeparateDep"
+                      "FailsWhenAnInstanceIsAddedSeparateDep"
                       Succeed
                       versionDefault
                       SeparateDep
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
+                      "FailsWhenAnInstanceIsAddedUpgradedPackage"
                       Succeed
                       versionDefault
                       DependOnV1

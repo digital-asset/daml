@@ -217,7 +217,7 @@ da_scala_dar_resources_library(
     for identifier in [
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWhenAnInstanceIsDropped",
-        "SucceedsWhenAnInstanceIsAddedSeparateDep",
+        "FailsWhenAnInstanceIsAddedSeparateDep",
     ]
 ]
 
@@ -377,10 +377,10 @@ da_scala_dar_resources_library(
         ("FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", {}, {}),
         ("SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage", {}, {}),
         (
-            "SucceedsWhenAnInstanceIsAddedUpgradedPackage",
+            "FailsWhenAnInstanceIsAddedUpgradedPackage",
             {},
             {"data_dependencies": [
-                "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+                "//test-common:upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
             ]},
         ),
         (
@@ -396,9 +396,9 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"]},
         ),
         (
-            "SucceedsWhenAnInstanceIsAddedSeparateDep",
-            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
-            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
+            "FailsWhenAnInstanceIsAddedSeparateDep",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
         ),
         ("FailsOnlyInModuleNotInReexports", {}, {}),
         ("FailsWithSynonymReturnTypeChange", {}, {}),

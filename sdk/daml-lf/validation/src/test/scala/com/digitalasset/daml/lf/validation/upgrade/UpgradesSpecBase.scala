@@ -728,12 +728,14 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when an instance is added (separate dep)." in {
       for {
-        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar")
+        _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar")
         result <- testPackagePair(
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
           assertPackageUpgradeCheck(
-            None
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded."
+            )
           ),
         )
       } yield result
@@ -741,10 +743,12 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when an instance is added (upgraded package)." in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         assertPackageUpgradeCheck(
-          None
+          Some(
+            "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
+          )
         ),
       )
     }
