@@ -293,13 +293,10 @@ checkModuleM upgradedPackageId module_ = do
             | template <- NM.elems (moduleTemplates module_)
             , implementation <- NM.elems (tplImplements template)
             ]
-    (_instanceExisting, instanceNew) <-
-        checkDeletedWithContext
-            (\(tpl, impl) ->
-                ( ContextTemplate (_present module_) tpl TPWhole
-                , EUpgradeMissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
-                ))
-            (flattenInstances <$> module_)
+    let (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew (flattenInstances <$> module_)
+    checkDeletedInstances (_present module_) instanceDel
+    checkAddedInstances (_present module_) instanceNew
+
     checkUpgradedInterfacesAreUnused upgradedPackageId (_present module_) instanceNew
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
@@ -316,6 +313,32 @@ checkModuleM upgradedPackageId module_ = do
         else do
             let (presentOrigin, context) = _present origin
             withContextF present context $ checkDefDataType presentOrigin dt
+
+checkDeletedInstances ::
+    Module ->
+    HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements) ->
+    TcUpgradeM ()
+checkDeletedInstances module_ instances = throwIfNonEmpty handleError instances
+  where
+    handleError ::
+        (Template, TemplateImplements) -> (Maybe Context, UnwarnableError)
+    handleError (tpl, impl) =
+        ( Just (ContextTemplate module_ tpl TPWhole)
+        , EUpgradeMissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
+        )
+
+checkAddedInstances ::
+    Module ->
+    HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements) ->
+    TcUpgradeM ()
+checkAddedInstances module_ instances = throwIfNonEmpty handleError instances
+  where
+    handleError ::
+        (Template, TemplateImplements) -> (Maybe Context, UnwarnableError)
+    handleError (tpl, impl) =
+        ( Just (ContextTemplate module_ tpl TPWhole)
+        , EForbiddenNewImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
+        )
 
 -- It is always invalid to keep an interface in an upgrade
 checkContinuedIfaces

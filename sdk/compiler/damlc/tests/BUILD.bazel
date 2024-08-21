@@ -495,8 +495,6 @@ da_haskell_test(
         "//test-common:upgrades-TemplateChangedKeyType-files",
         "//test-common:upgrades-ValidUpgrade-files",
         "//test-common:upgrades-WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage-files",
-        "//test-common:upgrades-WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt-files",
-        "//test-common:upgrades-WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn-files",
         "//test-common:upgrades-WarnsWhenControllersOfTemplateChoiceAreChanged-files",
         "//test-common:upgrades-WarnsWhenObserversOfTemplateChoiceAreChanged-files",
         "//test-common:upgrades-WarnsWhenTemplateChangesAgreement-files",
