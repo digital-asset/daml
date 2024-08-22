@@ -799,37 +799,40 @@ private[lf] final class Compiler(
       soft: Boolean,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
-      let(
-        env,
-        (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
-          env.toSEVar(cidPos),
-          s.SEValue.None,
-        ),
-      ) { (payloadPos, env) =>
+      if (soft) {
+        SBFetchInterface(ifaceId)(env.toSEVar(cidPos))
+      } else
         let(
           env,
-          SBCastAnyInterface(ifaceId)(
+          SBFetchAny(None)(
             env.toSEVar(cidPos),
-            env.toSEVar(payloadPos),
+            s.SEValue.None,
           ),
-        ) { (_, env) =>
+        ) { (payloadPos, env) =>
           let(
             env,
-            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
+            SBCastAnyInterface(ifaceId)(
+              env.toSEVar(cidPos),
+              env.toSEVar(payloadPos),
+            ),
           ) { (_, env) =>
             let(
               env,
-              SBResolveSBUInsertFetchNode(
-                env.toSEVar(payloadPos),
-                env.toSEVar(cidPos),
-                s.SEValue.None,
-              ),
+              s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
             ) { (_, env) =>
-              env.toSEVar(payloadPos)
+              let(
+                env,
+                SBResolveSBUInsertFetchNode(
+                  env.toSEVar(payloadPos),
+                  env.toSEVar(cidPos),
+                  s.SEValue.None,
+                ),
+              ) { (_, env) =>
+                env.toSEVar(payloadPos)
+              }
             }
           }
         }
-      }
     }
 
   private[this] def compileAgreementText(

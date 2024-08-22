@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf
 import com.daml.lf.crypto.Hash.KeyPackageName
 
 import java.util
@@ -12,6 +13,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1139,12 +1141,128 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       def coid = getSContractId(args, 0)
       val (actualTmplId, record) = getSAnyContract(args, 1)
-      if (!interfaceInstanceExists(machine, ifaceId, actualTmplId)) {
-        Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
-      } else {
-        Control.Value(record)
+      castAnyInterface(machine, ifaceId, coid, actualTmplId, record)(Control.Value)
+    }
+  }
+
+  private[this] def castAnyInterface[Q](
+      machine: Machine[_],
+      ifaceId: TypeConName,
+      coid: V.ContractId,
+      actualTmplId: TypeConName,
+      record: SRecord,
+  )(k: SValue => Control[Q]): Control[Q] =
+    if (!interfaceInstanceExists(machine, ifaceId, actualTmplId)) {
+      Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
+    } else {
+      k(record)
+    }
+
+  /** Fetches the requested contract Id, upgrades it to the preferred template version for the same package name,
+    * and compares the computed views according to the old and the new versions. If the two views agree then caches
+    * the upgraded contract, inserts a Fetch node, and returns the upgraded contract.
+    */
+  final case class SBFetchInterface(interfaceId: TypeConName) extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      val coid = getSContractId(args, 0)
+      fetchAny(machine, None, coid, SValue.SValue.None) { (maybePkgName, sourceContract) =>
+        maybePkgName match {
+          case None =>
+            crash(s"unexpected contract instance without packageName")
+          case Some(pkgName) =>
+            val (sourceTplId, sourceArg) = getSAnyContract(ArrayList.single(sourceContract), 0)
+            castAnyInterface(machine, interfaceId, coid, sourceTplId, sourceArg) { _ =>
+              viewInterface(machine, interfaceId, sourceTplId, sourceArg) { sourceView =>
+                resolvePackageName(machine, pkgName) { pkgId =>
+                  val dstTmplId = sourceTplId.copy(packageId = pkgId)
+                  machine.ensurePackageIsLoaded(
+                    dstTmplId.packageId,
+                    language.Reference.Template(dstTmplId),
+                  ) { () =>
+                    ensureTemplateImplementsInterface(machine, dstTmplId, interfaceId) { () =>
+                      fromInterface(machine, sourceTplId, sourceArg, dstTmplId) {
+                        case None => crash(s"failed to convert contract $coid to type $dstTmplId")
+                        case Some(dstArg) =>
+                          viewInterface(machine, interfaceId, dstTmplId, dstArg) { dstView =>
+                            executeExpression(machine, sourceView) { sourceViewValue =>
+                              // If the destination and source templates are the same, we skip the computation
+                              // of the destination template's view.
+                              if (dstTmplId == sourceTplId)
+                                cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
+                              else
+                                executeExpression(machine, dstView) { dstViewValue =>
+                                  if (sourceViewValue != dstViewValue) {
+                                    crash("view mistmatch")
+                                  } else
+                                    cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
+                                }
+                            }
+                          }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+        }
       }
     }
+
+    private[this] def cacheContractAndInsertNode(
+        machine: UpdateMachine,
+        coid: V.ContractId,
+        dstTmplId: lf.data.Ref.ValueRef,
+        dstArg: SValue,
+    ): Control[Question.Update] = {
+      // ensure the contract and its metadata are cached
+      getContractInfo(
+        machine,
+        coid,
+        dstTmplId,
+        dstArg,
+        SValue.SValue.None,
+      ) { _ =>
+        val anyDst = SAny(TTyCon(dstTmplId), dstArg)
+        executeExpression(
+          machine,
+          SBResolveSBUInsertFetchNode(
+            SEValue(anyDst),
+            SEValue(SContractId(coid)),
+            SEValue(SValue.SValue.None),
+          ),
+        ) { _ =>
+          Control.Value(anyDst)
+        }
+      }
+    }
+  }
+
+  private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
+      k: PackageId => Control[Q]
+  ): Control[Q] = {
+    machine.packageResolution.get(pkgName) match {
+      // TODO https://github.com/digital-asset/daml/issues/17995
+      //  We need a proper interpretation error here
+      case None => crash(s"cannot resolve package $pkgName")
+      case Some(pkgId) => k(pkgId)
+    }
+  }
+
+  // Precondition: the package of tplId is loaded in the machine
+  private[this] def ensureTemplateImplementsInterface[Q](
+      machine: Machine[_],
+      tplId: TypeConName,
+      ifaceId: TypeConName,
+  )(k: () => Control[Q]): Control[Q] = {
+    val tplImplementsInterface =
+      machine.compiledPackages.pkgInterface
+        .lookupTemplate(tplId)
+        .exists(_.implements.contains(ifaceId))
+    if (tplImplementsInterface) k()
+    else crash(s"template $tplId does not implement interface $ifaceId")
   }
 
   /** $fetchAny[T]
@@ -1160,7 +1278,7 @@ private[lf] object SBuiltin {
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
       val keyOpt = args.get(1)
-      fetchAny(machine, optTargetTemplateId, coid, keyOpt) { sv =>
+      fetchAny(machine, optTargetTemplateId, coid, keyOpt) { (_, sv) =>
         Control.Value(sv)
       }
     }
@@ -1305,31 +1423,41 @@ private[lf] object SBuiltin {
   // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
-      tplId: TypeConName
+      dstTplId: TypeConName
   ) extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val (tyCon, record) = getSAnyContract(args, 0)
-
-      if (tplId == tyCon) {
-        Control.Value(SOptional(Some(record)))
-      } else if (tplId.qualifiedName == tyCon.qualifiedName) {
-        val tplIdTemplateVersion = machine.tmplId2TxVersion(tplId)
-        val oTplIdPkgName = machine.tmplId2PackageName(tplId, tplIdTemplateVersion)
-        val tyConTemplateVersion = machine.tmplId2TxVersion(tyCon)
-        val oTyConPkgName = machine.tmplId2PackageName(tyCon, tyConTemplateVersion)
-        (oTplIdPkgName, oTyConPkgName) match {
-          case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
-            importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
-              Control.Value(SOptional(Some(templateArg)))
-            }
-          case _ => Control.Value(SOptional(None))
-        }
-      } else {
-        Control.Value(SOptional(None))
+      val (srcTplId, srcArg) = getSAnyContract(args, 0)
+      fromInterface(machine, srcTplId, srcArg, dstTplId) { dstArg =>
+        Control.Value(SOptional(dstArg))
       }
+    }
+  }
+
+  private[this] def fromInterface[Q](
+      machine: Machine[Q],
+      srcTplId: TypeConName,
+      srcArg: SRecord,
+      dstTplId: TypeConName,
+  )(k: Option[SValue] => Control[Q]): Control[Q] = {
+    if (dstTplId == srcTplId) {
+      k(Some(srcArg))
+    } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
+      val tplIdTemplateVersion = machine.tmplId2TxVersion(dstTplId)
+      val oTplIdPkgName = machine.tmplId2PackageName(dstTplId, tplIdTemplateVersion)
+      val tyConTemplateVersion = machine.tmplId2TxVersion(srcTplId)
+      val oTyConPkgName = machine.tmplId2PackageName(srcTplId, tyConTemplateVersion)
+      (oTplIdPkgName, oTyConPkgName) match {
+        case (Some(tplIdPkgName), Some(tyConPkgName)) if tplIdPkgName == tyConPkgName =>
+          importValue(machine, dstTplId, srcArg.toUnnormalizedValue) { templateArg =>
+            k(Some(templateArg))
+          }
+        case _ => k(None)
+      }
+    } else {
+      k(None)
     }
   }
 
@@ -1428,17 +1556,26 @@ private[lf] object SBuiltin {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
-    ): Control.Expression = {
+    ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
-      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
-        crash(
-          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
-            s"template of type ${ifaceId}, but there's no matching interface instance."
-        )
-      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-      val e = SEApp(SEVal(ref), Array(record))
-      Control.Expression(e)
+      viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
     }
+  }
+
+  private[this] def viewInterface[Q](
+      machine: Machine[_],
+      ifaceId: TypeConName,
+      templateId: TypeConName,
+      record: SValue,
+  )(k: SExpr => Control[Q]): Control[Q] = {
+    val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+      crash(
+        s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+          s"template of type ${ifaceId}, but there's no matching interface instance."
+      )
+    )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+    val e = SEApp(SEVal(ref), Array(record))
+    k(e)
   }
 
   /** $insertFetch[tid]
@@ -2202,7 +2339,7 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       keyOpt: SValue,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, optTargetTemplateId, coid, keyOpt) { fetched =>
+    fetchAny(machine, optTargetTemplateId, coid, keyOpt) { (_, fetched) =>
       // The SBCastAnyContract check can never fail when the upgrading feature flag is enabled.
       // This is because the contract got up/down-graded when imported by importValue.
 
@@ -2226,11 +2363,13 @@ private[lf] object SBuiltin {
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
       keyOpt: SValue,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
+  )(f: (Option[Ref.PackageName], SValue) => Control[Question.Update]): Control[Question.Update] = {
     machine.getIfLocalContract(coid) match {
       case Some((templateId, templateArg)) =>
         ensureContractActive(machine, coid, templateId) {
-          f(SValue.SAnyContract(templateId, templateArg))
+          getContractInfo(machine, coid, templateId, templateArg, keyOpt) { contract =>
+            f(contract.packageName, SValue.SAnyContract(templateId, templateArg))
+          }
         }
       case None =>
         machine.lookupContract(coid) { case coinst @ V.ContractInstance(_, srcTmplId, coinstArg) =>
@@ -2269,10 +2408,10 @@ private[lf] object SBuiltin {
                     if (needValidationCall) {
 
                       validateContractInfo(machine, coid, srcTmplId, contract) { () =>
-                        f(contract.any)
+                        f(contract.packageName, contract.any)
                       }
                     } else {
-                      f(contract.any)
+                      f(contract.packageName, contract.any)
                     }
                   }
                 }
