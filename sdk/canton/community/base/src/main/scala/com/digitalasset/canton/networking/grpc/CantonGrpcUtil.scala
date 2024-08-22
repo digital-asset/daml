@@ -50,6 +50,12 @@ object CantonGrpcUtil {
   ): EitherT[Future, StatusRuntimeException, C] =
     value.leftMap(x => invalidArgument(x.toString))
 
+  @Deprecated
+  def mapErrF[T, C](value: EitherT[Future, T, C])(implicit
+      ec: ExecutionContext
+  ): Future[C] =
+    EitherTUtil.toFuture(mapErr(value))
+
   def mapErrNew[T <: CantonError, C](value: Either[T, C])(implicit
       ec: ExecutionContext
   ): EitherT[Future, StatusRuntimeException, C] =

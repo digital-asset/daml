@@ -29,10 +29,6 @@ trait TinkOutputPrefixTypeTest extends BaseTest with CryptoTestHelper { this: As
         .valueOrFail("generate encryption key")
       _ <- crypto.cryptoPublicStore
         .storeEncryptionKey(publicKey.publicKey)
-        .leftMap[EncryptionKeyGenerationError](
-          EncryptionKeyGenerationError.EncryptionPublicStoreError
-        )
-        .valueOrFail("store public encryption key")
       _ <- crypto.cryptoPrivateStore
         .asInstanceOf[CryptoPrivateStoreExtended]
         .storeDecryptionKey(publicKey.privateKey, None)
@@ -62,10 +58,6 @@ trait TinkOutputPrefixTypeTest extends BaseTest with CryptoTestHelper { this: As
         .valueOrFail("generate encryption key")
       _ <- crypto.cryptoPublicStore
         .storeSigningKey(publicKey.publicKey)
-        .leftMap[SigningKeyGenerationError](
-          SigningKeyGenerationError.SigningPublicStoreError
-        )
-        .valueOrFail("store public encryption key")
       _ <- crypto.cryptoPrivateStore
         .asInstanceOf[CryptoPrivateStoreExtended]
         .storeSigningKey(publicKey.privateKey, None)
