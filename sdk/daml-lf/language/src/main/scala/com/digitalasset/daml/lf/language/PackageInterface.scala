@@ -8,7 +8,9 @@ import com.digitalasset.daml.lf.data.TemplateOrInterface
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 
-private[digitalasset] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
+private[digitalasset] class PackageInterface(
+    val signatures: PartialFunction[PackageId, PackageSignature]
+) {
 
   import PackageInterface._
 

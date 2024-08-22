@@ -8,7 +8,9 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import com.digitalasset.daml.lf.language.TypeSig._
 
-case class TypeSig(
+import scala.collection.immutable.VectorMap
+
+final case class TypeSig(
     enumDefs: Map[Ref.TypeConName, EnumSig],
     variantDefs: Map[Ref.TypeConName, VariantSig],
     recordDefs: Map[Ref.TypeConName, RecordSig],
@@ -90,9 +92,12 @@ object TypeSig {
     final case class Var(name: Ref.Name) extends SerializableType
   }
 
-  final case class RecordSig(params: Seq[Ref.Name], fields: Map[Ref.Name, SerializableType])
+  final case class RecordSig(params: Seq[Ref.Name], fields: VectorMap[Ref.Name, SerializableType])
 
-  final case class VariantSig(params: Seq[Ref.Name], constructor: Map[Ref.Name, SerializableType])
+  final case class VariantSig(
+      params: Seq[Ref.Name],
+      constructor: VectorMap[Ref.Name, SerializableType],
+  )
 
   final case class EnumSig(constructor: Seq[Ref.Name])
 
@@ -220,9 +225,9 @@ object TypeSig {
                   Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   RecordSig(
                     params.iterator.map(_._1).toSeq,
-                    fields.iterator.map { case (name, typ) =>
+                    VectorMap.from(fields.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toMap,
+                    }),
                   ),
                 )
               case Ast.DataVariant(variants) =>
@@ -230,9 +235,9 @@ object TypeSig {
                   Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   VariantSig(
                     params.iterator.map(_._1).toSeq,
-                    variants.iterator.map { case (name, typ) =>
+                    VectorMap.from(variants.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toMap,
+                    }),
                   ),
                 )
               case Ast.DataEnum(constructors) =>
