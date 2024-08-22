@@ -232,7 +232,7 @@ trait TransactionAuthorizationValidator {
   private def logAuthorizations[A](
       msg: String,
       auths: Map[A, (Boolean, Set[SigningPublicKey])],
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): Unit = if (logger.underlying.isDebugEnabled) {
     val authorizingKeys = auths
       .collect {
         case (auth, (fullyAuthorized, keys)) if keys.nonEmpty => (auth, fullyAuthorized, keys)

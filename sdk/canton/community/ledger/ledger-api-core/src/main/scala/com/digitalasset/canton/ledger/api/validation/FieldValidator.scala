@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -40,6 +40,15 @@ object FieldValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
+
+  def optionalParticipantId(participantId: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[ParticipantId]] = optionalString(participantId) { s =>
+    ParticipantId
+      .fromProtoPrimitive("PAR::" + s, fieldName)
+      .left
+      .map(err => invalidField(fieldName = fieldName, message = err.message))
+  }
 
   def requireResourceVersion(raw: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger

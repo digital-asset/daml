@@ -235,12 +235,8 @@ class CantonSyncService(
             connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
               syncDomain.topologyClient
                 .await(
-                  _.findUnvettedPackagesOrDependencies(participantId, packages)
-                    .bimap(
-                      _missingPackage => false,
-                      unvettedPackages => unvettedPackages.isEmpty,
-                    )
-                    .merge
+                  _.determinePackagesWithNoVettingEntry(participantId, packages)
+                    .map(_.isEmpty)
                     .onShutdown(false),
                   timeouts.network.duration,
                 )
@@ -1806,7 +1802,7 @@ class CantonSyncService(
             topology <- getSnapshot(domainAlias, domainId)
             partyWithAttributes <- topology.hostedOn(
               Set(request.party),
-              participantId = participantId,
+              participantId = request.participantId.getOrElse(participantId),
             )
           } yield partyWithAttributes
             .get(request.party)

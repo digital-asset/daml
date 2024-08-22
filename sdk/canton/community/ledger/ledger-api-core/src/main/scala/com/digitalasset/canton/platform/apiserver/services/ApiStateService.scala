@@ -102,14 +102,19 @@ final class ApiStateService(
   override def getConnectedDomains(
       request: GetConnectedDomainsRequest
   ): Future[GetConnectedDomainsResponse] = {
-    implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
-    FieldValidator
-      .requirePartyField(request.party, "party")
+    implicit val loggingContext: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    (for {
+      party <- FieldValidator
+        .requirePartyField(request.party, "party")
+      participantId <- FieldValidator
+        .optionalParticipantId(request.participantId, "participant_id")
+    } yield WriteService.ConnectedDomainRequest(party, participantId))
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-        party =>
+        request =>
           writeService
-            .getConnectedDomains(WriteService.ConnectedDomainRequest(party))
+            .getConnectedDomains(request)
             .map(response =>
               GetConnectedDomainsResponse(
                 response.connectedDomains.flatMap { connectedDomain =>

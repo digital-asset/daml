@@ -4,8 +4,8 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -536,10 +536,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, forceChanges)
     case OwnerToKeyMapping(member, _, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
-    case VettedPackages(participantId, _, newPackageIds) =>
+    case VettedPackages(participantId, _, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
-        newPackageIds.toSet,
+        newPackages.map(_.packageId).toSet,
         forceChanges,
         transaction.mapping.code,
       )
@@ -634,7 +634,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         .map {
           _.collectOfMapping[VettedPackages].collectLatestByUniqueKey.toTopologyState
             .collectFirst { case VettedPackages(_, _, existingPackageIds) =>
-              existingPackageIds
+              existingPackageIds.map(_.packageId)
             }
             .getOrElse(Nil)
             .toSet

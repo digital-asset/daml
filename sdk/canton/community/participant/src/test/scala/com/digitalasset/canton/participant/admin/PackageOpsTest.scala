@@ -10,8 +10,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.UnlessShutdown
-import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
@@ -46,24 +45,24 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
   protected final def withTestSetup[R](test: T => R): R = test(buildSetup)
 
-  s"$sutName.isPackageVetted" should {
+  s"$sutName.hasPackageVettingEntry" should {
     "return true" when {
       "head authorized store has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set.empty, Set(pkgId1))
-        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
+        packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
       "one domain topology snapshot has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set.empty)
-        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
+        packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
       "all topology snapshots have the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set.empty, Set.empty)
-        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe true)
+        packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
     }
 
@@ -71,31 +70,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
       "all topology snapshots have the package unvetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set(pkgId1))
-        packageOps.isPackageVetted(pkgId1).failOnShutdown.map(_ shouldBe false)
-      }
-    }
-
-    "return a Left with an error" when {
-      "a relevant package is missing locally" in withTestSetup { env =>
-        import env.*
-        when(
-          headAuthorizedTopologySnapshot.findUnvettedPackagesOrDependencies(
-            participantId,
-            Set(pkgId1),
-          )
-        ).thenReturn(EitherT.rightT(Set.empty))
-        when(
-          anotherDomainTopologySnapshot.findUnvettedPackagesOrDependencies(
-            participantId,
-            Set(pkgId1),
-          )
-        ).thenReturn(EitherT.leftT(missingPkgId))
-
-        packageOps
-          .isPackageVetted(pkgId1)
-          .failOnShutdown
-          .leftOrFail("missing package id")
-          .map(_ shouldBe PackageMissingDependencies.Reject(pkgId1, missingPkgId))
+        packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe false)
       }
     }
   }
@@ -174,17 +149,17 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         unvettedForDomainSnapshot: Set[LfPackageId],
     ): Unit = {
       when(
-        headAuthorizedTopologySnapshot.findUnvettedPackagesOrDependencies(
+        headAuthorizedTopologySnapshot.determinePackagesWithNoVettingEntry(
           participantId,
           Set(pkgId1),
         )
-      ).thenReturn(EitherT.rightT(unvettedForAuthorizedSnapshot))
+      ).thenReturn(FutureUnlessShutdown.pure(unvettedForAuthorizedSnapshot))
       when(
-        anotherDomainTopologySnapshot.findUnvettedPackagesOrDependencies(
+        anotherDomainTopologySnapshot.determinePackagesWithNoVettingEntry(
           participantId,
           Set(pkgId1),
         )
-      ).thenReturn(EitherT.rightT(unvettedForDomainSnapshot))
+      ).thenReturn(FutureUnlessShutdown.pure(unvettedForDomainSnapshot))
     }
   }
 }
@@ -322,7 +297,13 @@ class PackageOpsTest extends PackageOpsTestBase {
       when(
         topologyManager.proposeAndAuthorize(
           eqTo(TopologyChangeOp.Replace),
-          eqTo(VettedPackages(participantId, None, newVettedPackagesState)),
+          eqTo(
+            VettedPackages.tryCreate(
+              participantId,
+              None,
+              VettedPackage.unbounded(newVettedPackagesState),
+            )
+          ),
           eqTo(Some(txSerial.tryAdd(1))),
           eqTo(Seq(participantId.fingerprint)),
           eqTo(testedProtocolVersion),
@@ -348,7 +329,8 @@ class PackageOpsTest extends PackageOpsTestBase {
         transaction = TopologyTransaction(
           op = TopologyChangeOp.Replace,
           serial = txSerial,
-          mapping = VettedPackages(participantId, None, vettedPackages),
+          mapping =
+            VettedPackages.tryCreate(participantId, None, VettedPackage.unbounded(vettedPackages)),
           protocolVersion = testedProtocolVersion,
         ),
         signatures = NonEmpty(Set, Signature.noSignature),

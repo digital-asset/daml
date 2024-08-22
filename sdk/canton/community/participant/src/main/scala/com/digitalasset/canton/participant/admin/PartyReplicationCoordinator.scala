@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.v2.event.{CreatedEvent as ScalaCreatedEvent, Event}
@@ -13,10 +14,10 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.{CreatedEvent as JavaCreatedEvent, Identifier as JavaIdentifier}
+import com.digitalasset.canton.CommandId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -29,6 +30,7 @@ import com.digitalasset.canton.participant.ledger.api.client.{
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
@@ -59,7 +61,12 @@ class PartyReplicationCoordinator(
   def startPartyReplication(
       args: PartyReplicationArguments
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
-    val PartyReplicationArguments(id, partyId, sourceParticipantId, domainId) = args
+    val PartyReplicationArguments(
+      ChannelId(CommandId(id)),
+      partyId,
+      sourceParticipantId,
+      domainId,
+    ) = args
     logger.info(
       s"Party Replication $id: Initiating replication of party $partyId from participant $sourceParticipantId over domain $domainId"
     )
@@ -71,21 +78,29 @@ class PartyReplicationCoordinator(
           syncService.syncCrypto.ips.forDomain(domainId),
           s"Unknown domain $domainId",
         )
-        snapshot = domainTopologyClient.headSnapshot
+        topologySnapshot = domainTopologyClient.headSnapshot
         // TODO(#20634): Make the selection of the sequencer more flexible, e.g. by letting
         //  the SP choose among a list of sequencers that the TP is connected to.
+        //  As of now the closest approximation of connected sequencers is the list of transports
+        //  in the sequencer client, but even that information is not directly available.
+        //  Revisit this once the sequencer client health state exposes the connected sequencers.
         sequencerId <- EitherT.fromOptionF(
-          snapshot.sequencerGroup().map(_.map(_.active.head1)),
+          topologySnapshot.sequencerGroup().map(_.map(_.active.head1)),
           s"No sequencer group for domain $domainId",
+        )
+        _ <- ensurePartyIsAuthorizedOnParticipants(
+          partyId,
+          sourceParticipantId,
+          participantId,
+          topologySnapshot,
         )
         // TODO(#20581): Extract ACS snapshot timestamp from PTP onboarding effective time
         //  Currently the domain topology client does not expose the low-level effective time.
-        acsSnapshotTs = snapshot.timestamp
+        acsSnapshotTs = topologySnapshot.timestamp
         channelProposal = new M.partyreplication.ChannelProposal(
           sourceParticipantId.adminParty.toProtoPrimitive,
           participantId.adminParty.toProtoPrimitive,
-          domainId.toProtoPrimitive,
-          sequencerId.toProtoPrimitive,
+          sequencerId.uid.toProtoPrimitive,
           new M.partyreplication.PartyReplicationMetadata(
             id,
             partyId.toProtoPrimitive,
@@ -129,10 +144,10 @@ class PartyReplicationCoordinator(
     def shouldHandleChannelProposal(
         contract: M.partyreplication.ChannelProposal.Contract
     ) =
-      contract.data.sourceParticipant == participantId.adminParty.toProtoPrimitive && contract.data.domainId == scalaTx.domainId
+      contract.data.sourceParticipant == participantId.adminParty.toProtoPrimitive
 
     def shouldHandleChannelAgreement(contract: M.partyreplication.ChannelAgreement.Contract) =
-      contract.data.targetParticipant == participantId.adminParty.toProtoPrimitive && contract.data.domainId == scalaTx.domainId
+      contract.data.targetParticipant == participantId.adminParty.toProtoPrimitive
 
     scalaTx.events
       .collect {
@@ -144,16 +159,16 @@ class PartyReplicationCoordinator(
         createEventHandler(
           contract => {
             logger.info(
-              s"Received channel proposal for party ${contract.data.payloadMetadata.partyId} on domain ${contract.data.domainId}" +
+              s"Received channel proposal for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.domainId}" +
                 s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
             )
             if (shouldHandleChannelProposal(contract)) {
-              processChannelProposalAtSourceParticipant(contract)
+              processChannelProposalAtSourceParticipant(scalaTx.domainId, contract)
             }
           },
           contract => {
             logger.info(
-              s"Received channel agreement for party ${contract.data.payloadMetadata.partyId} on domain ${contract.data.domainId}" +
+              s"Received channel agreement for party ${contract.data.payloadMetadata.partyId} on domain ${scalaTx.domainId}" +
                 s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
             )
             if (shouldHandleChannelAgreement(contract)) {
@@ -165,26 +180,73 @@ class PartyReplicationCoordinator(
   }
 
   private def processChannelProposalAtSourceParticipant(
-      contract: M.partyreplication.ChannelProposal.Contract
+      domain: String,
+      contract: M.partyreplication.ChannelProposal.Contract,
   )(implicit traceContext: TraceContext): Unit = {
-    // TODO(#20635): Perform sanity checking, e.g. domainId matches between contract and transaction,
-    //  and that sequencerId is a sequencer on domain
-    val acceptChannel = contract.id.exerciseAccept().commands.asScala.toSeq
-    superviseBackgroundSubmission(
-      "Accept channel proposal at source participant",
-      retrySubmitter.submitCommands(
+    val validationET = for {
+      params <- EitherT.fromEither[Future](ChannelProposalParams.fromDaml(contract.data, domain))
+      ChannelProposalParams(ts, partyId, targetParticipantId, sequencerId, domainId) = params
+      domainTopologyClient <-
+        EitherT.fromEither[Future](
+          syncService.syncCrypto.ips.forDomain(domainId).toRight(s"Unknown domain $domainId")
+        )
+      // Insist that the topology snapshot is known by the source participant to
+      // avoid unbounded wait by awaitSnapshot().
+      _ <- EitherT.cond[Future](
+        domainTopologyClient.snapshotAvailable(ts),
+        (),
+        s"Specified timestamp $ts is not yet available on participant $participantId and domain $domainId",
+      )
+      topologySnapshot <- EitherT.right(domainTopologyClient.awaitSnapshot(ts))
+      sequencerIds <- EitherT.fromOptionF(
+        topologySnapshot.sequencerGroup().map(_.map(_.active)),
+        s"No sequencer group for domain $domainId",
+      )
+      _ <- EitherT.cond[Future](
+        sequencerIds.contains(sequencerId),
+        (),
+        s"Sequencer $sequencerId is not active on domain $domainId",
+      )
+      _ <- ensurePartyIsAuthorizedOnParticipants(
+        partyId,
+        participantId,
+        targetParticipantId,
+        topologySnapshot,
+      )
+    } yield ()
+
+    val commandResultF = for {
+      acceptOrReject <- validationET.fold(
+        err => {
+          logger.warn(err)
+          (
+            contract.id.exerciseReject(err).commands,
+            // Upon reject use the contract id as the channel-id might be invalid
+            s"channel-proposal-reject-${contract.id.contractId}",
+          )
+        },
+        _ =>
+          (
+            contract.id.exerciseAccept().commands,
+            s"channel-proposal-accept-${contract.data.payloadMetadata.id}",
+          ),
+      )
+      (exercise, commandId) = acceptOrReject
+      commandResult <- retrySubmitter.submitCommands(
         Commands(
           applicationId = applicationId,
-          commandId = s"channel-accept-${contract.data.payloadMetadata.id}",
+          commandId = commandId,
           actAs = Seq(participantId.adminParty.toProtoPrimitive),
-          commands = acceptChannel.map(LedgerClientUtils.javaCodegenToScalaProto),
+          commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
           deduplicationPeriod =
             DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
-          domainId = contract.data.domainId,
+          domainId = domain,
         ),
         timeouts.default.asFiniteApproximation,
-      ),
-    )
+      )
+    } yield commandResult
+
+    superviseBackgroundSubmission("Accept or reject channel proposal", commandResultF)
   }
 
   private def processChannelAgreementAtTargetParticipant(
@@ -192,7 +254,7 @@ class PartyReplicationCoordinator(
   )(implicit traceContext: TraceContext): Unit =
     logger.info(
       s"Target participant ${contract.data.targetParticipant} is ready to build party replication channel shared with " +
-        s"source participant ${contract.data.sourceParticipant} via sequencer ${contract.data.sequencerId}."
+        s"source participant ${contract.data.sourceParticipant} via sequencer ${contract.data.sequencerUid}."
     )
 
   override private[admin] def processReassignment(scalaTx: Reassignment): Unit =
@@ -259,7 +321,33 @@ class PartyReplicationCoordinator(
   )(implicit traceContext: TraceContext): Unit =
     futureSupervisor
       .supervised(operation)(submission)
-      .foreach(result => handleCommandResult(operation)(result).discard)
+      .foreach(handleCommandResult(operation))
+
+  private def ensurePartyIsAuthorizedOnParticipants(
+      partyId: PartyId,
+      sourceParticipantId: ParticipantId,
+      targetParticipantId: ParticipantId,
+      snapshot: TopologySnapshot,
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = for {
+    _ <- EitherT.cond[Future](
+      sourceParticipantId != targetParticipantId,
+      (),
+      s"Source and target participants $sourceParticipantId cannot match",
+    )
+    activeParticipantsOfParty <- EitherT.right(
+      snapshot.activeParticipantsOf(partyId.toLf).map(_.keySet)
+    )
+    _ <- EitherT.cond[Future](
+      activeParticipantsOfParty.contains(sourceParticipantId),
+      (),
+      s"Party $partyId is not hosted by source participant $sourceParticipantId",
+    )
+    _ <- EitherT.cond[Future](
+      activeParticipantsOfParty.contains(targetParticipantId),
+      (),
+      s"Party $partyId is not hosted by target participant $targetParticipantId",
+    )
+  } yield ()
 
   override def onClosed(): Unit =
     // Note that we can not time out requests nicely here on shutdown as the admin
@@ -279,11 +367,22 @@ class PartyReplicationCoordinator(
 
 object PartyReplicationCoordinator {
   final case class PartyReplicationArguments(
-      id: String,
+      id: ChannelId,
       partyId: PartyId,
       sourceParticipantId: ParticipantId,
       domainId: DomainId,
   )
+  final case class ChannelId private (id: CommandId) {
+    def unwrap: String = id.unwrap
+  }
+  object ChannelId {
+    def fromString(id: String): Either[String, ChannelId] =
+      // Ensure id can be embedded in a commandId i.e. does not contain non-allowed characters
+      // and is not too long.
+      CommandId
+        .fromProtoPrimitive(id)
+        .bimap(err => s"Invalid channel id $err", cmdId => ChannelId(cmdId))
+  }
 
   private def applicationId = "PartyReplicationCoordinator"
 
@@ -297,9 +396,9 @@ object PartyReplicationCoordinator {
   @VisibleForTesting
   lazy val channelProposalTemplate: Identifier =
     apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelProposal.TEMPLATE_ID)
-  private lazy val channelAgreementTemplate: Identifier =
+  lazy val channelAgreementTemplate: Identifier =
     apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelAgreement.TEMPLATE_ID)
 
   private def isTemplateChannelRelated(id: Identifier) =
-    id == channelProposalTemplate || id == channelProposalTemplate
+    id == channelProposalTemplate || id == channelAgreementTemplate
 }

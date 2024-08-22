@@ -72,7 +72,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
     def defaultTestingIdentityFactory(
         topology: Map[LfPartyId, List[ParticipantId]],
-        packages: Seq[LfPackageId] = Seq(),
+        packages: Seq[VettedPackage] = Seq(),
     ): TopologySnapshot = {
       val participants = topology.values.flatten
       val testingIdentityFactory = TestingTopology(
@@ -121,7 +121,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
     }
 
     object Create {
-      val correctPackages = Seq(defaultPackageId)
+      val correctPackages: Seq[VettedPackage] = VettedPackage.unbounded(Seq(defaultPackageId))
 
       def tx(
           version: TransactionVersion = TransactionVersion.StableVersions.max
@@ -165,7 +165,8 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
        */
       val interfacePackageId = s"$defaultPackageId for interface"
 
-      val correctPackages = Seq[LfPackageId](defaultPackageId, interfacePackageId)
+      val correctPackages: Seq[VettedPackage] =
+        VettedPackage.unbounded(Seq(defaultPackageId, interfacePackageId))
     }
 
     final case class ExerciseByInterface(

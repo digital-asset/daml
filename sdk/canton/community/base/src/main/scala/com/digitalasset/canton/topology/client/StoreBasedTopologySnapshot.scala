@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.client
 
-import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
@@ -65,14 +64,10 @@ class StoreBasedTopologySnapshot(
         filterNamespace,
       )
 
-  override private[client] def loadUnvettedPackagesOrDependencies(
-      participant: ParticipantId,
-      packageId: PackageId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
-
-    val vettedF = FutureUnlessShutdown.outcomeF(
+  override private[client] def loadVettedPackages(
+      participant: ParticipantId
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
+    FutureUnlessShutdown.outcomeF(
       findTransactions(
         asOfInclusive = false,
         types = Seq(TopologyMapping.Code.VettedPackages),
@@ -82,25 +77,36 @@ class StoreBasedTopologySnapshot(
         collectLatestMapping(
           TopologyMapping.Code.VettedPackages,
           transactions.collectOfMapping[VettedPackages].result,
-        ).toList.flatMap(_.packageIds).toSet
+        ).toList.flatMap(_.packages.map(vp => (vp.packageId, vp))).toMap
       }
     )
 
-    lazy val dependenciesET = packageDependencyResolver.packageDependencies(packageId).value
-
-    EitherT(for {
-      vetted <- vettedF
+  override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
+      participant: ParticipantId,
+      packageId: PackageId,
+      ledgerTime: CantonTimestamp,
+      vettedPackagesLoader: VettedPackagesLoader,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[PackageId]] =
+    for {
+      vetted <- vettedPackagesLoader.loadVettedPackages(participant)
+      validAtLedgerTime = (pkg: PackageId) => vetted.get(pkg).exists(_.validAt(ledgerTime))
       // check that the main package is vetted
       res <-
-        if (!vetted.contains(packageId))
-          FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
+        if (!validAtLedgerTime(packageId))
+          // main package is not vetted
+          FutureUnlessShutdown.pure(Set(packageId))
         else {
           // check which of the dependencies aren't vetted
-          dependenciesET.map(_.map(_ -- vetted))
-        }
-    } yield res)
+          packageDependencyResolver
+            .packageDependencies(packageId)
+            .map(dependencies => dependencies.filter(dependency => !validAtLedgerTime(dependency)))
+            .leftMap(Set(_))
+            .merge
 
-  }
+        }
+    } yield res
 
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
@@ -424,8 +430,8 @@ class StoreBasedTopologySnapshot(
           .groupBy(_.mapping.member)
           .collect {
             case (owner, seq)
-                if owner.filterString.startsWith(filterOwner)
-                  && filterOwnerType.forall(_ == owner.code) =>
+                if owner.filterString.startsWith(filterOwner) &&
+                  filterOwnerType.forall(_ == owner.code) =>
               val keys = KeyCollection(Seq(), Seq())
               val okm =
                 collectLatestMapping(

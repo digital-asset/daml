@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.syntax.apply.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, PublicKey, Signature, SigningPublicKey}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.topology.{
   DomainId,
@@ -18,6 +20,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, GeneratorsLf, LfPackageId}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.EitherValues.*
@@ -60,6 +63,16 @@ final class GeneratorsTransaction(
   implicit val topologyTransactionHostingParticipantsArb
       : Arbitrary[NonEmpty[Seq[HostingParticipant]]] =
     Arbitrary(Generators.nonEmptySetGen[HostingParticipant].map(_.toSeq))
+  implicit val topologyTransactionVettedPackageArb: Arbitrary[VettedPackage] = Arbitrary(
+    for {
+      packageId <- Arbitrary.arbitrary[PackageId]
+      validFrom <- Arbitrary.arbOption[CantonTimestamp].arbitrary
+      validUntil <- Arbitrary
+        .arbOption[CantonTimestamp]
+        .arbitrary
+        .suchThat(until => (validFrom, until).tupled.forall { case (from, until) => from < until })
+    } yield VettedPackage(packageId, validFrom, validUntil)
+  )
 
   implicit val hostingParticipantArb: Arbitrary[HostingParticipant] = Arbitrary(
     for {
@@ -130,6 +143,14 @@ final class GeneratorsTransaction(
     } yield PartyToParticipant
       .create(partyId, domain, threshold, participants, groupAddressing)
       .value
+  )
+
+  implicit val vettedPackagesTopologyTransactionArb: Arbitrary[VettedPackages] = Arbitrary(
+    for {
+      participantId <- Arbitrary.arbitrary[ParticipantId]
+      domain <- Arbitrary.arbitrary[Option[DomainId]]
+      vettedPackages <- Gen.listOf(Arbitrary.arbitrary[VettedPackage])
+    } yield VettedPackages.create(participantId, domain, vettedPackages).value
   )
 
   implicit val partyToKeyTopologyTransactionArb: Arbitrary[PartyToKeyMapping] = Arbitrary(

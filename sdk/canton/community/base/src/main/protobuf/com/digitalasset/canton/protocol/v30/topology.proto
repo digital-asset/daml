@@ -8,6 +8,7 @@ package com.digitalasset.canton.protocol.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing_parameters.proto";
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -165,11 +166,28 @@ message PartyHostingLimits {
 // authorization: whoever controls the participant uid
 // UNIQUE(participant, domain)
 message VettedPackages {
+  message VettedPackage {
+    // the hash of the vetted package
+    string package_id = 1;
+    // optional earliest ledger effective time (exclusive) as of which the package is considered valid.
+    // must be less than or equal to valid_until if both are present.
+    google.protobuf.Timestamp valid_from = 2;
+    // optional latest ledger effective time (inclusive) until which the package is considered valid.
+    // must be greater than or equal to valid_from if both are present.
+    google.protobuf.Timestamp valid_until = 3;
+  }
   // the participant vetting the packages
   string participant_uid = 1;
 
-  // the hash of the vetted packages
-  repeated string package_ids = 2;
+  // DEPRECATED: no longer used, but kept for backwards compatibility.
+  // the hashes of the vetted packages.
+  // package hashes may only be listed in one of the two fields: package_ids or packages.
+  // a package listed in package_ids is equivalent to a package listed in packages with unbounded validity.
+  repeated string package_ids = 2 [deprecated = true];
+
+  // the hashes of vetted packages with a validity period.
+  // only one entry per package_id is permitted.
+  repeated VettedPackage packages = 4;
 
   // optionally restricted to domain
   string domain = 3;

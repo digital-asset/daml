@@ -110,7 +110,7 @@ final case class TestingTopology(
       threshold = PositiveInt.one,
     ),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
-    packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
+    packages: Map[ParticipantId, Seq[VettedPackage]] = Map.empty,
     keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
@@ -212,7 +212,7 @@ final case class TestingTopology(
   }
 
   def withPackages(packages: Map[ParticipantId, Seq[LfPackageId]]): TestingTopology =
-    this.copy(packages = packages)
+    this.copy(packages = packages.view.mapValues(VettedPackage.unbounded).toMap)
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
@@ -533,7 +533,7 @@ class TestingIdentityFactory(
 
   private def participantsTxs(
       defaultPermissionByParticipant: Map[ParticipantId, ParticipantPermission],
-      packages: Map[ParticipantId, Seq[LfPackageId]],
+      packages: Map[ParticipantId, Seq[VettedPackage]],
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = topology
     .allParticipants()
     .toSeq
@@ -550,7 +550,7 @@ class TestingIdentityFactory(
       val pkgs =
         packages
           .get(participantId)
-          .map(packages => mkAdd(VettedPackages(participantId, None, packages)))
+          .map(packages => mkAdd(VettedPackages.tryCreate(participantId, None, packages)))
           .toSeq
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
         DomainTrustCertificate(

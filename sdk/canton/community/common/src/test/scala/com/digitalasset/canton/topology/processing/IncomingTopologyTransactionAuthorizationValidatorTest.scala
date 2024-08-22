@@ -870,7 +870,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         pkgTx = TopologyTransaction(
           TopologyChangeOp.Replace,
           serial = PositiveInt.one,
-          VettedPackages(
+          VettedPackages.tryCreate(
             ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
             None,
             Seq.empty,
@@ -939,7 +939,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         pkgTx = TopologyTransaction(
           TopologyChangeOp.Replace,
           serial = PositiveInt.one,
-          VettedPackages(
+          VettedPackages.tryCreate(
             ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
             None,
             Seq.empty,
@@ -1003,7 +1003,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
 
       val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns)
 
-      val pkgMapping = VettedPackages(
+      val pkgMapping = VettedPackages.tryCreate(
         ParticipantId(UniqueIdentifier.tryCreate("consortium-participiant", dns_id)),
         None,
         Seq.empty,

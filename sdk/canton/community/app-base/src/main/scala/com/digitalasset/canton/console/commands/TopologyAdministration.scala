@@ -1937,11 +1937,10 @@ class TopologyAdministrationGroup(
     )
     def propose_delta(
         participant: ParticipantId,
-        adds: Seq[PackageId] = Nil,
+        adds: Seq[VettedPackage] = Nil,
         removes: Seq[PackageId] = Nil,
         domainId: Option[DomainId] = None,
         store: String = AuthorizedStore.filterName,
-        filterParticipant: String = "",
         mustFullyAuthorize: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1952,32 +1951,56 @@ class TopologyAdministrationGroup(
         force: ForceFlags = ForceFlags.none,
     ): Unit = {
 
+      val duplicatePackageIds = adds.map(_.packageId).intersect(removes)
+      if (duplicatePackageIds.nonEmpty) {
+        throw new IllegalArgumentException(
+          s"Cannot both add and remove a packageId: $duplicatePackageIds"
+        ) with NoStackTrace
+      }
       // compute the diff and then call the propose method
       val current0 = expectAtMostOneResult(
-        list(filterStore = store, filterParticipant = filterParticipant)
+        list(filterStore = store, filterParticipant = participant.filterString, operation = None)
       )
 
       (adds, removes) match {
         case (Nil, Nil) =>
           throw new IllegalArgumentException(
             "Ensure that at least one of the two parameters (adds or removes) is not empty."
-          )
+          ) with NoStackTrace
         case (_, _) =>
+          val allChangedPackageIds = (adds.map(_.packageId) ++ removes).toSet
+
           val (newSerial, newDiffPackageIds) = current0 match {
-            case Some(value) =>
+            case Some(
+                  ListVettedPackagesResult(
+                    BaseResult(_, _, _, _, TopologyChangeOp.Replace, _, serial, _),
+                    item,
+                  )
+                ) =>
               (
-                value.context.serial.increment,
-                ((value.item.packageIds ++ adds).diff(removes)).distinct,
+                serial.increment,
+                // first filter out all existing packages that either get re-added (i.e. modified) or removed
+                item.packages.filter(vp => !allChangedPackageIds.contains(vp.packageId))
+                // now we can add all the adds the also haven't been in the remove set
+                  ++ adds,
               )
-            case None => (PositiveInt.one, (adds.diff(removes)).distinct)
+            case Some(
+                  ListVettedPackagesResult(
+                    BaseResult(_, _, _, _, TopologyChangeOp.Remove, _, serial, _),
+                    _,
+                  )
+                ) =>
+              (serial.increment, adds)
+            case None =>
+              (PositiveInt.one, adds)
           }
 
-          if (current0.exists(_.item.packageIds.toSet == newDiffPackageIds.toSet))
+          if (current0.exists(_.item.packages.toSet == newDiffPackageIds.toSet))
             () // means no change
           else
             propose(
               participant = participant,
-              packageIds = newDiffPackageIds,
+              packages = newDiffPackageIds,
               domainId,
               store,
               mustFullyAuthorize,
@@ -1996,7 +2019,7 @@ class TopologyAdministrationGroup(
         |Note that all referenced and dependent packages must exist in the package store.
 
         participantId: the identifier of the participant vetting the packages
-        packageIds: The lf-package ids to be vetted that will replace the previous vetted packages.
+        packages: The lf-package ids with validity boundaries to be vetted that will replace the previous vetted packages.
         domainId: The domain id if the package vetting is specific to a domain.
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                               propagated to connected domains, if applicable.
@@ -2014,7 +2037,7 @@ class TopologyAdministrationGroup(
         force: must be set when revoking the vetting of packagesIds""")
     def propose(
         participant: ParticipantId,
-        packageIds: Seq[PackageId],
+        packages: Seq[VettedPackage],
         domainId: Option[DomainId] = None,
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = false,
@@ -2029,13 +2052,13 @@ class TopologyAdministrationGroup(
     ): Unit = {
 
       val topologyChangeOp =
-        if (packageIds.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
+        if (packages.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = VettedPackages(
+        mapping = VettedPackages.create(
           participantId = participant,
           domainId = domainId,
-          packageIds = packageIds,
+          packages = packages,
         ),
         signedBy = signedBy.toList,
         serial = serial,

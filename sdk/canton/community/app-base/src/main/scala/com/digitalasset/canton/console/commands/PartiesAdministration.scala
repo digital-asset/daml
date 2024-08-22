@@ -372,7 +372,7 @@ class ParticipantPartiesAdministrationGroup(
       party: PartyId,
       sourceParticipant: ParticipantId,
       domain: DomainId,
-      id: String = "",
+      id: Option[String] = None,
   ): Unit = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
       reference.adminCommand(

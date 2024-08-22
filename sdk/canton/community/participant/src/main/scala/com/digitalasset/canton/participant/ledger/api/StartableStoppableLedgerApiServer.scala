@@ -34,11 +34,11 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.InternalStateService
 import com.digitalasset.canton.ledger.participant.state.metrics.{
   TimedReadService,
   TimedWriteService,
 }
+import com.digitalasset.canton.ledger.participant.state.{InternalStateService, WriteService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{
@@ -378,7 +378,7 @@ class StartableStoppableLedgerApiServer(
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
-      _ <- startHttpApiIfEnabled
+      _ <- startHttpApiIfEnabled(timedWriteService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
@@ -482,7 +482,7 @@ class StartableStoppableLedgerApiServer(
       ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
   )
 
-  private def startHttpApiIfEnabled: ResourceOwner[Unit] =
+  private def startHttpApiIfEnabled(writeService: WriteService): ResourceOwner[Unit] =
     config.jsonApiConfig
       .fold(ResourceOwner.unit) { jsonApiConfig =>
         for {
@@ -490,7 +490,9 @@ class StartableStoppableLedgerApiServer(
             .forReleasable(() =>
               ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
             )(channel => Future(channel.shutdown().discard))
-          _ <- HttpApiServer(jsonApiConfig, channel, loggerFactory)(config.jsonApiMetrics)
+          _ <- HttpApiServer(jsonApiConfig, channel, writeService, loggerFactory)(
+            config.jsonApiMetrics
+          )
         } yield ()
       }
 }
