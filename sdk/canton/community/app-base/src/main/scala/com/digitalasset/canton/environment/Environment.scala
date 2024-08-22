@@ -488,7 +488,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   protected def createParticipant(
       name: String,
       participantConfig: Config#ParticipantConfigType,
-  ): ParticipantNodeBootstrap = {
+  ): Either[String, ParticipantNodeBootstrap] = {
     participantNodeFactory
       .create(
         NodeFactoryArguments(
@@ -506,14 +506,13 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         ),
         testingTimeService,
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create participant bootstrap: $err"))
   }
 
   @VisibleForTesting
   protected def createDomain(
       name: String,
       domainConfig: config.DomainConfigType,
-  ): DomainNodeBootstrap =
+  ): Either[String, DomainNodeBootstrap] =
     domainFactory
       .create(
         NodeFactoryArguments(
@@ -530,7 +529,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           executionContext,
         )
       )
-      .valueOr(err => throw new RuntimeException(s"Failed to create domain bootstrap: $err"))
 
   private def simClocks: Seq[SimClock] = {
     val clocks = clock +: (participants.running.map(_.clock) ++ domains.running.map(_.clock))
