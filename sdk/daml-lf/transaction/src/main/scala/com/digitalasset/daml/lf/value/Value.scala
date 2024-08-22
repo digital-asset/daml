@@ -94,9 +94,6 @@ object Value {
     */
   sealed abstract class ValueCidlessLeaf extends Value
 
-  // Only used by WasmRuntime
-//  final case class WasmValue(values: ByteString*) extends Value
-
   final case class ValueRecord(
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value)],

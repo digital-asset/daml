@@ -1,5 +1,5 @@
 [package]
-name = "hello-world"
+name = "create-contract"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,3 +8,4 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+protobuf = "=3.5.1"

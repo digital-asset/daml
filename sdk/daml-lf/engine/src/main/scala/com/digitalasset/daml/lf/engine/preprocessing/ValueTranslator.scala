@@ -67,7 +67,7 @@ private[lf] final class ValueTranslator(
       config: Config,
   ): SValue = {
     // TODO: https://github.com/digital-asset/daml/issues/17082
-    //   Should we consider factorizing this code with Seedy.Machine#importValues
+    //   Should we consider factorizing this code with Seedy.Machine.importValue
 
     def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {

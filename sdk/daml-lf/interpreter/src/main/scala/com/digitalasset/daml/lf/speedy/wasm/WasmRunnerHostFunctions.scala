@@ -3,7 +3,12 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.{Value => LfValue}
+
 trait WasmRunnerHostFunctions {
 
   def logInfo(msg: String): Unit
+
+  def createContract(templateCons: Ref.TypeConRef, args: LfValue): LfValue.ContractId
 }

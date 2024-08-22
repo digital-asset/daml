@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue.SArithmeticError
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
@@ -690,6 +689,15 @@ private[lf] object Speedy {
 
   object UpdateMachine {
 
+    private[this] val damlTraceLog = ContextualizedLogger.createFor("daml.tracelog")
+    private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
+
+    def newProfile: Profile = new Profile()
+
+    def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
+
+    def newWarningLog: WarningLog = new WarningLog(damlWarnings)
+
     private val iterationsBetweenInterruptions: Long = 10000
 
     @throws[SErrorDamlException]
@@ -701,7 +709,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        iterationsBetweenInterruptions: Long = UpdateMachine.iterationsBetweenInterruptions,
+        iterationsBetweenInterruptions: Long = iterationsBetweenInterruptions,
         packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,

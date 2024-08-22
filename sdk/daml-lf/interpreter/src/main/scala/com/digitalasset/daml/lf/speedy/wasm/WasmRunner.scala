@@ -8,9 +8,15 @@ package wasm
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
-import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Node}
+import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
+import com.digitalasset.daml.lf.value.{
+  Value => LfValue,
+  ValueCoder => LfValueCoder,
+  ValueOuterClass => proto,
+}
 import com.dylibso.chicory.runtime.{
   HostFunction => WasmHostFunction,
   HostImports => WasmHostImports,
@@ -25,18 +31,20 @@ import scala.annotation.unused
 
 final class WasmRunner(
     submitters: Set[Party],
-    @unused readAs: Set[Party],
+    readAs: Set[Party],
     seeding: speedy.InitialSeeding,
+    submissionTime: Time.Timestamp,
     authorizationChecker: AuthorizationChecker,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     logger: ContextualizedLogger = ContextualizedLogger.get(classOf[WasmRunner]),
+    pkgInterface: language.PackageInterface = PackageInterface.Empty,
 )(implicit loggingContext: LoggingContext)
     extends WasmRunnerHostFunctions {
 
   import WasmRunner._
 
-  // TODO: make this a var once we have create host functions
-  private[this] val ptx: PartialTransaction = PartialTransaction
+  // FIXME: deprecate
+  private[this] var ptx: PartialTransaction = PartialTransaction
     .initial(
       contractKeyUniqueness,
       seeding,
@@ -44,22 +52,55 @@ final class WasmRunner(
       authorizationChecker,
     )
 
-  def logInfo(msg: String): Unit = {
+  override def logInfo(msg: String): Unit = {
     logger.info(msg)
+  }
+
+  override def createContract(templateId: Ref.TypeConRef, argsV: LfValue): LfValue.ContractId = {
+    val templateTypeCon = templateId.assertToTypeConName
+    val (pkgName, pkgVersion) = tmplId2PackageNameVersion(templateTypeCon)
+    val argsSV = toSValue(argsV)
+    val txVersion = tmplId2TxVersion(templateTypeCon)
+    // TODO: cache contractInfo against the contractId (c.f. Speedy)?
+    val contractInfo = ContractInfo(
+      txVersion,
+      pkgName,
+      pkgVersion,
+      templateTypeCon,
+      argsSV,
+      submitters,
+      readAs,
+      None,
+    )
+    // TODO: global vs local contract IDs??
+    val (contractId, updatedPtx) = ptx.insertCreate(submissionTime, contractInfo, None).toOption.get
+
+    ptx = updatedPtx
+
+    contractId
   }
 
   def evaluateWasmExpression(
       wasmExpr: WasmExpr,
-      // FIXME: speedy uses this param for NeedTime callbacks
+      // TODO: speedy uses this param for NeedTime callbacks
       @unused ledgerTime: Time.Timestamp,
-      @unused packageResolution: Map[Ref.PackageName, Ref.PackageId],
   ): Either[SErrorCrash, UpdateMachine.Result] = {
-    val logFunc = wasmFunction("logInfo", 1, List.empty) { param =>
+    val logFunc = wasmFunction("logInfo", 1, WasmUnitResultType) { param =>
       logInfo(param(0).toStringUtf8)
 
       ByteString.empty()
     }
-    val imports = new WasmHostImports(Array[WasmHostFunction](logFunc))
+    val createContractFunc = wasmFunction("createContract", 2, WasmValueResultType) { param =>
+      // NB. as we do not need to compute the contract instance, we do not need the funcPtr to the template constructor
+      val templateId =
+        LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
+      val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
+      val arg = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get
+      val contractId = createContract(templateId, arg)
+
+      ByteString.copyFrom(contractId.coid.getBytes)
+    }
+    val imports = new WasmHostImports(Array[WasmHostFunction](logFunc, createContractFunc))
     implicit val instance: WasmInstance =
       WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()
     val machine = instance.export(wasmExpr.name)
@@ -77,7 +118,7 @@ final class WasmRunner(
         ptx.locationInfo(),
         zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        // FIXME: for the moment, we ignore disclosed contracts completely
+        // TODO: for the moment, we ignore disclosed contracts completely
         ImmArray.empty[Node.Create],
       )
   }
@@ -91,20 +132,98 @@ final class WasmRunner(
     }
     xs.zip(ys)
   }
+
+  private def tmplId2TxVersion(tmplId: Ref.TypeConName): TransactionVersion = {
+    TransactionVersion.assignNodeVersion(
+      pkgInterface.packageLanguageVersion(tmplId.packageId)
+    )
+  }
+
+  private def tmplId2PackageNameVersion(
+      tmplId: Ref.TypeConName
+  ): (Ref.PackageName, Option[Ref.PackageVersion]) = {
+    pkgInterface.signatures(tmplId.packageId).pkgNameVersion
+  }
+
+  private def toSValue(value: LfValue): SValue = value match {
+    case LfValue.ValueUnit =>
+      SValue.SUnit
+    case LfValue.ValueBool(b) =>
+      SValue.SBool(b)
+    case LfValue.ValueInt64(i) =>
+      SValue.SInt64(i)
+    case LfValue.ValueDate(date) =>
+      SValue.SDate(date)
+    case LfValue.ValueTimestamp(ts) =>
+      SValue.STimestamp(ts)
+    case LfValue.ValueNumeric(n) =>
+      SValue.SNumeric(n)
+    case LfValue.ValueParty(party) =>
+      SValue.SParty(party)
+    case LfValue.ValueText(txt) =>
+      SValue.SText(txt)
+    case LfValue.ValueContractId(cid) =>
+      SValue.SContractId(cid)
+    case LfValue.ValueOptional(optValue) =>
+      SValue.SOptional(optValue.map(toSValue))
+    case LfValue.ValueList(values) =>
+      SValue.SList(values.map(toSValue))
+    case LfValue.ValueTextMap(values) =>
+      SValue.SMap(
+        isTextMap = true,
+        values.iterator.map { case (k, v) => (SValue.SText(k), toSValue(v)) }.toSeq: _*
+      )
+    case LfValue.ValueGenMap(values) =>
+      SValue.SMap(
+        isTextMap = false,
+        values.iterator.map { case (k, v) => (toSValue(k), toSValue(v)) }.toSeq: _*
+      )
+    case LfValue.ValueRecord(Some(tyCon), fields) =>
+      SValue.SRecord(
+        tyCon,
+        fields.map(_._1.get),
+        ArrayList.from(fields.map(kv => toSValue(kv._2)).toArray[SValue]),
+      )
+    case LfValue.ValueRecord(None, fields) =>
+      // FIXME: hard coded tyCon - use of VersionTransaction should avoid this typing requirement issue?
+      val tyCon = Ref.Identifier.assertFromString(
+        "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:create_contract:SimpleTemplate.new"
+      )
+      val fieldNames = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2"))
+      SValue.SRecord(
+        tyCon,
+        fieldNames,
+        ArrayList.from(fields.map(kv => toSValue(kv._2)).toArray[SValue]),
+      )
+    case LfValue.ValueVariant(Some(tyCon), variant, value) =>
+      // No applications, so rank is always 0
+      SValue.SVariant(tyCon, variant, 0, toSValue(value))
+    case LfValue.ValueVariant(None, _, _) =>
+      // FIXME: presumably we need pkgInterface here?
+      ???
+    case LfValue.ValueEnum(Some(tyCon), value) =>
+      // No applications, so rank is always 0
+      SValue.SEnum(tyCon, value, 0)
+    case LfValue.ValueEnum(None, _) =>
+      // FIXME: presumably we need pkgInterface here?
+      ???
+  }
 }
 
 object WasmRunner {
   final case class WasmExpr(module: ByteString, name: String, args: Array[Byte]*)
 
-  private val WasmParameterType = List(WasmValueType.I32, WasmValueType.I32)
-//  private val WasmResultType = List(WasmValueType.I32, WasmValueType.I32)
+  private val WasmValueParameterType = List(WasmValueType.I32)
+  private val WasmUnitResultType = List.empty[WasmValueType]
+  private val WasmValueResultType = List(WasmValueType.I32)
+  private val i32Size = WasmValueType.I32.size()
 
   private def wasmFunction(name: String, numOfParams: Int, returnType: List[WasmValueType])(
       lambda: Array[ByteString] => ByteString
   ): WasmHostFunction = {
     new WasmHostFunction(
       (instance: WasmInstance, args: Array[WasmValue]) => {
-        require(args.length == 2 * numOfParams)
+        require(args.length == numOfParams)
 
         copyByteString(
           lambda((0 until numOfParams).map(copyWasmValues(args, _)(instance)).toArray)
@@ -112,7 +231,7 @@ object WasmRunner {
       },
       "env",
       name,
-      (0 until numOfParams).flatMap(_ => WasmParameterType).asJava,
+      (0 until numOfParams).flatMap(_ => WasmValueParameterType).asJava,
       returnType.asJava,
     )
   }
@@ -120,10 +239,14 @@ object WasmRunner {
   private def copyWasmValues(values: Array[WasmValue], index: Int)(implicit
       instance: WasmInstance
   ): ByteString = {
-    require(0 <= index && 2 * index + 1 < values.length)
+    require(0 <= index && index < values.length)
+
+    val byteStringPtr = values(index).asInt()
+    val ptr = instance.memory().readI32(byteStringPtr)
+    val size = instance.memory().readI32(byteStringPtr + i32Size)
 
     ByteString.copyFrom(
-      instance.memory().readBytes(values(2 * index).asInt(), values(2 * index + 1).asInt())
+      instance.memory().readBytes(ptr.asInt(), size.asInt())
     )
   }
 
@@ -136,12 +259,18 @@ object WasmRunner {
   private def copyByteArray(
       value: Array[Byte]
   )(implicit instance: WasmInstance): Array[WasmValue] = {
-    val alloc = instance.export("alloc")
-    val valuePtr = alloc.apply(WasmValue.i32(value.length))(0).asInt
+    if (value.isEmpty) {
+      Array.empty
+    } else {
+      val alloc = instance.export("alloc")
+      val valuePtr = alloc.apply(WasmValue.i32(value.length))(0).asInt
+      val byteStringPtr = alloc.apply(WasmValue.i32(2 * i32Size))(0).asInt
 
-    // TODO: do we need to also store the length here? Probably OK?
-    instance.memory().write(valuePtr, value)
+      instance.memory().write(valuePtr, value)
+      instance.memory().writeI32(byteStringPtr, valuePtr)
+      instance.memory().writeI32(byteStringPtr + i32Size, value.length)
 
-    Array(WasmValue.i32(valuePtr), WasmValue.i32(value.length))
+      Array(WasmValue.i32(byteStringPtr))
+    }
   }
 }

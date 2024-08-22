@@ -40,7 +40,13 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     val initialSeeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-    val wasm = new WasmRunner(submitters, readAs, initialSeeding, config.authorizationChecker)
+    val wasm = new WasmRunner(
+      submitters,
+      readAs,
+      initialSeeding,
+      submissionTime,
+      config.authorizationChecker,
+    )
     // FIXME: for the moment, we always load a universe Wasm module
     val wexpr = WasmExpr(WasmEngine.universe, "main")
 
@@ -49,8 +55,6 @@ class WasmEngine(config: EngineConfig) {
       wasm.evaluateWasmExpression(
         wexpr,
         ledgerTime = cmds.ledgerEffectiveTime,
-        // FIXME: for the moment, we perform no package resolution
-        packageResolution = Map.empty,
       ),
     )
   }
@@ -66,7 +70,13 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val readAs = Set.empty[Ref.Party]
     val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed))
-    val wasm = new WasmRunner(submitters, readAs, initialSeeding, config.authorizationChecker)
+    val wasm = new WasmRunner(
+      submitters,
+      readAs,
+      initialSeeding,
+      submissionTime,
+      config.authorizationChecker,
+    )
     // FIXME: for the moment, we always load a universe Wasm module and ignore the replay command
     val wexpr = WasmExpr(WasmEngine.universe, "main")
 
@@ -75,8 +85,6 @@ class WasmEngine(config: EngineConfig) {
       wasm.evaluateWasmExpression(
         wexpr,
         ledgerTime = ledgerEffectiveTime,
-        // FIXME: for the moment, we perform no package resolution
-        packageResolution = Map.empty,
       ),
     )
   }
@@ -93,7 +101,13 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val readAs = Set.empty[Ref.Party]
     val initialSeeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-    val wasm = new WasmRunner(submitters, readAs, initialSeeding, config.authorizationChecker)
+    val wasm = new WasmRunner(
+      submitters,
+      readAs,
+      initialSeeding,
+      submissionTime,
+      config.authorizationChecker,
+    )
     // FIXME: for the moment, we always load a universe Wasm module and ignore calculating commands to run from the given tx
     val wexpr = WasmExpr(WasmEngine.universe, "main")
 
@@ -102,8 +116,6 @@ class WasmEngine(config: EngineConfig) {
       wasm.evaluateWasmExpression(
         wexpr,
         ledgerTime = ledgerEffectiveTime,
-        // FIXME: for the moment, we perform no package resolution
-        packageResolution = Map.empty,
       ),
     )
   }

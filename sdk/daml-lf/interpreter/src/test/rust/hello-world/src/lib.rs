@@ -1,12 +1,22 @@
 mod ledger {
     mod internal {
+        #[repr(C, packed)]
+        pub struct ByteString {
+            pub ptr: *const u8,
+            pub size: usize,
+        }
+
         extern {
-            pub fn logInfo(addr: *const u8, size: usize);
+            #[allow(non_snake_case)]
+            pub fn logInfo(msg: &ByteString);
         }
     }
 
+    #[allow(non_snake_case)]
     pub fn logInfo(msg: &str) {
-      unsafe { internal::logInfo(msg.as_ptr(), msg.len()); }
+      unsafe {
+        internal::logInfo(&internal::ByteString { ptr: msg.as_ptr(), size: msg.len() });
+      }
     }
 }
 
