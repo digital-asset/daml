@@ -473,5 +473,19 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in protocol continuity tests that might catch up -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard0ConformanceTestDomain</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in protocol continuity tests that might catch up -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard0ConformanceTestParticipant</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
    </appender>
 </included>
