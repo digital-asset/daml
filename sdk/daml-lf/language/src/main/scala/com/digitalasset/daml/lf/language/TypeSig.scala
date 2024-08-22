@@ -5,7 +5,10 @@ package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Ref
-import TypeSig._
+import com.digitalasset.daml.lf.language.Ast.PackageSignature
+import com.digitalasset.daml.lf.language.TypeSig._
+
+import scala.collection.immutable.VectorMap
 
 final case class TypeSig(
     enumDefs: Map[Ref.TypeConName, EnumSig],
@@ -15,55 +18,28 @@ final case class TypeSig(
     interfaceDefs: Map[Ref.TypeConName, InterfaceSig],
 ) {
 
-  def addenumDefs(
-      pkgId: Ref.PackageId,
-      modName: Ref.ModuleName,
-      name: Ref.DottedName,
-      defn: EnumSig,
-  ) = {
-    val tyConName = Ref.Identifier(pkgId, Ref.QualifiedName(modName, name))
-    copy(enumDefs = enumDefs.updated(tyConName, defn))
-  }
-  def addvariantDefs(
-      pkgId: Ref.PackageId,
-      modName: Ref.ModuleName,
-      name: Ref.DottedName,
-      defn: VariantSig,
-  ) = {
-    val tyConName = Ref.Identifier(pkgId, Ref.QualifiedName(modName, name))
-    copy(variantDefs = variantDefs.updated(tyConName, defn))
+  def addEnumDefs(id: Ref.TypeConName, defn: EnumSig): TypeSig =
+    copy(enumDefs = enumDefs.updated(id, defn))
 
-  }
-  def addrecordDefs(
-      pkgId: Ref.PackageId,
-      modName: Ref.ModuleName,
-      name: Ref.DottedName,
-      defn: RecordSig,
-  ) = {
-    val tyConName = Ref.Identifier(pkgId, Ref.QualifiedName(modName, name))
-    copy(recordDefs = recordDefs.updated(tyConName, defn))
+  def addVariantDefs(id: Ref.TypeConName, defn: VariantSig): TypeSig =
+    copy(variantDefs = variantDefs.updated(id, defn))
 
-  }
-  def addtemplateDefs(
-      pkgId: Ref.PackageId,
-      modName: Ref.ModuleName,
-      name: Ref.DottedName,
-      defn: TemplateSig,
-  ) = {
-    val tyConName = Ref.Identifier(pkgId, Ref.QualifiedName(modName, name))
-    copy(templateDefs = templateDefs.updated(tyConName, defn))
+  def addRecordDefs(id: Ref.TypeConName, defn: RecordSig): TypeSig =
+    copy(recordDefs = recordDefs.updated(id, defn))
 
-  }
-  def addinterfaceDefs(
-      pkgId: Ref.PackageId,
-      modName: Ref.ModuleName,
-      name: Ref.DottedName,
-      defn: InterfaceSig,
-  ) = {
-    val tyConName = Ref.Identifier(pkgId, Ref.QualifiedName(modName, name))
-    copy(interfaceDefs = interfaceDefs.updated(tyConName, defn))
-  }
+  def addTemplateDefs(id: Ref.TypeConName, defn: TemplateSig): TypeSig =
+    copy(templateDefs = templateDefs.updated(id, defn))
 
+  def addInterfaceDefs(id: Ref.TypeConName, defn: InterfaceSig): TypeSig =
+    copy(interfaceDefs = interfaceDefs.updated(id, defn))
+
+  def merge(other: TypeSig): TypeSig = TypeSig(
+    enumDefs ++ other.enumDefs,
+    variantDefs ++ other.variantDefs,
+    recordDefs ++ other.recordDefs,
+    templateDefs ++ other.templateDefs,
+    interfaceDefs ++ other.interfaceDefs,
+  )
 }
 
 object TypeSig {
@@ -105,7 +81,6 @@ object TypeSig {
     final case class Variant(tyCon: Ref.TypeConName, params: Seq[SerializableType])
         extends SerializableType
 
-    // None means the contract ID point to some type which is neither a template nor a interface
     final case class ContractId(typeId: Option[TemplateOrInterface]) extends SerializableType
 
     final case class List(typ: SerializableType) extends SerializableType
@@ -117,9 +92,12 @@ object TypeSig {
     final case class Var(name: Ref.Name) extends SerializableType
   }
 
-  final case class RecordSig(params: Seq[Ref.Name], fields: Seq[(Ref.Name, SerializableType)])
+  final case class RecordSig(params: Seq[Ref.Name], fields: VectorMap[Ref.Name, SerializableType])
 
-  final case class VariantSig(params: Seq[Ref.Name], constructor: Seq[(Ref.Name, SerializableType)])
+  final case class VariantSig(
+      params: Seq[Ref.Name],
+      constructor: VectorMap[Ref.Name, SerializableType],
+  )
 
   final case class EnumSig(constructor: Seq[Ref.Name])
 
@@ -143,18 +121,17 @@ object TypeSig {
       case Left(err) => throw new Error(err.pretty)
     }
 
-  def nonSeriliazableType(typ: Ast.Type): Nothing =
+  def nonSerializableType(typ: Ast.Type): Nothing =
     throw new Error(s"unexpected non serializable type ${typ.pretty}")
 
   def fromPackage(
       pkgId: Ref.PackageId,
-      pkg: Ast.Package,
+      pkg: PackageSignature,
       pkgInterface: PackageInterface,
-  ): TypeSig = {
+  ) = {
 
     def toSerializableType(typ: Ast.Type, args: List[Ast.Type]): SerializableType = {
-      def nonSerializable =
-        nonSeriliazableType(args.foldLeft(typ)(Ast.TApp))
+      def nonSerializable = nonSerializableType(args.foldLeft(typ)(Ast.TApp))
 
       typ match {
         case Ast.TVar(name) => SerializableType.Var(name)
@@ -180,6 +157,7 @@ object TypeSig {
                 case Ast.BTParty => SerializableType.Party
                 case Ast.BTUnit => SerializableType.Unit
                 case Ast.BTBool => SerializableType.Bool
+                case Ast.BTDate => SerializableType.Date
                 case _ =>
                   nonSerializable
               }
@@ -243,31 +221,30 @@ object TypeSig {
           case Ast.DDataType(true, params, cons) =>
             cons match {
               case Ast.DataRecord(fields) =>
-                acc.addrecordDefs(
-                  pkgId,
-                  modName,
-                  name,
+                acc.addRecordDefs(
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   RecordSig(
                     params.iterator.map(_._1).toSeq,
-                    fields.iterator.map { case (name, typ) =>
+                    VectorMap.from(fields.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toSeq,
+                    }),
                   ),
                 )
               case Ast.DataVariant(variants) =>
-                acc.addvariantDefs(
-                  pkgId,
-                  modName,
-                  name,
+                acc.addVariantDefs(
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   VariantSig(
                     params.iterator.map(_._1).toSeq,
-                    variants.iterator.map { case (name, typ) =>
+                    VectorMap.from(variants.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toSeq,
+                    }),
                   ),
                 )
               case Ast.DataEnum(constructors) =>
-                acc.addenumDefs(pkgId, modName, name, EnumSig(constructors.toSeq))
+                acc.addEnumDefs(
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
+                  EnumSig(constructors.toSeq),
+                )
               case Ast.DataInterface =>
                 acc
             }
@@ -277,30 +254,25 @@ object TypeSig {
       }
       val acc2 = mod.templates.foldLeft(acc1) {
         case (acc, (name, Ast.GenTemplate(_, _, _, choices, _, key, implements))) =>
-          acc.addtemplateDefs(
-            pkgId,
-            modName,
-            name,
+          acc.addTemplateDefs(
+            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
             TemplateSig(
               key.map(defn => toSerializableType(defn.typ, List.empty)),
-              choices.transform((_, v) => toChoiceSig(v)),
+              choices.view.mapValues(toChoiceSig).toMap,
               implements.keySet,
             ),
           )
       }
-      val acc3 = mod.interfaces.foldLeft(acc2) {
+      mod.interfaces.foldLeft(acc2) {
         case (acc, (name, Ast.GenDefInterface(_, _, choices, _, _, viewType))) =>
-          acc.addinterfaceDefs(
-            pkgId,
-            modName,
-            name,
+          acc.addInterfaceDefs(
+            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
             InterfaceSig(
-              choices.transform((_, v) => toChoiceSig(v)),
+              choices.view.mapValues(toChoiceSig).toMap,
               toSerializableType(viewType, List.empty),
             ),
           )
       }
-      acc3
     }
   }
 }
