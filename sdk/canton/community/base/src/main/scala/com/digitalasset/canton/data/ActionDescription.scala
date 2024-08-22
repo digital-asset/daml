@@ -203,6 +203,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             _key,
             byKey,
             version,
+            _isInterface,
           ) =>
         for {
           _ <- Either.cond(
