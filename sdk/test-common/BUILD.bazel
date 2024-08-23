@@ -413,6 +413,7 @@ da_scala_dar_resources_library(
         ("SucceedsWhenATopLevelVariantAddsAVariant", {}, {}),
         ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType", {}, {}),
         ("WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage", {}, {}),
+        ("WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn", {}, {}),
         ("WarnsWhenControllersOfTemplateChoiceAreChanged", {}, {}),
         ("WarnsWhenObserversOfTemplateChoiceAreChanged", {}, {}),
         ("WarnsWhenTemplateChangesEnsure", {}, {}),

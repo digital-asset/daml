@@ -424,6 +424,15 @@ tests damlc =
                       warnBadInterfaceInstances
                       True
                       doTypecheck
+                , testGeneral
+                      (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
+                      "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
+                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:")
+                      versionDefault
+                      NoDependencies
+                      warnBadInterfaceInstances
+                      True
+                      doTypecheck
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
