@@ -125,8 +125,15 @@ class TrafficPurchasedSubmissionHandler(
             )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
+      activeSequencers <- EitherT.fromOption[FutureUnlessShutdown](
+        NonEmpty
+          .from(sequencerGroup.active.map(_.member)),
+        ErrorUtil.invalidState(
+          "No active sequencers found on the domain. There should at least be one sequencer."
+        ),
+      )
       aggregationRule = AggregationRule(
-        eligibleMembers = sequencerGroup.active.map(_.member),
+        eligibleMembers = activeSequencers,
         threshold = sequencerGroup.threshold,
         protocolVersion,
       )

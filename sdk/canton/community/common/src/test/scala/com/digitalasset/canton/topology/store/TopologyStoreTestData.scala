@@ -81,7 +81,7 @@ class TopologyStoreTestData(
     isProposal = true,
   )
   val tx2_OTK = makeSignedTx(
-    OwnerToKeyMapping(participantId1, domain = None, signingKeys)
+    OwnerToKeyMapping(participantId1, signingKeys)
   )
   val tx3_IDD_Removal = makeSignedTx(
     IdentifierDelegation(daDomainUid, signingKeys.head1),
@@ -91,7 +91,6 @@ class TopologyStoreTestData(
   val tx3_PTP_Proposal = makeSignedTx(
     PartyToParticipant.tryCreate(
       partyId = fredOfCanton,
-      domainId = None,
       threshold = PositiveInt.one,
       participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
       groupAddressing = true,
@@ -111,14 +110,13 @@ class TopologyStoreTestData(
       .getOrElse(fail())
   )
   val tx4_OTK_Proposal = makeSignedTx(
-    OwnerToKeyMapping(participantId1, domain = None, signingKeys),
+    OwnerToKeyMapping(participantId1, signingKeys),
     isProposal = true,
     serial = PositiveInt.tryCreate(2),
   )
   val tx5_PTP = makeSignedTx(
     PartyToParticipant.tryCreate(
       partyId = fredOfCanton,
-      domainId = None,
       threshold = PositiveInt.one,
       participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
       groupAddressing = true,

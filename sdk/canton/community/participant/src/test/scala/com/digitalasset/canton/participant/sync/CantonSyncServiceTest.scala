@@ -49,7 +49,7 @@ import org.mockito.ArgumentMatchers
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
 
 class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
@@ -194,7 +194,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           any[PartyId],
           any[ParticipantId],
           any[ProtocolVersion],
-        )(any[TraceContext])
+        )(any[TraceContext], any[ExecutionContext])
       ).thenReturn(EitherT.rightT(()))
 
       when(f.participantEventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext))
@@ -234,7 +234,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           eqTo(partyId),
           eqTo(f.participantId),
           eqTo(ProtocolVersion.latest),
-        )(anyTraceContext)
+        )(anyTraceContext, any[ExecutionContext])
         succeed
       }
 

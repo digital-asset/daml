@@ -23,7 +23,7 @@ import com.digitalasset.canton.lifecycle.{
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.AcsChange.transferCountersForArchivedTransient
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
@@ -88,14 +88,16 @@ class RecordOrderPublisher(
     futureSupervisor: FutureSupervisor,
     activeContractSnapshot: ActiveContractSnapshot,
     clock: Clock,
-)(implicit val executionContextForPublishing: ExecutionContext, elc: ErrorLoggingContext)
+)(implicit val executionContextForPublishing: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync {
 
   // Synchronization to block publication of new events until preceding events recovered by crash recovery
   // have been published
   private val recovered: PromiseUnlessShutdown[Unit] =
-    new PromiseUnlessShutdown[Unit]("recovered", futureSupervisor)
+    new PromiseUnlessShutdown[Unit]("recovered", futureSupervisor)(
+      errorLoggingContext(TraceContext.empty)
+    )
 
   private[this] val taskScheduler: TaskScheduler[PublicationTask] =
     TaskScheduler(
@@ -290,6 +292,7 @@ class RecordOrderPublisher(
       override val timestamp: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends PublicationTask {
+
     override def perform(): FutureUnlessShutdown[Unit] =
       performUnlessClosingUSF("observe-timestamp-task") {
         /*

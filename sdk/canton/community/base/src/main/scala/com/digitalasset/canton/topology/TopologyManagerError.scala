@@ -23,6 +23,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 sealed trait TopologyManagerError extends CantonError
 
@@ -786,6 +787,24 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to packages not existing on the local node"
+          )
+          with TopologyManagerError
+    }
+
+    @Resolution(
+      s"""To unvet the package id, you must archive all contracts using this package id."""
+    )
+    object PackageIdInUse
+        extends ErrorCode(
+          id = "TOPOLOGY_PACKAGE_ID_IN_USE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(used: PackageId, contract: ContractId, domain: DomainId)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Cannot unvet package $used as it is still in use by $contract on domain $domain. " +
+                s"It may also be used by contracts on other domains."
           )
           with TopologyManagerError
     }

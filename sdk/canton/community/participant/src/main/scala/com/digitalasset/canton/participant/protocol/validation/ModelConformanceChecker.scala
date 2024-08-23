@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
-import cats.implicits.toTraverseOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
@@ -299,7 +298,7 @@ class ModelConformanceChecker(
 
       (lfTx, metadata, resolverFromReinterpretation, usedPackages) = lfTxAndMetadata
 
-      _ <- checkPackageVetting(view, topologySnapshot, usedPackages)
+      _ <- checkPackageVetting(view, topologySnapshot, usedPackages, metadata.ledgerTime)
 
       // For transaction views of protocol version 3 or higher,
       // the `resolverFromReinterpretation` is the same as the `resolverFromView`.
@@ -346,6 +345,7 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       packageIds: Set[PackageId],
+      ledgerTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
     val informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
@@ -355,22 +355,15 @@ class ModelConformanceChecker(
         snapshot.activeParticipantsOfParties(informees.toSeq)
       )
       informeeParticipants = informeeParticipantsByParty.values.flatten.toSet
-      unvettedResult <- informeeParticipants.toSeq
+      unvetted <- informeeParticipants.toSeq
         .parTraverse(p =>
-          snapshot.findUnvettedPackagesOrDependencies(p, packageIds).map(p -> _).value
+          snapshot
+            .findUnvettedPackagesOrDependencies(p, packageIds, ledgerTime)
+            .map(p -> _)
         )
-        .map(_.sequence)
-      unvettedPackages = unvettedResult match {
-        case Left(packageId) =>
-          // The package is not in the store and thus the package is not vetted.
-          // If the admin has tampered with the package store and the package is still vetted,
-          // we consider this participant as malicious;
-          // in that case, other participants may still commit the view.
-          Seq(participantId -> Set(packageId))
-        case Right(unvettedSeq) =>
-          unvettedSeq.filter { case (_, packageIds) => packageIds.nonEmpty }
-      }
+
     } yield {
+      val unvettedPackages = unvetted.filter { case (_, packageIds) => packageIds.nonEmpty }
       Either.cond(unvettedPackages.isEmpty, (), UnvettedPackages(unvettedPackages.toMap))
     })
   }

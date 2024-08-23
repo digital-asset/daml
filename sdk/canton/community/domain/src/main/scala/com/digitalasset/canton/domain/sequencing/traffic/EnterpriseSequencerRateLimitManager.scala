@@ -785,7 +785,13 @@ class EnterpriseSequencerRateLimitManager(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       trafficStateO <- trafficConsumedO.traverse(
-        getTrafficState(_, member, None, lastSequencerEventTimestamp, warnIfApproximate = true)
+        getTrafficState(
+          _,
+          member,
+          Some(timestamp),
+          lastSequencerEventTimestamp,
+          warnIfApproximate = true,
+        )
       )
     } yield trafficStateO
 

@@ -128,6 +128,12 @@ message GetConnectedDomainsRequest {
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
+
+  // The id of a participant whose mapping of a party to connected domains is requested.
+  // Must be a valid participant-id retrieved through a prior call to getParticipantId.
+  // Defaults to the participant id of the host participant.
+  // Optional
+  string participant_id = 2;
 }
 
 message GetConnectedDomainsResponse {

@@ -20,7 +20,7 @@ trait HasFutureSupervision { this: NamedLogging =>
   protected def supervised[T](description: => String, warnAfter: Duration = 10.seconds)(
       fut: Future[T]
   )(implicit traceContext: TraceContext): Future[T] =
-    futureSupervisor.supervised(description, warnAfter)(fut)(implicitly, executionContext)
+    futureSupervisor.supervised(description, warnAfter)(fut)
 
   def supervisedUS[T](description: => String, warnAfter: Duration = 10.seconds)(
       fut: FutureUnlessShutdown[T]

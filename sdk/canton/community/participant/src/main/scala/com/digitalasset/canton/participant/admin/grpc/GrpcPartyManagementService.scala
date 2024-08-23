@@ -5,14 +5,16 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.CommandId
 import com.digitalasset.canton.admin.participant.v30.{
   PartyManagementServiceGrpc,
   StartPartyReplicationRequest,
   StartPartyReplicationResponse,
 }
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator
-import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.PartyReplicationArguments
+import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.{
+  ChannelId,
+  PartyReplicationArguments,
+}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -49,10 +51,7 @@ class GrpcPartyManagementService(coordinator: PartyReplicationCoordinator)(impli
       request: StartPartyReplicationRequest
   ): Either[String, PartyReplicationArguments] =
     for {
-      id <-
-        // Ensure id can be embedded in a commandId i.e. does not contain non-allowed characters
-        if (request.id.nonEmpty) CommandId.fromProtoPrimitive(request.id).map(_.unwrap)
-        else UUID.randomUUID().toString.asRight
+      id <- ChannelId.fromString(request.id.getOrElse(UUID.randomUUID().toString))
       partyId <- convert(request.partyUid, "partyUid", PartyId(_))
       sourceParticipantId <- convert(
         request.sourceParticipantUid,

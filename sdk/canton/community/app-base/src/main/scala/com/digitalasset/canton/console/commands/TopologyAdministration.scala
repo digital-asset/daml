@@ -946,7 +946,6 @@ class TopologyAdministrationGroup(
         key: Fingerprint of the key
         purpose: The key purpose, i.e. whether the key is for signing or encryption
         keyOwner: The member that owns the key
-        domainId: The domain id if the owner to key mapping is specific to a domain
         signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
         synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
         mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
@@ -956,7 +955,6 @@ class TopologyAdministrationGroup(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member = instance.id.member,
-        domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -967,7 +965,6 @@ class TopologyAdministrationGroup(
       key,
       purpose,
       keyOwner,
-      domainId,
       signedBy,
       synchronize,
       add = true,
@@ -986,7 +983,6 @@ class TopologyAdministrationGroup(
         key: Fingerprint of the key
         purpose: The key purpose, i.e. whether the key is for signing or encryption
         keyOwner: The member that owns the key
-        domainId: The domain id if the owner to key mapping is specific to a domain
         signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
         synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
         mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
@@ -997,7 +993,6 @@ class TopologyAdministrationGroup(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member = instance.id.member,
-        domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1009,7 +1004,6 @@ class TopologyAdministrationGroup(
       key,
       purpose,
       keyOwner,
-      domainId,
       signedBy,
       synchronize,
       add = false,
@@ -1047,35 +1041,23 @@ class TopologyAdministrationGroup(
       require(keysInStore.contains(newKey), "The new key must exist and pertain to this node")
       require(currentKey.purpose == newKey.purpose, "The rotated keys must have the same purpose")
 
-      val domainIds = list(
-        filterStore = AuthorizedStore.filterName,
-        operation = Some(TopologyChangeOp.Replace),
-        filterKeyOwnerUid = member.filterString,
-        filterKeyOwnerType = Some(member.code),
-        proposals = false,
-      ).collect { case res if res.item.keys.contains(currentKey) => res.item.domain }
-
-      require(domainIds.nonEmpty, "The current key is not authorized in any owner to key mapping")
-
       // TODO(#12945): Remove this workaround once the TopologyManager is able to determine the signing key
       //  among its IDDs and NSDs.
       val signingKeyForNow = Some(nodeInstance.id.fingerprint)
 
-      domainIds.foreach { maybeDomainId =>
-        // Authorize the new key
-        // The owner will now have two keys, but by convention the first one added is always
-        // used by everybody.
-        update(
-          newKey.fingerprint,
-          newKey.purpose,
-          member,
-          domainId = maybeDomainId,
-          signedBy = signingKeyForNow,
-          add = true,
-          nodeInstance = nodeInstance,
-          synchronize = synchronize,
-        )
-      }
+      // Authorize the new key
+      // The owner will now have two keys, but by convention the first one added is always
+      // used by everybody.
+      update(
+        newKey.fingerprint,
+        newKey.purpose,
+        member,
+        signedBy = signingKeyForNow,
+        add = true,
+        nodeInstance = nodeInstance,
+        synchronize = synchronize,
+      )
+
       // retry until we observe the change in the respective store
       ConsoleMacros.utils.retry_until_true(
         nodeInstance.topology.owner_to_key_mappings
@@ -1086,26 +1068,22 @@ class TopologyAdministrationGroup(
           .forall(_.item.keys.contains(newKey))
       )(consoleEnvironment)
 
-      domainIds.foreach { maybeDomainId =>
-        // Remove the old key by sending the matching `Remove` transaction
-        update(
-          currentKey.fingerprint,
-          currentKey.purpose,
-          member,
-          domainId = maybeDomainId,
-          signedBy = signingKeyForNow,
-          add = false,
-          nodeInstance = nodeInstance,
-          synchronize = synchronize,
-        )
-      }
+      // Remove the old key by sending the matching `Remove` transaction
+      update(
+        currentKey.fingerprint,
+        currentKey.purpose,
+        member,
+        signedBy = signingKeyForNow,
+        add = false,
+        nodeInstance = nodeInstance,
+        synchronize = synchronize,
+      )
     }
 
     private def update(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member,
-        domainId: Option[DomainId],
         signedBy: Option[Fingerprint] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1135,8 +1113,7 @@ class TopologyAdministrationGroup(
           filterStore = AuthorizedStore.filterName,
           filterKeyOwnerUid = keyOwner.filterString,
           filterKeyOwnerType = Some(keyOwner.code),
-          proposals = false,
-        ).filter(_.item.domain == domainId)
+        )
       ).map(res => (res.item, res.context.operation, res.context.serial))
 
       val (proposedMapping, serial, ops) = if (add) {
@@ -1144,13 +1121,13 @@ class TopologyAdministrationGroup(
         maybePreviousState match {
           case None =>
             (
-              OwnerToKeyMapping(keyOwner, domainId, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, NonEmpty(Seq, publicKey)),
               PositiveInt.one,
               TopologyChangeOp.Replace,
             )
           case Some((_, TopologyChangeOp.Remove, previousSerial)) =>
             (
-              OwnerToKeyMapping(keyOwner, domainId, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, NonEmpty(Seq, publicKey)),
               previousSerial.increment,
               TopologyChangeOp.Replace,
             )
@@ -1314,7 +1291,6 @@ class TopologyAdministrationGroup(
             (submission, confirmation, observation). If the party already hosts the specified participant, update the
             participant's permissions.
       removes: The unique identifiers of the participants that should no longer host the party.
-      domainId: The domain id if the party to participant mapping is specific to a domain.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
       mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
@@ -1416,7 +1392,6 @@ class TopologyAdministrationGroup(
       threshold: The threshold is `1` for regular parties and larger than `1` for "consortium parties". The threshold
                  indicates how many participant confirmations are needed in order to confirm a Daml transaction on
                  behalf the party.
-      domainId: The domain id if the party to participant mapping is specific to a domain.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
       serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
               This transaction will be rejected if another fully authorized transaction with the same serial already
@@ -1456,7 +1431,6 @@ class TopologyAdministrationGroup(
       val command = TopologyAdminCommands.Write.Propose(
         mapping = PartyToParticipant.create(
           partyId = party,
-          domainId = None,
           threshold = threshold,
           participants = newParticipants.map((HostingParticipant.apply _) tupled),
           groupAddressing = groupAddressing,
@@ -1920,7 +1894,6 @@ class TopologyAdministrationGroup(
          participantId: the identifier of the participant vetting the packages
          adds: The lf-package ids to be vetted.
          removes: The lf-package ids to be unvetted.
-         domainId: The domain id if the package vetting is specific to a domain.
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                              propagated to connected domains, if applicable.
                 - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
@@ -1937,11 +1910,9 @@ class TopologyAdministrationGroup(
     )
     def propose_delta(
         participant: ParticipantId,
-        adds: Seq[PackageId] = Nil,
+        adds: Seq[VettedPackage] = Nil,
         removes: Seq[PackageId] = Nil,
-        domainId: Option[DomainId] = None,
         store: String = AuthorizedStore.filterName,
-        filterParticipant: String = "",
         mustFullyAuthorize: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1952,33 +1923,56 @@ class TopologyAdministrationGroup(
         force: ForceFlags = ForceFlags.none,
     ): Unit = {
 
+      val duplicatePackageIds = adds.map(_.packageId).intersect(removes)
+      if (duplicatePackageIds.nonEmpty) {
+        throw new IllegalArgumentException(
+          s"Cannot both add and remove a packageId: $duplicatePackageIds"
+        ) with NoStackTrace
+      }
       // compute the diff and then call the propose method
       val current0 = expectAtMostOneResult(
-        list(filterStore = store, filterParticipant = filterParticipant)
+        list(filterStore = store, filterParticipant = participant.filterString, operation = None)
       )
 
       (adds, removes) match {
         case (Nil, Nil) =>
           throw new IllegalArgumentException(
             "Ensure that at least one of the two parameters (adds or removes) is not empty."
-          )
+          ) with NoStackTrace
         case (_, _) =>
+          val allChangedPackageIds = (adds.map(_.packageId) ++ removes).toSet
+
           val (newSerial, newDiffPackageIds) = current0 match {
-            case Some(value) =>
+            case Some(
+                  ListVettedPackagesResult(
+                    BaseResult(_, _, _, _, TopologyChangeOp.Replace, _, serial, _),
+                    item,
+                  )
+                ) =>
               (
-                value.context.serial.increment,
-                ((value.item.packageIds ++ adds).diff(removes)).distinct,
+                serial.increment,
+                // first filter out all existing packages that either get re-added (i.e. modified) or removed
+                item.packages.filter(vp => !allChangedPackageIds.contains(vp.packageId))
+                // now we can add all the adds the also haven't been in the remove set
+                  ++ adds,
               )
-            case None => (PositiveInt.one, (adds.diff(removes)).distinct)
+            case Some(
+                  ListVettedPackagesResult(
+                    BaseResult(_, _, _, _, TopologyChangeOp.Remove, _, serial, _),
+                    _,
+                  )
+                ) =>
+              (serial.increment, adds)
+            case None =>
+              (PositiveInt.one, adds)
           }
 
-          if (current0.exists(_.item.packageIds.toSet == newDiffPackageIds.toSet))
+          if (current0.exists(_.item.packages.toSet == newDiffPackageIds.toSet))
             () // means no change
           else
             propose(
               participant = participant,
-              packageIds = newDiffPackageIds,
-              domainId,
+              packages = newDiffPackageIds,
               store,
               mustFullyAuthorize,
               synchronize,
@@ -1996,8 +1990,7 @@ class TopologyAdministrationGroup(
         |Note that all referenced and dependent packages must exist in the package store.
 
         participantId: the identifier of the participant vetting the packages
-        packageIds: The lf-package ids to be vetted that will replace the previous vetted packages.
-        domainId: The domain id if the package vetting is specific to a domain.
+        packages: The lf-package ids with validity boundaries to be vetted that will replace the previous vetted packages.
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                               propagated to connected domains, if applicable.
                - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
@@ -2014,8 +2007,7 @@ class TopologyAdministrationGroup(
         force: must be set when revoking the vetting of packagesIds""")
     def propose(
         participant: ParticipantId,
-        packageIds: Seq[PackageId],
-        domainId: Option[DomainId] = None,
+        packages: Seq[VettedPackage],
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = false,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -2029,13 +2021,12 @@ class TopologyAdministrationGroup(
     ): Unit = {
 
       val topologyChangeOp =
-        if (packageIds.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
+        if (packages.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
-        mapping = VettedPackages(
+        mapping = VettedPackages.create(
           participantId = participant,
-          domainId = domainId,
-          packageIds = packageIds,
+          packages = packages,
         ),
         signedBy = signedBy.toList,
         serial = serial,
@@ -2081,7 +2072,6 @@ class TopologyAdministrationGroup(
         partyId: the party for which the authority delegation is granted
         threshold: the minimum number of parties that need to authorize a daml (sub-)transaction for the authority of `partyId` to be granted.
         parties: the parties that need to provide authorization for the authority of `partyId` to be granted.
-        domainId: the optional target domain on which the authority delegation is valid.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                propagated to connected domains, if applicable.
@@ -2101,7 +2091,6 @@ class TopologyAdministrationGroup(
         partyId: PartyId,
         threshold: Int,
         parties: Seq[PartyId],
-        domainId: Option[DomainId] = None,
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = false,
         // TODO(#14056) don't use the instance's root namespace key by default.
@@ -2116,7 +2105,6 @@ class TopologyAdministrationGroup(
       val authorityOf = AuthorityOf
         .create(
           partyId,
-          domainId,
           PositiveInt.tryCreate(threshold),
           parties,
         )
