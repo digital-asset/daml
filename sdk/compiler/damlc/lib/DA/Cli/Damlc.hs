@@ -184,7 +184,7 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
-import Data.Either (fromRight, partitionEithers)
+import Data.Either (partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
@@ -1471,38 +1471,53 @@ execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiP
 execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
   Command Clean (Just projectOpts) effect
   where
-    effect =
-      case (getEnableMultiPackage enableMultiPackage, getMultiPackageCleanAll cleanAll) of
-        (True, True) -> do
-          mMultiPackagePath <- getMultiPackagePath multiPackageLocation
-          case mMultiPackagePath of
-            Nothing -> do
-              hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
-              exitFailure
-            Just path ->
-              withMultiPackageConfig path $ \multiPackageConfig ->
-                forM_ (mpPackagePaths multiPackageConfig) $ \p ->
-                  singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
-        (False, True) -> do
-          hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
-          exitFailure
-        _ -> singleCleanEffect projectOpts
+    effect
+      | getEnableMultiPackage enableMultiPackage
+      = do
+        mMultiPackagePath <- getMultiPackagePath multiPackageLocation
+        isProject <- withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
+        case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
+          -- daml clean --all with no multi-package.yaml
+          (Nothing, _, True) -> do
+            hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
+            exitFailure
+          -- daml clean --all with a multi-package.yaml
+          (Just path, _, True) ->
+            withMultiPackageConfig path $ \multiPackageConfig -> do
+              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
+              forM_ (mpPackagePaths multiPackageConfig) $ \p ->
+                singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
+              hPutStrLn stderr "Removed build artifacts."
+          -- daml clean in a package
+          (_, True, False) -> do
+            singleCleanEffect projectOpts
+            hPutStrLn stderr "Removed build artifacts."
+          -- daml clean outside a package and no multi-package.yaml
+          (Nothing, False, False) -> do
+            hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
+            exitFailure
+          -- daml clean outside a package with a multi-package.yaml
+          (Just _, False, False) -> do
+            hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
+              <> "If you intended to clean everything within this multi-package.yaml, use the --all flag"
+            exitFailure
+      | getMultiPackageCleanAll cleanAll
+      = do
+        hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
+        exitFailure
+      | otherwise = do
+        singleCleanEffect projectOpts
+        hPutStrLn stderr "Removed build artifacts."
 
 singleCleanEffect :: ProjectOpts -> IO ()
 singleCleanEffect projectOpts =
   withProjectRoot' projectOpts $ \_relativize -> do
     isProject <- doesFileExist projectConfigName
     when isProject $ do
-        let removeAndWarn path = do
-                whenM (doesDirectoryExist path) $ do
-                    putStrLn ("Removing directory " <> path)
-                    removePathForcibly path
-                whenM (doesFileExist path) $ do
-                    putStrLn ("Removing file " <> path)
-                    removePathForcibly path
-        removeAndWarn damlArtifactDir
-        putStrLn "Removed build artifacts."
-
+      canonDir <- getCurrentDirectory
+      hPutStrLn stderr $ "Cleaning " <> canonDir
+      whenM (doesPathExist damlArtifactDir) $
+        removePathForcibly damlArtifactDir
 
 execPackage :: SdkVersion.Class.SdkVersioned
             => ProjectOpts
@@ -1874,7 +1889,7 @@ darPathFromDamlYaml path = do
   (name, version, mOutput) <-
     onDamlYaml 
       (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-      (\project -> fromRight (error $ "Failed to read package info in daml.yaml at " <> path) $ do
+      (\project -> do
         name <- queryProjectConfigRequired ["name"] project
         version <- queryProjectConfigRequired ["version"] project
         mOutput <- queryProjectConfigBuildOutput project
@@ -1889,7 +1904,7 @@ buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-    (\project -> fromRight (error "Failed to get project info") $ do
+    (\project -> do
       bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
       bmName <- queryProjectConfigRequired ["name"] project
       bmVersion <- queryProjectConfigRequired ["version"] project
@@ -1906,7 +1921,7 @@ buildMultiPackageConfigFromDamlYaml path =
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
+onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe ProjectOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
@@ -1915,11 +1930,11 @@ onDamlYaml def f mbProjectOpts = do
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
         project <- readProjectConfig projectPath
-        pure $ f project
+        either throwIO pure $ f project
 
 cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
 cliArgsFromDamlYaml =
-  onDamlYaml (const []) $ \project -> case queryProjectConfigRequired ["build-options"] project of
+  onDamlYaml (const []) $ \project -> Right $ case queryProjectConfigRequired ["build-options"] project of
     Left _ -> []
     Right xs -> xs
 
