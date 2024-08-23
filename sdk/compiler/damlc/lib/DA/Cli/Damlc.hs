@@ -1487,8 +1487,11 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
               hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
               forM_ (mpPackagePaths multiPackageConfig) $ \p ->
                 singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
+              hPutStrLn stderr "Removed build artifacts."
           -- daml clean in a package
-          (_, True, False) -> singleCleanEffect projectOpts
+          (_, True, False) -> do
+            singleCleanEffect projectOpts
+            hPutStrLn stderr "Removed build artifacts."
           -- daml clean outside a package and no multi-package.yaml
           (Nothing, False, False) -> do
             hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
@@ -1502,7 +1505,9 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
       = do
         hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
         exitFailure
-      | otherwise = singleCleanEffect projectOpts
+      | otherwise = do
+        singleCleanEffect projectOpts
+        hPutStrLn stderr "Removed build artifacts."
 
 singleCleanEffect :: ProjectOpts -> IO ()
 singleCleanEffect projectOpts =
