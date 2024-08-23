@@ -20,7 +20,7 @@ class ParticipantTopologyManagerTest extends TopologyManagerTest {
   "participant topology state manager" should {
     behave like topologyManager { (clock, store, crypto, factory) =>
       for {
-        keys <- crypto.cryptoPublicStore.signingKeys.valueOrFail("signing keys")
+        keys <- crypto.cryptoPublicStore.signingKeys
       } yield {
         val id =
           UniqueIdentifier(Identifier.tryCreate("da"), Namespace(keys.headOption.value.fingerprint))

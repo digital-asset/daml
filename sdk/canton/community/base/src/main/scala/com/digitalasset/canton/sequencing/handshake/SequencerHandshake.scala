@@ -13,8 +13,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
-import com.digitalasset.canton.util.retry.Success
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Success}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.FiniteDuration
@@ -79,7 +78,7 @@ class SequencerHandshake(
             logger.trace("Attempting sequencer handshake")
             fetchHandshake(Traced(request)).value
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         )
     }
   }

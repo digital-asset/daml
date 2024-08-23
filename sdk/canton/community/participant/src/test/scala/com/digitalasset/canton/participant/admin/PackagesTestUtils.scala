@@ -18,7 +18,7 @@ import scala.util.Using
 object PackagesTestUtils {
 
   def createLfArchive(defn: ParserParameters[?] => Ast.Package)(
-      lfVersion: LanguageVersion = LanguageVersion.v1_17,
+      lfVersion: LanguageVersion = LanguageVersion.v1_16,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Archive = {
     implicit val parseParameters: ParserParameters[Nothing] = ParserParameters(
@@ -35,7 +35,7 @@ object PackagesTestUtils {
       packageName: Ref.PackageName,
       packageVersion: Ref.PackageVersion,
       discriminatorFields: String,
-      lfVersion: LanguageVersion = LanguageVersion.v1_17,
+      lfVersion: LanguageVersion = LanguageVersion.v1_16,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Archive = createLfArchive { implicit parserParameters =>
     p"""

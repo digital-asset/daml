@@ -39,19 +39,13 @@ class GrpcInitializationService(
       uid = UniqueIdentifier(id, Namespace(fp))
       maybeKey <- cryptoPublicStore.signingKey(fp)(TraceContext.empty).value
       result <- maybeKey match {
-        case Left(storeError) =>
-          Future.failed(
-            Status.INTERNAL
-              .withDescription(s"Error reading public key [$fp] from database $storeError")
-              .asException()
-          )
-        case Right(None) =>
+        case None =>
           Future.failed(
             Status.INVALID_ARGUMENT
               .withDescription(s"Unknown public key [$fp], you need to import it first.")
               .asException()
           )
-        case Right(Some(_)) =>
+        case Some(_) =>
           bootstrap.initializeWithProvidedId(NodeId(uid)).value.flatMap {
             case Left(err) =>
               Future.failed(Status.ALREADY_EXISTS.withDescription(err).asException())

@@ -341,8 +341,7 @@ abstract class TopologyManager[E <: CantonError](
       // fetch public key
       pubkey <- crypto.cryptoPublicStore
         .signingKey(key)
-        .leftMap(x => wrapError(TopologyManagerError.InternalError.CryptoPublicError(x)))
-        .subflatMap(_.toRight(wrapError(TopologyManagerError.PublicKeyNotInStore.Failure(key))))
+        .toRight(wrapError(TopologyManagerError.PublicKeyNotInStore.Failure(key)))
       // create signed transaction
       signed <- SignedTopologyTransaction
         .create(
