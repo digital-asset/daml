@@ -537,7 +537,7 @@ instantiatedIfaces modules = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap
     ]
 
 checkTemplate :: [LF.TypeConName] -> Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
-checkTemplate equalDataTypes module_ template = do
+checkTemplate _equalDataTypes module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
@@ -594,7 +594,7 @@ checkTemplate equalDataTypes module_ template = do
                let tplKey = Upgrading pastKey presentKey
 
                -- Key type musn't change
-               iset <- isStructurallyEquivalentType initialAlphaEnv equalDataTypes (fmap tplKeyType tplKey)
+               iset <- isUpgradedType (fmap tplKeyType tplKey)
                when (not iset) $
                    diagnosticWithContextF present' (EUpgradeTemplateChangedKeyType (NM.name (_present template)))
 
