@@ -9,25 +9,8 @@ import DA.List
 import DA.Optional(fromSome)
 import DA.Time
 import Daml.Script
-
-template T
-  with
-    p1 : Party
-    p2 : Party
-  where
-    signatory p1, p2
-
-template TProposal
-  with
-    p1 : Party
-    p2 : Party
-  where
-    signatory p1
-    observer p2
-    choice Accept : (ContractId T, Int)
-      controller p2
-      do cid <- create T { p1, p2 }
-         pure (cid, 42)
+import Template
+import qualified RetroInterface as Retro
 
 multiTest : Script Int
 multiTest = do
@@ -83,30 +66,6 @@ waitForCid tries p cid
       Some _ -> pure ()
   where delay = seconds 1
 
-
-template Box with
-    s: Party
-    content: Text
-  where
-    signatory s
-    key s: Party
-    maintainer key
-    nonconsuming choice Open: Text with
-        c: Party
-      controller c
-      do
-        pure content
-
-template Helper with
-    s: Party
-  where
-    signatory s
-    nonconsuming choice FailWith: () with
-        msg: Text
-      controller s
-      do
-        error msg
-
 disclosuresTest : Script Text
 disclosuresTest = do
   -- init
@@ -160,3 +119,14 @@ inactiveDisclosureDoesNotFailDuringSubmission = do
       pure ()
 
     pure ()
+
+retroactiveExercise: Script Int
+retroactiveExercise = do
+    alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+    bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+    proposalCid <- alice `submit` createCmd (TProposal alice bob)
+    waitForCid tries bob proposalCid
+    (cid, _) <- bob `submit` exerciseCmd proposalCid (Accept)
+    waitForCid tries alice cid
+    alice `submit` exerciseCmd (toInterfaceContractId @Retro.I cid) (Retro.Noop alice)
+    pure 43
