@@ -4,22 +4,24 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.BlindingSpec.TxBuilder
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, Node}
+import com.digitalasset.daml.lf.ledger.BlindingTransaction
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.NodeOps
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Node, VersionedTransaction}
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
-  TransactionBuilder,
   TestNodeBuilder,
+  TransactionBuilder,
+  TreeTransactionBuilder,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueTrue}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
-
-object BlindingSpec {
-  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
-}
+import BlindingSpec._
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 class BlindingSpec extends AnyFreeSpec with Matchers {
 
@@ -281,4 +283,162 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       ),
     )
   }
+
+  "contract visibility" in {
+    val (_, visibility) = BlindingTransaction.calculateBlindingInfoWithContractVisibility(
+      BlindingSpec.sampleTxForPartyPackagesVisibility
+    )
+
+    visibility shouldBe Map(
+      createC1.coid -> Set(sig1, act),
+      createC2.coid -> Set(sig1, sig2, act),
+      createC3.coid -> Set(sig1, sig3, sig4, act),
+      createC4.coid -> Set(sig1, sig4, act),
+    )
+  }
+
+  "party packages" in {
+    val inputContractsPackages =
+      Map(createC1.coid -> pkgIn1, createC2.coid -> pkgIn2, createC3.coid -> pkg3)
+
+    val actual =
+      Blinding
+        .partyPackages(
+          BlindingSpec.sampleTxForPartyPackagesVisibility,
+          inputContractsPackages,
+        )
+        .toMap
+
+    // This check-only/vetted distinction only needed for tri-state vetting (not currently on 3.x)
+    def packageRequirements(checkOnly: Set[Ref.PackageId], vetted: Set[PackageId]): Set[PackageId] =
+      checkOnly ++ vetted
+
+    actual shouldBe Map(
+      sig1 -> packageRequirements(
+        checkOnly = Set(pkgIn1, pkgIn2),
+        vetted = Set(pkgIface1, pkgIface2, pkg2, pkg3, pkg4),
+      ),
+      sig2 -> packageRequirements(checkOnly = Set(pkgIn2), vetted = Set(pkg2)),
+      sig3 -> packageRequirements(checkOnly = Set(pkg3), vetted = Set(pkgIface2, pkg2)),
+      sig4 -> packageRequirements(
+        checkOnly = Set.empty,
+        vetted = Set(pkgIface1, pkgIface2, pkg1, pkg2, pkg3, pkg4),
+      ),
+      act -> packageRequirements(
+        checkOnly = Set(pkgIn1, pkgIn2),
+        vetted = Set(pkgIface1, pkgIface2, pkg2, pkg3, pkg4),
+      ),
+    )
+
+  }
+
+}
+
+object BlindingSpec {
+
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
+
+  import TransactionBuilder.Implicits.{toName, toParties}
+
+  implicit class PkgToTypeConName(pkg: Ref.PackageId) {
+    def |(shortTypeConName: String) =
+      Ref.TypeConName(pkg, Ref.QualifiedName.assertFromString(shortTypeConName))
+  }
+
+  // For the purpose of testing the partyPackageRequirements, we don't care about the qualified name of identifiers
+  // hence use the same default one for brevity
+  private val defaultQualifiedName = "M:T"
+
+  private def create(
+      pkgId: Ref.PackageId,
+      sigs: Seq[Ref.Party],
+      obs: Seq[Ref.Party] = Seq.empty,
+      key: CreateKey = CreateKey.NoKey,
+  ) =
+    builder.create(
+      id = builder.newCid,
+      templateId = pkgId | defaultQualifiedName,
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = sigs,
+      observers = obs,
+      key = key,
+    )
+
+  private def exercise(
+      create: Node.Create,
+      pkgId: Ref.PackageId,
+      acts: Seq[Ref.Party],
+      interfacePkgId: Option[Ref.PackageId] = None,
+  ): Node.Exercise =
+    builder
+      .exercise(
+        contract = create,
+        choice = "C",
+        consuming = true,
+        actingParties = acts,
+        argument = ValueRecord(None, ImmArray.empty),
+        byKey = false,
+      )
+      .copy(
+        templateId = pkgId | defaultQualifiedName,
+        interfaceId = interfacePkgId.map(_ | defaultQualifiedName),
+      )
+
+  private val builder = new TxBuilder()
+
+  private val Seq(sig1, sig2, sig3, sig4) =
+    (1 to 4).map(idx => Ref.Party.assertFromString(s"sig$idx"))
+  private val act = Ref.Party.assertFromString("act")
+
+  private val Seq(pkgIface1, pkgIface2) =
+    (1 to 2).map(idx => Ref.PackageId.assertFromString(s"iface$idx"))
+  private val Seq(pkgIn1, pkgIn2) =
+    (1 to 2).map(idx => Ref.PackageId.assertFromString(s"pkgIn$idx"))
+  private val Seq(pkg1, pkg2, pkg3, pkg4) =
+    (1 to 4).map(idx => Ref.PackageId.assertFromString(s"pkg$idx"))
+
+  private val createC1 = create(pkgIn1, Seq(sig1))
+  private val createC2 = create(pkgIn2, Seq(sig2))
+  private val createC3 =
+    create(pkg3, Seq(sig3, sig4), key = CreateKey.KeyWithMaintainers(ValueTrue, Set(sig4)))
+  private val createC4 = create(pkg1, Seq(sig4))
+
+  private val fetchC2 =
+    builder.fetch(createC2, byKey = false).copy(templateId = pkg2 | defaultQualifiedName)
+
+  private val exeC1 = exercise(createC1, pkg2, acts = Seq(act))
+
+  private val iExeC4 = exercise(createC4, pkg4, acts = Seq(sig4), interfacePkgId = Some(pkgIface1))
+
+  private val iFetchC3 = builder
+    .fetch(createC3, byKey = true)
+    .copy(templateId = pkg2 | "M:T", interfaceId = Some(pkgIface2 | defaultQualifiedName))
+
+  private val lbkC3 = builder.lookupByKey(createC3)
+
+  /*
+  Input contracts
+  =====
+  - contract C1 created with pkgIn1 by sig1
+  - contract C2 created with pkgIn2 by sig2
+  - contract C3 created with pkg3 by sig3
+
+  Transaction with two roots
+  ======================
+  Create C4       Exe C1
+   (pkg1)         (pkg2)
+     |              |
+                    ------------------------------------------------
+                    |            |              |                  |
+                 Fetch C2      LBK C3        IExe C4            IFetch C3
+                  (pkg2)       (pkg3)     (pkg4-pkgIface)    (pkg2-pkgIface2)
+
+   NOTE: Not well-authorized.
+         What matters here is the visibility of each node, contract and package
+   */
+  private val sampleTxForPartyPackagesVisibility: VersionedTransaction =
+    TreeTransactionBuilder.toVersionedTransaction(
+      createC4,
+      exeC1.withChildren(fetchC2, lbkC3, iExeC4, iFetchC3),
+    )
 }
