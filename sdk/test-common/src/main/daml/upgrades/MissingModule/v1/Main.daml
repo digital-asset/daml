@@ -4,3 +4,8 @@
 module Main where
 
 import qualified Other
+
+useOther : Other.Dummy -> ()
+useOther _ = ()
+
+data Dummy = Dummy {}

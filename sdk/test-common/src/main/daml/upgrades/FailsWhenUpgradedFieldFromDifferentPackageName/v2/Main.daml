@@ -1,0 +1,10 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import qualified Dep
+
+-- This definition is identical to v1:A, but "Dep" is from package with a
+-- different name that the one imported by v1:Main.
+data A = A { x : Dep.T }

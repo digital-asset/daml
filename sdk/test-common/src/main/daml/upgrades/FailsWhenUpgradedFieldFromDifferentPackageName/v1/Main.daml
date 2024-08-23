@@ -3,4 +3,7 @@
 
 module Main where
 
-data Dummy = Dummy {}
+import qualified Dep
+
+data A = A { x : Dep.T }
+
