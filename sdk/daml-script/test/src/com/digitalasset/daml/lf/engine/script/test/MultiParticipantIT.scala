@@ -4,6 +4,7 @@
 package com.daml.lf.engine.script
 package test
 
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
@@ -13,6 +14,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.nio.file.Paths
 import scala.util.{Failure, Success}
 
 class MultiParticipantITV1 extends MultiParticipantIT(LanguageMajorVersion.V1)
@@ -30,8 +32,10 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
+  final override protected lazy val darFiles = List(
+    rlocation(Paths.get(s"daml-script/test/template.dar")),
+    rlocation(Paths.get(s"daml-script/test/retrointerface.dar")),
+  )
 
   "Multi-participant Daml Script" can {
     "multiTest" should {
@@ -90,7 +94,6 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
           )
           assert(vals.get(1) == second)
         }
-
       }
     }
 
@@ -128,6 +131,23 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
               }
         } yield error.getMessage should include regex """Unhandled Daml exception\: DA\.Exception\.GeneralError\:GeneralError\@[a-f0-9]{8}\{ message \= \"Here\" \}"""
       }
+    }
+
+    "exercise retroactive instance" in {
+      // Regression test for https://github.com/DACH-NY/canton/issues/20645
+      // To reproduce the bug in 2.8.10 or 2.9.4 the package retrointerface.dar
+      // should not be loaded in the participant1 before starting the test.
+      // Unfortunately there is n simple way to ensure that, so here are some guardrail:
+      // - do not write in this file other tests that use retroactiveExercise
+      // - do not load the script in the ledger, but only the template code.
+      for {
+        clients <- scriptClients()
+        r <- run(
+          clients,
+          QualifiedName.assertFromString("MultiTest:retroactiveExercise"),
+          dar = dar,
+        )
+      } yield assert(r == SInt64(43))
     }
   }
 }

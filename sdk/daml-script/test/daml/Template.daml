@@ -1,0 +1,46 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Template where
+
+template T
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1, p2
+
+template TProposal
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice Accept : (ContractId T, Int)
+      controller p2
+      do cid <- create T { p1, p2 }
+         pure (cid, 42)
+
+template Box with
+    s: Party
+    content: Text
+  where
+    signatory s
+    key s: Party
+    maintainer key
+    nonconsuming choice Open: Text with
+        c: Party
+      controller c
+      do
+        pure content
+
+template Helper with
+    s: Party
+  where
+    signatory s
+    nonconsuming choice FailWith: () with
+        msg: Text
+      controller s
+      do
+        error msg

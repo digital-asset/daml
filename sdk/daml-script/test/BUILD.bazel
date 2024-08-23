@@ -12,7 +12,10 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "lf_version_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_latest", "mangle_for_damlc")
+
+# Test Only LF 1.x
+LF_MAJOR_VERSIONS=["1"]
 
 [
     genrule(
@@ -21,6 +24,8 @@ load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "
             glob(["**/*.daml"]) + [
                 "//daml-script/daml:daml-script-{}.dar".format(target),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//daml-script/test:template.dar",
+                "//daml-script/test:retrointerface.dar",
             ],
         outs = ["script-test-v{}.dar".format(major)],
         cmd = """
@@ -33,6 +38,8 @@ load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "LF_MAJOR_VERSIONS", "
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/test:template.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/test:retrointerface.dar) $$TMP_DIR/
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -52,6 +59,9 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-script-{target}.dar
+data-dependencies:
+  - template.dar
+  - retrointerface.dar
 build-options:
   - --target={target}
 EOF
@@ -330,6 +340,19 @@ daml_compile(
     version = "2.0.0",
 )
 
+daml_compile(
+    name = "template",
+    srcs = [":daml/Template.daml"],
+    target = "1.15",
+)
+
+daml_compile(
+    name = "retrointerface",
+    srcs = [":daml/RetroInterface.daml"],
+    data_dependencies = ["//daml-script/test:template.dar"],
+    target = "1.15",
+)
+
 da_scala_test_suite(
     name = "test",
     size = "large",
@@ -340,6 +363,8 @@ da_scala_test_suite(
     data = [
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
+        "//daml-script/test:retrointerface.dar",
+        "//daml-script/test:template.dar",
     ] + [
         ":script-test-v{}.dar".format(major)
         for major in LF_MAJOR_VERSIONS
