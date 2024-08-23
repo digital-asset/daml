@@ -11,6 +11,7 @@ import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.Speedy.UpdateMachine
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.TransactionVersion.V17
@@ -197,6 +198,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
+    goFinish(e, contract).map(_._1)
+  }
+
+  private def goFinish(
+      e: Expr,
+      contract: ContractInstance,
+  ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args: Array[SValue] = Array(SContractId(theCid))
@@ -210,7 +218,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V17, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(V17)
-        (v, uvs)
+        ((v, uvs), data.assertRight(machine.finish.left.map(_.toString)))
       }
   }
 
@@ -418,17 +426,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res = go(
+
+      val instance = ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base)
+      val res = goFinish(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+        instance,
       )
-      res shouldBe a[Right[_, _]]
+      inside(res) { case Right((_, result)) =>
+        result.contractPackages shouldBe Map(theCid -> instance.template.packageId)
+      }
     }
+
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
       val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(

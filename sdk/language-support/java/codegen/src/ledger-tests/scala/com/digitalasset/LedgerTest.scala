@@ -31,6 +31,10 @@ trait LedgerTest
 
   import TestUtil._
 
+  override lazy val devMode: Boolean = true
+  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode =
+    CantonFixtureDebugKeepTmpFiles
+
   def withUniqueParty(
       testCode: (String, Wolpertinger, Wolpertinger, Channel) => Assertion
   ): Future[Assertion] = for {
