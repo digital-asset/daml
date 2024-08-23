@@ -93,17 +93,14 @@ object Blinding {
   }
 
   // These are the packages needed for model conformance
-  private[engine] def divulgedPartyPackages(
+  private def divulgedPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
       divulgence: Relation[ContractId, Party],
-  ): Seq[(Party, PackageId)] = {
-    divulgence.view.flatMap { case (contractId, parties) =>
-      val packageId = contractPackages.getOrElse(
-        contractId,
-        throw new IllegalArgumentException(s"Could not find package for $contractId"),
-      )
-      parties.view.map(_ -> packageId)
-    }.toSeq
+  ): Iterable[(Party, PackageId)] = {
+    for {
+      (contractId, packageId) <- contractPackages
+      party <- divulgence.getOrElse(contractId, Set.empty)
+    } yield party -> packageId
   }
 
   // These are the package needed for reinterpretation

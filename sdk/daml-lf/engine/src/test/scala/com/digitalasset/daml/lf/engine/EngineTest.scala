@@ -2696,6 +2696,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
         metadata should haveDisclosedEvents(expectedDisclosedEvent)
+        metadata should haveDisclosedContractIdPackages(expectedDisclosedEvent)
       }
     }
 
@@ -2722,6 +2723,26 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           expectedResult == actualResult,
           s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
           s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
+
+    def haveDisclosedContractIdPackages(
+        expectedProcessedDisclosedContracts: Node.Create*
+    ): Matcher[Tx.Metadata] =
+      Matcher { metadata =>
+        val expectedResult = Seq(expectedProcessedDisclosedContracts: _*)
+          .map(c => c.coid -> c.templateId.packageId)
+          .toMap
+        val actualResult = metadata.contractPackages
+
+        val missing = expectedResult -- actualResult.keySet
+
+        val debugMessage = s"Missing contractIds package mappings: $missing"
+
+        MatchResult(
+          missing.isEmpty,
+          s"Failed with missing disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with missing disclosed contracts: $expectedResult == $actualResult",
         )
       }
 

@@ -443,7 +443,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,
-              contractPackages = contractPackages,
+              contractPackages = contractPackages ++ disclosedCreateEvents
+                .map(c => c.coid -> c.templateId.packageId)
+                .iterator,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)
