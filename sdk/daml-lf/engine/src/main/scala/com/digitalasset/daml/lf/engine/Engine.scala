@@ -426,7 +426,14 @@ class Engine(val config: EngineConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(
+                tx,
+                _,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedCreateEvents,
+                contractPackages,
+              )
             ) =>
           deps(tx).flatMap { deps =>
             val meta = Tx.Metadata(
@@ -437,6 +444,9 @@ class Engine(val config: EngineConfig) {
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,
+              contractPackages = contractPackages ++ disclosedCreateEvents
+                .map(c => c.coid -> c.templateId.packageId)
+                .iterator,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)

@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Relation
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 
@@ -88,8 +89,31 @@ object Blinding {
   private[engine] def partyPackages(
       tx: VersionedTransaction,
       blindingInfo: BlindingInfo,
+      contractPackages: Map[ContractId, Ref.PackageId],
   ): Relation[Party, Ref.PackageId] = {
-    val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
+    Relation.from(
+      disclosedPartyPackages(tx, blindingInfo.disclosure) ++
+        divulgedPartyPackages(contractPackages, blindingInfo.divulgence)
+    )
+  }
+
+  // These are the packages needed for model conformance
+  private def divulgedPartyPackages(
+      contractPackages: Map[ContractId, Ref.PackageId],
+      divulgence: Relation[ContractId, Party],
+  ): Iterable[(Party, PackageId)] = {
+    for {
+      (contractId, packageId) <- contractPackages.toSeq
+      party <- divulgence.getOrElse(contractId, Set.empty)
+    } yield party -> packageId
+  }
+
+  // These are the package needed for reinterpretation
+  private[engine] def disclosedPartyPackages(
+      tx: VersionedTransaction,
+      disclosure: Relation[NodeId, Party],
+  ): Seq[(Party, PackageId)] = {
+    disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
         case action: Node.LeafOnlyAction =>
@@ -99,12 +123,14 @@ object Blinding {
         case _: Node.Rollback =>
           Iterable.empty
       }
-    }
-    Relation.from(entries)
+    }.toSeq
   }
 
   /* Calculate the packages needed by a party to interpret the projection   */
-  def partyPackages(tx: VersionedTransaction): Relation[Party, PackageId] =
-    partyPackages(tx, blind(tx))
+  def partyPackages(
+      tx: VersionedTransaction,
+      contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
+  ): Relation[Party, PackageId] =
+    partyPackages(tx, blind(tx), contractPackages)
 
 }

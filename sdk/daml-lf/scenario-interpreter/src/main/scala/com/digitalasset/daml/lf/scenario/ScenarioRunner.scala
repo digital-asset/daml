@@ -508,7 +508,7 @@ private[lf] object ScenarioRunner {
           Interruption(continue)
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
-            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _, _)) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
