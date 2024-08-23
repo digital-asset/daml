@@ -72,11 +72,12 @@ class DecodeV1Spec
 
   private[this] val lfVersions = LV.AllV1
 
-  private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
+  private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit = {
     lfVersions.foreach { version =>
       if (cond(version)) f(version)
       ()
     }
+  }
 
   private[this] def forEveryVersion[U]: (LV => U) => Unit =
     forEveryVersionSuchThat(_ => true)
@@ -753,7 +754,7 @@ class DecodeV1Spec
     }
 
     "decode PackageMetadata if lf version >= 1.8" in {
-      forEveryVersionSuchThat(_ >= Features.packageMetadata) { version =>
+      forEveryVersionSuchThat(_ >= Features.packageMetadata) { (version: LV) =>
         val decoder = new DecodeV1(version.minor)
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
@@ -769,13 +770,16 @@ class DecodeV1Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
-          pkg.metadata shouldBe
-            Ast.PackageMetadata(
-              Ref.PackageName.assertFromString("foobar"),
-              Ref.PackageVersion.assertFromString("0.0.0"),
-              None,
-            )
+        inside(decoder.decodePackage(pkgId, pkg, false)) {
+          case Right(pkg) =>
+            pkg.metadata shouldBe
+              Ast.PackageMetadata(
+                Ref.PackageName.assertFromString("foobar"),
+                Ref.PackageVersion.assertFromString("0.0.0"),
+                None,
+              )
+          case Left(Error.Internal(_, _, Some(err))) => throw err
+          case Left(err) => throw err
         }
       }
     }

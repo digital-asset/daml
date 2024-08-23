@@ -3,4 +3,13 @@
 
 module Main where
 
-data Dummy = Dummy {}
+data TKey1 = TKey1 { p : Party }
+
+template T with
+    p: Party
+  where
+  signatory p
+  key (TKey1 p) : TKey1
+  maintainer key.p
+
+data D = D { t : Text }

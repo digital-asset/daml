@@ -1233,14 +1233,24 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
+      // Packages that do not define any serializable types are referred to as utility packages
+      // in the context of upgrades. They will not be considered for upgrade checks.
+      isUtilityPackage: Boolean,
   ) {
+    // package Name if the package support upgrade
+    // TODO: https://github.com/digital-asset/daml/issues/17965
+    //  drop that in daml-3
+    private[lf] val name: Option[Ref.PackageName] =
+      if (LanguageVersion.supportsPackageUpgrades(languageVersion) && !isUtilityPackage)
+        Some(metadata.name)
+      else
+        None
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
-      import Ordering.Implicits._
-      if (languageVersion < LanguageVersion.Features.persistedPackageVersion)
-        None
-      else
+      if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
         Some(metadata.version)
+      else
+        None
     }
     private[lf] def pkgNameVersion: (Ref.PackageName, Option[Ref.PackageVersion]) =
       pkgName -> pkgVersion
@@ -1254,8 +1264,10 @@ object Ast {
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
+        // Packages that do not define any serializable types are referred to as utility packages
+        // in the context of upgrades. They will not be considered for upgrade checks.
     ): GenPackage[E] =
-      GenPackage(
+      apply(
         modules = toMapWithoutDuplicate(
           modules.view.map(m => m.name -> m),
           (modName: ModuleName) => PackageError(s"Collision on module name ${modName.toString}"),
@@ -1269,13 +1281,24 @@ object Ast {
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
-    ): GenPackage[E] =
+    ): GenPackage[E] = {
+      val isUtilityPackage =
+        modules.values.forall(mod =>
+          mod.templates.isEmpty &&
+            mod.interfaces.isEmpty &&
+            mod.definitions.values.forall {
+              case DDataType(serializable, _, _) => !serializable
+              case _ => true
+            }
+        )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
         languageVersion = languageVersion,
         metadata = metadata,
+        isUtilityPackage = isUtilityPackage,
       )
+    }
 
     def unapply(arg: GenPackage[E]): Some[
       (
