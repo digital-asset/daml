@@ -359,6 +359,7 @@ object ValueGenerators {
       keyOpt = key,
       byKey = byKey,
       version = version,
+      isInterfaceFetch = false,
     )
 
   /** Makes rollback node with some random child IDs. */

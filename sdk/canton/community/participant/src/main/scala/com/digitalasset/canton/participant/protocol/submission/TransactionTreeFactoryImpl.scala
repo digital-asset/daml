@@ -550,6 +550,8 @@ class TransactionTreeFactoryImpl(
     def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
       case ex: LfNodeExercises if ex.interfaceId.isDefined =>
         Set(ex.packageName -> ex.templateId.packageId)
+      case fn: LfNodeFetch if fn.isInterfaceFetch =>
+        Set(fn.packageName -> fn.templateId.packageId)
       case _ => Set.empty
     }
 

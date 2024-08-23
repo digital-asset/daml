@@ -288,6 +288,7 @@ object TransactionCoder {
       keyOpt = node.keyOpt,
       byKey = node.byKey,
       version = node.version,
+      isInterfaceFetch = false,
     )
     for {
       protoFetch <- encodeFetch(fetch)
@@ -498,6 +499,7 @@ object TransactionCoder {
       keyOpt = keyOpt,
       byKey = byKey,
       version = nodeVersion,
+      isInterfaceFetch = false,
     )
   }
 

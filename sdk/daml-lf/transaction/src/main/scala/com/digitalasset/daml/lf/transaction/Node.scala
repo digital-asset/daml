@@ -158,6 +158,7 @@ object Node {
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
+      val isInterfaceFetch: Boolean,
   ) extends LeafOnlyAction {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt

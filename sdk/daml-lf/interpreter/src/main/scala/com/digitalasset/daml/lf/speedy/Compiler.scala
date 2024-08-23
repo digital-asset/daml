@@ -733,6 +733,7 @@ private[lf] final class Compiler(
     SBUInsertFetchNode(
       tmplId,
       byKey = mbKey.isDefined,
+      isInterfaceFetch = false,
     )(
       env.toSEVar(cidPos),
       mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
