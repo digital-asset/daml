@@ -21,9 +21,6 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  protected override val cantonFixtureDebugMode: CantonFixtureDebugMode =
-    CantonFixtureDebugKeepTmpFiles
-
   final override protected lazy val darFiles = List(
     rlocation(Paths.get(s"daml-script/test/template.dar")),
     rlocation(Paths.get(s"daml-script/test/retrointerface.dar")),
