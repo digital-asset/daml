@@ -119,7 +119,12 @@ export async function activate(context: vscode.ExtensionContext) {
     resetTelemetryConsent(context),
   );
 
-  context.subscriptions.push(d1, d2, d3, d4);
+  let d5 = vscode.commands.registerCommand(
+    "daml.installRecommendedDirenv",
+    showRecommendedDirenvPage,
+  );
+
+  context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
 interface IdeManifest {
@@ -144,12 +149,20 @@ async function fileExists(path: string) {
   return new Promise(r => fs.access(path, fs.constants.F_OK, e => r(!e)));
 }
 
+async function showRecommendedDirenvPage() {
+  await vscode.commands.executeCommand("extension.open", "mkhl.direnv");
+  vscode.window.showInformationMessage(
+    "After installing, reload the VSCode window or restart the extension host through the command palette.",
+  );
+}
+
 async function startLanguageServers(context: ExtensionContext) {
   const config = vscode.workspace.getConfiguration("daml");
   const consent = await getTelemetryConsent(config, context);
   const rootPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   if (!rootPath) throw "Couldn't find workspace root";
   const multiIDESupport = config.get("multiPackageIdeSupport");
+  const gradleSupport = config.get("multiPackageIdeGradleSupport");
 
   var isGradleProject = false;
   const gradlewExists = await fileExists(rootPath + "/gradlew");
@@ -159,12 +172,13 @@ async function startLanguageServers(context: ExtensionContext) {
     (await fileExists(rootPath + "/.envrc")) &&
     vscode.extensions.getExtension("mkhl.direnv") == null;
 
-  if (envrcExistsWithoutExt) {
+  if (envrcExistsWithoutExt && gradleSupport) {
     const warningMessage =
       "Found an .envrc file but the recommended direnv VSCode extension was not installed. Daml IDE may fail to start due to missing environment." +
       "\nWould you like to install this extension or attempt to continue without it?";
-    const installAnswer = "Install recommended direnv extension";
-    const doNotInstallAnswer = "Attempt to continue without";
+    const installAnswer = "Install extension";
+    const doNotInstallAnswer = "Continue without";
+    const neverInstallAnswer = "Do not ask again";
     const doNotInstallkey = "no-install-direnv";
 
     // Don't ask if we previously selected doNotInstallAnswer
@@ -173,21 +187,22 @@ async function startLanguageServers(context: ExtensionContext) {
         warningMessage,
         installAnswer,
         doNotInstallAnswer,
+        neverInstallAnswer,
       );
 
-      if (selection == doNotInstallAnswer)
+      if (selection == neverInstallAnswer) {
         context.workspaceState.update(doNotInstallkey, true);
-      else if (selection == installAnswer) {
-        await vscode.commands.executeCommand("extension.open", "mkhl.direnv");
         vscode.window.showInformationMessage(
-          "After installing, reload the VSCode window or restart the extension host through the command palette.",
+          "Warning disabled. If you need the extension in future, run Install Daml Recommended Direnv in the command pallette.",
         );
+      } else if (selection == installAnswer) {
+        await showRecommendedDirenvPage();
         return;
       }
     }
   }
 
-  if (multiIDESupport && gradlewExists) {
+  if (multiIDESupport && gradleSupport && gradlewExists) {
     const generateIdeManifestCommand =
       rootPath + '/gradlew run --args="--project-dir ' + rootPath + '"';
     try {
@@ -199,11 +214,16 @@ async function startLanguageServers(context: ExtensionContext) {
       outputChannel.appendLine("Gradle setup failure: " + e);
       vscode.window
         .showInformationMessage(
-          "Daml is starting without gradle environment.",
+          "Daml is starting without gradle environment." +
+            (envrcExistsWithoutExt
+              ? " You may be missing a direnv extension."
+              : ""),
           "See Output",
+          ...(envrcExistsWithoutExt ? ["Install direnv"] : []),
         )
         .then((resp: string | undefined) => {
-          if (resp) outputChannel.show();
+          if (resp == "See Output") outputChannel.show();
+          if (resp == "Install direnv") showRecommendedDirenvPage();
         });
     }
   }
