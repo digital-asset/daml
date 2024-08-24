@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
 import com.digitalasset.canton.admin.participant.v30.{
+  DomainTimeRange,
   GetConfigForSlowCounterParticipants,
   GetIntervalsBehindForCounterParticipants,
   InspectCommitmentContracts,
@@ -17,10 +19,22 @@ import com.digitalasset.canton.admin.participant.v30.{
   LookupSentAcsCommitments,
   OpenCommitment,
   SetConfigForSlowCounterParticipants,
+  TimeRange,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.messages.{
+  CommitmentPeriodState,
+  DomainSearchCommitmentPeriod,
+  ReceivedAcsCommitment,
+  SentAcsCommitment,
+}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import io.grpc.stub.StreamObserver
@@ -29,9 +43,15 @@ import io.grpc.{Status, StatusRuntimeException}
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
+class GrpcInspectionService(
+    syncStateInspection: SyncStateInspection,
+    indexedStringStore: IndexedStringStore,
+    domainAliasManager: DomainAliasManager,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit
     executionContext: ExecutionContext
-) extends InspectionService {
+) extends InspectionService
+    with NamedLogging {
 
   override def lookupContractDomain(
       request: LookupContractDomain.Request
@@ -123,20 +143,183 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
       request: GetIntervalsBehindForCounterParticipants.Request
   ): Future[GetIntervalsBehindForCounterParticipants.Response] = ???
 
-  /** TODO(#18452) R5
-    * Look up the ACS commitments computed and sent by a participant
+  /** Look up the ACS commitments computed and sent by a participant
     */
   override def lookupSentAcsCommitments(
       request: LookupSentAcsCommitments.Request
-  ): Future[LookupSentAcsCommitments.Response] = ???
+  ): Future[LookupSentAcsCommitments.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-  /** TODO(#18452) R5
-    * List the counter-participants of a participant and their ACS commitments together with the match status
+    val result = for {
+
+      domainSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+        else
+          request.timeRanges
+            .traverse(dtr => validateDomainTimeRange(dtr))
+      result <- for {
+        counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
+          ParticipantId
+            .fromProtoPrimitive(pId, s"counter_participant_uids")
+            .leftMap(err => err.message)
+        )
+        states <- request.commitmentState
+          .map(CommitmentPeriodState.fromProtoV30)
+          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
+            for {
+              xs <- acc
+              x <- either
+            } yield x +: xs
+          }
+          .leftMap(err => err.message)
+      } yield {
+        for {
+          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+        } yield syncStateInspection
+          .crossDomainSentCommitmentMessages(
+            domainSearchPeriods,
+            counterParticipantIds,
+            states,
+            request.verbose,
+          )
+      }
+    } yield result
+
+    result match {
+      case Left(string) => Future.failed(new IllegalArgumentException(string))
+      case Right(value) =>
+        value.map(sentAcsCmt =>
+          LookupSentAcsCommitments.Response(SentAcsCommitment.toProtoV30(sentAcsCmt))
+        )
+    }
+  }
+
+  /** List the counter-participants of a participant and their ACS commitments together with the match status
     * TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
     */
   override def lookupReceivedAcsCommitments(
       request: LookupReceivedAcsCommitments.Request
-  ): Future[LookupReceivedAcsCommitments.Response] = ???
+  ): Future[LookupReceivedAcsCommitments.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      domainSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+        else
+          request.timeRanges
+            .traverse(dtr => validateDomainTimeRange(dtr))
+
+      result <- for {
+        counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
+          ParticipantId
+            .fromProtoPrimitive(pId, s"counter_participant_uids")
+            .leftMap(err => err.message)
+        )
+        states <- request.commitmentState
+          .map(CommitmentPeriodState.fromProtoV30)
+          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
+            for {
+              xs <- acc
+              x <- either
+            } yield x +: xs
+          }
+          .leftMap(err => err.message)
+      } yield {
+        for {
+          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+        } yield syncStateInspection
+          .crossDomainReceivedCommitmentMessages(
+            domainSearchPeriods,
+            counterParticipantIds,
+            states,
+            request.verbose,
+          )
+      }
+    } yield result
+
+    result match {
+      case Left(string) => Future.failed(new IllegalArgumentException(string))
+      case Right(value) =>
+        value.map(RcvAcsCmt =>
+          LookupReceivedAcsCommitments.Response(ReceivedAcsCommitment.toProtoV30(RcvAcsCmt))
+        )
+    }
+  }
+
+  private def fetchDefaultDomainTimeRanges()(implicit
+      traceContext: TraceContext
+  ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
+    val searchPeriods = domainAliasManager.ids.map(domainId =>
+      for {
+        domainAlias <- domainAliasManager
+          .aliasForDomainId(domainId)
+          .toRight(s"No domain alias found for $domainId")
+        lastComputed <- syncStateInspection
+          .findLastComputedAndSent(domainAlias)
+          .toRight(s"No computations done for $domainId")
+      } yield {
+        for {
+          indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
+        } yield DomainSearchCommitmentPeriod(
+          indexedDomain,
+          lastComputed.forgetRefinement,
+          lastComputed.forgetRefinement,
+        )
+      }
+    )
+
+    val (lefts, rights) = searchPeriods.partition(_.isLeft)
+
+    if (lefts.nonEmpty) {
+      Left(
+        lefts.headOption
+          .getOrElse(throw new IllegalStateException("NonEmpty List without headOption"))
+          .left
+          .getOrElse(throw new IllegalStateException("NonEmpty List without headOption"))
+      )
+    } else {
+      Right(rights.collect { case Right(value) => value }.toSeq)
+    }
+
+  }
+
+  private def validateDomainTimeRange(
+      timeRange: DomainTimeRange
+  )(implicit
+      traceContext: TraceContext
+  ): Either[String, Future[DomainSearchCommitmentPeriod]] =
+    for {
+      domainId <- DomainId.fromString(timeRange.domainId)
+
+      domainAlias <- domainAliasManager
+        .aliasForDomainId(domainId)
+        .toRight(s"No domain alias found for $domainId")
+      lastComputed <- syncStateInspection
+        .findLastComputedAndSent(domainAlias)
+        .toRight(s"No computations done for $domainId")
+
+      times <- timeRange.interval
+        // when no timestamp is given we make a TimeRange of (lastComputedAndSentTs,lastComputedAndSentTs), this should give the latest elements since the comparison later on is inclusive.
+        .fold(
+          Right(TimeRange(Some(lastComputed.toProtoTimestamp), Some(lastComputed.toProtoTimestamp)))
+        )(Right(_))
+        .flatMap(interval =>
+          for {
+            min <- interval.fromExclusive
+              .toRight(s"Missing start timestamp for ${timeRange.domainId}")
+              .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
+            max <- interval.toInclusive
+              .toRight(s"Missing end timestamp for ${timeRange.domainId}")
+              .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
+          } yield (min, max)
+        )
+      (start, end) = times
+
+    } yield {
+      for {
+        indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
+      } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
+    }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
     * Subject to the data still being available on the participant

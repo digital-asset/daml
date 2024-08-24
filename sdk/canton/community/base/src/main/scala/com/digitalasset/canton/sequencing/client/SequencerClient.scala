@@ -215,9 +215,7 @@ abstract class SequencerClientImpl(
     with HasCloseContext {
 
   override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
-    sequencerTransports.sequencerIdToTransportMap.values.toSeq.parTraverse_ { transport =>
-      transport.clientTransport.logout()
-    }
+    sequencersTransportState.logout()
 
   protected val sequencersTransportState: SequencersTransportState =
     new SequencersTransportState(

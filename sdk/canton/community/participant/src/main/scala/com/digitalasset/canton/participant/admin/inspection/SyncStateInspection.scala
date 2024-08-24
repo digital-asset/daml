@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.inspection.Error.SerializationIssue
@@ -27,6 +27,10 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Domain
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
+  CommitmentPeriodState,
+  DomainSearchCommitmentPeriod,
+  ReceivedAcsCommitment,
+  SentAcsCommitment,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
@@ -347,7 +351,16 @@ final class SyncStateInspection(
     val persistentState = getPersistentState(domain)
     timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
       getOrFail(persistentState, domain).acsCommitmentStore
-        .searchComputedBetween(start, end, counterParticipant)
+        .searchComputedBetween(start, end, counterParticipant.toList)
+    )
+  }
+
+  def findLastComputedAndSent(
+      domain: DomainAlias
+  )(implicit traceContext: TraceContext): Option[CantonTimestampSecond] = {
+    val persistentState = getPersistentState(domain)
+    timeouts.inspection.await(s"$functionFullName on $domain")(
+      getOrFail(persistentState, domain).acsCommitmentStore.lastComputedAndSent
     )
   }
 
@@ -360,20 +373,103 @@ final class SyncStateInspection(
     val persistentState = getPersistentState(domain)
     timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
       getOrFail(persistentState, domain).acsCommitmentStore
-        .searchReceivedBetween(start, end, counterParticipant)
+        .searchReceivedBetween(start, end, counterParticipant.toList)
     )
   }
+
+  def crossDomainSentCommitmentMessages(
+      domainPeriods: Seq[DomainSearchCommitmentPeriod],
+      counterParticipants: Seq[ParticipantId],
+      states: Seq[CommitmentPeriodState],
+      verbose: Boolean,
+  )(implicit traceContext: TraceContext): Iterable[SentAcsCommitment] = {
+    timeouts.inspection.await(functionFullName) {
+      Future.sequence(domainPeriods.map { dp =>
+        val domain = syncDomainPersistentStateManager
+          .aliasForDomainId(dp.domain.domainId)
+          .getOrElse(throw new RuntimeException(s"Unknown domain: ${dp.domain.domainId}"))
+        val persistentState = getPersistentState(domain)
+
+        for {
+          computed <- getOrFail(persistentState, domain).acsCommitmentStore
+            .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+          received <-
+            if (verbose)
+              getOrFail(persistentState, domain).acsCommitmentStore
+                .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+                .map(iter => iter.map(rec => rec.message))
+            else Future.successful(Seq.empty)
+          outstanding <- getOrFail(persistentState, domain).acsCommitmentStore
+            .outstanding(
+              dp.fromExclusive,
+              dp.toInclusive,
+              counterParticipants,
+              includeMatchedPeriods = true,
+            )
+        } yield SentAcsCommitment
+          .compare(dp.domain.domainId, computed, received, outstanding, verbose)
+          .filter(cmt => states.isEmpty || states.contains(cmt.state))
+      })
+    }
+  }.flatten.toSet
+
+  def crossDomainReceivedCommitmentMessages(
+      domainPeriods: Seq[DomainSearchCommitmentPeriod],
+      counterParticipants: Seq[ParticipantId],
+      states: Seq[CommitmentPeriodState],
+      verbose: Boolean,
+  )(implicit traceContext: TraceContext): Iterable[ReceivedAcsCommitment] = {
+    timeouts.inspection.await(functionFullName) {
+      Future.sequence(domainPeriods.map { dp =>
+        val domain = syncDomainPersistentStateManager
+          .aliasForDomainId(dp.domain.domainId)
+          .getOrElse(throw new RuntimeException(s"Unknown domain: ${dp.domain.domainId}"))
+        val persistentState = getPersistentState(domain)
+
+        for {
+          computed <-
+            if (verbose)
+              getOrFail(persistentState, domain).acsCommitmentStore
+                .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+            else Future.successful(Seq.empty)
+          received <- getOrFail(persistentState, domain).acsCommitmentStore
+            .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+            .map(iter => iter.map(rec => rec.message))
+          outstanding <- getOrFail(persistentState, domain).acsCommitmentStore
+            .outstanding(
+              dp.fromExclusive,
+              dp.toInclusive,
+              counterParticipants,
+              includeMatchedPeriods = true,
+            )
+          buffered <- getOrFail(persistentState, domain).acsCommitmentStore.queue
+            .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
+            .collect(iter =>
+              iter.filter(cmt =>
+                cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.domain.domainId && (counterParticipants.isEmpty ||
+                  counterParticipants
+                    .contains(cmt.sender))
+              )
+            )
+        } yield ReceivedAcsCommitment
+          .compare(dp.domain.domainId, received, computed, buffered, outstanding, verbose)
+          .filter(cmt => states.isEmpty || states.contains(cmt.state))
+      })
+    }
+  }.flatten.toSet
 
   def outstandingCommitments(
       domain: DomainAlias,
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipant: Option[ParticipantId],
-  )(implicit traceContext: TraceContext): Iterable[(CommitmentPeriod, ParticipantId)] = {
+  )(implicit
+      traceContext: TraceContext
+  ): Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = {
     val persistentState = getPersistentState(domain)
     timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
       getOrFail(persistentState, domain).acsCommitmentStore
-        .outstanding(start, end, counterParticipant)
+        .outstanding(start, end, counterParticipant.toList)
     )
   }
 

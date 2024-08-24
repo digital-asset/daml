@@ -55,34 +55,13 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
       result.mapFilter(_.selectMapping[T])
     )
 
-  def collectOfMapping(
-      codes: TopologyMapping.Code*
-  ): StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] = {
-    val codeSet = codes.toSet
-    StoredTopologyTransactions(
-      result.filter(tx => codeSet(tx.mapping.code))
-    )
-  }
-
   def filter(
       pred: StoredTopologyTransaction[Op, M] => Boolean
   ): StoredTopologyTransactions[Op, M] =
     StoredTopologyTransactions(result.filter(stored => pred(stored)))
 
-  def collectLatestByUniqueKey: StoredTopologyTransactions[Op, M] = {
-    val toRetain = result
-      .groupBy1(_.mapping.uniqueKey)
-      .view
-      .mapValues(_.maxBy1(_.serial).hash)
-      .values
-      .toSet
-
-    // filtering like this (instead of returning the values after groupBy1 directly)
-    // retains the original order of the topology transactions
-    StoredTopologyTransactions(
-      result.filter(tx => toRetain(tx.hash))
-    )
-  }
+  def collectLatestByUniqueKey: StoredTopologyTransactions[Op, M] =
+    StoredTopologyTransactions(TopologyTransactions.collectLatestByUniqueKey(result))
 
   def signedTransactions: SignedTopologyTransactions[Op, M] = SignedTopologyTransactions(
     result.map(_.transaction)
@@ -223,4 +202,22 @@ object SignedTopologyTransactions {
       }
     compacted
   }
+}
+
+object TopologyTransactions {
+
+  /** Returns a list that only contains the latest serial per unique key without duplicates.
+    * The input transactions might be returned in a different order.
+    */
+  def collectLatestByUniqueKey[
+      T <: TopologyTransactionLike[TopologyChangeOp, TopologyMapping]
+  ](transactions: Seq[T]): Seq[T] =
+    transactions
+      .groupBy1(_.mapping.uniqueKey)
+      .view
+      .mapValues { transactionsForUniqueKey =>
+        transactionsForUniqueKey.maxBy1(_.serial)
+      }
+      .values
+      .toSeq
 }

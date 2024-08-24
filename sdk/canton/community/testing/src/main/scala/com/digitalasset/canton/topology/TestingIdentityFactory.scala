@@ -99,18 +99,18 @@ final case class TestingTopology(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorId),
+        Seq(DefaultTestIdentities.mediatorId),
         Seq(),
         PositiveInt.one,
       )
     ),
     sequencerGroup: SequencerGroup = SequencerGroup(
-      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerId),
+      active = Seq(DefaultTestIdentities.sequencerId),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
-    packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
+    packages: Map[ParticipantId, Seq[VettedPackage]] = Map.empty,
     keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
@@ -212,7 +212,7 @@ final case class TestingTopology(
   }
 
   def withPackages(packages: Map[ParticipantId, Seq[LfPackageId]]): TestingTopology =
-    this.copy(packages = packages)
+    this.copy(packages = packages.view.mapValues(VettedPackage.unbounded).toMap)
 
   def build(
       loggerFactory: NamedLoggerFactory = NamedLoggerFactory("test-area", "crypto")
@@ -381,7 +381,7 @@ class TestingIdentityFactory(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators)
+      (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -404,7 +404,7 @@ class TestingIdentityFactory(
           .create(
             domainId,
             threshold = topology.sequencerGroup.threshold,
-            active = topology.sequencerGroup.active.forgetNE,
+            active = topology.sequencerGroup.active,
             observers = topology.sequencerGroup.passive,
           )
           .valueOr(err => sys.error(s"creating SequencerDomainState should not have failed: $err"))
@@ -506,7 +506,7 @@ class TestingIdentityFactory(
     NonEmpty
       .from(sigKey ++ encKey)
       .map { keys =>
-        mkAdd(OwnerToKeyMapping(owner, None, keys))
+        mkAdd(OwnerToKeyMapping(owner, keys))
       }
       .toList
   }
@@ -521,7 +521,6 @@ class TestingIdentityFactory(
           PartyToParticipant
             .tryCreate(
               partyId,
-              None,
               threshold = PositiveInt.one,
               participantsForParty.map { case (id, permission) =>
                 HostingParticipant(id, permission)
@@ -533,7 +532,7 @@ class TestingIdentityFactory(
 
   private def participantsTxs(
       defaultPermissionByParticipant: Map[ParticipantId, ParticipantPermission],
-      packages: Map[ParticipantId, Seq[LfPackageId]],
+      packages: Map[ParticipantId, Seq[VettedPackage]],
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = topology
     .allParticipants()
     .toSeq
@@ -550,7 +549,7 @@ class TestingIdentityFactory(
       val pkgs =
         packages
           .get(participantId)
-          .map(packages => mkAdd(VettedPackages(participantId, None, packages)))
+          .map(packages => mkAdd(VettedPackages.tryCreate(participantId, packages)))
           .toSeq
       pkgs ++ genKeyCollection(participantId) :+ mkAdd(
         DomainTrustCertificate(
@@ -624,11 +623,11 @@ class TestingOwnerWithKeys(
     val id1k1 = mkAdd(IdentifierDelegation(uid, key1))
     val id2k2 = mkAdd(IdentifierDelegation(uid2, key2))
     val seq_okm_k2 = mkAddMultiKey(
-      OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, key2)),
+      OwnerToKeyMapping(sequencerId, NonEmpty(Seq, key2)),
       NonEmpty(Set, namespaceKey, key2),
     )
     val med_okm_k3 = mkAddMultiKey(
-      OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, key3)),
+      OwnerToKeyMapping(mediatorId, NonEmpty(Seq, key3)),
       NonEmpty(Set, namespaceKey, key3),
     )
     val dtc1m =
@@ -681,15 +680,15 @@ class TestingOwnerWithKeys(
     val p2_dtc = mkAdd(DomainTrustCertificate(participant2, domainId))
     val p3_dtc = mkAdd(DomainTrustCertificate(participant3, domainId))
     val p1_otk = mkAddMultiKey(
-      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
+      OwnerToKeyMapping(participant1, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
       NonEmpty(Set, key1),
     )
     val p2_otk = mkAddMultiKey(
-      OwnerToKeyMapping(participant2, None, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2)),
+      OwnerToKeyMapping(participant2, NonEmpty(Seq, EncryptionKeys.key2, SigningKeys.key2)),
       NonEmpty(Set, key2),
     )
     val p3_otk = mkAddMultiKey(
-      OwnerToKeyMapping(participant3, None, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3)),
+      OwnerToKeyMapping(participant3, NonEmpty(Seq, EncryptionKeys.key3, SigningKeys.key3)),
       NonEmpty(Set, key3),
     )
 
@@ -716,7 +715,6 @@ class TestingOwnerWithKeys(
     val p1p1 = mkAdd(
       PartyToParticipant.tryCreate(
         PartyId(UniqueIdentifier.tryCreate("one", key1.id)),
-        None,
         PositiveInt.one,
         Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
         groupAddressing = false,

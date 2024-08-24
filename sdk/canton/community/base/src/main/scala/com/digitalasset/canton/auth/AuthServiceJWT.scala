@@ -20,6 +20,13 @@ import spray.json.*
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.util.Try
 
+sealed trait AccessLevel extends Product with Serializable
+
+object AccessLevel {
+  case object Admin extends AccessLevel
+  case object Wildcard extends AccessLevel
+}
+
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
   */
@@ -137,17 +144,22 @@ class AuthServiceJWT(
 class AuthServicePrivilegedJWT(
     verifier: JwtVerifierBase,
     targetScope: String,
+    accessLevel: AccessLevel,
     val loggerFactory: NamedLoggerFactory,
 ) extends AuthServiceJWTBase(
       verifier = verifier,
       targetAudience = None,
       targetScope = Some(targetScope),
     ) {
+
+  private def claims = accessLevel match {
+    case AccessLevel.Admin => ClaimSet.Claims.Admin.claims
+    case AccessLevel.Wildcard => ClaimSet.Claims.Wildcard.claims
+  }
   protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
-    // TODO(i20232): alternate between wildcard and plain admin claims depending on the config
     case payload: StandardJWTPayload =>
       ClaimSet.Claims(
-        claims = ClaimSet.Claims.Wildcard.claims,
+        claims = claims,
         identityProviderId = None,
         participantId = payload.participantId,
         applicationId = Option.when(payload.userId.nonEmpty)(payload.userId),
@@ -163,11 +175,12 @@ object AuthServiceJWT {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean,
+      accessLevel: AccessLevel,
       loggerFactory: NamedLoggerFactory,
   ): AuthServiceJWTBase =
     (privileged, targetScope) match {
       case (true, Some(scope)) =>
-        new AuthServicePrivilegedJWT(verifier, scope, loggerFactory)
+        new AuthServicePrivilegedJWT(verifier, scope, accessLevel, loggerFactory)
       case (true, None) =>
         throw new IllegalArgumentException(
           "Missing targetScope in the definition of a privileged JWT AuthService"

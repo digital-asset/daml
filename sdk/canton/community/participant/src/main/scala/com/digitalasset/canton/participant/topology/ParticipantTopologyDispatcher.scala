@@ -399,7 +399,7 @@ private class DomainOnboardingOutbox(
   )(implicit traceContext: TraceContext): Either[DomainRegistryError, Unit] = {
     val (haveEncryptionKey, haveSigningKey) =
       initial.map(_.mapping).foldLeft((false, false)) {
-        case ((haveEncryptionKey, haveSigningKey), OwnerToKeyMapping(`participantId`, _, keys)) =>
+        case ((haveEncryptionKey, haveSigningKey), OwnerToKeyMapping(`participantId`, keys)) =>
           (
             haveEncryptionKey || keys.exists(!_.isSigning),
             haveSigningKey || keys.exists(_.isSigning),

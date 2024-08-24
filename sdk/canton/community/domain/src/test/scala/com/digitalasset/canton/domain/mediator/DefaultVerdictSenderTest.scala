@@ -56,7 +56,7 @@ class DefaultVerdictSenderTest
   private val mediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val mediatorGroup: MediatorGroup = MediatorGroup(
     index = mediatorGroupRecipient.group,
-    active = NonEmpty.mk(Seq, activeMediator1, activeMediator2),
+    active = Seq(activeMediator1, activeMediator2),
     passive = Seq(
       passiveMediator3
     ),
@@ -234,7 +234,7 @@ class DefaultVerdictSenderTest
           Set(
             MediatorGroup(
               MediatorGroupIndex.zero,
-              NonEmpty.mk(Seq, mediatorId),
+              Seq(mediatorId),
               Seq.empty,
               PositiveInt.one,
             )

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import cats.data.EitherT
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
@@ -10,7 +11,12 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.sequencing.client.SequencerClient.{
@@ -31,6 +37,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{SequencerAlias, config}
+import io.grpc.Status
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
@@ -311,6 +318,11 @@ class SequencersTransportState(
       .tryComplete(Success(SequencerClient.CloseReason.ClientShutdown))
       .discard
   })
+
+  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    state.values.toSeq.parTraverse_ { transportState =>
+      transportState.transport.clientTransport.logout()
+    }
 
   private def isEnoughSequencersToOperateWithoutSequencer: Boolean =
     state.size > sequencerTrustThreshold.get().unwrap

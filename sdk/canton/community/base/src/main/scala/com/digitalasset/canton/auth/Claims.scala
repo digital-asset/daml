@@ -203,6 +203,10 @@ object ClaimSet {
     val Wildcard: Claims =
       Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 
+    /** A set of [[Claims]] that has all admin authorizations but doesn't authorize to act as parties */
+    val Admin: Claims =
+      Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin))
+
   }
 
 }

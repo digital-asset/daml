@@ -45,7 +45,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
     lazy val party1participant1 = mkAdd(
       PartyToParticipant.tryCreate(
         party1,
-        None,
         PositiveInt.one,
         Seq(HostingParticipant(participant1, Confirmation)),
         groupAddressing = false,
@@ -54,7 +53,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
     lazy val party2participant1_2 = mkAdd(
       PartyToParticipant.tryCreate(
         party2,
-        None,
         PositiveInt.one,
         Seq(
           HostingParticipant(participant1, Submission),

@@ -96,8 +96,12 @@ object ProtocolVersionCompatibility {
       serverVersion: ProtocolVersion,
       clientMinimumVersion: Option[ProtocolVersion],
   ): Either[HandshakeError, Unit] = {
-    val clientSupportsRequiredVersion = clientSupportedVersions.contains(serverVersion)
+    val clientSupportsRequiredVersion = clientSupportedVersions
+      .filter(clientVersion => clientMinimumVersion.forall(_ <= clientVersion))
+      .contains(serverVersion)
+
     val clientMinVersionLargerThanReqVersion = clientMinimumVersion.exists(_ > serverVersion)
+
     // if dev-version support is on for participant and domain, ignore the min protocol version
     if (clientSupportsRequiredVersion && serverVersion.isAlpha)
       Right(())

@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import org.slf4j.event.Level
 
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
 /** A wrapper for Promise that provides supervision of uncompleted promise's futures and aborting a promise due to shutdown */
@@ -18,10 +18,8 @@ class PromiseUnlessShutdown[A](
     futureSupervisor: FutureSupervisor,
     logAfter: Duration = 10.seconds,
     logLevel: Level = Level.DEBUG,
-)(implicit
-    ecl: ErrorLoggingContext,
-    ec: ExecutionContext,
-) extends Promise[UnlessShutdown[A]]
+)(implicit ecl: ErrorLoggingContext)
+    extends Promise[UnlessShutdown[A]]
     with RunOnShutdown {
 
   private val promise: SupervisedPromise[UnlessShutdown[A]] =

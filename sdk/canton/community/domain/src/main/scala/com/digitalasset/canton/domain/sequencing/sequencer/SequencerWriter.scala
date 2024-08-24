@@ -39,8 +39,8 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Failure
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 final case class OnlineSequencerCheckConfig(
     onlineCheckInterval: config.NonNegativeFiniteDuration =
@@ -161,30 +161,38 @@ class SequencerWriter(
   private case class RunningWriter(flow: RunningSequencerWriterFlow, store: SequencerWriterStore) {
 
     def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
-      for {
-        watermark <- EitherTUtil
-          .fromFuture(
-            // Small positive value for maxRetries, so that
-            // - a short period of unavailability does not make the sequencer inactive
-            // - the future terminates "timely"
-            store.fetchWatermark(maxRetries = 10),
-            ex => logger.info(s"Unable to fetch watermark during health monitoring.", ex),
-          )
-          .value
-      } yield {
-        val watermarkStatus = watermark match {
-          case Left(_) => "N/A"
-          case Right(Some(watermark)) => if (watermark.online) "online" else "offline"
-          case Right(None) => "initializing"
+      // Small positive value for maxRetries, so that
+      // - a short period of unavailability does not make the sequencer inactive
+      // - the future terminates "timely"
+      store
+        .fetchWatermark(maxRetries = 10)
+        .transform {
+          case Failure(ex) =>
+            logger.info(s"Unable to fetch watermark during health monitoring.", ex)
+
+            // If we fail to fetch the watermark, we want still want to return a health status.
+            Success(
+              SequencerHealthStatus(
+                isActive = false,
+                Some("writer: N/A"),
+              )
+            )
+
+          case Success(watermarkO) =>
+            val watermarkStatus = watermarkO match {
+              case Some(watermark) => if (watermark.online) "online" else "offline"
+              case None => "initializing"
+            }
+
+            // no watermark -> writer offline
+            val writerOnline = watermarkO.exists(_.online)
+            Success(
+              SequencerHealthStatus(
+                isActive = writerOnline,
+                Some(s"writer: $watermarkStatus"),
+              )
+            )
         }
-        // exception while fetching watermark -> writer offline
-        // no watermark -> writer offline
-        val writerOnline = watermark.exists(_.exists(_.online))
-        SequencerHealthStatus(
-          writerOnline,
-          Some(s"writer: $watermarkStatus"),
-        )
-      }
 
     /** Ensures that all resources for the writer flow are halted and cleaned up.
       * The store should not be used after calling this operation (the HA implementation will close its exclusive storage instance).
