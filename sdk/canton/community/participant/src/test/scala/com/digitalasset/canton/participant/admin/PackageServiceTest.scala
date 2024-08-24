@@ -144,7 +144,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       }
     }
 
-    "append the package name and version for language version 1.17" in withEnv { env =>
+    "append the package name and version for language version 1.16" in withEnv { env =>
       import env.*
 
       val fileName = "CantonExamples.dar"

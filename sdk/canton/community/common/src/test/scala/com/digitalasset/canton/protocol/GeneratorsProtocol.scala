@@ -186,7 +186,7 @@ final class GeneratorsProtocol(
       case Some(ProtocolVersion.v3) => List(NonAuthenticatedContractId)
       case Some(ProtocolVersion.v4) => List(AuthenticatedContractIdV1)
       case Some(ProtocolVersion.v5) => List(AuthenticatedContractIdV2)
-      case Some(pv) if pv >= ProtocolVersion.v6 => List(AuthenticatedContractIdV3)
+      case Some(pv) if pv >= ProtocolVersion.v7 => List(AuthenticatedContractIdV3)
       case _ => allContractIdVersions
     }
 
@@ -248,7 +248,7 @@ final class GeneratorsProtocol(
   )
 
   implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = Arbitrary(
-    if (protocolVersion >= ProtocolVersion.v6)
+    if (protocolVersion >= ProtocolVersion.v7)
       transactionVersionGen()
     else
       transactionVersionGen(maxVersion = Some(LfTransactionVersion.V15))

@@ -29,10 +29,10 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
       "fail for incompatible versions" in {
         canClientConnectToServer(
           clientSupportedVersions = Seq(ProtocolVersion.v5),
-          server = ProtocolVersion.v6,
+          server = ProtocolVersion.v7,
           None,
         ).left.value shouldBe (VersionNotSupportedError(
-          server = ProtocolVersion.v6,
+          server = ProtocolVersion.v7,
           clientSupportedVersions = Seq(ProtocolVersion.v5),
         ))
       }

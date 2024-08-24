@@ -84,7 +84,7 @@ object SymbolicCrypto {
       DirectExecutionContext(loggerFactory.getLogger(this.getClass))
 
     val pureCrypto = new SymbolicPureCrypto()
-    val cryptoPublicStore = new InMemoryCryptoPublicStore
+    val cryptoPublicStore = new InMemoryCryptoPublicStore(loggerFactory)
     val cryptoPrivateStore = new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
     val privateCrypto =
       new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore, timeouts, loggerFactory)
@@ -146,10 +146,15 @@ object SymbolicCrypto {
       .getOrElse(
         throw new RuntimeException(s"Crypto private store does not implement all necessary methods")
       )
+
     def runStorage[A](op: EitherT[Future, _, A], description: String): A =
       timeouts.io
         .await(s"storing $description")(op.value)
         .valueOr(err => throw new RuntimeException(s"Failed to store $description: $err"))
+
+    def runStorageF[A](op: => Future[A], description: String): A =
+      timeouts.io
+        .await(s"storing $description")(op)
 
     // Create a keypair for each signing fingerprint
     signingFingerprints.foreach { k =>
@@ -159,7 +164,7 @@ object SymbolicCrypto {
         cryptoPrivateStore.storeSigningKey(sigPrivKey, None),
         s"private signing key for $k",
       )
-      runStorage(
+      runStorageF(
         crypto.cryptoPublicStore.storeSigningKey(sigPubKey),
         s"public signing key for $k",
       )
@@ -179,15 +184,15 @@ object SymbolicCrypto {
         cryptoPrivateStore.storeSigningKey(sigPrivKey, None),
         s"private signing key for $k",
       )
-      runStorage(
+      runStorageF(
         crypto.cryptoPublicStore.storeSigningKey(sigPubKey),
-        s"public signign key for $k",
+        s"public signing key for $k",
       )
       runStorage(
         cryptoPrivateStore.storeDecryptionKey(encPrivKey, None),
         s"decryption key for $k",
       )
-      runStorage(
+      runStorageF(
         crypto.cryptoPublicStore.storeEncryptionKey(encPubKey),
         s"encryption key for $k",
       )

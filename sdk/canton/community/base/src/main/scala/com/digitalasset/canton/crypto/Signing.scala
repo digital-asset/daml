@@ -403,8 +403,13 @@ object SigningPublicKey
 final case class SigningPublicKeyWithName(
     override val publicKey: SigningPublicKey,
     override val name: Option[KeyName],
-) extends PublicKeyWithName {
+) extends PublicKeyWithName
+    with PrettyPrinting {
+
   type K = SigningPublicKey
+
+  override def pretty: Pretty[SigningPublicKeyWithName] =
+    prettyOfClass(param("publicKey", _.publicKey), param("name", _.name))
 }
 
 object SigningPublicKeyWithName {

@@ -10,11 +10,10 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.admin.v0
-import com.digitalasset.canton.crypto.store.CryptoPublicStoreError
 import com.digitalasset.canton.crypto.{v0 as cryptoproto, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, StaticGrpcServices}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -23,6 +22,7 @@ import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
+import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -49,40 +49,29 @@ class GrpcVaultService(
   // returns public keys of which we have private keys
   override def listMyKeys(request: v0.ListKeysRequest): Future[v0.ListMyKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    for {
-      keys <- EitherTUtil.toFuture(
-        mapErr(
-          crypto.cryptoPublicStore.publicKeysWithName.leftMap(err =>
-            s"Failed to retrieve public keys: $err"
-          )
-        )
-      )
-      publicKeys <- EitherTUtil.toFuture(
-        mapErr(
-          keys.toList.parFilterA(pk =>
-            crypto.cryptoPrivateStore
-              .existsPrivateKey(pk.publicKey.id, pk.publicKey.purpose)
-              .leftMap[String](err => s"Failed to check key ${pk.publicKey.id}'s existence: $err")
-          )
-        )
-      )
+    val result = for {
+      keys <- EitherT.right(crypto.cryptoPublicStore.publicKeysWithName)
+      publicKeys <- keys.toList.parFilterA { pk =>
+        crypto.cryptoPrivateStore
+          .existsPrivateKey(pk.publicKey.id, pk.publicKey.purpose)
+          .leftMap[String](err => s"Failed to check key ${pk.publicKey.id}'s existence: $err")
+      }
       filteredPublicKeys = listPublicKeys(request, publicKeys)
-      keysMetadata <- EitherTUtil.toFuture(
-        mapErr(
-          filteredPublicKeys.parTraverse { pk =>
-            (crypto.cryptoPrivateStore.toExtended match {
-              case Some(extended) =>
-                extended
-                  .encrypted(pk.publicKey.id)
-                  .leftMap[String](err =>
-                    s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
-                  )
-              case None => EitherT.rightT[Future, String](None)
-            }).map(encrypted => PrivateKeyMetadata(pk, encrypted).toProtoV0)
-          }
-        )
-      )
+      keysMetadata <-
+        filteredPublicKeys.parTraverse { pk =>
+          (crypto.cryptoPrivateStore.toExtended match {
+            case Some(extended) =>
+              extended
+                .encrypted(pk.publicKey.id)
+                .leftMap[String](err =>
+                  s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
+                )
+            case None => EitherT.rightT[Future, String](None)
+          }).map(encrypted => PrivateKeyMetadata(pk, encrypted).toProtoV0)
+        }
     } yield v0.ListMyKeysResponse(keysMetadata)
+
+    CantonGrpcUtil.mapErrF(result)
   }
 
   // allows to import public keys into the key store
@@ -102,10 +91,8 @@ class GrpcVaultService(
           .toEitherT[Future]
       )
       name <- mapErr(KeyName.fromProtoPrimitive(request.name))
-      _ <- mapErr(
-        crypto.cryptoPublicStore
-          .storePublicKey(publicKey, name.emptyStringAsNone)
-          .leftMap(err => s"Failed to store public key: $err")
+      _ <- EitherT.right[StatusRuntimeException](
+        crypto.cryptoPublicStore.storePublicKey(publicKey, name.emptyStringAsNone)
       )
     } yield v0.ImportPublicKeyResponse(fingerprint = publicKey.fingerprint.unwrap)
 
@@ -114,13 +101,8 @@ class GrpcVaultService(
 
   override def listPublicKeys(request: v0.ListKeysRequest): Future[v0.ListKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    EitherTUtil.toFuture(
-      mapErr(
-        crypto.cryptoPublicStore.publicKeysWithName
-          .map(keys => v0.ListKeysResponse(listPublicKeys(request, keys).map(_.toProtoV0)))
-          .leftMap(err => s"Failed to retrieve public keys: $err")
-      )
-    )
+    crypto.cryptoPublicStore.publicKeysWithName
+      .map(keys => v0.ListKeysResponse(listPublicKeys(request, keys).map(_.toProtoV0)))
   }
 
   override def generateSigningKey(
@@ -211,8 +193,7 @@ class GrpcVaultService(
         .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
       publicKey <- crypto.cryptoPublicStore
         .publicKey(fingerprint)
-        .leftMap(_.toString)
-        .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
+        .toRight(s"no public key found for [$fingerprint]")
         .leftMap(err => s"Error retrieving public key [$fingerprint] $err")
       keyPair <- (publicKey, privateKey) match {
         case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
@@ -256,20 +237,9 @@ class GrpcVaultService(
             "The selected crypto provider does not support importing of private keys."
           )
           .toEitherT[Future]
-        _ <- crypto.cryptoPublicStore
-          .storePublicKey(keyPair.publicKey, validatedName)
-          .recoverWith {
-            // if the existing key is the same, then ignore error
-            case error: CryptoPublicStoreError.KeyAlreadyExists =>
-              for {
-                existing <- crypto.cryptoPublicStore.publicKey(keyPair.publicKey.fingerprint)
-                _ <-
-                  if (existing.contains(keyPair.publicKey))
-                    EitherT.rightT[Future, CryptoPublicStoreError](())
-                  else EitherT.leftT[Future, Unit](error: CryptoPublicStoreError)
-              } yield ()
-          }
-          .leftMap(_.toString)
+        _ <- EitherT.right(
+          crypto.cryptoPublicStore.storePublicKey(keyPair.publicKey, validatedName)
+        )
         _ <- cryptoPrivateStore
           .storePrivateKey(keyPair.privateKey, validatedName)
           .leftMap(_.toString)
@@ -299,6 +269,7 @@ class GrpcVaultService(
       _ <- crypto.cryptoPrivateStore
         .removePrivateKey(fingerprint)
         .leftMap(err => s"Failed to remove private key: $err")
+      _ <- EitherT.right[String](crypto.cryptoPublicStore.deleteKey(fingerprint))
     } yield v0.DeleteKeyPairResponse()
 
     EitherTUtil.toFuture(mapErr(res))

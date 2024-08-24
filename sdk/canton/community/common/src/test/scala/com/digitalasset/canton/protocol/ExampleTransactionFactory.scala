@@ -135,6 +135,7 @@ object ExampleTransactionFactory {
       byKey: Boolean = false,
       version: LfTransactionVersion = transactionVersion,
       templateId: LfTemplateId = templateId,
+      byInterface: Boolean = false,
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
@@ -146,6 +147,7 @@ object ExampleTransactionFactory {
       keyOpt = key,
       byKey = byKey,
       version = version,
+      isInterfaceFetch = byInterface,
     )
 
   def createNode(
@@ -445,7 +447,7 @@ class ExampleTransactionFactory(
           rootRbContext,
         )
 
-        if (protocolVersion >= ProtocolVersion.v6)
+        if (protocolVersion >= ProtocolVersion.v7)
           result.withSubmittingAdminPartyQuorum(submittingAdminPartyO, confirmationPolicy)
         else
           result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
@@ -611,7 +613,7 @@ class ExampleTransactionFactory(
         10.seconds,
       )
     val viewConfirmationParameters =
-      if (protocolVersion >= ProtocolVersion.v6)
+      if (protocolVersion >= ProtocolVersion.v7)
         confirmationPolicy.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
           ViewConfirmationParameters.create(rawInformees, rawThreshold)
         )
@@ -1342,7 +1344,7 @@ class ExampleTransactionFactory(
     * 1.2. create
     * 1.3. exercise 1.2.
     *
-    * View structure (for [[com.digitalasset.canton.version.ProtocolVersion.v6]] and newer). In this specific
+    * View structure (for [[com.digitalasset.canton.version.ProtocolVersion.v7]] and newer). In this specific
     * scenario we make sure informees and quorums for action nodes 1.0, 1.1. and 1.3 are correctly merged
     * to the parent view (v1):
     * 0. View0
@@ -1350,7 +1352,7 @@ class ExampleTransactionFactory(
     * 1.2 View10
     */
   case object MultipleRootsAndSimpleViewNestingV6 extends ExampleTransaction {
-    require(protocolVersion >= ProtocolVersion.v6)
+    require(protocolVersion >= ProtocolVersion.v7)
 
     override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 

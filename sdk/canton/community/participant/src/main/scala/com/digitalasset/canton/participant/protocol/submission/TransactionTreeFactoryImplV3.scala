@@ -60,23 +60,22 @@ class TransactionTreeFactoryImplV3(
       if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
     )
 
-  /* LF 1.17 will be enabled as part of ProtocolVersion.v6 */
+  /* LF 1.16 will be enabled as part of ProtocolVersion.v6 */
   private def supportsUpgrading(tv: LfTransactionVersion) = Util.sharedKey(tv)
 
   private[submission] def buildPackagePreference(
       decomposition: TransactionViewDecomposition
   ): Set[LfPackageId] = {
-    def anyNodePref(n: LfActionNode): (LfPackageName, LfPackageId) =
-      n.packageName match {
-        case Some(packageName) => (packageName, n.templateId.packageId)
-        case None =>
-          throw new IllegalStateException(s"LF 1.17 nodes must have package name [$n]")
-      }
 
-    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
-      case ex: LfNodeExercises if ex.interfaceId.isDefined => Set(anyNodePref(n))
-      case fn: LfNodeFetch if fn.isInterfaceFetch => Set(anyNodePref(n))
-      case _ => Set.empty
+    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = (n, n.packageName) match {
+      case _ if !supportsUpgrading(n.version) =>
+        Set.empty
+      case (ex: LfNodeExercises, Some(packageName)) if ex.interfaceId.isDefined =>
+        Set(packageName -> ex.templateId.packageId)
+      case (ex: LfNodeFetch, Some(packageName)) if ex.isInterfaceFetch =>
+        Set(packageName -> ex.templateId.packageId)
+      case _ =>
+        Set.empty
     }
 
     @tailrec

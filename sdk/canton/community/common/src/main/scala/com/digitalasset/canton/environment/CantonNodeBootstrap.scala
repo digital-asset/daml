@@ -58,7 +58,7 @@ import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStor
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{SimpleExecutionQueue, retry}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
@@ -403,7 +403,7 @@ abstract class CantonNodeBootstrapBase[
                   .map(Some(_))
               )
           },
-          NoExnRetryable,
+          NoExceptionRetryPolicy,
         )
 
       resultAfterRetry.onComplete { _ =>
@@ -652,7 +652,7 @@ abstract class CantonNodeBootstrapBase[
           maxDelay = 5.seconds,
           "waitForIdInitialization",
         )
-        .apply(initializationStore.id, NoExnRetryable)
+        .apply(initializationStore.id, NoExceptionRetryPolicy)
         .foreach(_.foreach { id =>
           if (getId.isDefined) {
             logger.debug("A stored id has been found but the id has already been set so ignoring")

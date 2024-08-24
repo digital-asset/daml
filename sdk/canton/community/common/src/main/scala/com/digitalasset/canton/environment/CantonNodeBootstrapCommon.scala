@@ -4,7 +4,7 @@
 package com.digitalasset.canton.environment
 
 import better.files.File
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.{LocalNodeConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStoreError}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -131,41 +131,38 @@ object CantonNodeBootstrapCommon {
 
   private def getKeyByFingerprint[P <: PublicKey](
       typ: String,
-      findPubKeyIdByFingerprint: Fingerprint => EitherT[Future, CryptoPublicStoreError, Option[P]],
+      findPubKeyIdByFingerprint: Fingerprint => OptionT[Future, P],
       existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
       fingerprint: Fingerprint,
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
-    keyIdO <- findPubKeyIdByFingerprint(fingerprint)
-      .leftMap(err =>
-        s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
+    pubKey <- findPubKeyIdByFingerprint(fingerprint)
+      .toRight(
+        s"$typ key with fingerprint $fingerprint does not exist"
       )
-    pubKey <- keyIdO.fold(
-      EitherT.leftT[Future, P](s"$typ key with fingerprint $fingerprint does not exist")
-    ) { keyWithFingerprint =>
-      val fingerprint = keyWithFingerprint.fingerprint
-      existPrivateKeyByFp(fingerprint)
-        .leftMap(err =>
-          s"Failure while looking for $typ key $fingerprint in private key store: $err"
-        )
-        .transform {
-          case Right(true) => Right(keyWithFingerprint)
-          case Right(false) =>
-            Left(s"Broken private key store: Could not find $typ key $fingerprint")
-          case Left(err) => Left(err)
-        }
-    }
+      .flatMap { keyWithFingerprint =>
+        val fingerprint = keyWithFingerprint.fingerprint
+        existPrivateKeyByFp(fingerprint)
+          .leftMap(err =>
+            s"Failure while looking for $typ key $fingerprint in private key store: $err"
+          )
+          .transform {
+            case Right(true) => Right(keyWithFingerprint)
+            case Right(false) =>
+              Left(s"Broken private key store: Could not find $typ key $fingerprint")
+            case Left(err) => Left(err)
+          }
+      }
   } yield pubKey
 
   private def getOrCreateKey[P <: PublicKey](
       typ: String,
-      findPubKeyIdByName: KeyName => EitherT[Future, CryptoPublicStoreError, Option[P]],
+      findPubKeyIdByName: KeyName => OptionT[Future, P],
       generateKey: Option[KeyName] => EitherT[Future, String, P],
       existPrivateKeyByFp: Fingerprint => EitherT[Future, CryptoPrivateStoreError, Boolean],
       name: String,
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
     keyName <- EitherT.fromEither[Future](KeyName.create(name))
-    keyIdO <- findPubKeyIdByName(keyName)
-      .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
+    keyIdO <- EitherT.right(findPubKeyIdByName(keyName).value)
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

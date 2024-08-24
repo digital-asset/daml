@@ -65,7 +65,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
@@ -1117,7 +1117,7 @@ final class RepairService(
             )
             .unlessShutdown(
               FutureUnlessShutdown.outcomeF(check(persistentState, indexedDomain)),
-              AllExnRetryable,
+              AllExceptionRetryPolicy,
             )
         )
       }
@@ -1455,7 +1455,7 @@ object RepairService {
         argsVersionedValue = LfVersioned(
           // Version is ignored by daml engine upon RepairService.addContract
           // However, it's needed for passing the contract_id recomputation checks
-          // for LF versions at least 1.17 (see recompute_contract_ids),
+          // for LF versions at least 1.16 (see recompute_contract_ids),
           // for which we can extract it from the created_event_blob.
           transactionVersion.getOrElse(protocol.DummyTransactionVersion),
           argsValue,
