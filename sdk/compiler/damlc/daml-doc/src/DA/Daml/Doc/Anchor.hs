@@ -14,6 +14,7 @@ module DA.Daml.Doc.Anchor
     , typeAnchor
     , constrAnchor
     , functionAnchor
+    , defaultAnchorGenerators
     ) where
 
 import DA.Daml.Doc.Types
@@ -78,3 +79,12 @@ anchor k m n v = Anchor $ T.intercalate "-" [k, convertModulename m, expandOps n
 
 hashText :: Hashable v => v -> T.Text
 hashText = T.pack . show . (`mod` 100000) . hash
+
+defaultAnchorGenerators :: AnchorGenerators
+defaultAnchorGenerators = AnchorGenerators
+  { ag_moduleAnchor = moduleAnchor
+  , ag_classAnchor = classAnchor
+  , ag_typeAnchor = typeAnchor
+  , ag_constrAnchor = constrAnchor
+  , ag_functionAnchor = functionAnchor
+  }

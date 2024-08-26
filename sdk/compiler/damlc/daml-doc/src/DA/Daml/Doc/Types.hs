@@ -91,6 +91,18 @@ newtype Anchor = Anchor { unAnchor :: Text }
 newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
     deriving newtype (Eq, Ord, Show, FromJSON)
 
+-- | Customisable anchor generation
+data AnchorGenerators = AnchorGenerators
+    { ag_moduleAnchor :: Modulename -> Anchor
+    , ag_classAnchor :: Modulename -> Typename -> Anchor
+    , ag_typeAnchor :: Modulename -> Typename -> Anchor
+    , ag_constrAnchor :: Modulename -> Typename -> Anchor
+    , ag_functionAnchor :: Modulename -> Fieldname-> Anchor
+    }
+
+instance Show AnchorGenerators where show _ = "<anchorGenerators>"
+instance Eq AnchorGenerators where _ == _ = True
+
 ------------------------------------------------------------
 -- | Documentation data for a module
 data ModuleDoc = ModuleDoc

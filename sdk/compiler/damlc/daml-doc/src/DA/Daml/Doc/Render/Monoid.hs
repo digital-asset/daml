@@ -78,6 +78,7 @@ data RenderEnv = RenderEnv
         -- ^ anchors defined in the same folder
     , re_externalAnchors :: AnchorMap
         -- ^ anchors defined externally
+    , re_anchorGenerators :: AnchorGenerators
     }
 
 -- | Location of an anchor relative to the output being rendered. An anchor
@@ -126,8 +127,8 @@ getRenderAnchors = \case
     RenderDocs _ -> Set.empty
     RenderIndex _ -> Set.empty
 
-renderPage :: RenderFormatter -> AnchorMap -> RenderOut -> T.Text
-renderPage formatter externalAnchors output =
+renderPage :: RenderFormatter -> AnchorMap -> AnchorGenerators -> RenderOut -> T.Text
+renderPage formatter externalAnchors anchorGenerators output =
     T.unlines (formatter renderEnv output)
     where
         renderEnv = RenderEnv
@@ -135,16 +136,18 @@ renderPage formatter externalAnchors output =
           , re_localAnchors = getRenderAnchors output
           , re_globalAnchors = Map.empty
           , re_externalAnchors = externalAnchors
+          , re_anchorGenerators = anchorGenerators
           }
 
 -- | Render a folder of modules.
 renderFolder ::
     RenderFormatter
     -> AnchorMap
+    -> AnchorGenerators
     -> String
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
-renderFolder formatter externalAnchors globalInternalExt fileMap =
+renderFolder formatter externalAnchors anchorGenerators globalInternalExt fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
         re_externalAnchors = externalAnchors
         re_separateModules = True
@@ -153,6 +156,7 @@ renderFolder formatter externalAnchors globalInternalExt fileMap =
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
+        re_anchorGenerators = anchorGenerators
         moduleMap =
             flip Map.mapWithKey fileMap $ \moduleName output ->
                 let re_localAnchors = fromMaybe Set.empty $

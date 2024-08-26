@@ -86,7 +86,7 @@ data ExternalAnchorPath
 runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
 runDamlDoc options@DamldocOptions{..} = do
     docData <- inputDocData options
-    renderDocData options (applyTransform do_transformOptions docData)
+    renderDocData options (applyTransform do_transformOptions (eo_anchorGenerators do_extractOptions) docData)
 
 -- | Load doc data, either via the Daml typechecker or via JSON files.
 inputDocData :: SdkVersioned => DamldocOptions -> IO [ModuleDoc]
@@ -174,5 +174,6 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_anchorPath = do_anchorPath
                         , ro_externalAnchors = externalAnchors
                         , ro_globalInternalExt = do_globalInternalExt
+                        , ro_anchorGenerators = eo_anchorGenerators do_extractOptions
                         }
                 renderDocs renderOptions docData
