@@ -8,7 +8,6 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -446,7 +445,7 @@ final class SyncStateInspection(
   )
   def locateOffset(
       numTransactions: Long
-  )(implicit traceContext: TraceContext): Future[Either[String, ParticipantOffset]] = {
+  )(implicit traceContext: TraceContext): Future[Either[String, String]] = {
 
     if (numTransactions <= 0L)
       throw new IllegalArgumentException(
@@ -456,20 +455,20 @@ final class SyncStateInspection(
     participantNodePersistentState.value.multiDomainEventLog
       .locateOffset(numTransactions - 1L)
       .toRight(s"Participant does not contain $numTransactions transactions.")
-      .map(UpstreamOffsetConvert.toParticipantOffset)
+      .map(UpstreamOffsetConvert.toStringOffset)
       .value
   }
 
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[ParticipantOffset]] =
+  )(implicit traceContext: TraceContext): Future[Option[String]] =
     participantNodePersistentState.value.multiDomainEventLog
       .getOffsetByTimeUpTo(pruneUpTo)
-      .map(UpstreamOffsetConvert.toParticipantOffset)
+      .map(UpstreamOffsetConvert.toStringOffset)
       .value
 
   def lookupPublicationTime(
-      ledgerOffset: ParticipantOffset
+      ledgerOffset: String
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     globalOffset <- EitherT.fromEither[Future](
       UpstreamOffsetConvert.ledgerOffsetToGlobalOffset(ledgerOffset)

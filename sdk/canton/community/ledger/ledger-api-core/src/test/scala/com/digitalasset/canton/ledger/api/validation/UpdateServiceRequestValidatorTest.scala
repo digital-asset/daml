@@ -100,8 +100,8 @@ class UpdateServiceRequestValidatorTest
 
       "accept simple requests" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldBe domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldBe Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldBe ""
+          req.endInclusive shouldBe Some(absoluteOffset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           hasExpectedFilters(req)
@@ -168,7 +168,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive((ledgerEnd.value.toInt + 1).toString),
+            txReq.withBeginExclusive((ledgerEnd.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -181,7 +181,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEndInclusive((ledgerEnd.value.toInt + 1).toString),
+            txReq.withEndInclusive((ledgerEnd.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -194,7 +194,7 @@ class UpdateServiceRequestValidatorTest
       "tolerate missing end" in {
         inside(validator.validate(txReq.update(_.endInclusive := ""), ledgerEnd)) {
           case Right(req) =>
-            req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+            req.startExclusive shouldEqual ""
             req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
@@ -212,8 +212,8 @@ class UpdateServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual ""
+          req.endInclusive shouldEqual Some(absoluteOffset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -233,8 +233,8 @@ class UpdateServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual ""
+          req.endInclusive shouldEqual Some(absoluteOffset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -247,8 +247,8 @@ class UpdateServiceRequestValidatorTest
 
       "tolerate all fields filled out" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual ""
+          req.endInclusive shouldEqual Some(absoluteOffset)
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }
@@ -256,8 +256,8 @@ class UpdateServiceRequestValidatorTest
 
       "allow package-name scoped templates" in {
         inside(validator.validate(txReqWithPackageNameScoping, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual ""
+          req.endInclusive shouldEqual Some(absoluteOffset)
           hasExpectedFilters(
             req,
             expectedTemplates =
@@ -269,8 +269,8 @@ class UpdateServiceRequestValidatorTest
 
       "still allow populated packageIds in templateIds (for backwards compatibility)" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual ""
+          req.endInclusive shouldEqual Some(absoluteOffset)
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }

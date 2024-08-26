@@ -57,7 +57,7 @@ package index {
     */
   final case class TransactionMeta(
       transactionId: TransactionId,
-      offset: ParticipantOffset.Absolute,
+      offset: String,
       ledgerEffectiveTime: Timestamp,
       recordTime: Timestamp,
       workflowId: WorkflowId,

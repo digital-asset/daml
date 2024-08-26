@@ -10,7 +10,6 @@ import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   CumulativeFilter,
   EventId,
-  ParticipantOffset,
   TemplateWildcardFilter,
   TransactionFilter,
   TransactionId,
@@ -51,11 +50,11 @@ package object logging {
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
     readAs(partyNames.asInstanceOf[Iterable[Party]])
 
-  private[services] def startExclusive(offset: ParticipantOffset): LoggingEntry =
+  private[services] def startExclusive(offset: String): LoggingEntry =
     "startExclusive" -> offset
 
   private[services] def endInclusive(
-      offset: Option[ParticipantOffset]
+      offset: Option[String]
   ): LoggingEntry =
     "endInclusive" -> offset
 

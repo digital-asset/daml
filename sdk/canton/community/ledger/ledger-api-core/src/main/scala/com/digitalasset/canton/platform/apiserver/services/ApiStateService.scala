@@ -140,7 +140,7 @@ final class ApiStateService(
       TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
     txService
       .currentLedgerEnd()
-      .map(offset => GetLedgerEndResponse(offset.value))
+      .map(GetLedgerEndResponse(_))
       .andThen(logger.logErrorsOnCall[GetLedgerEndResponse])
   }
 

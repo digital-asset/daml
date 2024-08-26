@@ -33,8 +33,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val verbose = false
   protected val eventId = "eventId"
   protected val transactionId = "42"
-  protected val ledgerEnd =
-    domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
+  protected val ledgerEnd = Ref.LedgerString.assertFromString("1000")
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)

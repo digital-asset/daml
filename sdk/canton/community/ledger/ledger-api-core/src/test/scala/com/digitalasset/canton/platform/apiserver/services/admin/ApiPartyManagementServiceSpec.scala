@@ -16,7 +16,6 @@ import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.ledger.participant.state
@@ -112,7 +111,7 @@ class ApiPartyManagementServiceSpec
       ) = mockedServices()
 
       when(
-        mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(
+        mockIndexPartyManagementService.partyEntries(any[Option[String]])(
           any[LoggingContextWithTrace]
         )
       )
@@ -162,7 +161,7 @@ class ApiPartyManagementServiceSpec
       val promise = Promise[Unit]()
 
       when(
-        mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(
+        mockIndexPartyManagementService.partyEntries(any[Option[String]])(
           any[LoggingContextWithTrace]
         )
       )
@@ -226,7 +225,7 @@ class ApiPartyManagementServiceSpec
   ) = {
     val mockIndexTransactionsService = mock[IndexTransactionsService]
     when(mockIndexTransactionsService.currentLedgerEnd())
-      .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
+      .thenReturn(Future.successful(Ref.LedgerString.assertFromString("0")))
 
     val mockIdentityProviderExists = mock[IdentityProviderExists]
     when(

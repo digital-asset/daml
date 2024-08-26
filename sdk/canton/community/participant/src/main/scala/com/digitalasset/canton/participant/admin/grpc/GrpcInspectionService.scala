@@ -69,7 +69,7 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
         case Right(cantonTimestamp) =>
           syncStateInspection
             .getOffsetByTime(cantonTimestamp)
-            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset.fold("")(_.getAbsolute)))
+            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset.getOrElse("")))
         case Left(err) =>
           Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
       }
@@ -94,7 +94,7 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
               throw new StatusRuntimeException(
                 Status.OUT_OF_RANGE.withDescription(s"""Failed to locate offset: $err""")
               ),
-            ledgerOffset => LookupOffsetByIndex.Response(ledgerOffset.getAbsolute),
+            ledgerOffset => LookupOffsetByIndex.Response(ledgerOffset),
           )
         )
     }

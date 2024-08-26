@@ -552,26 +552,6 @@ object Generators {
       .addAllConnectedDomains(domains.asJava)
       .build()
 
-  def participantOffsetGen: Gen[v2.ParticipantOffsetOuterClass.ParticipantOffset] = {
-    import v2.ParticipantOffsetOuterClass.ParticipantOffset as OffsetProto
-    for {
-      modifier <- Gen.oneOf(
-        Arbitrary.arbString.arbitrary.map(absolute =>
-          (b: OffsetProto.Builder) => b.setAbsolute(absolute)
-        ),
-        Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
-        ),
-        Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_END)
-        ),
-      )
-    } yield OffsetProto
-      .newBuilder()
-      .pipe(modifier)
-      .build()
-  }
-
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] =
     for {
       offset <- Arbitrary.arbString.arbitrary

@@ -21,7 +21,6 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
-  ParticipantOffset,
   TransactionFilter,
   TransactionId,
 }
@@ -108,8 +107,8 @@ private[index] class IndexServiceImpl(
     contractStore.lookupContractKey(readers, key)
 
   override def transactions(
-      startExclusive: domain.ParticipantOffset,
-      endInclusive: Option[domain.ParticipantOffset],
+      startExclusive: String,
+      endInclusive: Option[String],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
@@ -203,8 +202,8 @@ private[index] class IndexServiceImpl(
       }
 
   override def transactionTrees(
-      startExclusive: ParticipantOffset,
-      endInclusive: Option[ParticipantOffset],
+      startExclusive: String,
+      endInclusive: Option[String],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] = {
@@ -280,7 +279,7 @@ private[index] class IndexServiceImpl(
   }
 
   override def getCompletions(
-      startExclusive: ParticipantOffset,
+      startExclusive: String,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
@@ -412,7 +411,7 @@ private[index] class IndexServiceImpl(
     ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def partyEntries(
-      startExclusive: Option[ParticipantOffset.Absolute]
+      startExclusive: Option[String]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
@@ -447,33 +446,32 @@ private[index] class IndexServiceImpl(
       applicationId: Option[ApplicationId],
     )
 
-  override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] = {
+  override def currentLedgerEnd(): Future[String] = {
     val absoluteApiOffset = toApiOffset(ledgerEnd())
     Future.successful(absoluteApiOffset)
   }
 
-  private def toApiOffset(ledgerDomainOffset: Offset): ParticipantOffset.Absolute = {
+  private def toApiOffset(ledgerDomainOffset: Offset): String = {
     val offset =
       if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
       else ledgerDomainOffset
-    toAbsolute(offset)
+    offset.toApiString
   }
 
   private def ledgerEnd(): Offset = dispatcher().getHead()
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: ParticipantOffset => Source[Offset, NotUsed] = { ledgerOffset =>
+  private def convertOffset: String => Source[Offset, NotUsed] = { ledgerOffset =>
     (ledgerOffset match {
-      case ParticipantOffset.ParticipantBegin => Success(Offset.beforeBegin)
-      case ParticipantOffset.ParticipantEnd => Success(ledgerEnd())
-      case ParticipantOffset.Absolute(offset) => ApiOffset.tryFromString(offset)
+      case "" => Success(Offset.beforeBegin)
+      case offset => ApiOffset.tryFromString(offset)
     }).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
-      startExclusive: domain.ParticipantOffset,
-      endInclusive: Option[domain.ParticipantOffset],
+      startExclusive: String,
+      endInclusive: Option[String],
   )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[A, NotUsed] = {
@@ -499,13 +497,10 @@ private[index] class IndexServiceImpl(
     }
   }
 
-  private def concreteOffset(startExclusive: Option[ParticipantOffset.Absolute]): Future[Offset] =
+  private def concreteOffset(startExclusive: Option[String]): Future[Offset] =
     startExclusive
-      .map(off => Future.fromTry(ApiOffset.tryFromString(off.value)))
+      .map(off => Future.fromTry(ApiOffset.tryFromString(off)))
       .getOrElse(Future.successful(Offset.beforeBegin))
-
-  private def toAbsolute(offset: Offset): ParticipantOffset.Absolute =
-    ParticipantOffset.Absolute(offset.toApiString)
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace

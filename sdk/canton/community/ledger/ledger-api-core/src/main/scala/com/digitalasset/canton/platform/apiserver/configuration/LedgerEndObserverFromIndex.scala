@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.configuration
 
 import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.LedgerEndService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -44,7 +43,7 @@ private[apiserver] final class LedgerEndObserverFromIndex(
         indexService
           .currentLedgerEnd()
           .flatMap {
-            case offset if offset > Absolute(Ref.LedgerString.assertFromString("00")) =>
+            case offset if offset > Ref.LedgerString.assertFromString("00") =>
               logger.info(s"New offset ($offset) greater than ledger begin found.")
               Future.successful(())
             case offset =>

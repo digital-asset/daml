@@ -81,7 +81,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         org.apache.pekko.pattern.after(20.millis)(testServices.index.currentLedgerEnd()).futureValue
       )
       .dropWhile(absoluteOffset =>
-        Offset.fromHexString(Ref.HexString.assertFromString(absoluteOffset.value)) < lastOffset
+        Offset.fromHexString(Ref.HexString.assertFromString(absoluteOffset)) < lastOffset
       )
       .next()
     lastOffset

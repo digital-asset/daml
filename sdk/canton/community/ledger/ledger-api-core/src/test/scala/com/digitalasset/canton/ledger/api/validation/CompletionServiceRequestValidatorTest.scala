@@ -117,7 +117,7 @@ class CompletionServiceRequestValidatorTest
         requestMustFailWith(
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
-              Ref.LedgerString.assertFromString((ledgerEnd.value.toInt + 1).toString)
+              Ref.LedgerString.assertFromString((ledgerEnd.toInt + 1).toString)
             ),
             ledgerEnd,
           ),
