@@ -232,9 +232,11 @@ final case class ModuleWithMetadata(module: Ast.Module) {
 
   lazy val choiceNameMap: ChoiceNameMap =
     for {
-      (templateName, template) <- module.templates
+      moduleTemplates <- module.templates
+      (templateName, template) = moduleTemplates
       prefix = templateName.segments.init
-      (choiceName, choice) <- template.choices
+      templateChoices <- template.choices
+      (choiceName, _choice) = templateChoices
       fullName = prefix.slowSnoc(choiceName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
 
@@ -242,8 +244,10 @@ final case class ModuleWithMetadata(module: Ast.Module) {
 
   lazy val variantNameMap: VariantNameMap =
     for {
-      (dataTypeName, Ast.DDataType(_, _, variant: Ast.DataVariant)) <- module.definitions
-      (recordName, variantType) <- variant.variants.iterator
+      moduleDefinitions <- module.definitions
+      (dataTypeName, Ast.DDataType(_, _, variant: Ast.DataVariant)) = moduleDefinitions
+      variantsIterator <- variant.variants.iterator
+      (recordName, variantType) = variantsIterator
       variantName <- leftMostApp(variantType).iterator
       fullName = dataTypeName.segments.slowSnoc(recordName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (dataTypeName, variantName))
@@ -393,11 +397,11 @@ case class TypecheckUpgrades(
   private def check(): Try[Unit] = {
     for {
       _ <- checkLfVersions(_package.map(_.languageVersion))
-      (upgradedModules, newModules @ _) <-
-        checkDeleted(
-          _package.map(_.modules),
-          (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
-        )
+      upgradedNewModules <- checkDeleted(
+        _package.map(_.modules),
+        (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
+      )
+      (upgradedModules, _newModules) = upgradedNewModules
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
   }
@@ -435,8 +439,10 @@ case class TypecheckUpgrades(
       module: Ast.Module
   ): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
     for {
-      (templateName, template) <- module.templates
-      (implName, impl) <- template.implements
+      moduleTemplates <- module.templates
+      (templateName, template) = moduleTemplates
+      templateImplements <- template.implements
+      (implName, impl) = templateImplements
     } yield ((templateName, implName), (template, impl))
   }
 
@@ -448,10 +454,11 @@ case class TypecheckUpgrades(
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, newTemplates) <- checkDeleted(
+      existingNewTemplates <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
+      (existingTemplates, newTemplates) = existingNewTemplates
       _ <- tryAll(existingTemplates, checkTemplate(_))
 
       (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
@@ -465,10 +472,11 @@ case class TypecheckUpgrades(
         !newTemplates.contains(tyCon)
       }.toMap)
 
-      (existingDatatypes, _new) <- checkDeleted(
+      existingNewDatatypes <- checkDeleted(
         unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
       )
+      (existingDatatypes, _new) = existingNewDatatypes
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
     } yield ()
   }
@@ -506,11 +514,11 @@ case class TypecheckUpgrades(
   ): Try[Unit] = {
     val (templateName, template) = templateAndName
     for {
-      (existingChoices, _newChoices) <- checkDeleted(
+      existingNewChoices <- checkDeleted(
         template.map(_.choices),
         (name: Ref.ChoiceName, _: Ast.TemplateChoice) => UpgradeError.MissingChoice(name),
       )
-
+      (existingChoices, _newChoices) = existingNewChoices
       _ <- tryAll(existingChoices.values, checkChoice(_))
       _ <- checkKey(templateName, template.map(_.key))
     } yield ()
@@ -624,12 +632,12 @@ case class TypecheckUpgrades(
           val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
             upgrade.map(variant => Map.from(variant.variants.iterator))
           for {
-            (existing, new_) <- checkDeleted(
+            existingNew <- checkDeleted(
               variants,
               (_: Ast.VariantConName, _: Ast.Type) =>
                 UpgradeError.VariantRemovedVariant(origin.present),
             )
-
+            (existing, new_) = existingNew
             changedTypes = existing.filter { case (field @ _, typ) =>
               !checkType(env.zip(typ, Closure.apply _))
             }
@@ -655,10 +663,11 @@ case class TypecheckUpgrades(
           val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
             upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
           for {
-            (_, new_) <- checkDeleted(
+            existingNew <- checkDeleted(
               enums,
               (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
             )
+            (_, new_) = existingNew
             changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
               val variantNames: Upgrading[ImmArray[Ast.EnumConName]] = upgrade.map(_.constructors)
               variantNames.past.zip(variantNames.present).filter { case (past, present) =>
