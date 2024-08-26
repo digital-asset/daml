@@ -397,13 +397,6 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-dep.dar"]},
         ),
         (
-            "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt",
-            {},
-            {"data_dependencies": [
-                "//test-common:upgrades-WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt-v1.dar",
-            ]},
-        ),
-        (
             "FailsWhenAnInstanceIsDropped",
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"]},
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"]},

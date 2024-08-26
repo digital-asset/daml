@@ -315,13 +315,27 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedSeparateDep"
-                      Succeed
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
                       versionDefault
                       SeparateDep
                       False
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedUpgradedPackage"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                      versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
+                      Succeed
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                       Succeed
                       versionDefault
                       DependOnV1
@@ -430,15 +444,6 @@ tests damlc =
                       (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:")
                       versionDefault
                       NoDependencies
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
-                , testGeneral
-                      (prefix <> "WhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt")
-                      "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt"
-                      (expectation "type checking template Main.T interface instance [0-9a-f]+:Main:I for Main:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
-                      versionDefault
-                      DependOnV1
                       warnBadInterfaceInstances
                       True
                       doTypecheck
