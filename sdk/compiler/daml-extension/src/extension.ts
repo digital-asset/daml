@@ -13,8 +13,8 @@ import {
   LanguageClientOptions,
   RequestType,
   NotificationType,
-  Executable,
-  ExecuteCommandRequest,
+  CancellationToken,
+  ProvideDefinitionSignature,
 } from "vscode-languageclient/node";
 import {
   Uri,
@@ -29,6 +29,7 @@ import * as util from "util";
 import fetch from "node-fetch";
 import { getOrd } from "fp-ts/lib/Array";
 import { ordNumber } from "fp-ts/lib/Ord";
+import { URLSearchParams } from "url";
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
 
@@ -326,6 +327,41 @@ export function createLanguageClient(
   let clientOptions: LanguageClientOptions = {
     // Register the server for Daml
     documentSelector: ["daml"],
+    middleware: {
+      provideDefinition: async (document: vscode.TextDocument, position: vscode.Position, token: CancellationToken, next: ProvideDefinitionSignature) => {
+        const result = await next(document, position, token);
+        if (!result) return;
+
+        let locations: Array<vscode.Location> | Array<vscode.LocationLink>
+        if (result instanceof vscode.Location)
+          locations = new Array(result as vscode.Location);
+        else if(Array.isArray(result))
+          locations = result;
+        else throw "Provide definition result was wrongly typed"
+
+        if (locations.length == 0) return;
+
+        // Currently ghc-ide only ever gives 1 or 0 results, so we operate only on the first element
+        let location = locations[0];
+
+        // this should reuse existing page
+        if (location instanceof vscode.Location && location.uri.scheme == "daml" && location.uri.path == "open-docs"){ 
+          const params = new URLSearchParams(location.uri.query);
+          const path = params.get("path");
+          const unitIdOrPackageId = params.get("name");
+          if (!path || !unitIdOrPackageId) throw "Invalid open-docs data";
+          const content = fs.readFileSync(path).toString();
+          const panel = vscode.window.createWebviewPanel(
+            `docs-${unitIdOrPackageId}`,
+            `Generated documentation for ${unitIdOrPackageId}`,
+            vscode.ViewColumn.One,
+            {},
+          );
+          panel.webview.html = content;
+        } else
+          return locations;        
+      }
+    }
   };
 
   let command: string;

@@ -7,6 +7,9 @@ module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
   , mbErr
   , getUnitId
+  , baseImports
+  , getDepImports
+  , getExposedModules
 
     -- * Dependency graph construction
   , buildLfPackageGraph'
@@ -341,6 +344,26 @@ data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
   , exposedModules :: MS.Map UnitId (UniqSet GHC.ModuleName)
   }
 
+-- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
+-- while avoiding name collisions in package imports. Note that we can only do this
+-- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
+-- exposed.
+-- TODO (MK)
+-- Use this scheme to refer to data-dependencies as well and replace the CurrentSdk prefix by this.
+getDepImports :: MS.Map UnitId LF.DalfPackage -> MS.Map UnitId (UniqSet GHC.ModuleName) -> [PackageFlag]
+getDepImports dependenciesSoFar exposedModules =
+  [ exposePackage unitId False
+        [ (toGhcModuleName modName, toGhcModuleName (prefixDependencyModule dalfPackageId modName))
+        | mod <- NM.toList $ LF.packageModules $ LF.extPackagePkg dalfPackagePkg
+        , let modName = LF.moduleName mod
+        -- NOTE (MK) I am not sure if this lookup
+        -- can ever fail but for now, we keep exposing the module in that case.
+        , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
+        ]
+  | (unitId, LF.DalfPackage{..}) <- MS.toList dependenciesSoFar
+  , let mbExposed = MS.lookup unitId exposedModules
+  ]
+
 -- | Generate interface files and install them in the package database
 generateAndInstallIfaceFiles :: SdkVersioned => GenerateAndInstallIfaceFilesArgs -> IO ()
 generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
@@ -350,24 +373,8 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
     Logger.logDebug loggerH "Compiling dummy interface files"
-    -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
-    -- while avoiding name collisions in package imports. Note that we can only do this
-    -- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
-    -- exposed.
-    -- TODO (MK)
-    -- Use this scheme to refer to data-dependencies as well and replace the CurrentSdk prefix by this.
-    let depImps =
-            [ exposePackage unitId False
-                  [ (toGhcModuleName modName, toGhcModuleName (prefixDependencyModule dalfPackageId modName))
-                  | mod <- NM.toList $ LF.packageModules $ LF.extPackagePkg dalfPackagePkg
-                  , let modName = LF.moduleName mod
-                  -- NOTE (MK) I am not sure if this lookup
-                  -- can ever fail but for now, we keep exposing the module in that case.
-                  , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
-                  ]
-            | (unitId, LF.DalfPackage{..}) <- MS.toList dependenciesSoFar
-            , let mbExposed = MS.lookup unitId exposedModules
-            ]
+    let depImps = getDepImports dependenciesSoFar exposedModules
+            
     opts <-
         pure $ opts
             { optIfaceDir = Nothing
