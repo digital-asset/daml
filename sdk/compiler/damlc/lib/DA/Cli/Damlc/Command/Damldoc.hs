@@ -327,7 +327,7 @@ exec Damldoc{..} = do
         , do_baseURL = cBaseURL
         , do_hooglePath = cHooglePath
         , do_anchorPath = cAnchorPath
-        , do_externalAnchorPath = cExternalAnchorPath
+        , do_externalAnchorBehaviour = ExternalAnchorMapPath cExternalAnchorPath
         , do_globalInternalExt = cGlobalInternalExt
         }
 

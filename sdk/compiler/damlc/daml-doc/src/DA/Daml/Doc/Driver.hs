@@ -8,6 +8,7 @@ module DA.Daml.Doc.Driver
     , RenderFormat(..)
     , TransformOptions(..)
     , ExternalAnchorPath(..)
+    , ExternalAnchorBehaviour(..)
     , runDamlDoc
     , loadExternalAnchors
     ) where
@@ -42,6 +43,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
+import qualified Network.URI as URI
 
 import SdkVersion.Class (SdkVersioned)
 
@@ -62,7 +64,7 @@ data DamldocOptions = DamldocOptions
     , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
     , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
-    , do_externalAnchorPath :: ExternalAnchorPath -- ^ external anchor table input path
+    , do_externalAnchorBehaviour :: ExternalAnchorBehaviour -- ^ Behaviour for linking external anchors
     , do_globalInternalExt :: String -- ^ File extension for internal links
     }
 
@@ -81,6 +83,10 @@ data ExternalAnchorPath
   | ExplicitExternalAnchorPath FilePath
       -- ^ Read the AnchorMap from the given file
   deriving (Eq, Show, Read)
+
+data ExternalAnchorBehaviour
+  = ExternalAnchorMapPath ExternalAnchorPath
+  | ExternalAnchorFun (Anchor -> URI.URI)
 
 -- | Run damldocs!
 runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
@@ -158,7 +164,9 @@ renderDocData DamldocOptions{..} docData = do
             OutputJson ->
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
             OutputDocs format -> do
-                externalAnchors <- loadExternalAnchors do_externalAnchorPath
+                externalAnchors <- case do_externalAnchorBehaviour of
+                  ExternalAnchorMapPath path -> UseAnchorMap <$> loadExternalAnchors path
+                  ExternalAnchorFun f -> pure $ UseAnchorFun f
                 let renderOptions = RenderOptions
                         { ro_mode =
                           if do_combine

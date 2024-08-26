@@ -5,6 +5,7 @@ module DA.Daml.Doc.Render
   ( RenderFormat(..)
   , RenderOptions(..)
   , RenderMode(..)
+  , ExternalAnchors(..)
   , renderDocs
   , renderPage
   , renderFolder

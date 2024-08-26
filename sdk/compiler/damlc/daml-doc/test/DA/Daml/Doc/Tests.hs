@@ -472,12 +472,13 @@ runDamldocMany' testfiles importPathM mScriptPackageData = do
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
 -- for all files found.
 fileTest :: SdkVersioned => AnchorMap -> ScriptPackageData -> FilePath -> IO [Tasty.TestTree]
-fileTest externalAnchors scriptPackageData damlFile = do
+fileTest externalAnchorMap scriptPackageData damlFile = do
 
   damlFileAbs <- makeAbsolute damlFile
   let basename = dropExtension damlFileAbs
       expected = [ basename <.> "EXPECTED" <.> s
                  | s <- [ "json", "rst", "md", "hoogle" ]]
+      externalAnchors = UseAnchorMap externalAnchorMap
 
   expectations <- filterM doesFileExist expected
 

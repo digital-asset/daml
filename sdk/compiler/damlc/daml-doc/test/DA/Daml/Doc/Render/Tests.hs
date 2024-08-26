@@ -364,9 +364,10 @@ expectMarkdownIndex = T.unlines
   ]
 
 renderTest :: RenderFormat -> AnchorMap -> (String, ModuleDoc) -> T.Text -> Tasty.TestTree
-renderTest format externalAnchors (name, input) expected =
+renderTest format externalAnchorMap (name, input) expected =
   testCase name $ do
   let
+    externalAnchors = UseAnchorMap externalAnchorMap
     renderer = case format of
                  Rst -> renderPage renderRst externalAnchors defaultAnchorGenerators . renderModule
                  Markdown -> renderPage renderMd externalAnchors defaultAnchorGenerators . renderModule
@@ -381,7 +382,7 @@ renderFolderTest ::
   -> (String, [ModuleDoc])
   -> (T.Text, Map Modulename T.Text)
   -> Tasty.TestTree
-renderFolderTest format externalAnchors (name, input) expected =
+renderFolderTest format externalAnchorMap (name, input) expected =
   testCaseSteps name $ \step -> do
     let
       modStep modName =
@@ -422,6 +423,8 @@ renderFolderTest format externalAnchors (name, input) expected =
   where
     (outputIndex, outputModules) = strip $ renderer input
     (expectIndex, expectModules) = strip expected
+
+    externalAnchors = UseAnchorMap externalAnchorMap
 
     renderer = case format of
       Rst -> renderFolder renderRst externalAnchors defaultAnchorGenerators "html" . renderMap
