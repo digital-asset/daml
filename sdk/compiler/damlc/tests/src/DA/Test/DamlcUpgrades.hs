@@ -315,13 +315,27 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedSeparateDep"
-                      Succeed
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
                       versionDefault
                       SeparateDep
                       False
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedUpgradedPackage"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                      versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
+                      Succeed
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                       Succeed
                       versionDefault
                       DependOnV1
