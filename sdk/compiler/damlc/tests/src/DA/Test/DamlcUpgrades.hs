@@ -328,6 +328,20 @@ tests damlc =
                       True
                       setUpgradeField
                 , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
+                      Succeed
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
+                      Succeed
+                      versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
                       "ValidUpgrade"
                       Succeed
                       versionDefault

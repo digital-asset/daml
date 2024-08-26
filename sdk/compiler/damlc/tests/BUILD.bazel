@@ -485,6 +485,8 @@ da_haskell_test(
         "//test-common:upgrades-SucceedsWhenATopLevelTypeSynonymChanges-files",
         "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-files",
         "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-files",
+        "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-files",
+        "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-files",
         "//test-common:upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-files",
         "//test-common:upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-files",
         "//test-common:upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-files",
