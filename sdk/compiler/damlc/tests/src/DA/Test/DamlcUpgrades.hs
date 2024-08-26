@@ -312,13 +312,27 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedSeparateDep"
-                      Succeed
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
                       LF.versionDefault
                       SeparateDep
                       False
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedUpgradedPackage"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                      LF.versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
+                      Succeed
+                      LF.versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                       Succeed
                       LF.versionDefault
                       DependOnV1
@@ -430,15 +444,6 @@ tests damlc =
                       warnBadInterfaceInstances
                       True
                       doTypecheck
-                , testGeneral
-                      (prefix <> "WhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt")
-                      "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt"
-                      (expectation "type checking template Main.T interface instance [0-9a-f]+:Main:I for Main:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
-                      LF.versionDefault
-                      DependOnV1
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
@@ -451,9 +456,9 @@ tests damlc =
        )
   where
     contractKeysMinVersion :: LF.Version
-    contractKeysMinVersion = 
+    contractKeysMinVersion =
         fromJustNote
-            "Expected at least one LF 2.x version to support contract keys." 
+            "Expected at least one LF 2.x version to support contract keys."
             (LF.featureMinVersion LF.featureContractKeys LF.V2)
 
     test
