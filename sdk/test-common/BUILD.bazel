@@ -218,6 +218,7 @@ da_scala_dar_resources_library(
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWhenAnInstanceIsDropped",
         "FailsWhenAnInstanceIsAddedSeparateDep",
+        "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
     ]
 ]
 
@@ -382,6 +383,18 @@ da_scala_dar_resources_library(
             {"data_dependencies": [
                 "//test-common:upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
             ]},
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage",
+            {},
+            {"data_dependencies": [
+                "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
+            ]},
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
+            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-dep.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-dep.dar"]},
         ),
         (
             "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt",

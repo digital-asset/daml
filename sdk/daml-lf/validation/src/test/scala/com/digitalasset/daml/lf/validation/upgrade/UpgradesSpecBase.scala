@@ -726,7 +726,7 @@ trait LongTests { this: UpgradesSpec =>
       } yield result
     }
 
-    "Succeeds when an instance is added (separate dep)." in {
+    "Fails when an instance is added (separate dep)." in {
       for {
         _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar")
         result <- testPackagePair(
@@ -741,7 +741,7 @@ trait LongTests { this: UpgradesSpec =>
       } yield result
     }
 
-    "Succeeds when an instance is added (upgraded package)." in {
+    "Fails when an instance is added (upgraded package)." in {
       testPackagePair(
         "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
@@ -749,6 +749,26 @@ trait LongTests { this: UpgradesSpec =>
           Some(
             "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
           )
+        ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (upgraded package)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (separate dep)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
+        assertPackageUpgradeCheck(
+          None
         ),
       )
     }

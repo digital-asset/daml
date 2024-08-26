@@ -448,7 +448,7 @@ case class TypecheckUpgrades(
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, _new) <- checkDeleted(
+      (existingTemplates, newTemplates) <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
@@ -461,7 +461,9 @@ case class TypecheckUpgrades(
         module.map(flattenInstances)
       )
       _ <- checkDeletedInstances(instanceDel)
-      _ <- checkAddedInstances(instanceNew)
+      _ <- checkAddedInstances(instanceNew.view.filterKeys { case (tyCon, _) =>
+        !newTemplates.contains(tyCon)
+      }.toMap)
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
