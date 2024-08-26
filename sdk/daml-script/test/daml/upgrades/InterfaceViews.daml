@@ -113,7 +113,7 @@ contents: |
 main : TestTree
 main = tests
   [ broken ("Calling an interface choice at command level fails as intended when the view is modified", exerciseCommandShouldFail)
-  , broken ("Calling an interface choice uses the highest version implementation at choice body level by default", exerciseInChoiceBodyShouldFail)
+  , broken ("Calling an interface choice in choice body fails as intended when the view is modified", exerciseInChoiceBodyShouldFail)
   , ("fetchFromInterface fails as intended when the view is modified", fetchFromInterfaceShouldFail)
   ]
 
