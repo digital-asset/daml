@@ -93,11 +93,11 @@ newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
 
 -- | Customisable anchor generation
 data AnchorGenerators = AnchorGenerators
-    { ag_moduleAnchor :: Modulename -> Anchor
-    , ag_classAnchor :: Modulename -> Typename -> Anchor
-    , ag_typeAnchor :: Modulename -> Typename -> Anchor
-    , ag_constrAnchor :: Modulename -> Typename -> Anchor
-    , ag_functionAnchor :: Modulename -> Fieldname-> Anchor
+    { ag_moduleAnchor :: Maybe Packagename -> Modulename -> Anchor
+    , ag_classAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
+    , ag_typeAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
+    , ag_constrAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
+    , ag_functionAnchor :: Maybe Packagename -> Modulename -> Fieldname-> Anchor
     }
 
 instance Show AnchorGenerators where show _ = "<anchorGenerators>"
@@ -109,6 +109,7 @@ data ModuleDoc = ModuleDoc
   { md_anchor     :: Maybe Anchor
   , md_name       :: Modulename
   , md_descr      :: Maybe DocText
+  , md_packageName:: Maybe Packagename
   , md_templates  :: [TemplateDoc]
   , md_interfaces :: [InterfaceDoc]
   , md_adts       :: [ADTDoc]

@@ -382,6 +382,7 @@ emptyDocs name =
     let md_name = Modulename (T.pack name)
         md_anchor = Just (moduleAnchor md_name)
         md_descr = Nothing
+        md_packgeName = Nothing
         md_templates = []
         md_adts = []
         md_functions = []

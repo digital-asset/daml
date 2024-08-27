@@ -60,6 +60,7 @@ distributeInstanceDocs opts docs =
         { md_name = md_name
         , md_anchor = md_anchor
         , md_descr = md_descr
+        , md_packageName = md_packageName
         , md_functions = md_functions
         , md_templates = md_templates
         , md_interfaces = map (addIfaceInstances imap) md_interfaces

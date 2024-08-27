@@ -328,16 +328,20 @@ export function createLanguageClient(
     // Register the server for Daml
     documentSelector: ["daml"],
     middleware: {
-      provideDefinition: async (document: vscode.TextDocument, position: vscode.Position, token: CancellationToken, next: ProvideDefinitionSignature) => {
+      provideDefinition: async (
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        token: CancellationToken,
+        next: ProvideDefinitionSignature,
+      ) => {
         const result = await next(document, position, token);
         if (!result) return;
 
-        let locations: Array<vscode.Location> | Array<vscode.LocationLink>
+        let locations: Array<vscode.Location> | Array<vscode.LocationLink>;
         if (result instanceof vscode.Location)
           locations = new Array(result as vscode.Location);
-        else if(Array.isArray(result))
-          locations = result;
-        else throw "Provide definition result was wrongly typed"
+        else if (Array.isArray(result)) locations = result;
+        else throw "Provide definition result was wrongly typed";
 
         if (locations.length == 0) return;
 
@@ -345,7 +349,11 @@ export function createLanguageClient(
         let location = locations[0];
 
         // this should reuse existing page
-        if (location instanceof vscode.Location && location.uri.scheme == "daml" && location.uri.path == "open-docs"){ 
+        if (
+          location instanceof vscode.Location &&
+          location.uri.scheme == "daml" &&
+          location.uri.path == "open-docs"
+        ) {
           const params = new URLSearchParams(location.uri.query);
           const path = params.get("path");
           const unitIdOrPackageId = params.get("name");
@@ -358,10 +366,9 @@ export function createLanguageClient(
             {},
           );
           panel.webview.html = content;
-        } else
-          return locations;        
-      }
-    }
+        } else return locations;
+      },
+    },
   };
 
   let command: string;
