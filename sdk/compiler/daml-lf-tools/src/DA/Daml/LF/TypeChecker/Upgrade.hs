@@ -801,22 +801,36 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
+checkQualNameM :: Eq a => Upgrading (Qualified a) -> TcUpgradeM Bool
+checkQualNameM name = do
+    deps <- view upgradingDeps
+    pure (checkQualName deps name)
+
+pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
+pkgIdsAreUpgraded deps pkgId =
+  case HMS.lookup <$> pkgId <*> pure deps of
+    Upgrading { _past = Just (pastName, pastVersion), _present = Just (presentName, presentVersion) } ->
+      pastName == presentName && pastVersion < presentVersion
+    _ ->
+      False
+
+checkQualName :: Eq a => UpgradingDeps -> Upgrading (Qualified a) -> Bool
+checkQualName deps name =
+    let namesAreSame = foldU (==) (fmap removePkgId name)
+        qualificationIsSame = foldU (==) (fmap qualPackage name)
+        qualificationIsUpgraded =
+          case qualPackage <$> name of
+            Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
+              pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
+            _ -> False
+    in
+    namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
+
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     deps <- view upgradingDeps
-    let checkSelf = alphaTypeCon
-        checkImport pastT presentT =
-          case (qualPackage pastT, qualPackage presentT) of
-            (PRImport pastPkgId, PRImport presentPkgId) ->
-              pastPkgId == presentPkgId ||
-              (case (pastPkgId `HMS.lookup` deps, presentPkgId `HMS.lookup` deps) of
-                (Just (pastName, pastVersion), Just (presentName, presentVersion)) -> pastName == presentName && pastVersion < presentVersion
-                _ -> False
-              ) && removePkgId pastT == removePkgId presentT
-            _ -> False
-        tconCheck pastT presentT = checkSelf pastT presentT || checkImport pastT presentT
-    pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
+    pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = unfoldU (checkQualName deps) }) expandedTypes
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }
