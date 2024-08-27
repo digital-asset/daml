@@ -58,14 +58,12 @@ private[inner] object ClassGenUtils {
 
   def generateTemplateIdFields(
       pkgId: PackageId,
-      pkgName: Option[PackageName],
+      pkgName: PackageName,
       moduleName: String,
       name: String,
   ): Seq[FieldSpec] = {
-    val packageRef = pkgName match {
-      case Some(name) => PackageRef.Name(name)
-      case None => PackageRef.Id(pkgId)
-    }
+    val _ = pkgName // TODO(raphael-speyer-da): To be used in subsequent PR
+    val packageRef = PackageRef.Id(pkgId)
     def idField(fieldName: String, pkg: String) =
       FieldSpec
         .builder(
