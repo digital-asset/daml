@@ -17,13 +17,8 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{SuppressionRule, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.retry.ErrorKind.TransientErrorKind
 import com.digitalasset.canton.util.retry.Jitter.RandomSource
-import com.digitalasset.canton.util.retry.RetryUtil.{
-  AllExnRetryable,
-  DbExceptionRetryable,
-  ExceptionRetryable,
-  NoExnRetryable,
-}
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil}
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import org.scalatest.funspec.AsyncFunSpec
@@ -33,7 +28,7 @@ import java.util.Random
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success as TrySuccess, Try}
+import scala.util.{Failure, Success as TrySuccess}
 
 class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
@@ -62,7 +57,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     it("should retry a future for a specified number of times") {
       implicit val success: Success[Int] = Success(_ == 3)
       val tries = forwardCountingFutureStream().iterator
-      Directly(logger, flagCloseable, 3, "op")(tries.next(), AllExnRetryable).map(result =>
+      Directly(logger, flagCloseable, 3, "op")(tries.next(), AllExceptionRetryPolicy).map(result =>
         assert(success.predicate(result) === true)
       )
     }
@@ -70,7 +65,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     it("should fail when expected") {
       val success = implicitly[Success[Option[Int]]]
       val tries = Future(None: Option[Int])
-      Directly(logger, flagCloseable, 2, "op")(tries, AllExnRetryable).map(result =>
+      Directly(logger, flagCloseable, 2, "op")(tries, AllExceptionRetryPolicy).map(result =>
         assert(success.predicate(result) === false)
       )
     }
@@ -84,7 +79,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           counter.incrementAndGet()
           Future.failed(new RuntimeException("always failing"))
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       // expect failure after 1+3 tries
       future.failed.map { t =>
@@ -102,7 +97,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           counter.incrementAndGet()
           Future.failed(new RuntimeException("always failing"))
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       future.failed.map(t => assert(counter.get() === 2 && t.getMessage === "always failing"))
     }
@@ -115,7 +110,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case 1 => Future.successful("yay!")
           case _ => Future.failed(new RuntimeException("failed"))
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       future.map(result => assert(counter.get() === 2 && result === "yay!"))
     }
@@ -134,7 +129,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         }
 
       val policy = Directly(logger, flagCloseable, Forever, "op")
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == retriedUntilSuccess)
       }
@@ -168,7 +163,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         {
           marker.set(System.currentTimeMillis); tries.next()
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       runF.map { result =>
         val delta = marker.get() - marker_base
@@ -193,7 +188,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         }
 
       val policy = Pause(logger, flagCloseable, Forever, 1.millis, "op")
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == retriedUntilSuccess)
       }
@@ -235,7 +230,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         {
           marker.set(System.currentTimeMillis); tries.next()
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       runF.map { result =>
         val delta = marker.get() - marker_base
@@ -260,7 +255,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         }
 
       val policy = Backoff(logger, flagCloseable, Forever, 1.millis, Duration.Inf, "op")
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == 5)
       }
@@ -307,7 +302,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         implicit val algo: Jitter = algoCreator(10.millis)
         val tries = forwardCountingFutureStream().iterator
         val policy = Backoff(logger, flagCloseable, 3, 1.milli, Duration.Inf, "op")
-        policy(tries.next(), AllExnRetryable).map(result =>
+        policy(tries.next(), AllExceptionRetryPolicy).map(result =>
           assert(success.predicate(result) === true)
         )
       }
@@ -317,7 +312,9 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val success = implicitly[Success[Option[Int]]]
         val tries = Future(None: Option[Int])
         val policy = Backoff(logger, flagCloseable, 3, 1.milli, Duration.Inf, "op")
-        policy(tries, AllExnRetryable).map(result => assert(success.predicate(result) === false))
+        policy(tries, AllExceptionRetryPolicy).map(result =>
+          assert(success.predicate(result) === false)
+        )
       }
 
       it("should deal with future failures") {
@@ -330,7 +327,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             counter.incrementAndGet()
             Future.failed(new RuntimeException("always failing"))
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         )
         future.failed.map(t => assert(counter.get() === 4 && t.getMessage === "always failing"))
       }
@@ -345,7 +342,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             case 1 => Future.successful("yay!")
             case _ => Future.failed(new RuntimeException("failed"))
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         )
         future.map(result => assert(counter.get() == 2 && result === "yay!"))
       }
@@ -362,7 +359,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           {
             marker.set(System.currentTimeMillis); tries.next()
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         ).map { result =>
           val delta = marker.get() - marker_base
           assert(
@@ -384,7 +381,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           {
             marker.set(System.currentTimeMillis); tries.next()
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         ).map { result =>
           val delta = marker.get() - marker_base
           assert(
@@ -409,7 +406,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           }
 
         val policy = Backoff(logger, flagCloseable, Forever, 1.millis, Duration.Inf, "op")
-        policy(run(), AllExnRetryable).map { result =>
+        policy(run(), AllExceptionRetryPolicy).map { result =>
           assert(result === true)
           assert(retried.get() == retriedUntilSuccess)
         }
@@ -446,7 +443,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             )
         },
       )
-      val future = policy(tries.next(), AllExnRetryable)
+      val future = policy(tries.next(), AllExceptionRetryPolicy)
       future.map(result => assert(success.predicate(result) === true))
     }
 
@@ -462,7 +459,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         },
       )
 
-      val future = policy(tries.next(), AllExnRetryable)
+      val future = policy(tries.next(), AllExceptionRetryPolicy)
       future.map(result => assert(success.predicate(result) === false))
     }
 
@@ -485,7 +482,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case RetryAfter(duration) => Pause(logger, flagCloseable, 4, delay = duration, "op")
         },
       )
-      policy(run(), AllExnRetryable).map(result => assert(result === true))
+      policy(run(), AllExceptionRetryPolicy).map(result => assert(result === true))
     }
 
     it("should handle synchronous failures") {
@@ -507,7 +504,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case RetryAfter(duration) => Pause(logger, flagCloseable, 4, delay = duration, "op")
         },
       )
-      policy(run(), AllExnRetryable).map(result => assert(result === true))
+      policy(run(), AllExceptionRetryPolicy).map(result => assert(result === true))
     }
 
     it("should repeat on failure until success") {
@@ -531,7 +528,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case _: MyException => Directly(logger, flagCloseable, Forever, "op")
         },
       )
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == retriedUntilSuccess)
       }
@@ -558,7 +555,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case _: MyException => Pause(logger, flagCloseable, Forever, 1.millis, "op")
         },
       )
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == retriedUntilSuccess)
       }
@@ -587,7 +584,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             Backoff(logger, flagCloseable, Forever, 1.millis, Duration.Inf, "op")
         },
       )
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == 5)
       }
@@ -615,7 +612,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             Backoff(logger, flagCloseable, Forever, 1.millis, Duration.Inf, "op")
         },
       )
-      policy(run(), AllExnRetryable).map { result =>
+      policy(run(), AllExceptionRetryPolicy).map { result =>
         assert(result === true)
         assert(retried.get() == 10)
       }
@@ -636,7 +633,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           counter.incrementAndGet()
           Future.failed(new RuntimeException(s"unexpected problem"))
         },
-        DbExceptionRetryable,
+        NoExceptionRetryPolicy,
       )
       future.failed.map(t => assert(counter.get() === 1 && t.getMessage === "unexpected problem"))
     }
@@ -650,7 +647,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           counter.incrementAndGet()
           throw new RuntimeException("always failing")
         },
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       // expect failure after 1+maxRetries tries
       future.failed.map { t =>
@@ -680,7 +677,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         Future.successful(incr)
       }
 
-      val result = policy(closeable)(run(), AllExnRetryable)(
+      val result = policy(closeable)(run(), AllExceptionRetryPolicy)(
         success,
         executorService,
         traceContext,
@@ -704,7 +701,11 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       }
 
       val retryF =
-        policy(closeable)(run(), AllExnRetryable)(Success.never, executorService, traceContext)
+        policy(closeable)(run(), AllExceptionRetryPolicy)(
+          Success.never,
+          executorService,
+          traceContext,
+        )
           .thereafter { count =>
             logger.debug(s"Stopped retry after $count")
           }(executorService)
@@ -743,7 +744,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       try {
         FutureUtil.doNotAwait(
           // This future probably never completes because we are likely to close the execution context during a `Delay`
-          policy(closeable)(run(), AllExnRetryable)(Success.never, closeableEc, implicitly),
+          policy(closeable)(run(), AllExceptionRetryPolicy)(Success.never, closeableEc, implicitly),
           "retrying forever until the execution context closes",
         )
 
@@ -775,7 +776,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         }
       }
 
-      policy(flagCloseable1).unlessShutdown(run(), AllExnRetryable).unwrap.map { result =>
+      policy(flagCloseable1).unlessShutdown(run(), AllExceptionRetryPolicy).unwrap.map { result =>
         result shouldBe AbortedDueToShutdown
         retried.get() shouldBe retriedUntilShutdown
       }
@@ -804,7 +805,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       }
 
       val policy = mkPolicy(maxRetries)(Eval.always(suspend.get()))
-      policy.apply(run(), NoExnRetryable).map { _ =>
+      policy.apply(run(), NoExceptionRetryPolicy).map { _ =>
         retried.get() shouldBe maxRetries + 3
       }
     }
@@ -816,17 +817,21 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       case class TestException() extends RuntimeException("test exception")
 
-      val retryable = new ExceptionRetryable() {
-        override def retryOK(
-            outcome: Try[_],
+      val retryable = new ExceptionRetryPolicy() {
+
+        override protected def determineExceptionErrorKind(
+            exception: Throwable,
             logger: TracedLogger,
-            lastErrorKind: Option[RetryUtil.ErrorKind],
-        )(implicit tc: TraceContext): RetryUtil.ErrorKind = RetryUtil.TransientErrorKind
+        )(implicit
+            tc: TraceContext
+        ): ErrorKind =
+          TransientErrorKind()
 
         override def retryLogLevel(e: Throwable): Option[Level] = e match {
           case TestException() => Some(Level.WARN)
           case _ => None
         }
+
       }
 
       loggerFactory

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.data
 
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.NodeStatus.{multiline, portsString, protocolVersionsString}
-import com.digitalasset.canton.health.admin.{v0, v1}
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.health.{
   ComponentStatus,
   NodeStatus,
@@ -64,12 +64,6 @@ final case class ParticipantStatus(
       .toProtoV0
       .copy(extra = v0.ParticipantStatusInfo(domains, active).toByteString)
   }
-
-  override def toProtoV1: v1.Status =
-    this
-      .into[SimpleStatus]
-      .transform
-      .toProtoV1
 
   def toParticipantStatusProto
       : participantV0.ParticipantStatusResponse.ParticipantStatusResponseStatus = {

@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatingProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -332,10 +333,15 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
   }
 
   "parsing our config example snippets" should {
+
+    val excludeIfNoBeta: Set[String] =
+      if (ProtocolVersion.beta.nonEmpty) Set.empty else Set("beta-version-support.conf")
+
     "succeed on all examples" in {
       val inputDir = baseDir / "documentation-snippets"
       inputDir
         .list(_.extension.contains(".conf"))
+        .filter(f => !excludeIfNoBeta.contains(f.name))
         .foreach(file =>
           loggerFactory.assertLogsUnorderedOptional(
             loadFiles(Seq(simpleConf, "documentation-snippets/" + file.name))

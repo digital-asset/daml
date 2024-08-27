@@ -1227,7 +1227,7 @@ trait TopologyStoreTest
           )
 
         val oldTx = factory.mkTrans(addTx(ProtocolVersion.v5), namespaceKey)
-        val newTx = factory.mkTrans(addTx(ProtocolVersion.v6), namespaceKey)
+        val newTx = factory.mkTrans(addTx(ProtocolVersion.v7), namespaceKey)
 
         for {
           _ <- append(store, ts, List(oldTx))

@@ -198,7 +198,7 @@ object ProtocolVersion {
   ) = {
     val deleted = Option.when(includeDeleted)(ProtocolVersion.deleted).getOrElse(Nil)
 
-    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).map(_.toString)
+    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).sorted.map(_.toString)
 
     s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
   }
@@ -213,7 +213,7 @@ object ProtocolVersion {
     *
     * Otherwise, use one of the other factory methods.
     */
-  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
+  def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 
@@ -282,7 +282,7 @@ object ProtocolVersion {
     */
   private val deprecating: Seq[ProtocolVersion] = Seq()
   private val deprecated: Seq[ProtocolVersion] = Seq()
-  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4)
+  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4, v6)
 
   /** All stable protocol versions supported by this release.
     */
@@ -308,7 +308,7 @@ object ProtocolVersion {
       .map(pv => ProtocolVersion.createBeta(pv.v))
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
-    NonEmpty.mk(List, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v7, ProtocolVersion.dev)
 
   val supported: NonEmpty[List[ProtocolVersion]] =
     stable ++ beta ++ unstable
@@ -322,7 +322,8 @@ object ProtocolVersion {
   lazy val v3: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(3)
   lazy val v4: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(4)
   lazy val v5: ProtocolVersionWithStatus[Stable] = ProtocolVersion.createStable(5)
-  lazy val v6: ProtocolVersionWithStatus[Beta] = ProtocolVersion.createBeta(6)
+  lazy val v6: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.createUnstable(6) // Deleted
+  lazy val v7: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.createUnstable(7)
   /*
   If you add a new protocol version, ensure that you add the corresponding CI
   jobs (`test_protocol_version_X`) so that tests are run with this new protocol version.

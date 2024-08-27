@@ -57,9 +57,7 @@ class Crypto(
   ): EitherT[Future, SigningKeyGenerationError, SigningPublicKey] =
     for {
       publicKey <- privateCrypto.generateSigningKey(scheme, name)
-      _ <- cryptoPublicStore
-        .storeSigningKey(publicKey, name)
-        .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPublicStoreError)
+      _ <- EitherT.right(cryptoPublicStore.storeSigningKey(publicKey, name))
     } yield publicKey
 
   /** Helper method to generate a new encryption key pair and store the public key in the public store as well. */
@@ -71,11 +69,7 @@ class Crypto(
   ): EitherT[Future, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
       publicKey <- privateCrypto.generateEncryptionKey(scheme, name)
-      _ <- cryptoPublicStore
-        .storeEncryptionKey(publicKey, name)
-        .leftMap[EncryptionKeyGenerationError](
-          EncryptionKeyGenerationError.EncryptionPublicStoreError
-        )
+      _ <- EitherT.right(cryptoPublicStore.storeEncryptionKey(publicKey, name))
     } yield publicKey
 
   override def onClosed(): Unit =

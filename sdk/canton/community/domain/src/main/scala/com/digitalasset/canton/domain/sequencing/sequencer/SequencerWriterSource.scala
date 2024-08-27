@@ -25,6 +25,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   TracedLogger,
 }
+import com.digitalasset.canton.resource.DbExceptionRetryPolicy
 import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SequencerErrors,
@@ -36,7 +37,6 @@ import com.digitalasset.canton.tracing.BatchTracing.withTracedBatch
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
@@ -46,6 +46,7 @@ import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
 
 /** A write we want to make to the db */
 sealed trait Write
@@ -548,6 +549,14 @@ object WritePayloadsFlow {
 }
 
 object UpdateWatermarkFlow {
+
+  private def retryDbException(error: Throwable, logger: TracedLogger)(implicit
+      tc: TraceContext
+  ): Boolean =
+    DbExceptionRetryPolicy
+      .logAndDetermineErrorKind(Failure(error), logger, None)
+      .maxRetries == Int.MaxValue
+
   def apply(store: SequencerWriterStore, logger: TracedLogger)(implicit
       executionContext: ExecutionContext
   ): Flow[Traced[BatchWritten], Traced[BatchWritten], NotUsed] =
@@ -567,8 +576,8 @@ object UpdateWatermarkFlow {
             // This is a workaround to avoid failing during shutdown that can be removed once saveWatermark returns
             // a FutureUnlessShutdown
             .recover {
-              case exception if DbExceptionRetryable.retryOKForever(exception, logger) =>
-                // The exception itself is already being logged above by retryOKForever. Only logging here additional
+              case exception if retryDbException(exception, logger) =>
+                // The exception itself is already being logged above by retryDbException. Only logging here additional
                 // context
                 logger.info(
                   "Saving watermark failed with a retryable error. This can happen during shutdown." +

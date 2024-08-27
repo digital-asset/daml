@@ -319,7 +319,7 @@ class ConfirmationRequestFactoryTest
           .value
 
         val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] =
-          if (testedProtocolVersion >= ProtocolVersion.v6) {
+          if (testedProtocolVersion >= ProtocolVersion.v7) {
             // simulates session key cache
             val keySeedSession = privateKeysetCache.getOrElseUpdate(
               recipients.leafRecipients,
@@ -430,7 +430,7 @@ class ConfirmationRequestFactoryTest
         }
       }
 
-      s"use different session key after key is revoked between two requests" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      s"use different session key after key is revoked between two requests" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
         // we use the same store for two requests to simulate what would happen in a real scenario
         val store =

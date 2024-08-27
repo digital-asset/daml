@@ -480,8 +480,13 @@ object EncryptionPublicKey
 final case class EncryptionPublicKeyWithName(
     override val publicKey: EncryptionPublicKey,
     override val name: Option[KeyName],
-) extends PublicKeyWithName {
+) extends PublicKeyWithName
+    with PrettyPrinting {
+
   type K = EncryptionPublicKey
+
+  override def pretty: Pretty[EncryptionPublicKeyWithName] =
+    prettyOfClass(param("publicKey", _.publicKey), param("name", _.name))
 }
 
 object EncryptionPublicKeyWithName {
