@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.config
 
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -21,6 +23,7 @@ final case class GrpcHealthServerConfig(
     override val address: String = "0.0.0.0",
     override val internalPort: Option[Port] = None,
     override val keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     parallelism: Int = 4,
 ) extends ServerConfig {
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
@@ -35,6 +38,8 @@ final case class GrpcHealthServerConfig(
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
+      jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      telemetry: Telemetry,
   ): CantonServerInterceptors =
     new CantonCommunityServerInterceptors(
       tracingConfig,
@@ -43,6 +48,8 @@ final case class GrpcHealthServerConfig(
       grpcMetrics,
       authServices,
       adminToken,
+      jwtTimestampLeeway,
+      telemetry,
     )
 
   def toRemoteConfig: ClientConfig =

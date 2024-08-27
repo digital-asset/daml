@@ -351,7 +351,7 @@ class StoreBasedDomainOutbox(
   private def maxAuthorizedStoreTimestamp()(implicit
       traceContext: TraceContext
   ): Future[Option[(SequencedTime, EffectiveTime)]] =
-    authorizedStore.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false)
+    authorizedStore.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
 
   override protected def onClosed(): Unit = {
     maybeObserverCloseable.foreach(_.close())

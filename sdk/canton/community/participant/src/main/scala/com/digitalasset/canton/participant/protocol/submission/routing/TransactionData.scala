@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
@@ -31,6 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 private[routing] final case class TransactionData private (
     transaction: LfVersionedTransaction,
+    ledgerTime: CantonTimestamp,
     requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
     actAs: Set[LfPartyId],
     readAs: Set[LfPartyId],
@@ -47,6 +49,7 @@ private[routing] object TransactionData {
       actAs: Set[LfPartyId],
       readAs: Set[LfPartyId],
       transaction: LfVersionedTransaction,
+      ledgerTime: CantonTimestamp,
       domainStateProvider: DomainStateProvider,
       contractsStakeholders: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
@@ -69,6 +72,7 @@ private[routing] object TransactionData {
           )
     } yield TransactionData(
       transaction = transaction,
+      ledgerTime: CantonTimestamp,
       requiredPackagesPerParty = Blinding.partyPackages(transaction),
       actAs = actAs,
       readAs = readAs,
@@ -79,6 +83,7 @@ private[routing] object TransactionData {
   def create(
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
+      ledgerTime: CantonTimestamp,
       domainStateProvider: DomainStateProvider,
       inputContractStakeholders: Map[LfContractId, Set[Party]],
       disclosedContracts: Seq[LfContractId],
@@ -99,6 +104,7 @@ private[routing] object TransactionData {
         actAs = actAs,
         readAs = readers,
         transaction,
+        ledgerTime,
         domainStateProvider,
         inputContractStakeholders,
         disclosedContracts,

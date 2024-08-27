@@ -10,10 +10,9 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
 }
-import com.digitalasset.daml.lf.archive.{DamlLf, Decode}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.util.PackageInfo
+import com.digitalasset.daml.lf.language.{Ast, Util as LfUtil}
 
 // TODO(#17635): Move to [[com.digitalasset.canton.participant.store.memory.PackageMetadataView]]
 final case class PackageMetadata(
@@ -22,6 +21,8 @@ final case class PackageMetadata(
     interfacesImplementedBy: InterfacesImplementedBy = Map.empty,
     packageNameMap: Map[Ref.PackageName, PackageResolution] = Map.empty,
     packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+    // TODO(#19671): Use [[com.digitalasset.daml.lf.language.PackageInterface]] once public
+    packages: Map[Ref.PackageId, Ast.PackageSignature] = Map.empty,
 )
 
 object PackageMetadata {
@@ -58,12 +59,11 @@ object PackageMetadata {
       templates = packageInfo.definedTemplates,
       interfacesImplementedBy = packageInfo.interfaceInstances,
       packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
+      // TODO(#19671): Consider a size-bounded cache in case of memory pressure issues
+      //               Consider unifying with the other package caches in the participant
+      //               (e.g. [[com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader]])
+      packages = Map(packageId -> LfUtil.toSignature(packageAst)),
     )
-  }
-
-  def from(archive: DamlLf.Archive): PackageMetadata = {
-    val (pkgId, pkgAst) = Decode.assertDecodeArchive(archive, onlySerializableDataDefs = true)
-    from(pkgId, pkgAst)
   }
 
   object Implicits {
@@ -89,6 +89,7 @@ object PackageMetadata {
                   )
               }
             },
+          packages = x.packages ++ y.packages,
         )
       }
 

@@ -185,17 +185,12 @@ private[index] class IndexServiceImpl(
         idleStreamOffsetCheckpointTimeout,
   ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
     if (cond) {
-      // tick source so that we create a checkpoint for empty streams
-      val tick = Source
-        .tick(
-          idleStreamOffsetCheckpointTimeout.underlying,
-          idleStreamOffsetCheckpointTimeout.underlying,
-          Timeout: Carrier[T],
-        )
-        .map((Offset.beforeBegin, _))
-
+      // keepAlive flow so that we create a checkpoint for idle streams
       Flow[(Offset, Carrier[T])]
-        .mergePreferred(tick, preferred = false, eagerComplete = true)
+        .keepAlive(
+          idleStreamOffsetCheckpointTimeout.underlying,
+          () => (Offset.beforeBegin, Timeout), // the offset for timeout is ignored
+        )
         .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
     } else
       Flow[(Offset, Carrier[T])].collect { case (off, Element(elem)) =>

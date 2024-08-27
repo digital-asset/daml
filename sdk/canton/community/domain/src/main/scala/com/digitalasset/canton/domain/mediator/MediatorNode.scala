@@ -115,7 +115,8 @@ final case class MediatorNodeParameters(
     with HasProtocolCantonNodeParameters
 
 final case class RemoteMediatorConfig(
-    adminApi: ClientConfig
+    adminApi: ClientConfig,
+    token: Option[String] = None,
 ) extends NodeConfig {
   override def clientAdminApi: ClientConfig = adminApi
 }

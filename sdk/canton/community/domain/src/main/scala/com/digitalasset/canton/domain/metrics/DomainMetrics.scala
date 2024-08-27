@@ -274,7 +274,7 @@ object SequencerMetrics {
             "send-unexpected"
         }
       MetricsContext(
-        "sender" -> sender.toString,
+        "member" -> sender.toString,
         "type" -> messageType,
       )
     }
@@ -282,7 +282,7 @@ object SequencerMetrics {
 
   def submissionTypeMetricsContext(
       allRecipients: Set[Recipient],
-      sender: Member,
+      member: Member,
       logger: TracedLogger,
       warnOnUnexpected: Boolean = true,
   )(implicit traceContext: TraceContext): MetricsContext =
@@ -296,7 +296,7 @@ object SequencerMetrics {
           acc.copy(sequencers = true)
         case (acc, AllMembersOfDomain) => acc.copy(broadcast = true)
       }
-      .metricsContext(sender, logger, warnOnUnexpected)
+      .metricsContext(member, logger, warnOnUnexpected)
 }
 
 class MediatorHistograms(val parent: MetricName)(implicit

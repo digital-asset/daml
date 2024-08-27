@@ -129,7 +129,7 @@ class PackageService(
 
       val checkNotVetted =
         packageOps
-          .isPackageVetted(packageId)
+          .hasVettedPackageEntry(packageId)
           .flatMap[CantonError, Unit] {
             case true => EitherT.leftT(new PackageVetted(packageId))
             case false => EitherT.rightT(())
@@ -281,7 +281,7 @@ class PackageService(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     packageOps
-      .isPackageVetted(mainPkg)
+      .hasVettedPackageEntry(mainPkg)
       .flatMap { isVetted =>
         if (!isVetted)
           EitherT.pure[FutureUnlessShutdown, CantonError](

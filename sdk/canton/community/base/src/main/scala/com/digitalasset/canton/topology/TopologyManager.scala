@@ -4,8 +4,8 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -234,7 +234,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     for {
       transactionsForHash <- EitherT
         .right[TopologyManagerError](
-          store.findTransactionsByTxHash(effective, Set(transactionHash))
+          store.findTransactionsAndProposalsByTxHash(effective, Set(transactionHash))
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       existingTransaction <-
@@ -464,7 +464,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
 
           transactionsInStore <- EitherT
             .liftF(
-              store.findTransactionsByTxHash(
+              store.findTransactionsAndProposalsByTxHash(
                 EffectiveTime.MaxValue,
                 transactions.map(_.hash).toSet,
               )
@@ -534,12 +534,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case DomainParametersState(domainId, newDomainParameters) =>
       checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, forceChanges)
-    case OwnerToKeyMapping(member, _, _) =>
+    case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
-    case VettedPackages(participantId, _, newPackageIds) =>
+    case VettedPackages(participantId, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
-        newPackageIds.toSet,
+        newPackages.map(_.packageId).toSet,
         forceChanges,
         transaction.mapping.code,
       )
@@ -633,8 +633,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         )
         .map {
           _.collectOfMapping[VettedPackages].collectLatestByUniqueKey.toTopologyState
-            .collectFirst { case VettedPackages(_, _, existingPackageIds) =>
-              existingPackageIds
+            .collectFirst { case VettedPackages(_, existingPackageIds) =>
+              existingPackageIds.map(_.packageId)
             }
             .getOrElse(Nil)
             .toSet

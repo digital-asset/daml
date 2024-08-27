@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.server
 
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.sequencing.SequencerRuntime
@@ -61,6 +62,7 @@ class DynamicGrpcServer(
         nodeParameters.loggingConfig.api,
         nodeParameters.tracing,
         grpcMetrics,
+        NoOpTelemetry,
       )
       // Overriding the dummy setting from PublicServerConfig.
       // To avoid being locked out if the dynamic domain parameter maxRequestSize is too small.

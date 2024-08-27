@@ -17,6 +17,7 @@ trait StartSettings {
   val wsConfig: Option[WebsocketConfig]
   val staticContentConfig: Option[StaticContentConfig]
   val debugLoggingOfHttpBodies: Boolean
+  val damlDefinitionsServiceEnabled: Boolean
 }
 
 object StartSettings {

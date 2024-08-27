@@ -66,13 +66,13 @@ class ConfirmationRequestAndResponseProcessorTest
 
   protected val mediatorGroup: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.zero,
-    active = NonEmpty.mk(Seq, activeMediator1, activeMediator2),
+    active = Seq(activeMediator1, activeMediator2),
     passive = Seq(passiveMediator3),
     threshold = PositiveInt.tryCreate(2),
   )
   protected val mediatorGroup2: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.one,
-    active = NonEmpty.mk(Seq, activeMediator4),
+    active = Seq(activeMediator4),
     passive = Seq.empty,
     threshold = PositiveInt.one,
   )
@@ -80,7 +80,7 @@ class ConfirmationRequestAndResponseProcessorTest
   protected val sequencer = SequencerId(UniqueIdentifier.tryCreate("sequencer", "one"))
 
   protected val sequencerGroup =
-    SequencerGroup(active = NonEmpty.mk(Seq, sequencer), Seq.empty, PositiveInt.one)
+    SequencerGroup(active = Seq(sequencer), Seq.empty, PositiveInt.one)
 
   private lazy val mediatorId: MediatorId = activeMediator2
   private lazy val mediatorGroupRecipient: MediatorGroupRecipient = MediatorGroupRecipient(

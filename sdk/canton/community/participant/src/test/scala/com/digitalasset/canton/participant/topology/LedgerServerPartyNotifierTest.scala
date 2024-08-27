@@ -87,7 +87,6 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
       simulateTransaction(
         PartyToParticipant.tryCreate(
           partyId,
-          None,
           PositiveInt.one,
           Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
           groupAddressing = false,
@@ -142,7 +141,6 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         _ <- fixture.simulateTransaction(
           PartyToParticipant.tryCreate(
             participant1.adminParty,
-            Some(domainId),
             PositiveInt.one,
             Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
             groupAddressing = false,

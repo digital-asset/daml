@@ -185,7 +185,7 @@ class TrafficPurchasedManager(
           sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()
           sequencerMetrics.trafficControl.trafficConsumption
             .extraTrafficPurchased(
-              MetricsContext("member" -> balance.member.toProtoPrimitive)
+              MetricsContext("member" -> balance.member.toString)
             )
             .updateValue(balance.extraTrafficPurchased.value)
         }

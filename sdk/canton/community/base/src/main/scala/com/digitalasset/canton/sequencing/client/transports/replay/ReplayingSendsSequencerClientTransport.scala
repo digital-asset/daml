@@ -182,6 +182,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
             logger.warn(
               s"Sequencer is overloaded and rejected our send. Please tune the sequencer to handle more concurrent requests."
             )
+            metrics.submissions.overloaded.inc()
 
           case Left(error) =>
             // log, increase error counter, then ignore

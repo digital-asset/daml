@@ -41,6 +41,7 @@ import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.http.json.v2.V2Routes
+import com.digitalasset.canton.ledger.participant.state.WriteService
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Using
@@ -48,6 +49,7 @@ import scala.util.Using
 class HttpService(
     startSettings: StartSettings,
     channel: Channel,
+    writeService: WriteService,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     asys: ActorSystem,
@@ -153,6 +155,8 @@ class HttpService(
       v2Routes = V2Routes(
         ledgerClient,
         packageService,
+        metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
+        writeService,
         mat.executionContext,
         mat,
         loggerFactory,
