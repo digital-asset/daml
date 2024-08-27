@@ -185,11 +185,8 @@ final class WasmRunner(
         ArrayList.from(fields.map(kv => toSValue(kv._2)).toArray[SValue]),
       )
     case LfValue.ValueRecord(None, fields) =>
-      // FIXME: hard coded tyCon - use of VersionTransaction should avoid this typing requirement issue?
-      val tyCon = Ref.Identifier.assertFromString(
-        "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:create_contract:SimpleTemplate.new"
-      )
-      val fieldNames = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2"))
+      val tyCon = Ref.Identifier.assertFromString("package:module:record")
+      val fieldNames = ImmArray.from(fields.indices.map(index => Ref.Name.assertFromString(s"_$index")))
       SValue.SRecord(
         tyCon,
         fieldNames,
@@ -198,15 +195,17 @@ final class WasmRunner(
     case LfValue.ValueVariant(Some(tyCon), variant, value) =>
       // No applications, so rank is always 0
       SValue.SVariant(tyCon, variant, 0, toSValue(value))
-    case LfValue.ValueVariant(None, _, _) =>
-      // FIXME: presumably we need pkgInterface here?
-      ???
+    case LfValue.ValueVariant(None, variant, value) =>
+      // No applications, so rank is always 0
+      val tyCon = Ref.Identifier.assertFromString("package:module:variant")
+      SValue.SVariant(tyCon, variant, 0, toSValue(value))
     case LfValue.ValueEnum(Some(tyCon), value) =>
       // No applications, so rank is always 0
       SValue.SEnum(tyCon, value, 0)
-    case LfValue.ValueEnum(None, _) =>
-      // FIXME: presumably we need pkgInterface here?
-      ???
+    case LfValue.ValueEnum(None, value) =>
+      // No applications, so rank is always 0
+      val tyCon = Ref.Identifier.assertFromString("package:module:enum")
+      SValue.SEnum(tyCon, value, 0)
   }
 }
 
@@ -214,11 +213,11 @@ object WasmRunner {
   final case class WasmExpr(module: ByteString, name: String, args: Array[Byte]*)
 
   private val WasmValueParameterType = List(WasmValueType.I32)
-  private val WasmUnitResultType = List.empty[WasmValueType]
-  private val WasmValueResultType = List(WasmValueType.I32)
+  private val WasmUnitResultType = None
+  private val WasmValueResultType = Some(WasmValueType.I32)
   private val i32Size = WasmValueType.I32.size()
 
-  private def wasmFunction(name: String, numOfParams: Int, returnType: List[WasmValueType])(
+  private def wasmFunction(name: String, numOfParams: Int, returnType: Option[WasmValueType])(
       lambda: Array[ByteString] => ByteString
   ): WasmHostFunction = {
     new WasmHostFunction(
@@ -232,7 +231,7 @@ object WasmRunner {
       "env",
       name,
       (0 until numOfParams).flatMap(_ => WasmValueParameterType).asJava,
-      returnType.asJava,
+      returnType.toList.asJava,
     )
   }
 
