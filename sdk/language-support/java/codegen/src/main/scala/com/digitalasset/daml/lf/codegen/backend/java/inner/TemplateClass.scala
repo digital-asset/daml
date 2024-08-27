@@ -503,7 +503,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
     ClassGenUtils.generateTemplateIdFields(
       typeWithContext.packageId,
-      None, // TODO(raphael-speyer-da): Some(typeWithContext.interface.metadata.name)
+      Some(typeWithContext.interface.metadata.name),
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )
