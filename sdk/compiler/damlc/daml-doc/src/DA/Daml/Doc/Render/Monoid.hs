@@ -76,7 +76,7 @@ data RenderEnv = RenderEnv
         -- ^ anchors defined in the same file
     , re_globalAnchors :: Map.Map Anchor FilePath
         -- ^ anchors defined in the same folder
-    , re_externalAnchors :: ExternalAnchors
+    , re_externalAnchors :: AnchorMap
         -- ^ anchors defined externally
     , re_anchorGenerators :: AnchorGenerators
     }
@@ -89,34 +89,28 @@ data RenderEnv = RenderEnv
 data AnchorLocation
     = SameFile -- ^ anchor is in same file
     | SameFolder FilePath -- ^ anchor is in a file within same folder
-    | External (Anchor -> URI.URI) -- ^ anchor at the given URL
+    | External URI.URI -- ^ anchor at the given URL
 
 -- | Build hyperlink from anchor and anchor location. Hyperlink is
 -- relative for anchors in the same package, absolute for external
 -- packages.
 anchorHyperlink :: AnchorLocation -> Anchor -> T.Text
-anchorHyperlink anchorLoc a@(Anchor anchor) =
+anchorHyperlink anchorLoc (Anchor anchor) =
     case anchorLoc of
         SameFile -> "#" <> anchor
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
-        External f -> T.pack $ show $ f a
+        External uri -> T.pack . show $ uri
 
 -- | Find the location of an anchor by reference, if possible.
 lookupReference ::
     RenderEnv
     -> Reference
     -> Maybe AnchorLocation
-lookupReference RenderEnv{..} ref = asum $
+lookupReference RenderEnv{..} ref = asum
     [ SameFile <$ guard (Set.member (referenceAnchor ref) re_localAnchors)
     , SameFolder <$> Map.lookup (referenceAnchor ref) re_globalAnchors
-    ] <>
-    case re_externalAnchors of
-      UseAnchorMap anchorMap -> pure $ do
-        uriStr <- HMS.lookup (referenceAnchor ref) (unAnchorMap anchorMap)
-        uri <- URI.parseURI uriStr
-        pure $ External $ const uri
-      UseAnchorFun f -> [Just $ External f]
-      
+    , External <$> unAnchorMap re_externalAnchors (referenceAnchor ref)
+    ]
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 
@@ -133,7 +127,7 @@ getRenderAnchors = \case
     RenderDocs _ -> Set.empty
     RenderIndex _ -> Set.empty
 
-renderPage :: RenderFormatter -> ExternalAnchors -> AnchorGenerators -> RenderOut -> T.Text
+renderPage :: RenderFormatter -> AnchorMap -> AnchorGenerators -> RenderOut -> T.Text
 renderPage formatter externalAnchors anchorGenerators output =
     T.unlines (formatter renderEnv output)
     where
@@ -148,7 +142,7 @@ renderPage formatter externalAnchors anchorGenerators output =
 -- | Render a folder of modules.
 renderFolder ::
     RenderFormatter
-    -> ExternalAnchors
+    -> AnchorMap
     -> AnchorGenerators
     -> String
     -> Map.Map Modulename RenderOut

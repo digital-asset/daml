@@ -13,7 +13,9 @@ import qualified Data.Text as T
 import Data.Hashable
 import GHC.Generics
 import Data.String
+import Data.Traversable (for)
 import qualified Data.HashMap.Strict as HMS
+import qualified Network.URI as URI
 
 -- | Doc text type, presumably Markdown format.
 newtype DocText = DocText { unDocText :: Text }
@@ -88,8 +90,17 @@ newtype Anchor = Anchor { unAnchor :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, IsString, Hashable)
 
 -- | A database of anchors to URL strings.
-newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
-    deriving newtype (Eq, Ord, Show, FromJSON)
+newtype AnchorMap = AnchorMap { unAnchorMap :: Anchor -> Maybe URI.URI }
+
+-- Parsed in as a lookup only hashmap, so a function can be used in its place
+instance FromJSON AnchorMap where
+  parseJSON json = do
+    -- The version of aeson we're using (2.0.3.0) doesn't have `FromJSON URI`.
+    -- It was added in 2.2.0.0. Instead we traverse the parser directly.
+    hashMap <- parseJSON @(HMS.HashMap Anchor String) json
+    hashMapUri <- for hashMap $ \uriStr ->
+      maybe (fail $ "Invalid URI: " <> uriStr) pure $ URI.parseURI uriStr
+    pure $ AnchorMap $ flip HMS.lookup hashMapUri
 
 -- | Customisable anchor generation
 data AnchorGenerators = AnchorGenerators

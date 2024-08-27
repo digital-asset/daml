@@ -8,7 +8,6 @@ module DA.Daml.Doc.Render.Types
 
 import DA.Daml.Doc.Types -- for Anchor, AnchorMap
 import qualified Data.Text as T
-import qualified Network.URI as URI
 
 data RenderFormat = Rst | Markdown | Html
     deriving (Eq, Show, Read, Enum, Bounded)
@@ -30,12 +29,7 @@ data RenderOptions = RenderOptions
     , ro_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , ro_hooglePath :: Maybe FilePath -- ^ path to output hoogle database
     , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
-    , ro_externalAnchors :: ExternalAnchors -- ^ external input anchor table
+    , ro_externalAnchors :: AnchorMap -- ^ external input anchor table
     , ro_globalInternalExt :: String -- ^ File extension for internal links
     , ro_anchorGenerators :: AnchorGenerators -- ^ control how anchor strings are generated, useful for multi-ide
     }
-
--- | Choice between an anchor map, or always placing the anchor directly into generated document
-data ExternalAnchors
-  = UseAnchorMap AnchorMap
-  | UseAnchorFun (Anchor -> URI.URI)

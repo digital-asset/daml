@@ -40,7 +40,6 @@ import qualified Data.Aeson as AE
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
 import qualified Network.URI as URI
@@ -86,7 +85,7 @@ data ExternalAnchorPath
 
 data ExternalAnchorBehaviour
   = ExternalAnchorMapPath ExternalAnchorPath
-  | ExternalAnchorFun (Anchor -> URI.URI)
+  | ExternalAnchorFun (Anchor -> Maybe URI.URI)
 
 -- | Run damldocs!
 runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
@@ -127,7 +126,7 @@ loadExternalAnchors eapath = do
             hPutStr stderr err
             exitFailure
     anchors <- case eapath of
-        NoExternalAnchorPath -> pure . Right $ AnchorMap HMS.empty
+        NoExternalAnchorPath -> pure . Right $ AnchorMap $ const Nothing
         DefaultExternalAnchorPath -> getDamlBaseAnchorsPath >>= tryLoadAnchors
         ExplicitExternalAnchorPath path -> tryLoadAnchors path
     either printAndExit pure anchors
@@ -165,8 +164,8 @@ renderDocData DamldocOptions{..} docData = do
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
             OutputDocs format -> do
                 externalAnchors <- case do_externalAnchorBehaviour of
-                  ExternalAnchorMapPath path -> UseAnchorMap <$> loadExternalAnchors path
-                  ExternalAnchorFun f -> pure $ UseAnchorFun f
+                  ExternalAnchorMapPath path -> loadExternalAnchors path
+                  ExternalAnchorFun f -> pure $ AnchorMap f
                 let renderOptions = RenderOptions
                         { ro_mode =
                           if do_combine
