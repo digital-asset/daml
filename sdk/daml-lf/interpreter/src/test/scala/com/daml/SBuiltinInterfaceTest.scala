@@ -395,7 +395,7 @@ final class SBuiltinInterfaceTestHelpers(
     val modifiedParserParameters: parser.ParserParameters[this.type] =
       parserParameters.copy(defaultPackageId = extraPkgId)
 
-    val pkg = p""" metadata ( 'extended-pkg' : '1.0.0' )
+    val pkg = p""" metadata ( '-extra-package-name-' : '1.0.0' )
         module Mod {
 
           record @serializable MyUnit = {};
