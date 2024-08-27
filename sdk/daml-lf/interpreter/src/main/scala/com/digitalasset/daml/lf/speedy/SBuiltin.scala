@@ -1184,7 +1184,10 @@ private[lf] object SBuiltin {
                   ) { () =>
                     ensureTemplateImplementsInterface(machine, dstTmplId, interfaceId) { () =>
                       fromInterface(machine, sourceTplId, sourceArg, dstTmplId) {
-                        case None => crash(s"failed to convert contract $coid to type $dstTmplId")
+                        case None =>
+                          crash(
+                            s"failed to convert contract $coid to type $dstTmplId"
+                          ) // return wrongly typed
                         case Some(dstArg) =>
                           viewInterface(machine, interfaceId, dstTmplId, dstArg) { dstView =>
                             executeExpression(machine, sourceView) { sourceViewValue =>
@@ -1195,7 +1198,9 @@ private[lf] object SBuiltin {
                               else
                                 executeExpression(machine, dstView) { dstViewValue =>
                                   if (sourceViewValue != dstViewValue) {
-                                    crash("view mistmatch")
+                                    crash(
+                                      "view mismatch"
+                                    ) // introduce new error type, we can start with an interpretation.Error.Dev then add an error to ledger API (ask Tudor)
                                   } else
                                     cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
                                 }
