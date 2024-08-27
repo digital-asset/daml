@@ -28,6 +28,8 @@ import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
 import scala.annotation.unused
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 final class WasmRunner(
     submitters: Set[Party],
@@ -38,12 +40,12 @@ final class WasmRunner(
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     logger: ContextualizedLogger = ContextualizedLogger.get(classOf[WasmRunner]),
     pkgInterface: language.PackageInterface = PackageInterface.Empty,
+    activeContractStore: ParticipantContractStore,
 )(implicit loggingContext: LoggingContext)
     extends WasmRunnerHostFunctions {
 
   import WasmRunner._
 
-  // FIXME: deprecate
   private[this] var ptx: PartialTransaction = PartialTransaction
     .initial(
       contractKeyUniqueness,
@@ -80,6 +82,42 @@ final class WasmRunner(
     contractId
   }
 
+  override def fetchContractArg(
+      templateId: Ref.TypeConRef,
+      contractId: LfValue.ContractId,
+  ): LfValue = {
+    val templateTypeCon = templateId.assertToTypeConName
+    val txVersion = tmplId2TxVersion(templateTypeCon)
+
+    // We rely on the caller to timeout this WASM computation
+    Await.result(
+      activeContractStore.lookupActiveContract(submitters ++ readAs, contractId),
+      Duration.Inf,
+    ) match {
+      case Some(contract) => {
+        val contractInfo = ContractInfo(
+          txVersion,
+          contract.unversioned.packageName,
+          contract.unversioned.packageVersion,
+          templateTypeCon,
+          toSValue(contract.unversioned.arg),
+          submitters,
+          readAs,
+          None,
+        )
+        val updatedPtx =
+          ptx.insertFetch(contractId, contractInfo, None, byKey = false, txVersion).toOption.get
+
+        ptx = updatedPtx
+
+        contract.unversioned.arg
+      }
+
+      case None =>
+        ???
+    }
+  }
+
   def evaluateWasmExpression(
       wasmExpr: WasmExpr,
       // TODO: speedy uses this param for NeedTime callbacks
@@ -98,9 +136,26 @@ final class WasmRunner(
       val arg = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get
       val contractId = createContract(templateId, arg)
 
-      ByteString.copyFrom(contractId.coid.getBytes)
+      LfValueCoder.encodeValue(txVersion, LfValue.ValueContractId(contractId)).toOption.get
     }
-    val imports = new WasmHostImports(Array[WasmHostFunction](logFunc, createContractFunc))
+    val fetchContractArgFunc = wasmFunction("fetchContractArg", 2, WasmValueResultType) { param =>
+      val templateId =
+        LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
+      val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
+      val optContractId = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get match {
+        case LfValue.ValueContractId(contractId) =>
+          Some(contractId)
+
+        case _ =>
+          None
+      }
+      val arg = fetchContractArg(templateId, optContractId.get)
+
+      LfValueCoder.encodeValue(txVersion, arg).toOption.get
+    }
+    val imports = new WasmHostImports(
+      Array[WasmHostFunction](logFunc, createContractFunc, fetchContractArgFunc)
+    )
     implicit val instance: WasmInstance =
       WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()
     val machine = instance.export(wasmExpr.name)
@@ -185,8 +240,10 @@ final class WasmRunner(
         ArrayList.from(fields.map(kv => toSValue(kv._2)).toArray[SValue]),
       )
     case LfValue.ValueRecord(None, fields) =>
+      // As this is not really used anywhere else, use a fake type constructor
       val tyCon = Ref.Identifier.assertFromString("package:module:record")
-      val fieldNames = ImmArray.from(fields.indices.map(index => Ref.Name.assertFromString(s"_$index")))
+      val fieldNames =
+        ImmArray.from(fields.indices.map(index => Ref.Name.assertFromString(s"_$index")))
       SValue.SRecord(
         tyCon,
         fieldNames,
@@ -196,15 +253,17 @@ final class WasmRunner(
       // No applications, so rank is always 0
       SValue.SVariant(tyCon, variant, 0, toSValue(value))
     case LfValue.ValueVariant(None, variant, value) =>
-      // No applications, so rank is always 0
+      // As this is not really used anywhere else, use a fake type constructor
       val tyCon = Ref.Identifier.assertFromString("package:module:variant")
+      // No applications, so rank is always 0
       SValue.SVariant(tyCon, variant, 0, toSValue(value))
     case LfValue.ValueEnum(Some(tyCon), value) =>
       // No applications, so rank is always 0
       SValue.SEnum(tyCon, value, 0)
     case LfValue.ValueEnum(None, value) =>
-      // No applications, so rank is always 0
+      // As this is not really used anywhere else, use a fake type constructor
       val tyCon = Ref.Identifier.assertFromString("package:module:enum")
+      // No applications, so rank is always 0
       SValue.SEnum(tyCon, value, 0)
   }
 }

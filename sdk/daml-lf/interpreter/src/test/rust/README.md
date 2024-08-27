@@ -37,9 +37,13 @@ To use compiled WASM code within tests, we need to then copy that code into the 
 ```shell
 cp ./target/wasm32-unknown-unknown/release/hello_world.wasm ../../resources/hello-world.rs.wasm
 ```
-or, in the case of the `create-contract` project, with:
+in the case of the `create-contract` project, with:
 ```shell
 cp ./target/wasm32-unknown-unknown/release/create_contract.wasm ../../resources/create-contract.rs.wasm
+```
+and, in the case of the `fetch-contract` project, with:
+```shell
+cp ./target/wasm32-unknown-unknown/release/fetch_contract.wasm ../../resources/fetch-contract.rs.wasm
 ```
 
 Note:

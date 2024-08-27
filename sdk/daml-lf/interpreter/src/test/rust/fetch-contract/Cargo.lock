@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "create-contract"
+name = "fetch-contract"
 version = "0.1.0"
 dependencies = [
  "hex",

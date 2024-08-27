@@ -18,6 +18,9 @@ mod ledger {
 
             #[allow(non_snake_case)]
             pub fn createContract<'a>(templateTyCon: &'a ByteString, arg: &'a ByteString) -> &'a ByteString;
+
+            #[allow(non_snake_case)]
+            pub fn fetchContractArg<'a>(templateTyCon: &'a ByteString, contractId: &'a ByteString) -> &'a ByteString;
         }
     }
 
@@ -28,7 +31,7 @@ mod ledger {
       }
     }
 
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, unused)]
     pub fn createContract(templateTyCon: crate::lf::Identifier, arg: crate::lf::Value) -> crate::lf::Value {
       unsafe {
         let templateTyConBytes = templateTyCon.write_to_bytes().unwrap();
@@ -39,6 +42,24 @@ mod ledger {
         let contractIdByteString = internal::createContract(&templateTyConByteString, &argByteString);
 
         return utils::to_Value(contractIdByteString.ptr, contractIdByteString.size);
+      }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn fetchContractArg(templateTyCon: crate::lf::Identifier, contractId: crate::lf::Value) -> crate::lf::Value {
+      unsafe {
+        if contractId.has_contract_id() {
+            let templateTyConBytes = templateTyCon.write_to_bytes().unwrap();
+            let contractIdBytes = contractId.write_to_bytes().unwrap();
+            let templateTyConByteString = internal::ByteString { ptr: templateTyConBytes.as_ptr(), size: templateTyConBytes.len() };
+            let contractIdByteString = internal::ByteString { ptr: contractIdBytes.as_ptr(), size: contractIdBytes.len() };
+
+            let contractArgByteString = internal::fetchContractArg(&templateTyConByteString, &contractIdByteString);
+
+            return utils::to_Value(contractArgByteString.ptr, contractArgByteString.size);
+        } else {
+            panic!();
+        }
       }
     }
 
@@ -113,6 +134,7 @@ pub fn main() {
     let mut templateId = lf::Identifier::new();
     let mut owner = lf::Value::new();
     let mut count = lf::Value::new();
+    let mut contractId = lf::Value::new();
 
     owner.set_party(String::from("bob"));
 
@@ -128,10 +150,12 @@ pub fn main() {
     arg.set_record(argRec);
 
     templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
-    templateId.module_name = Vec::from([String::from("create_contract")]);
+    templateId.module_name = Vec::from([String::from("fetch_contract")]);
     templateId.name = Vec::from([String::from("SimpleTemplate"), String::from("new")]);
 
-    let mut contractId = ledger::createContract(templateId, arg);
+    contractId.set_contract_id(hex::decode("0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac").unwrap());
 
-    ledger::logInfo(&format!("created contract with ID {}", hex::encode(contractId.take_contract_id())));
+    let contractArg = ledger::fetchContractArg(templateId, contractId.clone());
+
+    ledger::logInfo(&format!("contract ID {} has argument {}", hex::encode(contractId.take_contract_id()), contractArg));
 }
