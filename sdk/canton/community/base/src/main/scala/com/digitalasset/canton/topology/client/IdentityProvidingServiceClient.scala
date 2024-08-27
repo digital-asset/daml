@@ -377,7 +377,7 @@ trait KeyTopologySnapshotClient {
       traceContext: TraceContext
   ): Future[Map[Member, Seq[EncryptionPublicKey]]]
 
-  /** Returns a list of all known parties on this domain */
+  /** Returns a list of all known keys on this domain */
   def inspectKeys(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
@@ -409,10 +409,16 @@ trait ParticipantTopologySnapshotClient {
 
 /** The subset of the topology client providing mediator state information */
 trait MediatorDomainStateClient {
-  this: BaseTopologySnapshotClient =>
+  this: BaseTopologySnapshotClient & KeyTopologySnapshotClient =>
 
   def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]]
 
+  /** Returns true if
+    * <ul>
+    *   <li>the mediator is a member of a mediator group with num_active_sequencers >= threshold</li>
+    *   <li>the mediator has an OwnerToKeyMapping with at least 1 signing key</li>
+    * </ul>
+    */
   def isMediatorActive(mediatorId: MediatorId)(implicit
       traceContext: TraceContext
   ): Future[Boolean] =
@@ -460,7 +466,12 @@ trait MediatorDomainStateClient {
 trait SequencerDomainStateClient {
   this: BaseTopologySnapshotClient =>
 
-  /** returns the sequencer group */
+  /** The returned sequencer group contains all sequencers that
+    * <ul>
+    *   <li>are mentioned in the SequencerDomainState topology transaction and</li>
+    *   <li>have at least 1 signing key</li>
+    * </ul>
+    */
   def sequencerGroup()(implicit traceContext: TraceContext): Future[Option[SequencerGroup]]
 }
 
@@ -478,7 +489,22 @@ trait VettedPackagesSnapshotClient {
   def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+      ledgerTime: CantonTimestamp,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
+
+  /** Checks the vetting state for the given packages and returns the packages
+    * that have no entry in the participant's VettedPackages topology transactions.
+    * Note: this does not check the vetted packages for their validity period, but simply for their
+    * existence in the mapping.
+    *
+    * @param participantId the participant for which we want to check the package vettings
+    * @param packageIds the set of packages to check
+    * @return the packages that have no entry in the participant's VettedPackages mapping
+    */
+  def determinePackagesWithNoVettingEntry(
+      participantId: ParticipantId,
+      packageIds: Set[PackageId],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
 }
 
 trait DomainGovernanceSnapshotClient {
@@ -700,7 +726,7 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
 /** An internal interface with a simpler lookup function which can be implemented efficiently with caching and reading from a store */
 private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopologySnapshotClient {
 
-  this: BaseTopologySnapshotClient =>
+  this: BaseTopologySnapshotClient & KeyTopologySnapshotClient =>
 
   override def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
@@ -892,33 +918,41 @@ private[client] trait PartyTopologySnapshotLoader
   )(implicit traceContext: TraceContext): Future[Map[PartyId, PartyInfo]]
 }
 
-trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient {
+trait VettedPackagesLoader {
+  private[client] def loadVettedPackages(
+      participant: ParticipantId
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]]
+}
+
+trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with VettedPackagesLoader {
   this: BaseTopologySnapshotClient & PartyTopologySnapshotLoader =>
 
-  private[client] def loadUnvettedPackagesOrDependencies(
+  private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]]
+      ledgerTime: CantonTimestamp,
+      vettedPackagesLoader: VettedPackagesLoader,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
 
-  protected def findUnvettedPackagesOrDependenciesUsingLoader(
+  override final def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
-      loader: (ParticipantId, PackageId) => EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]],
-  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+      ledgerTime: CantonTimestamp,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]] =
     packages.toList
-      .parTraverse(packageId => loader(participantId, packageId))
+      .parTraverse(packageId =>
+        loadUnvettedPackagesOrDependenciesUsingLoader(participantId, packageId, ledgerTime, this)
+      )
       .map(_.flatten.toSet)
 
-  override def findUnvettedPackagesOrDependencies(
+  override final def determinePackagesWithNoVettingEntry(
       participantId: ParticipantId,
-      packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    findUnvettedPackagesOrDependenciesUsingLoader(
-      participantId,
-      packages,
-      (pid, packId) => loadUnvettedPackagesOrDependencies(pid, packId),
-    )
-
+      packageIds: Set[PackageId],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]] =
+    loadVettedPackages(participantId).map { vettedPackages =>
+      val vettedIds = vettedPackages.keySet
+      packageIds -- vettedIds
+    }
 }
 
 trait DomainGovernanceSnapshotLoader extends DomainGovernanceSnapshotClient {

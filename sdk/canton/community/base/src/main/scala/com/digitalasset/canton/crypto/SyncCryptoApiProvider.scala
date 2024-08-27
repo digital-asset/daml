@@ -603,7 +603,7 @@ class DomainSnapshotSyncCryptoApi(
 
   private def verifyGroupSignatures(
       hash: Hash,
-      members: NonEmpty[Seq[Member]],
+      members: Seq[Member],
       threshold: PositiveInt,
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],

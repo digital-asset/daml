@@ -13,68 +13,29 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManag
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Util.dependenciesInTopologicalOrder
-import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator.PackageMap
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
-import com.digitalasset.canton.util.EitherTUtil
 import scalaz.std.either.*
 import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordering.Implicits.infixOrderingOps
-
-object PackageUpgradeValidator {
-  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
-}
 
 class PackageUpgradeValidator(
-    getPackageMap: LoggingContextWithTrace => PackageMap,
+    getPackageMap: LoggingContextWithTrace => Map[
+      Ref.PackageId,
+      (Ref.PackageName, Ref.PackageVersion),
+    ],
     getLfArchive: LoggingContextWithTrace => Ref.PackageId => Future[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  def validateUpgrade(
-      upgradingPackages: List[(Ref.PackageId, Ast.Package)]
-  )(implicit
+  def validateUpgrade(uploadedPackage: (Ref.PackageId, Ast.Package))(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
-    val upgradingPackagesMap = upgradingPackages.toMap
-    val packagesInTopologicalOrder =
-      dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
     val packageMap = getPackageMap(loggingContext)
-
-    def go(
-        packageMap: PackageMap,
-        deps: List[Ref.PackageId],
-    ): EitherT[Future, DamlError, PackageMap] = deps match {
-      case Nil => EitherT.pure[Future, DamlError](packageMap)
-      case pkgId :: rest =>
-        val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades = LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
-        for {
-          _ <- EitherTUtil.ifThenET(supportsUpgrades)(
-            // This check will look for the closest neighbors of pkgId for the package versioning ordering and
-            // will load them from the DB and decode them. If one were to upload many packages that upgrade each
-            // other, we will end up decoding the same package many times. Some of these cases could be sped up
-            // by a cache depending on the order in which the packages are uploaded.
-            validatePackageUpgrade((pkgId, pkg), packageMap)
-          )
-          res <- go(packageMap + ((pkgId, (pkg.metadata.name, pkg.metadata.version))), rest)
-        } yield res
-    }
-    go(packageMap, packagesInTopologicalOrder).map(_ => ())
-  }
-
-  private def validatePackageUpgrade(
-      uploadedPackage: (Ref.PackageId, Ast.Package),
-      packageMap: PackageMap,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] = {
     val (uploadedPackageId, uploadedPackageAst) = uploadedPackage
     val optUpgradingDar = Some(uploadedPackage)
     logger.info(
@@ -88,9 +49,6 @@ class PackageUpgradeValidator(
           )
           EitherT.rightT[Future, DamlError](())
         } else {
-          logger.info(
-            s"Bad version of package $uploadedPackageId as it has been previously uploaded $existingPackageId"
-          )
           EitherT.leftT[Future, Unit](
             Validation.UpgradeVersion
               .Error(
@@ -111,7 +69,6 @@ class PackageUpgradeValidator(
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MaximalDarCheck,
-            packageMap,
             optUpgradingDar,
             optMaximalDar,
           )
@@ -120,7 +77,6 @@ class PackageUpgradeValidator(
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MinimalDarCheck,
-            packageMap,
             optMinimalDar,
             optUpgradingDar,
           )
@@ -188,7 +144,6 @@ class PackageUpgradeValidator(
 
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
-      packageMap: PackageMap,
       optNewDar1: Option[(Ref.PackageId, Ast.Package)],
       oldPkgId2: Ref.PackageId,
       optOldPkg2: Option[Ast.Package],
@@ -206,7 +161,7 @@ class PackageUpgradeValidator(
               EitherT(
                 Future(
                   TypecheckUpgrades
-                    .typecheckUpgrades(packageMap, (newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
+                    .typecheckUpgrades((newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
                     .toEither
                 )
               ).leftMap[DamlError] {
@@ -227,7 +182,6 @@ class PackageUpgradeValidator(
 
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
-      packageMap: PackageMap,
       optNewDar1: Option[(Ref.PackageId, Ast.Package)],
       optOldDar2: Option[(Ref.PackageId, Ast.Package)],
   )(implicit
@@ -240,7 +194,6 @@ class PackageUpgradeValidator(
       case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
         strictTypecheckUpgrades(
           typecheckPhase,
-          packageMap,
           Some((newPkgId1, newPkg1)),
           oldPkgId2,
           Some(oldPkg2),

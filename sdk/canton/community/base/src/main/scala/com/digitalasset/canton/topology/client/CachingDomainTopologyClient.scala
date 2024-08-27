@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.client
 
-import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -264,17 +263,22 @@ private class ForwardingTopologySnapshotClient(
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
     parent.inspectKnownParties(filterParty, filterParticipant, limit)
 
-  override def findUnvettedPackagesOrDependencies(
-      participantId: ParticipantId,
-      packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    parent.findUnvettedPackagesOrDependencies(participantId, packages)
+  override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] = parent.loadVettedPackages(participant)
 
-  override private[client] def loadUnvettedPackagesOrDependencies(
+  override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    parent.loadUnvettedPackagesOrDependencies(participant, packageId)
+      ledgerTime: CantonTimestamp,
+      vettedPackagesLoader: VettedPackagesLoader,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]] =
+    parent.loadUnvettedPackagesOrDependenciesUsingLoader(
+      participant,
+      packageId,
+      ledgerTime,
+      vettedPackagesLoader,
+    )
 
   /** returns the list of currently known mediators */
   override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
@@ -395,9 +399,9 @@ class CachingTopologySnapshot(
 
   private val packageVettingCache =
     TracedScaffeine
-      .buildTracedAsyncFutureUS[(ParticipantId, PackageId), Either[PackageId, Set[PackageId]]](
+      .buildTracedAsyncFutureUS[ParticipantId, Map[PackageId, VettedPackage]](
         cache = cachingConfigs.packageVettingCache.buildScaffeine(),
-        traceContext => x => loadUnvettedPackagesOrDependencies(x._1, x._2)(traceContext).value,
+        traceContext => x => parent.loadVettedPackages(x)(traceContext),
       )(logger)
 
   private val mediatorsCache = new AtomicReference[Option[Future[Seq[MediatorGroup]]]](None)
@@ -470,21 +474,24 @@ class CachingTopologySnapshot(
   )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
     participantCache.getAll(participants).map(_.collect { case (k, Some(v)) => (k, v) })
 
-  override def findUnvettedPackagesOrDependencies(
-      participantId: ParticipantId,
-      packages: Set[PackageId],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    findUnvettedPackagesOrDependenciesUsingLoader(
-      participantId,
-      packages,
-      (x, y) => EitherT(packageVettingCache.getUS((x, y))),
-    )
+  override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
+    packageVettingCache.getUS(participant)
 
-  private[client] def loadUnvettedPackagesOrDependencies(
+  private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
       packageId: PackageId,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    parent.loadUnvettedPackagesOrDependencies(participant, packageId)
+      ledgerTime: CantonTimestamp,
+      vettedPackagesLoader: VettedPackagesLoader,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]] =
+    parent.loadUnvettedPackagesOrDependenciesUsingLoader(
+      participant,
+      packageId,
+      ledgerTime,
+      // use the caching vetted package loader
+      this,
+    )
 
   override def inspectKeys(
       filterOwner: String,

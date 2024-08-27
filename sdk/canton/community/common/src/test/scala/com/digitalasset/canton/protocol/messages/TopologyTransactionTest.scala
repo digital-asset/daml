@@ -24,7 +24,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
   private val crypto =
     TestingTopology(sequencerGroup =
       SequencerGroup(
-        active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
+        active = Seq(SequencerId(domainId.uid)),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       )
@@ -82,8 +82,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     }
 
     "key to owner mappings" should {
-      val k1 = mk(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, publicKey)))
-      val k2 = mk(OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, publicKey)))
+      val k1 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))
+      val k2 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))
       runTest(k1, k2)
     }
 
@@ -92,7 +92,6 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         mk(
           PartyToParticipant.tryCreate(
             PartyId(uid),
-            None,
             PositiveInt.one,
             Seq(HostingParticipant(ParticipantId(uid2), ParticipantPermission.Observation)),
             groupAddressing = false,
@@ -103,7 +102,6 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         mk(
           PartyToParticipant.tryCreate(
             PartyId(uid),
-            Some(domainId),
             PositiveInt.two,
             Seq(
               HostingParticipant(ParticipantId(uid2), ParticipantPermission.Confirmation),

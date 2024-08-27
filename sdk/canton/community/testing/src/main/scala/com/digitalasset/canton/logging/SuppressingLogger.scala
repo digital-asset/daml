@@ -299,7 +299,7 @@ class SuppressingLogger private[logging] (
 
   /** Asserts that the sequence of logged warnings/errors will eventually meet a given assertion.
     * Use this if the expected sequence of logged warnings/errors is non-deterministic and the log-message assertion might not immediately succeed when it is called (e.g. because the messages might be logged with a delay).
-    * The SupressingLogger only starts supresing and capturing logs when this method is called,
+    * The SuppressingLogger only starts suppressing and capturing logs when this method is called,
     * If some logs that we want to capture might fire before the start or after the end of the suppression. Please use method `assertEventuallyLogsSeq` instead to provide those action in `within` parameter.
     * On success, the method will delete all logged messages. So this method is not idempotent.
     *

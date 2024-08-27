@@ -680,7 +680,11 @@ class BlockSequencer(
         timestamp,
         stateManager.getHeadState.block.latestSequencerEventTimestamp,
         // Warn on approximate topology or traffic purchased when getting exact traffic states only (so when selector is not LatestApproximate)
-        warnIfApproximate = selector != LatestApproximate,
+        warnIfApproximate = selector != LatestApproximate &&
+          // Also don't warn until the sequencer has at least received one event
+          stateManager.getHeadState.chunk.ephemeral
+            .headCounter(sequencerId)
+            .exists(_ > SequencerCounter.Genesis),
       )
     }
 

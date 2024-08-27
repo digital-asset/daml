@@ -309,7 +309,10 @@ sealed trait AcsCommitmentProcessorBaseTest
           List(creationTs, archivalTs)
         }).distinct.sorted
     val changes = changeTimes.map(changesAtToc(contractSetup))
-    val store = optCommitmentStore.getOrElse(new InMemoryAcsCommitmentStore(loggerFactory))
+    val store =
+      optCommitmentStore.getOrElse(
+        new InMemoryAcsCommitmentStore(loggerFactory)
+      )
 
     val sortedReconciliationIntervalsProvider =
       overrideDefaultSortedReconciliationIntervalsProvider.getOrElse {
@@ -1339,7 +1342,6 @@ class AcsCommitmentProcessorTest
         outstanding <- store.outstanding(
           CantonTimestamp.MinValue,
           timeProofs.lastOption.value,
-          None,
         )
 
       } yield {
@@ -3506,7 +3508,8 @@ class AcsCommitmentProcessorTest
         val (_, acsChanges) = setupContractsAndAcsChanges2()
         val crypto = cryptoSetup(localId, topology)
 
-        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val inMemoryCommitmentStore =
+          new InMemoryAcsCommitmentStore(loggerFactory)
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
@@ -3576,7 +3579,8 @@ class AcsCommitmentProcessorTest
         val (_, acsChanges) = setupContractsAndAcsChanges2()
         val crypto = cryptoSetup(localId, topology)
 
-        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val inMemoryCommitmentStore =
+          new InMemoryAcsCommitmentStore(loggerFactory)
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
@@ -3635,7 +3639,8 @@ class AcsCommitmentProcessorTest
         val (_, acsChanges) = setupContractsAndAcsChanges2()
         val crypto = cryptoSetup(remoteId2, topology)
 
-        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val inMemoryCommitmentStore =
+          new InMemoryAcsCommitmentStore(loggerFactory)
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 
@@ -3698,7 +3703,8 @@ class AcsCommitmentProcessorTest
         val (_, acsChanges) = setupContractsAndAcsChanges2()
         val crypto = cryptoSetup(remoteId2, topology)
 
-        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val inMemoryCommitmentStore =
+          new InMemoryAcsCommitmentStore(loggerFactory)
         val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
         val cachedCommitments = new CachedCommitments()
 

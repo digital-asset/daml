@@ -203,10 +203,7 @@ object SimpleExecutionQueue {
       * Fails with the exception of the first task that failed, if any.
       */
     private val completionPromise: PromiseUnlessShutdown[Unit] =
-      new PromiseUnlessShutdown[Unit](description, futureSupervisor)(
-        errorLoggingContext,
-        directExecutionContext,
-      )
+      new PromiseUnlessShutdown[Unit](description, futureSupervisor)(errorLoggingContext)
 
     /** `null` if no predecessor has been chained.
       * [[scala.Some$]]`(cell)` if the predecessor task is `cell` and this task is queued or running.

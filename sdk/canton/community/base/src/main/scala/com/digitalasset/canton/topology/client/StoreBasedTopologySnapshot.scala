@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.client
 
-import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
@@ -65,14 +64,10 @@ class StoreBasedTopologySnapshot(
         filterNamespace,
       )
 
-  override private[client] def loadUnvettedPackagesOrDependencies(
-      participant: ParticipantId,
-      packageId: PackageId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] = {
-
-    val vettedF = FutureUnlessShutdown.outcomeF(
+  override private[client] def loadVettedPackages(
+      participant: ParticipantId
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
+    FutureUnlessShutdown.outcomeF(
       findTransactions(
         asOfInclusive = false,
         types = Seq(TopologyMapping.Code.VettedPackages),
@@ -82,25 +77,36 @@ class StoreBasedTopologySnapshot(
         collectLatestMapping(
           TopologyMapping.Code.VettedPackages,
           transactions.collectOfMapping[VettedPackages].result,
-        ).toList.flatMap(_.packageIds).toSet
+        ).toList.flatMap(_.packages.map(vp => (vp.packageId, vp))).toMap
       }
     )
 
-    lazy val dependenciesET = packageDependencyResolver.packageDependencies(packageId).value
-
-    EitherT(for {
-      vetted <- vettedF
+  override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
+      participant: ParticipantId,
+      packageId: PackageId,
+      ledgerTime: CantonTimestamp,
+      vettedPackagesLoader: VettedPackagesLoader,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[PackageId]] =
+    for {
+      vetted <- vettedPackagesLoader.loadVettedPackages(participant)
+      validAtLedgerTime = (pkg: PackageId) => vetted.get(pkg).exists(_.validAt(ledgerTime))
       // check that the main package is vetted
       res <-
-        if (!vetted.contains(packageId))
-          FutureUnlessShutdown.pure(Right(Set(packageId))) // main package is not vetted
+        if (!validAtLedgerTime(packageId))
+          // main package is not vetted
+          FutureUnlessShutdown.pure(Set(packageId))
         else {
           // check which of the dependencies aren't vetted
-          dependenciesET.map(_.map(_ -- vetted))
-        }
-    } yield res)
+          packageDependencyResolver
+            .packageDependencies(packageId)
+            .map(dependencies => dependencies.filter(dependency => !validAtLedgerTime(dependency)))
+            .leftMap(Set(_))
+            .merge
 
-  }
+        }
+    } yield res
 
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
@@ -316,15 +322,28 @@ class StoreBasedTopologySnapshot(
     } yield fullySpecifiedPartyMap
   }
 
+  private def findMembersWithoutSigningKeys[T <: Member](members: Seq[T])(implicit
+      traceContext: TraceContext
+  ): Future[Set[T]] =
+    signingKeys(members).map(keys => members.filter(keys.get(_).forall(_.isEmpty)).toSet)
+
   /** returns the list of currently known mediator groups */
-  override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
-    findTransactions(
-      asOfInclusive = false,
-      types = Seq(TopologyMapping.Code.MediatorDomainState),
-      filterUid = None,
-      filterNamespace = None,
-    ).map(
-      _.collectOfMapping[MediatorDomainState].result
+  override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] = {
+    def fetchMediatorDomainStates()
+        : Future[Seq[StoredTopologyTransaction[Replace, MediatorDomainState]]] =
+      findTransactions(
+        asOfInclusive = false,
+        types = Seq(TopologyMapping.Code.MediatorDomainState),
+        filterUid = None,
+        filterNamespace = None,
+      ).map(_.collectOfMapping[MediatorDomainState].result)
+
+    for {
+      transactions <- fetchMediatorDomainStates()
+      mediatorsInAllGroups = transactions.flatMap(_.mapping.allMediatorsInGroup)
+      mediatorsWithoutSigningKeys <- findMembersWithoutSigningKeys(mediatorsInAllGroups)
+    } yield {
+      transactions
         .groupBy(_.mapping.group)
         .map { case (groupId, seq) =>
           val mds = collectLatestMapping(
@@ -334,25 +353,44 @@ class StoreBasedTopologySnapshot(
             .getOrElse(
               throw new IllegalStateException("Group-by would not have produced empty seq")
             )
-          MediatorGroup(groupId, mds.active, mds.observers, mds.threshold)
+          MediatorGroup(
+            groupId,
+            mds.active.filterNot(mediatorsWithoutSigningKeys),
+            mds.observers.filterNot(mediatorsWithoutSigningKeys),
+            mds.threshold,
+          )
         }
         .toSeq
         .sortBy(_.index)
-    )
+    }
+  }
 
   override def sequencerGroup()(implicit
       traceContext: TraceContext
-  ): Future[Option[SequencerGroup]] = findTransactions(
-    asOfInclusive = false,
-    types = Seq(TopologyMapping.Code.SequencerDomainState),
-    filterUid = None,
-    filterNamespace = None,
-  ).map { transactions =>
-    collectLatestMapping(
-      TopologyMapping.Code.SequencerDomainState,
-      transactions.collectOfMapping[SequencerDomainState].result,
-    ).map { (sds: SequencerDomainState) =>
-      SequencerGroup(sds.active, sds.observers, sds.threshold)
+  ): Future[Option[SequencerGroup]] = {
+    def fetchSequencerDomainState() = findTransactions(
+      asOfInclusive = false,
+      types = Seq(TopologyMapping.Code.SequencerDomainState),
+      filterUid = None,
+      filterNamespace = None,
+    ).map { transactions =>
+      collectLatestMapping(
+        TopologyMapping.Code.SequencerDomainState,
+        transactions.collectOfMapping[SequencerDomainState].result,
+      )
+    }
+    for {
+      sds <- fetchSequencerDomainState()
+      allSequencers = sds.toList.flatMap(_.allSequencers)
+      sequencersWithoutSigningKeys <- findMembersWithoutSigningKeys(allSequencers)
+    } yield {
+      sds.map { (sds: SequencerDomainState) =>
+        SequencerGroup(
+          sds.active.filterNot(sequencersWithoutSigningKeys),
+          sds.observers.filterNot(sequencersWithoutSigningKeys),
+          sds.threshold,
+        )
+      }
     }
   }
 
@@ -424,8 +462,8 @@ class StoreBasedTopologySnapshot(
           .groupBy(_.mapping.member)
           .collect {
             case (owner, seq)
-                if owner.filterString.startsWith(filterOwner)
-                  && filterOwnerType.forall(_ == owner.code) =>
+                if owner.filterString.startsWith(filterOwner) &&
+                  filterOwnerType.forall(_ == owner.code) =>
               val keys = KeyCollection(Seq(), Seq())
               val okm =
                 collectLatestMapping(

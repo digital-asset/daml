@@ -114,7 +114,7 @@ private[sync] class PartyAllocation(
           }
           .toEitherT[Future]
         _ <- topologyManagerOps
-          .allocateParty(validatedSubmissionId, partyId, participantId, protocolVersion)
+          .allocateParty(partyId, participantId, protocolVersion)
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(

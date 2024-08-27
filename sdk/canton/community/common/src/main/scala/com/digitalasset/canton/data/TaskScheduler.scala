@@ -15,10 +15,10 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   Lifecycle,
-  UnlessShutdown,
+  PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -30,7 +30,7 @@ import java.time.Duration as JDuration
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
 
@@ -137,11 +137,7 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
 
   private def scheduleNextCheck(after: JDuration): Unit =
     FutureUtil.doNotAwaitUnlessShutdown(
-      clock
-        .scheduleAfter(
-          _ => checkIfBlocked(),
-          after,
-        ),
+      clock.scheduleAfter(_ => checkIfBlocked(), after),
       "The check for missing ticks has failed unexpectedly",
     )(errorLoggingContext(TraceContext.empty))
 
@@ -160,7 +156,9 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
             queue: mutable.PriorityQueue[A]
         ): mutable.Iterable[String] =
           if (queue.headOption.exists(_.timestamp <= highWatermarkTs))
-            queue.filter(_.timestamp <= highWatermarkTs).map(_.traceContext.traceId.getOrElse(""))
+            queue
+              .filter(_.timestamp <= highWatermarkTs)
+              .map(_.traceContext.traceId.getOrElse(""))
           else {
             // If there is no blocked task, we do not need to traverse the entire queue.
             mutable.Iterable.empty
@@ -228,9 +226,9 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     lock.synchronized {
       if (latestPolledTimestamp.get >= timestamp) None
       else {
-        val barrier = TaskScheduler.TimeBarrier(timestamp)
+        val barrier = TaskScheduler.TimeBarrier(timestamp, futureSupervisor)
         barrierQueue.enqueue(barrier)
-        Some(FutureUnlessShutdown(barrier.completion.future))
+        Some(barrier.completion.futureUS)
       }
     }
   }
@@ -419,9 +417,9 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
       case Some(barrier) if barrier.timestamp > observedTime => ()
       case Some(barrier) =>
         performUnlessClosing(functionFullName)(
-          barrier.completion.success(UnlessShutdown.unit).discard
+          barrier.completion.outcome(())
         ).onShutdown(
-          barrier.completion.success(UnlessShutdown.AbortedDueToShutdown).discard
+          barrier.completion.shutdown()
         )
         barrierQueue.dequeue().discard
         go()
@@ -469,11 +467,15 @@ object TaskScheduler {
     def timestamp: CantonTimestamp
   }
 
-  private final case class TimeBarrier(override val timestamp: CantonTimestamp)(implicit
-      override val traceContext: TraceContext
-  ) extends Scheduled {
-    private[TaskScheduler] val completion: Promise[UnlessShutdown[Unit]] =
-      Promise[UnlessShutdown[Unit]]()
+  private final case class TimeBarrier(
+      override val timestamp: CantonTimestamp,
+      futureSupervisor: FutureSupervisor,
+  )(implicit val errorLoggingContext: ErrorLoggingContext)
+      extends Scheduled {
+    override val traceContext: TraceContext = errorLoggingContext.traceContext
+
+    private[TaskScheduler] val completion: PromiseUnlessShutdown[Unit] =
+      new PromiseUnlessShutdown[Unit]("task-scheduler-time-barrier", futureSupervisor)
   }
 
   trait TimedTask extends Scheduled with PrettyPrinting with AutoCloseable {

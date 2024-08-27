@@ -17,6 +17,7 @@ import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.auth.AccessLevel
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
   InvalidLengthString,
   defaultMaxLength,
@@ -767,6 +768,8 @@ object CantonConfig {
     lazy implicit val clockConfigReader: ConfigReader[ClockConfig] = deriveReader[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigReader: ConfigReader[JwtTimestampLeeway] =
       deriveReader[JwtTimestampLeeway]
+    lazy implicit val authServiceAccessLevelReader: ConfigReader[AccessLevel] =
+      deriveEnumerationReader[AccessLevel]
     lazy implicit val authServiceConfigUnsafeJwtHmac256Reader
         : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
       deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
@@ -1188,6 +1191,8 @@ object CantonConfig {
     lazy implicit val clockConfigWriter: ConfigWriter[ClockConfig] = deriveWriter[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigWriter: ConfigWriter[JwtTimestampLeeway] =
       deriveWriter[JwtTimestampLeeway]
+    lazy implicit val authServiceAccessLevelWriter: ConfigWriter[AccessLevel] =
+      deriveEnumerationWriter[AccessLevel]
     lazy implicit val authServiceConfigJwtEs256CrtWriter
         : ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
       deriveWriter[AuthServiceConfig.JwtEs256Crt]

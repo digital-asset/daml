@@ -12,7 +12,8 @@ final case class HttpApiConfig(
     allowInsecureTokens: Boolean = false,
     staticContent: Option[StaticContentConfig] = None,
     debugLoggingOfHttpBodies: Boolean = false,
-) {
+    damlDefinitionsServiceEnabled: Boolean = false,
+                              ) {
 
   // TODO(#13303) Use directly instead of using JsonApiConfig as indirection
   def toConfig(tls: Option[TlsConfiguration]): JsonApiConfig = {
@@ -25,6 +26,7 @@ final case class HttpApiConfig(
       allowNonHttps = allowInsecureTokens,
       wsConfig = websocketConfig,
       debugLoggingOfHttpBodies = debugLoggingOfHttpBodies,
+      damlDefinitionsServiceEnabled = damlDefinitionsServiceEnabled,
     )
   }
 }
