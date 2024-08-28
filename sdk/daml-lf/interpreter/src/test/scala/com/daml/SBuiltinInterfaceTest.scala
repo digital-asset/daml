@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser
@@ -167,6 +167,33 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
     }
 
     "fetch_interface" - {
+      "should prevent view errors from being caught" in {
+        val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+        val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
+        val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+
+        inside(
+          evalApp(
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:fetch_interface_and_catch_error cid",
+            Array(SContractId(cid), SToken),
+            packageResolution = pkgNameMap,
+            getContract = Map(
+              cid -> Versioned(
+                TransactionVersion.StableVersions.max,
+                ContractInstance(Some(basePkgName), tplId, tplPayload),
+              )
+            ),
+            getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
+          )
+        ) { case Success(Left(error)) =>
+          // We expect the error throw by the view to not have been caught by
+          // fetch_interface_and_catch_error.
+          error shouldBe a[SErrorDamlException]
+        }
+      }
+
       "should request unknown package before everything else" in {
 
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
@@ -175,7 +202,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -194,11 +221,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(Some(extraPkgName), extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -213,11 +240,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraIouId, iouPayload),
+                ContractInstance(Some(extraPkgName), extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>
@@ -243,12 +270,13 @@ final class SBuiltinInterfaceTestHelpers(
   val alice = Ref.Party.assertFromString("Alice")
   val bob = Ref.Party.assertFromString("Bob")
 
+  val basePkgName = Ref.PackageName.assertFromString("-base-package-")
   val basePkgId = Ref.PackageId.assertFromString("-base-package-id-")
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(defaultPackageId = basePkgId, languageVersion = languageVersion)
 
   lazy val basePkg =
-    p""" metadata ( 'basic-package' : '1.0.0' )
+    p""" metadata ( '$basePkgName' : '1.0.0' )
         module T_Co0_No1 {
           record @serializable T_Co0_No1 = { party: Party, msg: Text };
 
@@ -350,6 +378,34 @@ final class SBuiltinInterfaceTestHelpers(
           val t_Im0_Im1 : I0:I0 = to_interface @I0:I0 @T_Im0_Im1:T_Im0_Im1 (T_Im0_Im1:T_Im0_Im1 { party = MethodTest:alice, msg = "T_Im0_Im1" });
         }
 
+        module ViewErrorTest {
+          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+          val alice : Party = ViewErrorTest:mkParty "Alice";
+          record @serializable T = { party: Party };
+
+          record @serializable Ex = { message: Text } ;
+          exception Ex = {
+            message \(e: ViewErrorTest:Ex) -> ViewErrorTest:Ex {message} e
+          };
+
+          template (this: T) = {
+            precondition True;
+            signatories Cons @Party [ViewErrorTest:T {party} this] (Nil @Party);
+            observers (Nil @Party);
+            agreement "";
+            implements I0:I0 { view = throw @Mod:MyUnit @ViewErrorTest:Ex (ViewErrorTest:Ex { message = "user error" }); };
+          };
+
+          val fetch_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+            \(cid: ContractId I0:I0) ->
+              try @Unit
+                ubind _:I0:I0 <- fetch_interface @I0:I0 cid
+                in upure @Unit ()
+              catch
+                e -> Some @(Update Unit) (upure @Unit ())
+          ;
+        }
+
         module Mod {
 
           record @serializable MyUnit = {};
@@ -382,20 +438,15 @@ final class SBuiltinInterfaceTestHelpers(
 
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
-  // We assume extraPkg use the same version as basePkg
-  val extraPkgName = basePkg.name.map(_ => Ref.PackageName.assertFromString("-extra-package-name-"))
+  val extraPkgName = Ref.PackageName.assertFromString("-extra-package-name-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 
-  val basePkgNameMap =
-    List(basePkg.name.toList, extraPkgName.toList).flatten.map(n => n -> basePkgId).toMap
-
   lazy val extendedPkgs = {
-
     val modifiedParserParameters: parser.ParserParameters[this.type] =
       parserParameters.copy(defaultPackageId = extraPkgId)
 
-    val pkg = p""" metadata ( '-extra-package-name-' : '1.0.0' )
+    val pkg = p""" metadata ( '$extraPkgName' : '1.0.0' )
         module Mod {
 
           record @serializable MyUnit = {};
@@ -418,6 +469,11 @@ final class SBuiltinInterfaceTestHelpers(
     basePkgs + (modifiedParserParameters.defaultPackageId -> pkg)
   }
   lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs, compilerConfig)
+
+  val pkgNameMap = Map(
+    basePkgName -> basePkgId,
+    extraPkgName -> extraPkgId,
+  )
 
   val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
 
