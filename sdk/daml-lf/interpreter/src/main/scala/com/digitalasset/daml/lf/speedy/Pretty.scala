@@ -252,6 +252,29 @@ private[lf] object Pretty {
                   "An optional contract field with a value of Some may not be dropped during downgrading"
                 )
 
+              case Dev.Upgrade.ViewMismatch(
+                    coid,
+                    iterfaceId,
+                    srcTemplateId,
+                    dstTemplateId,
+                    srcViewValue,
+                    dstViewValue,
+                  ) => {
+                text("View mismatch when trying to upgrade the contract") & prettyContractId(
+                  coid
+                ) & text("from") & prettyTypeConName(srcTemplateId) & text(
+                  "to"
+                ) & prettyTypeConName(
+                  dstTemplateId
+                ) & text("during a fetch or exercise by interface") /
+                  text("Verify that the views of the contract have not changed") /
+                  text("computed view for") & prettyTypeConName(iterfaceId) & text(
+                    "in the source contract is"
+                  ) & prettyValue(false)(srcViewValue) /
+                  text("computed view for") & prettyTypeConName(iterfaceId) & text(
+                    "in the destination contract is"
+                  ) & prettyValue(false)(dstViewValue)
+              }
             }
         }
     }

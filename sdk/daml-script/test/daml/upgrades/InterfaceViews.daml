@@ -128,8 +128,7 @@ exerciseCommandShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` exerciseCmd icid GetVersion
   case res of
-      Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
-      Left (UnknownError msg) | "SErrorCrash" `isInfixOf` msg -> pure ()
+      Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
       _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 exerciseInChoiceBodyShouldFail : Test
@@ -137,8 +136,7 @@ exerciseInChoiceBodyShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   case res of
-    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
-    Left (UnknownError msg) | "SErrorCrash" `isInfixOf` msg -> pure ()
+    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 fetchFromInterfaceShouldFail : Test
@@ -146,6 +144,5 @@ fetchFromInterfaceShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseExactCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with icid = icid)
   case res of
-    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
-    Left (UnknownError msg) | "SErrorCrash" `isInfixOf` msg -> pure ()
+    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)

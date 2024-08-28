@@ -1168,41 +1168,52 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
-      fetchAny(machine, None, coid, SValue.SValue.None) { (maybePkgName, sourceContract) =>
+      fetchAny(machine, None, coid, SValue.SValue.None) { (maybePkgName, srcContract) =>
         maybePkgName match {
           case None =>
             crash(s"unexpected contract instance without packageName")
           case Some(pkgName) =>
-            val (sourceTplId, sourceArg) = getSAnyContract(ArrayList.single(sourceContract), 0)
-            castAnyInterface(machine, interfaceId, coid, sourceTplId, sourceArg) { _ =>
-              viewInterface(machine, interfaceId, sourceTplId, sourceArg) { sourceView =>
+            val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
+            castAnyInterface(machine, interfaceId, coid, srcTplId, srcArg) { _ =>
+              viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
                 resolvePackageName(machine, pkgName) { pkgId =>
-                  val dstTmplId = sourceTplId.copy(packageId = pkgId)
+                  val dstTplId = srcTplId.copy(packageId = pkgId)
                   machine.ensurePackageIsLoaded(
-                    dstTmplId.packageId,
-                    language.Reference.Template(dstTmplId),
+                    dstTplId.packageId,
+                    language.Reference.Template(dstTplId),
                   ) { () =>
-                    ensureTemplateImplementsInterface(machine, dstTmplId, interfaceId) { () =>
-                      fromInterface(machine, sourceTplId, sourceArg, dstTmplId) {
+                    ensureTemplateImplementsInterface(machine, dstTplId, interfaceId) { () =>
+                      fromInterface(machine, srcTplId, srcArg, dstTplId) {
                         case None =>
-                          crash(
-                            s"failed to convert contract $coid to type $dstTmplId"
-                          ) // return wrongly typed
+                          Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
                         case Some(dstArg) =>
-                          viewInterface(machine, interfaceId, dstTmplId, dstArg) { dstView =>
-                            executeExpression(machine, SEPreventCatch(sourceView)) { sourceViewValue =>
-                              // If the destination and source templates are the same, we skip the computation
+                          viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
+                            executeExpression(machine, SEPreventCatch(srcView)) { srcViewValue =>
+                              // If the destination and src templates are the same, we skip the computation
                               // of the destination template's view.
-                              if (dstTmplId == sourceTplId)
-                                cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
+                              if (dstTplId == srcTplId)
+                                cacheContractAndInsertNode(machine, coid, dstTplId, dstArg)
                               else
-                                executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                                  if (sourceViewValue != dstViewValue) {
-                                    crash(
-                                      "view mismatch"
-                                    ) // introduce new error type, we can start with an interpretation.Error.Dev then add an error to ledger API (ask Tudor)
-                                  } else
-                                    cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
+                                executeExpression(machine, SEPreventCatch(dstView)) {
+                                  dstViewValue =>
+                                    if (srcViewValue != dstViewValue) {
+                                      Control.Error(
+                                        IE.Dev(
+                                          NameOf.qualifiedNameOfCurrentFunc,
+                                          IE.Dev.Upgrade(
+                                            IE.Dev.Upgrade.ViewMismatch(
+                                              coid,
+                                              interfaceId,
+                                              srcTplId,
+                                              dstTplId,
+                                              srcView = srcViewValue.toUnnormalizedValue,
+                                              dstView = dstViewValue.toUnnormalizedValue,
+                                            )
+                                          ),
+                                        )
+                                      )
+                                    } else
+                                      cacheContractAndInsertNode(machine, coid, dstTplId, dstArg)
                                 }
                             }
                           }
