@@ -6,11 +6,17 @@ package com.digitalasset.daml.lf.speedy.wasm
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.{Value => LfValue}
 
+import scala.concurrent.duration.Duration
+
 trait WasmRunnerHostFunctions {
 
   def logInfo(msg: String): Unit
 
   def createContract(templateCons: Ref.TypeConRef, args: LfValue): LfValue.ContractId
 
-  def fetchContractArg(templateId: Ref.TypeConRef, contractId: LfValue.ContractId): LfValue
+  def fetchContractArg(
+      templateId: Ref.TypeConRef,
+      contractId: LfValue.ContractId,
+      timeout: Duration,
+  ): LfValue
 }

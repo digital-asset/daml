@@ -20,7 +20,7 @@ mod ledger {
             pub fn createContract<'a>(templateTyCon: &'a ByteString, arg: &'a ByteString) -> &'a ByteString;
 
             #[allow(non_snake_case)]
-            pub fn fetchContractArg<'a>(templateTyCon: &'a ByteString, contractId: &'a ByteString) -> &'a ByteString;
+            pub fn fetchContractArg<'a>(templateTyCon: &'a ByteString, contractId: &'a ByteString, timeout: &'a ByteString) -> &'a ByteString;
         }
     }
 
@@ -46,15 +46,16 @@ mod ledger {
     }
 
     #[allow(non_snake_case)]
-    pub fn fetchContractArg(templateTyCon: crate::lf::Identifier, contractId: crate::lf::Value) -> crate::lf::Value {
+    pub fn fetchContractArg(templateTyCon: crate::lf::Identifier, contractId: crate::lf::Value, timeout: &str) -> crate::lf::Value {
       unsafe {
         if contractId.has_contract_id() {
             let templateTyConBytes = templateTyCon.write_to_bytes().unwrap();
             let contractIdBytes = contractId.write_to_bytes().unwrap();
             let templateTyConByteString = internal::ByteString { ptr: templateTyConBytes.as_ptr(), size: templateTyConBytes.len() };
             let contractIdByteString = internal::ByteString { ptr: contractIdBytes.as_ptr(), size: contractIdBytes.len() };
+            let timeoutByteString = internal::ByteString { ptr: timeout.as_ptr(), size: timeout.len() };
 
-            let contractArgByteString = internal::fetchContractArg(&templateTyConByteString, &contractIdByteString);
+            let contractArgByteString = internal::fetchContractArg(&templateTyConByteString, &contractIdByteString, &timeoutByteString);
 
             return utils::to_Value(contractArgByteString.ptr, contractArgByteString.size);
         } else {
@@ -124,30 +125,9 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
 #[allow(non_snake_case)]
 pub fn main() {
     use hex;
-    use protobuf::MessageField;
 
-    let mut arg = lf::Value::new();
-    let mut argRec = lf::value::Record::new();
-    let mut argRecFields = Vec::new();
-    let mut ownerField = lf::value::record::Field::new();
-    let mut countField = lf::value::record::Field::new();
     let mut templateId = lf::Identifier::new();
-    let mut owner = lf::Value::new();
-    let mut count = lf::Value::new();
     let mut contractId = lf::Value::new();
-
-    owner.set_party(String::from("bob"));
-
-    ownerField.value = MessageField::some(owner);
-
-    count.set_int64(42i64);
-
-    countField.value = MessageField::some(count);
-
-    argRecFields.push(ownerField);
-    argRecFields.push(countField);
-    argRec.fields = argRecFields;
-    arg.set_record(argRec);
 
     templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
     templateId.module_name = Vec::from([String::from("fetch_contract")]);
@@ -155,7 +135,7 @@ pub fn main() {
 
     contractId.set_contract_id(hex::decode("0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac").unwrap());
 
-    let contractArg = ledger::fetchContractArg(templateId, contractId.clone());
+    let contractArg = ledger::fetchContractArg(templateId, contractId.clone(), "10 seconds");
 
     ledger::logInfo(&format!("contract ID {} has argument {}", hex::encode(contractId.take_contract_id()), contractArg));
 }

@@ -46,6 +46,7 @@ final class WasmRunner(
 
   import WasmRunner._
 
+  private[this] var localContractStore = Map.empty[LfValue.ContractId, (Ref.TypeConName, LfValue)]
   private[this] var ptx: PartialTransaction = PartialTransaction
     .initial(
       contractKeyUniqueness,
@@ -74,9 +75,9 @@ final class WasmRunner(
       readAs,
       None,
     )
-    // TODO: global vs local contract IDs??
     val (contractId, updatedPtx) = ptx.insertCreate(submissionTime, contractInfo, None).toOption.get
 
+    localContractStore = localContractStore + (contractId -> (templateTypeCon, argsV))
     ptx = updatedPtx
 
     contractId
@@ -85,36 +86,42 @@ final class WasmRunner(
   override def fetchContractArg(
       templateId: Ref.TypeConRef,
       contractId: LfValue.ContractId,
+      timeout: Duration,
   ): LfValue = {
     val templateTypeCon = templateId.assertToTypeConName
     val txVersion = tmplId2TxVersion(templateTypeCon)
 
-    // We rely on the caller to timeout this WASM computation
-    Await.result(
-      activeContractStore.lookupActiveContract(submitters ++ readAs, contractId),
-      Duration.Inf,
-    ) match {
-      case Some(contract) => {
-        val contractInfo = ContractInfo(
-          txVersion,
-          contract.unversioned.packageName,
-          contract.unversioned.packageVersion,
-          templateTypeCon,
-          toSValue(contract.unversioned.arg),
-          submitters,
-          readAs,
-          None,
-        )
-        val updatedPtx =
-          ptx.insertFetch(contractId, contractInfo, None, byKey = false, txVersion).toOption.get
+    localContractStore.get(contractId) match {
+      case Some((`templateTypeCon`, argV)) =>
+        argV
 
-        ptx = updatedPtx
+      case _ =>
+        Await.result(
+          activeContractStore.lookupActiveContract(submitters ++ readAs, contractId),
+          timeout,
+        ) match {
+          case Some(contract) =>
+            val contractInfo = ContractInfo(
+              txVersion,
+              contract.unversioned.packageName,
+              contract.unversioned.packageVersion,
+              templateTypeCon,
+              toSValue(contract.unversioned.arg),
+              submitters,
+              readAs,
+              None,
+            )
+            val updatedPtx =
+              ptx.insertFetch(contractId, contractInfo, None, byKey = false, txVersion).toOption.get
 
-        contract.unversioned.arg
-      }
+            ptx = updatedPtx
 
-      case None =>
-        ???
+            contract.unversioned.arg
+
+          case None =>
+            // TODO: manage contract lookup failure
+            ???
+        }
     }
   }
 
@@ -138,7 +145,7 @@ final class WasmRunner(
 
       LfValueCoder.encodeValue(txVersion, LfValue.ValueContractId(contractId)).toOption.get
     }
-    val fetchContractArgFunc = wasmFunction("fetchContractArg", 2, WasmValueResultType) { param =>
+    val fetchContractArgFunc = wasmFunction("fetchContractArg", 3, WasmValueResultType) { param =>
       val templateId =
         LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
       val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
@@ -149,7 +156,8 @@ final class WasmRunner(
         case _ =>
           None
       }
-      val arg = fetchContractArg(templateId, optContractId.get)
+      val timeout = Duration(param(2).toStringUtf8)
+      val arg = fetchContractArg(templateId, optContractId.get, timeout)
 
       LfValueCoder.encodeValue(txVersion, arg).toOption.get
     }

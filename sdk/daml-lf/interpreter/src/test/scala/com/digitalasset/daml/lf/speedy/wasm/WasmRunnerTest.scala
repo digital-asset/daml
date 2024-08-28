@@ -221,6 +221,7 @@ class WasmRunnerTest
         globalKeyMapping shouldBe empty
         disclosedCreateEvents shouldBe empty
     }
+    // TODO: validate localContractCache was updated
   }
 
   "fetch-contract" in {
@@ -250,9 +251,11 @@ class WasmRunnerTest
       "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:fetch_contract:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
+    val bob = "bob"
+    val count = 42L
     val argV = ValueRecord(
       None,
-      ImmArray(None -> ValueParty(Ref.Party.assertFromString("bob")), None -> ValueInt64(42L)),
+      ImmArray(None -> ValueParty(Ref.Party.assertFromString(bob)), None -> ValueInt64(count)),
     )
     val contract =
       VersionedContractInstance(pkgName, Some(pkgVersion), templateId, Versioned(txVersion, argV))
@@ -345,7 +348,7 @@ class WasmRunnerTest
                 `txVersion`,
               ) =>
             verify(mockLogger).info(
-              s"contract ID ${contractId.coid} has argument record {fields {value {party: \"bob\"}} fields {value {int64: 42}}}"
+              s"contract ID ${contractId.coid} has argument record {fields {value {party: \"$bob\"}} fields {value {int64: $count}}}"
             )
         }
         tx.version shouldBe txVersion
@@ -354,7 +357,10 @@ class WasmRunnerTest
         globalKeyMapping shouldBe empty
         disclosedCreateEvents shouldBe empty
     }
+    // TODO: validate that local contract cache remains empty
   }
+
+  // TODO: test for fetching from local contract cache
 
   private def createContextualizedLogger(logger: Logger): ContextualizedLogger = {
     val method = classOf[ContextualizedLogger.type].getDeclaredMethod("createFor", classOf[Logger])
