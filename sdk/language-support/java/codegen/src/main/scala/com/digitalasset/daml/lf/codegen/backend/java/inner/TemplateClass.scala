@@ -45,7 +45,8 @@ private[inner] object TemplateClass extends StrictLogging {
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .superclass(classOf[javaapi.data.Template])
-        .addField(generateTemplateIdField(typeWithContext))
+        .addFields(generateTemplateIdFields(typeWithContext).asJava)
+        .addField(ClassGenUtils.generatePackageIdField(typeWithContext.packageId))
         .addField(generatePackageNameField(typeWithContext))
         .addField(generatePackageVersionField(typeWithContext))
         .addMethod(generateCreateMethod(className))
@@ -499,9 +500,10 @@ private[inner] object TemplateClass extends StrictLogging {
       )
     )
 
-  private def generateTemplateIdField(typeWithContext: TypeWithContext): FieldSpec =
-    ClassGenUtils.generateTemplateIdField(
+  private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
+    ClassGenUtils.generateTemplateIdFields(
       typeWithContext.packageId,
+      None, // TODO(raphael-speyer-da): Some(typeWithContext.interface.metadata.name)
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )

@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.digitalasset.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
+import Ref.{ChoiceName, PackageId, PackageName, PackageRef, PackageVersion}
 import com.digitalasset.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import java.util.Optional
@@ -49,33 +49,62 @@ private[inner] object ClassGenUtils {
   }
 
   val templateIdFieldName = "TEMPLATE_ID"
+  val templateIdWithPackageIdFieldName = "TEMPLATE_ID_WITH_PACKAGE_ID"
+  val packageIdFieldName = "PACKAGE_ID"
   val packageNameFieldName = "PACKAGE_NAME"
   val packageVersionFieldName = "PACKAGE_VERSION"
   val companionFieldName = "COMPANION"
   val archiveChoiceName = ChoiceName assertFromString "Archive"
 
-  def generateTemplateIdField(packageId: PackageId, moduleName: String, name: String) =
+  def generateTemplateIdFields(
+      pkgId: PackageId,
+      pkgName: Option[PackageName],
+      moduleName: String,
+      name: String,
+  ): Seq[FieldSpec] = {
+    val packageRef = pkgName match {
+      case Some(name) => PackageRef.Name(name)
+      case None => PackageRef.Id(pkgId)
+    }
+    def idField(fieldName: String, pkg: String) =
+      FieldSpec
+        .builder(
+          ClassName.get(classOf[javaapi.data.Identifier]),
+          fieldName,
+          Modifier.STATIC,
+          Modifier.FINAL,
+          Modifier.PUBLIC,
+        )
+        .initializer(
+          "new $T($S, $S, $S)",
+          classOf[javaapi.data.Identifier],
+          pkg,
+          moduleName,
+          name,
+        )
+        .build()
+    Seq(
+      idField(templateIdFieldName, packageRef.toString),
+      idField(templateIdWithPackageIdFieldName, pkgId.toString),
+    )
+  }
+
+  def generatePackageIdField(packageId: PackageId) =
     FieldSpec
       .builder(
-        ClassName.get(classOf[javaapi.data.Identifier]),
-        templateIdFieldName,
+        ClassName.get(packageId.getClass),
+        packageIdFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
         Modifier.PUBLIC,
       )
-      .initializer(
-        "new $T($S, $S, $S)",
-        classOf[javaapi.data.Identifier],
-        packageId,
-        moduleName,
-        name,
-      )
+      .initializer("$S", packageId)
       .build()
 
   def generatePackageNameField(packageName: PackageName) =
     FieldSpec
       .builder(
-        ClassName.get(classOf[String]),
+        ClassName.get(packageName.getClass),
         packageNameFieldName,
         Modifier.STATIC,
         Modifier.FINAL,
