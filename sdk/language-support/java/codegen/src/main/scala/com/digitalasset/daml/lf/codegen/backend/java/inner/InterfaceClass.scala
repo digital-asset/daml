@@ -32,7 +32,8 @@ object InterfaceClass extends StrictLogging {
       val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
-        .addField(generateTemplateIdField(packageId, interfaceId))
+        .addFields(generateTemplateIdFields(packageId, interfaceId).asJava)
+        .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addField(ClassGenUtils.generatePackageNameField(packageMetadata.name))
         .addField(ClassGenUtils.generatePackageVersionField(packageMetadata.version))
         .addFields(
@@ -147,11 +148,15 @@ object InterfaceClass extends StrictLogging {
       .build()
   }
 
-  private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
-    ClassGenUtils.generateTemplateIdField(
-      packageId,
-      name.module.toString,
-      name.name.toString,
+  private def generateTemplateIdFields(
+      packageId: PackageId,
+      name: QualifiedName,
+  ): Seq[FieldSpec] =
+    ClassGenUtils.generateTemplateIdFields(
+      pkgId = packageId,
+      pkgName = None, // Interfaces are not addressable by package name
+      moduleName = name.module.toString,
+      name = name.name.toString,
     )
 
   private def generateContractFilterMethod(
