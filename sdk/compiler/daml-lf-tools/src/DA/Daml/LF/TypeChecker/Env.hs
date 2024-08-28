@@ -184,8 +184,8 @@ withContextF setter newCtx = local (over (setter . locCtx) setCtx)
     setCtx :: Context -> Context
     setCtx oldCtx =
       case (oldCtx, newCtx) of
-        (ContextDefUpgrading _ _ _ _, ContextDefUpgrading _ _ _ _) -> newCtx
-        (ContextDefUpgrading name version _ isUpgrading, _) -> ContextDefUpgrading name version newCtx isUpgrading
+        (ContextDefUpgrading {}, ContextDefUpgrading {}) -> newCtx
+        (ContextDefUpgrading { cduPkgName, cduPkgVersion, cduIsDependency }, _) -> ContextDefUpgrading cduPkgName cduPkgVersion newCtx cduIsDependency
         (_, _) -> newCtx
 
 instance SomeErrorOrWarning UnwarnableError where

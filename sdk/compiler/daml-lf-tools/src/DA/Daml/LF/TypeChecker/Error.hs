@@ -40,7 +40,12 @@ data Context
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
   | ContextDefInterface !Module !DefInterface !InterfacePart
-  | ContextDefUpgrading !PackageName !(Upgrading RawPackageVersion) !Context !Bool
+  | ContextDefUpgrading
+      { cduPkgName :: !PackageName -- Name of package being checked for upgrade validity
+      , cduPkgVersion :: !(Upgrading RawPackageVersion) -- Prior (upgradee) and current (upgrader) version of dep package
+      , cduSubContext :: !Context -- Context within the package of the error
+      , cduIsDependency :: !Bool -- Is the package a dependency package or is it the main package?
+      }
 
 data TemplatePart
   = TPWhole
@@ -271,7 +276,7 @@ contextLocation = \case
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
   ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
-  ContextDefUpgrading _ _ _ _ -> Nothing
+  ContextDefUpgrading {} -> Nothing
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
@@ -322,13 +327,13 @@ instance Show Context where
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
     ContextDefInterface m i p ->
       "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
-    ContextDefUpgrading pkgName pkgVersion subContext isDependency ->
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
       let prettyPkgName =
-            if isDependency
-            then "dependency " <> T.unpack (unPackageName pkgName)
-            else T.unpack (unPackageName pkgName)
+            if cduIsDependency
+            then "dependency " <> T.unpack (unPackageName cduPkgName)
+            else T.unpack (unPackageName cduPkgName)
       in
-      "upgrading " <> prettyPkgName <> " " <> show (_present pkgVersion) <> ", " <> show subContext
+      "upgrading " <> prettyPkgName <> " " <> show (_present cduPkgVersion) <> ", " <> show cduSubContext
 
 instance Show TemplatePart where
   show = \case
@@ -713,14 +718,14 @@ prettyWithContext ctx warningOrErr =
       header $ hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
     ContextDefInterface m i p ->
       header $ hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
-    ContextDefUpgrading pkgName pkgVersion subContext isDependency ->
-      let prettyPkgName = if isDependency then hsep ["dependency", pretty pkgName] else pretty pkgName
-          upgradeOrDowngrade = if _present pkgVersion > _past pkgVersion then "upgrade" else "downgrade"
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
+      let prettyPkgName = if cduIsDependency then hsep ["dependency", pretty cduPkgName] else pretty cduPkgName
+          upgradeOrDowngrade = if _present cduPkgVersion > _past cduPkgVersion then "upgrade" else "downgrade"
       in
       vcat
-      [ hsep [ "error while validating that", prettyPkgName, "version", string (show (_present pkgVersion)), "is a valid", upgradeOrDowngrade, "of version", string (show (_past pkgVersion)) ]
+      [ hsep [ "error while validating that", prettyPkgName, "version", string (show (_present cduPkgVersion)), "is a valid", upgradeOrDowngrade, "of version", string (show (_past cduPkgVersion)) ]
       , nest 2 $
-        prettyWithContext subContext warningOrErr
+        prettyWithContext cduSubContext warningOrErr
       ]
 
 class ToDiagnostic a where

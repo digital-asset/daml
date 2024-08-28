@@ -243,7 +243,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                             let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
-                                let context = ContextDefUpgrading packageName (Upgrading greaterPkgVersion presentVersion) ContextNone True
+                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
                                 checkUpgradeBoth
                                   (Just context)
                                   greaterPkg
@@ -255,7 +255,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                                 pure ()
                             case closestLesser of
                               Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
-                                let context = ContextDefUpgrading packageName (Upgrading lesserPkgVersion presentVersion) ContextNone True
+                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
                                 checkUpgradeBoth
                                   (Just context)
                                   presentPkg
