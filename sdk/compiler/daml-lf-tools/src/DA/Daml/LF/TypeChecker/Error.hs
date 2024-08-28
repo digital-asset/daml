@@ -211,7 +211,6 @@ data UnwarnableError
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
-  | EUpgradeDependencyHasLowerVersionDespiteUpgrade !PackageName !PackageVersion !PackageVersion
   deriving (Show)
 
 data WarnableError
@@ -676,11 +675,6 @@ instance Pretty UnwarnableError where
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
     EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
-    EUpgradeDependencyHasLowerVersionDespiteUpgrade pkgName presentVersion pastVersion ->
-      vcat
-        [ "Dependency " <> pPrint pkgName <> " has version " <> pPrint presentVersion <> " on the upgrading package, which is older than version " <> pPrint pastVersion <> " on the upgraded package."
-        , "Dependency versions of upgrading packages must always be greater or equal to the dependency versions on upgraded packages."
-        ]
 
 
 instance Pretty UpgradedRecordOrigin where
