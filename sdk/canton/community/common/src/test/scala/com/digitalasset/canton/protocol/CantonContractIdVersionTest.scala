@@ -70,7 +70,7 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
           ProtocolVersion.v5
         ) shouldBe AuthenticatedContractIdV2
 
-        forAll(ProtocolVersion.stable.filter(_ >= ProtocolVersion.v6))(
+        forAll(ProtocolVersion.stable.filter(_ >= ProtocolVersion.v7))(
           CantonContractIdVersion.fromProtocolVersion(_) shouldBe AuthenticatedContractIdV3
         )
       }

@@ -41,7 +41,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{DamlPackageLoader, EitherTUtil, FutureUtil, retry}
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -351,7 +351,7 @@ private[admin] class ResilientTransactionsSubscription(
       maxDelay = 5.seconds,
       operationName = s"restartable-$serviceName-$subscriptionName",
     )
-    .apply(resilientSubscription(), AllExnRetryable)
+    .apply(resilientSubscription(), AllExceptionRetryPolicy)
 
   runOnShutdown_(new RunOnShutdown {
     override def name: String = s"$serviceName-$subscriptionName-shutdown"

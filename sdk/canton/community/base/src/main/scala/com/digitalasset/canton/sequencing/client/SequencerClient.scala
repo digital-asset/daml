@@ -49,7 +49,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, SequencerAlias, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
@@ -423,14 +423,9 @@ class SequencerClientImpl(
         case _: ParticipantId => true
         case _ => false
       }
-      val domainParamsF =
-        EitherTUtil.fromFuture(
-          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults),
-          throwable =>
-            SendAsyncClientError.RequestFailed(
-              s"failed to retrieve maxRequestSize because ${throwable.getMessage}"
-            ),
-        )
+      val domainParamsF = EitherT.liftF(
+        domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
+      )
       def trackSend: EitherT[Future, SendAsyncClientError, Unit] =
         sendTracker
           .track(messageId, maxSequencingTime, callback)
@@ -999,10 +994,8 @@ class SequencerClientImpl(
             failure
           }
 
-          def handleException(
-              error: Throwable,
-              syncProcessing: Boolean,
-          ): ApplicationHandlerFailure = {
+          def handleException(error: Throwable, syncProcessing: Boolean)
+              : ApplicationHandlerFailure = {
             val sync = if (syncProcessing) "Synchronous" else "Asynchronous"
 
             error match {
@@ -1031,34 +1024,33 @@ class SequencerClientImpl(
           def handleAsyncResult(
               asyncResultF: Future[UnlessShutdown[AsyncResult]]
           ): EitherT[Future, ApplicationHandlerFailure, Unit] =
-            EitherTUtil
-              .fromFuture(asyncResultF, handleException(_, syncProcessing = true))
-              .subflatMap {
-                case UnlessShutdown.Outcome(asyncResult) =>
-                  val asyncSignalledF = asyncResult.unwrap.transform { result =>
-                    // record errors and shutdown in `applicationHandlerFailure` and move on
-                    result match {
-                      case Success(outcome) =>
-                        outcome
-                          .onShutdown(
-                            putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
-                          )
-                          .discard
-                      case Failure(error) =>
-                        handleException(error, syncProcessing = false).discard
-                    }
-                    Success(UnlessShutdown.unit)
-                  }.unwrap
-                  // note, we are adding our async processing to the flush future, so we know once the async processing has finished
-                  addToFlushAndLogError(
-                    s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
-                  )(asyncSignalledF)
-                  // we do not wait for the async results to finish, we are done here once the synchronous part is done
-                  Right(())
-                case UnlessShutdown.AbortedDueToShutdown =>
-                  putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
-                  Left(ApplicationHandlerShutdown)
-              }
+            EitherT(asyncResultF.transform {
+              case Success(UnlessShutdown.Outcome(asyncResult)) =>
+                val asyncSignalledF = asyncResult.unwrap.transform { result =>
+                  // record errors and shutdown in `applicationHandlerFailure` and move on
+                  result match {
+                    case Success(outcome) =>
+                      outcome.onShutdown(
+                        putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
+                      )
+                    case Failure(error) =>
+                      handleException(error, syncProcessing = false).discard
+                  }
+                  Success(UnlessShutdown.unit)
+                }.unwrap
+                // note, we are adding our async processing to the flush future, so we know once the async processing has finished
+                addToFlushAndLogError(
+                  s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
+                )(asyncSignalledF)
+                // we do not wait for the async results to finish, we are done here once the synchronous part is done
+                Success(Right(()))
+              case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
+                Success(Left(ApplicationHandlerShutdown))
+              case Failure(ex) =>
+                val failure = handleException(ex, syncProcessing = true)
+                Success(Left(failure))
+            })
 
           // note, here, we created the asyncResultF, which means we've completed the synchronous processing part.
           asyncResultFT.fold(
@@ -1281,7 +1273,7 @@ object SequencerClient {
     }
     retry
       .Pause(loggingContext.logger, performUnlessClosing, maxRetries, delay, sendDescription)
-      .unlessShutdown(doSend(), AllExnRetryable)(
+      .unlessShutdown(doSend(), AllExceptionRetryPolicy)(
         retry.Success.always,
         ec,
         loggingContext.traceContext,

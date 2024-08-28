@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.{OwnerToKeyMapping, SignedTopologyTransaction}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{FutureUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
@@ -192,7 +192,7 @@ trait DomainOutboxDispatch[
               level = Level.WARN,
             )
           },
-          AllExnRetryable,
+          AllExceptionRetryPolicy,
         )
         .map { responses =>
           if (responses.length != transactions.length) {

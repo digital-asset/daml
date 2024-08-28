@@ -26,8 +26,7 @@ import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeR
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
-import com.digitalasset.canton.util.retry.Success
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Success}
 import com.digitalasset.canton.util.{Thereafter, retry}
 import com.digitalasset.canton.version.HandshakeErrors.{
   DeprecatedProtocolVersion,
@@ -212,7 +211,7 @@ class GrpcSequencerConnectClient(
     EitherT(
       retry
         .Pause(logger, this, maxRetries, interval, "verify active")
-        .apply(verifyActive(), AllExnRetryable)
+        .apply(verifyActive(), AllExceptionRetryPolicy)
     ).thereafter(_ => closeableChannel.close())
   }
 }

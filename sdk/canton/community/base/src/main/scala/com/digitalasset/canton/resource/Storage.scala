@@ -42,9 +42,8 @@ import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializa
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import com.digitalasset.canton.util.retry.{DbRetries, RetryEither}
+import com.digitalasset.canton.util.{Thereafter, *}
 import com.digitalasset.canton.{LfPackageId, LfPackageVersion, LfPartyId}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -324,7 +323,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
           else dbConfig.parameters.connectionTimeout.asFiniteApproximation
         ),
       )
-      .apply(body, DbExceptionRetryable)
+      .apply(body, DbExceptionRetryPolicy)
       .thereafter { _ =>
         if (logOperations) {
           logger.debug(s"completed $action: $operationName")

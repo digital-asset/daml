@@ -156,7 +156,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
     ) { env =>
       import env.*
 
-      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.17)
+      // Define three packages that would be upgrade-incompatible: two non-upgradable (LF 1.15) and one upgradable (LF 1.16)
       // Same package-name and package-version
       val pkg_lf_1_15 = lfArchiveTemplate(
         pkgName,
