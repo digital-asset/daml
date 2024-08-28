@@ -30,7 +30,7 @@ applyMove anchorGenerators
     renameModule md@ModuleDoc{..}
         | Just new <- isMove md_descr = md
             { md_name = new
-            , md_anchor = Just (ag_moduleAnchor anchorGenerators md_packageName new)
+            , md_anchor = Just (ag_moduleAnchor anchorGenerators new)
                 -- Update the module anchor
             , md_descr = Nothing
                 -- Drop the renamed module's description.
@@ -46,7 +46,6 @@ applyMove anchorGenerators
             -- The renamed module's description was dropped,
             -- so in this line we always prefers the original
             -- module description.
-        , md_packageName = md_packageName m1
         , md_adts = md_adts m1 ++ md_adts m2
         , md_functions = md_functions m1 ++ md_functions m2
         , md_templates = md_templates m1 ++ md_templates m2

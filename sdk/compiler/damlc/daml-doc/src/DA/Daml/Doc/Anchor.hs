@@ -82,9 +82,9 @@ hashText = T.pack . show . (`mod` 100000) . hash
 
 defaultAnchorGenerators :: AnchorGenerators
 defaultAnchorGenerators = AnchorGenerators
-  { ag_moduleAnchor = const moduleAnchor
-  , ag_classAnchor = const classAnchor
-  , ag_typeAnchor = const typeAnchor
-  , ag_constrAnchor = const constrAnchor
-  , ag_functionAnchor = const functionAnchor
+  { ag_moduleAnchor = moduleAnchor
+  , ag_classAnchor = classAnchor
+  , ag_typeAnchor = typeAnchor
+  , ag_constrAnchor = constrAnchor
+  , ag_functionAnchor = functionAnchor
   }

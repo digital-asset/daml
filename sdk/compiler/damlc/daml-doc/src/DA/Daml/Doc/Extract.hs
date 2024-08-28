@@ -86,8 +86,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             templateMaps = getTemplateMaps ctx
 
             md_name = dc_modname
-            md_packageName = modulePackage dc_ghcMod
-            md_anchor = Just (ag_moduleAnchor (eo_anchorGenerators extractOpts) md_packageName md_name)
+            md_anchor = Just (ag_moduleAnchor (eo_anchorGenerators extractOpts) md_name)
             md_descr = modDoc tcmod
             md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap templateMaps
             md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap templateMaps
@@ -242,7 +241,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
     let ty = idType id
         fct_context = typeToContext ctx ty
         fct_type = typeToType ctx ty
-        fct_anchor = Just $ ag_functionAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname fct_name
+        fct_anchor = Just $ ag_functionAnchor (eo_anchorGenerators dc_extractOptions) dc_modname fct_name
         fct_descr = docs
 
     guard (exportsFunction dc_exports fct_name)
@@ -254,7 +253,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
     let cl_name = Typename . packRdrName $ unLoc tcdLName
     tycon <- MS.lookup cl_name dc_tycons
     tycls <- tyConClass_maybe tycon
-    let cl_anchor = Just $ ag_classAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname cl_name
+    let cl_anchor = Just $ ag_classAnchor (eo_anchorGenerators dc_extractOptions) dc_modname cl_name
         cl_descr = tcdocs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
         opMap = MS.fromList
@@ -301,7 +300,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
             flip mapMaybe rdrNamesL $ \rdrNameL -> do
                 let cm_name = Fieldname . packRdrName . unLoc $ rdrNameL
                     cm_anchor = guard (not cm_isDefault) >>
-                        Just (ag_functionAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname cm_name)
+                        Just (ag_functionAnchor (eo_anchorGenerators dc_extractOptions) dc_modname cm_name)
                 (id, dmInfoM) <- MS.lookup cm_name opMap
 
                 let ghcType
@@ -354,7 +353,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
         let ad_name = Typename . packRdrName $ unLoc tcdLName
             ad_descr = doc
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-            ad_anchor = Just $ ag_typeAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname ad_name
+            ad_anchor = Just $ ag_typeAnchor (eo_anchorGenerators dc_extractOptions) dc_modname ad_name
             ad_rhs = fromMaybe unknownType $ do
                 tycon <- MS.lookup ad_name dc_tycons
                 rhs <- synTyConRhs_maybe tycon
@@ -366,7 +365,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
         let ad_name = Typename . packRdrName $ unLoc tcdLName
             ad_descr = doc
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-            ad_anchor = Just $ ag_typeAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname ad_name
+            ad_anchor = Just $ ag_typeAnchor (eo_anchorGenerators dc_extractOptions) dc_modname ad_name
             ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
             ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
         Just (ad_name, ADTDoc {..})
@@ -374,7 +373,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     constrDoc :: LConDecl GhcPs -> ADTConstr
     constrDoc (L _ con) =
         let ac_name = Typename . packRdrName . unLoc $ con_name con
-            ac_anchor = Just $ ag_constrAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname ac_name
+            ac_anchor = Just $ ag_constrAnchor (eo_anchorGenerators dc_extractOptions) dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
             ac_args =
                 case MS.lookup ac_name dc_datacons of
@@ -395,7 +394,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
     fieldDoc (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (packFieldOcc . unLoc) $ cd_fld_names
-            fd_anchor = Just $ ag_functionAnchor (eo_anchorGenerators dc_extractOptions) (modulePackage dc_ghcMod) dc_modname fd_name
+            fd_anchor = Just $ ag_functionAnchor (eo_anchorGenerators dc_extractOptions) dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
         Just FieldDoc{..}
     fieldDoc (_, L _ XConDeclField{}) = Nothing

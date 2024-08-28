@@ -27,8 +27,7 @@ renderMd env = \case
     RenderAnchor anchor -> [anchorTag anchor]
     RenderIndex moduleNames ->
         [ "*" <-> renderMdLink env
-                -- TODO: Consider piping package name here for consistency. We don't currently need it.
-                (Reference Nothing (ag_moduleAnchor (re_anchorGenerators env) Nothing moduleName))
+                (Reference Nothing (ag_moduleAnchor (re_anchorGenerators env) moduleName))
                 (unModulename moduleName)
         | moduleName <- moduleNames
         ]

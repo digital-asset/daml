@@ -90,7 +90,7 @@ newtype Anchor = Anchor { unAnchor :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, ToJSONKey, FromJSON, FromJSONKey, IsString, Hashable)
 
 -- | A database of anchors to URL strings.
-newtype AnchorMap = AnchorMap { unAnchorMap :: Anchor -> Maybe URI.URI }
+newtype AnchorMap = AnchorMap { unAnchorMap :: Maybe Packagename -> Anchor -> Maybe URI.URI }
 
 -- Parsed in as a lookup only hashmap, so a function can be used in its place
 instance FromJSON AnchorMap where
@@ -100,15 +100,15 @@ instance FromJSON AnchorMap where
     hashMap <- parseJSON @(HMS.HashMap Anchor String) json
     hashMapUri <- for hashMap $ \uriStr ->
       maybe (fail $ "Invalid URI: " <> uriStr) pure $ URI.parseURI uriStr
-    pure $ AnchorMap $ flip HMS.lookup hashMapUri
+    pure $ AnchorMap $ const $ flip HMS.lookup hashMapUri
 
 -- | Customisable anchor generation
 data AnchorGenerators = AnchorGenerators
-    { ag_moduleAnchor :: Maybe Packagename -> Modulename -> Anchor
-    , ag_classAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
-    , ag_typeAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
-    , ag_constrAnchor :: Maybe Packagename -> Modulename -> Typename -> Anchor
-    , ag_functionAnchor :: Maybe Packagename -> Modulename -> Fieldname-> Anchor
+    { ag_moduleAnchor :: Modulename -> Anchor
+    , ag_classAnchor :: Modulename -> Typename -> Anchor
+    , ag_typeAnchor :: Modulename -> Typename -> Anchor
+    , ag_constrAnchor :: Modulename -> Typename -> Anchor
+    , ag_functionAnchor :: Modulename -> Fieldname-> Anchor
     }
 
 instance Show AnchorGenerators where show _ = "<anchorGenerators>"
@@ -120,7 +120,6 @@ data ModuleDoc = ModuleDoc
   { md_anchor     :: Maybe Anchor
   , md_name       :: Modulename
   , md_descr      :: Maybe DocText
-  , md_packageName:: Maybe Packagename
   , md_templates  :: [TemplateDoc]
   , md_interfaces :: [InterfaceDoc]
   , md_adts       :: [ADTDoc]

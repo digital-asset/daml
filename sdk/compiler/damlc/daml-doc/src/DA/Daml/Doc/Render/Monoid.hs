@@ -109,7 +109,7 @@ lookupReference ::
 lookupReference RenderEnv{..} ref = asum
     [ SameFile <$ guard (Set.member (referenceAnchor ref) re_localAnchors)
     , SameFolder <$> Map.lookup (referenceAnchor ref) re_globalAnchors
-    , External <$> unAnchorMap re_externalAnchors (referenceAnchor ref)
+    , External <$> unAnchorMap re_externalAnchors (referencePackage ref) (referenceAnchor ref)
     ]
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]

@@ -85,7 +85,7 @@ data ExternalAnchorPath
 
 data ExternalAnchorBehaviour
   = ExternalAnchorMapPath ExternalAnchorPath
-  | ExternalAnchorFun (Anchor -> Maybe URI.URI)
+  | ExternalAnchorFun (Maybe Packagename -> Anchor -> Maybe URI.URI)
 
 -- | Run damldocs!
 runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
@@ -126,7 +126,7 @@ loadExternalAnchors eapath = do
             hPutStr stderr err
             exitFailure
     anchors <- case eapath of
-        NoExternalAnchorPath -> pure . Right $ AnchorMap $ const Nothing
+        NoExternalAnchorPath -> pure . Right $ AnchorMap $ \_ _ -> Nothing
         DefaultExternalAnchorPath -> getDamlBaseAnchorsPath >>= tryLoadAnchors
         ExplicitExternalAnchorPath path -> tryLoadAnchors path
     either printAndExit pure anchors

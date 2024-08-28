@@ -10,7 +10,6 @@ import DA.Daml.Doc.Extract.Types
 
 import Control.Monad (guard)
 import Data.Char (isSpace)
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
 import "ghc-lib" GHC
@@ -114,10 +113,9 @@ tyConAnchor DocCtx{..} tycon = do
     let ghcName = tyConName tycon
         name = Typename . packName $ ghcName
         mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
-        pkgName = modulePackage $ fromMaybe dc_ghcMod $ nameModule_maybe ghcName
         anchorFn
-            | isClassTyCon tycon = ag_classAnchor (eo_anchorGenerators dc_extractOptions) pkgName
-            | otherwise = ag_typeAnchor (eo_anchorGenerators dc_extractOptions) pkgName
+            | isClassTyCon tycon = ag_classAnchor (eo_anchorGenerators dc_extractOptions)
+            | otherwise = ag_typeAnchor (eo_anchorGenerators dc_extractOptions)
     Just (anchorFn mod name)
 
 -- | Create a (possibly external) reference from a TyCon.
