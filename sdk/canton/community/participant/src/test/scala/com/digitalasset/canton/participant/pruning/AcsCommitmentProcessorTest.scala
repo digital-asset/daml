@@ -1799,7 +1799,7 @@ class AcsCommitmentProcessorTest
           }
         }
 
-      "enter catch up mode when processing falls behind" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "enter catch up mode when processing falls behind" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
           // contract ID to stakeholders, creation and archival time
@@ -1889,7 +1889,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "catch up parameters overflow causes exception" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "catch up parameters overflow causes exception" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         assertThrows[IllegalArgumentException]({
           new CatchUpConfig(
             PositiveInt.tryCreate(Int.MaxValue / 2),
@@ -1898,7 +1898,7 @@ class AcsCommitmentProcessorTest
         })
       }
 
-      "catch up parameters (1,1) throws exception" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "catch up parameters (1,1) throws exception" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         assertThrows[IllegalArgumentException]({
           new CatchUpConfig(
             PositiveInt.tryCreate(1),
@@ -1907,7 +1907,7 @@ class AcsCommitmentProcessorTest
         })
       }
 
-      "catch up with maximum reconciliation interval and catch-up parameters logs error" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "catch up with maximum reconciliation interval and catch-up parameters logs error" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
             // maximum reconciliation interval in seconds allowed by the CantonTimestamp
@@ -1995,7 +1995,7 @@ class AcsCommitmentProcessorTest
         )
       }
 
-      "catch up in correct skip steps scenario1" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "catch up in correct skip steps scenario1" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5L
         val testSequences =
           (1L to 14)
@@ -2071,7 +2071,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "catch up in correct skip steps scenario2" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "catch up in correct skip steps scenario2" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5.toLong
         val testSequences =
           (1L to 45)
@@ -2146,7 +2146,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "pruning works correctly for a participant ahead of a counter-participant that catches up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "pruning works correctly for a participant ahead of a counter-participant that catches up" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val timeProofs = List(5L, 10, 15, 20, 25, 30).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
           // contract ID to stakeholders, creation and archival time
@@ -2231,7 +2231,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "send skipped commitments on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "send skipped commitments on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
 
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
@@ -2342,7 +2342,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "prune correctly on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "prune correctly on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
 
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
@@ -2456,7 +2456,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "not report errors about skipped commitments due to catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "not report errors about skipped commitments due to catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
 
         val reconciliationInterval = 5
         val timeProofs =
@@ -2585,7 +2585,7 @@ class AcsCommitmentProcessorTest
         )
       }
 
-      "perform match for fine-grained commitments in case of mismatch at catch-up boundary" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "perform match for fine-grained commitments in case of mismatch at catch-up boundary" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
 
         val reconciliationInterval = 5
         val timeProofs =
@@ -2752,7 +2752,7 @@ class AcsCommitmentProcessorTest
         )
       }
 
-      "dynamically change, disable & re-enable catch-up config during a catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "dynamically change, disable & re-enable catch-up config during a catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5.toLong
         val testSequences =
           List(
@@ -2884,7 +2884,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "disable catch-up config during catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "disable catch-up config during catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5.toLong
         val testSequences =
           (1L to 10)
@@ -2967,7 +2967,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "change catch-up config during catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "change catch-up config during catch-up mode" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5.toLong
         val testSequences =
           (1L to 11)
@@ -3061,7 +3061,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "should mark as unhealthy when not caught up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "should mark as unhealthy when not caught up" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val reconciliationInterval = 5.toLong
         val testSequences =
           (1L to 10)

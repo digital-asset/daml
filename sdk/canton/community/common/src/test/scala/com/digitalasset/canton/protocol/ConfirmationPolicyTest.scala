@@ -48,7 +48,7 @@ class ConfirmationPolicyTest
   private def withSubmittingAdminPartySignatory(
       submittingAdminPartyO: Option[LfPartyId]
   )(viewConfirmationParameters: ViewConfirmationParameters) =
-    if (testedProtocolVersion >= ProtocolVersion.v6)
+    if (testedProtocolVersion >= ProtocolVersion.v7)
       ConfirmationPolicy.Signatory.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
         viewConfirmationParameters
       )
@@ -60,7 +60,7 @@ class ConfirmationPolicyTest
   private def withSubmittingAdminPartyVip(
       submittingAdminPartyO: Option[LfPartyId]
   )(viewConfirmationParameters: ViewConfirmationParameters) =
-    if (testedProtocolVersion >= ProtocolVersion.v6)
+    if (testedProtocolVersion >= ProtocolVersion.v7)
       ConfirmationPolicy.Vip.withSubmittingAdminPartyQuorum(submittingAdminPartyO)(
         viewConfirmationParameters
       )
@@ -360,7 +360,7 @@ class ConfirmationPolicyTest
         }
       }
 
-      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val informees =
           Map(alice -> TrustLevel.Ordinary, bob -> TrustLevel.Ordinary, charlie -> TrustLevel.Vip)
         val quorums = Seq(
@@ -417,7 +417,7 @@ class ConfirmationPolicyTest
 
       }
 
-      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val informees =
           Map(alice -> TrustLevel.Ordinary, bob -> TrustLevel.Ordinary, charlie -> TrustLevel.Vip)
         val QuorumMultiple =
@@ -551,7 +551,7 @@ class ConfirmationPolicyTest
         }
       }
 
-      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "multiple quorums" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val informees =
           Map(alice -> TrustLevel.Vip, bob -> TrustLevel.Vip, charlie -> TrustLevel.Vip)
         val quorums = Seq(
@@ -607,7 +607,7 @@ class ConfirmationPolicyTest
         ) shouldBe viewConfirmationParametersSingle
       }
 
-      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "no superfluous quorum is added" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val informees =
           Map(alice -> TrustLevel.Vip, bob -> TrustLevel.Vip, charlie -> TrustLevel.Vip)
         val QuorumMultiple =

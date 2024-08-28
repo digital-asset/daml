@@ -45,7 +45,7 @@ class TransactionViewDecompositionTest
           new ExampleTransactionFactory()(confirmationPolicy = confirmationPolicy)
 
         val examples =
-          if (testedProtocolVersion >= ProtocolVersion.v6)
+          if (testedProtocolVersion >= ProtocolVersion.v7)
             exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingV6
           else exampleTransactionFactory.standardHappyCases
 

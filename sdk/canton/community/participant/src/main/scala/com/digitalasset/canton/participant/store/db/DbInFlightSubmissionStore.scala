@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, OptionUtil, SingleUseCell, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{PositionedParameters, SetParameter}
@@ -442,7 +442,7 @@ object DbInFlightSubmissionStore {
       implicit val stopRetry: retry.Success[Boolean] = retry.Success[Boolean](Predef.identity)
       retry
         .Directly(logger, storage, retry.Forever, "register submission retry")
-        .unlessShutdown(oneRound, NoExnRetryable)
+        .unlessShutdown(oneRound, NoExceptionRetryPolicy)
         .onShutdown {
           fillEmptyCells(Success(AbortedDueToShutdown))
           true

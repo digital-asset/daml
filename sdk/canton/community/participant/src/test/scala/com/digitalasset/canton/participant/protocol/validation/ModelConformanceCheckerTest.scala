@@ -175,7 +175,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   private val packageResolver: PackageResolver = _ => _ => Future.successful(Some(pkg))
 
   val preReinterpretationPackageIds: PackageIdsOfView =
-    if (testedProtocolVersion >= ProtocolVersion.v6)
+    if (testedProtocolVersion >= ProtocolVersion.v7)
       packageIdsOfActionDescription
     else
       legacyPackageIdsOfView
@@ -189,7 +189,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       dummyAuthenticator,
       packageResolver,
       preReinterpretationPackageIds,
-      checkUsedPackages = testedProtocolVersion >= ProtocolVersion.v6,
+      checkUsedPackages = testedProtocolVersion >= ProtocolVersion.v7,
       loggerFactory,
     )
 
@@ -568,7 +568,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         actual shouldBe Set(p2)
       }
 
-      if (testedProtocolVersion >= ProtocolVersion.v6) {
+      if (testedProtocolVersion >= ProtocolVersion.v7) {
         "support upgraded fetch" in {
           // Here the templateId is coming from the (possibly upgraded) package the fetch is targeted at
           val node = fetchNode(
@@ -585,7 +585,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
     }
 
-    if (testedProtocolVersion >= ProtocolVersion.v6) {
+    if (testedProtocolVersion >= ProtocolVersion.v7) {
 
       "post-reinterpretation used package vetting" must {
 
