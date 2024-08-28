@@ -23,6 +23,21 @@ import java.util.stream.Collectors;
  *     templates, and the view type for interfaces.
  */
 public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
+
+  public static class Package {
+    public final String id;
+    public final String name;
+    public final String version;
+
+    public Package(String id, String name, String version) {
+      this.id = id;
+      this.name = name;
+      this.version = version;
+    }
+  }
+
+  public final Package PACKAGE;
+
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
@@ -51,15 +66,21 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
    * @hidden
    */
   protected ContractTypeCompanion(
+      Package packageInfo,
       Identifier templateId,
       String templateClassName,
       Function<String, Id> newContractId,
       List<Choice<ContractType, ?, ?>> choices) {
+    PACKAGE = packageInfo;
     TEMPLATE_ID = templateId;
     TEMPLATE_CLASS_NAME = templateClassName;
     this.newContractId = newContractId;
     this.choices =
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
+  }
+
+  public Identifier getTemplateIdWithPackageId() {
+    return new Identifier(PACKAGE.id, TEMPLATE_ID.getModuleName(), TEMPLATE_ID.getEntityName());
   }
 
   /**

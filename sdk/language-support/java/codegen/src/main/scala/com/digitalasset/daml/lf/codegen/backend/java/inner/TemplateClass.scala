@@ -8,7 +8,13 @@ import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldN
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.data.Ref
 import Ref.ChoiceName
-import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Exercised, Update}
+import com.daml.ledger.javaapi.data.codegen.{
+  Choice,
+  Created,
+  Exercised,
+  Update,
+  ContractTypeCompanion,
+}
 import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.digitalasset.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.digitalasset.daml.lf.typesig
@@ -610,9 +616,13 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
+          "$Znew $T<>(new $T($S, $S, $S),$>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
           Seq(
             fieldClass,
+            nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
+            ClassGenUtils.packageIdFieldName,
+            ClassGenUtils.packageNameFieldName,
+            ClassGenUtils.packageVersionFieldName,
             templateClassName,
             templateIdFieldName,
             contractIdName,

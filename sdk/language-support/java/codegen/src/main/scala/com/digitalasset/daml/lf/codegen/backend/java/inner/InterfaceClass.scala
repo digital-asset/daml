@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.ContractFilter
-import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
+import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion, ContractTypeCompanion}
 import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.digitalasset.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
@@ -126,7 +126,11 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
+            "super(new $T($S, $S, $S),$>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
+            nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
+            ClassGenUtils.packageIdFieldName,
+            ClassGenUtils.packageNameFieldName,
+            ClassGenUtils.packageVersionFieldName,
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
