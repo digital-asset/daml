@@ -1190,13 +1190,13 @@ private[lf] object SBuiltin {
                           ) // return wrongly typed
                         case Some(dstArg) =>
                           viewInterface(machine, interfaceId, dstTmplId, dstArg) { dstView =>
-                            executeExpression(machine, sourceView) { sourceViewValue =>
+                            executeExpression(machine, SEPreventCatch(sourceView)) { sourceViewValue =>
                               // If the destination and source templates are the same, we skip the computation
                               // of the destination template's view.
                               if (dstTmplId == sourceTplId)
                                 cacheContractAndInsertNode(machine, coid, dstTmplId, dstArg)
                               else
-                                executeExpression(machine, dstView) { dstViewValue =>
+                                executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
                                   if (sourceViewValue != dstViewValue) {
                                     crash(
                                       "view mismatch"
