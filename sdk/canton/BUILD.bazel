@@ -823,6 +823,7 @@ scala_library(
     deps = [
         ":bindings-java",
         ":community_base",
+        ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
         ":community_ledger_transcode",
         ":community_util-logging",

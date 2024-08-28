@@ -68,7 +68,10 @@ class TestingAdminLedgerClient(
           filterParticipant = "",
         )
       )
-      .map(_.results.groupMapReduce(_.item.get.participantUid)(_.item.get.packageIds)(_ ++ _))
+      .map(
+        _.results
+          .groupMapReduce(_.item.get.participantUid)(_.item.get.packages.map(_.packageId))(_ ++ _)
+      )
   }
 }
 
