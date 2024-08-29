@@ -20,7 +20,7 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-
+import com.daml.lf.interpretation.{Error => IE}
 import scala.util.{Failure, Success, Try}
 
 class SBuiltinInterfaceTestDefaultLf
@@ -40,40 +40,41 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
 
   val alice = Ref.Party.assertFromString("Alice")
 
-  "fetch_by_interface" - {
-    "should reject inconsistent view upgrades" in {
-
-      // The following code defines a package -iface-pkg- that defines a single interface Iface.
-      val ifacePkgName = Ref.PackageName.assertFromString("-iface-pkg-")
-      val ifacePkgId = Ref.PackageId.assertFromString("-iface-package-id-")
-      val ifaceParserParams = ParserParameters(
-        defaultPackageId = ifacePkgId,
-        // TODO: revert to the default version once it supports upgrades
-        languageVersion = LanguageVersion.Features.packageUpgrades,
-      )
-      val ifacePkg =
-        p"""metadata ( '$ifacePkgName' : '1.0.0' )
+  // The following code defines a package -iface-pkg- that defines a single interface Iface.
+  val ifacePkgName = Ref.PackageName.assertFromString("-iface-pkg-")
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-package-id-")
+  val ifaceParserParams = ParserParameters(
+    defaultPackageId = ifacePkgId,
+    // TODO: revert to the default version once it supports upgrades
+    languageVersion = LanguageVersion.Features.packageUpgrades,
+  )
+  val ifacePkg =
+    p"""metadata ( '$ifacePkgName' : '1.0.0' )
             module Mod {
               record @serializable MyViewType = { n : Int64 };
               interface (this : Iface) = {
                 viewtype Mod:MyViewType;
+                choice @nonConsuming MyChoice (self) (u: Unit): Unit
+                  , controllers (Nil @Party)
+                  , observers (Nil @Party)
+                  to upure @Unit ();
               };
             }
           """ (ifaceParserParams)
 
-      // The following code defines a family of packages -implem-pkg- versions 1.0.0, 2.0.0, ... that define a
-      // template T that implements Iface. The view function for version 1 of the package returns 1, the view function
-      // of version 2 of the package returns 2, etc.
-      val implemPkgName = Ref.PackageName.assertFromString("-implem-pkg-")
-      def implemPkgId(pkgVersion: Int) =
-        Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
-      def implemParserParams(pkgVersion: Int) = ParserParameters(
-        defaultPackageId = implemPkgId(pkgVersion),
-        // TODO: revert to the default version once it supports upgrades
-        languageVersion = LanguageVersion.Features.packageUpgrades,
-      )
-      def implemPkg(pkgVersion: Int) =
-        p"""metadata ( '$implemPkgName' : '$pkgVersion.0.0' )
+  // The following code defines a family of packages -implem-pkg- versions 1.0.0, 2.0.0, ... that define a
+  // template T that implements Iface. The view function for version 1 of the package returns 1, the view function
+  // of version 2 of the package returns 2, etc.
+  val implemPkgName = Ref.PackageName.assertFromString("-implem-pkg-")
+  def implemPkgId(pkgVersion: Int) =
+    Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
+  def implemParserParams(pkgVersion: Int) = ParserParameters(
+    defaultPackageId = implemPkgId(pkgVersion),
+    // TODO: revert to the default version once it supports upgrades
+    languageVersion = LanguageVersion.Features.packageUpgrades,
+  )
+  def implemPkg(pkgVersion: Int) =
+    p"""metadata ( '$implemPkgName' : '$pkgVersion.0.0' )
             module Mod {
               record @serializable T = { p: Party };
               template (this: T) = {
@@ -81,46 +82,74 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
                 signatories Cons @Party [Mod:T {p} this] (Nil @Party);
                 observers Nil @Party;
                 agreement "Agreement";
-                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = $pkgVersion } ; };
+                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = $pkgVersion }; };
               };
             }
           """ (implemParserParams(pkgVersion))
 
-      val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
-      val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
-      val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+  // All three of -iface-package-id-, -implem-pkg-id-1-, and -implem-pkg-id-2- are made available to the interpreter.
+  val compiledPackages = PureCompiledPackages.assertBuild(
+    Map(
+      ifacePkgId -> ifacePkg,
+      implemPkgId(1) -> implemPkg(1),
+      implemPkgId(2) -> implemPkg(2),
+    ),
+    // TODO: revert to the default compiler config once it supports upgrades
+    Compiler.Config.Dev(LanguageMajorVersion.V1),
+  )
 
+  // But we prefer version 2 of -implem-pkg-, which will force an upgrade of the contract and trigger a view
+  // consistency check, which is expected to fail.
+  val packagePreferences = Map(
+    ifacePkgName -> ifacePkgId,
+    implemPkgName -> implemPkgId(2),
+  )
+
+  // We assume one contract of type -implem-pkg-id-1-:Mod:T on the ledger, with ID cid.
+  val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+  val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
+  val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+  val contracts = Map[Value.ContractId, Value.VersionedContractInstance](
+    cid -> Versioned(
+      TransactionVersion.StableVersions.max,
+      ContractInstance(Some(implemPkgName), tplV1Id, tplV1Payload),
+    )
+  )
+
+  "fetch_interface" - {
+    "should reject inconsistent view upgrades" in {
       inside(
         evalApp(
           e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
           Array(SContractId(cid), SToken),
-          packageResolution = Map(
-            ifacePkgName -> ifacePkgId,
-            // We prefer version 2 of -implem-pkg-, which will force an upgrade of the contract and trigger a view
-            // consistency check, which is expected to fail.
-            implemPkgName -> implemPkgId(2),
-          ),
-          getContract = Map(
-            cid -> Versioned(
-              TransactionVersion.StableVersions.max,
-              ContractInstance(Some(implemPkgName), tplV1Id, tplV1Payload),
-            )
-          ),
+          packageResolution = packagePreferences,
+          getContract = contracts,
           getPkg = PartialFunction.empty,
-          compiledPackages = PureCompiledPackages.assertBuild(
-            Map(
-              ifacePkgId -> ifacePkg,
-              implemPkgId(1) -> implemPkg(1),
-              implemPkgId(2) -> implemPkg(2),
-            ),
-            // TODO: revert to the default compiler config once it supports upgrades
-            Compiler.Config.Dev(LanguageMajorVersion.V1),
-          ),
+          compiledPackages = compiledPackages,
           committers = Set(alice),
         )
-      ) { case Success(result) =>
-        // We expect the engine to crash with a "view mismatch" internal error.
-        result shouldBe a[Left[_, _]]
+      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
+        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
+      }
+    }
+  }
+
+  "exercise_interface" - {
+    "should reject inconsistent view upgrades" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (
+            ifaceParserParams
+          ),
+          Array(SContractId(cid), SToken),
+          packageResolution = packagePreferences,
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
+        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
       }
     }
   }
