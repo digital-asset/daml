@@ -98,8 +98,8 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
     Compiler.Config.Dev(LanguageMajorVersion.V1),
   )
 
-  // But we prefer version 2 of -implem-pkg-, which will force an upgrade of the contract and trigger a view
-  // consistency check, which is expected to fail.
+  // But we prefer version 2 of -implem-pkg-, which will force an upgrade of any version 1 contract when
+  // fetched/exercised by interface and trigger a view consistency check, which is expected to fail.
   val packagePreferences = Map(
     ifacePkgName -> ifacePkgId,
     implemPkgName -> implemPkgId(2),
