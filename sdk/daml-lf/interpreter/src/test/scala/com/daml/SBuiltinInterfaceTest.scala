@@ -195,6 +195,35 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
       }
     }
 
+    "exercise_interface" - {
+      "should prevent view errors from being caught" in {
+        val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+        val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
+        val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+
+        inside(
+          evalApp(
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:exercise_interface_and_catch_error cid",
+            Array(SContractId(cid), SToken),
+            packageResolution = pkgNameMap,
+            getContract = Map(
+              cid -> Versioned(
+                TransactionVersion.StableVersions.max,
+                ContractInstance(Some(basePkgName), tplId, tplPayload),
+              )
+            ),
+            getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
+          )
+        ) { case Success(Left(error)) =>
+          // We expect the error throw by the view to not have been caught by
+          // fetch_interface_and_catch_error.
+          error shouldBe a[SErrorDamlException]
+        }
+      }
+    }
+
     "fetch_interface" - {
       "should prevent view errors from being caught" in {
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
@@ -331,6 +360,10 @@ final class SBuiltinInterfaceTestHelpers(
         module I0 {
           interface (this: I0) = {
             viewtype Mod:MyUnit;
+            choice @nonConsuming MyChoice (self) (u: Unit): Unit
+              , controllers (Nil @Party)
+              , observers (Nil @Party)
+              to upure @Unit ();
             coimplements T_Co0_No1:T_Co0_No1 { view = Mod:MyUnit {}; };
             coimplements T_Co0_Co1:T_Co0_Co1 { view = Mod:MyUnit {}; };
           };
@@ -430,6 +463,14 @@ final class SBuiltinInterfaceTestHelpers(
               try @Unit
                 ubind _:I0:I0 <- fetch_interface @I0:I0 cid
                 in upure @Unit ()
+              catch
+                e -> Some @(Update Unit) (upure @Unit ())
+          ;
+
+          val exercise_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+            \(cid: ContractId I0:I0) ->
+              try @Unit
+                exercise_interface @I0:I0 MyChoice cid ()
               catch
                 e -> Some @(Update Unit) (upure @Unit ())
           ;
