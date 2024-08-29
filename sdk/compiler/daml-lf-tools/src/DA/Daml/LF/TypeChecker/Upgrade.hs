@@ -33,6 +33,7 @@ import Data.Function (on)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
+type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
 
 type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, RawPackageVersion)
 
@@ -55,7 +56,7 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
 shouldTypecheck :: Version -> UpgradeInfo -> Bool
 shouldTypecheck version upgradeInfo = version `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades upgradeInfo
 
-shouldTypecheckM :: TcMF (Version, UpgradeInfo) Bool
+shouldTypecheckM :: TcPreUpgradeM Bool
 shouldTypecheckM = asks (uncurry shouldTypecheck)
 
 mkGamma :: Version -> UpgradeInfo -> World -> Gamma
@@ -73,10 +74,10 @@ mkGamma version upgradeInfo world =
     in
     addBadIfaceSwapIndicator $ emptyGamma world version
 
-gammaM :: World -> TcMF (Version, UpgradeInfo) Gamma
+gammaM :: World -> TcPreUpgradeM Gamma
 gammaM world = asks (flip (uncurry mkGamma) world)
 
-extractDiagnostics :: Version -> UpgradeInfo -> TcMF (Version, UpgradeInfo) () -> [Diagnostic]
+extractDiagnostics :: Version -> UpgradeInfo -> TcPreUpgradeM () -> [Diagnostic]
 extractDiagnostics version upgradeInfo action =
   case runGammaF (version, upgradeInfo) action of
     Left err -> [toDiagnostic err]
@@ -98,7 +99,7 @@ checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
             checkUpgradeBoth Nothing pkg (upgradedPkg, deps)
       checkUpgradeSingle Nothing pkg
 
-checkUpgradeBoth :: Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcMF (Version, UpgradeInfo) ()
+checkUpgradeBoth :: Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
 checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
   let presentWorld = initWorldSelf [] pkg
       pastWorld = initWorldSelf [] upgradedPkg
@@ -113,7 +114,7 @@ checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
     withMbContext $
       checkUpgradeM (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
-checkUpgradeSingle :: Maybe Context -> LF.Package -> TcMF (Version, UpgradeInfo) ()
+checkUpgradeSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
 checkUpgradeSingle mbContext pkg =
   let presentWorld = initWorldSelf [] pkg
       withMbContext :: TcM () -> TcM ()
@@ -153,7 +154,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
     -> [(LF.PackageId, LF.Package)]
-    -> TcMF (Version, UpgradeInfo) UpgradingDeps
+    -> TcPreUpgradeM UpgradingDeps
 checkUpgradeDependenciesM presentDeps pastDeps = do
     initialUpgradeablePackageMap <-
       fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
@@ -199,7 +200,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     checkAllDeps
       :: HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)]
       -> [LF.DalfPackage]
-      -> TcMF (Version, UpgradeInfo) (HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)])
+      -> TcPreUpgradeM (HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)])
     checkAllDeps upgradeablePackageMap [] = pure upgradeablePackageMap
     checkAllDeps upgradeablePackageMap (pkg:rest) = do
       mbNewDep <- checkOneDep upgradeablePackageMap pkg
@@ -212,7 +213,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     checkOneDep
       :: HMS.HashMap LF.PackageName [(LF.RawPackageVersion, LF.PackageId, LF.Package)]
       -> LF.DalfPackage
-      -> TcMF (Version, UpgradeInfo) (Maybe (LF.PackageName, (LF.RawPackageVersion, LF.PackageId, LF.Package)))
+      -> TcPreUpgradeM (Maybe (LF.PackageName, (LF.RawPackageVersion, LF.PackageId, LF.Package)))
     checkOneDep upgradeablePackageMap dalfPkg = do
       let LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
           presentPkg = extPackagePkg dalfPackagePkg
