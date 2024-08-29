@@ -234,6 +234,8 @@ final class Conversions(
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
               case Dev(_, devError) if devMode =>
                 devError match {
+                  case Dev.Conformance(_, _, _) =>
+                    builder.setCrash("conformance fails")
                   case Dev.Limit(limitError) =>
                     limitError match {
                       // TODO https://github.com/digital-asset/daml/issues/11691

@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -58,7 +59,6 @@ import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
-import scala.util.Right
 
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
@@ -723,61 +723,52 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "unused disclosed contracts not saved to ledger" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val txVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minVersion)
-      val usedDisclosedContract = DisclosedContract(
+      val usedContractKey = usedContractSKey.toNormalizedValue(txVersion)
+      val usedDisclosedContract = buildDisclosedContract(
+        basicTestsPkg,
         templateId,
         toContractId("BasicTests:WithKey:1"),
+        alice,
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
+        Some(usedContractKey),
       )
-      val unusedDisclosedContract = DisclosedContract(
+      val unusedContractSKey = SValue.SRecord(
         templateId,
-        toContractId("BasicTests:WithKey:2"),
-        SValue.SRecord(
-          templateId,
-          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
-        ),
+        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
+        values = ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
       )
+      val unusedDisclosedContract =
+        buildDisclosedContract(
+          basicTestsPkg,
+          templateId,
+          toContractId("BasicTests:WithKey:2"),
+          alice,
+          SValue.SRecord(
+            templateId,
+            ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
+            ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
+          ),
+          Some(unusedContractSKey.toNormalizedValue(txVersion)),
+        )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
         key = usedContractSKey,
-      )
-
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedContract = Node.Create(
-        coid = usedDisclosedContract.contractId,
-        packageName = basicTestsPkg.pkgName,
-        packageVersion = basicTestsPkg.pkgVersion,
-        templateId = usedDisclosedContract.templateId,
-        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        signatories = Set(alice),
-        stakeholders = Set(alice),
-        keyOpt = Some(
-          GlobalKeyWithMaintainers
-            .assertBuild(
-              usedDisclosedContract.templateId,
-              usedContractKey,
-              Set(alice),
-              basicTestsPkg.pkgName,
-            )
-        ),
-        version = transactionVersion,
       )
 
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1577,99 +1568,87 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           None -> Value.ValueInt64(42),
         ),
       )
-      val usedDisclosedContract = DisclosedContract(
+      val usedDisclosedContract = buildDisclosedContract(
+        basicTestsPkg,
         templateId,
         toContractId("BasicTests:WithKey:1"),
+        alice,
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
+        Some(usedContractKey),
       )
-      val unusedDisclosedContract = DisclosedContract(
+      val unusedContractKey = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueInt64(69),
+        ),
+      )
+      val unusedDisclosedContract = buildDisclosedContract(
+        basicTestsPkg,
         templateId,
         toContractId("BasicTests:WithKey:2"),
+        alice,
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
+        Some(unusedContractKey),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedDisclosedEvent = Node.Create(
-        coid = usedDisclosedContract.contractId,
-        packageName = basicTestsPkg.pkgName,
-        packageVersion = basicTestsPkg.pkgVersion,
-        templateId = usedDisclosedContract.templateId,
-        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        signatories = Set(alice),
-        stakeholders = Set(alice),
-        keyOpt = Some(
-          GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsPkg.pkgName)
-        ),
-        version = transactionVersion,
-      )
-
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedDisclosedEvent,
       )
     }
   }
 
   "fetch template" should {
     val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
-    val usedDisclosedContract = DisclosedContract(
+    val usedDisclosedContract = buildDisclosedContract(
+      basicTestsPkg,
       templateId,
       toContractId("BasicTests:Simple:1"),
+      alice,
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
+      None,
     )
-    val unusedDisclosedContract = DisclosedContract(
+    val unusedDisclosedContract = buildDisclosedContract(
+      basicTestsPkg,
       templateId,
       toContractId("BasicTests:Simple:2"),
+      alice,
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
+      None,
     )
 
     "unused disclosed contracts not saved to ledger" in {
       val fetchTemplateCommand = speedy.Command.FetchTemplate(
         templateId = templateId,
-        coid = SContractId(usedDisclosedContract.contractId),
-      )
-
-      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedDisclosedEvent = Node.Create(
-        coid = usedDisclosedContract.contractId,
-        packageName = basicTestsPkg.pkgName,
-        packageVersion = basicTestsPkg.pkgVersion,
-        templateId = usedDisclosedContract.templateId,
-        arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        signatories = Set(alice),
-        stakeholders = Set(alice),
-        keyOpt = None,
-        version = transactionVersion,
+        coid = SContractId(usedDisclosedContract.contract.contractId),
       )
 
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedDisclosedEvent,
       )
     }
   }
@@ -2661,7 +2640,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
-        expectedDisclosedEvent: Node.Create,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2678,7 +2656,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedEvents(expectedDisclosedEvent)
+        metadata should haveDisclosedEvents(usedDisclosedContract.contract.toCreateNode)
       }
     }
 
@@ -2712,7 +2690,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         disclosedContracts: DisclosedContract*
     ): Matcher[VersionedTransaction] =
       Matcher { transaction =>
-        val expectedResult = disclosedContracts.map(_.contractId).toSet
+        val expectedResult = disclosedContracts.map(_.contract.contractId).toSet
         val actualResult = transaction.inputContracts
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",
@@ -2758,5 +2736,36 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         nodeSeeds :++ meta.nodeSeeds,
       )
     }
+  }
+
+  def buildDisclosedContract(
+      pkg: Package,
+      templateId: Ref.TypeConName,
+      coid: ContractId,
+      signatory: Ref.Party,
+      arg: SValue,
+      keyOpt: Option[Value] = None,
+  ) = {
+    val version = TxVersions.assignNodeVersion(pkg.languageVersion)
+    DisclosedContract(
+      FatContractInstance.fromCreateNode(
+        Node.Create(
+          coid = coid,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
+          templateId = templateId,
+          arg = arg.toNormalizedValue(version),
+          signatories = Set(signatory),
+          stakeholders = Set(signatory),
+          keyOpt = keyOpt.map(key =>
+            GlobalKeyWithMaintainers.assertBuild(templateId, key, Set(signatory), pkg.pkgName)
+          ),
+          version = version,
+        ),
+        Time.Timestamp.now(),
+        Bytes.Empty,
+      ),
+      arg,
+    )
   }
 }

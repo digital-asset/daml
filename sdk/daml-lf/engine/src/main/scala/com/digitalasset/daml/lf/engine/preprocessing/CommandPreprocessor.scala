@@ -59,8 +59,7 @@ private[lf] final class CommandPreprocessor(
     val arg = translateUpgradableArg(Ast.TTyCon(disc.templateId), disc.createArg, strict = true)
     validateCid(disc.contractId)
     speedy.DisclosedContract(
-      templateId = disc.templateId,
-      contractId = disc.contractId,
+      disc,
       argument = arg,
     )
   }
