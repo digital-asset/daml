@@ -94,7 +94,7 @@ checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkg, upgradingDeps) -> do
-            deps <- checkUpgradeDependenciesM deps upgradingDeps
+            deps <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
             checkUpgradeBoth Nothing pkg (upgradedPkg, deps)
       checkUpgradeSingle Nothing pkg
 
@@ -135,9 +135,9 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
       let world = extendWorldSelf module_ world0
       case mbUpgradedPkg of
         Nothing -> pure ()
-        Just ((upgradedPkgIdRaw, upgradedPkg), upgradingDeps) -> do
+        Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg), upgradingDeps) -> do
             let upgradedPkgId = UpgradedPackageId upgradedPkgIdRaw
-            deps <- checkUpgradeDependenciesM deps upgradingDeps -- TODO: Check if this causes quadratic blowup of dep checks
+            deps <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps) -- TODO: Check if this causes quadratic blowup of dep checks
             let upgradingWorld = Upgrading { _past = initWorldSelf [] upgradedPkg, _present = world }
             withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) deps) $
               case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
