@@ -374,7 +374,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
-      isInterfaceFetch: Boolean,
+      interfaceId: Option[TypeConName],
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(coid)) {
       val contextActors = context.info.authorizers
@@ -391,7 +391,7 @@ private[speedy] case class PartialTransaction(
         keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
         byKey = byKey,
         version = version,
-        isInterfaceFetch = isInterfaceFetch,
+        interfaceId = interfaceId,
       )
 
       val newContractState = assertRightKey(

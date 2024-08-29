@@ -774,7 +774,7 @@ private[lf] final class Compiler(
       tmplId,
       optTargetTemplateId,
       byKey = mbKey.isDefined,
-      isInterfaceFetch = false,
+      interfaceId = None,
     )(
       env.toSEVar(cidPos),
       mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
@@ -819,7 +819,7 @@ private[lf] final class Compiler(
           ) { (_, env) =>
             let(
               env,
-              SBResolveSBUInsertFetchNode(
+              SBResolveSBUInsertFetchNode(ifaceId)(
                 env.toSEVar(payloadPos),
                 env.toSEVar(cidPos),
                 s.SEValue.None,

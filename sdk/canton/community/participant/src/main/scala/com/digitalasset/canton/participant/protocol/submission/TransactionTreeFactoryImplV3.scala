@@ -72,7 +72,7 @@ class TransactionTreeFactoryImplV3(
         Set.empty
       case (ex: LfNodeExercises, Some(packageName)) if ex.interfaceId.isDefined =>
         Set(packageName -> ex.templateId.packageId)
-      case (ex: LfNodeFetch, Some(packageName)) if ex.isInterfaceFetch =>
+      case (ex: LfNodeFetch, Some(packageName)) if ex.interfaceId.isDefined =>
         Set(packageName -> ex.templateId.packageId)
       case _ =>
         Set.empty
