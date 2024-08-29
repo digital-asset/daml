@@ -9,12 +9,11 @@ module DA.Daml.LF.TypeChecker.Upgrade (
     ) where
 
 import           Control.Monad (unless, forM, forM_, when)
-import           Control.Monad.Extra (allM, filterM)
 import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr, AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, bindTypeVar)
+import           DA.Daml.LF.Ast.Alpha (alphaExpr, AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -145,8 +144,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
                 Nothing -> pure ()
                 Just pastModule -> do
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
-                  equalDataTypes <- structurallyEqualDataTypes upgradingModule
-                  checkModuleM equalDataTypes upgradedPkgId upgradingModule
+                  checkModuleM upgradedPkgId upgradingModule
       withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
         checkNewInterfacesAreUnused module_
         checkNewInterfacesHaveNoTemplates module_
@@ -275,8 +273,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM upgradedPackageId package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    equalDataTypes <- structurallyEqualDataTypes package
-    forM_ upgradedModules $ checkModuleM equalDataTypes upgradedPackageId
+    forM_ upgradedModules $ checkModuleM upgradedPackageId
 
 extractDelExistNew
     :: (Eq k, Hashable k)
@@ -331,14 +328,14 @@ throwIfNonEmpty handleError hm =
           ctxHandler $ diagnosticWithContextF present' err
       _ -> pure ()
 
-checkModuleM :: [LF.TypeConName] -> LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
-checkModuleM equalDataTypes upgradedPackageId module_ = do
+checkModuleM :: LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
+checkModuleM upgradedPackageId module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
             present'
             (ContextTemplate (_present module_) (_present template) TPWhole)
-            (checkTemplate equalDataTypes module_ template)
+            (checkTemplate module_ template)
 
     -- For a datatype, derive its context
     let deriveChoiceInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
@@ -537,8 +534,8 @@ instantiatedIfaces modules = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap
     , template <- NM.elems (moduleTemplates module_)
     ]
 
-checkTemplate :: [LF.TypeConName] -> Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
-checkTemplate _equalDataTypes module_ template = do
+checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
+checkTemplate module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
@@ -783,63 +780,5 @@ isUpgradedType type_ = do
         tconCheck pastT presentT = checkSelf pastT presentT || checkImport pastT presentT
     pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
-isStructurallyEquivalentType :: AlphaEnv -> [TypeConName] -> Upgrading Type -> TcUpgradeM Bool
-isStructurallyEquivalentType alphaEnv identicalCons type_ = do
-    expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
-    let checkSelf t1 t2 =
-          and
-            [ qualPackage t1 == PRSelf
-            , qualPackage t2 == PRSelf
-            , qualObject t2 `elem` identicalCons
-            , alphaTypeCon t1 t2
-            ]
-        checkImport t1 t2 =
-          qualPackage t1 /= PRSelf
-          && qualPackage t2 /= PRSelf
-          && alphaTypeCon t1 t2
-        tconCheck t1 t2 = checkSelf t1 t2 || checkImport t1 t2
-    pure $ foldU (alphaType' alphaEnv { tconEquivalence = tconCheck }) expandedTypes
-
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }
-
-isStructurallyEquivalentDatatype :: [TypeConName] -> Upgrading DefDataType -> TcUpgradeM Bool
-isStructurallyEquivalentDatatype identicalCons datatype =
-    let params = dataParams <$> datatype
-        allKindsMatch = foldU (==) (map snd <$> params)
-        paramNames = unsafeZipUpgrading (map fst <$> params)
-    in
-    if not allKindsMatch
-      then pure False
-      else
-        let env = foldl' (flip (foldU bindTypeVar)) initialAlphaEnv paramNames
-        in
-        case fmap dataCons datatype of
-          Upgrading { _past = DataRecord _past, _present = DataRecord _present } -> do
-              let allFieldsMatch = map fst _past == map fst _present
-              let types = zipWith Upgrading (map snd _past) (map snd _present)
-              allTypesMatch <- allM (isStructurallyEquivalentType env identicalCons) types
-              pure (allFieldsMatch && allTypesMatch)
-          Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
-              let allConNamesMatch = map fst _past == map fst _present
-              let types = zipWith Upgrading (map snd _past) (map snd _present)
-              allTypesMatch <- allM (isStructurallyEquivalentType env identicalCons) types
-              pure (allConNamesMatch && allTypesMatch)
-          Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
-              pure $ _past == _present
-          _ ->
-              pure False
-
-structurallyEqualDataTypes :: HasModules a => Upgrading a -> TcUpgradeM [TypeConName]
-structurallyEqualDataTypes hasModules =
-  let module_ = NM.toHashMap . getModules <$> hasModules
-      (_, existingModules, _) = extractDelExistNew module_
-      (_, existingDatatypes, _) = foldMap (extractDelExistNew . fmap (NM.toHashMap . moduleDataTypes)) (HMS.elems existingModules)
-  in
-  go (HMS.toList existingDatatypes)
-  where
-    go :: [(TypeConName, Upgrading DefDataType)] -> TcUpgradeM [TypeConName]
-    go list = do
-      let names = map fst list
-      list' <- filterM (isStructurallyEquivalentDatatype names . snd) list
-      if names /= map fst list' then go list' else pure names
