@@ -223,7 +223,8 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO) =>
+      // TODO Should interfaceId be used? should it be passed to the command?
+      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO, _interfaceId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(

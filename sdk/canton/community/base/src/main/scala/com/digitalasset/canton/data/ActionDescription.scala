@@ -202,7 +202,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             _stakeholders,
             _key,
             byKey,
-            _interfaceId,
+            interfaceId,
             version,
           ) =>
         for {
@@ -222,6 +222,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             byKey,
             version,
             Option.when(protocolVersion >= ProtocolVersion.v6)(templateId),
+            interfaceId.filter(_ => protocolVersion >= ProtocolVersion.v6),
             protocolVersionRepresentativeFor(protocolVersion),
           )
         } yield actionDescription
@@ -481,7 +482,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
       version <- lfVersionFromProtoVersioned(versionP)
       actionDescription <- FetchActionDescription
-        .create(inputContractId, actors, byKey, version, None, pv)
+        .create(inputContractId, actors, byKey, version, None, None, pv)
         .leftMap(err => OtherError(err.message))
     } yield actionDescription
   }
@@ -503,7 +504,31 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       version <- lfVersionFromProtoVersioned(versionP)
       templateId <- templateIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
       actionDescription <- FetchActionDescription
-        .create(inputContractId, actors, byKey, version, templateId, pv)
+        .create(inputContractId, actors, byKey, version, templateId, None, pv)
+        .leftMap(err => OtherError(err.message))
+    } yield actionDescription
+  }
+
+  private def fromFetchProtoV3(
+      f: v3.ActionDescription.FetchActionDescription,
+      pv: RepresentativeProtocolVersion[ActionDescription.type],
+  ): ParsingResult[FetchActionDescription] = {
+    val v3.ActionDescription.FetchActionDescription(
+      inputContractIdP,
+      actorsP,
+      byKey,
+      versionP,
+      templateIdP,
+      interfaceIdP,
+    ) = f
+    for {
+      inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
+      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
+      version <- lfVersionFromProtoVersioned(versionP)
+      templateId <- templateIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+      interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+      actionDescription <- FetchActionDescription
+        .create(inputContractId, actors, byKey, version, templateId, interfaceId, pv)
         .leftMap(err => OtherError(err.message))
     } yield actionDescription
   }
@@ -570,7 +595,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       description match {
         case Create(create) => fromCreateProtoV0(create, pv)
         case Exercise(exercise) => fromExerciseProtoV3(exercise, pv)
-        case Fetch(fetch) => fromFetchProtoV1(fetch, pv)
+        case Fetch(fetch) => fromFetchProtoV3(fetch, pv)
         case LookupByKey(lookup) => fromLookupByKeyProtoV1(lookup, pv)
         case Empty => Left(FieldNotSet("description"))
       }
@@ -828,6 +853,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       override val byKey: Boolean,
       override val version: LfTransactionVersion,
       templateId: Option[LfTemplateId],
+      interfaceId: Option[LfTemplateId]
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         ActionDescription.type
@@ -855,12 +881,13 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override protected def toProtoDescriptionV3: v3.ActionDescription.Description.Fetch =
       v3.ActionDescription.Description.Fetch(
-        v1.ActionDescription.FetchActionDescription(
+        v3.ActionDescription.FetchActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
           actors = actors.toSeq,
           byKey = byKey,
           version = version.protoValue,
           templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
+          interfaceId = interfaceId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
         )
       )
 
@@ -884,9 +911,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         byKey: Boolean,
         version: LfTransactionVersion,
         templateId: Option[LfTemplateId],
+        interfaceId: Option[LfInterfaceId],
         protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
     ): FetchActionDescription =
-      create(inputContractId, actors, byKey, version, templateId, protocolVersion).valueOr(err =>
+      create(inputContractId, actors, byKey, version, templateId, interfaceId, protocolVersion).valueOr(err =>
         throw err
       )
 
@@ -896,6 +924,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         byKey: Boolean,
         version: LfTransactionVersion,
         templateId: Option[LfTemplateId],
+        interfaceId: Option[LfInterfaceId],
         protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
     ): Either[InvalidActionDescription, FetchActionDescription] = {
 
@@ -909,7 +938,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             s"Protocol version is equivalent to ${protocolVersion.representative} but template id is supported since protocol version $templateIdSupportedSince"
           ),
         )
-      } yield new FetchActionDescription(inputContractId, actors, byKey, version, templateId)(
+      } yield new FetchActionDescription(inputContractId, actors, byKey, version, templateId, interfaceId)(
         protocolVersion
       )
     }
