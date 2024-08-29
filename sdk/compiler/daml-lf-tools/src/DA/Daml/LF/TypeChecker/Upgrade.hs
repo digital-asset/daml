@@ -591,7 +591,7 @@ checkTemplate module_ template = do
            Upgrading { _past = Just pastKey, _present = Just presentKey } -> do
                let tplKey = Upgrading pastKey presentKey
 
-               -- Key type musn't change
+               -- Key type must be a valid upgrade
                iset <- isUpgradedType (fmap tplKeyType tplKey)
                when (not iset) $
                    diagnosticWithContextF present' (EUpgradeTemplateChangedKeyType (NM.name (_present template)))
