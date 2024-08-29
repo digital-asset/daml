@@ -137,7 +137,8 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
         Nothing -> pure ()
         Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg), upgradingDeps) -> do
             let upgradedPkgId = UpgradedPackageId upgradedPkgIdRaw
-            deps <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps) -- TODO: Check if this causes quadratic blowup of dep checks
+            -- TODO: https://github.com/digital-asset/daml/issues/19859
+            deps <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
             let upgradingWorld = Upgrading { _past = initWorldSelf [] upgradedPkg, _present = world }
             withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) deps) $
               case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
@@ -176,6 +177,8 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     let withIdAndPkg dalfPkg = (dalfPackageId dalfPkg, dalfPkg, extPackagePkg (dalfPackagePkg dalfPkg))
         withoutIdAndPkg (_, dalfPkg, _) = dalfPkg
+
+    -- TODO: https://github.com/digital-asset/daml/issues/19859
     case topoSortPackages (map withIdAndPkg presentDeps) of
       Left _badTrace -> do
         error "deps have a cycle"
