@@ -30,7 +30,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class IncomingTopologyTransactionAuthorizationValidatorTest
+class TopologyTransactionAuthorizationValidatorTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
@@ -48,7 +48,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         validationIsFinal: Boolean = true,
     ) = {
       val validator =
-        new IncomingTopologyTransactionAuthorizationValidator(
+        new TopologyTransactionAuthorizationValidator(
           Factory.cryptoApi.crypto.pureCrypto,
           store,
           validationIsFinal = validationIsFinal,
@@ -72,7 +72,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
     }
 
     def validate(
-        validator: IncomingTopologyTransactionAuthorizationValidator,
+        validator: TopologyTransactionAuthorizationValidator,
         timestamp: CantonTimestamp,
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],

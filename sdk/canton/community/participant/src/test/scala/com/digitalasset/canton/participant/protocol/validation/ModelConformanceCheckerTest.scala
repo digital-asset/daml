@@ -173,7 +173,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val packageVersion: LfPackageVersion = LfPackageVersion.assertFromString("1.0.0")
   val packageMetadata: PackageMetadata = PackageMetadata(packageName, packageVersion, None)
   val genPackage: GenPackage[Expr] =
-    GenPackage(Map.empty, Set.empty, LanguageVersion.default, packageMetadata)
+    GenPackage(Map.empty, Set.empty, LanguageVersion.default, packageMetadata, true)
   val packageResolver: PackageResolver = _ => _ => Future.successful(Some(genPackage))
 
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =

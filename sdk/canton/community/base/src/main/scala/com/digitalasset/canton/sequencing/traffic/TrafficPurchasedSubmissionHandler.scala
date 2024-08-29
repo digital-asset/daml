@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxAlternativeSeparate
-import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
@@ -26,7 +25,8 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficCo
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -61,7 +61,7 @@ class TrafficPurchasedSubmissionHandler(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
     val topology: DomainSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
     val snapshot = topology.ipsSnapshot
 
@@ -69,7 +69,7 @@ class TrafficPurchasedSubmissionHandler(
         maxSequencingTimes: NonEmpty[Seq[CantonTimestamp]],
         batch: Batch[OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]]],
         aggregationRule: AggregationRule,
-    ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+    ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
       // We don't simply `parTraverse` over `maxSequencingTimes` because as long as at least one request was
       // successfully sent, errors (such as max sequencing time already expired) should not result in a failure.
 
@@ -87,22 +87,18 @@ class TrafficPurchasedSubmissionHandler(
           ).value
         }
         (errors, successes) = resultsE.separate
-      } yield (NonEmpty.from(errors), NonEmpty.from(successes)) match {
-        case (None, None) =>
-          // This should never happen because `maxSequencingTimes` is non-empty
-          throw new IllegalStateException(
-            "No error or success for a non-empty list of max-sequencing-time"
-          )
-
-        case (Some(errorsNE), None) =>
-          // None of the requests was successfully sent -- return the first error
-          Left(errorsNE.head1)
-
-        case (_, Some(successesNE)) =>
-          // At least one of the requests was successfully sent -- return the latest max-sequencing-time
-          Right(successesNE.last1)
+      } yield {
+        Either.cond(
+          successes.nonEmpty,
+          (),
+          errors.headOption.getOrElse(
+            // This should never happen because `maxSequencingTimes` is non-empty
+            ErrorUtil.invalidState(
+              "No error or success for a non-empty list of max-sequencing-time"
+            )
+          ),
+        )
       }
-
       EitherT(fut)
     }
 
@@ -173,8 +169,8 @@ class TrafficPurchasedSubmissionHandler(
         ),
       )
       maxSequencingTimes = computeMaxSequencingTimes(trafficParams)
-      latestMaxSequencingTime <- send(maxSequencingTimes, batch, aggregationRule)
-    } yield latestMaxSequencingTime
+      _ <- send(maxSequencingTimes, batch, aggregationRule)
+    } yield ()
   }
 
   private def sendRequest(
@@ -186,7 +182,7 @@ class TrafficPurchasedSubmissionHandler(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
     val callback = SendCallback.future
     implicit val metricsContext: MetricsContext = MetricsContext("type" -> "traffic-purchase")
     // Make sure that the sequencer will ask for a time proof if it doesn't observe the sequencing in time
@@ -199,39 +195,36 @@ class TrafficPurchasedSubmissionHandler(
           maxSequencingTime = maxSequencingTime,
           callback = callback,
         )
-        .leftMap(err => TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(err.show))
-        .leftWiden[TrafficControlError]
-      _ <- EitherT(
-        callback.future
-          .map {
-            case SendResult.Success(_) =>
-              logger.debug(
-                s"Traffic balance request with max sequencing time $maxSequencingTime successfully submitted"
+        .leftMap(err =>
+          TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed
+            .Error(err.show): TrafficControlError
+        )
+    } yield {
+      val logOutcomeF = callback.future.map {
+        case SendResult.Success(_) =>
+          logger.debug(
+            s"Traffic balance request with max sequencing time $maxSequencingTime successfully submitted"
+          )
+        case SendResult.Error(
+              DeliverError(
+                _,
+                _,
+                _,
+                _,
+                SequencerErrors.AggregateSubmissionAlreadySent(message),
+                _,
               )
-              Right(())
-            case SendResult.Error(
-                  DeliverError(
-                    _,
-                    _,
-                    _,
-                    _,
-                    SequencerErrors.AggregateSubmissionAlreadySent(message),
-                    _,
-                  )
-                ) =>
-              logger.info(s"The top-up request was already sent: $message")
-              Right(())
-            case SendResult.Error(err) =>
-              Left(TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(err.show))
-            case SendResult.Timeout(time) =>
-              Left(
-                TrafficControlErrors.TrafficPurchasedRequestAsyncSendFailed.Error(
-                  s"Submission timed out after sequencing time $time has elapsed"
-                )
-              )
-          }
-      ).leftWiden[TrafficControlError]
-    } yield maxSequencingTime
+            ) =>
+          logger.info(s"The top-up request was already sent: $message")
+        case SendResult.Error(err) =>
+          logger.info(show"The traffic balance request submission failed: $err")
+        case SendResult.Timeout(time) =>
+          logger.warn(
+            show"The traffic balance request submission timed out after sequencing time $time has elapsed"
+          )
+      }
+      FutureUtil.doNotAwaitUnlessShutdown(logOutcomeF, "Traffic balance request submission failed")
+    }
   }
 
   private def computeMaxSequencingTimes(

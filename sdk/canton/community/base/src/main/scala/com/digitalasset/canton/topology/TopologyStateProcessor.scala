@@ -15,8 +15,8 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
-  IncomingTopologyTransactionAuthorizationValidator,
   SequencedTime,
+  TopologyTransactionAuthorizationValidator,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
@@ -82,13 +82,13 @@ class TopologyStateProcessor(
   private val proposalsForTx = TrieMap[TxHash, MaybePending]()
 
   private val authValidator =
-    new IncomingTopologyTransactionAuthorizationValidator(
+    new TopologyTransactionAuthorizationValidator(
       pureCrypto,
       store,
       // if transactions are put directly into a store (ie there is no outbox queue)
       // then the authorization validation is final.
       validationIsFinal = outboxQueue.isEmpty,
-      loggerFactory.append("role", "incoming"),
+      loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
   // compared to the old topology stores, the x stores don't distinguish between

@@ -77,6 +77,7 @@ private[apiserver] final class ApiVersionService(
           commandInspectionService = Some(ledgerFeatures.commandInspectionService),
         )
       ),
+      offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),
     )
 
   override def getLedgerApiVersion(

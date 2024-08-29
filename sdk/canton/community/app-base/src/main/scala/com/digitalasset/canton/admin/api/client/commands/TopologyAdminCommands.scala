@@ -780,13 +780,18 @@ object TopologyAdminCommands {
 
     final case class SignTransactions(
         transactions: Seq[GenericSignedTopologyTransaction],
+        store: String,
         signedBy: Seq[Fingerprint],
     ) extends BaseWriteCommand[SignTransactionsRequest, SignTransactionsResponse, Seq[
           GenericSignedTopologyTransaction
         ]] {
       override def createRequest(): Either[String, SignTransactionsRequest] =
         Right(
-          SignTransactionsRequest(transactions.map(_.toProtoV30), signedBy.map(_.toProtoPrimitive))
+          SignTransactionsRequest(
+            transactions.map(_.toProtoV30),
+            signedBy.map(_.toProtoPrimitive),
+            store,
+          )
         )
 
       override def submitRequest(

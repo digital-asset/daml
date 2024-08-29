@@ -963,6 +963,5 @@ create table ord_metadata_output_blocks (
     block_number bigint not null,
     bft_ts bigint not null,
     last_topology_ts bigint not null,
-    num_txs integer not null,
     primary key (block_number)
 );

@@ -1094,11 +1094,9 @@ object Generators {
     import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionResponse as Response
     for {
       transaction <- transactionGen
-      completionOffset <- Arbitrary.arbString.arbitrary
     } yield Response
       .newBuilder()
       .setTransaction(transaction)
-      .setCompletionOffset(completionOffset)
       .build()
   }
   def submitAndWaitForTransactionTreeResponseGen
@@ -1106,11 +1104,9 @@ object Generators {
     import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response
     for {
       transaction <- transactionTreeGen
-      completionOffset <- Arbitrary.arbString.arbitrary
     } yield Response
       .newBuilder()
       .setTransaction(transaction)
-      .setCompletionOffset(completionOffset)
       .build()
   }
 }

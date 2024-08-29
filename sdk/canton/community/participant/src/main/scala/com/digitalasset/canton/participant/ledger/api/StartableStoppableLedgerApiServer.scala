@@ -7,6 +7,7 @@ import cats.Eval
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.version_service.OffsetCheckpointFeature
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
@@ -479,6 +480,11 @@ class StartableStoppableLedgerApiServer(
     staticTime = config.testingTimeService.isDefined,
     commandInspectionService =
       ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
+    offsetCheckpointFeature = OffsetCheckpointFeature.of(
+      maxOffsetCheckpointEmissionDelay = Some(
+        (config.serverConfig.indexService.offsetCheckpointCacheUpdateInterval + config.serverConfig.indexService.idleStreamOffsetCheckpointTimeout).toProtoPrimitive
+      )
+    ),
   )
 
   private def startHttpApiIfEnabled(writeService: WriteService): ResourceOwner[Unit] =

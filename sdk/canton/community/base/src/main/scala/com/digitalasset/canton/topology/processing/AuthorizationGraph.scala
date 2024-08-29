@@ -109,9 +109,12 @@ class AuthorizationGraph(
       .allowsSelfLoops(true) // we allow self loops for the root certificate
       .build[Fingerprint, AuthorizedNamespaceDelegation]
 
-  /** Authorized namespace delegations for namespace `this.namespace`, grouped by target */
+  /** Authorized namespace delegations for namespace `this.namespace`, grouped by target.
+    * The namespace delegations carry the length of the valid certificate chain required to
+    * arrive at the root certificate
+    */
   private val cache =
-    new TrieMap[Fingerprint, AuthorizedNamespaceDelegation]()
+    new TrieMap[Fingerprint, (AuthorizedNamespaceDelegation, Int)]()
 
   def nodes: Set[Fingerprint] = graph.nodes().asScala.toSet
 
@@ -217,13 +220,14 @@ class AuthorizationGraph(
   protected def recompute()(implicit traceContext: TraceContext): Unit = {
     cache.clear()
     def go(
-        incoming: AuthorizedNamespaceDelegation
+        incoming: AuthorizedNamespaceDelegation,
+        level: Int,
     ): Unit = {
       val fingerprint = incoming.mapping.target.fingerprint
       // only proceed if we haven't seen this fingerprint yet,
       // so we terminate even if the graph has cycles.
       if (!cache.contains(fingerprint)) {
-        cache.update(fingerprint, incoming)
+        cache.update(fingerprint, (incoming, level))
         // only look at outgoing authorizations if item is a root delegation
         if (isRootDelegation(incoming)) {
           for {
@@ -233,7 +237,7 @@ class AuthorizationGraph(
             outgoingAuthorization <- graph.edgeValue(fingerprint, authorizedKey).toScala
           } {
             // descend into all outgoing authorizations
-            go(outgoingAuthorization)
+            go(outgoingAuthorization, level + 1)
           }
 
         }
@@ -241,7 +245,7 @@ class AuthorizationGraph(
     }
 
     // start at the root node, if it exists
-    rootNode.foreach(go)
+    rootNode.foreach(go(_, level = 1))
 
     report()
   }
@@ -252,7 +256,21 @@ class AuthorizationGraph(
         s"Namespace $namespace has no root node, therefore no namespace delegation is authorized."
       )
     }
-    val dangling = graph.nodes().asScala.diff(cache.keySet)
+    /* Only nodes that have an incoming edge are considered dangling:
+    Consider the following:
+    t0:
+      k1 -- NSD(ns1, target=k1, signed=k1) --> k1
+      k1 -- NSD(ns1, target=k2, signed=k1) --> k2
+      k2 -- NSD(ns1, target=k3, signed=k2) --> k3
+
+    t1: we remove the namespace delegation for k2:
+      k1 -- NSD(ns1, target=k1, signed=k1) --> k1
+      k2 -- NSD(ns1, target=k3, signed=k2) --> k3
+
+    We see that we still have the node k2, but only for the purpose of maintaining the edge k2->k3.
+    Since there is no more NSD with target=k2, we don't actually consider k2 dangling.
+     */
+    val dangling = graph.nodes().asScala.diff(cache.keySet).filter(!graph.predecessors(_).isEmpty)
     if (dangling.nonEmpty) {
       logger.warn(
         s"The following target keys of namespace $namespace are dangling: ${dangling.toList.sorted}"
@@ -262,10 +280,10 @@ class AuthorizationGraph(
       if (extraDebugInfo && logger.underlying.isDebugEnabled) {
         val str =
           cache.values
-            .map(nsd =>
+            .map { case (nsd, _) =>
               show"auth=${nsd.signingKeys}, target=${nsd.mapping.target.fingerprint}, root=${AuthorizedTopologyTransaction
                   .isRootDelegation(nsd)}"
-            )
+            }
             .mkString("\n  ")
         logger.debug(s"The authorization graph is given by:\n  $str")
       }
@@ -283,15 +301,20 @@ class AuthorizationGraph(
   ): Option[SigningPublicKey] =
     cache
       .get(authKey)
-      .filter { delegation =>
+      .filter { case (delegation, _) =>
         isRootDelegation(delegation) || !requireRoot
       }
-      .map(_.mapping.target)
+      .map { case (delegation, _) =>
+        delegation.mapping.target
+      }
 
   override def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
   ): Set[SigningPublicKey] = authKeys.flatMap(getAuthorizedKey(_, requireRoot))
+
+  def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]] =
+    Map(namespace -> cache.values.toSeq)
 
   override def toString: String = s"AuthorizationGraph($namespace)"
 }
@@ -313,22 +336,12 @@ trait AuthorizationCheck {
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
   ): Set[SigningPublicKey]
-}
 
-object AuthorizationCheck {
-  val empty: AuthorizationCheck = new AuthorizationCheck {
-    override def existsAuthorizedKeyIn(
-        authKeys: Set[Fingerprint],
-        requireRoot: Boolean,
-    ): Boolean = false
-
-    override def keysSupportingAuthorization(
-        authKeys: Set[Fingerprint],
-        requireRoot: Boolean,
-    ): Set[SigningPublicKey] = Set.empty
-
-    override def toString: String = "AuthorizationCheck.empty"
-  }
+  /** Per namespace (required for decentralized namespaces), a list of namespace delegations that have
+    * a gapless chain to the root certificate together with the length of the chain to the root certificate
+    * for each namespace delegation.
+    */
+  def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]]
 }
 
 /** Authorization graph for a decentralized namespace.
@@ -359,4 +372,7 @@ final case class DecentralizedNamespaceAuthorizationGraph(
     ownerGraphs
       .flatMap(_.keysSupportingAuthorization(authKeys, requireRoot))
       .toSet
+
+  override def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]] =
+    ownerGraphs.flatMap(graph => graph.authorizedDelegations()).toMap
 }

@@ -149,9 +149,9 @@ object AcsTxStreams extends NoTracing {
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
-  def transactionFilter(
+  def transactionFilter[Pkg](
       parties: domain.PartySet,
-      contractTypeIds: List[ContractTypeId.Resolved],
+      contractTypeIds: List[ContractTypeId.Definite[Pkg]],
   ): lav2.transaction_filter.TransactionFilter = {
     import lav2.transaction_filter.{Filters, InterfaceFilter}
 
@@ -162,7 +162,7 @@ object AcsTxStreams extends NoTracing {
           CumulativeFilter(
             IdentifierFilter.TemplateFilter(
               TemplateFilter(
-                templateId = Some(apiIdentifier(templateId)),
+                templateId = Some(apiIdentifier[Pkg](templateId)),
                 includeCreatedEventBlob = false,
               )
             )

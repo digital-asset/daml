@@ -7,6 +7,7 @@ import com.daml.error.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
@@ -162,6 +163,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Failure(error: SignatureCheckError)(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends Alarm(cause = "Transaction signature verification failed")
+        with TopologyManagerError
+
+    final case class KeyStoreFailure(error: CryptoPrivateStoreError)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Creating a signed transaction failed due to a key store error: $error"
+        )
         with TopologyManagerError
   }
 

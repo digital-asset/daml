@@ -28,6 +28,7 @@ import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
@@ -76,9 +77,9 @@ class ContractsService(
     import Overload.Template
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        _resolveContractTypeId(jwt, templateId).map(x => -\/(x -> key))
+        _resolveContractTypeId(jwt, templateId).map(x => -\/(x.original -> key))
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        _resolveContractTypeId(jwt, templateId).map(x => \/-(x -> contractId))
+        _resolveContractTypeId(jwt, templateId).map(x => \/-(x.original -> contractId))
       case domain.EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, contractId)
           .flatMap {
@@ -93,7 +94,7 @@ class ContractsService(
                 domain.ActiveContract.ResolvedCtTyId[JsValue]
               ]
           }
-          .map(a => \/-(a.templateId -> a.contractId))
+          .map(a => \/-(a.templateId.map(lf.data.Ref.PackageRef.Id) -> a.contractId))
     }
   }
 
@@ -120,7 +121,7 @@ class ContractsService(
 //  private[this] def findByContractKey(
 //      jwt: Jwt,
 //      parties: domain.PartySet,
-//      templateId: ContractTypeId.Template.OptionalPkg,
+//      templateId: ContractTypeId.Template.RequiredPkg,
 //      contractKey: LfValue,
 //  )(implicit
 //      lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -206,7 +207,7 @@ class ContractsService(
                 if created.createdEvent.nonEmpty =>
               ActiveContract
                 .fromLedgerApi(
-                  domain.ActiveContract.IgnoreInterface,
+                  domain.ActiveContract.ExtractAs.Template,
                   created.createdEvent.getOrElse(
                     throw new RuntimeException("unreachable since created.createdEvent is nonEmpty")
                   ),
@@ -246,13 +247,13 @@ class ContractsService(
     EndpointsCompanion.Unauthorized(message)
   }
 
-  private def _resolveContractTypeId[U, R](
+  private def _resolveContractTypeId[U, R[T] <: ContractTypeId[T]](
       jwt: Jwt,
-      templateId: U with ContractTypeId.OptionalPkg,
+      templateId: U with ContractTypeId.RequiredPkg,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       overload: Overload[U, R],
-  ): ET[R] =
+  ): ET[domain.ContractTypeRef[R]] =
     eitherT(
       resolveContractTypeId[U, R](jwt)(templateId)
         .map(_.leftMap {
@@ -325,7 +326,7 @@ class ContractsService(
   def search(
       jwt: Jwt,
       parties: domain.PartySet,
-      templateIds: NonEmpty[Set[domain.ContractTypeId.OptionalPkg]],
+      templateIds: NonEmpty[Set[domain.ContractTypeId.RequiredPkg]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
@@ -367,20 +368,19 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[InternalError \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
-    val templateIds = resolvedQuery.resolved
     logger.debug(
-      s"Searching in memory, parties: $parties, templateIds: $templateIds"
+      s"Searching in memory, parties: $parties, resolvedQuery: $resolvedQuery"
     )
 
     type Ac = domain.ActiveContract.ResolvedCtTyId[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
-    insertDeleteStepSource(jwt, parties, templateIds.toList)
+    insertDeleteStepSource(jwt, buildTransactionFilter(parties, resolvedQuery))
       .map { step =>
         step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
-            .fromLedgerApi(resolvedQuery, apiEvent)
+            .fromLedgerApi(domain.ActiveContract.ExtractAs(resolvedQuery), apiEvent)
             .leftMap(e => InternalError(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
@@ -395,10 +395,8 @@ class ContractsService(
 
   def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
-      parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
-  )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] = {
-    val txnFilter = transactionFilter(parties, templateIds)
+      txnFilter: TransactionFilter,
+  )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] =
     getActiveContracts(jwt, txnFilter, true)(lc)
       .map { case GetActiveContractsResponse(offset, _, contractEntry) =>
         if (contractEntry.isActiveContract) {
@@ -412,22 +410,18 @@ class ContractsService(
           Acs(createdEvent.toVector)
         } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
       }
-  }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
     * and ending at `terminates`.
     */
   def insertDeleteStepSource(
       jwt: Jwt,
-      parties: domain.PartySet,
-      templateIds: List[domain.ContractTypeId.Resolved],
+      txnFilter: TransactionFilter,
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtParticipantEnd,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
-
-    val txnFilter = transactionFilter(parties, templateIds)
     def source =
       (getActiveContracts(jwt, txnFilter, true)(lc)
         via logTermination(logger, "ACS upstream"))
@@ -480,13 +474,13 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  def resolveContractTypeIds[Tid <: domain.ContractTypeId.OptionalPkg](
+  def resolveContractTypeIds[Tid <: domain.ContractTypeId.RequiredPkg](
       jwt: Jwt
   )(
       xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[domain.ContractTypeId.Resolved], Set[Tid])] = {
+  ): Future[(Set[domain.ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse.*
     import scalaz.std.list.*, scalaz.std.scalaFuture.*
 
@@ -494,7 +488,7 @@ class ContractsService(
       .traverse { x =>
         resolveContractTypeId(jwt)(x)
           .map(_.toOption.flatten.toLeft(x)): Future[
-          Either[domain.ContractTypeId.Resolved, Tid]
+          Either[domain.ContractTypeRef.Resolved, Tid]
         ]
       }
       .map(_.toSet.partitionMap(a => a))
@@ -519,8 +513,8 @@ object ContractsService {
     type QueryLang = SearchContext[
       domain.ResolvedQuery
     ]
-    type ById = SearchContext[Option[domain.ContractTypeId.OptionalPkg]]
-    type Key = SearchContext[domain.ContractTypeId.Template.OptionalPkg]
+    type ById = SearchContext[Option[domain.ContractTypeId.RequiredPkg]]
+    type Key = SearchContext[domain.ContractTypeId.Template.RequiredPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for
@@ -563,4 +557,10 @@ object ContractsService {
   }
 
   type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
+
+  def buildTransactionFilter(
+      parties: domain.PartySet,
+      resolvedQuery: domain.ResolvedQuery,
+  ): TransactionFilter =
+    transactionFilter(parties, resolvedQuery.resolved.map(_.original).toList)
 }

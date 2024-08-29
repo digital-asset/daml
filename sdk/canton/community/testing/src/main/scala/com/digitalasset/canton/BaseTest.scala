@@ -366,6 +366,7 @@ trait BaseTest
 
   lazy val CantonExamplesPath: String = BaseTest.CantonExamplesPath
   lazy val CantonTestsPath: String = BaseTest.CantonTestsPath
+  lazy val CantonTestsDevPath: String = BaseTest.CantonTestsDevPath
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
@@ -474,10 +475,10 @@ object BaseTest {
   lazy val testedUseUnifiedSequencer: Boolean = tryGetUseUnifiedSequencerFromEnv
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
-  lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")
-  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev.dar")
-  lazy val CantonLfDev: String = getResourcePath("CantonLfDev.dar")
-  lazy val CantonLfV21: String = getResourcePath("CantonLfV21.dar")
+  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.2.0.dar")
+  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.2.0.dar")
+  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.2.0.dar")
+  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.2.0.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")

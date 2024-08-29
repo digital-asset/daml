@@ -982,8 +982,7 @@ create table ord_metadata_output_blocks (
   block_number bigint not null,
   bft_ts bigint not null,
   last_topology_ts bigint not null,
-  num_txs integer not null,
   primary key (block_number),
   -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_output_block unique (epoch_number, block_number, bft_ts, last_topology_ts, num_txs)
+  constraint unique_output_block unique (epoch_number, block_number, bft_ts, last_topology_ts)
 );

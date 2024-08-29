@@ -86,7 +86,13 @@ object CommandServiceTest extends BaseTest {
     actAs = multiPartyJwp.submitter.toList,
     readAs = multiPartyJwp.readAs,
   )
-  private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")
+  private val tplId =
+    domain.ContractTypeId.Template(
+      com.digitalasset.daml.lf.data.Ref.PackageRef.assertFromString("Foo"),
+      "Bar",
+      "Baz",
+    )
+
   private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
 
   implicit private val ignoredLoggingContext

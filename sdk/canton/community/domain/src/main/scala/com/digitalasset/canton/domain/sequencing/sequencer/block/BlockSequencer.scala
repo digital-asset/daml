@@ -696,7 +696,7 @@ class BlockSequencer(
       domainTimeTracker: DomainTimeTracker,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] =
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] =
     for {
       latestBalanceO <- EitherT.right(blockRateLimitManager.lastKnownBalanceFor(member))
       maxSerialO = latestBalanceO.map(_.serial)
@@ -706,7 +706,7 @@ class BlockSequencer(
           s"The provided serial value $serial is too low. Latest serial used by this member is $maxSerialO"
         ),
       )
-      timestamp <- trafficPurchasedSubmissionHandler.sendTrafficPurchasedRequest(
+      _ <- trafficPurchasedSubmissionHandler.sendTrafficPurchasedRequest(
         member,
         domainId,
         protocolVersion,
@@ -716,7 +716,7 @@ class BlockSequencer(
         domainTimeTracker,
         cryptoApi,
       )
-    } yield timestamp
+    } yield ()
 
   override def trafficStatus(requestedMembers: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext

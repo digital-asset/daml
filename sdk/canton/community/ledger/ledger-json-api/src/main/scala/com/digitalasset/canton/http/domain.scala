@@ -43,7 +43,7 @@ package object domain {
   final val ActiveContract = here.ActiveContract
 
   type InputContractRef[LfV] =
-    (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
+    (ContractTypeId.Template.RequiredPkg, LfV) \/ (Option[ContractTypeId.RequiredPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
@@ -84,7 +84,7 @@ package object domain {
 package domain {
 
   import com.daml.ledger.api.v2.commands.Commands
-  import com.digitalasset.daml.lf.data.Ref.HexString
+  import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
   import com.digitalasset.canton.topology.DomainId
 
@@ -144,7 +144,7 @@ package domain {
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
+  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkgId)
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],
@@ -158,12 +158,12 @@ package domain {
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
   final case class EnrichedContractKey[+LfV](
-      templateId: ContractTypeId.Template.OptionalPkg,
+      templateId: ContractTypeId.Template.RequiredPkg,
       key: LfV,
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[ContractTypeId.OptionalPkg],
+      templateId: Option[ContractTypeId.RequiredPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -173,7 +173,7 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
+      templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
       readAs: Option[NonEmptyList[Party]],
   )
 
@@ -182,7 +182,7 @@ package domain {
   )
 
   final case class SearchForeverQuery(
-      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
+      templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
       offset: Option[domain.Offset],
   )
 
@@ -319,6 +319,7 @@ package domain {
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
       domainId: Option[DomainId],
+      packageIdSelectionPreference: Option[List[PackageId]],
   )
 
   object CommandMeta {
@@ -368,7 +369,7 @@ package domain {
 
   final case class CreateCommandResponse[+LfV](
       contractId: ContractId,
-      templateId: ContractTypeId.Template.RequiredPkg,
+      templateId: ContractTypeId.Template.RequiredPkgId,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],
@@ -393,12 +394,11 @@ package domain {
 
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
-    ): Error \/ Vector[Contract[lav2.value.Value]] = {
+    ): Error \/ Vector[Contract[lav2.value.Value]] =
       tx.rootEventIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
         .map(_.flatten)
-    }
 
     private[this] def fromTreeEvent(
         eventsById: Map[String, lav2.transaction.TreeEvent]
@@ -413,7 +413,7 @@ package domain {
             case lav2.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
-                  .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
+                  .fromLedgerApi(domain.ActiveContract.ExtractAs.Template, created)
                   .map(a => Contract[lav2.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
@@ -457,21 +457,21 @@ package domain {
     // only used in integration tests
     implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
       new HasTemplateId[ActiveContract.ResolvedCtTyId] {
-        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.OptionalPkg =
-          (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
+        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.RequiredPkg =
+          fa.templateId.map(PackageRef.Id(_))
 
         type TypeFromCtId = LfType
 
         override def lfType(
             fa: ActiveContract.ResolvedCtTyId[_],
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkgId,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
-              f(tid: ContractTypeId.Template.Resolved)
+            case tid @ ContractTypeId.Template(_, _, _) =>
+              f(tid: ContractTypeId.Template.ResolvedPkgId)
                 .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
             case other =>
               val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
@@ -487,7 +487,10 @@ package domain {
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
-          \/-(interfaceId)
+          (in.templateId required "templateId")
+            .map(ContractTypeId.Interface.fromLedgerApi)
+            // Use the interface id that was queried for, but with the package id returned.
+            .map(gotId => interfaceId.latestPkgId.copy(packageId = gotId.packageId))
         case _ =>
           (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
       }
@@ -559,21 +562,21 @@ package domain {
     implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
-        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.OptionalPkg =
+        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.RequiredPkg =
           fa.templateId
 
         type TypeFromCtId = LfType
 
         override def lfType(
             fa: EnrichedContractKey[_],
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkgId,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType = {
           templateId match {
-            case tid: ContractTypeId.Template.Resolved =>
-              h(tid: ContractTypeId.Template.Resolved)
+            case tid @ ContractTypeId.Template(_, _, _) =>
+              h(tid: ContractTypeId.Template.ResolvedPkgId)
                 .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
             case other =>
               val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
@@ -599,13 +602,13 @@ package domain {
   trait HasTemplateId[-F[_]] {
     protected[this] type FHuh = F[_] // how to pronounce "F[?]" or "F huh?"
 
-    def templateId(fa: F[_]): ContractTypeId.OptionalPkg
+    def templateId(fa: F[_]): ContractTypeId.RequiredPkg
 
     type TypeFromCtId
 
     def lfType(
         fa: F[_],
-        templateId: ContractTypeId.Resolved,
+        templateId: ContractTypeId.ResolvedPkgId,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
@@ -629,7 +632,7 @@ package domain {
 
           override def lfType(
               fa: F[_],
-              templateId: ContractTypeId.Resolved,
+              templateId: ContractTypeId.ResolvedPkgId,
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
@@ -639,6 +642,8 @@ package domain {
   }
 
   object CreateCommand {
+    type RequiredPkg[+LfV] = CreateCommand[LfV, ContractTypeId.Template.RequiredPkg]
+
     implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: CreateCommand[A, B]
@@ -649,8 +654,7 @@ package domain {
   }
 
   object ExerciseCommand {
-    type OptionalPkg[+LfV, +Ref] = ExerciseCommand[Option[String], LfV, Ref]
-    type RequiredPkg[+LfV, +Ref] = ExerciseCommand[String, LfV, Ref]
+    type RequiredPkg[+LfV, +R] = ExerciseCommand[PackageRef, LfV, R]
 
     implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
       new Bitraverse[ExerciseCommand[PkgId, *, *]] {
@@ -666,15 +670,15 @@ package domain {
         }
       }
 
-    implicit val leftTraverseInstance: Traverse[OptionalPkg[+*, Nothing]] =
-      bitraverseInstance[Option[String]].leftTraverse
+    implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
+      bitraverseInstance[PackageRef].leftTraverse
 
-    implicit val hasTemplateId: HasTemplateId.Aux[OptionalPkg[
+    implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
       +*,
       domain.ContractLocator[_],
-    ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
-      new HasTemplateId[OptionalPkg[+*, domain.ContractLocator[_]]] {
-        override def templateId(fab: FHuh): ContractTypeId.OptionalPkg =
+    ], (Option[domain.ContractTypeId.Interface.ResolvedPkgId], LfType)] =
+      new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
+        override def templateId(fab: FHuh): ContractTypeId.RequiredPkg =
           fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
@@ -684,11 +688,11 @@ package domain {
               )
           })
 
-        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
+        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.ResolvedPkgId], LfType)
 
         override def lfType(
             fa: FHuh,
-            templateId: ContractTypeId.Resolved,
+            templateId: ContractTypeId.ResolvedPkgId,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
@@ -702,8 +706,8 @@ package domain {
     type LAVUnresolved = CreateAndExerciseCommand[
       lav2.value.Record,
       lav2.value.Value,
-      domain.ContractTypeId.Template.OptionalPkg,
-      domain.ContractTypeId.OptionalPkg,
+      domain.ContractTypeId.Template.RequiredPkg,
+      domain.ContractTypeId.RequiredPkg,
     ]
 
     type LAVResolved = CreateAndExerciseCommand[
@@ -843,7 +847,7 @@ package domain {
 
   sealed abstract class ServiceWarning extends Serializable with Product
 
-  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.OptionalPkg])
+  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.RequiredPkg])
       extends ServiceWarning
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
@@ -855,7 +859,7 @@ package domain {
   import scala.collection.IterableOps
 
   /** A contract type ID that may be either a template or an interface ID.
-    * A [[ContractTypeId.Resolved]] ID will always be either [[ContractTypeId.Template]]
+    * A [[ContractTypeId.ResolvedPkg]] ID will always be either [[ContractTypeId.Template]]
     * or [[ContractTypeId.Interface]]; an
     * unresolved ID may be one of those, which indicates an expectation of what
     * the resolved ID will be, or neither, which indicates that resolving what
@@ -906,20 +910,20 @@ package domain {
       import scala.util.hashing.MurmurHash3 as H
       H.productHash(this, H.productSeed, ignorePrefix = true)
     }
+
+    def fqn: String = s"${packageId.toString}:$moduleName:$entityName"
   }
 
   object ResolvedQuery {
-    def apply(resolved: ContractTypeId.Resolved): ResolvedQuery = {
-      import ContractTypeId.*
+    def apply[CtId[T] <: ContractTypeId[T]](resolved: ContractTypeRef[CtId]): ResolvedQuery =
       resolved match {
-        case t @ Template(_, _, _) => ByTemplateId(t)
-        case i @ Interface(_, _, _) => ByInterfaceId(i)
+        case t: ContractTypeRef.TemplateRef => ByTemplateId(t)
+        case i: ContractTypeRef.InterfaceRef => ByInterfaceId(i)
       }
-    }
 
-    def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
+    def apply(resolved: Set[_ <: ContractTypeRef[ContractTypeId]]): Unsupported \/ ResolvedQuery = {
       import com.daml.nonempty.{NonEmpty, Singleton}
-      val (templateIds, interfaceIds) = partition(resolved)
+      val (templateIds, interfaceIds) = partitionRefs(resolved)
       templateIds match {
         case NonEmpty(templateIds) =>
           interfaceIds match {
@@ -935,12 +939,20 @@ package domain {
       }
     }
 
-    def partition[CC[_], C](
-        resolved: IterableOps[ContractTypeId.Resolved, CC, C]
-    ): (CC[ContractTypeId.Template.Resolved], CC[ContractTypeId.Interface.Resolved]) =
+    def partition[CC[_], C, Pkg](
+        resolved: IterableOps[ContractTypeId.Definite[Pkg], CC, C]
+    ): (CC[ContractTypeId.Template[Pkg]], CC[ContractTypeId.Interface[Pkg]]) =
       resolved.partitionMap {
         case t @ ContractTypeId.Template(_, _, _) => Left(t)
         case i @ ContractTypeId.Interface(_, _, _) => Right(i)
+      }
+
+    def partitionRefs[CC[_], C](
+        resolved: IterableOps[ContractTypeRef[ContractTypeId], CC, C]
+    ): (CC[ContractTypeRef.TemplateRef], CC[ContractTypeRef.InterfaceRef]) =
+      resolved.partitionMap {
+        case t: ContractTypeRef.TemplateRef => Left(t)
+        case i: ContractTypeRef.InterfaceRef => Right(i)
       }
 
     sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
@@ -954,27 +966,23 @@ package domain {
     final case object CannotBeEmpty
         extends Unsupported("Cannot resolve any template ID from request")
 
-    final case class ByTemplateIds(templateIds: NonEmpty[Set[ContractTypeId.Template.Resolved]])
+    final case class ByTemplateIds(templateIds: NonEmpty[Set[ContractTypeRef.TemplateRef]])
         extends ResolvedQuery {
-      def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
-        templateIds.map(id => id: ContractTypeId.Resolved)
+      def resolved = templateIds
     }
 
-    final case class ByTemplateId(templateId: ContractTypeId.Template.Resolved)
-        extends ResolvedQuery {
-      def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
-        NonEmpty(Set, templateId: ContractTypeId.Resolved)
+    final case class ByTemplateId(templateId: ContractTypeRef.TemplateRef) extends ResolvedQuery {
+      def resolved = NonEmpty(Set, templateId)
     }
 
-    final case class ByInterfaceId(interfaceId: ContractTypeId.Interface.Resolved)
+    final case class ByInterfaceId(interfaceId: ContractTypeRef.InterfaceRef)
         extends ResolvedQuery {
-      def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
-        NonEmpty(Set, interfaceId: ContractTypeId.Resolved)
+      def resolved = NonEmpty(Set, interfaceId)
     }
   }
 
   sealed abstract class ResolvedQuery extends Product with Serializable {
-    def resolved: NonEmpty[Set[ContractTypeId.Resolved]]
+    def resolved: NonEmpty[Set[_ <: ContractTypeRef.Resolved]]
   }
 
   object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {
@@ -1060,9 +1068,10 @@ package domain {
     // confirmed-present IDs only.  Can probably start by adding
     // `with Definite[Any]` here and seeing what happens
     /** A resolved [[ContractTypeId]], typed `CtTyId`. */
-    type ResolvedId[+CtTyId] = CtTyId
+    type WithDefiniteOps[+CtId[_], Pkg] = CtId[Pkg] with Definite[Pkg] with Ops[CtId, Pkg]
 
-    type ResolvedOf[+CtId[_]] = ResolvedId[CtId[String] with Definite[String]]
+    type ResolvedOf[+CtId[_]] = WithDefiniteOps[CtId, Ref.PackageRef]
+    type ResolvedPkgIdOf[+CtId[_]] = WithDefiniteOps[CtId, Ref.PackageId]
 
     type Like[CtId[T] <: ContractTypeId[T]] = ContractTypeIdLike[CtId]
 
@@ -1073,24 +1082,29 @@ package domain {
           packageId: PkgId0 = packageId,
           moduleName: String = moduleName,
           entityName: String = entityName,
-      ): CtId[PkgId0]
+      ): CtId[PkgId0] with Ops[CtId, PkgId0]
     }
+
+    def withPkgRef[CtId[T] <: ContractTypeId[T]](
+        id: CtId[Ref.PackageId] with Ops[CtId, Ref.PackageId]
+    ): CtId[Ref.PackageRef] =
+      id.copy(packageId = Ref.PackageRef.Id(id.packageId): Ref.PackageRef)
   }
 
   /** A contract type ID companion. */
   sealed abstract class ContractTypeIdLike[CtId[T] <: ContractTypeId[T]] {
-    type OptionalPkg = CtId[Option[String]]
-    type RequiredPkg = CtId[String]
-    type NoPkg = CtId[Unit]
-    type Resolved = ContractTypeId.ResolvedOf[CtId]
+    type RequiredPkg = CtId[Ref.PackageRef]
+    type RequiredPkgId = CtId[Ref.PackageId]
+    type ResolvedPkg = ContractTypeId.ResolvedOf[CtId]
+    type ResolvedPkgId = ContractTypeId.ResolvedPkgIdOf[CtId]
 
     // treat the companion like a typeclass instance
     implicit def `ContractTypeIdLike companion`: this.type = this
 
-    def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId]
+    def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId] with ContractTypeId.Ops[CtId, PkgId]
 
-    final def fromLedgerApi(in: lav2.value.Identifier): RequiredPkg =
-      apply(in.packageId, in.moduleName, in.entityName)
+    final def fromLedgerApi(in: lav2.value.Identifier): RequiredPkgId =
+      apply(Ref.PackageId.assertFromString(in.packageId), in.moduleName, in.entityName)
 
     private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =
       Ref.QualifiedName(
@@ -1098,10 +1112,64 @@ package domain {
         Ref.DottedName.assertFromString(a.entityName),
       )
 
-    final def toLedgerApiValue(a: RequiredPkg): Ref.Identifier = {
+    final def toLedgerApiValue(a: RequiredPkgId): Ref.Identifier = {
       val qfName = qualifiedName(a)
-      val packageId = Ref.PackageId.assertFromString(a.packageId)
-      Ref.Identifier(packageId, qfName)
+      Ref.Identifier(a.packageId, qfName)
     }
+  }
+
+  // Represents information about a contract type id that may use a name as the package reference.
+  // i.e. `orig` may have a form or either "#foo:Bar:Baz" or "123:Bar:Baz".
+  // If a package name is provided, then `allIds` may resolve to multiple values, for the relevant
+  // template in each package id that shares the same package name.
+  sealed abstract class ContractTypeRef[+CtTyId[T] <: ContractTypeId[T]](
+      orig: ContractTypeId.ResolvedOf[CtTyId],
+      ids: NonEmpty[Seq[ContractTypeId.ResolvedPkgIdOf[CtTyId]]],
+      val name: Option[Ref.PackageName],
+  ) {
+    def allPkgIds: NonEmpty[Set[_ <: ContractTypeId.ResolvedPkgIdOf[CtTyId]]] = ids.toSet
+    def latestPkgId: ContractTypeId.ResolvedPkgIdOf[CtTyId] = ids.head
+    def original: ContractTypeId.ResolvedOf[CtTyId] = orig
+  }
+
+  object ContractTypeRef {
+    type Resolved = ContractTypeRef[ContractTypeId]
+
+    def unnamed[CtTyId[T] <: ContractTypeId[T]](
+        id: ContractTypeId.ResolvedPkgIdOf[CtTyId]
+    ): ContractTypeRef[CtTyId] = {
+      val idWithRef = id.copy(packageId = Ref.PackageRef.Id(id.packageId): Ref.PackageRef)
+      apply[CtTyId](idWithRef, NonEmpty(Seq, id.packageId), None)
+    }
+
+    def apply[CtId[T] <: ContractTypeId[T]](
+        id: ContractTypeId.ResolvedOf[CtId], // The original template/interface id.
+        pkgIds: NonEmpty[Seq[Ref.PackageId]], // Package ids with same name, by version, descending
+        name: Option[Ref.PackageName], // The package name info
+    ): ContractTypeRef[CtId] =
+      ((id: ContractTypeId.Definite[Ref.PackageRef]) match {
+        case t @ ContractTypeId.Template(_, _, _) => TemplateRef(t, pkgIds, name)
+        case i @ ContractTypeId.Interface(_, _, _) => InterfaceRef(i, pkgIds, name)
+      }).asInstanceOf[ContractTypeRef[CtId]] // CtId <: Definite, because id is resolved
+
+    final case class TemplateRef(
+        orig: ContractTypeId.Template.ResolvedPkg,
+        pkgIds: NonEmpty[Seq[Ref.PackageId]],
+        override val name: Option[Ref.PackageName],
+    ) extends ContractTypeRef[ContractTypeId.Template](
+          orig,
+          pkgIds.map(pkgId => orig.copy(packageId = pkgId)),
+          name,
+        )
+
+    final case class InterfaceRef(
+        orig: ContractTypeId.Interface.ResolvedPkg,
+        pkgIds: NonEmpty[Seq[Ref.PackageId]],
+        override val name: Option[Ref.PackageName],
+    ) extends ContractTypeRef[ContractTypeId.Interface](
+          orig,
+          pkgIds.map(pkgId => orig.copy(packageId = pkgId)),
+          name,
+        )
   }
 }

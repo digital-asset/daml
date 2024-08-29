@@ -5,8 +5,6 @@ package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.{Jwt, JwtDecoder}
-import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc
-import com.daml.ledger.api.v2.state_service.StateServiceGrpc
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
