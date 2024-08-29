@@ -180,8 +180,11 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
     case topoSortPackages (map withIdAndPkg presentDeps) of
-      Left _badTrace -> do
-        error "deps have a cycle"
+      Left badTrace -> do
+        let placeholderPkg = let (_, _, pkg) = head badTrace in pkg
+            getPkgIdAndMetadata (pkgId, _, pkg) = (pkgId, packageMetadata pkg)
+        withPkgAsGamma placeholderPkg $
+          throwWithContext $ EUpgradeDependenciesFormACycle $ map getPkgIdAndMetadata badTrace
       Right sortedPresentDeps -> do
         let dependenciesFirst = reverse (map withoutIdAndPkg sortedPresentDeps)
         upgradeablePackageMap <- checkAllDeps initialUpgradeablePackageMap dependenciesFirst
