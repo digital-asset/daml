@@ -38,7 +38,7 @@ dvalType = snd . dvalBinder
 chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
 
--- Return topologically sorted packages, with the most recent package first
+-- Return topologically sorted packages, with the top-level parent package first
 topoSortPackages :: [(PackageId, a, Package)] -> Either [(PackageId, a, Package)] [(PackageId, a, Package)]
 topoSortPackages pkgs =
   let toPkgNode x@(pkgId, _, pkg) =
