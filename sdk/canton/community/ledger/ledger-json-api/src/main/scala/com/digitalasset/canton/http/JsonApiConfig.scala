@@ -24,7 +24,8 @@ final case class JsonApiConfig(
                                 allowNonHttps: Boolean = false,
                                 wsConfig: Option[WebsocketConfig] = None,
                                 debugLoggingOfHttpBodies: Boolean = false,
-) extends StartSettings
+                                damlDefinitionsServiceEnabled: Boolean = false,
+                              ) extends StartSettings
 
 object JsonApiConfig {
   val Empty = JsonApiConfig()

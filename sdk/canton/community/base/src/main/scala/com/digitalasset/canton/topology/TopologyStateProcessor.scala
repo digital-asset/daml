@@ -11,11 +11,12 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
-  IncomingTopologyTransactionAuthorizationValidator,
   SequencedTime,
+  TopologyTransactionAuthorizationValidator,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
@@ -56,7 +57,8 @@ class TopologyStateProcessor(
     } else loggerFactoryParent
 
   // small container to store potentially pending data
-  private case class MaybePending(originalTx: GenericSignedTopologyTransaction) {
+  private case class MaybePending(originalTx: GenericSignedTopologyTransaction)
+      extends PrettyPrinting {
     val adjusted = new AtomicReference[Option[GenericSignedTopologyTransaction]](None)
     val rejection = new AtomicReference[Option[TopologyTransactionRejection]](None)
     val expireImmediately = new AtomicBoolean(false)
@@ -65,6 +67,14 @@ class TopologyStateProcessor(
 
     def validatedTx: GenericValidatedTopologyTransaction =
       ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
+
+    override def pretty: Pretty[MaybePending] =
+      prettyOfClass(
+        param("original", _.originalTx),
+        paramIfDefined("adjusted", _.adjusted.get()),
+        paramIfDefined("rejection", _.rejection.get()),
+        paramIfTrue("expireImmediately", _.expireImmediately.get()),
+      )
   }
 
   private val txForMapping = TrieMap[MappingHash, MaybePending]()
@@ -72,13 +82,13 @@ class TopologyStateProcessor(
   private val proposalsForTx = TrieMap[TxHash, MaybePending]()
 
   private val authValidator =
-    new IncomingTopologyTransactionAuthorizationValidator(
+    new TopologyTransactionAuthorizationValidator(
       pureCrypto,
       store,
       // if transactions are put directly into a store (ie there is no outbox queue)
       // then the authorization validation is final.
       validationIsFinal = outboxQueue.isEmpty,
-      loggerFactory.append("role", "incoming"),
+      loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
   // compared to the old topology stores, the x stores don't distinguish between
@@ -360,7 +370,18 @@ class TopologyStateProcessor(
       mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
     val ret = for {
       // Run mapping specific semantic checks
-      _ <- topologyMappingChecks.checkTransaction(effective, tx_deduplicatedAndMerged, tx_inStore)
+      _ <- topologyMappingChecks.checkTransaction(
+        effective,
+        tx_deduplicatedAndMerged,
+        tx_inStore,
+        txForMapping.view.mapValues { pending =>
+          require(
+            !pending.expireImmediately.get() && pending.rejection.get.isEmpty,
+            s"unexpectedly used rejected or immediately expired tx: $pending",
+          )
+          pending.currentTx
+        }.toMap,
+      )
       _ <-
         // we potentially merge the transaction with the currently active if this is just a signature update
         // now, check if the serial is monotonically increasing

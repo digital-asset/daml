@@ -60,7 +60,7 @@ trait SequencerStateManagerStoreTest
     TestingTopology(
       domains = Set(domainId),
       sequencerGroup = SequencerGroup(
-        active = NonEmpty.mk(Seq, DefaultTestIdentities.daSequencerId),
+        active = Seq(DefaultTestIdentities.daSequencerId),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       ),

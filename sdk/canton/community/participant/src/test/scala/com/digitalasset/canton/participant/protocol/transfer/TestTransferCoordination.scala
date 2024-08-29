@@ -79,13 +79,12 @@ private[transfer] object TestTransferCoordination {
           domainId: DomainId,
           staticDomainParameters: StaticDomainParameters,
           timestamp: CantonTimestamp,
-          waitForEffectiveTime: Boolean,
       )(implicit
           traceContext: TraceContext
       ): Either[TransferProcessorError, Option[Future[Unit]]] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitTimestamp(domainId, staticDomainParameters, timestamp, waitForEffectiveTime)
+            super.awaitTimestamp(domainId, staticDomainParameters, timestamp)
           case Some(overridden) => Right(overridden)
         }
 

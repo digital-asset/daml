@@ -5,6 +5,7 @@ package com.digitalasset.canton.health
 
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
@@ -37,6 +38,7 @@ class GrpcHealthServer(
       apiConfig,
       tracingConfig,
       grpcMetrics,
+      NoOpTelemetry,
     )
     .addService(ProtoReflectionService.newInstance(), withLogging = false)
     .addService(healthManager.getHealthService.bindService())

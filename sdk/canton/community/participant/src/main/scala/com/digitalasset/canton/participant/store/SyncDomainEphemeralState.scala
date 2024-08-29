@@ -118,8 +118,7 @@ class SyncDomainEphemeralState(
     )
   }
 
-  val recordOrderPublisher: RecordOrderPublisher = {
-    import TraceContext.Implicits.Empty.emptyTraceContext
+  val recordOrderPublisher: RecordOrderPublisher =
     new RecordOrderPublisher(
       persistentState.domainId.item,
       startingPoints.processing.nextSequencerCounter,
@@ -135,7 +134,6 @@ class SyncDomainEphemeralState(
       persistentState.activeContractStore,
       clock,
     )
-  }
 
   val phase37Synchronizer =
     new Phase37Synchronizer(

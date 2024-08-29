@@ -84,7 +84,7 @@ class GrpcTopologyAggregationService(
     .foldLeftM((Set.empty[PartyId], false), clients) { case ((res, isDone), (_, client)) =>
       if (isDone) Future.successful((res, true))
       else
-        client.inspectKnownParties(filterParty, filterParticipant, limit).map { found =>
+        client.inspectKnownParties(filterParty, filterParticipant).map { found =>
           val tmp = found ++ res
           if (tmp.size >= limit) (tmp.take(limit), true) else (tmp, false)
         }

@@ -344,8 +344,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
-      traceContext: TraceContext
+  def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
+      implicit traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransaction]]
 
   def findProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
@@ -375,7 +375,16 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[PositiveStoredTopologyTransactions]
 
-  /** add validated topology transaction as is to the topology transaction table */
+  /** Updates topology transactions.
+    * The method proceeds as follows:
+    * 1. It expires all transactions `tx` with `removeMapping.get(tx.mapping.uniqueKey).exists(tx.serial <= _)`.
+    *    By `expire` we mean that `valid_until` is set to `effective`, provided `valid_until` was previously `NULL` and
+    *    `valid_from < effective`.
+    * 2. It expires all transactions `tx` with `tx.hash` in `removeTxs`.
+    * 3. It adds all transactions in additions. Thereby:
+    * 3.1. It sets valid_until to effective, if there is a rejection reason or if `expireImmediately`.
+    * 3.2. FIXME(i20661): It ignore transactions that violate the underlying DB uniqueness constraints.
+    */
   def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
@@ -391,7 +400,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions]
 
-  /** store an initial set of topology transactions as given into the store */
+  /** Store an initial set of topology transactions as given into the store.
+    * FIXME(i20661): It ignore transactions that violate the underlying DB uniqueness constraints.
+    */
   def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
       traceContext: TraceContext
   ): Future[Unit]
@@ -399,12 +410,12 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   /** query optimized for inspection
     *
     * @param proposals if true, query only for proposals instead of approved transaction mappings
-    * @param recentTimestampO if exists, use this timestamp for the head state to prevent race conditions on the console
+    * @param asOfExclusiveO if exists, use this timestamp for the head state to prevent race conditions on the console
     */
   def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      recentTimestampO: Option[CantonTimestamp],
+      asOfExclusiveO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],
       idFilter: Option[String],
@@ -414,10 +425,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]]
 
   def inspectKnownParties(
-      timestamp: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
-      limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]]
 
   /** Finds the topology transaction that first onboarded the sequencer with ID `sequencerId`
@@ -444,13 +454,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]]
 
+  /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`.
+    * Sets `validUntil` to `None`, if `validUntil` is strictly greater than the maximum value of `validFrom`.
+    * Excludes rejected transactions and expired proposals.
+    */
   def findEssentialStateAtSequencedTime(
       asOfInclusive: SequencedTime
   )(implicit traceContext: TraceContext): Future[GenericStoredTopologyTransactions]
-
-  protected def signedTxFromStoredTx(
-      storedTx: GenericStoredTopologyTransaction
-  ): SignedTopologyTransaction[TopologyChangeOp, TopologyMapping] = storedTx.transaction
 
   def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransaction
@@ -463,11 +473,25 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       inStore.validUntil.isEmpty
     })
 
-  /** returns initial set of onboarding transactions that should be dispatched to the domain */
+  /** Returns initial set of onboarding transactions that should be dispatched to the domain.
+    * Includes:
+    * - DomainTrustCertificates for the given participantId
+    * - OwnerToKeyMappings for the given participantId
+    * - NamespaceDelegations for the participantId's namespace
+    * - The above even if they are expired.
+    * - Transactions with operation REMOVE.
+    * Excludes:
+    * - Proposals
+    * - Rejected transactions
+    * - Transactions that are not valid for domainId
+    */
   def findParticipantOnboardingTransactions(participantId: ParticipantId, domainId: DomainId)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
+  /** Yields transactions with `validFrom` strictly greater than `timestampExclusive`.
+    * Excludes rejected transactions and expired proposals.
+    */
   def findDispatchingTransactionsAfter(
       timestampExclusive: CantonTimestamp,
       limit: Option[Int],
@@ -475,6 +499,10 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions]
 
+  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
+    * the same hash as `transaction` and the representative protocol version for the given `protocolVersion`.
+    * Excludes rejected transactions.
+    */
   def findStoredForVersion(
       asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransaction,
@@ -483,12 +511,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransaction]]
 
-  final def exists(transaction: GenericSignedTopologyTransaction)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] = findStored(CantonTimestamp.MaxValue, transaction).map(
-    _.exists(signedTxFromStoredTx(_) == transaction)
-  )
-
+  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
+    * the same hash as `transaction`.
+    */
   def findStored(
       asOfExclusive: CantonTimestamp,
       transaction: GenericSignedTopologyTransaction,

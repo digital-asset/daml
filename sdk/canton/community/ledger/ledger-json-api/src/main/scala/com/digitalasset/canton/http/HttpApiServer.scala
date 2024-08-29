@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.PekkoExecutionSequencerPool
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
@@ -20,7 +21,7 @@ import java.nio.file.Path
 
 object HttpApiServer extends NoTracing {
 
-  def apply(config: JsonApiConfig, channel: Channel, loggerFactory: NamedLoggerFactory)(implicit
+  def apply(config: JsonApiConfig, channel: Channel, writeService: WriteService, loggerFactory: NamedLoggerFactory)(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
     val logger = loggerFactory.getTracedLogger(getClass)
@@ -31,7 +32,7 @@ object HttpApiServer extends NoTracing {
         new PekkoExecutionSequencerPool("httpPool")(actorSystem)
       )
       serverBinding <- instanceUUIDLogCtx(implicit loggingContextOf =>
-        new HttpService(config, channel, loggerFactory)(
+        new HttpService(config, channel, writeService,loggerFactory)(
           actorSystem,
           materializer,
           executionSequencerFactory,

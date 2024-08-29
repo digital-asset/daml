@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/experimental_features.proto";
+import "google/protobuf/duration.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "VersionServiceOuterClass";
@@ -51,6 +52,9 @@ message FeaturesDescriptor {
   // It is recommended that clients query this field to gracefully adjust their behavior to
   // maximum party page size.
   PartyManagementFeature party_management = 3;
+
+  // It contains the timeouts related to the periodic offset checkpoint emission
+  OffsetCheckpointFeature offset_checkpoint = 4;
 }
 
 message UserManagementFeature {
@@ -71,4 +75,9 @@ message UserManagementFeature {
 message PartyManagementFeature {
   // The maximum number of parties the server can return in a single response (page).
   int32 max_parties_page_size = 1;
+}
+
+message OffsetCheckpointFeature {
+  // The maximum delay to emmit a new OffsetCheckpoint if it exists
+  google.protobuf.Duration max_offset_checkpoint_emission_delay = 1;
 }

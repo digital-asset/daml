@@ -133,7 +133,7 @@ class TrafficControlSequencerAdministrationGroup(
       member: Member,
       serial: PositiveInt,
       newBalance: NonNegativeLong,
-  ): Option[CantonTimestamp] =
+  ): Unit =
     check(FeatureFlag.Preview)(
       consoleEnvironment.run(
         runner.adminCommand(

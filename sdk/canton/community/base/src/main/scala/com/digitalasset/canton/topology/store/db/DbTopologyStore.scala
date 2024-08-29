@@ -63,8 +63,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   protected val transactionStoreIdName: LengthLimitedString = storeId.dbString
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
-      traceContext: TraceContext
+  def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
+      implicit traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) Future.successful(Seq.empty)
     else {
@@ -245,7 +245,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   override def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      recentTimestampO: Option[CantonTimestamp],
+      asOfExclusiveO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],
       idFilter: Option[String],
@@ -254,12 +254,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] = {
     logger.debug(
-      s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery, recentTimestamp=$recentTimestampO"
+      s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery, recentTimestamp=$asOfExclusiveO"
     )
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>
-        getHeadStateQuery(recentTimestampO)
+        getHeadStateQuery(asOfExclusiveO)
       case TimeQuery.Snapshot(asOf) =>
         asOfQuery(asOf = asOf, asOfInclusive = false)
       case TimeQuery.Range(None, None) =>
@@ -286,13 +286,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   override def inspectKnownParties(
-      timestamp: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
-      limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] = {
     logger.debug(
-      s"Inspecting known parties at t=$timestamp with filterParty=$filterParty and filterParticipant=$filterParticipant"
+      s"Inspecting known parties at t=$asOfExclusive with filterParty=$filterParty and filterParticipant=$filterParticipant"
     )
 
     def splitFilterPrefixAndSql(uidFilter: String): (String, String, String, String) =
@@ -317,7 +316,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       else sql""
 
     queryForTransactions(
-      asOfQuery(timestamp, asOfInclusive = false) ++
+      asOfQuery(asOfExclusive, asOfInclusive = false) ++
         sql" AND NOT is_proposal AND operation = ${TopologyChangeOp.Replace} AND ("
         // PartyToParticipant filtering
         ++ Seq(
@@ -336,7 +335,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             ++ sql")"
         )
         ++ sql")",
-      limit = storage.limit(limit),
       operation = functionFullName,
     )
       .map(
@@ -388,16 +386,15 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${SequencerDomainState.code}",
+      orderBy = " ORDER BY serial_counter ",
       operation = "firstSequencerState",
     ).map(
       _.collectOfMapping[SequencerDomainState]
         .collectOfType[Replace]
         .result
-        .filter {
+        .find {
           _.mapping.allSequencers.contains(sequencerId)
         }
-        .sortBy(_.serial)
-        .headOption
     )
   }
 
@@ -413,19 +410,16 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${MediatorDomainState.code}",
+      orderBy = " ORDER BY serial_counter ",
       operation = "firstMediatorState",
     ).map(
       _.collectOfMapping[MediatorDomainState]
         .collectOfType[Replace]
         .result
-        .collect {
-          case tx
-              if tx.mapping.observers.contains(mediatorId) ||
-                tx.mapping.active.contains(mediatorId) =>
-            tx
-        }
-        .sortBy(_.serial)
-        .headOption
+        .find(tx =>
+          tx.mapping.observers.contains(mediatorId) ||
+            tx.mapping.active.contains(mediatorId)
+        )
     )
   }
 

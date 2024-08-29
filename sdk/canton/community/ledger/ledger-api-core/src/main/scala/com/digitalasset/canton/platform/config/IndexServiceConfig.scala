@@ -28,7 +28,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * @param globalMaxEventIdQueries                 maximum number of concurrent event id queries across all stream types
   * @param globalMaxEventPayloadQueries            maximum number of concurrent event payload queries across all stream types
   * @param offsetCheckpointCacheUpdateInterval     the interval duration for OffsetCheckpoint cache updates
-  * @param idleStreamOffsetCheckpointTimeout       the interval duration for checking if a new OffsetCheckpoint is created
+  * @param idleStreamOffsetCheckpointTimeout       the timeout duration for checking if a new OffsetCheckpoint is created
   */
 final case class IndexServiceConfig(
     bufferedEventsProcessingParallelism: Int =

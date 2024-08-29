@@ -209,8 +209,11 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
           LogEntry.assertLogSeq(
             Seq.empty,
             Seq(
+              _.warningMessage should include(
+                "KMS operation `asymmetric decrypting with key KmsKeyId(canton-kms-test-another-asymmetric-key)` failed: KmsDecryptError"
+              ),
               // Aws logs a failure here
-              _.warningMessage should (include("Request") and include("failed"))
+              _.warningMessage should (include("Request") and include("failed")),
             ),
           ),
         )

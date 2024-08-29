@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.syntax.alternative.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain.DomainNotUsedReason
 import com.digitalasset.canton.protocol.LfVersionedTransaction
@@ -23,6 +24,7 @@ private[submission] class DomainsFilter(
     requiredPackagesPerParty: Map[Party, Set[PackageId]],
     domains: List[(DomainId, ProtocolVersion, TopologySnapshot)],
     transactionVersion: TransactionVersion,
+    ledgerTime: CantonTimestamp,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, traceContext: TraceContext)
     extends NamedLogging {
@@ -35,6 +37,7 @@ private[submission] class DomainsFilter(
           snapshot,
           requiredPackagesPerParty,
           transactionVersion,
+          ledgerTime,
         )
         .map(_ => domainId)
         .value
@@ -45,12 +48,14 @@ private[submission] class DomainsFilter(
 private[submission] object DomainsFilter {
   def apply(
       submittedTransaction: LfVersionedTransaction,
+      ledgerTime: CantonTimestamp,
       domains: List[(DomainId, ProtocolVersion, TopologySnapshot)],
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext, tc: TraceContext) = new DomainsFilter(
     Blinding.partyPackages(submittedTransaction),
     domains,
     submittedTransaction.version,
+    ledgerTime,
     loggerFactory,
   )
 }

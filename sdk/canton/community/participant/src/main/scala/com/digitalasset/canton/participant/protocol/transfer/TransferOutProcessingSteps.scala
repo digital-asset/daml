@@ -360,7 +360,6 @@ class TransferOutProcessingSteps(
             domainId.unwrap,
             staticDomainParameters,
             timestamp,
-            waitForEffectiveTime = true,
           )
       }
       .traverse(_.map(_.ipsSnapshot))

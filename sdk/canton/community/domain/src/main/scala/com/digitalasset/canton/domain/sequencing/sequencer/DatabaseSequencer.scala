@@ -455,7 +455,7 @@ class DatabaseSequencer(
   ): EitherT[
     FutureUnlessShutdown,
     TrafficControlErrors.TrafficControlError,
-    CantonTimestamp,
+    Unit,
   ] =
     throw new UnsupportedOperationException(
       "Traffic control is not supported by the database sequencer"

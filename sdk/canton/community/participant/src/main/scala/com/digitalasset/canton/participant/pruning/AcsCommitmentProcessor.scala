@@ -1104,8 +1104,18 @@ class AcsCommitmentProcessor(
         lastPruningTime <- store.pruningStatus
         _ <-
           if (matches(cmt, commitments, lastPruningTime.map(_.timestamp), possibleCatchUp)) {
-            store.markSafe(cmt.sender, cmt.period, sortedReconciliationIntervalsProvider)
-          } else Future.unit
+            store.markSafe(
+              cmt.sender,
+              cmt.period,
+              sortedReconciliationIntervalsProvider,
+            )
+          } else {
+            store.markUnsafe(
+              cmt.sender,
+              cmt.period,
+              sortedReconciliationIntervalsProvider,
+            )
+          }
       } yield ()
     }
   }

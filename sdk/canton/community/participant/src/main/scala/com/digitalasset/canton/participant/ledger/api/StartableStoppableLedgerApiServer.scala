@@ -7,6 +7,7 @@ import cats.Eval
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.version_service.OffsetCheckpointFeature
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
@@ -34,11 +35,11 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.InternalStateService
 import com.digitalasset.canton.ledger.participant.state.metrics.{
   TimedReadService,
   TimedWriteService,
 }
+import com.digitalasset.canton.ledger.participant.state.{InternalStateService, WriteService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{
@@ -204,7 +205,7 @@ class StartableStoppableLedgerApiServer(
       Some(config.adminToken),
       parent = config.serverConfig.authServices.map(
         _.create(
-          config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
+          config.serverConfig.jwtTimestampLeeway,
           loggerFactory,
         )
       ),
@@ -367,8 +368,7 @@ class StartableStoppableLedgerApiServer(
         maxDeduplicationDuration = config.maxDeduplicationDuration,
         authService = authService,
         jwtVerifierLoader = jwtVerifierLoader,
-        jwtTimestampLeeway =
-          config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
+        jwtTimestampLeeway = config.serverConfig.jwtTimestampLeeway,
         tokenExpiryGracePeriodForStreams =
           config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
         meteringReportKey = config.meteringReportKey,
@@ -378,7 +378,7 @@ class StartableStoppableLedgerApiServer(
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
       )
-      _ <- startHttpApiIfEnabled
+      _ <- startHttpApiIfEnabled(timedWriteService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
@@ -480,9 +480,14 @@ class StartableStoppableLedgerApiServer(
     staticTime = config.testingTimeService.isDefined,
     commandInspectionService =
       ExperimentalCommandInspectionService.of(supported = config.enableCommandInspection),
+    offsetCheckpointFeature = OffsetCheckpointFeature.of(
+      maxOffsetCheckpointEmissionDelay = Some(
+        (config.serverConfig.indexService.offsetCheckpointCacheUpdateInterval + config.serverConfig.indexService.idleStreamOffsetCheckpointTimeout).toProtoPrimitive
+      )
+    ),
   )
 
-  private def startHttpApiIfEnabled: ResourceOwner[Unit] =
+  private def startHttpApiIfEnabled(writeService: WriteService): ResourceOwner[Unit] =
     config.jsonApiConfig
       .fold(ResourceOwner.unit) { jsonApiConfig =>
         for {
@@ -490,7 +495,9 @@ class StartableStoppableLedgerApiServer(
             .forReleasable(() =>
               ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
             )(channel => Future(channel.shutdown().discard))
-          _ <- HttpApiServer(jsonApiConfig, channel, loggerFactory)(config.jsonApiMetrics)
+          _ <- HttpApiServer(jsonApiConfig, channel, writeService, loggerFactory)(
+            config.jsonApiMetrics
+          )
         } yield ()
       }
 }

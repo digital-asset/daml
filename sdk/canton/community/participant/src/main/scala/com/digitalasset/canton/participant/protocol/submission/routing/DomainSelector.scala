@@ -157,6 +157,7 @@ private[routing] class DomainSelector(
 
     val domainsFilter = DomainsFilter(
       submittedTransaction = transactionData.transaction,
+      transactionData.ledgerTime,
       domains = domainStates,
       loggerFactory = loggerFactory,
     )
@@ -244,6 +245,7 @@ private[routing] class DomainSelector(
           snapshot = snapshot,
           requiredPackagesByParty = transactionData.requiredPackagesPerParty,
           transactionVersion = transactionVersion,
+          ledgerTime = transactionData.ledgerTime,
         )
         .leftMap[TransactionRoutingError] { err =>
           TransactionRoutingError.ConfigurationErrors.InvalidPrescribedDomainId

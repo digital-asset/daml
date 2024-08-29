@@ -149,7 +149,7 @@ object ProtocolVersion {
   ) = {
     val deleted = Option.when(includeDeleted)(ProtocolVersion.deleted.forgetNE).getOrElse(Nil)
 
-    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).map(_.toString)
+    val supportedPVs: NonEmpty[List[String]] = (supported ++ deleted).sorted.map(_.toString)
 
     s"Protocol version $pv is not supported. The supported versions are ${supportedPVs.mkString(", ")}."
   }
@@ -164,7 +164,7 @@ object ProtocolVersion {
     *
     * Otherwise, use one of the other factory methods.
     */
-  private[version] def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
+  def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 

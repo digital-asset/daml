@@ -353,7 +353,7 @@ object ParticipantAdminCommands {
   object PartyManagement {
 
     final case class StartPartyReplication(
-        id: String,
+        id: Option[String],
         party: PartyId,
         sourceParticipant: ParticipantId,
         domain: DomainId,
