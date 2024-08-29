@@ -174,8 +174,15 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                         pure $ Just (packageName, [(rawVersion, pkgId, pkg)])
               else pure Nothing
 
-    upgradeablePackageMap <- checkAllDeps initialUpgradeablePackageMap presentDeps
-    pure $ upgradeablePackageMapToDeps upgradeablePackageMap
+    let withIdAndPkg dalfPkg = (dalfPackageId dalfPkg, dalfPkg, extPackagePkg (dalfPackagePkg dalfPkg))
+        withoutIdAndPkg (_, dalfPkg, _) = dalfPkg
+    case topoSortPackages (map withIdAndPkg presentDeps) of
+      Left _badTrace -> do
+        error "deps have a cycle"
+      Right sortedPresentDeps -> do
+        let dependenciesFirst = reverse (map withoutIdAndPkg sortedPresentDeps)
+        upgradeablePackageMap <- checkAllDeps initialUpgradeablePackageMap dependenciesFirst
+        pure $ upgradeablePackageMapToDeps upgradeablePackageMap
     where
     withPkgAsGamma pkg action =
       withReaderT (\(version, _) -> emptyGamma (initWorldSelf [] pkg) version) action

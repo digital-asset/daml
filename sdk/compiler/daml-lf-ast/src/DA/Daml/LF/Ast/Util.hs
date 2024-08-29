@@ -38,6 +38,25 @@ dvalType = snd . dvalBinder
 chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
 
+-- Return topologically sorted packages, with the most recent package first
+topoSortPackages :: [(PackageId, a, Package)] -> Either [(PackageId, a, Package)] [(PackageId, a, Package)]
+topoSortPackages pkgs =
+  let toPkgNode x@(pkgId, _, pkg) =
+        ( x
+        , pkgId
+        , toListOf (packageRefs . _PRImport) pkg
+        )
+      fromPkgNode (x, _pkgId, _deps) = x
+      sccs = G.stronglyConnCompR (map toPkgNode pkgs)
+      isAcyclic = \case
+        G.AcyclicSCC pkg -> Right pkg
+        -- A package referencing itself shouldn't happen, but is not an actually
+        -- problematic cycle and won't trip up the engine
+        G.CyclicSCC [pkg] -> Right pkg
+        G.CyclicSCC pkgCycle -> Left (map fromPkgNode pkgCycle)
+  in
+  map fromPkgNode <$> traverse isAcyclic sccs
+
 topoSortPackage :: Package -> Either [ModuleName] Package
 topoSortPackage pkg@Package{packageModules = mods} = do
   let isLocal (pkgRef, modName) = case pkgRef of
