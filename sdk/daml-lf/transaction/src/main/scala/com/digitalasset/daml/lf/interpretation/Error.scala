@@ -6,9 +6,8 @@ package interpretation
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, NodeId}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -157,6 +156,12 @@ object Error {
     // TODO https://github.com/digital-asset/daml/issues/17647
     // - move as normal interpretation Error
     sealed case class Upgrade(error: Upgrade.Error) extends Error
+
+    sealed case class Conformance(
+        provided: Node.Create,
+        recomputed: Node.Create,
+        details: String,
+    ) extends Error
 
     object Upgrade {
 

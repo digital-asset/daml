@@ -6,7 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 // ---------------------
 // Preprocessed commands
@@ -78,8 +78,7 @@ private[lf] object Command {
 }
 
 final case class DisclosedContract(
-    templateId: Identifier,
-    contractId: ContractId,
+    contract: FatContractInstance,
     argument: SValue,
 )
 

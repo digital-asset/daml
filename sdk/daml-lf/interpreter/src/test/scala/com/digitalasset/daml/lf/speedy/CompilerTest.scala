@@ -14,7 +14,13 @@ import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKeyWithMaintainers,
+  Node,
+  TransactionVersion,
+  Versioned,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
@@ -70,9 +76,15 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"))
 
     "using a template with preconditions" should {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:PreCondRecord")
+      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
       val disclosedContract1 =
-        buildDisclosedContractWithPreCond(disclosedCid1, templateId, precondition = true)
+        buildDisclosedContract(
+          disclosedCid1,
+          alice,
+          templateId,
+          hasKey = false,
+          precondition = true,
+        )
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -83,7 +95,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       val disclosedContract2 =
-        buildDisclosedContractWithPreCond(cid2, templateId, precondition = false)
+        buildDisclosedContract(cid2, alice, templateId, hasKey = false, precondition = false)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -122,7 +134,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
 
     "using a template with no key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId)
+      val disclosedContract1 =
+        buildDisclosedContract(disclosedCid1, alice, templateId, hasKey = false)
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -132,7 +145,8 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
       )
-      val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId)
+      val disclosedContract2 =
+        buildDisclosedContract(disclosedCid2, alice, templateId, hasKey = false)
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -301,7 +315,13 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     "using a template with a key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:RecordKey")
       val disclosedContract1 =
-        buildDisclosedContract(disclosedCid1, alice, templateId, keyLabel = "test-label-1")
+        buildDisclosedContract(
+          disclosedCid1,
+          alice,
+          templateId,
+          label = "test-label-1",
+          hasKey = true,
+        )
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -312,7 +332,13 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       val disclosedContract2 =
-        buildDisclosedContract(disclosedCid2, alice, templateId, keyLabel = "test-label-2")
+        buildDisclosedContract(
+          disclosedCid2,
+          alice,
+          templateId,
+          label = "test-label-2",
+          hasKey = true,
+        )
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -492,35 +518,25 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val recordCon: Ref.Identifier =
     Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
-  val preCondRecordCon: Ref.Identifier =
-    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:PreCondRecord"))
   val pkg =
     p"""  metadata ( '-compiler-test-package-' : '1.0.0' )
         module Module {
 
-          record @serializable Record = { label: Text, party: Party };
+          record @serializable Record = { precond: Bool, label: Text, party: Party };
           template (this : Record) =  {
-            precondition True;
+            precondition Module:Record {precond} this;
             signatories Cons @Party [Module:Record {party} this] (Nil @Party);
             observers Nil @Party;
           };
 
-          record @serializable PreCondRecord = { precond: Bool, party: Party };
-          template (this : PreCondRecord) =  {
-            precondition Module:PreCondRecord {precond} this;
-            signatories Cons @Party [Module:PreCondRecord {party} this] (Nil @Party);
-            observers Nil @Party;
-          };
-
-          record @serializable Key = { label: Text, party: Party };
-          record @serializable RecordKey = { label: Text, party: Party };
+          record @serializable RecordKey = { precond: Bool, label: Text, party: Party };
           template (this : RecordKey) =  {
-            precondition True;
+            precondition Module:RecordKey {precond} this;
             signatories Cons @Party [Module:RecordKey {party} this] (Nil @Party);
             observers Nil @Party;
-            key @Module:Key
-              (Module:Key { label = Module:RecordKey {label} this, party = Module:RecordKey {party} this })
-              (\(key: Module:Key) -> (Cons @Party [Module:Key {party} key] (Nil @Party)));
+            key @Module:RecordKey
+              this
+              (\(key: Module:RecordKey) -> (Cons @Party [Module:RecordKey {party} key] (Nil @Party)));
           };
         }
     """
@@ -531,16 +547,14 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     )
   val alice: Party = Ref.Party.assertFromString("Alice")
 
-  def contract(label: String = ""): SValue.SRecord = SValue.SRecord(
+  def contract(label: String = "", precondition: Boolean = true): SValue.SRecord = SValue.SRecord(
     recordCon,
-    ImmArray(Ref.Name.assertFromString("label"), Ref.Name.assertFromString("party")),
-    ArrayList(SValue.SText(label), SValue.SParty(alice)),
-  )
-
-  def preCondContract(precondition: Boolean): SValue.SRecord = SValue.SRecord(
-    preCondRecordCon,
-    ImmArray(Ref.Name.assertFromString("precond"), Ref.Name.assertFromString("party")),
-    ArrayList(SValue.SBool(precondition), SValue.SParty(alice)),
+    ImmArray(
+      Ref.Name.assertFromString("precond"),
+      Ref.Name.assertFromString("label"),
+      Ref.Name.assertFromString("party"),
+    ),
+    ArrayList(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
   )
 
   def tokenApp(sexpr: SExpr): SExpr =
@@ -574,37 +588,54 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       contractId: ContractId,
       maintainer: Party,
       templateId: Ref.Identifier,
-      keyLabel: String = "",
+      label: String = "",
+      hasKey: Boolean,
+      precondition: Boolean = true,
   ): DisclosedContract = {
-    val key = SValue.SRecord(
-      templateId,
-      ImmArray(
-        Ref.Name.assertFromString("label"),
-        Ref.Name.assertFromString("party"),
-      ),
-      ArrayList(
-        SValue.SText(keyLabel),
-        SValue.SParty(maintainer),
-      ),
-    )
+    val payload =
+      SValue.SRecord(
+        templateId,
+        ImmArray(
+          Ref.Name.assertFromString("precond"),
+          Ref.Name.assertFromString("label"),
+          Ref.Name.assertFromString("party"),
+        ),
+        ArrayList(
+          SValue.SBool(precondition),
+          SValue.SText(label),
+          SValue.SParty(maintainer),
+        ),
+      )
+    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
     val disclosedContract = DisclosedContract(
-      templateId,
-      contractId,
-      key,
+      FatContractInstance.fromCreateNode(
+        Node.Create(
+          coid = contractId,
+          packageName = pkg.pkgName,
+          packageVersion = pkg.pkgVersion,
+          templateId = templateId,
+          arg = payload.toNormalizedValue(version),
+          signatories = Set(maintainer),
+          stakeholders = Set(maintainer),
+          keyOpt =
+            if (hasKey)
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  templateId,
+                  payload.toNormalizedValue(version),
+                  Set(maintainer),
+                  pkg.pkgName,
+                )
+              )
+            else
+              None,
+          version = version,
+        ),
+        Time.Timestamp.now(),
+        Bytes.Empty,
+      ),
+      payload,
     )
-
     disclosedContract
-  }
-
-  def buildDisclosedContractWithPreCond(
-      contractId: ContractId,
-      templateId: Ref.Identifier,
-      precondition: Boolean,
-  ): DisclosedContract = {
-    DisclosedContract(
-      templateId,
-      contractId,
-      preCondContract(precondition = precondition),
-    )
   }
 }
