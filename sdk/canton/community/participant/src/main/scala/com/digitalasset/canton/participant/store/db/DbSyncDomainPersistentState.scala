@@ -176,10 +176,11 @@ class DbSyncDomainPersistentState(
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-      checkPackageDependencies(
+      validate(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
+        contractStores = () => Map(domainId.domainId -> (activeContractStore, contractStore)),
         forceFlags,
       )
   }

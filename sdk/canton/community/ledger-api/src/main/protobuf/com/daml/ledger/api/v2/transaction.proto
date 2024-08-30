@@ -78,7 +78,7 @@ message TransactionTree {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v2.TraceContext trace_context = 9;
+  TraceContext trace_context = 9;
 
   // The time at which the transaction was recorded. The record time refers to the domain
   // which synchronized the transaction.
@@ -111,7 +111,7 @@ message Transaction {
   // The collection of events.
   // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
   // Required
-  repeated com.daml.ledger.api.v2.Event events = 5;
+  repeated Event events = 5;
 
   // The absolute offset. The format of this field is described in ``participant_offset.proto``.
   // Required
@@ -131,7 +131,7 @@ message Transaction {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v2.TraceContext trace_context = 8;
+  TraceContext trace_context = 8;
 
   // The time at which the transaction was recorded. The record time refers to the domain
   // which synchronized the transaction.

@@ -131,7 +131,7 @@ class ProtocolProcessorTest
     Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        NonEmpty.mk(Seq, DefaultTestIdentities.daMediator),
+        Seq(DefaultTestIdentities.daMediator),
         Seq(),
         PositiveInt.one,
       )

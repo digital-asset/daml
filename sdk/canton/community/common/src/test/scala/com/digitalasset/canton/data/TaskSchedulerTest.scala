@@ -345,8 +345,8 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
 
       // Schedule a task. The scheduler should not log a problem as the task is above the high watermark.
       val task = TestTask(CantonTimestamp.ofEpochSecond(1), SequencerCounter(1))(
-        traceContext = nonEmptyTraceContext1,
         ec = implicitly,
+        traceContext = nonEmptyTraceContext1,
       )
       taskScheduler.scheduleTask(task)
       clock.advance(alertEvery)

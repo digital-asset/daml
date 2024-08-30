@@ -4,20 +4,13 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.syntax.parallel.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore
-import com.digitalasset.canton.lifecycle.{
-  AsyncCloseable,
-  AsyncOrSyncCloseable,
-  FlagCloseableAsync,
-  FutureUnlessShutdown,
-  SyncCloseable,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.{
   EnvelopeContent,
@@ -84,7 +77,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val crypto: DomainSyncCryptoClient = valueOrFail(
       TestingTopology(
         sequencerGroup = SequencerGroup(
-          active = NonEmpty.mk(Seq, SequencerId(domainId.uid)),
+          active = Seq(SequencerId(domainId.uid)),
           passive = Seq.empty,
           threshold = PositiveInt.one,
         ),

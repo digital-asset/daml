@@ -53,7 +53,7 @@ class TrafficStateController(
   )
 
   private implicit val memberMetricsContext: MetricsContext = MetricsContext(
-    "sender" -> member.toString
+    "member" -> member.toString
   )
 
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed

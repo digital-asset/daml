@@ -123,11 +123,11 @@ private[participant] object AutomaticTransferIn {
               s"Registering automatic submission of transfer-in with ID $id at time $exclusivityLimit, where base timestamp is $t0"
             )
             for {
+              _ <- transferCoordination.awaitDomainTime(targetDomain.unwrap, exclusivityLimit)
               _ <- transferCoordination.awaitTimestamp(
                 targetDomain.unwrap,
                 staticDomainParameters,
                 exclusivityLimit,
-                waitForEffectiveTime = false,
                 Future.successful(logger.debug(s"Automatic transfer-in triggered immediately")),
               )
 

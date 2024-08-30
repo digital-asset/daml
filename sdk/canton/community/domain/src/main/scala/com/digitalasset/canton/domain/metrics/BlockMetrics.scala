@@ -48,7 +48,7 @@ class BlockMetrics(
   )(MetricsContext.Empty)
 
   private val labels =
-    Map("sender" -> "The sender of the submission request", "type" -> "Type of request")
+    Map("member" -> "The sender of the submission request", "type" -> "Type of request")
   val blockEvents: Meter =
     openTelemetryMetricsFactory.meter(
       MetricInfo(
@@ -75,18 +75,18 @@ class BlockMetrics(
 
   private val ackGaugeInfo = MetricInfo(
     prefix :+ "acknowledgments_micros",
-    "Acknowledgments by senders in Micros",
+    "Acknowledgments by members in Micros",
     MetricQualification.Latency,
-    labelsWithDescription = Map("sender" -> "The sender of the acknowledgment"),
+    labelsWithDescription = Map("member" -> "The sender of the acknowledgment"),
   )
 
-  def updateAcknowledgementGauge(sender: String, value: Long): Unit =
+  def updateAcknowledgementGauge(member: String, value: Long): Unit =
     acknowledgments
       .getOrElseUpdate(
-        sender,
+        member,
         Eval.later(
           openTelemetryMetricsFactory.gauge(ackGaugeInfo, value)(
-            MetricsContext("sender" -> sender)
+            MetricsContext("member" -> member)
           )
         ),
       )

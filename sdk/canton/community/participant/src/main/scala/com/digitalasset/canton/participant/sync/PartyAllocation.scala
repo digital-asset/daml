@@ -114,7 +114,7 @@ private[sync] class PartyAllocation(
           }
           .toEitherT[Future]
         _ <- topologyManagerOps
-          .allocateParty(validatedSubmissionId, partyId, participantId, protocolVersion)
+          .allocateParty(partyId, participantId, protocolVersion)
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(
@@ -141,7 +141,7 @@ private[sync] class PartyAllocation(
             connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
               syncDomain.topologyClient
                 .await(
-                  _.inspectKnownParties(partyId.filterString, participantId.filterString, 1)
+                  _.inspectKnownParties(partyId.filterString, participantId.filterString)
                     .map(_.nonEmpty),
                   timeouts.network.duration,
                 )

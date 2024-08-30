@@ -197,6 +197,16 @@ class SequencerClientMetrics(
 
     val sequencingTime: Timer = metricsFactory.timer(histograms.submissionSequencingTime.info)
 
+    val overloaded: Counter = metricsFactory.counter(
+      MetricInfo(
+        prefix :+ "overloaded",
+        summary = "Count of send requests which receive an overloaded response",
+        description =
+          "Counter that is incremented if a send request receives an overloaded response from the sequencer.",
+        qualification = MetricQualification.Errors,
+      )
+    )
+
     val dropped: Counter = metricsFactory.counter(
       MetricInfo(
         prefix :+ "dropped",

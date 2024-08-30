@@ -191,8 +191,6 @@ class SequencerAggregator(
   private def updatedSequencerMessageData(
       sequencerId: SequencerId,
       message: OrdinarySerializedEvent,
-  )(implicit
-      ec: ExecutionContext
   ): SequencerMessageData = {
     implicit val traceContext = message.traceContext
     val promise = new PromiseUnlessShutdown[Either[SequencerAggregatorError, SequencerId]](

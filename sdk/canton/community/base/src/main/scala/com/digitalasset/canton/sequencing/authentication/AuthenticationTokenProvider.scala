@@ -21,12 +21,13 @@ import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
 }
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Pause}
+import com.digitalasset.canton.util.retry.ErrorKind.{FatalErrorKind, TransientErrorKind}
+import com.digitalasset.canton.util.retry.{ErrorKind, ExceptionRetryPolicy, Pause}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.{Status, StatusRuntimeException}
 
@@ -89,8 +90,24 @@ class AuthenticationTokenProvider(
           maxRetries = config.retries.value,
           delay = config.pauseRetries.underlying,
           operationName = "generate sequencer authentication token",
-        ).unlessShutdown(generateTokenET, NoExceptionRetryPolicy)
-          .onShutdown(Left(shutdownStatus))
+        ).unlessShutdown(
+          generateTokenET,
+          new ExceptionRetryPolicy {
+            override protected def determineExceptionErrorKind(
+                exception: Throwable,
+                logger: TracedLogger,
+            )(implicit
+                tc: TraceContext
+            ): ErrorKind =
+              exception match {
+                // Ideally we would like to retry only on retryable gRPC status codes (such as `UNAVAILABLE`),
+                // but as this could be hard to get right, we compromise by retrying on all gRPC status codes,
+                // and use a finite number of retries.
+                case _: StatusRuntimeException => TransientErrorKind()
+                case _ => FatalErrorKind
+              }
+          },
+        ).onShutdown(Left(shutdownStatus))
       }
     }
   }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.processing
 
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.crypto.CryptoPureApi
+import com.digitalasset.canton.crypto.{CryptoPureApi, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -72,7 +72,7 @@ private object AuthorizationKeys {
   }
 }
 
-/** validate incoming topology transactions
+/** validate topology transactions
   *
   * NOT THREAD SAFE. Note that this class is not thread safe
   *
@@ -89,23 +89,17 @@ private object AuthorizationKeys {
   * (3) finally, what we compute as the "authorized graph" is then used to compute the derived table
   *     of "namespace delegations"
   */
-class IncomingTopologyTransactionAuthorizationValidator(
+class TopologyTransactionAuthorizationValidator(
     val pureCrypto: CryptoPureApi,
     val store: TopologyStore[TopologyStoreId],
     validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
     extends NamedLogging
-    with TransactionAuthorizationValidator {
+    with TransactionAuthorizationCache {
 
   private val domainId =
     TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.domainId)
-
-  def reset(): Unit = {
-    namespaceCache.clear()
-    identifierDelegationCache.clear()
-    decentralizedNamespaceCache.clear()
-  }
 
   /** Validates the provided topology transactions and applies the certificates to the auth state
     *
@@ -124,19 +118,13 @@ class IncomingTopologyTransactionAuthorizationValidator(
   ): Future[GenericValidatedTopologyTransaction] =
     verifyDomain(toValidate) match {
       case ValidatedTopologyTransaction(tx, None, _) =>
-        val referencedKeys =
-          AuthorizationKeys.required(toValidate.transaction, inStore.map(_.transaction))
-        val loadGraphsF = loadNamespaceCaches(effectiveTime, referencedKeys.namespaces)
-        val loadUidsF = loadIdentifierDelegationCaches(effectiveTime, referencedKeys.uids)
-        for {
-          _ <- loadGraphsF
-          _ <- loadUidsF
-        } yield processTransaction(
-          tx,
-          inStore,
-          expectFullAuthorization,
+        populateCaches(effectiveTime, toValidate.transaction, inStore.map(_.transaction)).map(_ =>
+          processTransaction(
+            tx,
+            inStore,
+            expectFullAuthorization,
+          )
         )
-
       case invalid @ ValidatedTopologyTransaction(_, Some(_rejectionReason), _) =>
         Future.successful(invalid)
     }
@@ -169,6 +157,193 @@ class IncomingTopologyTransactionAuthorizationValidator(
           missingAuthorizers,
           expectFullAuthorization,
         )
+    }
+  }
+
+  def validateSignaturesAndDetermineMissingAuthorizers(
+      toValidate: GenericSignedTopologyTransaction,
+      inStore: Option[GenericSignedTopologyTransaction],
+  )(implicit
+      traceContext: TraceContext
+  ): Either[
+    TopologyTransactionRejection,
+    (GenericSignedTopologyTransaction, ReferencedAuthorizations),
+  ] = {
+    // first determine all possible namespaces and uids that need to sign the transaction
+    val requiredAuth = toValidate.mapping.requiredAuth(inStore.map(_.transaction))
+
+    logger.debug(s"Required authorizations: $requiredAuth")
+
+    val referencedAuth = requiredAuth.referenced
+
+    val signingKeys = toValidate.signatures.map(_.signedBy)
+    val namespaceWithRootAuthorizations =
+      referencedAuth.namespacesWithRoot.map { ns =>
+        // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+        val check = tryGetAuthorizationCheckForNamespace(ns)
+        val keysUsed = check.keysSupportingAuthorization(
+          signingKeys,
+          requireRoot = true,
+        )
+        val keysAuthorizeNamespace =
+          check.existsAuthorizedKeyIn(signingKeys, requireRoot = true)
+        ns -> (keysAuthorizeNamespace, keysUsed)
+      }.toMap
+
+    // Now let's determine which namespaces and uids actually delegated to any of the keys
+    val namespaceAuthorizations = referencedAuth.namespaces.map { ns =>
+      // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+      val check = tryGetAuthorizationCheckForNamespace(ns)
+      val keysUsed = check.keysSupportingAuthorization(
+        signingKeys,
+        requireRoot = false,
+      )
+      val keysAuthorizeNamespace = check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
+      ns -> (keysAuthorizeNamespace, keysUsed)
+    }.toMap
+
+    val uidAuthorizations =
+      referencedAuth.uids.map { uid =>
+        // This succeeds because loading of uid.namespace is requested in AuthorizationKeys.requiredForCheckingAuthorization
+        val check = tryGetAuthorizationCheckForNamespace(uid.namespace)
+        val keysUsed = check.keysSupportingAuthorization(
+          signingKeys,
+          requireRoot = false,
+        )
+        val keysAuthorizeNamespace =
+          check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
+
+        val keyForUid =
+          // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
+          tryGetIdentifierDelegationsForUid(uid)
+            .find(aid =>
+              signingKeys.contains(aid.mapping.target.id) &&
+                check.existsAuthorizedKeyIn(
+                  aid.signingKeys,
+                  requireRoot = false,
+                )
+            )
+            .map(_.mapping.target)
+
+        uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid)
+      }.toMap
+
+    val extraKeyAuthorizations =
+      // assume extra keys are not found
+      referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
+        // and replace with those that were actually found
+        // we have to dive into the owner to key mapping directly here, because we don't
+        // need to keep it around (like we do for namespace delegations) and the OTK is the
+        // only place that holds the SigningPublicKey.
+        toValidate
+          .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
+          .toList
+          .flatMap { otk =>
+            otk.mapping.keys.collect {
+              case k: SigningPublicKey
+                  // only consider the public key as "found" if:
+                  // * it's required and
+                  // * actually used to sign the transaction
+                  if referencedAuth.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
+                k.fingerprint -> (true, Set(k))
+            }
+          }
+          .toMap
+
+    val allKeysUsedForAuthorization =
+      (namespaceWithRootAuthorizations.values ++
+        namespaceAuthorizations.values ++
+        uidAuthorizations.values ++
+        extraKeyAuthorizations.values).flatMap { case (_, keys) =>
+        keys.map(k => k.id -> k)
+      }.toMap
+
+    logAuthorizations("Authorizations with root for namespaces", namespaceWithRootAuthorizations)
+    logAuthorizations("Authorizations for namespaces", namespaceAuthorizations)
+    logAuthorizations("Authorizations for UIDs", uidAuthorizations)
+    logAuthorizations("Authorizations for extraKeys", extraKeyAuthorizations)
+
+    logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
+
+    val superfluousKeys = signingKeys -- allKeysUsedForAuthorization.keys
+    for {
+      _ <- Either.cond[TopologyTransactionRejection, Unit](
+        // there must be at least 1 key used for the signatures for one of the delegation mechanisms
+        (signingKeys -- superfluousKeys).nonEmpty,
+        (), {
+          logger.info(
+            s"The keys ${superfluousKeys.mkString(", ")} have no delegation to authorize the transaction $toValidate"
+          )
+          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+        },
+      )
+
+      txWithSignaturesToVerify <- toValidate
+        .removeSignatures(superfluousKeys)
+        .toRight({
+          logger.info(
+            "Removing all superfluous keys results in a transaction without any signatures at all."
+          )
+          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+        })
+
+      _ <- txWithSignaturesToVerify.signatures.forgetNE.toList
+        .traverse_(sig =>
+          allKeysUsedForAuthorization
+            .get(sig.signedBy)
+            .toRight({
+              val msg =
+                s"Key ${sig.signedBy} was delegated to, but no actual key was identified. This should not happen."
+              logger.error(msg)
+              TopologyTransactionRejection.Other(msg)
+            })
+            .flatMap(key =>
+              pureCrypto
+                .verifySignature(
+                  txWithSignaturesToVerify.hash.hash,
+                  key,
+                  sig,
+                )
+                .leftMap(TopologyTransactionRejection.SignatureCheckFailed)
+            )
+        )
+    } yield {
+      // and finally we can check whether the authorizations granted by the keys actually satisfy
+      // the authorization requirements
+      def onlyFullyAuthorized[A](map: Map[A, (Boolean, ?)]): Set[A] = map.collect {
+        case (a, (true, _)) => a
+      }.toSet
+      val actual = ReferencedAuthorizations(
+        namespacesWithRoot = onlyFullyAuthorized(namespaceWithRootAuthorizations),
+        namespaces = onlyFullyAuthorized(namespaceAuthorizations),
+        uids = onlyFullyAuthorized(uidAuthorizations),
+        extraKeys = onlyFullyAuthorized(extraKeyAuthorizations),
+      )
+      (
+        txWithSignaturesToVerify,
+        requiredAuth
+          .satisfiedByActualAuthorizers(actual)
+          .fold(identity, _ => ReferencedAuthorizations.empty),
+      )
+    }
+  }
+
+  private def logAuthorizations[A](
+      msg: String,
+      auths: Map[A, (Boolean, Set[SigningPublicKey])],
+  )(implicit traceContext: TraceContext): Unit = if (logger.underlying.isDebugEnabled) {
+    val authorizingKeys = auths
+      .collect {
+        case (auth, (fullyAuthorized, keys)) if keys.nonEmpty => (auth, fullyAuthorized, keys)
+      }
+    if (authorizingKeys.nonEmpty) {
+      val report = authorizingKeys
+        .map { case (auth, fullyAuthorized, keys) =>
+          val status = if (fullyAuthorized) "fully" else "partially"
+          s"$auth $status authorized by keys ${keys.map(_.id)}"
+        }
+        .mkString(", ")
+      logger.debug(s"$msg: $report")
     }
   }
 

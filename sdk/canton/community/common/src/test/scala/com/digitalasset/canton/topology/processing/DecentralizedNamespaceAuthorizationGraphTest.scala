@@ -243,7 +243,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
         graph.addAuth(ns2k5k2)
         graph.addAuth(ns2k8k5)
 
-        val danglingKeys = List(key2, key5, key8).map(_.fingerprint).sorted.mkString(", ")
+        val danglingKeys = List(key5, key8).map(_.fingerprint).sorted.mkString(", ")
         loggerFactory.assertLogs(
           graph.removeAuth(ns2k2k2_remove),
           _.warningMessage should (include regex s"dangling.*$danglingKeys"),

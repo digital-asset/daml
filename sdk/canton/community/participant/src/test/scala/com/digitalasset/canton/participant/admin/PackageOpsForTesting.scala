@@ -23,7 +23,7 @@ class PackageOpsForTesting(
     ec: ExecutionContext
 ) extends PackageOps {
 
-  override def isPackageVetted(packageId: PackageId)(implicit
+  override def hasVettedPackageEntry(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Boolean] =
     EitherT.rightT(false)

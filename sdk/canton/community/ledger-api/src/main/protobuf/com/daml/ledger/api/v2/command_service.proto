@@ -58,16 +58,10 @@ message SubmitAndWaitForTransactionResponse {
   // The flat transaction that resulted from the submitted command.
   // Required
   Transaction transaction = 1;
-  // The format of this field is described in ``participant_offset.proto``.
-  // Optional
-  string completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // Required
   TransactionTree transaction = 1;
-  // The format of this field is described in ``participant_offset.proto``.
-  // Optional
-  string completion_offset = 2;
 }

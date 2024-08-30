@@ -12,8 +12,8 @@ import com.digitalasset.canton.ledger.participant.state.WriteService.{
 }
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
@@ -208,7 +208,7 @@ trait WriteService
 }
 
 object WriteService {
-  final case class ConnectedDomainRequest(party: LfPartyId)
+  final case class ConnectedDomainRequest(party: LfPartyId, participantId: Option[ParticipantId])
 
   final case class ConnectedDomainResponse(
       connectedDomains: Seq[ConnectedDomainResponse.ConnectedDomain]

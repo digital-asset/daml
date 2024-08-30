@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.{
   ExerciseByInterface,
@@ -23,9 +24,10 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableTo
 import com.digitalasset.canton.protocol.{LfContractId, LfTransactionVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
@@ -171,28 +173,47 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
     "refuse to route to a domain with missing package vetting" in {
       val missingPackage = ExerciseByInterface.interfacePackageId
+      val ledgerTime = CantonTimestamp.now()
 
-      val selector = selectorForExerciseByInterface(
-        vettedPackages = ExerciseByInterface.correctPackages.filterNot(_ == missingPackage)
+      def runWithModifiedPackages(packages: Seq[VettedPackage]) = {
+        val selector =
+          selectorForExerciseByInterface(vettedPackages = packages, ledgerTime = ledgerTime)
+
+        val expectedError = UnknownPackage(
+          da,
+          List(
+            unknownPackageFor(submitterParticipantId, missingPackage),
+            unknownPackageFor(observerParticipantId, missingPackage),
+          ),
+        )
+
+        selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId.Generic(
+          da,
+          expectedError.toString,
+        )
+
+        selector.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
+          Map(da -> expectedError.toString)
+        )
+      }
+
+      runWithModifiedPackages(
+        ExerciseByInterface.correctPackages.filterNot(_.packageId == missingPackage)
       )
 
-      val expectedError = UnknownPackage(
-        da,
-        List(
-          unknownPackageFor(submitterParticipantId, missingPackage),
-          unknownPackageFor(observerParticipantId, missingPackage),
-        ),
+      val packageNotYetValid = ExerciseByInterface.correctPackages.map(vp =>
+        if (vp.packageId == missingPackage) vp.copy(validFrom = Some(ledgerTime.plusMillis(1L)))
+        else vp
       )
+      runWithModifiedPackages(packageNotYetValid)
 
-      selector.forSingleDomain.leftValue shouldBe InvalidPrescribedDomainId.Generic(
-        da,
-        expectedError.toString,
+      val packageNotValidAnymore = ExerciseByInterface.correctPackages.map(vp =>
+        if (vp.packageId == missingPackage) vp.copy(validUntil = Some(ledgerTime.minusMillis(1L)))
+        else vp
       )
-
-      selector.forMultiDomain.leftValue shouldBe NoDomainForSubmission.Error(
-        Map(da -> expectedError.toString)
-      )
+      runWithModifiedPackages(packageNotValidAnymore)
     }
+
     "route to domain where all submitter have submission rights" in {
       val treeExercises = ThreeExercises()
       val domainOfContracts: Map[LfContractId, DomainId] =
@@ -399,7 +420,8 @@ private[routing] object DomainSelectorTest {
         prescribedDomainId: Option[DomainId] = defaultPrescribedDomainId,
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
         transactionVersion: TransactionVersion = fixtureTransactionVersion,
-        vettedPackages: Seq[LfPackageId] = ExerciseByInterface.correctPackages,
+        vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
+        ledgerTime: CantonTimestamp = CantonTimestamp.now(),
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
@@ -421,6 +443,7 @@ private[routing] object DomainSelectorTest {
         domainProtocolVersion,
         vettedPackages,
         exerciseByInterface.tx,
+        ledgerTime,
         inputContractStakeholders,
       )
     }
@@ -433,7 +456,8 @@ private[routing] object DomainSelectorTest {
         connectedDomains: Set[DomainId] = Set(defaultDomain),
         admissibleDomains: NonEmpty[Set[DomainId]] = defaultAdmissibleDomains,
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
-        vettedPackages: Seq[LfPackageId] = ExerciseByInterface.correctPackages,
+        vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
+        ledgerTime: CantonTimestamp = CantonTimestamp.now(),
         inputContractStakeholders: Map[LfContractId, Set[Ref.Party]] = Map.empty,
         topology: Map[LfPartyId, List[ParticipantId]] = correctTopology,
     )(implicit
@@ -458,6 +482,7 @@ private[routing] object DomainSelectorTest {
         domainProtocolVersion,
         vettedPackages,
         threeExercises.tx,
+        ledgerTime,
         contractStakeholders,
         topology,
       )
@@ -470,8 +495,9 @@ private[routing] object DomainSelectorTest {
         admissibleDomains: NonEmpty[Set[DomainId]],
         prescribedSubmitterDomainId: Option[DomainId],
         domainProtocolVersion: DomainId => ProtocolVersion,
-        vettedPackages: Seq[LfPackageId],
+        vettedPackages: Seq[VettedPackage],
         tx: LfVersionedTransaction,
+        ledgerTime: CantonTimestamp,
         inputContractStakeholders: Map[LfContractId, Set[Ref.Party]],
         topology: Map[LfPartyId, List[ParticipantId]] = correctTopology,
     )(implicit ec: ExecutionContext, traceContext: TraceContext) {
@@ -513,6 +539,7 @@ private[routing] object DomainSelectorTest {
         .create(
           actAs = Set(signatory),
           readAs = Set(),
+          ledgerTime = ledgerTime,
           transaction = tx,
           domainStateProvider = TestDomainStateProvider,
           contractsStakeholders = inputContractStakeholders,

@@ -85,6 +85,7 @@ import com.digitalasset.canton.participant.pruning.{CommitmentContractMetadata, 
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
+  CommitmentPeriodState,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
@@ -696,7 +697,7 @@ class LocalCommitmentsAdministrationGroup(
       start: Instant,
       end: Instant,
       counterParticipant: Option[ParticipantId] = None,
-  ): Iterable[(CommitmentPeriod, ParticipantId)] =
+  ): Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] =
     access { node =>
       node.sync.stateInspection.outstandingCommitments(
         domain,

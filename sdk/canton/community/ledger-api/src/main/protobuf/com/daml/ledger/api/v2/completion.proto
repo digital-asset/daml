@@ -77,7 +77,7 @@ message Completion {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v2.TraceContext trace_context = 9;
+  TraceContext trace_context = 9;
 
   // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
   // Required

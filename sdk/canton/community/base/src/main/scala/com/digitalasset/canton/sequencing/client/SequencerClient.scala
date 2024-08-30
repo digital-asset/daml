@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import cats.Monad
 import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.alternative.*
@@ -45,11 +46,13 @@ import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.{
 }
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements.FetchCleanTimestamp
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
+  SequencerClientTransportCommon,
   SequencerClientTransportPekko,
 }
 import com.digitalasset.canton.sequencing.handlers.{
@@ -215,9 +218,7 @@ abstract class SequencerClientImpl(
     with HasCloseContext {
 
   override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
-    sequencerTransports.sequencerIdToTransportMap.values.toSeq.parTraverse_ { transport =>
-      transport.clientTransport.logout()
-    }
+    sequencersTransportState.logout()
 
   protected val sequencersTransportState: SequencersTransportState =
     new SequencersTransportState(
@@ -431,12 +432,11 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     EitherTUtil
       .timed(metrics.submissions.sends) {
+        val (sequencerAlias, sequencerId, transport, patienceO) =
+          sequencersTransportState.nextAmplifiedTransport(Seq.empty)
         // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
-        val amplificationConfigured =
-          sequencersTransportState.getSubmissionRequestAmplification.factor.value > 1
-        val doAmplify = amplify && amplificationConfigured
         val amplifiableRequest =
-          if (doAmplify && request.aggregationRule.isEmpty) {
+          if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
             val aggregationRule =
               AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
             logger.debug(
@@ -457,9 +457,26 @@ abstract class SequencerClientImpl(
               logger.error(message)
               SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
             }
-        } yield amplifiedSend(signedContent, doAmplify, peekAtSendResult)
+
+          _ <- amplifiedSend(
+            signedContent,
+            sequencerAlias,
+            sequencerId,
+            transport,
+            if (amplify) patienceO else None,
+            peekAtSendResult,
+          )
+        } yield ()
+
       }
       .leftSemiflatMap { err =>
+        // increment appropriate error metrics
+        err match {
+          case SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded(_)) =>
+            metrics.submissions.overloaded.inc()
+          case _ =>
+        }
+
         // cancel pending send now as we know the request will never cause a sequenced result
         logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
         FutureUnlessShutdown.outcomeF(sendTracker.cancelPendingSend(messageId).map(_ => err))
@@ -471,20 +488,129 @@ abstract class SequencerClientImpl(
     */
   private def amplifiedSend(
       signedRequest: SignedContent[SubmissionRequest],
-      amplify: Boolean,
+      firstSequencerAlias: SequencerAlias,
+      firstSequencer: SequencerId,
+      firstTransport: SequencerClientTransportCommon,
+      firstPatienceO: Option[NonNegativeFiniteDuration],
       peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
-  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
-    val amplifier = new SendAmplifier(
-      clock,
-      signedRequest,
-      sequencersTransportState,
-      loggerFactory,
-      peekAtSendResult,
-      this,
-      timeouts.network.duration,
-      metrics,
+  )(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+    val timeout = timeouts.network.duration
+    val messageId = signedRequest.content.messageId
+
+    import SequencerClientImpl.AmplifiedSendState as State
+
+    def step(
+        state: State
+    ): FutureUnlessShutdown[Either[State, Either[SendAsyncClientError, Unit]]] = {
+      val State(previousSequencers, sequencerAlias, sequencerId, transport, patienceO) = state
+
+      def nextState: State = {
+        val sequencers = sequencerId +: previousSequencers
+        val (nextSequencerAlias, nextSequencerId, nextTransport, nextPatienceO) =
+          sequencersTransportState.nextAmplifiedTransport(sequencers)
+        State(sequencers, nextSequencerAlias, nextSequencerId, nextTransport, nextPatienceO)
+      }
+
+      def handleSyncError(
+          error: SendAsyncClientResponseError
+      ): Either[State, Either[SendAsyncClientError, Unit]] =
+        error match {
+          case _: SendAsyncClientError.RequestFailed =>
+            // Immediately try the next sequencer because this was a problem talking to the chosen sequencer
+            logger.debug(
+              s"Failed to send request with message id $messageId to $sequencerId: $error"
+            )
+            Either.cond(
+              patienceO.isDefined,
+              Left(error),
+              nextState,
+            )
+          case _: SendAsyncClientError.RequestRefused =>
+            logger.debug(
+              s"Send request with message id $messageId was refused by $sequencerId: $error"
+            )
+            // Trust the single sequencer to determine whether the request should indeed be refused and give up.
+            // TODO(#12377) Do not trust the sequencer and instead retry sensibly
+            Right(Left(error))
+        }
+
+      def maybeResendAfterPatience(): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] =
+        peekAtSendResult() match {
+          case Some(Outcome(result)) =>
+            noTracingLogger.whenDebugEnabled {
+              result match {
+                case SendResult.Success(deliver) =>
+                  logger.debug(
+                    s"Aborting amplification for message ID $messageId because it has been sequenced at ${deliver.timestamp}"
+                  )
+                case SendResult.Error(error) =>
+                  // The BFT sequencer group has decided that the submission request shall not be sequenced.
+                  // We accept this decision here because amplification is about overcoming individual faulty sequencer nodes,
+                  // not about dealing with concurrent changes that might render the request valid later on (e.g., traffic top-ups)
+                  logger.debug(
+                    s"Aborting amplification for message ID $messageId because it has been rejected at ${error.timestamp}"
+                  )
+                case SendResult.Timeout(timestamp) =>
+                  logger.debug(
+                    s"Aborting amplification for message ID $messageId because the max sequencing time ${signedRequest.content.maxSequencingTime} has elapsed: observed time $timestamp"
+                  )
+              }
+            }
+            FutureUnlessShutdown.pure(Right(()))
+          case None =>
+            Monad[FutureUnlessShutdown].tailRecM(nextState)(step)
+          case Some(AbortedDueToShutdown) =>
+            logger.debug(
+              s"Aborting amplification for message ID $messageId due to shutdown"
+            )
+            FutureUnlessShutdown.abortedDueToShutdown
+        }
+
+      def scheduleAmplification(): Unit =
+        patienceO match {
+          case Some(patience) =>
+            logger.debug(
+              s"Scheduling amplification for message ID $messageId after $patience"
+            )
+            FutureUtil.doNotAwaitUnlessShutdown(
+              clock.scheduleAfter(_ => maybeResendAfterPatience(), patience.asJava).flatten,
+              s"Submission request amplification failed for message ID $messageId",
+            )
+          case None =>
+            logger.debug(
+              s"Not scheduling amplification for message ID $messageId"
+            )
+        }
+
+      performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
+        logger.debug(
+          s"Sending message ID ${signedRequest.content.messageId} to sequencer $sequencerId"
+        )
+        val submissionCostOrZero =
+          signedRequest.content.submissionCost.map(_.cost.value).getOrElse(0L)
+        metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(
+          metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
+        )
+        transport.sendAsyncSigned(signedRequest, timeout)
+      }.value.map {
+        case Right(()) =>
+          // Do not await the patience. This would defeat the point of asynchronous send.
+          scheduleAmplification()
+          Right(Right(()))
+        case Left(error) =>
+          handleSyncError(error)
+      }
+    }
+
+    val initialState =
+      State(Seq.empty, firstSequencerAlias, firstSequencer, firstTransport, firstPatienceO)
+
+    EitherT(
+      Monad[FutureUnlessShutdown].tailRecM(initialState)(step)
     )
-    if (amplify) amplifier.sendAmplified() else amplifier.sendOnce()
   }
 
   override def generateMaxSequencingTime: CantonTimestamp =
@@ -595,6 +721,16 @@ abstract class SequencerClientImpl(
 
   protected val periodicAcknowledgementsRef =
     new AtomicReference[Option[PeriodicAcknowledgements]](None)
+}
+
+object SequencerClientImpl {
+  private final case class AmplifiedSendState(
+      previousSequencers: Seq[SequencerId],
+      nextSequencerAlias: SequencerAlias,
+      nextSequencer: SequencerId,
+      nextTransport: SequencerClientTransportCommon,
+      nextPatienceO: Option[NonNegativeFiniteDuration],
+  )
 }
 
 /** The sequencer client facilitates access to the individual domain sequencer. A client centralizes the
@@ -1720,17 +1856,14 @@ object SequencerClient {
         sequencerAlias: SequencerAlias,
         sequencerId: SequencerId,
         transport: SequencerClientTransport & SequencerClientTransportPekko.Aux[E],
-    ): SequencerTransports[E] =
+    ): SequencerTransports[E] = {
+      val container = SequencerTransportContainer(sequencerAlias, sequencerId, transport)
       SequencerTransports(
-        NonEmpty
-          .mk(
-            Seq,
-            sequencerAlias -> SequencerTransportContainer(sequencerAlias, sequencerId, transport),
-          )
-          .toMap,
+        NonEmpty.mk(Seq, sequencerAlias -> container).toMap,
         PositiveInt.one,
         SubmissionRequestAmplification.NoAmplification,
       )
+    }
 
     def default[E](
         sequencerId: SequencerId,

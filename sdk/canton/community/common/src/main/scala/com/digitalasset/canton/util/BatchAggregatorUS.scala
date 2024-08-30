@@ -160,8 +160,7 @@ class BatchAggregatorUSImpl[A, B](
         runSingleWithoutIncrement(item)
       } else { // add to the queue
         val promise = new PromiseUnlessShutdown[B]("run-batch", FutureSupervisor.Noop)(
-          ErrorLoggingContext.fromTracedLogger(processor.logger),
-          ec,
+          ErrorLoggingContext.fromTracedLogger(processor.logger)
         )
         queuedRequests.add((Traced(item), promise)).discard[Boolean]
         maybeRunQueuedQueries()

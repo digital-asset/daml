@@ -8,6 +8,7 @@ package com.digitalasset.canton.protocol.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing_parameters.proto";
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -98,8 +99,8 @@ message OwnerToKeyMapping {
 
   // the designated keys
   repeated com.digitalasset.canton.crypto.v30.PublicKey public_keys = 2;
-  // optionally restricted to domain
-  string domain = 3;
+
+  reserved 3; // was domain = 3;
 }
 
 // mapping a party to a key
@@ -165,14 +166,30 @@ message PartyHostingLimits {
 // authorization: whoever controls the participant uid
 // UNIQUE(participant, domain)
 message VettedPackages {
+  message VettedPackage {
+    // the hash of the vetted package
+    string package_id = 1;
+    // optional earliest ledger effective time (exclusive) as of which the package is considered valid.
+    // must be less than or equal to valid_until if both are present.
+    google.protobuf.Timestamp valid_from = 2;
+    // optional latest ledger effective time (inclusive) until which the package is considered valid.
+    // must be greater than or equal to valid_from if both are present.
+    google.protobuf.Timestamp valid_until = 3;
+  }
   // the participant vetting the packages
   string participant_uid = 1;
 
-  // the hash of the vetted packages
-  repeated string package_ids = 2;
+  // DEPRECATED: no longer used, but kept for backwards compatibility.
+  // the hashes of the vetted packages.
+  // package hashes may only be listed in one of the two fields: package_ids or packages.
+  // a package listed in package_ids is equivalent to a package listed in packages with unbounded validity.
+  repeated string package_ids = 2 [deprecated = true];
 
-  // optionally restricted to domain
-  string domain = 3;
+  // the hashes of vetted packages with a validity period.
+  // only one entry per package_id is permitted.
+  repeated VettedPackage packages = 4;
+
+  reserved 3; // was domain = 3;
 }
 
 // mapping that maps a party to a participant
@@ -209,8 +226,7 @@ message PartyToParticipant {
   // and not to the individual participants for efficiency reasons
   bool group_addressing = 4;
 
-  // optionally restricted to domain
-  string domain = 5;
+  reserved 5; // was domain = 5;
 }
 
 // which parties can exercise the authority over another party
@@ -227,8 +243,7 @@ message AuthorityOf {
   // the list of parties which can gain authority
   repeated string parties = 3;
 
-  // optionally restricted to domain
-  string domain = 4;
+  reserved 4; // was domain = 4;
 }
 
 // which dynamic domain parameters are supposed to be used on the given domain
@@ -286,9 +301,6 @@ message SequencerDomainState {
 
   // the list of observing sequencers (uid) within the group (read messages but don't respond)
   repeated string observers = 4;
-
-  // TODO(#14046) add payload for BFT-configuration
-  // bytes payload = 5;
 }
 
 // explicitly invalidate topology transactions for good

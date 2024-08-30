@@ -77,8 +77,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   ]
   private val watermark = new AtomicReference[Option[CantonTimestamp]](None)
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
-      traceContext: TraceContext
+  def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
+      implicit traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) Future.successful(Seq.empty)
     else
@@ -230,10 +230,9 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     )
 
   override def inspectKnownParties(
-      timestamp: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
-      limit: Int,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] = {
     val (prefixPartyIdentifier, prefixPartyNS) = UniqueIdentifier.splitFilter(filterParty)
     val (prefixParticipantIdentifier, prefixParticipantNS) =
@@ -241,7 +240,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
     def filter(entry: TopologyStoreEntry): Boolean =
       // active
-      entry.from.value < timestamp && entry.until.forall(until => timestamp <= until.value) &&
+      entry.from.value < asOfExclusive &&
+        entry.until.forall(until => asOfExclusive <= until.value) &&
         // not rejected
         entry.rejected.isEmpty &&
         // is not a proposal
@@ -269,7 +269,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     Future.successful(
       topologyStateStoreSeq
         .foldLeft(Set.empty[PartyId]) {
-          case (acc, elem) if acc.size >= limit || !filter(elem) => acc
+          case (acc, elem) if !filter(elem) => acc
           case (acc, elem) =>
             elem.mapping.maybeUid.fold(acc)(x => acc + PartyId(x))
         }
@@ -279,7 +279,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   override def inspect(
       proposals: Boolean,
       timeQuery: TimeQuery,
-      recentTimestampO: Option[CantonTimestamp],
+      asOfExclusiveO: Option[CantonTimestamp],
       op: Option[TopologyChangeOp],
       types: Seq[TopologyMapping.Code],
       idFilter: Option[String],
@@ -294,7 +294,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       case TimeQuery.HeadState =>
         // use recent timestamp to avoid race conditions (as we are looking
         // directly into the store, while the recent time still needs to propagate)
-        recentTimestampO.map(mkAsOfFilter).getOrElse(entry => entry.until.isEmpty)
+        asOfExclusiveO.map(mkAsOfFilter).getOrElse(entry => entry.until.isEmpty)
       case TimeQuery.Snapshot(asOf) => mkAsOfFilter(asOf)
       case TimeQuery.Range(from, until) =>
         entry =>

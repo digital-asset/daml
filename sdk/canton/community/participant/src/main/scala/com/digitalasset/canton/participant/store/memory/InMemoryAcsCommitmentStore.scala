@@ -22,6 +22,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
+  CommitmentPeriodState,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
@@ -52,7 +53,8 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   private val lastComputed: AtomicReference[Option[CantonTimestampSecond]] =
     new AtomicReference(None)
 
-  private val _outstanding: AtomicReference[Set[(CommitmentPeriod, ParticipantId)]] =
+  private val _outstanding
+      : AtomicReference[Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
     new AtomicReference(Set.empty)
 
   override val runningCommitments =
@@ -114,7 +116,9 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       implicit traceContext: TraceContext
   ): Future[Unit] = {
     if (counterParticipants.nonEmpty) {
-      _outstanding.updateAndGet(os => os ++ counterParticipants.map(period -> _))
+      _outstanding.updateAndGet(os =>
+        os ++ counterParticipants.map(cp => (period, cp, CommitmentPeriodState.Outstanding))
+      )
     }
     Future.unit
   }
@@ -135,11 +139,26 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   private def computeOutstanding(
       counterParticipant: ParticipantId,
       safePeriod: CommitmentPeriod,
-      currentOutstanding: Set[(CommitmentPeriod, ParticipantId)],
+      currentOutstanding: Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)],
       sortedReconciliationIntervals: SortedReconciliationIntervals,
-  )(implicit traceContext: TraceContext): Set[(CommitmentPeriod, ParticipantId)] = {
-    val oldPeriods = currentOutstanding.filter { case (oldPeriod, participant) =>
-      oldPeriod.overlaps(safePeriod) && participant == counterParticipant
+      matchingState: CommitmentPeriodState,
+  )(implicit
+      traceContext: TraceContext
+  ): Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = {
+    def stateFilter(state: CommitmentPeriodState): Boolean =
+      if (matchingState == CommitmentPeriodState.Matched)
+        state == CommitmentPeriodState.Matched || state == CommitmentPeriodState.Mismatched ||
+        state == CommitmentPeriodState.Outstanding
+      else if (matchingState == CommitmentPeriodState.Mismatched)
+        state == CommitmentPeriodState.Mismatched ||
+        state == CommitmentPeriodState.Outstanding
+      else
+        state == CommitmentPeriodState.Outstanding
+
+    val oldPeriods = currentOutstanding.filter { case (oldPeriod, participant, state) =>
+      oldPeriod.overlaps(
+        safePeriod
+      ) && participant == counterParticipant && stateFilter(state)
     }
 
     def containsTick(commitmentPeriod: CommitmentPeriod): Boolean = sortedReconciliationIntervals
@@ -154,23 +173,33 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
         true
       }
 
-    val periodsToAdd = oldPeriods
-      .flatMap { case (oldPeriod, _) =>
+    val periodsToAdd: Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)] = oldPeriods
+      .flatMap { case (oldPeriod, _, oldState) =>
         Set(
-          CommitmentPeriod.create(oldPeriod.fromExclusive, safePeriod.fromExclusive),
-          CommitmentPeriod.create(safePeriod.toInclusive, oldPeriod.toInclusive),
+          (
+            CommitmentPeriod.create(oldPeriod.fromExclusive, safePeriod.fromExclusive),
+            oldState,
+          ),
+          (
+            CommitmentPeriod.create(safePeriod.toInclusive, oldPeriod.toInclusive),
+            oldState,
+          ),
+          (
+            CommitmentPeriod.create(safePeriod.fromExclusive, safePeriod.toInclusive),
+            matchingState,
+          ),
         )
       }
       .collect {
-        case Right(commitmentPeriod) if containsTick(commitmentPeriod) =>
-          commitmentPeriod -> counterParticipant
+        case (Right(commitmentPeriod), state) if containsTick(commitmentPeriod) =>
+          (commitmentPeriod, counterParticipant, state)
       }
 
     val newPeriods = currentOutstanding.diff(oldPeriods).union(periodsToAdd)
 
     import com.digitalasset.canton.logging.pretty.Pretty.*
-    def prettyNewPeriods = newPeriods.map { case (period, participants) =>
-      Tree.Infix(participants.toTree, "-", period.toTree)
+    def prettyNewPeriods = newPeriods.map { case (period, participants, state) =>
+      Tree.Infix(participants.toTree, "-", Tree.Infix(period.toTree, "-", state.toTree))
     }
     logger.debug(
       show"Marked period $safePeriod safe for participant $counterParticipant; new outstanding commitment periods: $prettyNewPeriods"
@@ -178,10 +207,11 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
     newPeriods
   }
 
-  override def markSafe(
+  override def markPeriod(
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): Future[Unit] =
     sortedReconciliationIntervalsProvider.approximateReconciliationIntervals.map {
       sortedReconciliationIntervals =>
@@ -191,6 +221,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
             period,
             currentOutstanding,
             sortedReconciliationIntervals,
+            matchingState,
           )
         )
         ()
@@ -203,9 +234,12 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       for {
         lastTs <- lastComputed.get
         adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
-        periods = _outstanding.get().map { case (period, _participants) =>
-          period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
-        }
+        periods = _outstanding
+          .get()
+          .collect {
+            case (period, _, state) if state != CommitmentPeriodState.Matched =>
+              period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
+          }
         safe = AcsCommitmentStore.latestCleanPeriod(
           beforeOrAt = adjustedTs,
           uncleanPeriods = periods,
@@ -216,26 +250,29 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId],
-  )(implicit traceContext: TraceContext): Future[Iterable[(CommitmentPeriod, ParticipantId)]] =
-    Future.successful(_outstanding.get.filter { case (period, participant) =>
-      counterParticipant.forall(
-        _ == participant
-      ) && period.fromExclusive < end && period.toInclusive >= start
+      counterParticipant: Seq[ParticipantId],
+      includeMatchedPeriods: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
+    Future.successful(_outstanding.get.filter { case (period, participant, state) =>
+      (counterParticipant.isEmpty ||
+        counterParticipant.contains(participant)) &&
+      period.fromExclusive < end &&
+      period.toInclusive >= start &&
+      (includeMatchedPeriods || state != CommitmentPeriodState.Matched)
     })
 
   override def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId] = None,
+      counterParticipant: Seq[ParticipantId] = Seq.empty,
   )(implicit
       traceContext: TraceContext
   ): Future[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]] = {
-    val filteredByCounterParty = counterParticipant
-      .flatMap { p =>
-        computed.get(p).map(computedForParticipant => Map(p -> computedForParticipant))
-      }
-      .getOrElse(computed)
+    val filteredByCounterParty =
+      if (counterParticipant.isEmpty) computed
+      else computed.filter(c => counterParticipant.contains(c._1))
 
     Future.successful(
       filteredByCounterParty.flatMap { case (p, m) =>
@@ -254,10 +291,11 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
   override def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId] = None,
+      counterParticipant: Seq[ParticipantId] = Seq.empty,
   )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
-    val filteredByCounterParty =
-      counterParticipant.map(p => received.filter(_._1 == p)).getOrElse(received).values
+    val filteredByCounterParty = (if (counterParticipant.isEmpty) received
+                                  else
+                                    received.filter(c => counterParticipant.contains(c._1))).values
 
     Future.successful(
       filteredByCounterParty.flatMap(msgs =>
@@ -289,6 +327,15 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
           p,
           commitmentMsgs.filter(x => count(x.message.period.toInclusive >= before)),
         )
+      }
+      _outstanding.updateAndGet { currentOutstanding =>
+        val newOutstanding = currentOutstanding.filter {
+          case (period, _counterParticipant, state) =>
+            (state != CommitmentPeriodState.Matched && period.toInclusive < before) ||
+            period.toInclusive >= before
+        }
+        counter.addAndGet(currentOutstanding.size - newOutstanding.size)
+        newOutstanding
       }
       counter.get()
     }

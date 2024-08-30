@@ -4,8 +4,8 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -24,11 +24,18 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   IncreaseOfLedgerTimeRecordTimeTolerance,
   ParticipantTopologyManagerError,
 }
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  SequencedTime,
+  TopologyManagerSigningKeyDetection,
+}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  GenericTopologyTransaction,
+  TxHash,
+}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -234,7 +241,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     for {
       transactionsForHash <- EitherT
         .right[TopologyManagerError](
-          store.findTransactionsByTxHash(effective, Set(transactionHash))
+          store.findTransactionsAndProposalsByTxHash(effective, Set(transactionHash))
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       existingTransaction <-
@@ -342,24 +349,19 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     val transactionMapping = transaction.mapping
     for {
       // find signing keys.
-      keys <- (signingKeys match {
+      keysToUseForSigning <- (signingKeys match {
         case first +: rest =>
           // TODO(#12945) should we check whether this node could sign with keys that are required in addition to the ones provided in signingKeys, and fetch those keys?
           EitherT.pure(NonEmpty.mk(Set, first, rest*))
         case _empty =>
-          // TODO(#12945) get signing keys for transaction.
-          EitherT.leftT(
-            TopologyManagerError.InternalError.ImplementMe(
-              "Automatic signing key lookup not yet implemented. Please specify a signing key explicitly."
-            )
-          )
+          determineKeysToUse(transaction)
       }): EitherT[FutureUnlessShutdown, TopologyManagerError, NonEmpty[Set[Fingerprint]]]
       // If the same operation and mapping is proposed repeatedly, insist that
       // new keys are being added. Otherwise reject consistently with daml 2.x-based topology management.
       _ <- existingTransactionTuple match {
         case Some((`transactionOp`, `transactionMapping`, _, existingSignatures)) =>
           EitherT.cond[FutureUnlessShutdown][TopologyManagerError, Unit](
-            (signingKeys.toSet -- existingSignatures
+            (keysToUseForSigning -- existingSignatures
               .map(_.signedBy)
               .toSet).nonEmpty,
             (),
@@ -372,7 +374,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       signed <- SignedTopologyTransaction
         .create(
           transaction,
-          keys,
+          keysToUseForSigning,
           isProposal,
           crypto.privateCrypto,
           protocolVersion,
@@ -394,18 +396,13 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     for {
       // find signing keys
       keys <- (signingKey match {
-        case keys @ (_first +: _rest) =>
+        case (first +: rest) =>
           // TODO(#12945) filter signing keys relevant for the required authorization for this transaction
-          EitherT.rightT(keys.toSet)
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](NonEmpty(Set, first, rest*))
         case _ =>
-          // TODO(#12945) fetch signing keys that are relevant for the required authorization for this transaction
-          EitherT.leftT(
-            TopologyManagerError.InternalError.ImplementMe(
-              "Automatic signing key lookup not yet implemented. Please specify a signing explicitly."
-            )
-          )
-      }): EitherT[FutureUnlessShutdown, TopologyManagerError, Set[Fingerprint]]
-      signatures <- keys.toSeq.parTraverse(
+          determineKeysToUse(transaction.transaction)
+      })
+      signatures <- keys.forgetNE.toSeq.parTraverse(
         crypto.privateCrypto
           .sign(transaction.hash.hash, _)
           .leftMap(err =>
@@ -413,6 +410,43 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           )
       )
     } yield transaction.addSignatures(signatures)
+
+  private def determineKeysToUse(
+      transaction: GenericTopologyTransaction
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, NonEmpty[Set[Fingerprint]]] = for {
+    existing <- EitherT
+      .right[TopologyManagerError](
+        store.findTransactionsForMapping(
+          EffectiveTime(timestampForValidation()),
+          NonEmpty(Set, transaction.mapping.uniqueKey),
+        )
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
+    result <- new TopologyManagerSigningKeyDetection(store, crypto, loggerFactory)
+      .getValidSigningKeysForTransaction(
+        timestampForValidation(),
+        transaction,
+        existing.headOption.map(_.transaction), // there should be at most one entry
+      )
+      .bimap(
+        err =>
+          TopologyManagerError.InvalidSignatureError.KeyStoreFailure(err): TopologyManagerError,
+        keysToUse => {
+          logger.info(s"Determined to sign with the following keys: $keysToUse")
+          keysToUse
+        },
+      )
+      .subflatMap(knownKeys =>
+        NonEmpty
+          .from(knownKeys.toSet)
+          .toRight(
+            TopologyManagerError.NoAppropriateSigningKeyInStore
+              .Failure(Seq.empty)
+          )
+      )
+  } yield result
 
   // TODO(#18524): Remove this after CN has upgraded to 3.1. It will then be superseded by #12945
   private def addMissingOtkSignaturesForSigningKeys(
@@ -464,7 +498,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
 
           transactionsInStore <- EitherT
             .liftF(
-              store.findTransactionsByTxHash(
+              store.findTransactionsAndProposalsByTxHash(
                 EffectiveTime.MaxValue,
                 transactions.map(_.hash).toSet,
               )
@@ -534,12 +568,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case DomainParametersState(domainId, newDomainParameters) =>
       checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, forceChanges)
-    case OwnerToKeyMapping(member, _, _) =>
+    case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
-    case VettedPackages(participantId, _, newPackageIds) =>
+    case VettedPackages(participantId, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
-        newPackageIds.toSet,
+        newPackages.map(_.packageId).toSet,
         forceChanges,
         transaction.mapping.code,
       )
@@ -633,8 +667,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
         )
         .map {
           _.collectOfMapping[VettedPackages].collectLatestByUniqueKey.toTopologyState
-            .collectFirst { case VettedPackages(_, _, existingPackageIds) =>
-              existingPackageIds
+            .collectFirst { case VettedPackages(_, existingPackageIds) =>
+              existingPackageIds.map(_.packageId)
             }
             .getOrElse(Nil)
             .toSet

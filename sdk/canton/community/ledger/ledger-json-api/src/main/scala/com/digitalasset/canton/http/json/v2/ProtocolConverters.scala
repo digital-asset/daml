@@ -521,7 +521,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(tree =>
           JsSubmitAndWaitForTransactionTreeResponse(
             transaction_tree = tree,
-            completion_offset = response.completionOffset,
           )
         )
 
@@ -535,7 +534,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(tree =>
           lapi.command_service.SubmitAndWaitForTransactionTreeResponse(
             transaction = Some(tree),
-            completionOffset = response.completion_offset,
           )
         )
   }
@@ -556,7 +554,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(tx =>
           JsSubmitAndWaitForTransactionResponse(
             transaction = tx,
-            completion_offset = response.completionOffset,
           )
         )
   }

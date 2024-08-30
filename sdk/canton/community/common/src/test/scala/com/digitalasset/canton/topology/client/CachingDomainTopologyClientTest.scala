@@ -78,7 +78,7 @@ class CachingDomainTopologyClientTest extends AsyncWordSpecLike with BaseTest {
 
     when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.plusSeconds(3))
     when(mockParent.approximateTimestamp).thenReturn(ts3)
-    when(mockParent.awaitTimestamp(any[CantonTimestamp], any[Boolean])(any[TraceContext]))
+    when(mockParent.awaitTimestamp(any[CantonTimestamp])(any[TraceContext]))
       .thenReturn(None)
     when(mockParent.trySnapshot(ts0)).thenReturn(mockSnapshot0)
     when(mockParent.trySnapshot(ts1)).thenReturn(mockSnapshot0)

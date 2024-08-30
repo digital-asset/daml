@@ -331,7 +331,7 @@ private[update] final class SubmissionRequestValidator(
                     SequencerErrors.SubmissionRequestRefused("No sequencer group found"),
                   )
                 )
-              )(group => Right((group.active.forgetNE ++ group.passive).toSet))
+              )(group => Right((group.active ++ group.passive).toSet))
             )
         )
       } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
@@ -414,7 +414,7 @@ private[update] final class SubmissionRequestValidator(
         _ <- groups.parTraverse { group =>
           val nonRegisteredF =
             if (unifiedSequencer) {
-              (group.active ++ group.passive).forgetNE.parTraverseFilter { member =>
+              (group.active ++ group.passive).parTraverseFilter { member =>
                 memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
                   isRegistered => Option.when(!isRegistered)(member)
                 }

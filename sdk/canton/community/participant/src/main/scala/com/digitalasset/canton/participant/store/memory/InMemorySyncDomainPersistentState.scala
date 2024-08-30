@@ -61,7 +61,8 @@ class InMemorySyncDomainPersistentState(
   val transferStore = new InMemoryTransferStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-  val acsCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+  val acsCommitmentStore =
+    new InMemoryAcsCommitmentStore(loggerFactory)
   val parameterStore = new InMemoryDomainParameterStore()
   val sequencerCounterTrackerStore =
     new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
@@ -96,10 +97,11 @@ class InMemorySyncDomainPersistentState(
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-      checkPackageDependencies(
+      validate(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
+        contractStores = () => Map(domainId.domainId -> (activeContractStore, contractStore)),
         forceFlags,
       )
   }
