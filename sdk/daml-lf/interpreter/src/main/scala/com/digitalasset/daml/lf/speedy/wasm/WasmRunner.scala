@@ -6,6 +6,7 @@ package speedy
 package wasm
 
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.PackageInterface
@@ -46,7 +47,8 @@ final class WasmRunner(
 
   import WasmRunner._
 
-  private[this] var localContractStore = Map.empty[LfValue.ContractId, (Ref.TypeConName, LfValue)]
+  // Holds the template constructor and argument for contracts created in this transaction
+  private[this] var localContractStore = Map.empty[LfValue.ContractId, ContractInfo]
   private[this] var ptx: PartialTransaction = PartialTransaction
     .initial(
       contractKeyUniqueness,
@@ -64,7 +66,6 @@ final class WasmRunner(
     val (pkgName, pkgVersion) = tmplId2PackageNameVersion(templateTypeCon)
     val argsSV = toSValue(argsV)
     val txVersion = tmplId2TxVersion(templateTypeCon)
-    // TODO: cache contractInfo against the contractId (c.f. Speedy)?
     val contractInfo = ContractInfo(
       txVersion,
       pkgName,
@@ -77,7 +78,7 @@ final class WasmRunner(
     )
     val (contractId, updatedPtx) = ptx.insertCreate(submissionTime, contractInfo, None).toOption.get
 
-    localContractStore = localContractStore + (contractId -> (templateTypeCon, argsV))
+    localContractStore = localContractStore + (contractId -> contractInfo)
     ptx = updatedPtx
 
     contractId
@@ -92,8 +93,12 @@ final class WasmRunner(
     val txVersion = tmplId2TxVersion(templateTypeCon)
 
     localContractStore.get(contractId) match {
-      case Some((`templateTypeCon`, argV)) =>
-        argV
+      case Some(contractInfo) if contractInfo.templateId == templateTypeCon =>
+        contractInfo.arg
+
+      case Some(_) =>
+        // TODO: manage wrongly typed contract case
+        ???
 
       case _ =>
         Await.result(
@@ -101,22 +106,30 @@ final class WasmRunner(
           timeout,
         ) match {
           case Some(contract) =>
-            val contractInfo = ContractInfo(
-              txVersion,
-              contract.unversioned.packageName,
-              contract.unversioned.packageVersion,
-              templateTypeCon,
-              toSValue(contract.unversioned.arg),
-              submitters,
-              readAs,
-              None,
-            )
-            val updatedPtx =
-              ptx.insertFetch(contractId, contractInfo, None, byKey = false, txVersion).toOption.get
+            if (contract.unversioned.template.toRef == templateId) {
+              val contractInfo = ContractInfo(
+                txVersion,
+                contract.unversioned.packageName,
+                contract.unversioned.packageVersion,
+                templateTypeCon,
+                toSValue(contract.unversioned.arg),
+                submitters,
+                readAs,
+                None,
+              )
+              val updatedPtx =
+                ptx
+                  .insertFetch(contractId, contractInfo, None, byKey = false, txVersion)
+                  .toOption
+                  .get
 
-            ptx = updatedPtx
+              ptx = updatedPtx
 
-            contract.unversioned.arg
+              contract.unversioned.arg
+            } else {
+              // TODO: manage wrongly typed contract case
+              ???
+            }
 
           case None =>
             // TODO: manage contract lookup failure
@@ -125,17 +138,81 @@ final class WasmRunner(
     }
   }
 
+  override def exerciseChoice(
+      templateId: Ref.TypeConRef,
+      contractId: LfValue.ContractId,
+      choiceName: Ref.ChoiceName,
+      choiceArg: LfValue,
+      consuming: Boolean,
+  )(implicit instance: WasmInstance): LfValue = {
+    val templateTypeCon = templateId.assertToTypeConName
+    val txVersion = tmplId2TxVersion(templateTypeCon)
+    val (pkgName, _) = tmplId2PackageNameVersion(templateTypeCon)
+    val contractInfo = localContractStore.get(contractId) match {
+      case Some(contractInfo) if contractInfo.templateId == templateTypeCon =>
+        contractInfo
+
+      case Some(_) =>
+        // TODO: manage wrongly typed contract case
+        ???
+
+      case None =>
+        // TODO: manage contract not being locally known (e.g. global contract not fetched)
+        ???
+    }
+
+    val startPtx = ptx
+      .beginExercises(
+        packageName = pkgName,
+        templateId = templateTypeCon,
+        targetId = contractId,
+        contract = contractInfo,
+        interfaceId = None,
+        choiceId = choiceName,
+        optLocation = None,
+        consuming = consuming,
+        actingParties = Set.empty[Party],
+        choiceObservers = Set.empty[Party],
+        choiceAuthorizers = None,
+        byKey = false,
+        chosenValue = choiceArg,
+        version = txVersion,
+      )
+      .toOption
+      .get
+
+    ptx = startPtx
+
+    try {
+      // TODO: ideally, we should spawn and use a new WasmInstance here for exercise/choice evaluation isolation?
+      val result = wasmChoiceFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)
+
+      val endPtx = ptx.endExercises(txVer => toSValue(result).toNormalizedValue(txVer))
+
+      ptx = endPtx
+
+      result
+    } catch {
+      case exn: Throwable =>
+        val abortPtx = ptx.abortExercises
+
+        ptx = abortPtx
+
+        throw exn
+    }
+  }
+
   def evaluateWasmExpression(
       wasmExpr: WasmExpr,
       // TODO: speedy uses this param for NeedTime callbacks
       @unused ledgerTime: Time.Timestamp,
   ): Either[SErrorCrash, UpdateMachine.Result] = {
-    val logFunc = wasmFunction("logInfo", 1, WasmUnitResultType) { param =>
+    val logFunc = wasmFunction("logInfo", 1, WasmUnitResultType) { param => _ =>
       logInfo(param(0).toStringUtf8)
 
       ByteString.empty()
     }
-    val createContractFunc = wasmFunction("createContract", 2, WasmValueResultType) { param =>
+    val createContractFunc = wasmFunction("createContract", 2, WasmValueResultType) { param => _ =>
       // NB. as we do not need to compute the contract instance, we do not need the funcPtr to the template constructor
       val templateId =
         LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
@@ -145,31 +222,63 @@ final class WasmRunner(
 
       LfValueCoder.encodeValue(txVersion, LfValue.ValueContractId(contractId)).toOption.get
     }
-    val fetchContractArgFunc = wasmFunction("fetchContractArg", 3, WasmValueResultType) { param =>
-      val templateId =
-        LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
-      val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
-      val optContractId = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get match {
-        case LfValue.ValueContractId(contractId) =>
-          Some(contractId)
+    val fetchContractArgFunc = wasmFunction("fetchContractArg", 3, WasmValueResultType) {
+      param => _ =>
+        val templateId =
+          LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
+        val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
+        val optContractId = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get match {
+          case LfValue.ValueContractId(contractId) =>
+            Some(contractId)
 
-        case _ =>
-          None
-      }
-      val timeout = Duration(param(2).toStringUtf8)
-      val arg = fetchContractArg(templateId, optContractId.get, timeout)
+          case _ =>
+            None
+        }
+        val timeout = Duration(param(2).toStringUtf8)
+        val arg = fetchContractArg(templateId, optContractId.get, timeout)
 
-      LfValueCoder.encodeValue(txVersion, arg).toOption.get
+        LfValueCoder.encodeValue(txVersion, arg).toOption.get
+    }
+    val exerciseChoiceFunc = wasmFunction("exerciseChoice", 5, WasmValueResultType) {
+      param => instance =>
+        val templateId =
+          LfValueCoder.decodeIdentifier(proto.Identifier.parseFrom(param(0))).toOption.get.toRef
+        val txVersion = tmplId2TxVersion(templateId.assertToTypeConName)
+        val optContractId = LfValueCoder.decodeValue(txVersion, param(1)).toOption.get match {
+          case LfValue.ValueContractId(contractId) =>
+            Some(contractId)
+
+          case _ =>
+            None
+        }
+        val choiceName = Ref.ChoiceName.assertFromString(param(2).toStringUtf8)
+        val choiceArg = LfValueCoder.decodeValue(txVersion, param(3)).toOption.get
+        assert(
+          param(4).toByteArray.length == 1,
+          s"exerciseChoice(_, _, _, _, consuming: bool): invalid byte encoding ${param(4).toByteArray.map("%02x".format(_)).mkString}",
+        )
+        val consuming = param(4).toByteArray.head match {
+          case 0 => false
+          case 1 => true
+          case _ => ??? // TODO: manage invalid bool value case
+        }
+
+        val result =
+          exerciseChoice(templateId, optContractId.get, choiceName, choiceArg, consuming)(instance)
+
+        LfValueCoder.encodeValue(txVersion, result).toOption.get
     }
     val imports = new WasmHostImports(
-      Array[WasmHostFunction](logFunc, createContractFunc, fetchContractArgFunc)
+      Array[WasmHostFunction](logFunc, createContractFunc, fetchContractArgFunc, exerciseChoiceFunc)
     )
+
     implicit val instance: WasmInstance =
       WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()
-    val machine = instance.export(wasmExpr.name)
+
+    val exprEvaluator = instance.export(wasmExpr.name)
 
     // Calling imported host functions applies a series of (transactional) side effects to ptx
-    val _ = machine.apply(wasmExpr.args.map(copyByteArray).flatten: _*)
+    val _ = exprEvaluator.apply(wasmExpr.args.map(copyByteArray).flatten: _*)
 
     finish
   }
@@ -207,8 +316,114 @@ final class WasmRunner(
   ): (Ref.PackageName, Option[Ref.PackageVersion]) = {
     pkgInterface.signatures(tmplId.packageId).pkgNameVersion
   }
+}
 
-  private def toSValue(value: LfValue): SValue = value match {
+object WasmRunner {
+  final case class WasmExpr(module: ByteString, name: String, args: Array[Byte]*)
+
+  private val WasmValueParameterType = List(WasmValueType.I32)
+  private val WasmUnitResultType = None
+  private val WasmValueResultType = Some(WasmValueType.I32)
+  private val i32Size = WasmValueType.I32.size()
+
+  private def wasmFunction(name: String, numOfParams: Int, returnType: Option[WasmValueType])(
+      lambda: Array[ByteString] => WasmInstance => ByteString
+  ): WasmHostFunction = {
+    new WasmHostFunction(
+      (instance: WasmInstance, args: Array[WasmValue]) => {
+        require(args.length == numOfParams)
+
+        copyByteString(
+          lambda((0 until numOfParams).map(copyWasmValues(args, _)(instance)).toArray)(instance)
+        )(instance)
+      },
+      "env",
+      name,
+      (0 until numOfParams).flatMap(_ => WasmValueParameterType).asJava,
+      returnType.toList.asJava,
+    )
+  }
+
+  private def wasmChoiceFunction(
+      choiceName: String,
+      txVersion: TransactionVersion,
+  )(contractArg: LfValue, choiceArg: LfValue)(implicit instance: WasmInstance): LfValue = {
+    val choice = instance.export(s"${choiceName}_choice")
+    val contractArgPtr = copyByteString(
+      LfValueCoder.encodeValue(txVersion, contractArg).toOption.get
+    )
+    val choiceArgPtr = copyByteString(LfValueCoder.encodeValue(txVersion, choiceArg).toOption.get)
+    val choiceResultPtr = choice.apply(contractArgPtr.head, choiceArgPtr.head)
+    try {
+      if (choiceResultPtr.nonEmpty) {
+        LfValueCoder.decodeValue(txVersion, copyWasmValue(choiceResultPtr)).toOption.get
+      } else {
+        LfValue.ValueUnit
+      }
+    } finally {
+      deallocByteString(contractArgPtr.head)
+      deallocByteString(choiceArgPtr.head)
+      deallocByteString(choiceResultPtr.head)
+    }
+  }
+
+  private def copyWasmValue(values: Array[WasmValue])(implicit
+      instance: WasmInstance
+  ): ByteString = {
+    copyWasmValues(values, 0)
+  }
+
+  private def copyWasmValues(values: Array[WasmValue], index: Int)(implicit
+      instance: WasmInstance
+  ): ByteString = {
+    require(0 <= index && index < values.length)
+
+    val byteStringPtr = values(index).asInt()
+    val ptr = instance.memory().readI32(byteStringPtr)
+    val size = instance.memory().readI32(byteStringPtr + i32Size)
+
+    ByteString.copyFrom(
+      instance.memory().readBytes(ptr.asInt(), size.asInt())
+    )
+  }
+
+  private def copyByteString(
+      value: ByteString
+  )(implicit instance: WasmInstance): Array[WasmValue] = {
+    copyByteArray(value.toByteArray)
+  }
+
+  private def copyByteArray(
+      value: Array[Byte]
+  )(implicit instance: WasmInstance): Array[WasmValue] = {
+    if (value.isEmpty) {
+      Array.empty
+    } else {
+      val alloc = instance.export("alloc")
+      val valuePtr = alloc.apply(WasmValue.i32(value.length))(0).asInt
+      val byteStringPtr = alloc.apply(WasmValue.i32(2 * i32Size))(0).asInt
+
+      instance.memory().write(valuePtr, value)
+      instance.memory().writeI32(byteStringPtr, valuePtr)
+      instance.memory().writeI32(byteStringPtr + i32Size, value.length)
+
+      Array(WasmValue.i32(byteStringPtr))
+    }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+  private def deallocByteString(byteStringPtr: WasmValue)(implicit instance: WasmInstance): Unit = {
+    val dealloc = instance.export("dealloc")
+    val valuePtr = instance.memory().readI32(byteStringPtr.asInt())
+    val size = instance.memory().readI32(byteStringPtr.asInt() + i32Size)
+
+    discard {
+      dealloc.apply(valuePtr, size)
+      dealloc.apply(byteStringPtr, WasmValue.i32(2 * i32Size))
+    }
+  }
+
+  private[wasm] def toSValue(value: LfValue): SValue = value match {
     case LfValue.ValueUnit =>
       SValue.SUnit
     case LfValue.ValueBool(b) =>
@@ -273,70 +488,5 @@ final class WasmRunner(
       val tyCon = Ref.Identifier.assertFromString("package:module:enum")
       // No applications, so rank is always 0
       SValue.SEnum(tyCon, value, 0)
-  }
-}
-
-object WasmRunner {
-  final case class WasmExpr(module: ByteString, name: String, args: Array[Byte]*)
-
-  private val WasmValueParameterType = List(WasmValueType.I32)
-  private val WasmUnitResultType = None
-  private val WasmValueResultType = Some(WasmValueType.I32)
-  private val i32Size = WasmValueType.I32.size()
-
-  private def wasmFunction(name: String, numOfParams: Int, returnType: Option[WasmValueType])(
-      lambda: Array[ByteString] => ByteString
-  ): WasmHostFunction = {
-    new WasmHostFunction(
-      (instance: WasmInstance, args: Array[WasmValue]) => {
-        require(args.length == numOfParams)
-
-        copyByteString(
-          lambda((0 until numOfParams).map(copyWasmValues(args, _)(instance)).toArray)
-        )(instance)
-      },
-      "env",
-      name,
-      (0 until numOfParams).flatMap(_ => WasmValueParameterType).asJava,
-      returnType.toList.asJava,
-    )
-  }
-
-  private def copyWasmValues(values: Array[WasmValue], index: Int)(implicit
-      instance: WasmInstance
-  ): ByteString = {
-    require(0 <= index && index < values.length)
-
-    val byteStringPtr = values(index).asInt()
-    val ptr = instance.memory().readI32(byteStringPtr)
-    val size = instance.memory().readI32(byteStringPtr + i32Size)
-
-    ByteString.copyFrom(
-      instance.memory().readBytes(ptr.asInt(), size.asInt())
-    )
-  }
-
-  private def copyByteString(
-      value: ByteString
-  )(implicit instance: WasmInstance): Array[WasmValue] = {
-    copyByteArray(value.toByteArray)
-  }
-
-  private def copyByteArray(
-      value: Array[Byte]
-  )(implicit instance: WasmInstance): Array[WasmValue] = {
-    if (value.isEmpty) {
-      Array.empty
-    } else {
-      val alloc = instance.export("alloc")
-      val valuePtr = alloc.apply(WasmValue.i32(value.length))(0).asInt
-      val byteStringPtr = alloc.apply(WasmValue.i32(2 * i32Size))(0).asInt
-
-      instance.memory().write(valuePtr, value)
-      instance.memory().writeI32(byteStringPtr, valuePtr)
-      instance.memory().writeI32(byteStringPtr + i32Size, value.length)
-
-      Array(WasmValue.i32(byteStringPtr))
-    }
   }
 }

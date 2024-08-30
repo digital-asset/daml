@@ -1,0 +1,12 @@
+[package]
+name = "exercise-choice"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+protobuf = "=3.5.1"
+hex = "=0.4.3"

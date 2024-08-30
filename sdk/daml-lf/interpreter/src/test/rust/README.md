@@ -24,27 +24,45 @@ Reading Notes:
 
 # Compiling a Rust Package to a WASM target
 
-In the Rust package directory run:
+Note:
+- by convention, we include a source language indicator when copying WASM files.
+
+## `hello-world` Project
+
+In the Rust package directory `./hello-world` run:
 ```shell
 mkdir -p ./src/lf
 protoc --rust_out ./src/lf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
-cargo build --target wasm32-unknown-unknown --release  
-```
-
-This generates a WASM target in the directory `./target/wasm32-unknown-unknown/release/hello_world.wasm`.
-
-To use compiled WASM code within tests, we need to then copy that code into the `test/resources` directory with:
-```shell
+cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/hello_world.wasm ../../resources/hello-world.rs.wasm
 ```
-in the case of the `create-contract` project, with:
+
+## `create-contract` Project
+
+In the Rust package directory `./create-contract` run:
 ```shell
+mkdir -p ./src/lf
+protoc --rust_out ./src/lf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/create_contract.wasm ../../resources/create-contract.rs.wasm
 ```
-and, in the case of the `fetch-contract` project, with:
+
+## `fetch-contract` Project
+
+In the Rust package directory `./fetch-contract` run:
 ```shell
+mkdir -p ./src/lf
+protoc --rust_out ./src/lf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/fetch_contract.wasm ../../resources/fetch-contract.rs.wasm
 ```
 
-Note:
-- by convention, we include a source language indicator when copying WASM files.
+## `exercise-choice` Project
+
+In the Rust package directory `./exercise-choice` run:
+```shell
+mkdir -p ./src/lf
+protoc --rust_out ./src/lf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+cargo build --target wasm32-unknown-unknown --release
+cp ./target/wasm32-unknown-unknown/release/exercise_choice.wasm ../../resources/exercise-choice.rs.wasm
+```
