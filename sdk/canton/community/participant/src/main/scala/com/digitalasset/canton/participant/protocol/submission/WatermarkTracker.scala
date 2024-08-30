@@ -14,7 +14,7 @@ import com.digitalasset.canton.util.{ErrorUtil, Thereafter}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{Future, Promise, blocking}
 
 trait WatermarkLookup[Mark] {
 
@@ -44,7 +44,7 @@ class WatermarkTracker[Mark: Pretty](
     initialWatermark: Mark,
     protected override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-)(implicit private val ordering: Ordering[Mark], ec: ExecutionContext)
+)(implicit private val ordering: Ordering[Mark])
     extends WatermarkLookup[Mark]
     with NamedLogging {
   import WatermarkTracker.*

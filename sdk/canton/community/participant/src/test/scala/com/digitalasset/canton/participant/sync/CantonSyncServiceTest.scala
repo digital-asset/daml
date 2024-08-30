@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
-  ParticipantTopologyManagerOps,
+  PartyOps,
 }
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.resource.MemoryStorage
@@ -49,7 +49,7 @@ import org.mockito.ArgumentMatchers
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
 
 class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
@@ -64,7 +64,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     private val syncDomainPersistentStateManager = mock[SyncDomainPersistentStateManager]
     private val domainConnectionConfigStore = mock[DomainConnectionConfigStore]
     private val packageService = mock[PackageService]
-    val topologyManagerOps: ParticipantTopologyManagerOps = mock[ParticipantTopologyManagerOps]
+    val partyOps: PartyOps = mock[PartyOps]
 
     private val identityPusher = mock[ParticipantTopologyDispatcher]
     val partyNotifier = mock[LedgerServerPartyNotifier]
@@ -156,7 +156,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       participantNodeEphemeralState,
       syncDomainPersistentStateManager,
       Eval.now(packageService),
-      topologyManagerOps,
+      partyOps,
       identityPusher,
       partyNotifier,
       syncCrypto,
@@ -189,12 +189,11 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
   "Canton sync service" should {
     "emit add party event" in { f =>
       when(
-        f.topologyManagerOps.allocateParty(
-          any[String255],
+        f.partyOps.allocateParty(
           any[PartyId],
           any[ParticipantId],
           any[ProtocolVersion],
-        )(any[TraceContext])
+        )(any[TraceContext], any[ExecutionContext])
       ).thenReturn(EitherT.rightT(()))
 
       when(f.participantEventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext))
@@ -229,12 +228,11 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         .asScala
 
       val result = fut.map { _ =>
-        verify(f.topologyManagerOps).allocateParty(
-          eqTo(String255.tryCreate(submissionId)),
+        verify(f.partyOps).allocateParty(
           eqTo(partyId),
           eqTo(f.participantId),
           eqTo(ProtocolVersion.latest),
-        )(anyTraceContext)
+        )(anyTraceContext, any[ExecutionContext])
         succeed
       }
 

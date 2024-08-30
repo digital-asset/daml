@@ -1,37 +1,36 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.admin.inspection
+package com.digitalasset.canton.participant.store
 
+import cats.Foldable
 import cats.data.EitherT
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
+import com.digitalasset.canton.participant.store.AcsInspection.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
+import com.digitalasset.canton.protocol.messages.HasDomainId
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.pruning.PruningStatus
+import com.digitalasset.canton.store.CursorPrehead.RequestCounterCursorPrehead
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
 import com.digitalasset.canton.{LfPartyId, TransferCounter}
 
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[inspection] object AcsInspection {
-
-  private val BatchSize = PositiveInt.tryCreate(1000)
-
-  final case class AcsSnapshot[S](
-      snapshot: S,
-      ts: CantonTimestamp, // timestamp of the snapshot
-  )
-
+class AcsInspection(
+    requestJournalStore: RequestJournalStore,
+    val activeContractStore: ActiveContractStore,
+    val contractStore: ContractStore,
+) {
   def findContracts(
-      state: SyncDomainPersistentState,
       filterId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
@@ -40,38 +39,38 @@ private[inspection] object AcsInspection {
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): Future[List[(Boolean, SerializableContract)]] =
-    getCurrentSnapshot(state)
+    getCurrentSnapshot()
       .flatMap(_.traverse { acs =>
-        state.contractStore
+        contractStore
           .find(filterId, filterPackage, filterTemplate, limit)
           .map(_.map(sc => (acs.snapshot.contains(sc.contractId), sc)))
       })
       .map(_.getOrElse(Nil))
 
-  def hasActiveContracts(state: SyncDomainPersistentState, partyId: PartyId)(implicit
+  def hasActiveContracts(partyId: PartyId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): Future[Boolean] =
     for {
-      acsSnapshotO <- getCurrentSnapshot(state)
+      acsSnapshotO <- getCurrentSnapshot()
       res <- acsSnapshotO.fold(Future.successful(false))(acsSnapshot =>
-        state.contractStore.hasActiveContracts(partyId, acsSnapshot.snapshot.keysIterator)
+        contractStore.hasActiveContracts(partyId, acsSnapshot.snapshot.keysIterator)
       )
     } yield res
 
   /** Get the current snapshot
     * @return A snapshot (with its timestamp) or None if no clean timestamp is known
     */
-  def getCurrentSnapshot(state: SyncDomainPersistentState)(implicit
+  def getCurrentSnapshot()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]] =
     for {
-      cursorHeadO <- state.requestJournalStore.preheadClean
+      cursorHeadO <- requestJournalStore.preheadClean
       snapshot <- cursorHeadO
         .traverse { cursorHead =>
           val ts = cursorHead.timestamp
-          val snapshotF = state.activeContractStore
+          val snapshotF = activeContractStore
             .snapshot(ts)
             .map(_.map { case (id, (timestamp, transferCounter)) =>
               id -> (timestamp, transferCounter)
@@ -83,13 +82,13 @@ private[inspection] object AcsInspection {
     } yield snapshot
 
   // fetch acs, checking that the requested timestamp is clean
-  private def getSnapshotAt(domainId: DomainId, state: SyncDomainPersistentState)(
+  private def getSnapshotAt(domainId: DomainId)(
       timestamp: CantonTimestamp,
       skipCleanTimestampCheck: Boolean,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, AcsSnapshot[
+  ): EitherT[Future, AcsInspectionError, AcsSnapshot[
     SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]
   ]] =
     for {
@@ -97,15 +96,15 @@ private[inspection] object AcsInspection {
         if (!skipCleanTimestampCheck)
           TimestampValidation.beforePrehead(
             domainId,
-            state.requestJournalStore.preheadClean,
+            requestJournalStore.preheadClean,
             timestamp,
           )
-        else EitherT.pure[Future, Error](())
-      snapshot <- EitherT.right(state.activeContractStore.snapshot(timestamp))
+        else EitherT.pure[Future, AcsInspectionError](())
+      snapshot <- EitherT.right(activeContractStore.snapshot(timestamp))
       // check after getting the snapshot in case a pruning was happening concurrently
       _ <- TimestampValidation.afterPruning(
         domainId,
-        state.activeContractStore.pruningStatus,
+        activeContractStore.pruningStatus,
         timestamp,
       )
     } yield AcsSnapshot(snapshot, timestamp)
@@ -113,26 +112,25 @@ private[inspection] object AcsInspection {
   // sort acs for easier comparison
   private def getAcsSnapshot(
       domainId: DomainId,
-      state: SyncDomainPersistentState,
       timestamp: Option[CantonTimestamp],
       skipCleanTimestampCheck: Boolean,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Option[
+  ): EitherT[Future, AcsInspectionError, Option[
     AcsSnapshot[Iterator[Seq[(LfContractId, TransferCounter)]]]
   ]] = {
 
     type MaybeSnapshot =
       Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]
 
-    val maybeSnapshotET: EitherT[Future, Error, MaybeSnapshot] = timestamp match {
+    val maybeSnapshotET: EitherT[Future, AcsInspectionError, MaybeSnapshot] = timestamp match {
       case Some(timestamp) =>
-        getSnapshotAt(domainId, state)(timestamp, skipCleanTimestampCheck = skipCleanTimestampCheck)
+        getSnapshotAt(domainId)(timestamp, skipCleanTimestampCheck = skipCleanTimestampCheck)
           .map(Some(_))
 
       case None =>
-        EitherT.right[Error](getCurrentSnapshot(state))
+        EitherT.right[AcsInspectionError](getCurrentSnapshot())
     }
 
     maybeSnapshotET.map(
@@ -143,39 +141,13 @@ private[inspection] object AcsInspection {
           }
           .toSeq
           .grouped(
-            AcsInspection.BatchSize.value
+            BatchSize.value
           ) // TODO(#14818): Batching should be done by the caller not here))
 
         AcsSnapshot(groupedSnapshot, ts)
       }
     )
   }
-
-  def forEachVisibleActiveContract(
-      domainId: DomainId,
-      state: SyncDomainPersistentState,
-      parties: Set[LfPartyId],
-      timestamp: Option[CantonTimestamp],
-      skipCleanTimestampCheck: Boolean = false,
-  )(f: (SerializableContract, TransferCounter) => Either[Error, Unit])(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[Future, Error, Option[(Set[LfPartyId], CantonTimestamp)]] =
-    for {
-      acsSnapshotO <- getAcsSnapshot(
-        domainId,
-        state,
-        timestamp,
-        skipCleanTimestampCheck = skipCleanTimestampCheck,
-      )
-      allStakeholdersAndTs <- acsSnapshotO.traverse { acsSnapshot =>
-        MonadUtil
-          .sequentialTraverseMonoid(acsSnapshot.snapshot)(
-            forEachBatch(domainId, state, parties, f)
-          )
-          .map((_, acsSnapshot.ts))
-      }
-    } yield allStakeholdersAndTs
 
   /** Check that the ACS snapshot does not contain contracts that are still needed on the participant.
     * In the context of party offboarding, we want to avoid purging contracts
@@ -188,16 +160,15 @@ private[inspection] object AcsInspection {
       snapshotTs: CantonTimestamp,
       topologyClient: DomainTopologyClient,
   )(implicit
-      executionContext: ExecutionContext,
+      ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[Future, AcsInspectionError, Unit] =
     for {
-      topologySnapshot <- EitherT.right[String](
+      topologySnapshot <- EitherT.right[AcsInspectionError](
         topologyClient.awaitSnapshot(snapshotTs)
       )
-
       hostedStakeholders <-
-        EitherT.right[String](
+        EitherT.right[AcsInspectionError](
           topologySnapshot
             .hostedOn(allStakeholders, participantId)
             .map(_.keysIterator.toSeq)
@@ -208,10 +179,37 @@ private[inspection] object AcsInspection {
       _ <- EitherT.cond[Future](
         remainingHostedStakeholders.isEmpty,
         (),
-        s"Cannot take snapshot to offboard parties ${offboardedParties.toSeq} at $snapshotTs, because the following parties have contracts: ${remainingHostedStakeholders
-            .mkString(", ")}",
+        AcsInspectionError.OffboardingParty(
+          topologyClient.domainId,
+          s"Cannot take snapshot to offboard parties ${offboardedParties.toSeq} at $snapshotTs, because the following parties have contracts: ${remainingHostedStakeholders
+              .mkString(", ")}",
+        ): AcsInspectionError,
       )
     } yield ()
+
+  def forEachVisibleActiveContract(
+      domainId: DomainId,
+      parties: Set[LfPartyId],
+      timestamp: Option[CantonTimestamp],
+      skipCleanTimestampCheck: Boolean = false,
+  )(f: (SerializableContract, TransferCounter) => Either[AcsInspectionError, Unit])(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): EitherT[Future, AcsInspectionError, Option[(Set[LfPartyId], CantonTimestamp)]] =
+    for {
+      acsSnapshotO <- getAcsSnapshot(
+        domainId,
+        timestamp,
+        skipCleanTimestampCheck = skipCleanTimestampCheck,
+      )
+      allStakeholdersAndTs <- acsSnapshotO.traverse { acsSnapshot =>
+        MonadUtil
+          .sequentialTraverseMonoid(acsSnapshot.snapshot)(
+            forEachBatch(domainId, parties, f)
+          )
+          .map((_, acsSnapshot.ts))
+      }
+    } yield allStakeholdersAndTs
 
   /** Applies function f to all the contracts in the batch whose set of stakeholders has
     * non-empty intersection with `parties`
@@ -219,21 +217,22 @@ private[inspection] object AcsInspection {
     */
   private def forEachBatch(
       domainId: DomainId,
-      state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
-      f: (SerializableContract, TransferCounter) => Either[Error, Unit],
+      f: (SerializableContract, TransferCounter) => Either[AcsInspectionError, Unit],
   )(batch: Seq[(LfContractId, TransferCounter)])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Set[LfPartyId]] = {
+  ): EitherT[Future, AcsInspectionError, Set[LfPartyId]] = {
     val (cids, transferCounters) = batch.unzip
 
     val allStakeholders: mutable.Set[LfPartyId] = mutable.Set()
 
     for {
-      batch <- state.contractStore
+      batch <- contractStore
         .lookupManyExistingUncached(cids)
-        .leftMap(missingContract => Error.InconsistentSnapshot(domainId, missingContract))
+        .leftMap(missingContract =>
+          AcsInspectionError.InconsistentSnapshot(domainId, missingContract)
+        )
 
       contractsWithTransferCounter = batch.zip(transferCounters)
 
@@ -250,4 +249,76 @@ private[inspection] object AcsInspection {
       allStakeholders <- EitherT.fromEither[Future](stakeholdersE)
     } yield allStakeholders
   }
+}
+
+object AcsInspection {
+
+  private val BatchSize = PositiveInt.tryCreate(1000)
+
+  final case class AcsSnapshot[S](snapshot: S, ts: CantonTimestamp) // timestamp of the snapshot
+
+  object TimestampValidation {
+
+    private def validate[A, F[_]: Foldable](
+        ffa: Future[F[A]]
+    )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
+        ec: ExecutionContext
+    ): EitherT[Future, AcsInspectionError, Unit] =
+      EitherT(ffa.map(_.traverse_(a => EitherUtil.condUnitE(p(a), fail(a)))))
+
+    def beforePrehead(
+        domainId: DomainId,
+        cursorPrehead: Future[Option[RequestCounterCursorPrehead]],
+        timestamp: CantonTimestamp,
+    )(implicit ec: ExecutionContext): EitherT[Future, AcsInspectionError, Unit] =
+      validate(cursorPrehead)(timestamp < _.timestamp)(cp =>
+        AcsInspectionError.TimestampAfterPrehead(domainId, timestamp, cp.timestamp)
+      )
+
+    def afterPruning(
+        domainId: DomainId,
+        pruningStatus: Future[Option[PruningStatus]],
+        timestamp: CantonTimestamp,
+    )(implicit
+        ec: ExecutionContext
+    ): EitherT[Future, AcsInspectionError, Unit] =
+      validate(pruningStatus)(timestamp >= _.timestamp)(ps =>
+        AcsInspectionError.TimestampBeforePruning(domainId, timestamp, ps.timestamp)
+      )
+
+  }
+}
+
+sealed abstract class AcsInspectionError extends Product with Serializable with HasDomainId {}
+
+object AcsInspectionError {
+  final case class TimestampAfterPrehead(
+      override val domainId: DomainId,
+      requestedTimestamp: CantonTimestamp,
+      cleanTimestamp: CantonTimestamp,
+  ) extends AcsInspectionError
+
+  final case class TimestampBeforePruning(
+      override val domainId: DomainId,
+      requestedTimestamp: CantonTimestamp,
+      prunedTimestamp: CantonTimestamp,
+  ) extends AcsInspectionError
+
+  final case class InconsistentSnapshot(
+      override val domainId: DomainId,
+      missingContract: LfContractId,
+  ) extends AcsInspectionError
+
+  final case class InvariantIssue(
+      override val domainId: DomainId,
+      contract: LfContractId,
+      errorMessage: String,
+  ) extends AcsInspectionError
+
+  final case class OffboardingParty(domainId: DomainId, error: String) extends AcsInspectionError
+  final case class SerializationIssue(
+      override val domainId: DomainId,
+      contract: LfContractId,
+      errorMessage: String,
+  ) extends AcsInspectionError
 }

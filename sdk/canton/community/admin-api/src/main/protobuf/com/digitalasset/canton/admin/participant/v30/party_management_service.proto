@@ -17,8 +17,7 @@ service PartyManagementService {
 
 message StartPartyReplicationRequest {
   // A identifier used to uniquely track party replication activity
-  // Optional
-  string id = 1;
+  optional string id = 1;
   // The party to replicate
   // Required
   string party_uid = 2;

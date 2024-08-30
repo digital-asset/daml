@@ -36,6 +36,8 @@ private[transfer] object TransferKnownAndVetted {
         targetDomain.unwrap,
         targetTopology,
         stakeholders.view.map(_ -> Set(packageId)).toMap,
+        // The reference time of the target topology is the time proof on the target domain
+        targetTopology.referenceTime,
       )
       .leftMap(unknownPackage =>
         TransferOutProcessorError.PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)

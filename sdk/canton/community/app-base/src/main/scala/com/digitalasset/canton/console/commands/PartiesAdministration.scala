@@ -295,7 +295,6 @@ class ParticipantPartiesAdministrationGroup(
     // determine the next serial
     val nextSerial = reference.topology.party_to_participant_mappings
       .list_from_authorized(filterParty = partyId.filterString)
-      .filter(_.item.domainId.isEmpty)
       .maxByOption(_.context.serial)
       .map(_.context.serial.increment)
 
@@ -304,7 +303,6 @@ class ParticipantPartiesAdministrationGroup(
         TopologyAdminCommands.Write.Propose(
           mapping = PartyToParticipant.create(
             partyId,
-            None,
             threshold,
             participants.map(pid =>
               HostingParticipant(
@@ -326,12 +324,12 @@ class ParticipantPartiesAdministrationGroup(
   }
 
   @Help.Summary("Disable party on participant")
-  // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
-  def disable(name: String /*, force: Boolean = false*/ ): Unit =
+  def disable(name: String, force: ForceFlags = ForceFlags.none): Unit =
     reference.topology.party_to_participant_mappings
       .propose_delta(
         PartyId(reference.id.member.uid.tryChangeId(name)),
         removes = List(this.participantId),
+        force = force,
       )
       .discard
 
@@ -372,7 +370,7 @@ class ParticipantPartiesAdministrationGroup(
       party: PartyId,
       sourceParticipant: ParticipantId,
       domain: DomainId,
-      id: String = "",
+      id: Option[String] = None,
   ): Unit = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
       reference.adminCommand(

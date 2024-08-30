@@ -36,5 +36,5 @@ message TrafficState {
   // Timestamp at which the state is valid
   int64 timestamp = 5;
   // Optional serial of the balance update that updated the extra traffic limit
-  google.protobuf.UInt32Value serial = 6;
+  optional uint32 serial = 6;
 }

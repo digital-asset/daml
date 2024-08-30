@@ -439,6 +439,7 @@ create table par_outstanding_acs_commitments (
     -- UTC timestamp in microseconds relative to EPOCH
     to_inclusive bigint not null,
     counter_participant varchar not null,
+    matching_state smallint not null,
     constraint check_nonempty_interval_outstanding check(to_inclusive > from_exclusive)
 );
 

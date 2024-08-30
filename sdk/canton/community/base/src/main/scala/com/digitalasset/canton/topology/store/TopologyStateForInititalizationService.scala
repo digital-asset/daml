@@ -84,7 +84,7 @@ final class StoreBasedTopologyStateForInitializationService(
         }
         .getOrElse(
           domainTopologyStore
-            .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false)
+            .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
             .flatMap { maxTimestamp =>
               Future.failed(
                 Status.FAILED_PRECONDITION

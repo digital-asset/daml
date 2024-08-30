@@ -5,7 +5,7 @@ package com.digitalasset.canton.config
 
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.*
-import com.digitalasset.canton.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
+import com.digitalasset.canton.auth.{AccessLevel, AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
@@ -33,6 +33,7 @@ object AuthServiceConfig {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean = false,
+      accessLevel: AccessLevel = AccessLevel.Wildcard,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]): JwtVerifier =
       HMAC256Verifier(secret.unwrap, jwtTimestampLeeway).valueOr(err =>
@@ -49,6 +50,7 @@ object AuthServiceConfig {
         targetAudience,
         targetScope,
         privileged,
+        accessLevel,
         loggerFactory,
       )
 
@@ -60,6 +62,7 @@ object AuthServiceConfig {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean = false,
+      accessLevel: AccessLevel = AccessLevel.Wildcard,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
@@ -73,6 +76,7 @@ object AuthServiceConfig {
         targetAudience,
         targetScope,
         privileged,
+        accessLevel,
         loggerFactory,
       )
 
@@ -84,6 +88,7 @@ object AuthServiceConfig {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean = false,
+      accessLevel: AccessLevel = AccessLevel.Wildcard,
   ) extends AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
@@ -100,6 +105,7 @@ object AuthServiceConfig {
         targetAudience,
         targetScope,
         privileged,
+        accessLevel,
         loggerFactory,
       )
 
@@ -111,6 +117,7 @@ object AuthServiceConfig {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean = false,
+      accessLevel: AccessLevel = AccessLevel.Wildcard,
   ) extends AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
@@ -127,6 +134,7 @@ object AuthServiceConfig {
         targetAudience,
         targetScope,
         privileged,
+        accessLevel,
         loggerFactory,
       )
 
@@ -138,6 +146,7 @@ object AuthServiceConfig {
       targetAudience: Option[String],
       targetScope: Option[String],
       privileged: Boolean = false,
+      accessLevel: AccessLevel = AccessLevel.Wildcard,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) =
       JwksVerifier(url.unwrap, jwtTimestampLeeway)
@@ -150,9 +159,9 @@ object AuthServiceConfig {
         targetAudience,
         targetScope,
         privileged,
+        accessLevel,
         loggerFactory,
       )
-
   }
 
 }

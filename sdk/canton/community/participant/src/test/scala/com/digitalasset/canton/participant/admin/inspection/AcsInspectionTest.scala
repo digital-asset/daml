@@ -11,6 +11,8 @@ import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.store.{
+  AcsInspection,
+  AcsInspectionError,
   ActiveContractStore,
   ContractStore,
   RequestJournalStore,
@@ -111,7 +113,10 @@ final class AcsInspectionTest
       "return an error if the inconsistency is visible in the final result" in {
         for (contracts <- readAllVisibleActiveContracts(inconsistent, Set(party("b"))))
           yield {
-            contracts.left.value shouldBe Error.InconsistentSnapshot(FakeDomainId, contract('2'))
+            contracts.left.value shouldBe AcsInspectionError.InconsistentSnapshot(
+              FakeDomainId,
+              contract('2'),
+            )
           }
       }
     }
@@ -190,10 +195,12 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
       .thenAnswer(Future.successful(Option(AcsInspectionTest.MaxCursorPrehead)))
 
     val state = mock[SyncDomainPersistentState]
+    val acsInspection = new AcsInspection(rjs, acs, cs)
 
     when(state.contractStore).thenAnswer(cs)
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
+    when(state.acsInspection).thenAnswer(acsInspection)
 
     state
   }
@@ -201,13 +208,14 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
   private def readAllVisibleActiveContracts(
       state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
-  )(implicit ec: ExecutionContext): Future[Either[Error, Vector[SerializableContract]]] =
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Either[AcsInspectionError, Vector[SerializableContract]]] =
     TraceContext.withNewTraceContext { implicit tc =>
       val builder = Vector.newBuilder[SerializableContract]
-      AcsInspection
+      state.acsInspection
         .forEachVisibleActiveContract(
           FakeDomainId,
-          state,
           parties,
           timestamp = None,
         ) { case (contract, _) =>

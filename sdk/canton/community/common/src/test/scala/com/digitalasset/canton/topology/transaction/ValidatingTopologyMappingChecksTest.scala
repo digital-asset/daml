@@ -7,18 +7,14 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransaction,
-  StoredTopologyTransactions,
-  TopologyStore,
-  TopologyTransactionRejection,
-}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
@@ -27,9 +23,11 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
+import com.digitalasset.canton.topology.transaction.TopologyMappingChecks.PendingChangesLookup
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time
 import scala.annotation.nowarn
 import scala.language.implicitConversions
 
@@ -68,8 +66,12 @@ class ValidatingTopologyMappingChecksTest
         checks: TopologyMappingChecks,
         toValidate: GenericSignedTopologyTransaction,
         inStore: Option[GenericSignedTopologyTransaction] = None,
+        pendingChangesLookup: PendingChangesLookup = Map.empty,
     ): Either[TopologyTransactionRejection, Unit] =
-      checks.checkTransaction(EffectiveTime.MaxValue, toValidate, inStore).value.futureValue
+      checks
+        .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChangesLookup)
+        .value
+        .futureValue
 
     implicit def toHostingParticipant(
         participantToPermission: (ParticipantId, ParticipantPermission)
@@ -118,6 +120,143 @@ class ValidatingTopologyMappingChecksTest
             ns1k2.mapping,
           )
         )
+      }
+
+      "respect pending changes when loading additional data for validations" in {
+        import factory.SigningKeys.{key1, key2, key3}
+        val (checks, store) = mk()
+        val ns1 = Namespace(key1.fingerprint)
+        val ns2 = Namespace(key2.fingerprint)
+        val ns3 = Namespace(key3.fingerprint)
+
+        val nsd1Replace_1 =
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true))
+        val nsd1Remove_2 = factory.mkRemove(
+          NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true),
+          serial = PositiveInt.two,
+        )
+        val nsd1ReplaceProposal_3 = factory.mkAdd(
+          NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true),
+          serial = PositiveInt.three,
+          isProposal = true,
+        )
+
+        val nsd2Replace_1 =
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns2, key2, isRootDelegation = true))
+        val nsd2Remove_2 = factory.mkRemove(
+          NamespaceDelegation.tryCreate(ns2, key2, isRootDelegation = true),
+          serial = PositiveInt.two,
+        )
+
+        val nsd3Replace_1 =
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns3, key3, isRootDelegation = true))
+
+        store
+          .update(
+            SequencedTime(ts),
+            EffectiveTime(ts),
+            removeMapping = Map.empty,
+            removeTxs = Set.empty,
+            additions = Seq(nsd1Replace_1, nsd2Replace_1).map(ValidatedTopologyTransaction(_)),
+          )
+          .futureValue
+
+        store
+          .update(
+            SequencedTime(ts + seconds(1)),
+            EffectiveTime(ts + seconds(1)),
+            removeMapping = Map(nsd1Remove_2.mapping.uniqueKey -> nsd1Remove_2.serial),
+            removeTxs = Set.empty,
+            additions = Seq(ValidatedTopologyTransaction(nsd1Remove_2)),
+          )
+          .futureValue
+
+        store
+          .update(
+            SequencedTime(ts + seconds(2)),
+            EffectiveTime(ts + seconds(2)),
+            removeMapping = Map.empty,
+            removeTxs = Set.empty,
+            additions = Seq(ValidatedTopologyTransaction(nsd1ReplaceProposal_3)),
+          )
+          .futureValue
+
+        /*
+         * The store contains the following transactions:
+         * TS0: Replace NSD1, Replace NSD2
+         * TS1: Remove NSD1
+         * TS2: Replace Proposal NSD1
+         */
+
+        // TS0: load without pending changes
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor),
+            codes = Set(Code.NamespaceDelegation),
+            pendingChangesLookup = Map.empty,
+          )
+          .futureValue should contain theSameElementsAs Seq(nsd1Replace_1, nsd2Replace_1)
+
+        // TS0: load with Removal NS2 as pending change
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor),
+            codes = Set(Code.NamespaceDelegation),
+            Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
+          )
+          .futureValue shouldBe Seq(nsd1Replace_1)
+
+        // TS0: load with Replace NS3 as pending change without prior transactions in the store
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor),
+            codes = Set(Code.NamespaceDelegation),
+            pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
+          )
+          .futureValue should contain theSameElementsAs Seq(
+          nsd1Replace_1,
+          nsd2Replace_1,
+          nsd3Replace_1,
+        )
+
+        // TS0: load with Replace NS3 as pending change without prior transactions in the store and also matching a
+        // namespace filter
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor),
+            codes = Set(Code.NamespaceDelegation),
+            pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
+            filterNamespace = Some(Seq(ns2, ns3)),
+          )
+          .futureValue should contain theSameElementsAs Seq(nsd2Replace_1, nsd3Replace_1)
+
+        // TS1: don't load Remove NS1 from the store
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor + seconds(1)),
+            codes = Set(Code.NamespaceDelegation),
+            Map.empty,
+          )
+          .futureValue shouldBe Seq(nsd2Replace_1)
+
+        // TS1: don't load Remove NS1 from the store mixed with Remove NS2 as pending change
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor + seconds(1)),
+            codes = Set(Code.NamespaceDelegation),
+            Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
+          )
+          .futureValue shouldBe Seq.empty
+
+        // TS2: don't load proposals
+        checks
+          .loadFromStore(
+            EffectiveTime(ts.immediateSuccessor + seconds(2)),
+            codes = Set(Code.NamespaceDelegation),
+            Map.empty,
+          )
+          .futureValue shouldBe Seq(nsd2Replace_1)
+
       }
     }
 
@@ -244,7 +383,6 @@ class ValidatingTopologyMappingChecksTest
           val ptp = factory.mkAdd(
             PartyToParticipant.tryCreate(
               party1,
-              None,
               PositiveInt.one,
               participants.map[HostingParticipant](_ -> Submission),
               groupAddressing = false,
@@ -259,10 +397,10 @@ class ValidatingTopologyMappingChecksTest
       "reject when participants don't have a valid encryption or signing key" in {
         val (checks, store) = mk()
         val p2MissingEncKey = factory.mkAdd(
-          OwnerToKeyMapping(participant2, None, NonEmpty(Seq, factory.SigningKeys.key1))
+          OwnerToKeyMapping(participant2, NonEmpty(Seq, factory.SigningKeys.key1))
         )
         val p3MissingSigningKey = factory.mkAdd(
-          OwnerToKeyMapping(participant3, None, NonEmpty(Seq, factory.EncryptionKeys.key1))
+          OwnerToKeyMapping(participant3, NonEmpty(Seq, factory.EncryptionKeys.key1))
         )
 
         addToStore(store, p1_dtc, p2_dtc, p3_dtc, p2MissingEncKey, p3MissingSigningKey)
@@ -273,7 +411,6 @@ class ValidatingTopologyMappingChecksTest
           val ptp = factory.mkAdd(
             PartyToParticipant.tryCreate(
               party1,
-              None,
               PositiveInt.one,
               Seq(participant -> Submission),
               groupAddressing = false,
@@ -296,7 +433,6 @@ class ValidatingTopologyMappingChecksTest
           PartyToParticipant
             .create(
               partyId = partyId,
-              domainId = None,
               threshold = PositiveInt.one,
               participants = participants,
               groupAddressing = groupdAddressing,
@@ -364,7 +500,6 @@ class ValidatingTopologyMappingChecksTest
           val ptp = factory.mkAdd(
             PartyToParticipant.tryCreate(
               party1,
-              None,
               threshold,
               participants,
               groupAddressing = false,
@@ -382,7 +517,6 @@ class ValidatingTopologyMappingChecksTest
         val ptp = factory.mkAdd(
           PartyToParticipant.tryCreate(
             party1,
-            None,
             PositiveInt.one,
             Seq(participant1 -> Submission),
             groupAddressing = false,
@@ -407,7 +541,6 @@ class ValidatingTopologyMappingChecksTest
           PartyToParticipant
             .create(
               partyId = participant1.adminParty,
-              domainId = None,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
               groupAddressing = false,
@@ -421,7 +554,6 @@ class ValidatingTopologyMappingChecksTest
           PartyToParticipant
             .create(
               partyId = participant2.adminParty,
-              domainId = None,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
               groupAddressing = false,
@@ -565,46 +697,6 @@ class ValidatingTopologyMappingChecksTest
         checkTransaction(checks, mds2, Some(mds1)) shouldBe Right(())
       }
 
-      "report MissingMappings for mediators with partial or missing identity transactions" in {
-        val (checks, store) = mk()
-        val (Seq(med1, med2, med3, med4), transactions) = generateMemberIdentities(4, MediatorId(_))
-
-        val incompleteIdentities = transactions.filter { transaction =>
-          (transaction.mapping.code, transaction.mapping.namespace) match {
-            case (Code.OwnerToKeyMapping, namespace) =>
-              Set(med1, med3).map(_.namespace).contains(namespace)
-            case (Code.NamespaceDelegation, namespace) =>
-              Set(med1, med2).map(_.namespace).contains(namespace)
-            case otherwise => fail(s"unexpected mapping: $otherwise")
-          }
-        }
-        addToStore(store, incompleteIdentities*)
-
-        val mds1 = factory.mkAdd(
-          MediatorDomainState
-            .create(
-              domainId,
-              NonNegativeInt.zero,
-              PositiveInt.one,
-              active = Seq(med1, med2, med3, med4),
-              Seq.empty,
-            )
-            .value,
-          // the signing key is not relevant for the test
-          factory.SigningKeys.key1,
-        )
-
-        checkTransaction(checks, mds1, None) shouldBe Left(
-          TopologyTransactionRejection.MissingMappings(
-            Map(
-              med2 -> Seq(Code.OwnerToKeyMapping),
-              med3 -> Seq(Code.NamespaceDelegation),
-              med4 -> Seq(Code.NamespaceDelegation, Code.OwnerToKeyMapping),
-            )
-          )
-        )
-      }
-
       "report MediatorsAlreadyAssignedToGroups for duplicate mediator assignments" in {
         val (checks, store) = mk()
         val (Seq(med1, med2, med3), transactions) = generateMemberIdentities(3, MediatorId(_))
@@ -690,47 +782,6 @@ class ValidatingTopologyMappingChecksTest
         checkTransaction(checks, sds1) shouldBe Right(())
         checkTransaction(checks, sds2, Some(sds1)) shouldBe Right(())
       }
-
-      "report MissingMappings for sequencers with partial or missing identity transactions" in {
-        val (checks, store) = mk()
-        val (Seq(seq1, seq2, seq3, seq4), transactions) =
-          generateMemberIdentities(4, SequencerId(_))
-
-        val incompleteIdentities = transactions.filter { transaction =>
-          (transaction.mapping.code, transaction.mapping.namespace) match {
-            case (Code.OwnerToKeyMapping, namespace) =>
-              Set(seq1, seq3).map(_.namespace).contains(namespace)
-            case (Code.NamespaceDelegation, namespace) =>
-              Set(seq1, seq2).map(_.namespace).contains(namespace)
-            case otherwise => fail(s"unexpected mapping: $otherwise")
-          }
-        }
-        addToStore(store, incompleteIdentities*)
-
-        val sds1 = factory.mkAdd(
-          SequencerDomainState
-            .create(
-              domainId,
-              PositiveInt.one,
-              active = Seq(seq1, seq2, seq3, seq4),
-              Seq.empty,
-            )
-            .value,
-          // the signing key is not relevant for the test
-          factory.SigningKeys.key1,
-        )
-
-        checkTransaction(checks, sds1, None) shouldBe Left(
-          TopologyTransactionRejection.MissingMappings(
-            Map(
-              seq2 -> Seq(Code.OwnerToKeyMapping),
-              seq3 -> Seq(Code.NamespaceDelegation),
-              seq4 -> Seq(Code.NamespaceDelegation, Code.OwnerToKeyMapping),
-            )
-          )
-        )
-      }
-
       "report sequencers defined both as active and observers" in {
         val (Seq(seq1, seq2), _transactions) = generateMemberIdentities(2, SequencerId(_))
 
@@ -744,23 +795,23 @@ class ValidatingTopologyMappingChecksTest
           s"the following sequencers were defined both as active and observer: $seq1"
         )
       }
+
     }
 
     "validating OwnerToKeyMapping" should {
       "report no errors for valid mappings" in {
         val (checks, _) = mk()
         val okm_sequencer = factory.mkAddMultiKey(
-          OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, factory.SigningKeys.key1)),
+          OwnerToKeyMapping(sequencerId, NonEmpty(Seq, factory.SigningKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
         val okm_mediator = factory.mkAddMultiKey(
-          OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, factory.SigningKeys.key1)),
+          OwnerToKeyMapping(mediatorId, NonEmpty(Seq, factory.SigningKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
         val okm_participant = factory.mkAddMultiKey(
           OwnerToKeyMapping(
             participant1,
-            None,
             NonEmpty(Seq, factory.EncryptionKeys.key1, factory.SigningKeys.key1),
           ),
           NonEmpty(Set, factory.SigningKeys.key1),
@@ -773,19 +824,19 @@ class ValidatingTopologyMappingChecksTest
       "reject minimum key violations" in {
         val (checks, _) = mk()
         val okm_sequencerNoSigningKey = factory.mkAddMultiKey(
-          OwnerToKeyMapping(sequencerId, None, NonEmpty(Seq, factory.EncryptionKeys.key1)),
+          OwnerToKeyMapping(sequencerId, NonEmpty(Seq, factory.EncryptionKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
         val okm_mediatorNoSigningKey = factory.mkAddMultiKey(
-          OwnerToKeyMapping(mediatorId, None, NonEmpty(Seq, factory.EncryptionKeys.key1)),
+          OwnerToKeyMapping(mediatorId, NonEmpty(Seq, factory.EncryptionKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
         val okm_participantNoSigningKey = factory.mkAddMultiKey(
-          OwnerToKeyMapping(participant1, None, NonEmpty(Seq, factory.EncryptionKeys.key1)),
+          OwnerToKeyMapping(participant1, NonEmpty(Seq, factory.EncryptionKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
         val okm_participantNoEncryptionKey = factory.mkAddMultiKey(
-          OwnerToKeyMapping(participant1, None, NonEmpty(Seq, factory.SigningKeys.key1)),
+          OwnerToKeyMapping(participant1, NonEmpty(Seq, factory.SigningKeys.key1)),
           NonEmpty(Set, factory.SigningKeys.key1),
         )
 
@@ -810,7 +861,6 @@ class ValidatingTopologyMappingChecksTest
         factory.mkAdd(
           PartyToParticipant.tryCreate(
             party,
-            None,
             PositiveInt.one,
             Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
             groupAddressing = false,
@@ -823,7 +873,7 @@ class ValidatingTopologyMappingChecksTest
 
         val authorityOf =
           factory.mkAdd(
-            AuthorityOf.create(party1, None, PositiveInt.two, Seq(party2, party3)).value
+            AuthorityOf.create(party1, PositiveInt.two, Seq(party2, party3)).value
           )
         checkTransaction(checks, authorityOf) shouldBe Right(())
       }
@@ -833,26 +883,26 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, p1_ptp)
 
         val missingAuthorizingParty =
-          factory.mkAdd(AuthorityOf.create(party2, None, PositiveInt.one, Seq(party1)).value)
+          factory.mkAdd(AuthorityOf.create(party2, PositiveInt.one, Seq(party1)).value)
         checkTransaction(checks, missingAuthorizingParty) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2))
         )
 
         val missingAuthorizedParty =
-          factory.mkAdd(AuthorityOf.create(party1, None, PositiveInt.one, Seq(party2)).value)
+          factory.mkAdd(AuthorityOf.create(party1, PositiveInt.one, Seq(party2)).value)
         checkTransaction(checks, missingAuthorizedParty) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2))
         )
 
         val missingAllParties =
-          factory.mkAdd(AuthorityOf.create(party2, None, PositiveInt.one, Seq(party3)).value)
+          factory.mkAdd(AuthorityOf.create(party2, PositiveInt.one, Seq(party3)).value)
         checkTransaction(checks, missingAllParties) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
         )
 
         val missingMixedParties =
           factory.mkAdd(
-            AuthorityOf.create(party2, None, PositiveInt.one, Seq(party1, party3)).value
+            AuthorityOf.create(party2, PositiveInt.one, Seq(party1, party3)).value
           )
         checkTransaction(checks, missingMixedParties) shouldBe Left(
           TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
@@ -878,7 +928,7 @@ class ValidatingTopologyMappingChecksTest
           NamespaceDelegation.tryCreate(member.namespace, key, isRootDelegation = true),
           key,
         ),
-        factory.mkAdd(OwnerToKeyMapping(member, None, NonEmpty(Seq, key)), key),
+        factory.mkAdd(OwnerToKeyMapping(member, NonEmpty(Seq, key)), key),
       )
     }.unzip
 
@@ -919,5 +969,7 @@ class ValidatingTopologyMappingChecksTest
     val keysNE = NonEmpty.from(keys).value.toSet
     (keysNE, namespaces, rootCerts)
   }
+
+  private def seconds(s: Int) = PositiveSeconds.tryCreate(time.Duration.ofSeconds(s.toLong))
 
 }

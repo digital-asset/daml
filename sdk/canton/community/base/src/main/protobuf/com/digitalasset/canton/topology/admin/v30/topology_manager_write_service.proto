@@ -98,7 +98,7 @@ message AuthorizeRequest {
    *
    * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
    * which is used to justify the given authorization.
-   * Optional, if empty, the signing key be auto-determined.
+   * Optional, if empty, suitable signing keys available known to the node are automatically selected.
    */
   repeated string signed_by = 5;
 
@@ -158,9 +158,12 @@ message SignTransactionsRequest {
    *
    * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
    * which is used to justify the given authorization.
-   * Optional, if empty, the signing key be auto-determined.
+   * Optional, if empty, suitable signing keys available known to the node are automatically selected.
    */
   repeated string signed_by = 2;
+
+  // Target store
+  string store = 3;
 }
 
 message SignTransactionsResponse {
@@ -180,4 +183,6 @@ enum ForceFlag {
   FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
   /** Required when vetting a package with unvetted dependencies */
   FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES = 5;
+  /** Required when disabling a party with active contracts */
+  FORCE_FLAG_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS = 6;
 }

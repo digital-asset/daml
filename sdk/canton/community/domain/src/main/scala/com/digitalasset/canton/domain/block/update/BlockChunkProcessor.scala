@@ -513,7 +513,7 @@ private[update] final class BlockChunkProcessor(
             metrics.block.blockEvents
               .mark()(
                 MetricsContext(
-                  "sender" -> request.content.member.toString,
+                  "member" -> request.content.member.toString,
                   "type" -> "ack",
                 )
               )

@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.config
 
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tls.TlsVersion
+import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
@@ -56,6 +58,10 @@ trait ServerConfig extends Product with Serializable {
     */
   def authServices: Seq[AuthServiceConfig]
 
+  /** Leeway parameters for the jwt processing algorithms used in the authorization services
+    */
+  def jwtTimestampLeeway: Option[JwtTimestampLeeway]
+
   /** If defined, the admin-token based authoriztion will be supported when accessing this node through the given `address` and `port`.
     */
   def adminToken: Option[String]
@@ -87,6 +93,8 @@ trait ServerConfig extends Product with Serializable {
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
+      jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      telemetry: Telemetry,
   ): CantonServerInterceptors
 
 }
@@ -99,6 +107,8 @@ trait CommunityServerConfig extends ServerConfig {
       grpcMetrics: GrpcServerMetrics,
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
+      jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      telemetry: Telemetry,
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
@@ -106,6 +116,8 @@ trait CommunityServerConfig extends ServerConfig {
     grpcMetrics,
     authServices,
     adminToken,
+    jwtTimestampLeeway,
+    telemetry,
   )
 }
 
@@ -141,6 +153,7 @@ final case class CommunityAdminServerConfig(
     override val address: String = defaultAddress,
     internalPort: Option[Port] = None,
     tls: Option[TlsServerConfig] = None,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     authServices: Seq[AuthServiceConfig] = Seq.empty,

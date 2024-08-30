@@ -95,7 +95,7 @@ message GetActiveContractsResponse {
 
 message ActiveContract {
   // Required
-  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
+  CreatedEvent created_event = 1;
 
   // A valid domain ID
   // Required
@@ -112,7 +112,7 @@ message ActiveContract {
 
 message IncompleteUnassigned {
   // Required
-  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
+  CreatedEvent created_event = 1;
 
   // Required
   UnassignedEvent unassigned_event = 2;
@@ -128,6 +128,12 @@ message GetConnectedDomainsRequest {
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
+
+  // The id of a participant whose mapping of a party to connected domains is requested.
+  // Must be a valid participant-id retrieved through a prior call to getParticipantId.
+  // Defaults to the participant id of the host participant.
+  // Optional
+  string participant_id = 2;
 }
 
 message GetConnectedDomainsResponse {

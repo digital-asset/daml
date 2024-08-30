@@ -18,10 +18,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.PartyNotificationConfig
 import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
-import com.digitalasset.canton.participant.topology.{
-  LedgerServerPartyNotifier,
-  ParticipantTopologyManagerOps,
-}
+import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
@@ -39,7 +36,7 @@ import scala.util.chaining.*
 private[sync] class PartyAllocation(
     participantId: ParticipantId,
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
-    topologyManagerOps: ParticipantTopologyManagerOps,
+    partyOps: PartyOps,
     partyNotifier: LedgerServerPartyNotifier,
     parameters: ParticipantNodeParameters,
     isActive: () => Boolean,
@@ -113,8 +110,8 @@ private[sync] class PartyAllocation(
             reject(err, SubmissionResult.Acknowledged)
           }
           .toEitherT[Future]
-        _ <- topologyManagerOps
-          .allocateParty(validatedSubmissionId, partyId, participantId, protocolVersion)
+        _ <- partyOps
+          .allocateParty(partyId, participantId, protocolVersion)
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(
@@ -141,7 +138,7 @@ private[sync] class PartyAllocation(
             connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
               syncDomain.topologyClient
                 .await(
-                  _.inspectKnownParties(partyId.filterString, participantId.filterString, 1)
+                  _.inspectKnownParties(partyId.filterString, participantId.filterString)
                     .map(_.nonEmpty),
                   timeouts.network.duration,
                 )

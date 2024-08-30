@@ -28,6 +28,9 @@ object ForceFlag {
   case object AllowUnvettedDependencies
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES)
 
+  case object DisablePartyWithActiveContracts
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS)
+
   /** This should only be used internally in situations where
     * <ul>
     *   <li>the caller knows what they are doing</li>
@@ -42,6 +45,7 @@ object ForceFlag {
       AllowUnvetPackage,
       AllowUnknownPackage,
       AllowUnvettedDependencies,
+      DisablePartyWithActiveContracts,
     )
       .map(ff => ff.toProtoV30 -> ff)
       .toMap

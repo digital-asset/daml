@@ -83,7 +83,7 @@ class AuthenticationTokenManager(
       new PromiseUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]](
         "refreshToken",
         FutureSupervisor.Noop,
-      )(ecl = ErrorLoggingContext.fromTracedLogger(logger), ec = executionContext)
+      )(ecl = ErrorLoggingContext.fromTracedLogger(logger))
     val refreshingState = Refreshing(EitherT(refreshTokenPromise.futureUS))
 
     state.getAndUpdate {

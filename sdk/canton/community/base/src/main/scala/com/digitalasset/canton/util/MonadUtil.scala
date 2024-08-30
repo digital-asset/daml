@@ -63,12 +63,12 @@ object MonadUtil {
         repeatFlatmap(next, f, counter - 1)
     }
 
-  /** Monadic version of cats.Applicative.whenA.
+  /** Monadic version of cats.Applicative.unlessA.
     *
-    * The effect `trueM` is only executed if `condM` evaluates to false within the effect `M`.
+    * The effect `falseM` is only executed if `condM` evaluates to false within the effect `M`.
     */
-  def unlessM[M[_], A](condM: M[Boolean])(trueM: => M[A])(implicit monad: Monad[M]): M[Unit] =
-    monad.ifM(condM)(monad.unit, monad.void(trueM))
+  def unlessM[M[_], A](condM: M[Boolean])(falseM: => M[A])(implicit monad: Monad[M]): M[Unit] =
+    monad.ifM(condM)(monad.unit, monad.void(falseM))
 
   def sequentialTraverse[X, M[_], S](
       xs: Seq[X]

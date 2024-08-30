@@ -49,7 +49,6 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
       override def inspectKnownParties(
           filterParty: String,
           filterParticipant: String,
-          limit: Int,
       )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
         ???
 

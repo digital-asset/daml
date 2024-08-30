@@ -77,11 +77,7 @@ message SetTrafficPurchasedRequest {
   int64 total_traffic_purchased = 3; // Amount of traffic to purchase
 }
 
-message SetTrafficPurchasedResponse {
-  // Max sequencing timestamp used to send the request. If the new purchased traffic is not visible after this timestamp,
-  // the caller should retry it.
-  google.protobuf.Timestamp max_sequencing_timestamp = 1;
-}
+message SetTrafficPurchasedResponse {}
 
 message SnapshotRequest {
   google.protobuf.Timestamp timestamp = 1;

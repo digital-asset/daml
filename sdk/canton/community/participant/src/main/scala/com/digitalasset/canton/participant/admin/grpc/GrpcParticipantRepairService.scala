@@ -14,10 +14,10 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.ValidExportAcsRequest
-import com.digitalasset.canton.participant.admin.inspection
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds, RepairServiceError}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
+import com.digitalasset.canton.participant.store.AcsInspectionError
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
@@ -127,37 +127,37 @@ final class GrpcParticipantRepairService(
   private val domainMigrationInProgress = new AtomicReference[Boolean](false)
 
   private def toRepairServiceError(
-      error: inspection.Error
+      error: AcsInspectionError
   )(implicit tc: TraceContext): RepairServiceError =
     error match {
-      case inspection.Error.TimestampAfterPrehead(domainId, requested, clean) =>
+      case AcsInspectionError.TimestampAfterPrehead(domainId, requested, clean) =>
         RepairServiceError.InvalidAcsSnapshotTimestamp.Error(
           requested,
           clean,
           domainId,
         )
-      case inspection.Error.TimestampBeforePruning(domainId, requested, pruned) =>
+      case AcsInspectionError.TimestampBeforePruning(domainId, requested, pruned) =>
         RepairServiceError.UnavailableAcsSnapshot.Error(
           requested,
           pruned,
           domainId,
         )
-      case inspection.Error.InconsistentSnapshot(domainId, missingContract) =>
+      case AcsInspectionError.InconsistentSnapshot(domainId, missingContract) =>
         logger.warn(
           s"Inconsistent ACS snapshot for domain $domainId. Contract $missingContract (and possibly others) is missing."
         )
         RepairServiceError.InconsistentAcsSnapshot.Error(domainId)
-      case inspection.Error.SerializationIssue(domainId, contractId, errorMessage) =>
+      case AcsInspectionError.SerializationIssue(domainId, contractId, errorMessage) =>
         logger.error(
           s"Contract $contractId for domain $domainId cannot be serialized due to: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
-      case inspection.Error.InvariantIssue(domainId, contractId, errorMessage) =>
+      case AcsInspectionError.InvariantIssue(domainId, contractId, errorMessage) =>
         logger.error(
           s"Contract $contractId for domain $domainId cannot be serialized due to an invariant violation: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
-      case inspection.Error.OffboardingParty(domainId, error) =>
+      case AcsInspectionError.OffboardingParty(domainId, error) =>
         RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
     }
 

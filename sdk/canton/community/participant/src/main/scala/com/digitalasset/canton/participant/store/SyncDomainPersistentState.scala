@@ -47,6 +47,8 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def topologyStore: TopologyStore[DomainStore]
   def topologyManager: DomainTopologyManager
   def domainOutboxQueue: DomainOutboxQueue
+  def acsInspection: AcsInspection =
+    new AcsInspection(requestJournalStore, activeContractStore, contractStore)
 }
 
 object SyncDomainPersistentState {

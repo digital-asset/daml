@@ -66,6 +66,8 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
     } else false
   }
 
+  override def isEmpty: Boolean = elems.isEmpty
+
   override def alreadyInserted(key: Counter[Discr]): Boolean =
     if (key >= frontV) {
       elems.contains(key)
@@ -151,4 +153,5 @@ class SynchronizedPeanoTreeQueue[Discr, V](initHead: Counter[Discr])
 
   override def poll(): Option[(Counter[Discr], V)] = blocking(queue synchronized queue.poll())
 
+  override def isEmpty: Boolean = blocking(queue synchronized (queue.isEmpty))
 }

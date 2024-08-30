@@ -34,15 +34,14 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.google.protobuf.ByteString
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 import java.nio.file.Paths
 import java.util.zip.ZipInputStream
 import scala.concurrent.ExecutionContext
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
@@ -165,7 +164,9 @@ class PackageUploader(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          if (pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage) {
+          if (
+            pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage
+          ) {
             packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
           }
         }
@@ -180,7 +181,8 @@ class PackageUploader(
         DarDescriptor(hash, persistedDarName),
         darPayload.toByteArray,
       )
-    validatePackages(packages.map(_._2)).semiflatMap { _ =>
+    validatePackages(packages.map(_._2))
+      .semiflatMap { _ =>
         val result = persist(darDescriptor, uploadTime, packages)
         handleUploadResult(result, submissionId)
       }

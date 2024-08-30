@@ -1,0 +1,79 @@
+module ExternalDep where
+
+data SomeEnum = One | Two
+  deriving (Eq, Show)
+data SomeParamRecord a = SomeParamRecord with foo: a
+  deriving (Eq, Show)
+data SomeVariant = SomeVariant Int | SomeEnum
+  deriving (Eq, Show)
+
+data MyList t = Nil | MyCons with { head: t, tail: MyList t }
+  deriving (Eq, Show)
+
+data AnotherRecord = AnotherRecord with someText: Text
+  deriving (Eq, Show)
+
+data MyInterfaceViewType =
+  MyInterfaceViewType { name : Text, value : Int }
+
+interface MyInterface where
+  viewtype MyInterfaceViewType
+
+  method1 : Party
+  method2 : Int
+  method3 : Bool -> Int -> Int -> Int
+
+  choice MyChoice : (ContractId MyInterface, Int)
+    with
+      argument1 : Bool
+      argument2 : Int
+    controller method1 this
+    do
+      let n0 = method2 this
+      let n1 = method3 this argument1 argument2 n0
+      pure (self, n1)
+
+  nonconsuming choice MyNonConsumingChoice : Int
+    controller method1 this
+    do
+      pure $ method2 this
+
+template TemplateFoo
+  with
+    someParty: Party
+    someRecordField: SomeVariant
+    someRecordTyped: SomeParamRecord SomeVariant
+    someOptionalRecField: Optional (MyList Text)
+  where
+    signatory someParty
+    key someParty : Party
+    maintainer key
+
+    nonconsuming choice TemplateFoo_NoArgs_RetUnit : ()
+      controller someParty
+      do return ()
+
+    choice SourceTemplate_Args_RetRecord: AnotherRecord
+      with
+        choiceArg: SomeParamRecord Time
+      controller someParty
+      do return AnotherRecord with someText = "foo"
+
+template TemplateBar
+  with
+    anotherParty: Party
+    firstTemplateRef: ContractId TemplateFoo
+    someRecordForKey: SomeParamRecord Int
+  where
+    signatory anotherParty
+    key (anotherParty, someRecordForKey) : (Party, SomeParamRecord Int)
+    maintainer key._1
+
+    interface instance MyInterface for TemplateBar where
+      view = MyInterfaceViewType "TemplateBar" 100
+      method1 = anotherParty
+      method2 = 1337
+      method3 False _ _ = 0
+      method3 True x y
+        | x > 0 = x + y
+        | otherwise = y

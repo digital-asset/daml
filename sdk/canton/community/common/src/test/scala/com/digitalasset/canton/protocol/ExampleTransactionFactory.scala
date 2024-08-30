@@ -20,12 +20,12 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
   Submission,
 }
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, VettedPackage}
 import com.digitalasset.canton.topology.{
   DomainId,
   ParticipantId,
@@ -371,7 +371,7 @@ object ExampleTransactionFactory {
       packages =
         Seq(submittingParticipant, signatoryParticipant, observerParticipant, extraParticipant)
           .map(
-            _ -> Seq(ExampleTransactionFactory.packageId, upgradePackageId)
+            _ -> VettedPackage.unbounded(Seq(ExampleTransactionFactory.packageId, upgradePackageId))
           )
           .toMap,
     )

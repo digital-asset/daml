@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.topology.ParticipantPackageVettingValidation
+import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbSequencedEventStore, DbSequencerCounterTrackerStore}
@@ -27,6 +27,7 @@ import com.digitalasset.canton.topology.{
   DomainTopologyManager,
   ForceFlags,
   ParticipantId,
+  PartyId,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -167,20 +168,33 @@ class DbSyncDomainPersistentState(
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
     loggerFactory = loggerFactory,
-  ) with ParticipantPackageVettingValidation {
+  ) with ParticipantTopologyValidation {
 
-    override def validatePackages(
+    override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-      checkPackageDependencies(
+      validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
         forceFlags,
+      )
+
+    override def checkCannotDisablePartyWithActiveContracts(
+        partyId: PartyId,
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkCannotDisablePartyWithActiveContracts(
+        partyId,
+        forceFlags,
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
       )
   }
 

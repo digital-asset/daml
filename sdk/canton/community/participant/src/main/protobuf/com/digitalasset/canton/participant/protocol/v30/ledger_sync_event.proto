@@ -7,7 +7,6 @@ package com.digitalasset.canton.participant.protocol.v30;
 
 import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
 import "com/digitalasset/canton/protocol/v30/participant_transfer.proto";
-import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 // LedgerSyncEvent is a canton type alias for the daml-on-x com.daml.ledger.participant.state.v2.Update
@@ -67,7 +66,7 @@ message CompletionInfo {
 
 message TransactionMeta {
   int64 ledger_time = 1; // in microseconds of UTC time since Unix epoch
-  google.protobuf.StringValue workflow_id = 2;
+  optional string workflow_id = 2;
   int64 submission_time = 3; // in microseconds of UTC time since Unix epoch
   bytes submission_seed = 4;
   repeated string used_packages = 5;
@@ -125,7 +124,7 @@ message TransferredOut {
   repeated string contract_stakeholders = 6;
   string source_domain = 7;
   string target_domain = 8;
-  google.protobuf.Int64Value transfer_in_exclusivity = 9; // in microseconds of UTC time since Unix epoch
+  optional int64 transfer_in_exclusivity = 9; // in microseconds of UTC time since Unix epoch
   string workflow_id = 10; // optional
   string template_id = 11; // optional
   bool is_transferring_participant = 12;

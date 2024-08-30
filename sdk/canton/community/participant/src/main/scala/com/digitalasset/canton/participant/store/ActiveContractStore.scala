@@ -525,7 +525,7 @@ object ActiveContractStore {
   }
 
   /** Error cases returned by the operations on the [[ActiveContractStore!]] */
-  trait AcsError extends AcsBaseError
+  sealed trait AcsError extends AcsBaseError
 
   final case class UnableToFindIndex(id: DomainId) extends AcsError
 

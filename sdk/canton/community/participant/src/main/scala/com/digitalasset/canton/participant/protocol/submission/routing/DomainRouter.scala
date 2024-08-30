@@ -133,6 +133,7 @@ class DomainRouter(
       transactionData <- TransactionData.create(
         submitterInfo,
         transaction,
+        metadata.ledgerTime,
         snapshotProvider,
         contractsStakeholders,
         inputDisclosedContracts.map(_.contractId),

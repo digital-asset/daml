@@ -146,7 +146,7 @@ class CantonSyncService(
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     private[canton] val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     private[canton] val packageService: Eval[PackageService],
-    topologyManagerOps: ParticipantTopologyManagerOps,
+    partyOps: PartyOps,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
     val syncCrypto: SyncCryptoApiProvider,
@@ -213,7 +213,7 @@ class CantonSyncService(
   private val partyAllocation = new PartyAllocation(
     participantId,
     participantNodeEphemeralState,
-    topologyManagerOps,
+    partyOps,
     partyNotifier,
     parameters,
     isActive,
@@ -235,12 +235,8 @@ class CantonSyncService(
             connectedDomainsLookup.snapshot.toSeq.parTraverse { case (domainId, syncDomain) =>
               syncDomain.topologyClient
                 .await(
-                  _.findUnvettedPackagesOrDependencies(participantId, packages)
-                    .bimap(
-                      _missingPackage => false,
-                      unvettedPackages => unvettedPackages.isEmpty,
-                    )
-                    .merge
+                  _.determinePackagesWithNoVettingEntry(participantId, packages)
+                    .map(_.isEmpty)
                     .onShutdown(false),
                   timeouts.network.duration,
                 )
@@ -1806,7 +1802,7 @@ class CantonSyncService(
             topology <- getSnapshot(domainAlias, domainId)
             partyWithAttributes <- topology.hostedOn(
               Set(request.party),
-              participantId = participantId,
+              participantId = request.participantId.getOrElse(participantId),
             )
           } yield partyWithAttributes
             .get(request.party)
@@ -1913,7 +1909,7 @@ object CantonSyncService {
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
         packageService: Eval[PackageService],
-        topologyManagerOps: ParticipantTopologyManagerOps,
+        partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
         syncCrypto: SyncCryptoApiProvider,
@@ -1944,7 +1940,7 @@ object CantonSyncService {
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
         packageService: Eval[PackageService],
-        topologyManagerOps: ParticipantTopologyManagerOps,
+        partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
         syncCrypto: SyncCryptoApiProvider,
@@ -1976,7 +1972,7 @@ object CantonSyncService {
         participantNodeEphemeralState,
         syncDomainPersistentStateManager,
         packageService,
-        topologyManagerOps,
+        partyOps,
         identityPusher,
         partyNotifier,
         syncCrypto,

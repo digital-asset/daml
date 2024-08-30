@@ -174,7 +174,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     ): EitherT[
       FutureUnlessShutdown,
       TrafficControlErrors.TrafficControlError,
-      CantonTimestamp,
+      Unit,
     ] = ???
 
     override def getTrafficStateAt(member: Member, timestamp: CantonTimestamp)(implicit

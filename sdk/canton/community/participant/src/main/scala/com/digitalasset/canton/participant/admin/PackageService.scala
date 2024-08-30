@@ -34,6 +34,7 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
   PackageMetadataView,
 }
+import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.time.Clock
@@ -129,7 +130,7 @@ class PackageService(
 
       val checkNotVetted =
         packageOps
-          .isPackageVetted(packageId)
+          .hasVettedPackageEntry(packageId)
           .flatMap[CantonError, Unit] {
             case true => EitherT.leftT(new PackageVetted(packageId))
             case false => EitherT.rightT(())
@@ -281,7 +282,7 @@ class PackageService(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     packageOps
-      .isPackageVetted(mainPkg)
+      .hasVettedPackageEntry(mainPkg)
       .flatMap { isVetted =>
         if (!isVetted)
           EitherT.pure[FutureUnlessShutdown, CantonError](

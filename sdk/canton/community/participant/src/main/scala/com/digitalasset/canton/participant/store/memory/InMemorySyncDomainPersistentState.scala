@@ -13,7 +13,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.topology.ParticipantPackageVettingValidation
+import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.memory.{
   InMemorySendTrackerStore,
@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.{
   DomainTopologyManager,
   ForceFlags,
   ParticipantId,
+  PartyId,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -61,7 +62,8 @@ class InMemorySyncDomainPersistentState(
   val transferStore = new InMemoryTransferStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-  val acsCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+  val acsCommitmentStore =
+    new InMemoryAcsCommitmentStore(loggerFactory)
   val parameterStore = new InMemoryDomainParameterStore()
   val sequencerCounterTrackerStore =
     new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
@@ -87,20 +89,32 @@ class InMemorySyncDomainPersistentState(
     timeouts,
     futureSupervisor,
     loggerFactory,
-  ) with ParticipantPackageVettingValidation {
+  ) with ParticipantTopologyValidation {
 
-    override def validatePackages(
+    override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-      checkPackageDependencies(
+      validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
         forceFlags,
+      )
+    override def checkCannotDisablePartyWithActiveContracts(
+        partyId: PartyId,
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkCannotDisablePartyWithActiveContracts(
+        partyId,
+        forceFlags,
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
       )
   }
 

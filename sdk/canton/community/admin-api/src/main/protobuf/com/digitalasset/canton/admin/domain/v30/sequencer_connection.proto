@@ -21,7 +21,7 @@ message SequencerConnection {
     repeated string connections = 1;
     // Should the connection use TLS?
     bool transportSecurity = 2;
-    google.protobuf.BytesValue customTrustCertificates = 3;
+    optional bytes customTrustCertificates = 3;
   }
 }
 

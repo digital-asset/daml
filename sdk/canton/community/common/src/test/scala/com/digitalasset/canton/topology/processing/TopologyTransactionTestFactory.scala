@@ -57,24 +57,24 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
 
   val okm1ak5k1E_k2 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key2, key5),
     )
   val okm1bk5k1E_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key1, key5),
     )
   val okm1bk5k1E_k4 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, None, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key4, key5),
     )
 
   val sequencer1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", ns1))
   val okmS1k7_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(sequencer1, None, NonEmpty(Seq, key7)),
+      OwnerToKeyMapping(sequencer1, NonEmpty(Seq, key7)),
       NonEmpty(Set, key1, key7),
     )
   val sdmS1_k1 =
@@ -101,7 +101,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       PartyToParticipant.tryCreate(
         party1b,
-        None,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
         groupAddressing = false,
@@ -112,7 +111,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       PartyToParticipant.tryCreate(
         party1b,
-        None,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
@@ -124,7 +122,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAddMultiKey(
       PartyToParticipant.tryCreate(
         party1b,
-        None,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
@@ -136,7 +133,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAddMultiKey(
       PartyToParticipant.tryCreate(
         party1b,
-        None,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
@@ -148,7 +144,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       PartyToParticipant.tryCreate(
         party1b,
-        Some(domainId1),
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,

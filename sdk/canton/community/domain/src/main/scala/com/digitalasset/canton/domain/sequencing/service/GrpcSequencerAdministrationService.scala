@@ -246,33 +246,28 @@ class GrpcSequencerAdministrationService(
     */
   override def setTrafficPurchased(
       requestP: SetTrafficPurchasedRequest
-  ): Future[
-    SetTrafficPurchasedResponse
-  ] = {
+  ): Future[SetTrafficPurchasedResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val result =
-      for {
-        member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
-        serial <- wrapErrUS(ProtoConverter.parsePositiveInt("serial", requestP.serial))
-        totalTrafficPurchased <- wrapErrUS(
-          ProtoConverter.parseNonNegativeLong(
-            "total_traffic_purchased",
-            requestP.totalTrafficPurchased,
-          )
+    val result = for {
+      member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
+      serial <- wrapErrUS(ProtoConverter.parsePositiveInt("serial", requestP.serial))
+      totalTrafficPurchased <- wrapErrUS(
+        ProtoConverter.parseNonNegativeLong(
+          "total_traffic_purchased",
+          requestP.totalTrafficPurchased,
         )
-        highestMaxSequencingTimestamp <- sequencer
-          .setTrafficPurchased(
-            member,
-            serial,
-            totalTrafficPurchased,
-            sequencerClient,
-            domainTimeTracker,
-          )
-          .leftWiden[CantonError]
-      } yield SetTrafficPurchasedResponse(
-        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoTimestamp)
       )
+      _ <- sequencer
+        .setTrafficPurchased(
+          member,
+          serial,
+          totalTrafficPurchased,
+          sequencerClient,
+          domainTimeTracker,
+        )
+        .leftWiden[CantonError]
+    } yield SetTrafficPurchasedResponse()
 
     mapErrNewEUS(result)
   }

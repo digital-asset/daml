@@ -163,7 +163,7 @@ trait Sequencer
       domainTimeTracker: DomainTimeTracker,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp]
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit]
 
   /** Return the traffic state of a member at a given timestamp.
     */

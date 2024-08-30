@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.admin
+package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
@@ -15,21 +15,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageVettingSynchronization
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  AuthorizedTopologyManager,
-  ForceFlag,
-  ForceFlags,
-  ParticipantId,
-  UniqueIdentifier,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, SimpleExecutionQueue}
@@ -40,7 +33,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 trait PackageOps extends NamedLogging {
-  def isPackageVetted(packageId: PackageId)(implicit
+  def hasVettedPackageEntry(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Boolean]
 
@@ -104,8 +97,10 @@ class PackageOpsImpl(
         )
       }
 
-  /** @return true if the authorized snapshot, or any domain snapshot has the package vetted */
-  override def isPackageVetted(
+  /** @return true if the authorized snapshot, or any domain snapshot has a package vetting entry for the package
+    *         regardless of the validity period of the package.
+    */
+  override def hasVettedPackageEntry(
       packageId: PackageId
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Boolean] = {
     // Use the aliasManager to query all domains, even those that are currently disconnected
@@ -115,14 +110,14 @@ class PackageOpsImpl(
         .flatMap(_.map(_.createHeadTopologySnapshot()))
         .toList
 
-    val packageIsVettedOn = (headAuthorizedTopologySnapshot :: snapshotsForDomains)
+    val packageHasVettingEntry = (headAuthorizedTopologySnapshot :: snapshotsForDomains)
       .parTraverse { snapshot =>
         snapshot
-          .findUnvettedPackagesOrDependencies(participantId, Set(packageId))
+          .determinePackagesWithNoVettingEntry(participantId, Set(packageId))
           .map(_.isEmpty)
       }
 
-    packageIsVettedOn.bimap(PackageMissingDependencies.Reject(packageId, _), _.contains(true))
+    EitherT.right(packageHasVettingEntry.map(_.contains(true)))
   }
 
   override def vetPackages(
@@ -137,9 +132,9 @@ class PackageOpsImpl(
         for {
           newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
             // Keep deterministic order for testing and keep optimal O(n)
-            val existingPackagesSet = existingPackages.toSet
+            val existingPackagesSet = existingPackages.map(_.packageId).toSet
             packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
-            existingPackages ++ packagesToBeAdded.get
+            existingPackages ++ VettedPackage.unbounded(packagesToBeAdded.get)
           }
           // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
           _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
@@ -160,7 +155,9 @@ class PackageOpsImpl(
       {
         val packagesToUnvet = packages.toSet
 
-        modifyVettedPackages(_.filterNot(packagesToUnvet)).leftWiden[CantonError].void
+        modifyVettedPackages(_.filterNot(vp => packagesToUnvet(vp.packageId)))
+          .leftWiden[CantonError]
+          .void
       },
       "revoke vetting",
     )
@@ -169,7 +166,7 @@ class PackageOpsImpl(
     * modifyVettedPackages should not be called concurrently
     */
   private def modifyVettedPackages(
-      action: Seq[LfPackageId] => Seq[LfPackageId]
+      action: Seq[VettedPackage] => Seq[VettedPackage]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
@@ -194,20 +191,28 @@ class PackageOpsImpl(
         )
       )
       currentPackages = currentMapping
-        .map(_.mapping.packageIds)
+        .map(_.mapping.packages)
         .getOrElse(Seq.empty)
       nextSerial = currentMapping.map(_.serial.increment)
       newVettedPackagesState = action(currentPackages)
+      mapping <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          VettedPackages.create(
+            participantId = participantId,
+            newVettedPackagesState,
+          )
+        )
+        .leftMap(err =>
+          ParticipantTopologyManagerError.IdentityManagerParentError(
+            TopologyManagerError.InvalidTopologyMapping.Reject(err)
+          )
+        )
       _ <- EitherTUtil.ifThenET(newVettedPackagesState != currentPackages) {
         performUnlessClosingEitherUSF(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               op = TopologyChangeOp.Replace,
-              mapping = VettedPackages(
-                participantId = participantId,
-                domainId = None,
-                newVettedPackagesState,
-              ),
+              mapping = mapping,
               serial = nextSerial,
               // TODO(#12390) auto-determine signing keys
               signingKeys = Seq(participantId.fingerprint),

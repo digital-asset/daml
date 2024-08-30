@@ -19,17 +19,17 @@ class DomainJsonEncoder(
   import com.digitalasset.canton.http.util.ErrorOps.*
 
   def encodeExerciseCommand(
-      cmd: domain.ExerciseCommand.OptionalPkg[lav2.value.Value, domain.ContractLocator[
+      cmd: domain.ExerciseCommand.RequiredPkg[lav2.value.Value, domain.ContractLocator[
         lav2.value.Value
       ]]
   )(implicit
-      ev: JsonWriter[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]]
+      ev: JsonWriter[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.bitraverse(
         arg => apiValueToJsValue(arg),
         ref => ref.traverse(a => apiValueToJsValue(a)),
-      ): JsonError \/ domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+      ): JsonError \/ domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
 
       y <- SprayJson.encode(x).liftErr(JsonError)
 

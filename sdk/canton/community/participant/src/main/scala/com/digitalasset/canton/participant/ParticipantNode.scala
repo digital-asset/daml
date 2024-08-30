@@ -8,14 +8,11 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.CantonRequireTypes
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
@@ -27,6 +24,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoApiProvider,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
@@ -36,17 +34,14 @@ import com.digitalasset.canton.networking.grpc.{
   CantonMutableHandlerRegistry,
   StaticGrpcServices,
 }
+import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
-import com.digitalasset.canton.participant.admin.{PackageDependencyResolver, *}
 import com.digitalasset.canton.participant.config.*
+import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
-import com.digitalasset.canton.participant.domain.{DomainAliasManager, DomainAliasResolution}
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.{
-  IndexerLockIds,
-  LedgerApiServerState,
-}
+import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.{
   StartableStoppableLedgerApiDependentServices,
   StartableStoppableLedgerApiServer,
@@ -64,13 +59,13 @@ import com.digitalasset.canton.participant.scheduler.{
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.*
-import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantPackageVettingValidation,
+  PackageOps,
+  PackageOpsImpl,
   ParticipantTopologyDispatcher,
-  ParticipantTopologyManagerError,
-  ParticipantTopologyManagerOps,
+  ParticipantTopologyValidation,
+  PartyOps,
 }
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
@@ -80,25 +75,14 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.topology.TopologyManagerError.{
-  InconsistentTopologySnapshot,
-  InvalidTopologyMapping,
-}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
   IdentityProvidingServiceClient,
-  StoreBasedDomainTopologyClient,
   StoreBasedTopologySnapshot,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.transaction.{
-  HostingParticipant,
-  ParticipantPermission,
-  PartyToParticipant,
-  TopologyChangeOp,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.{
@@ -157,6 +141,7 @@ class ParticipantNodeBootstrap(
     packageDependencyResolver.getOrElse(
       sys.error("packageDependencyResolver should be defined")
     )
+
   override protected def sequencedTopologyStores: Seq[TopologyStore[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
       case s: SyncDomainPersistentState => s.topologyStore
@@ -213,7 +198,15 @@ class ParticipantNodeBootstrap(
       arguments.parameterConfig.processingTimeouts,
       loggerFactory,
     )
+
     val _ = packageDependencyResolver.putIfAbsent(resolver)
+
+    def acsInspectionPerDomain(): Map[DomainId, AcsInspection] =
+      cantonSyncService.get
+        .map(_.syncDomainPersistentStateManager.getAll.map { case (domainId, state) =>
+          domainId -> state.acsInspection
+        })
+        .getOrElse(Map.empty)
 
     val topologyManager = new AuthorizedTopologyManager(
       nodeId,
@@ -224,21 +217,35 @@ class ParticipantNodeBootstrap(
       bootstrapStageCallback.timeouts,
       futureSupervisor,
       bootstrapStageCallback.loggerFactory,
-    ) with ParticipantPackageVettingValidation {
+    ) with ParticipantTopologyValidation {
 
-      override def validatePackages(
+      override def validatePackageVetting(
           currentlyVettedPackages: Set[LfPackageId],
           nextPackageIds: Set[LfPackageId],
           forceFlags: ForceFlags,
       )(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-        checkPackageDependencies(
+        validatePackageVetting(
           currentlyVettedPackages,
           nextPackageIds,
           resolver,
+          acsInspections = () => acsInspectionPerDomain(),
           forceFlags,
         )
+
+      override def checkCannotDisablePartyWithActiveContracts(
+          partyId: PartyId,
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkCannotDisablePartyWithActiveContracts(
+          partyId,
+          forceFlags,
+          () => acsInspectionPerDomain(),
+        )
+
     }
     topologyManager
   }
@@ -260,38 +267,49 @@ class ParticipantNodeBootstrap(
     override def getAdminToken: Option[String] = Some(adminToken.secret)
     private val participantId = ParticipantId(nodeId)
 
-    private def createSyncDomainAndTopologyDispatcher(
-        aliasResolution: DomainAliasResolution,
-        indexedStringStore: IndexedStringStore,
-    ): (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher) = {
-      val manager = new SyncDomainPersistentStateManager(
+    override protected def attempt()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNode]]] = {
+
+      val partyOps = new PartyOps(topologyManager, loggerFactory)
+      createParticipantServices(
         participantId,
-        aliasResolution,
-        storage,
-        indexedStringStore,
-        parameters,
         crypto,
-        clock,
+        adminServerRegistry,
+        storage,
+        persistentStateFactory,
+        packageServiceFactory,
+        engine,
+        partyOps,
+        topologyManager,
         tryGetPackageDependencyResolver(),
-        futureSupervisor,
-        loggerFactory,
-      )
-
-      val topologyDispatcher =
-        new ParticipantTopologyDispatcher(
-          topologyManager,
+      ).map { case (sync, topologyDispatcher) =>
+        if (cantonSyncService.putIfAbsent(sync).nonEmpty) {
+          sys.error("should not happen")
+        }
+        val node = new ParticipantNode(
           participantId,
-          manager,
-          config.topology,
-          crypto,
-          clock,
+          arguments.metrics,
           config,
-          parameterConfig.processingTimeouts,
-          futureSupervisor,
+          parameters,
+          storage,
+          clock,
+          crypto.pureCrypto,
+          topologyDispatcher,
+          ips,
+          sync,
+          adminToken,
+          recordSequencerInteractions,
+          replaySequencerConfig,
           loggerFactory,
+          healthService.dependencies.map(_.toComponentStatus),
         )
-
-      (manager, topologyDispatcher)
+        addCloseable(node)
+        Some(new RunningNode(bootstrapStageCallback, node))
+      }.map { node =>
+        setInitialized()
+        node
+      }
     }
 
     private def createPackageOps(
@@ -300,7 +318,7 @@ class ParticipantNodeBootstrap(
       val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
         CantonTimestamp.MaxValue,
         topologyManager.store,
-        StoreBasedDomainTopologyClient.NoPackageDependencies,
+        tryGetPackageDependencyResolver(),
         loggerFactory,
       )
       val packageOps = new PackageOpsImpl(
@@ -320,134 +338,186 @@ class ParticipantNodeBootstrap(
       packageOps
     }
 
-    private val participantOps = new ParticipantTopologyManagerOps {
-      override def allocateParty(
-          validatedSubmissionId: CantonRequireTypes.String255,
-          partyId: PartyId,
-          participantId: ParticipantId,
-          protocolVersion: ProtocolVersion,
-      )(implicit
-          traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = for {
-        storedTransactions <- EitherT
+    private def createParticipantServices(
+        participantId: ParticipantId,
+        crypto: Crypto,
+        adminServerRegistry: CantonMutableHandlerRegistry,
+        storage: Storage,
+        persistentStateFactory: ParticipantNodePersistentStateFactory,
+        packageServiceFactory: PackageServiceFactory,
+        engine: Engine,
+        partyOps: PartyOps,
+        authorizedTopologyManager: AuthorizedTopologyManager,
+        packageDependencyResolver: PackageDependencyResolver,
+    )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
+      FutureUnlessShutdown,
+      String,
+      (
+          CantonSyncService,
+          ParticipantTopologyDispatcher,
+      ),
+    ] = {
+
+      val syncCrypto = new SyncCryptoApiProvider(
+        participantId,
+        ips,
+        crypto,
+        config.parameters.caching,
+        timeouts,
+        futureSupervisor,
+        loggerFactory,
+      )
+      // closed in DomainAliasManager
+      val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
+      val indexedStringStore = IndexedStringStore.create(
+        storage,
+        parameterConfig.cachingConfigs.indexedStrings,
+        timeouts,
+        loggerFactory,
+      )
+
+      for {
+        domainConnectionConfigStore <- EitherT
           .right(
-            topologyManager.store.findPositiveTransactions(
-              asOf = CantonTimestamp.MaxValue,
-              asOfInclusive = false,
-              isProposal = false,
-              types = Seq(PartyToParticipant.code),
-              filterUid = Some(Seq(partyId.uid)),
-              filterNamespace = None,
+            DomainConnectionConfigStore.create(
+              storage,
+              ReleaseProtocolVersion.latest,
+              timeouts,
+              loggerFactory,
             )
           )
           .mapK(FutureUnlessShutdown.outcomeK)
 
-        uniqueByKey = storedTransactions
-          .collectOfMapping[PartyToParticipant]
-          .collectLatestByUniqueKey
-        updateResult <- uniqueByKey.result match {
-          case Seq() =>
-            // no positive (i.e. REPLACE) transaction could mean:
-            // 1. this party has never existed before
-            // 2. this party has been created and deactivated (i.e. REMOVE)
-            EitherT
-              .fromEither[FutureUnlessShutdown](
-                PartyToParticipant
-                  .create(
-                    partyId,
-                    None,
-                    threshold = PositiveInt.one,
-                    participants =
-                      Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
-                    groupAddressing = false,
-                  )
-              )
-              .bimap(
-                err =>
-                  ParticipantTopologyManagerError.IdentityManagerParentError(
-                    InvalidTopologyMapping.Reject(err)
-                  ),
-                // leaving serial to None, because in case of a REMOVE we let the serial
-                // auto detection mechanism figure out the correct next serial
-                ptp => (None, ptp),
-              )
+        domainAliasManager <- EitherT
+          .right[String](
+            DomainAliasManager
+              .create(domainConnectionConfigStore, registeredDomainsStore, loggerFactory)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
 
-          case Seq(existingPtpTx) =>
-            EitherT
-              .fromEither[FutureUnlessShutdown](
-                PartyToParticipant.create(
-                  existingPtpTx.mapping.partyId,
-                  existingPtpTx.mapping.domainId,
-                  existingPtpTx.mapping.threshold,
-                  existingPtpTx.mapping.participants
-                    .filterNot(_.participantId == participantId) :+ HostingParticipant(
-                    participantId,
-                    ParticipantPermission.Submission,
-                  ),
-                  existingPtpTx.mapping.groupAddressing,
-                )
-              )
-              .bimap(
-                err =>
-                  ParticipantTopologyManagerError.IdentityManagerParentError(
-                    InvalidTopologyMapping.Reject(err)
-                  ),
-                // leaving serial to None, because in case of a REMOVE we let the serial
-                // auto detection mechanism figure out the correct next serial
-                ptp => (Some(existingPtpTx.serial.increment), ptp),
-              )
-
-          case multiple =>
-            EitherT.leftT[FutureUnlessShutdown, (Option[PositiveInt], PartyToParticipant)](
-              ParticipantTopologyManagerError.IdentityManagerParentError(
-                InconsistentTopologySnapshot
-                  .MultipleEffectiveMappingsPerUniqueKey(
-                    multiple.groupBy(_.mapping.uniqueKey)
-                  )
-              )
-            )
-        }
-
-        (nextSerial, updatedPTP) = updateResult
-
-        _ <- performUnlessClosingEitherUSF(functionFullName)(
-          topologyManager
-            .proposeAndAuthorize(
-              TopologyChangeOp.Replace,
-              updatedPTP,
-              serial = nextSerial,
-              // TODO(#12390) auto-determine signing keys
-              signingKeys = Seq(partyId.uid.namespace.fingerprint),
-              protocolVersion,
-              expectFullAuthorization = true,
-            )
-        )
-          .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
-          .map(_ => ())
-      } yield ()
-
-    }
-
-    override protected def attempt()(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNode]]] = {
-      val indexedStringStore =
-        IndexedStringStore.create(
+        syncDomainPersistentStateManager = new SyncDomainPersistentStateManager(
+          participantId,
+          domainAliasManager,
           storage,
-          parameterConfig.cachingConfigs.indexedStrings,
+          indexedStringStore,
+          parameters,
+          crypto,
+          clock,
+          tryGetPackageDependencyResolver(),
+          futureSupervisor,
+          loggerFactory,
+        )
+
+        topologyDispatcher = new ParticipantTopologyDispatcher(
+          authorizedTopologyManager,
+          participantId,
+          syncDomainPersistentStateManager,
+          config.topology,
+          crypto,
+          clock,
+          config,
+          parameterConfig.processingTimeouts,
+          futureSupervisor,
+          loggerFactory,
+        )
+
+        persistentState <- EitherT.right(
+          persistentStateFactory.create(
+            syncDomainPersistentStateManager,
+            storage,
+            config.storage,
+            exitOnFatalFailures = parameters.exitOnFatalFailures,
+            clock,
+            config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
+            parameterConfig.batchingConfig,
+            ReleaseProtocolVersion.latest,
+            arguments.metrics,
+            participantId.toLf,
+            config.ledgerApi,
+            indexedStringStore,
+            parameterConfig.processingTimeouts,
+            futureSupervisor,
+            loggerFactory,
+          )
+        )
+
+        commandDeduplicator = new CommandDeduplicatorImpl(
+          persistentState.map(_.commandDeduplicationStore),
+          clock,
+          persistentState.flatMap(mdel =>
+            Eval.always(mdel.multiDomainEventLog.publicationTimeLowerBound)
+          ),
+          loggerFactory,
+        )
+
+        inFlightSubmissionTracker = new InFlightSubmissionTracker(
+          persistentState.map(_.inFlightSubmissionStore),
+          commandDeduplicator,
+          persistentState.map(_.multiDomainEventLog),
           timeouts,
           loggerFactory,
         )
-      addCloseable(indexedStringStore)
-      val partyMetadataStore =
-        PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
-      addCloseable(partyMetadataStore)
 
-      // upstream party information update generator
-      val partyNotifierFactory = (eventPublisher: ParticipantEventPublisher) => {
-        val partyNotifier = new LedgerServerPartyNotifier(
+        excludedPackageIds =
+          if (parameters.excludeInfrastructureTransactions) {
+            Set(
+              canton.internal.ping.Ping.TEMPLATE_ID,
+              canton.internal.bong.BongProposal.TEMPLATE_ID,
+              canton.internal.bong.Bong.TEMPLATE_ID,
+              canton.internal.bong.Merge.TEMPLATE_ID,
+              canton.internal.bong.Explode.TEMPLATE_ID,
+              canton.internal.bong.Collapse.TEMPLATE_ID,
+            ).map(x => LfPackageId.assertFromString(x.getPackageId))
+          } else {
+            Set.empty[LfPackageId]
+          }
+
+        ephemeralState = ParticipantNodeEphemeralState(
           participantId,
-          eventPublisher,
+          persistentState,
+          inFlightSubmissionTracker,
+          clock,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
+          timeouts = parameterConfig.processingTimeouts,
+          futureSupervisor,
+          loggerFactory,
+        )
+
+        packageService <- EitherT.right(
+          packageServiceFactory.create(
+            createAndInitialize = () =>
+              PackageService.createAndInitialize(
+                clock = clock,
+                engine = engine,
+                packageDependencyResolver = packageDependencyResolver,
+                enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+                futureSupervisor = futureSupervisor,
+                hashOps = syncCrypto.pureCrypto,
+                loggerFactory = loggerFactory,
+                metrics = arguments.metrics,
+                exitOnFatalFailures = parameters.exitOnFatalFailures,
+                packageMetadataViewConfig = config.parameters.packageMetadataView,
+                packageOps = createPackageOps(syncDomainPersistentStateManager),
+                timeouts = parameterConfig.processingTimeouts,
+              )
+          )
+        )
+
+        sequencerInfoLoader = new SequencerInfoLoader(
+          parameterConfig.processingTimeouts,
+          parameterConfig.tracing.propagation,
+          ProtocolVersionCompatibility.supportedProtocols(parameterConfig),
+          parameterConfig.protocolConfig.minimumProtocolVersion,
+          parameterConfig.protocolConfig.dontWarnOnDeprecatedPV,
+          loggerFactory,
+        )
+
+        partyMetadataStore =
+          PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
+
+        partyNotifier = new LedgerServerPartyNotifier(
+          participantId,
+          ephemeralState.participantEventPublisher,
           partyMetadataStore,
           clock,
           arguments.futureSupervisor,
@@ -456,77 +526,251 @@ class ParticipantNodeBootstrap(
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
-        // Notify at participant level if eager notification is configured, else rely on notification via domain.
-        if (parameterConfig.partyChangeNotification == PartyNotificationConfig.Eager) {
-          topologyManager.addObserver(partyNotifier.attachToIdentityManager())
-        }
-        partyNotifier
-      }
 
-      createParticipantServices(
-        participantId,
-        crypto,
-        adminServerRegistry,
-        adminToken,
-        storage,
-        persistentStateFactory,
-        packageServiceFactory,
-        engine,
-        ledgerApiServerFactory,
-        indexedStringStore,
-        cantonSyncServiceFactory,
-        setStartableStoppableLedgerApiAndCantonServices,
-        resourceManagementServiceFactory,
-        replicationServiceFactory,
-        createSchedulers,
-        partyNotifierFactory,
-        participantOps,
-        tryGetPackageDependencyResolver(),
-        createSyncDomainAndTopologyDispatcher,
-        createPackageOps,
-      ).map {
-        case (
-              partyNotifier,
-              sync,
-              ephemeralState,
-              ledgerApiServer,
-              ledgerApiDependentServices,
-              schedulers,
-              topologyDispatcher,
-            ) =>
-          if (cantonSyncService.putIfAbsent(sync).nonEmpty) {
-            sys.error("should not happen")
-          }
-          addCloseable(partyNotifier)
-          addCloseable(ephemeralState.participantEventPublisher)
-          addCloseable(topologyDispatcher)
-          addCloseable(schedulers)
-          addCloseable(sync)
-          addCloseable(ledgerApiServer)
-          addCloseable(ledgerApiDependentServices)
-          addCloseable(tryGetPackageDependencyResolver())
-          val node = new ParticipantNode(
-            participantId,
-            arguments.metrics,
-            config,
-            parameters,
-            storage,
-            clock,
-            crypto.pureCrypto,
-            topologyDispatcher,
-            ips,
-            sync,
-            adminToken,
-            recordSequencerInteractions,
-            replaySequencerConfig,
-            loggerFactory,
-            healthService.dependencies.map(_.toComponentStatus),
+        // Notify at participant level if eager notification is configured, else rely on notification via domain.
+        _ = if (parameterConfig.partyChangeNotification == PartyNotificationConfig.Eager) {
+          authorizedTopologyManager.addObserver(partyNotifier.attachToIdentityManager())
+        }
+
+        domainRegistry = new GrpcDomainRegistry(
+          participantId,
+          syncDomainPersistentStateManager,
+          persistentState.map(_.settingsStore),
+          topologyDispatcher,
+          syncCrypto,
+          config.crypto,
+          clock,
+          parameterConfig,
+          domainAliasManager,
+          arguments.testingConfig,
+          recordSequencerInteractions,
+          replaySequencerConfig,
+          packageDependencyResolver,
+          arguments.metrics.domainMetrics,
+          sequencerInfoLoader,
+          partyNotifier,
+          futureSupervisor,
+          loggerFactory,
+        )
+
+        syncDomainEphemeralStateFactory = new SyncDomainEphemeralStateFactoryImpl(
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
+          parameterConfig.processingTimeouts,
+          loggerFactory,
+          futureSupervisor,
+          clock,
+        )
+
+        // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
+        // an interrupted prune after a shutdown or crash, which touches the domain stores.
+        _ <- EitherT
+          .right[String](
+            syncDomainPersistentStateManager.initializePersistentStates()
           )
-          addCloseable(node)
-          Some(new RunningNode(bootstrapStageCallback, node))
-      }.map { node =>
-        setInitialized()
-        node
+          .mapK(FutureUnlessShutdown.outcomeK)
+
+        resourceManagementService = resourceManagementServiceFactory(
+          persistentState.map(_.settingsStore)
+        )
+
+        schedulers <-
+          EitherT
+            .liftF(
+              createSchedulers(
+                ParticipantSchedulersParameters(
+                  isActive,
+                  persistentState.map(_.multiDomainEventLog),
+                  storage,
+                  adminToken,
+                  parameterConfig.stores,
+                  parameterConfig.batchingConfig,
+                )
+              )
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
+
+        // Sync Service
+        sync = cantonSyncServiceFactory.create(
+          participantId,
+          domainRegistry,
+          domainConnectionConfigStore,
+          domainAliasManager,
+          persistentState,
+          ephemeralState,
+          syncDomainPersistentStateManager,
+          packageService,
+          partyOps,
+          topologyDispatcher,
+          partyNotifier,
+          syncCrypto,
+          engine,
+          syncDomainEphemeralStateFactory,
+          storage,
+          clock,
+          resourceManagementService,
+          parameterConfig,
+          indexedStringStore,
+          schedulers,
+          arguments.metrics,
+          exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
+          sequencerInfoLoader,
+          arguments.futureSupervisor,
+          loggerFactory,
+          arguments.testingConfig,
+        )
+
+        _ = {
+          schedulers.setPruningProcessor(sync.pruningProcessor)
+          setPostInitCallbacks(sync)
+          syncDomainHealth.set(sync.syncDomainHealth)
+          syncDomainEphemeralHealth.set(sync.ephemeralHealth)
+          syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
+          syncDomainAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
+        }
+
+        ledgerApiServer <- ledgerApiServerFactory
+          .create(
+            name,
+            participantId = participantId.toLf,
+            sync = sync,
+            participantNodePersistentState = persistentState,
+            arguments.config,
+            arguments.parameterConfig,
+            arguments.metrics.ledgerApiServer,
+            arguments.metrics.httpApiServer,
+            tracerProvider,
+            adminToken,
+            excludedPackageIds,
+            TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
+          )
+
+      } yield {
+        val ledgerApiDependentServices =
+          new StartableStoppableLedgerApiDependentServices(
+            config,
+            parameterConfig,
+            packageService,
+            sync,
+            participantId,
+            clock,
+            adminServerRegistry,
+            adminToken,
+            futureSupervisor,
+            loggerFactory,
+            tracerProvider,
+          )
+
+        setStartableStoppableLedgerApiAndCantonServices(
+          ledgerApiServer.startableStoppableLedgerApi,
+          ledgerApiDependentServices,
+        )
+
+        adminServerRegistry
+          .addServiceU(
+            TrafficControlServiceGrpc.bindService(
+              new GrpcTrafficControlService(sync, loggerFactory),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            PartyNameManagementServiceGrpc.bindService(
+              new GrpcPartyNameManagementService(partyNotifier),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            DomainConnectivityServiceGrpc
+              .bindService(
+                new GrpcDomainConnectivityService(
+                  sync,
+                  domainAliasManager,
+                  parameterConfig.processingTimeouts,
+                  sequencerInfoLoader,
+                  loggerFactory,
+                ),
+                executionContext,
+              )
+          )
+        adminServerRegistry
+          .addServiceU(
+            InspectionServiceGrpc.bindService(
+              new GrpcInspectionService(
+                sync.stateInspection,
+                indexedStringStore,
+                domainAliasManager,
+                loggerFactory,
+              ),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            ResourceManagementServiceGrpc.bindService(
+              new GrpcResourceManagementService(resourceManagementService, loggerFactory),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            DomainTimeServiceGrpc.bindService(
+              GrpcDomainTimeService.forParticipant(sync.lookupDomainTimeTracker, loggerFactory),
+              executionContext,
+            )
+          )
+        adminServerRegistry.addServiceU(replicationServiceFactory(storage))
+        adminServerRegistry
+          .addServiceU(
+            PruningServiceGrpc.bindService(
+              new GrpcPruningService(
+                sync,
+                () => schedulers.getPruningScheduler(loggerFactory),
+                loggerFactory,
+              ),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            ParticipantRepairServiceGrpc.bindService(
+              new GrpcParticipantRepairService(
+                sync,
+                parameterConfig.processingTimeouts,
+                loggerFactory,
+              ),
+              executionContext,
+            )
+          )
+        adminServerRegistry
+          .addServiceU(
+            ApiInfoServiceGrpc.bindService(
+              new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+              executionContext,
+            )
+          )
+
+        addCloseable(sync)
+        addCloseable(domainConnectionConfigStore)
+        addCloseable(domainAliasManager)
+        addCloseable(syncDomainPersistentStateManager)
+        addCloseable(domainRegistry)
+        addCloseable(inFlightSubmissionTracker)
+        addCloseable(partyMetadataStore)
+        persistentState.map(addCloseable).discard
+        packageService.map(addCloseable).discard
+        addCloseable(indexedStringStore)
+        addCloseable(partyNotifier)
+        addCloseable(ephemeralState.participantEventPublisher)
+        addCloseable(ephemeralState.inFlightSubmissionTracker)
+        addCloseable(topologyDispatcher)
+        addCloseable(schedulers)
+        addCloseable(ledgerApiServer)
+        addCloseable(ledgerApiDependentServices)
+        addCloseable(packageDependencyResolver)
+
+        // return values
+        (sync, topologyDispatcher)
       }
     }
   }
@@ -601,403 +845,6 @@ class ParticipantNodeBootstrap(
       AcsCommitmentProcessor.healthName,
       timeouts,
     )
-
-  protected def createParticipantServices(
-      participantId: ParticipantId,
-      crypto: Crypto,
-      adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
-      storage: Storage,
-      persistentStateFactory: ParticipantNodePersistentStateFactory,
-      packageServiceFactory: PackageServiceFactory,
-      engine: Engine,
-      ledgerApiServerFactory: CantonLedgerApiServerFactory,
-      indexedStringStore: IndexedStringStore,
-      cantonSyncServiceFactory: CantonSyncService.Factory[CantonSyncService],
-      setStartableStoppableLedgerApiAndCantonServices: (
-          StartableStoppableLedgerApiServer,
-          StartableStoppableLedgerApiDependentServices,
-      ) => Unit,
-      resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
-      replicationServiceFactory: Storage => ServerServiceDefinition,
-      createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning],
-      createPartyNotifierAndSubscribe: ParticipantEventPublisher => LedgerServerPartyNotifier,
-      topologyManager: ParticipantTopologyManagerOps,
-      packageDependencyResolver: PackageDependencyResolver,
-      createSyncDomainAndTopologyDispatcher: (
-          DomainAliasResolution,
-          IndexedStringStore,
-      ) => (SyncDomainPersistentStateManager, ParticipantTopologyDispatcher),
-      createPackageOps: SyncDomainPersistentStateManager => PackageOps,
-  )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
-    FutureUnlessShutdown,
-    String,
-    (
-        LedgerServerPartyNotifier,
-        CantonSyncService,
-        ParticipantNodeEphemeralState,
-        LedgerApiServerState,
-        StartableStoppableLedgerApiDependentServices,
-        SchedulersWithParticipantPruning,
-        ParticipantTopologyDispatcher,
-    ),
-  ] = {
-    val syncCrypto = new SyncCryptoApiProvider(
-      participantId,
-      ips,
-      crypto,
-      config.parameters.caching,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-    // closed in DomainAliasManager
-    val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
-
-    for {
-      domainConnectionConfigStore <- EitherT
-        .right(
-          DomainConnectionConfigStore.create(
-            storage,
-            ReleaseProtocolVersion.latest,
-            timeouts,
-            loggerFactory,
-          )
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-      domainAliasManager <- EitherT
-        .right[String](
-          DomainAliasManager
-            .create(domainConnectionConfigStore, registeredDomainsStore, loggerFactory)
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      (syncDomainPersistentStateManager, topologyDispatcher) =
-        createSyncDomainAndTopologyDispatcher(
-          domainAliasManager,
-          indexedStringStore,
-        )
-
-      persistentState <- EitherT.right(
-        persistentStateFactory.create(
-          syncDomainPersistentStateManager,
-          storage,
-          config.storage,
-          exitOnFatalFailures = parameters.exitOnFatalFailures,
-          clock,
-          config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
-          parameterConfig.batchingConfig,
-          ReleaseProtocolVersion.latest,
-          arguments.metrics,
-          participantId.toLf,
-          config.ledgerApi,
-          indexedStringStore,
-          parameterConfig.processingTimeouts,
-          futureSupervisor,
-          loggerFactory,
-        )
-      )
-
-      commandDeduplicator = new CommandDeduplicatorImpl(
-        persistentState.map(_.commandDeduplicationStore),
-        clock,
-        persistentState.flatMap(mdel =>
-          Eval.always(mdel.multiDomainEventLog.publicationTimeLowerBound)
-        ),
-        loggerFactory,
-      )
-
-      inFlightSubmissionTracker = new InFlightSubmissionTracker(
-        persistentState.map(_.inFlightSubmissionStore),
-        commandDeduplicator,
-        persistentState.map(_.multiDomainEventLog),
-        timeouts,
-        loggerFactory,
-      )
-
-      excludedPackageIds =
-        if (parameters.excludeInfrastructureTransactions) {
-          Set(
-            canton.internal.ping.Ping.TEMPLATE_ID,
-            canton.internal.bong.BongProposal.TEMPLATE_ID,
-            canton.internal.bong.Bong.TEMPLATE_ID,
-            canton.internal.bong.Merge.TEMPLATE_ID,
-            canton.internal.bong.Explode.TEMPLATE_ID,
-            canton.internal.bong.Collapse.TEMPLATE_ID,
-          ).map(x => LfPackageId.assertFromString(x.getPackageId))
-        } else {
-          Set.empty[LfPackageId]
-        }
-
-      ephemeralState = ParticipantNodeEphemeralState(
-        participantId,
-        persistentState,
-        inFlightSubmissionTracker,
-        clock,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        timeouts = parameterConfig.processingTimeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-
-      packageService <- EitherT.right(
-        packageServiceFactory.create(
-          createAndInitialize = () =>
-            PackageService.createAndInitialize(
-              clock = clock,
-              engine = engine,
-              packageDependencyResolver = packageDependencyResolver,
-              enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
-              futureSupervisor = futureSupervisor,
-              hashOps = syncCrypto.pureCrypto,
-              loggerFactory = loggerFactory,
-              metrics = arguments.metrics,
-              exitOnFatalFailures = parameters.exitOnFatalFailures,
-              packageMetadataViewConfig = config.parameters.packageMetadataView,
-              packageOps = createPackageOps(syncDomainPersistentStateManager),
-              timeouts = parameterConfig.processingTimeouts,
-            )
-        )
-      )
-      sequencerInfoLoader = new SequencerInfoLoader(
-        parameterConfig.processingTimeouts,
-        parameterConfig.tracing.propagation,
-        ProtocolVersionCompatibility.supportedProtocols(parameterConfig),
-        parameterConfig.protocolConfig.minimumProtocolVersion,
-        parameterConfig.protocolConfig.dontWarnOnDeprecatedPV,
-        loggerFactory,
-      )
-
-      partyNotifier <- EitherT
-        .rightT[Future, String](
-          createPartyNotifierAndSubscribe(ephemeralState.participantEventPublisher)
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      domainRegistry = new GrpcDomainRegistry(
-        participantId,
-        syncDomainPersistentStateManager,
-        persistentState.map(_.settingsStore),
-        topologyDispatcher,
-        syncCrypto,
-        config.crypto,
-        clock,
-        parameterConfig,
-        domainAliasManager,
-        arguments.testingConfig,
-        recordSequencerInteractions,
-        replaySequencerConfig,
-        packageDependencyResolver,
-        arguments.metrics.domainMetrics,
-        sequencerInfoLoader,
-        partyNotifier,
-        futureSupervisor,
-        loggerFactory,
-      )
-
-      syncDomainEphemeralStateFactory = new SyncDomainEphemeralStateFactoryImpl(
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        parameterConfig.processingTimeouts,
-        loggerFactory,
-        futureSupervisor,
-        clock,
-      )
-
-      // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
-      // an interrupted prune after a shutdown or crash, which touches the domain stores.
-      _ <- EitherT
-        .right[String](
-          syncDomainPersistentStateManager.initializePersistentStates()
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      resourceManagementService = resourceManagementServiceFactory(
-        persistentState.map(_.settingsStore)
-      )
-
-      schedulers <-
-        EitherT
-          .liftF(
-            createSchedulers(
-              ParticipantSchedulersParameters(
-                isActive,
-                persistentState.map(_.multiDomainEventLog),
-                storage,
-                adminToken,
-                parameterConfig.stores,
-                parameterConfig.batchingConfig,
-              )
-            )
-          )
-          .mapK(FutureUnlessShutdown.outcomeK)
-
-      // Sync Service
-      sync = cantonSyncServiceFactory.create(
-        participantId,
-        domainRegistry,
-        domainConnectionConfigStore,
-        domainAliasManager,
-        persistentState,
-        ephemeralState,
-        syncDomainPersistentStateManager,
-        packageService,
-        topologyManager,
-        topologyDispatcher,
-        partyNotifier,
-        syncCrypto,
-        engine,
-        syncDomainEphemeralStateFactory,
-        storage,
-        clock,
-        resourceManagementService,
-        parameterConfig,
-        indexedStringStore,
-        schedulers,
-        arguments.metrics,
-        exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
-        sequencerInfoLoader,
-        arguments.futureSupervisor,
-        loggerFactory,
-        arguments.testingConfig,
-      )
-
-      _ = {
-        schedulers.setPruningProcessor(sync.pruningProcessor)
-        setPostInitCallbacks(sync)
-        syncDomainHealth.set(sync.syncDomainHealth)
-        syncDomainEphemeralHealth.set(sync.ephemeralHealth)
-        syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
-        syncDomainAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
-      }
-
-      ledgerApiServer <- ledgerApiServerFactory
-        .create(
-          name,
-          participantId = participantId.toLf,
-          sync = sync,
-          participantNodePersistentState = persistentState,
-          arguments.config,
-          arguments.parameterConfig,
-          arguments.metrics.ledgerApiServer,
-          arguments.metrics.httpApiServer,
-          tracerProvider,
-          adminToken,
-          excludedPackageIds,
-          TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
-        )
-
-    } yield {
-      val ledgerApiDependentServices =
-        new StartableStoppableLedgerApiDependentServices(
-          config,
-          parameterConfig,
-          packageService,
-          sync,
-          participantId,
-          clock,
-          adminServerRegistry,
-          adminToken,
-          futureSupervisor,
-          loggerFactory,
-          tracerProvider,
-        )
-
-      setStartableStoppableLedgerApiAndCantonServices(
-        ledgerApiServer.startableStoppableLedgerApi,
-        ledgerApiDependentServices,
-      )
-
-      adminServerRegistry
-        .addServiceU(
-          TrafficControlServiceGrpc.bindService(
-            new GrpcTrafficControlService(sync, loggerFactory),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          PartyNameManagementServiceGrpc.bindService(
-            new GrpcPartyNameManagementService(partyNotifier),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          DomainConnectivityServiceGrpc
-            .bindService(
-              new GrpcDomainConnectivityService(
-                sync,
-                domainAliasManager,
-                parameterConfig.processingTimeouts,
-                sequencerInfoLoader,
-                loggerFactory,
-              ),
-              executionContext,
-            )
-        )
-      adminServerRegistry
-        .addServiceU(
-          InspectionServiceGrpc.bindService(
-            new GrpcInspectionService(sync.stateInspection),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          ResourceManagementServiceGrpc.bindService(
-            new GrpcResourceManagementService(resourceManagementService, loggerFactory),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          DomainTimeServiceGrpc.bindService(
-            GrpcDomainTimeService.forParticipant(sync.lookupDomainTimeTracker, loggerFactory),
-            executionContext,
-          )
-        )
-      adminServerRegistry.addServiceU(replicationServiceFactory(storage))
-      adminServerRegistry
-        .addServiceU(
-          PruningServiceGrpc.bindService(
-            new GrpcPruningService(
-              sync,
-              () => schedulers.getPruningScheduler(loggerFactory),
-              loggerFactory,
-            ),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          ParticipantRepairServiceGrpc.bindService(
-            new GrpcParticipantRepairService(
-              sync,
-              parameterConfig.processingTimeouts,
-              loggerFactory,
-            ),
-            executionContext,
-          )
-        )
-      adminServerRegistry
-        .addServiceU(
-          ApiInfoServiceGrpc.bindService(
-            new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
-            executionContext,
-          )
-        )
-      // return values
-      (
-        partyNotifier,
-        sync,
-        ephemeralState,
-        ledgerApiServer,
-        ledgerApiDependentServices,
-        schedulers,
-        topologyDispatcher,
-      )
-    }
-  }
 }
 
 object ParticipantNodeBootstrap {
@@ -1105,7 +952,6 @@ object ParticipantNodeBootstrap {
           val engine = createEngine(arguments)
           createNode(
             arguments,
-            engine,
             createLedgerApiServerFactory(
               arguments,
               engine,
@@ -1116,7 +962,6 @@ object ParticipantNodeBootstrap {
 
     private def createNode(
         arguments: Arguments,
-        engine: Engine,
         ledgerApiServerFactory: CantonLedgerApiServerFactory,
     )(implicit
         executionContext: ExecutionContextIdlenessExecutorService,
