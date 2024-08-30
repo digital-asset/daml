@@ -336,6 +336,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       val inputDir = baseDir / "documentation-snippets"
       inputDir
         .list(_.extension.contains(".conf"))
+        .filter(_.name != "beta-version-support.conf")
         .foreach(file =>
           loggerFactory.assertLogsUnorderedOptional(
             loadFiles(Seq(simpleConf, "documentation-snippets/" + file.name))

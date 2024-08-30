@@ -25,7 +25,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Group of CantonNodes of the same type (domains, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
@@ -103,7 +103,7 @@ class ManagedNodes[
     NodeParameters <: CantonNodeParameters,
     NodeBootstrap <: CantonNodeBootstrap[Node],
 ](
-    create: (String, NodeConfig) => NodeBootstrap,
+    create: (String, NodeConfig) => Either[String, NodeBootstrap],
     migrationsFactory: DbMigrationsFactory,
     override protected val timeouts: ProcessingTimeout,
     configs: Map[String, NodeConfig],
@@ -154,11 +154,14 @@ class ManagedNodes[
       val startup = for {
         // start migration
         _ <- EitherT(Future { checkMigration(name, config.storage, params) })
-        instance = {
-          val instance = create(name, config)
-          nodes.put(name, StartingUp(promise, instance)).discard
-          instance
-        }
+        // catch exceptions that might occur during the creation
+        instance <- EitherT.fromEither(
+          Try(create(name, config)).toEither
+            .leftMap(_.getMessage)
+            .flatten
+            .leftMap(err => FailedToCreateNode(name, err))
+        )
+        _ = nodes.put(name, StartingUp(promise, instance)).discard
         _ <-
           instance.start().leftMap { error =>
             instance.close() // clean up resources allocated during instance creation (e.g., db)
@@ -367,7 +370,7 @@ class ManagedNodes[
 }
 
 class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: LocalParticipantConfig](
-    create: (String, PC) => B, // (nodeName, config) => bootstrap
+    create: (String, PC) => Either[String, B], // (nodeName, config) => bootstrap
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, PC],
@@ -419,7 +422,7 @@ object ParticipantNodes {
 }
 
 class DomainNodes[DC <: DomainConfig](
-    create: (String, DC) => DomainNodeBootstrap,
+    create: (String, DC) => Either[String, DomainNodeBootstrap],
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: Map[String, DC],
