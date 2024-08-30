@@ -4,23 +4,18 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf
 import com.daml.lf.crypto.Hash.KeyPackageName
-
-import java.util
+import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.{SExpr0 => compileTime}
-import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => SV, _}
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.{SExpr => runTime, SExpr0 => compileTime}
 import com.daml.lf.transaction.TransactionErrors.{
   AuthFailureDuringExecution,
   DuplicateContractId,
@@ -37,9 +32,10 @@ import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import java.util
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
+import scala.jdk.CollectionConverters._
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
@@ -1134,29 +1130,19 @@ private[lf] object SBuiltin {
   ): Boolean =
     getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
-  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      def coid = getSContractId(args, 0)
-      val (actualTmplId, record) = getSAnyContract(args, 1)
-      castAnyInterface(machine, ifaceId, coid, actualTmplId, record)(Control.Value)
-    }
-  }
-
-  private[this] def castAnyInterface[Q](
+  // Precondition: the package of tplId is loaded in the machine
+  private[this] def ensureTemplateImplementsInterface[Q](
       machine: Machine[_],
       ifaceId: TypeConName,
       coid: V.ContractId,
-      actualTmplId: TypeConName,
-      record: SRecord,
-  )(k: SValue => Control[Q]): Control[Q] =
-    if (!interfaceInstanceExists(machine, ifaceId, actualTmplId)) {
-      Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, actualTmplId))
+      tplId: TypeConName,
+  )(k: => Control[Q]): Control[Q] = {
+    if (!interfaceInstanceExists(machine, ifaceId, tplId)) {
+      Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, tplId))
     } else {
-      k(record)
+      k
     }
+  }
 
   final case object SBExtractSAnyValue extends UpdateBuiltin(1) {
     override protected def executeUpdate(
@@ -1197,7 +1183,7 @@ private[lf] object SBuiltin {
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
     fetchAny(machine, None, coid, SValue.SValue.None) { (_, srcContract) =>
       val (tplId, arg) = getSAnyContract(ArrayList.single(srcContract), 0)
-      castAnyInterface(machine, ifaceId, coid, tplId, arg) { _ =>
+      ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId) {
         viewInterface(machine, ifaceId, tplId, arg) { srcView =>
           executeExpression(machine, SEPreventCatch(srcView)) { _ =>
             k(SAny(Ast.TTyCon(tplId), arg))
@@ -1231,7 +1217,7 @@ private[lf] object SBuiltin {
         dstArg,
         SValue.SValue.None,
       ) { _ =>
-        k(SAny(TTyCon(dstTplId), dstArg))
+        k(SAny(Ast.TTyCon(dstTplId), dstArg))
       }
     }
 
@@ -1241,7 +1227,7 @@ private[lf] object SBuiltin {
           crash(s"unexpected contract instance without packageName")
         case Some(pkgName) =>
           val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
-          castAnyInterface(machine, interfaceId, coid, srcTplId, srcArg) { _ =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId) {
             viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
               resolvePackageName(machine, pkgName) { pkgId =>
                 val dstTplId = srcTplId.copy(packageId = pkgId)
@@ -1249,7 +1235,7 @@ private[lf] object SBuiltin {
                   dstTplId.packageId,
                   language.Reference.Template(dstTplId),
                 ) { () =>
-                  ensureTemplateImplementsInterface(machine, dstTplId, interfaceId) { () =>
+                  ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
                     fromInterface(machine, srcTplId, srcArg, dstTplId) {
                       case None =>
                         Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
@@ -1302,20 +1288,6 @@ private[lf] object SBuiltin {
       case None => crash(s"cannot resolve package $pkgName")
       case Some(pkgId) => k(pkgId)
     }
-  }
-
-  // Precondition: the package of tplId is loaded in the machine
-  private[this] def ensureTemplateImplementsInterface[Q](
-      machine: Machine[_],
-      tplId: TypeConName,
-      ifaceId: TypeConName,
-  )(k: () => Control[Q]): Control[Q] = {
-    val tplImplementsInterface =
-      machine.compiledPackages.pkgInterface
-        .lookupTemplate(tplId)
-        .exists(_.implements.contains(ifaceId))
-    if (tplImplementsInterface) k()
-    else crash(s"template $tplId does not implement interface $ifaceId")
   }
 
   /** $fetchAny[T]
