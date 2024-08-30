@@ -135,6 +135,9 @@ private[speedy] sealed abstract class ScenarioBuiltin(arity: Int)
 
 private[lf] object SBuiltin {
 
+  def executeExpressionK(machine: UpdateMachine, expr: SExpr): Cont[SValue] =
+    Cont.wrap1(executeExpression(machine, expr))
+
   def executeExpression[Q](machine: Machine[Q], expr: SExpr)(
       f: SValue => Control[Q]
   ): Control[Q] = {
@@ -1132,6 +1135,13 @@ private[lf] object SBuiltin {
   ): Boolean =
     getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
+  private[this] def ensureTemplateImplementsInterfaceK[Q](
+      machine: Machine[_],
+      ifaceId: TypeConName,
+      coid: V.ContractId,
+      tplId: TypeConName,
+  ): Cont[Unit] = Cont.wrap0(ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId))
+
   // Precondition: the package of tplId is loaded in the machine
   private[this] def ensureTemplateImplementsInterface[Q](
       machine: Machine[_],
@@ -1188,6 +1198,7 @@ private[lf] object SBuiltin {
     def wrap2[A, B](
         f: ((A, B) => Control[Question.Update]) => Control[Question.Update]
     ): Cont[(A, B)] = ContT(k => f((a, b) => k((a, b))))
+    def throwError[A](err: IE): Cont[A] = Cont.wrap1(_ => Control.Error(err))
   }
 
   /** Fetches the requested contract ID, casts its to the requested interface, computes its view and returns it (via the
@@ -1199,12 +1210,12 @@ private[lf] object SBuiltin {
       ifaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
     for {
-      pkgNameSrcContract <- Cont.wrap2(fetchAny(machine, None, coid, SValue.SValue.None))
+      pkgNameSrcContract <- fetchAnyK(machine, None, coid, SValue.SValue.None)
       (_, srcContract) = pkgNameSrcContract
       (tplId, arg) = getSAnyContract(ArrayList.single(srcContract), 0)
-      _ <- Cont.wrap0(ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId))
-      srcView <- Cont.wrap1(viewInterface(machine, ifaceId, tplId, arg))
-      _ <- Cont.wrap1(executeExpression(machine, SEPreventCatch(srcView)))
+      _ <- ensureTemplateImplementsInterfaceK(machine, ifaceId, coid, tplId)
+      srcView <- viewInterfaceK(machine, ifaceId, tplId, arg)
+      _ <- executeExpressionK(machine, SEPreventCatch(srcView))
     } yield SAny(Ast.TTyCon(tplId), arg)
   }.run(k)
 
@@ -1217,6 +1228,7 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
+
     // Continuation called by two different branches of the expression below. Factorized out to avoid duplication.
     def cacheContractAndReturnAny(
         machine: UpdateMachine,
@@ -1225,78 +1237,64 @@ private[lf] object SBuiltin {
         dstArg: SValue,
     ): Cont[SAny] = for {
       // ensure the contract and its metadata are cached
-      _ <-
-        Cont.wrap1(
-          getContractInfo(
-            machine,
-            coid,
-            dstTplId,
-            dstArg,
-            SValue.SValue.None,
-          )
-        )
+      _ <- getContractInfoK(
+        machine,
+        coid,
+        dstTplId,
+        dstArg,
+        SValue.SValue.None,
+      )
     } yield SAny(Ast.TTyCon(dstTplId), dstArg)
 
     {
       for {
-        mbPkgNameSrcContract <- Cont.wrap2(fetchAny(machine, None, coid, SValue.SValue.None))
+        mbPkgNameSrcContract <- fetchAnyK(machine, None, coid, SValue.SValue.None)
         (maybePkgName, srcContract) = mbPkgNameSrcContract
         res <- maybePkgName match {
           case None =>
-            Cont.pure(crash(s"unexpected contract instance without packageName"))
+            crash(s"unexpected contract instance without packageName")
           case Some(pkgName) =>
             val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
             for {
-              _ <- Cont.wrap0(
-                ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId)
-              )
-              srcView <- Cont.wrap1(viewInterface(machine, interfaceId, srcTplId, srcArg))
-              pkgId <- Cont.wrap1(resolvePackageName(machine, pkgName))
+              _ <- ensureTemplateImplementsInterfaceK(machine, interfaceId, coid, srcTplId)
+              srcView <- viewInterfaceK(machine, interfaceId, srcTplId, srcArg)
+              pkgId <- resolvePackageNameK(machine, pkgName)
               dstTplId = srcTplId.copy(packageId = pkgId)
-              _ <- Cont.wrap0(
-                machine.ensurePackageIsLoaded(
-                  dstTplId.packageId,
-                  language.Reference.Template(dstTplId),
-                )
+              _ <- ensurePackageIsLoadedK(
+                machine,
+                dstTplId.packageId,
+                language.Reference.Template(dstTplId),
               )
-              _ <- Cont.wrap0(
-                ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId)
-              )
-              mbDstArg <- Cont.wrap1(fromInterface(machine, srcTplId, srcArg, dstTplId))
+              _ <- ensureTemplateImplementsInterfaceK(machine, interfaceId, coid, dstTplId)
+              mbDstArg <- fromInterfaceK(machine, srcTplId, srcArg, dstTplId)
               res <- mbDstArg match {
                 case None =>
-                  Cont.wrap1[SAny](_ =>
-                    Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
-                  )
+                  Cont.throwError(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
                 case Some(dstArg) =>
                   for {
-                    dstView <- Cont.wrap1(viewInterface(machine, interfaceId, dstTplId, dstArg))
-                    srcViewValue <- Cont.wrap1(executeExpression(machine, SEPreventCatch(srcView)))
+                    dstView <- viewInterfaceK(machine, interfaceId, dstTplId, dstArg)
+                    srcViewValue <- executeExpressionK(machine, SEPreventCatch(srcView))
                     res <-
                       if (dstTplId == srcTplId)
                         cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)
                       else
                         for {
-                          dstViewValue <- Cont.wrap1(
-                            executeExpression(machine, SEPreventCatch(dstView))
-                          )
+                          dstViewValue <- executeExpressionK(machine, SEPreventCatch(dstView))
                           res <-
                             if (srcViewValue != dstViewValue)
-                              Cont.wrap1[SAny](_ =>
-                                Control.Error(
-                                  IE.Dev(
-                                    NameOf.qualifiedNameOfCurrentFunc,
-                                    IE.Dev.Upgrade(
-                                      IE.Dev.Upgrade.ViewMismatch(
-                                        coid,
-                                        interfaceId,
-                                        srcTplId,
-                                        dstTplId,
-                                        srcView = srcViewValue.toUnnormalizedValue,
-                                        dstView = dstViewValue.toUnnormalizedValue,
-                                      )
-                                    ),
-                                  )
+                              Cont.throwError(
+                                IE.Dev(
+                                  NameOf.qualifiedNameOfCurrentFunc,
+                                  IE.Dev.Upgrade(
+                                    IE.Dev.Upgrade.ViewMismatch(
+                                      coid,
+                                      interfaceId,
+                                      srcTplId,
+                                      dstTplId,
+                                      srcView = srcViewValue.toUnnormalizedValue,
+                                      dstView = dstViewValue.toUnnormalizedValue,
+                                    )
+                                  ),
                                 )
                               )
                             else
@@ -1310,6 +1308,19 @@ private[lf] object SBuiltin {
     }.run(k)
 
   }
+
+  private[this] def ensurePackageIsLoadedK(
+      machine: UpdateMachine,
+      packageId: PackageId,
+      ref: => language.Reference,
+  ): Cont[Unit] =
+    Cont.wrap0(machine.ensurePackageIsLoaded(packageId, ref))
+
+  private[this] def resolvePackageNameK[Q](
+      machine: UpdateMachine,
+      pkgName: Ref.PackageName,
+  ): Cont[PackageId] =
+    Cont.wrap1(resolvePackageName(machine, pkgName))
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
       k: PackageId => Control[Q]
@@ -1481,6 +1492,13 @@ private[lf] object SBuiltin {
     }
   }
 
+  private[this] def fromInterfaceK(
+      machine: UpdateMachine,
+      srcTplId: TypeConName,
+      srcArg: SRecord,
+      dstTplId: TypeConName,
+  ): Cont[Option[SValue]] = Cont.wrap1(fromInterface(machine, srcTplId, srcArg, dstTplId))
+
   private[this] def fromInterface[Q](
       machine: Machine[Q],
       srcTplId: TypeConName,
@@ -1606,6 +1624,13 @@ private[lf] object SBuiltin {
       viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
     }
   }
+
+  private[this] def viewInterfaceK[Q](
+      machine: Machine[_],
+      ifaceId: TypeConName,
+      templateId: TypeConName,
+      record: SValue,
+  ): Cont[SExpr] = Cont.wrap1(viewInterface(machine, ifaceId, templateId, record))
 
   private[this] def viewInterface[Q](
       machine: Machine[_],
@@ -2400,6 +2425,14 @@ private[lf] object SBuiltin {
     }
   }
 
+  private def fetchAnyK(
+      machine: UpdateMachine,
+      optTargetTemplateId: Option[TypeConName],
+      coid: V.ContractId,
+      keyOpt: SValue,
+  ): Cont[(Option[Ref.PackageName], SValue)] =
+    Cont.wrap2(fetchAny(machine, optTargetTemplateId, coid, keyOpt))
+
   // This is the core function which fetches a contract given it's coid.
   // Regardless of it being a local, disclosed or global contract
   private def fetchAny(
@@ -2517,6 +2550,15 @@ private[lf] object SBuiltin {
       f(contractInfoStruct)
     }
   }
+
+  private def getContractInfoK(
+      machine: UpdateMachine,
+      coid: V.ContractId,
+      templateId: Identifier,
+      templateArg: SValue,
+      keyOpt: SValue,
+  ): Cont[ContractInfo] =
+    Cont.wrap1(getContractInfo(machine, coid, templateId, templateArg, keyOpt))
 
   // Get the contract info for a contract, computing if not in our cache
   private def getContractInfo(
