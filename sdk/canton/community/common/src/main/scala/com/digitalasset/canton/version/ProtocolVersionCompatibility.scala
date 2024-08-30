@@ -121,7 +121,7 @@ object ProtocolVersionCompatibility {
         s"Please add the supported protocol versions of $node node of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       )
 
-    stableVersions.map(_ ++ beta ++ unstable).map(_.distinct)
+    stableVersions.map(_ ++ beta ++ unstable).map(_.distinct.sorted)
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
