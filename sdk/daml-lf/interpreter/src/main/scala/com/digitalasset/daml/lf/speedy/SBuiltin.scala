@@ -1587,8 +1587,7 @@ private[lf] object SBuiltin {
           s"template of type ${ifaceId}, but there's no matching interface instance."
       )
     )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-    val e = SEApp(SEVal(ref), Array(record))
-    k(e)
+    k(SEApp(SEVal(ref), Array(record)))
   }
 
   /** $insertFetch[tid]
