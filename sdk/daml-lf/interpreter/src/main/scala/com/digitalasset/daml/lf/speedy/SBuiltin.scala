@@ -37,6 +37,8 @@ import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
 import scala.jdk.CollectionConverters._
 import scala.math.Ordering.Implicits.infixOrderingOps
+import cats.data.ContT
+import cats.Defer
 
 /** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
   *
@@ -1136,11 +1138,11 @@ private[lf] object SBuiltin {
       ifaceId: TypeConName,
       coid: V.ContractId,
       tplId: TypeConName,
-  )(k: => Control[Q]): Control[Q] = {
+  )(k: () => Control[Q]): Control[Q] = {
     if (!interfaceInstanceExists(machine, ifaceId, tplId)) {
       Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, tplId))
     } else {
-      k
+      k()
     }
   }
 
@@ -1173,6 +1175,21 @@ private[lf] object SBuiltin {
     }
   }
 
+  private[this] implicit object ControlDeferInstance extends Defer[Control] {
+    override def defer[A](fa: => Control[A]): Control[A] = fa
+  }
+
+  type Cont[A] = ContT[Control, Question.Update, A]
+  object Cont {
+    def pure[A](a: A): Cont[A] = ContT.pure(a)
+    def wrap0(f: (() => Control[Question.Update]) => Control[Question.Update]): Cont[Unit] =
+      ContT(k => f(() => k(())))
+    def wrap1[A](f: (A => Control[Question.Update]) => Control[Question.Update]): Cont[A] = ContT(f)
+    def wrap2[A, B](
+        f: ((A, B) => Control[Question.Update]) => Control[Question.Update]
+    ): Cont[(A, B)] = ContT(k => f((a, b) => k((a, b))))
+  }
+
   /** Fetches the requested contract ID, casts its to the requested interface, computes its view and returns it (via the
     * continuation) as an SAny.
     */
@@ -1181,17 +1198,15 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
       ifaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchAny(machine, None, coid, SValue.SValue.None) { (_, srcContract) =>
-      val (tplId, arg) = getSAnyContract(ArrayList.single(srcContract), 0)
-      ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId) {
-        viewInterface(machine, ifaceId, tplId, arg) { srcView =>
-          executeExpression(machine, SEPreventCatch(srcView)) { _ =>
-            k(SAny(Ast.TTyCon(tplId), arg))
-          }
-        }
-      }
-    }
-  }
+    for {
+      pkgNameSrcContract <- Cont.wrap2(fetchAny(machine, None, coid, SValue.SValue.None))
+      (_, srcContract) = pkgNameSrcContract
+      (tplId, arg) = getSAnyContract(ArrayList.single(srcContract), 0)
+      _ <- Cont.wrap0(ensureTemplateImplementsInterface(machine, ifaceId, coid, tplId))
+      srcView <- Cont.wrap1(viewInterface(machine, ifaceId, tplId, arg))
+      _ <- Cont.wrap1(executeExpression(machine, SEPreventCatch(srcView)))
+    } yield SAny(Ast.TTyCon(tplId), arg)
+  }.run(k)
 
   /** Fetches the requested contract ID, upgrades it to the preferred template version for the same package name,
     * and compares the computed views according to the old and the new versions. If the two views agree then caches
@@ -1208,75 +1223,92 @@ private[lf] object SBuiltin {
         coid: V.ContractId,
         dstTplId: Ref.ValueRef,
         dstArg: SValue,
-    )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
+    ): Cont[SAny] = for {
       // ensure the contract and its metadata are cached
-      getContractInfo(
-        machine,
-        coid,
-        dstTplId,
-        dstArg,
-        SValue.SValue.None,
-      ) { _ =>
-        k(SAny(Ast.TTyCon(dstTplId), dstArg))
-      }
-    }
+      _ <-
+        Cont.wrap1(
+          getContractInfo(
+            machine,
+            coid,
+            dstTplId,
+            dstArg,
+            SValue.SValue.None,
+          )
+        )
+    } yield SAny(Ast.TTyCon(dstTplId), dstArg)
 
-    fetchAny(machine, None, coid, SValue.SValue.None) { (maybePkgName, srcContract) =>
-      maybePkgName match {
-        case None =>
-          crash(s"unexpected contract instance without packageName")
-        case Some(pkgName) =>
-          val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
-          ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId) {
-            viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
-              resolvePackageName(machine, pkgName) { pkgId =>
-                val dstTplId = srcTplId.copy(packageId = pkgId)
+    {
+      for {
+        mbPkgNameSrcContract <- Cont.wrap2(fetchAny(machine, None, coid, SValue.SValue.None))
+        (maybePkgName, srcContract) = mbPkgNameSrcContract
+        res <- maybePkgName match {
+          case None =>
+            Cont.pure(crash(s"unexpected contract instance without packageName"))
+          case Some(pkgName) =>
+            val (srcTplId, srcArg) = getSAnyContract(ArrayList.single(srcContract), 0)
+            for {
+              _ <- Cont.wrap0(
+                ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId)
+              )
+              srcView <- Cont.wrap1(viewInterface(machine, interfaceId, srcTplId, srcArg))
+              pkgId <- Cont.wrap1(resolvePackageName(machine, pkgName))
+              dstTplId = srcTplId.copy(packageId = pkgId)
+              _ <- Cont.wrap0(
                 machine.ensurePackageIsLoaded(
                   dstTplId.packageId,
                   language.Reference.Template(dstTplId),
-                ) { () =>
-                  ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
-                    fromInterface(machine, srcTplId, srcArg, dstTplId) {
-                      case None =>
-                        Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
-                      case Some(dstArg) =>
-                        viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
-                          executeExpression(machine, SEPreventCatch(srcView)) { srcViewValue =>
-                            // If the destination and src templates are the same, we skip the computation
-                            // of the destination template's view.
-                            if (dstTplId == srcTplId)
-                              cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)(k)
-                            else
-                              executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                                if (srcViewValue != dstViewValue) {
-                                  Control.Error(
-                                    IE.Dev(
-                                      NameOf.qualifiedNameOfCurrentFunc,
-                                      IE.Dev.Upgrade(
-                                        IE.Dev.Upgrade.ViewMismatch(
-                                          coid,
-                                          interfaceId,
-                                          srcTplId,
-                                          dstTplId,
-                                          srcView = srcViewValue.toUnnormalizedValue,
-                                          dstView = dstViewValue.toUnnormalizedValue,
-                                        )
-                                      ),
-                                    )
+                )
+              )
+              _ <- Cont.wrap0(
+                ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId)
+              )
+              mbDstArg <- Cont.wrap1(fromInterface(machine, srcTplId, srcArg, dstTplId))
+              res <- mbDstArg match {
+                case None =>
+                  Cont.wrap1[SAny](_ =>
+                    Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
+                  )
+                case Some(dstArg) =>
+                  for {
+                    dstView <- Cont.wrap1(viewInterface(machine, interfaceId, dstTplId, dstArg))
+                    srcViewValue <- Cont.wrap1(executeExpression(machine, SEPreventCatch(srcView)))
+                    res <-
+                      if (dstTplId == srcTplId)
+                        cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)
+                      else
+                        for {
+                          dstViewValue <- Cont.wrap1(
+                            executeExpression(machine, SEPreventCatch(dstView))
+                          )
+                          res <-
+                            if (srcViewValue != dstViewValue)
+                              Cont.wrap1[SAny](_ =>
+                                Control.Error(
+                                  IE.Dev(
+                                    NameOf.qualifiedNameOfCurrentFunc,
+                                    IE.Dev.Upgrade(
+                                      IE.Dev.Upgrade.ViewMismatch(
+                                        coid,
+                                        interfaceId,
+                                        srcTplId,
+                                        dstTplId,
+                                        srcView = srcViewValue.toUnnormalizedValue,
+                                        dstView = dstViewValue.toUnnormalizedValue,
+                                      )
+                                    ),
                                   )
-                                } else
-                                  cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)(k)
-                              }
-                          }
-                        }
-                    }
-                  }
-                }
+                                )
+                              )
+                            else
+                              cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)
+                        } yield res
+                  } yield res
               }
-            }
-          }
-      }
-    }
+            } yield res
+        }
+      } yield res
+    }.run(k)
+
   }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
