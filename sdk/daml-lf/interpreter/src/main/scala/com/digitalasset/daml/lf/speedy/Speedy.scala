@@ -318,21 +318,6 @@ private[lf] object Speedy {
         )
       )
 
-    final private[speedy] def needAuthority(
-        location: => String,
-        holding: Set[Party],
-        requesting: Set[Party],
-        // Callback only when the request is granted
-        continue: () => Control[Question.Update],
-    ): Control.Question[Question.Update] =
-      Control.Question(
-        Question.Update.NeedAuthority(
-          holding,
-          requesting,
-          () => safelyContinue(location, "NeedAuthority", continue()),
-        )
-      )
-
     final private[speedy] def needPackageId(
         location: => String,
         module: ModuleName,

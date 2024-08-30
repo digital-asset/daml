@@ -1081,12 +1081,8 @@ private[lf] object SBuiltinFun {
             // (although the authority might be being restricted)
             doExe(Some(authorizers))
           } else {
-            // additional authority *is* required; ask the ledger
-            machine.needAuthority(
-              NameOf.qualifiedNameOfCurrentFunc,
-              holding = holding,
-              requesting = requesting,
-              continue = () => doExe(Some(authorizers)),
+            Control.Error(
+              IE.RejectedAuthorityRequest(holding = holding, requesting = requesting)
             )
           }
         } else {

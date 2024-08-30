@@ -6,7 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.interpretation.Error.FailedAuthorization
+import com.digitalasset.daml.lf.interpretation.Error.{FailedAuthorization, RejectedAuthorityRequest}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
@@ -27,7 +27,6 @@ class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Inside {
-  import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
@@ -71,8 +70,6 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
    }
   """)
 
-  type Success = (SubmittedTransaction, List[AuthRequest])
-
   val alice = Party.assertFromString("Alice")
   val bob = Party.assertFromString("Bob")
   val charlie = Party.assertFromString("Charlie")
@@ -88,7 +85,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
   def runExample(
       theAut: Set[Party], // The set of parties lists in the explicit choice authority decl.
       theGoal: Party, // The signatory of the created Goal template.
-  ): Either[SError, Success] = {
+  ): Either[SError, SubmittedTransaction] = {
     import SpeedyTestLib.loggingContext
     val committers = Set(theSig, theCon)
     val example = SEApp(
@@ -103,55 +100,43 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib
       .buildTransactionCollectRequests(machine)
-      .map { case (x, ars, _) => (x, ars) } // ignoring any UpgradeVerificationRequest
+      .map { case (x, _) => x } // ignoring any UpgradeVerificationRequest
   }
 
   "Happy" - {
 
     "restrict authority: {A,B}-->A (need A)" in {
-      val res = runExample(theAut = Set(alice), theGoal = alice)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(alice), theGoal = alice) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->B (need B)" in {
-      val res = runExample(theAut = Set(bob), theGoal = bob)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(bob), theGoal = bob) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->{A,B} (need A)" in {
-      val res = runExample(theAut = Set(alice, bob), theGoal = alice)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(alice, bob), theGoal = alice) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->{A,B} (need B)" in {
-      val res = runExample(theAut = Set(alice, bob), theGoal = bob)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(alice, bob), theGoal = bob) shouldBe a[Right[_, _]]
     }
 
     "change/gain authority {A,B}-->{C} (need C)" in {
-      inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
+      runExample(theAut = Set(charlie), theGoal = charlie) shouldBe Left(
+        SError.SErrorDamlException(RejectedAuthorityRequest(Set(alice, bob), Set(charlie)))
+      )
     }
 
     "change/gain authority {A,B}-->{A,C} (need A)" in {
-      inside(runExample(theAut = Set(alice, charlie), theGoal = alice)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
+      runExample(theAut = Set(alice, charlie), theGoal = alice) shouldBe Left(
+        SError.SErrorDamlException(RejectedAuthorityRequest(Set(alice, bob), Set(charlie)))
+      )
     }
 
     "change/gain authority {A,B}-->{B,C} (need B)" in {
-      inside(runExample(theAut = Set(bob, charlie), theGoal = bob)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
+      runExample(theAut = Set(bob, charlie), theGoal = bob) shouldBe Left(
+        SError.SErrorDamlException(RejectedAuthorityRequest(Set(alice, bob), Set(charlie)))
+      )
     }
 
   }
@@ -200,15 +185,10 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "change/gain authority {A,B}-->{C} (need A)" in {
-      inside(runExample(theAut = Set(charlie), theGoal = alice)) { case Left(err) =>
-        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-          inside(why) { case cma: CreateMissingAuthorization =>
-            cma.authorizingParties shouldBe Set(charlie)
-            cma.requiredParties shouldBe Set(alice)
-          }
-        }
-      }
+    "try to gain authority {A,B}-->{C} (need A)" in {
+      runExample(theAut = Set(charlie), theGoal = alice) shouldBe Left(
+        SError.SErrorDamlException(RejectedAuthorityRequest(Set(alice, bob), Set(charlie)))
+      )
     }
   }
 }
