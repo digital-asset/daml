@@ -80,6 +80,7 @@ class StoreBackedCommandExecutorSpec
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
     disclosedEvents = processedDisclosedContracts,
+    contractPackages = Map.empty,
   )
 
   private val resultDone: ResultDone[(SubmittedTransaction, Transaction.Metadata)] =
