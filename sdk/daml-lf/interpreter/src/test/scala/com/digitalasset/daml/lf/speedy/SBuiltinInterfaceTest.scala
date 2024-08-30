@@ -5,13 +5,12 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -24,28 +23,160 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
-import util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try}
 
-class SBuiltinInterfaceTestV2 extends SBuiltinInterfaceTest(LanguageMajorVersion.V2)
+class SBuiltinInterfaceTestDefaultLf
+    extends SBuiltinInterfaceTest(
+      LanguageVersion.default,
+      Compiler.Config.Default(LanguageMajorVersion.V2),
+    )
+class SBuiltinInterfaceTestDevLf
+    extends SBuiltinInterfaceTest(
+      LanguageVersion.v2_dev,
+      Compiler.Config.Dev(LanguageMajorVersion.V2),
+    )
 
-class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
+class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside {
+
+  import EvalHelpers._
+
+  val alice = Ref.Party.assertFromString("Alice")
+
+  // The following code defines a package -iface-pkg- that defines a single interface Iface.
+  val ifacePkgName = Ref.PackageName.assertFromString("-iface-pkg-")
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-package-id-")
+  val ifaceParserParams = ParserParameters(
+    defaultPackageId = ifacePkgId,
+    // TODO: revert to the default version once it supports upgrades
+    languageVersion = LanguageVersion.Features.packageUpgrades,
+  )
+  val ifacePkg =
+    p"""metadata ( '$ifacePkgName' : '1.0.0' )
+            module Mod {
+              val mkParty : Text -> Party = \(t:Text) ->
+                case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+
+              record @serializable MyViewType = { n : Int64 };
+              interface (this : Iface) = {
+                viewtype Mod:MyViewType;
+                choice @nonConsuming MyChoice (self) (u: Unit): Unit
+                  , controllers (Cons @Party [Mod:mkParty "Alice"] Nil @Party)
+                  , observers (Nil @Party)
+                  to upure @Unit ();
+              };
+            }
+          """ (ifaceParserParams)
+
+  // The following code defines a family of packages -implem-pkg- versions 1.0.0, 2.0.0, ... that define a
+  // template T that implements Iface. The view function for version 1 of the package returns 1, the view function
+  // of version 2 of the package returns 2, etc.
+  val implemPkgName = Ref.PackageName.assertFromString("-implem-pkg-")
+  def implemPkgVersion(pkgVersion: Int) =
+    Ref.PackageVersion.assertFromString(s"${pkgVersion}.0.0")
+  def implemPkgId(pkgVersion: Int) =
+    Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
+  def implemParserParams(pkgVersion: Int) = ParserParameters(
+    defaultPackageId = implemPkgId(pkgVersion),
+    // TODO: revert to the default version once it supports upgrades
+    languageVersion = LanguageVersion.Features.packageUpgrades,
+  )
+  def implemPkg(pkgVersion: Int) =
+    p"""metadata ( '$implemPkgName' : '${implemPkgVersion(pkgVersion)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = $pkgVersion }; };
+              };
+            }
+          """ (implemParserParams(pkgVersion))
+
+  // All three of -iface-package-id-, -implem-pkg-id-1-, and -implem-pkg-id-2- are made available to the interpreter.
+  val compiledPackages = PureCompiledPackages.assertBuild(
+    Map(
+      ifacePkgId -> ifacePkg,
+      implemPkgId(1) -> implemPkg(1),
+      implemPkgId(2) -> implemPkg(2),
+    ),
+    // TODO: revert to the default compiler config once it supports upgrades
+    Compiler.Config.Dev(LanguageMajorVersion.V2),
+  )
+
+  // But we prefer version 2 of -implem-pkg-, which will force an upgrade of any version 1 contract when
+  // fetched/exercised by interface and trigger a view consistency check, which is expected to fail.
+  val packagePreferences = Map(
+    ifacePkgName -> ifacePkgId,
+    implemPkgName -> implemPkgId(2),
+  )
+
+  // We assume one contract of type -implem-pkg-id-1-:Mod:T on the ledger, with ID cid.
+  val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+  val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
+  val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+  val contracts = Map[Value.ContractId, Value.VersionedContractInstance](
+    cid -> Versioned(
+      TransactionVersion.StableVersions.max,
+      ContractInstance(implemPkgName, Some(implemPkgVersion(1)), tplV1Id, tplV1Payload),
+    )
+  )
+
+  "fetch_interface" - {
+    "should reject inconsistent view upgrades" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
+          Array(SContractId(cid), SToken),
+          packageResolution = packagePreferences,
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
+        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
+      }
+    }
+  }
+
+  "exercise_interface" - {
+    "should reject inconsistent view upgrades" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (
+            ifaceParserParams
+          ),
+          Array(SContractId(cid), SToken),
+          packageResolution = packagePreferences,
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
+        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
+      }
+    }
+  }
+}
+
+class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Compiler.Config)
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks
     with Inside {
 
-  val helpers = new SBuiltinInterfaceTestHelpers(majorLanguageVersion)
-  import helpers.{parserParameters => _, _}
-
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
-  val defaultPackageId = parserParameters.defaultPackageId
+  import EvalHelpers._
+  val helpers = new SBuiltinInterfaceTestHelpers(languageVersion, compilerConfig)
+  import helpers._
 
   "Interface operations" - {
-    val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
-    val alice = Ref.Party.assertFromString("alice")
-    val bob = Ref.Party.assertFromString("bob")
+    val iouTypeRep =
+      Ref.TypeConName.assertFromString(s"${basePkgId}:Mod:Iou")
+    implicit val parserParameters: ParserParameters[helpers.type] = basePkgParserParams
 
     val testCases = Table[String, SValue](
       "expression" -> "string-result",
@@ -58,11 +189,67 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
 
     forEvery(testCases) { (exp, res) =>
       s"""eval[$exp] --> "$res"""" in {
-        eval(e"$exp") shouldBe Success(Right(res))
+        eval(e"$exp", compiledBasePkgs, Set(alice)) shouldBe Success(Right(res))
+      }
+    }
+
+    "exercise_interface" - {
+      "should prevent view errors from being caught" in {
+        val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+        val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
+        val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+
+        inside(
+          evalApp(
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:exercise_interface_and_catch_error cid",
+            Array(SContractId(cid), SToken),
+            packageResolution = pkgNameMap,
+            getContract = Map(
+              cid -> Versioned(
+                TransactionVersion.StableVersions.max,
+                ContractInstance(basePkg.pkgName, basePkg.pkgVersion, tplId, tplPayload),
+              )
+            ),
+            getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
+          )
+        ) { case Success(Left(error)) =>
+          // We expect the error throw by the view to not have been caught by
+          // fetch_interface_and_catch_error.
+          error shouldBe a[SErrorDamlException]
+        }
       }
     }
 
     "fetch_interface" - {
+      "should prevent view errors from being caught" in {
+        val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+        val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
+        val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+
+        inside(
+          evalApp(
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:fetch_interface_and_catch_error cid",
+            Array(SContractId(cid), SToken),
+            packageResolution = pkgNameMap,
+            getContract = Map(
+              cid -> Versioned(
+                TransactionVersion.StableVersions.max,
+                ContractInstance(basePkg.pkgName, basePkg.pkgVersion, tplId, tplPayload),
+              )
+            ),
+            getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
+          )
+        ) { case Success(Left(error)) =>
+          // We expect the error throw by the view to not have been caught by
+          // fetch_interface_and_catch_error.
+          error shouldBe a[SErrorDamlException]
+        }
+      }
+
       "should request unknown package before everything else" in {
 
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
@@ -71,7 +258,7 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -84,6 +271,8 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
               )
             ),
             getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
           )
         ) { case Success(result) =>
           result shouldBe a[Right[_, _]]
@@ -93,14 +282,16 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraPkgVersion, extraIouId, iouPayload),
+                ContractInstance(extraPkg.pkgName, extraPkg.pkgVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
           )
         ) { case Failure(err) =>
           err shouldBe a[SpeedyTestLib.UnknownPackage]
@@ -110,16 +301,18 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            packageResolution = basePkgNameMap,
+            packageResolution = pkgNameMap,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkgName, extraPkgVersion, extraIouId, iouPayload),
+                ContractInstance(extraPkg.pkgName, extraPkg.pkgVersion, extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>
               compiledExtendedPkgs
             },
+            compiledPackages = compiledBasePkgs,
+            committers = Set(alice),
           )
         ) { case Success(result) =>
           result shouldBe a[Right[_, _]]
@@ -130,20 +323,67 @@ class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
-
-  import SpeedyTestLib.loggingContext
+final class SBuiltinInterfaceTestHelpers(
+    val languageVersion: LanguageVersion,
+    val compilerConfig: Compiler.Config,
+) {
 
   val alice = Ref.Party.assertFromString("Alice")
   val bob = Ref.Party.assertFromString("Bob")
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
-  val basePkgId = parserParameters.defaultPackageId
-  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  val basePkgId = Ref.PackageId.assertFromString("-base-package-id-")
+  val basePkgParserParams: ParserParameters[this.type] =
+    ParserParameters(defaultPackageId = basePkgId, languageVersion = languageVersion)
 
   lazy val basePkg =
-    p"""  metadata ( 'basic-package' : '1.0.0' )
+    p""" metadata ( '-base-package-' : '1.0.0' )
+        module I0 {
+          interface (this: I0) = {
+            viewtype Mod:MyUnit;
+            choice @nonConsuming MyChoice (self) (u: Unit): Unit
+              , controllers (Nil @Party)
+              , observers (Nil @Party)
+              to upure @Unit ();
+            coimplements T_Co0_No1:T_Co0_No1 { view = Mod:MyUnit {}; };
+            coimplements T_Co0_Co1:T_Co0_Co1 { view = Mod:MyUnit {}; };
+          };
+        }
+
+        module ViewErrorTest {
+          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+          val alice : Party = ViewErrorTest:mkParty "Alice";
+          record @serializable T = { party: Party };
+
+          record @serializable Ex = { message: Text } ;
+          exception Ex = {
+            message \(e: ViewErrorTest:Ex) -> ViewErrorTest:Ex {message} e
+          };
+
+          template (this: T) = {
+            precondition True;
+            signatories Cons @Party [ViewErrorTest:T {party} this] (Nil @Party);
+            observers (Nil @Party);
+            implements I0:I0 { view = throw @Mod:MyUnit @ViewErrorTest:Ex (ViewErrorTest:Ex { message = "user error" }); };
+          };
+
+          val fetch_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+            \(cid: ContractId I0:I0) ->
+              try @Unit
+                ubind _:I0:I0 <- fetch_interface @I0:I0 cid
+                in upure @Unit ()
+              catch
+                e -> Some @(Update Unit) (upure @Unit ())
+          ;
+
+          val exercise_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+            \(cid: ContractId I0:I0) ->
+              try @Unit
+                exercise_interface @I0:I0 MyChoice cid ()
+              catch
+                e -> Some @(Update Unit) (upure @Unit ())
+          ;
+        }
+
         module Mod {
 
           record @serializable MyUnit = {};
@@ -161,34 +401,25 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
-          val alice : Party = Mod:mkParty "alice";
-          val bob : Party = Mod:mkParty "bob";
+          val alice : Party = Mod:mkParty "Alice";
+          val bob : Party = Mod:mkParty "Bob";
 
           val aliceOwesBob : Mod:Iou = Mod:Iou { i = Mod:alice, u = Mod:bob, name = "alice owes bob" };
           val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
-    """
+    """ (basePkgParserParams)
 
   val basePkgs = Map(basePkgId -> basePkg)
 
   lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs, compilerConfig)
 
-  val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
+  val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou" (basePkgParserParams)
 
-  val extraPkgName = Ref.PackageName.assertFromString("-extra-package-name-")
-  val extraPkgVersion = Some(Ref.PackageVersion.assertFromString("2.0.0"))
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
+  val extraPkgParserParams = basePkgParserParams.copy(defaultPackageId = extraPkgId)
   require(extraPkgId != basePkgId)
 
-  val basePkgNameMap =
-    Map(basePkg.pkgName -> basePkgId, extraPkgName -> extraPkgId)
-
-  lazy val extendedPkgs = {
-
-    val modifiedParserParameters: parser.ParserParameters[this.type] =
-      parserParameters.copy(defaultPackageId = extraPkgId)
-
-    val pkg = p""" metadata ( 'extended-pkg' : '1.0.0' )
+  val extraPkg = p""" metadata ( '-extra-package-name-' : '1.0.0' )
         module Mod {
 
           record @serializable Iou = { i: Party, u: Party, name: Text };
@@ -201,16 +432,21 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
           };
 
           val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
-          val alice : Party = Mod:mkParty "alice";
-          val bob : Party = Mod:mkParty "bob";
+          val alice : Party = Mod:mkParty "Alice";
+          val bob : Party = Mod:mkParty "Bob";
 
         }
-    """ (modifiedParserParameters)
-    basePkgs + (modifiedParserParameters.defaultPackageId -> pkg)
-  }
-  lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs, compilerConfig)
+    """ (extraPkgParserParams)
 
-  val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
+  lazy val compiledExtendedPkgs =
+    PureCompiledPackages.assertBuild(basePkgs + (extraPkgId -> extraPkg), compilerConfig)
+
+  val pkgNameMap = Map(
+    basePkg.pkgName -> basePkgId,
+    extraPkg.pkgName -> extraPkgId,
+  )
+
+  val Ast.TTyCon(extraIouId) = t"Mod:Iou" (extraPkgParserParams)
 
   val iouPayload =
     Value.ValueRecord(
@@ -221,14 +457,24 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
         None -> Value.ValueText("name"),
       ),
     )
+}
 
-  def eval(e: Expr): Try[Either[SError, SValue]] =
+object EvalHelpers {
+  import SpeedyTestLib.loggingContext
+
+  def eval(
+      e: Expr,
+      compiledPackages: PureCompiledPackages,
+      committers: Set[Ref.Party],
+  ): Try[Either[SError, SValue]] =
     evalSExpr(
-      compiledBasePkgs.compiler.unsafeCompile(e),
+      compiledPackages.compiler.unsafeCompile(e),
       Map.empty,
       PartialFunction.empty,
       PartialFunction.empty,
       PartialFunction.empty,
+      compiledPackages,
+      committers,
     )
 
   def evalApp(
@@ -239,13 +485,17 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      compiledPackages: PureCompiledPackages,
+      committers: Set[Ref.Party],
   ): Try[Either[SError, SValue]] =
     evalSExpr(
-      SEApp(compiledBasePkgs.compiler.unsafeCompile(e), args),
+      SEApp(compiledPackages.compiler.unsafeCompile(e), args),
       packageResolution,
       getPkg,
       getContract,
       getKey,
+      compiledPackages,
+      committers,
     )
 
   def evalSExpr(
@@ -254,14 +504,16 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      compiledPackages: PureCompiledPackages,
+      committers: Set[Ref.Party],
   ): Try[Either[SError, SValue]] = {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
-        compiledBasePkgs,
+        compiledPackages,
         packageResolution = packageResolution,
         transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
         updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
-        committers = Set(alice),
+        committers = committers,
       )
     Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))
   }
