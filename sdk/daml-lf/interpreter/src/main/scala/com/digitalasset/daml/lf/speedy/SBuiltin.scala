@@ -1200,7 +1200,7 @@ private[lf] object SBuiltin {
       castAnyInterface(machine, ifaceId, coid, tplId, arg) { _ =>
         viewInterface(machine, ifaceId, tplId, arg) { srcView =>
           executeExpression(machine, SEPreventCatch(srcView)) { _ =>
-            k(SAny(TTyCon(tplId), arg))
+            k(SAny(Ast.TTyCon(tplId), arg))
           }
         }
       }
@@ -1220,7 +1220,7 @@ private[lf] object SBuiltin {
     def cacheContractAndReturnAny(
         machine: UpdateMachine,
         coid: V.ContractId,
-        dstTplId: lf.data.Ref.ValueRef,
+        dstTplId: Ref.ValueRef,
         dstArg: SValue,
     )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
       // ensure the contract and its metadata are cached
