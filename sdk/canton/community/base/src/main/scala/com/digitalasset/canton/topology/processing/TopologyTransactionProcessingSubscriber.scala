@@ -10,17 +10,14 @@ import com.digitalasset.canton.tracing.TraceContext
 
 trait TopologyTransactionProcessingSubscriber {
 
-  /** Move the most known timestamp ahead in future based of newly discovered information
+  /** Move the highest known (effective / approximate) timestamp ahead in the future.
     *
-    * We don't know the most recent timestamp directly. However, we can guess it from two sources:
-    * What was the timestamp of the latest topology transaction added? And what was the last processing timestamp.
-    * We need to know both such that we can always deliver the latest valid set of topology information, and don't use
-    * old snapshots.
-    * Therefore, we expose the updateHead function on the public interface for initialisation purposes.
-    *
-    * @param effectiveTimestamp      sequencer timestamp + epsilon(sequencer timestamp)
-    * @param approximateTimestamp    our current best guess of what the "best" timestamp is to get a valid current topology snapshot
-    * @param potentialTopologyChange if true, the time advancement is related to a topology change that might have occurred or become effective
+    * May only be called if:
+    * 1. All committed topology transactions with effective time up to `effectiveTimestamp` have been persisted in the topology store.
+    * 2. If this method is called with `potentialTopologyChange == true`, then for every subsequent committed topology transaction
+    *    either `updateHead(potentialTopologyChange == true, ...)` or `observed` must be called again;
+    *    such calls must occur with ascending effective timestamps.
+    * 3. All sequenced events up to `approximateTimestamp` have been processed.
     */
   def updateHead(
       effectiveTimestamp: EffectiveTime,
@@ -28,6 +25,13 @@ trait TopologyTransactionProcessingSubscriber {
       potentialTopologyChange: Boolean,
   )(implicit traceContext: TraceContext): Unit = ()
 
+  /** This must be called whenever a topology transaction is committed.
+    * It may be called at additional timestamps with `transactions` being empty.
+    * Calls must have strictly increasing `sequencedTimestamp` and `effectiveTimestamp`.
+    * The `effectiveTimestamp` must be the one computed by [[com.digitalasset.canton.topology.processing.TopologyTimestampPlusEpsilonTracker]] for `sequencedTimestamp`.
+    *
+    * During crash recovery previous calls of this method may be replayed. Therefore, implementations must be idempotent.
+    */
   def observed(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,

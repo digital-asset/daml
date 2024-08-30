@@ -127,7 +127,7 @@ trait PeanoQueueTest extends BaseTest { this: AnyWordSpec =>
         val last = pq.dropUntilFront()
         assert(pq.poll().isEmpty)
         assert(pq.head == pq.front)
-        assert(last == Some(Counter(1) -> "one"))
+        assert(last.contains(Counter(1) -> "one"))
       }
 
       "return None if nothing moves" in {
@@ -182,6 +182,19 @@ trait PeanoQueueTest extends BaseTest { this: AnyWordSpec =>
       }
     }
 
+    "isEmpty" should {
+      "tell whether the queue is empty or not" in {
+        val pq = mk(0L)
+
+        pq.isEmpty shouldBe true
+
+        pq.insert(0L, "zero")
+        pq.isEmpty shouldBe false
+
+        pq.poll()
+        pq.isEmpty shouldBe true
+      }
+    }
   }
 }
 

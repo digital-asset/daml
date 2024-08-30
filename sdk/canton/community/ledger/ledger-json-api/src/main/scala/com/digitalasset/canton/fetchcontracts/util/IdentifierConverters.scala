@@ -25,9 +25,9 @@ object IdentifierConverters {
       ),
     )
 
-  def apiIdentifier(a: ContractTypeId.RequiredPkg): lav2.value.Identifier =
+  def apiIdentifier[Pkg](a: ContractTypeId[Pkg]): lav2.value.Identifier =
     lav2.value.Identifier(
-      packageId = a.packageId,
+      packageId = a.packageId.toString,
       moduleName = a.moduleName,
       entityName = a.entityName,
     )

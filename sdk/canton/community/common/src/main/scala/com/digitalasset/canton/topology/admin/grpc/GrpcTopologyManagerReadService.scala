@@ -315,7 +315,7 @@ class GrpcTopologyManagerReadService(
             .inspect(
               proposals = baseQuery.proposals,
               timeQuery = baseQuery.timeQuery,
-              recentTimestampO = getApproximateTimestamp(storeId),
+              asOfExclusiveO = getApproximateTimestamp(storeId),
               op = baseQuery.ops,
               types = Seq(typ),
               idFilter = idFilter,
@@ -814,7 +814,7 @@ class GrpcTopologyManagerReadService(
             .inspect(
               proposals = baseQuery.proposals,
               timeQuery = baseQuery.timeQuery,
-              recentTimestampO = getApproximateTimestamp(store.storeId),
+              asOfExclusiveO = getApproximateTimestamp(store.storeId),
               op = baseQuery.ops,
               types = topologyMappings,
               idFilter = None,
@@ -880,7 +880,7 @@ class GrpcTopologyManagerReadService(
           case Some(value) => EitherT.rightT[Future, CantonError](value)
           case None =>
             val sequencedTimeF = domainTopologyStore
-              .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = false)
+              .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
               .collect {
                 case Some((sequencedTime, _)) =>
                   Right(sequencedTime.value)

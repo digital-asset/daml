@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.networking.grpc
 
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.{GrpcMetricsServerInterceptor, GrpcServerMetrics}
-import com.daml.tracing.NoOpTelemetry
+import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{
   AdminAuthorizer,
   AuthorizationInterceptor,
@@ -34,6 +35,8 @@ class CantonCommunityServerInterceptors(
     grpcMetrics: GrpcServerMetrics,
     authServices: Seq[AuthServiceConfig],
     adminToken: Option[CantonAdminToken],
+    jwtTimestampLeeway: Option[JwtTimestampLeeway],
+    telemetry: Telemetry,
 ) extends CantonServerInterceptors {
   private def interceptForLogging(
       service: ServerServiceDefinition,
@@ -66,16 +69,14 @@ class CantonCommunityServerInterceptors(
       adminToken,
       parent = authServices.map(
         _.create(
-          // TODO(i20232): configure jwt leeway for admin api's
-          None,
+          jwtTimestampLeeway,
           loggerFactory,
         )
       ),
     )
     val interceptor = new AuthorizationInterceptor(
       authService,
-      // TODO(i20232): add telemetry
-      NoOpTelemetry,
+      telemetry,
       loggerFactory,
       DirectExecutionContext(loggerFactory.getLogger(AuthorizationInterceptor.getClass)),
       AdminAuthorizer,

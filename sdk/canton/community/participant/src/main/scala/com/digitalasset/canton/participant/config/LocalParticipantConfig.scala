@@ -160,42 +160,47 @@ final case class RemoteParticipantConfig(
   * @param address                   ledger api server host name.
   * @param internalPort              ledger api server port.
   * @param tls                       tls configuration setting from ledger api server.
-  * @param initSyncTimeout           ledger api server startup delay
-  * @param commandService            configurations pertaining to the ledger api server's "command service"
-  * @param managementServiceTimeout  ledger api server management service maximum duration. Duration has to be finite
-  *                                  as the ledger api server uses java.time.duration that does not support infinite scala durations.
-  * @param postgresDataSource        config for ledger api server when using postgres
   * @param authServices              type of authentication services used by ledger-api server. If empty, we use a wildcard.
   *                                  Otherwise, the first service response that does not say "unauthenticated" will be used.
+  * @param adminToken                token that should grant admin access when presented by a client on the ledger api
+  * @param jwtTimestampLeeway        leeway parameters for JWTs
   * @param keepAliveServer           keep-alive configuration for ledger api requests
   * @param maxInboundMessageSize     maximum inbound message size on the ledger api
-  * @param databaseConnectionTimeout database connection timeout
-  * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
+  * @param postgresDataSource        config for ledger api server when using postgres
+  * @param databaseConnectionTimeout database connection timeout
+  * @param initSyncTimeout           ledger api server startup delay
+  * @param indexService              configurations pertaining to the ledger api server's internal "index service"
+  * @param commandService            configurations pertaining to the ledger api server's "command service"
+  * @param userManagementService     configurations pertaining to the ledger api server's "user management service"
+  * @param partyManagementService    configurations pertaining to the ledger api server's "party management service"
+  * @param managementServiceTimeout  ledger api server management service maximum duration. Duration has to be finite
+  *                                  as the ledger api server uses java.time.duration that does not support infinite scala durations.
   * @param enableCommandInspection   enable command inspection service over the ledger api
+  * @param identityProviderManagement configurations pertaining to the ledger api server's "identity provider management service"
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
     internalPort: Option[Port] = None,
-    indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     tls: Option[TlsServerConfig] = None,
+    authServices: Seq[AuthServiceConfig] = Seq.empty,
+    adminToken: Option[String] = None,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
+    postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
+    databaseConnectionTimeout: config.NonNegativeFiniteDuration =
+      LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
     initSyncTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultInitSyncTimeout,
+    indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
     partyManagementService: PartyManagementServiceConfig = PartyManagementServiceConfig(),
     managementServiceTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultManagementServiceTimeout,
-    postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
-    authServices: Seq[AuthServiceConfig] = Seq.empty,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
-    maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
-    databaseConnectionTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
-    rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     enableCommandInspection: Boolean = true,
-    adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
@@ -425,13 +430,11 @@ object JournalPruningConfig {
   * @param contractIdSeeding  test-only way to override the contract-id seeding scheme. Must be Strong in production (and Strong is the default).
   *                           Only configurable to reduce the amount of secure random numbers consumed by tests and to avoid flaky timeouts during continuous integration.
   * @param indexer            parameters how the participant populates the index db used to serve the ledger api
-  * @param jwtTimestampLeeway leeway parameters for JWTs
   * @param tokenExpiryGracePeriodForStreams grace periods for streams that postpone termination beyond the JWT expiry
   */
 final case class LedgerApiServerParametersConfig(
     contractIdSeeding: Seeding = Seeding.Strong,
     indexer: IndexerConfig = IndexerConfig(),
-    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )

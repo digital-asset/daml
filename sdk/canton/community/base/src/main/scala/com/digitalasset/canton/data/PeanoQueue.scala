@@ -61,6 +61,9 @@ trait PeanoQueue[K, V] {
     */
   def insert(key: K, value: V): Boolean
 
+  /** Whether the [[PeanoQueue]] is empty. */
+  def isEmpty: Boolean
+
   /** Whether the key `key` has already been `insert`-ed to the [[PeanoQueue]]. All values below the [[PeanoQueue.front]]
     * are considered to have been inserted to the [[PeanoQueue]], even if they are below the initial [[PeanoQueue.head]].
     */

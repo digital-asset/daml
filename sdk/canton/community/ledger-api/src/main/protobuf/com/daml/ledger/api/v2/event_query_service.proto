@@ -49,7 +49,7 @@ message GetEventsByContractIdResponse {
 
 message Created {
   // Required
-  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
+  CreatedEvent created_event = 1;
 
   // The domain which sequenced the creation of the contract
   // Required
@@ -58,7 +58,7 @@ message Created {
 
 message Archived {
   // Required
-  com.daml.ledger.api.v2.ArchivedEvent archived_event = 1;
+  ArchivedEvent archived_event = 1;
 
   // Required
   // The domain which sequenced the archival of the contract

@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   MetricsUtils,
-  OpenTelemetryOnDemandMetricsReader,
   SequencerClientMetrics,
   TrafficConsumptionMetrics,
 }
@@ -137,9 +136,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
 
   }
 
-  implicit private val onDemandMetricsReader: OpenTelemetryOnDemandMetricsReader =
-    new OpenTelemetryOnDemandMetricsReader()
-
   private val initialTrafficState = TrafficState.empty
   def mkSendTracker(timeoutHandler: MessageId => Future[Unit] = _ => Future.unit): Env = {
     val store = new InMemorySendTrackerStore()
@@ -147,11 +143,8 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       TestingTopology(Set(DefaultTestIdentities.domainId))
         .build(loggerFactory)
         .forOwnerAndDomain(participant1, domainId)
-    val factory = testableMetricsFactory(
-      "ref-sequencer-with-traffic-control",
-      onDemandMetricsReader,
-      new HistogramInventory().registered().map(_.name.toString()).toSet,
-    )
+
+    val histogramInventory = new HistogramInventory()
     val trafficStateController = new TrafficStateController(
       DefaultTestIdentities.participant1,
       loggerFactory,
@@ -161,7 +154,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       new EventCostCalculator(loggerFactory),
       futureSupervisor,
       timeouts,
-      new TrafficConsumptionMetrics(MetricName("test"), factory),
+      new TrafficConsumptionMetrics(MetricName("test"), metricsFactory(histogramInventory)),
     )
     val tracker =
       new MySendTracker(
@@ -229,7 +222,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         assertLongValue("test.event-delivered-cost", 1L)
         assertInContext(
           "test.event-delivered-cost",
-          "sender",
+          "member",
           DefaultTestIdentities.participant1.toString,
         )
         // Event specific metrics should contain the event specific metrics context
@@ -237,7 +230,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         assertLongValue("test.extra-traffic-consumed", 2L)
         assertInContext(
           "test.extra-traffic-consumed",
-          "sender",
+          "member",
           DefaultTestIdentities.participant1.toString,
         )
         // But not the event agnostic metrics
@@ -266,7 +259,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
           )
         )
       } yield {
-        assertNoValue("test.event-delivered-cost")
+        assertNoValue("event-delivered-cost")
       }
     }
 
@@ -293,7 +286,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         assertLongValue("test.event-delivered-cost", 1L)
         assertInContext(
           "test.event-delivered-cost",
-          "sender",
+          "member",
           DefaultTestIdentities.participant1.toString,
         )
         // Check there are labels for application-id and type

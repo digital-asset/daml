@@ -7,7 +7,9 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.Jwt
 import com.digitalasset.canton.http.PackageService
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.Materializer
@@ -27,6 +29,7 @@ class V2Routes(
     updateService: JsUpdateService,
     userManagementService: JsUserManagementService,
     versionService: JsVersionService,
+    metadataServiceIfEnabled: Option[JsDamlDefinitionsService],
     val loggerFactory: NamedLoggerFactory,
 )(ec: ExecutionContext)
     extends Endpoints
@@ -44,6 +47,7 @@ class V2Routes(
         ++ userManagementService.endpoints()
         ++ identityProviderService.endpoints()
         ++ meteringService.endpoints()
+        ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
     )
 }
 
@@ -51,6 +55,8 @@ object V2Routes {
   def apply(
       ledgerClient: LedgerClient,
       packageService: PackageService,
+      metadataServiceEnabled: Boolean,
+      writeService: WriteService,
       executionContext: ExecutionContext,
       materializer: Materializer,
       loggerFactory: NamedLoggerFactory,
@@ -81,7 +87,6 @@ object V2Routes {
 
     val stateService =
       new JsStateService(ledgerClient, protocolConverters, loggerFactory)
-
     val partyManagementService =
       new JsPartyManagementService(ledgerClient.partyManagementClient, loggerFactory)
 
@@ -92,7 +97,7 @@ object V2Routes {
       )
 
     val updateService =
-      new JsUpdateService(ledgerClient, protocolConverters,  loggerFactory)
+      new JsUpdateService(ledgerClient, protocolConverters, loggerFactory)
 
     val userManagementService =
       new JsUserManagementService(ledgerClient.userManagementClient, loggerFactory)
@@ -102,6 +107,12 @@ object V2Routes {
       ledgerClient.identityProviderConfigClient,
       loggerFactory,
     )
+
+    val damlDefinitionsServiceIfEnabled = Option.when(metadataServiceEnabled) {
+      val damlDefinitionsService =
+        new DamlDefinitionsView(writeService.getPackageMetadataSnapshot(_))
+      new JsDamlDefinitionsService(damlDefinitionsService)
+    }
 
     new V2Routes(
       commandService,
@@ -114,6 +125,7 @@ object V2Routes {
       updateService,
       userManagementService,
       versionService,
+      damlDefinitionsServiceIfEnabled,
       loggerFactory,
     )(executionContext)
   }

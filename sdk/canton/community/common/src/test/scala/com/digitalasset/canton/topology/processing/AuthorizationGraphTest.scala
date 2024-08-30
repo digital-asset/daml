@@ -165,7 +165,7 @@ class AuthorizationGraphTest
         graph.replace(nsk2k1)
         graph.replace(nsk3k2)
 
-        val danglingKeys = List(key1, key2, key3).map(_.fingerprint).sorted.mkString(", ")
+        val danglingKeys = List(key2, key3).map(_.fingerprint).sorted.mkString(", ")
         loggerFactory.assertLogs(
           graph.remove(nsk1k1_remove),
           _.warningMessage should (include regex s"dangling.*$danglingKeys"),

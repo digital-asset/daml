@@ -909,6 +909,22 @@ class SequencerClientTest
         env.client.close()
       }
 
+      "have new transport be used for logout" in {
+        val secondTransport = MockTransport()
+
+        val env = RichEnvFactory.create()
+        val testF = for {
+          _ <- env.changeTransport(secondTransport)
+          _ <- env.logout().onShutdown(fail())
+        } yield {
+          env.transport.logoutCalled shouldBe false
+          secondTransport.logoutCalled shouldBe true
+        }
+
+        testF.futureValue
+        env.client.close()
+      }
+
       "have new transport be used for sends when there is subscription" in {
         val secondTransport = MockTransport()
 
@@ -1076,6 +1092,8 @@ class SequencerClientTest
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
       client.sendAsync(batch, messageId = messageId).onShutdown(fail())
     }
+
+    def logout(): EitherT[FutureUnlessShutdown, Status, Unit] = client.logout()
   }
 
   private class MockSubscription[E] extends SequencerSubscription[E] {
@@ -1102,8 +1120,14 @@ class SequencerClientTest
       with SequencerClientTransportPekko
       with NamedLogging {
 
-    override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    private val logoutCalledRef = new AtomicReference[Boolean](false)
+
+    override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] = {
+      logoutCalledRef.set(true)
       EitherT.pure(())
+    }
+
+    def logoutCalled: Boolean = logoutCalledRef.get()
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 

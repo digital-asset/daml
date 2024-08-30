@@ -7,6 +7,7 @@ import com.digitalasset.canton.http.ErrorMessages.cannotResolveTemplateId
 import JsValueToApiValueConverter.mustBeApiRecord
 import com.digitalasset.canton.http.util.FutureUtil.either
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
+import com.digitalasset.daml.lf.data.Ref
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import com.daml.logging.LoggingContextOf
@@ -38,7 +39,7 @@ class DomainJsonDecoder(
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt)(implicit
       ev1: JsonReader[
-        domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]
+        domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
@@ -47,16 +48,16 @@ class DomainJsonDecoder(
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.RequiredPkg]](a)
           .liftErrS(err)(JsonError)
       )
 
       tmplId <- templateId_(fj.templateId, jwt)
-      payloadT <- either(templateRecordType(tmplId))
+      payloadT <- either(templateRecordType(tmplId.latestPkgId))
 
       fv <- either(
         fj
-          .copy(templateId = tmplId)
+          .copy(templateId = tmplId.original)
           .traversePayload(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
       )
     } yield fv
@@ -97,7 +98,7 @@ class DomainJsonDecoder(
       tId <- templateId_(H.templateId(fa), jwt)
       lfType <- either(
         H
-          .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
+          .lfType(fa, tId.latestPkgId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
           .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError)
       )
     } yield lfType
@@ -117,7 +118,7 @@ class DomainJsonDecoder(
     }
 
   def decodeExerciseCommand(a: JsValue, jwt: Jwt)(implicit
-      ev1: JsonReader[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]],
+      ev1: JsonReader[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[
@@ -126,12 +127,12 @@ class DomainJsonDecoder(
     for {
       cmd0 <- either(
         SprayJson
-          .decode[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]](a)
+          .decode[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]](a)
           .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
       ifIdlfType <- lookupLfType[
-        domain.ExerciseCommand.OptionalPkg[+*, domain.ContractLocator[_]]
+        domain.ExerciseCommand.RequiredPkg[+*, domain.ContractLocator[_]]
       ](
         cmd0,
         jwt,
@@ -140,8 +141,8 @@ class DomainJsonDecoder(
       // treat an inferred iface ID as a user-specified one
       choiceIfaceOverride <-
         if (oIfaceId.isDefined)
-          (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-        else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt))
+          oIfaceId.map(i => i.map(p => Ref.PackageRef.Id(p): Ref.PackageRef)).pure[ET]
+        else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt).map(_.original))
 
       lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
       metaWithResolvedIds <- cmd0.meta.traverse(resolveMetaTemplateIds(_, jwt))
@@ -167,8 +168,8 @@ class DomainJsonDecoder(
         domain.CreateAndExerciseCommand[
           JsValue,
           JsValue,
-          ContractTypeId.Template.OptionalPkg,
-          ContractTypeId.OptionalPkg,
+          ContractTypeId.Template.RequiredPkg,
+          ContractTypeId.RequiredPkg,
         ]
       ],
       ec: ExecutionContext,
@@ -181,77 +182,81 @@ class DomainJsonDecoder(
           .decode[domain.CreateAndExerciseCommand[
             JsValue,
             JsValue,
-            ContractTypeId.Template.OptionalPkg,
-            ContractTypeId.OptionalPkg,
+            ContractTypeId.Template.RequiredPkg,
+            ContractTypeId.RequiredPkg,
           ]](a)
           .liftErrS(err)(JsonError)
       ).flatMap(_.bitraverse(templateId_(_, jwt), templateId_(_, jwt)))
 
-      tId = fjj.templateId
-      ciId = fjj.choiceInterfaceId
+      tId = fjj.templateId.latestPkgId
+      ciId = fjj.choiceInterfaceId.map(_.latestPkgId)
 
       payloadT <- either(resolveTemplateRecordType(tId).liftErr(JsonError))
-
       oIfIdArgT <- either(resolveChoiceArgType(ciId getOrElse tId, fjj.choice).liftErr(JsonError))
       (oIfaceId, argT) = oIfIdArgT
 
       payload <- either(jsValueToApiRecord(payloadT, fjj.payload))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
-    } yield fjj.copy(
+
+      choiceIfaceOverride =
+        if (oIfaceId.isDefined) oIfaceId.map(i => i.map(p => Ref.PackageRef.Id(p): Ref.PackageRef))
+        else fjj.choiceInterfaceId.map(_.original)
+
+      cmd <- fjj.bitraverse(_.original.pure[ET], _.pure[ET])
+    } yield cmd.copy(
       payload = payload,
       argument = argument,
-      choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
-      meta = fjj.meta,
+      choiceInterfaceId = choiceIfaceOverride,
     )
   }
 
   private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
     jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
-  private[this] def resolveMetaTemplateIds[U, R](
-      meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg],
+  private[this] def resolveMetaTemplateIds[U, CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
+      meta: domain.CommandMeta[U with ContractTypeId.RequiredPkg],
       jwt: Jwt,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[domain.CommandMeta[R]] = for {
+      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, CtId],
+  ): ET[domain.CommandMeta[CtId[Ref.PackageRef]]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector.*
       val inputTpids = Foldable[domain.CommandMeta].toSet(meta)
       inputTpids.toVector
-        .traverse { ot => templateId_(ot, jwt) strengthL ot }
+        .traverse { ot => templateId_(ot, jwt).map(_.original) strengthL ot }
         .map(_.toMap)
     }
   } yield meta map tpidToResolved
 
-  private def templateId_[U, R](
-      id: U with domain.ContractTypeId.OptionalPkg,
+  private def templateId_[U, CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
+      id: U with ContractTypeId.RequiredPkg,
       jwt: Jwt,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
-  ): ET[R] =
+      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, CtId],
+  ): ET[domain.ContractTypeRef[CtId]] =
     eitherT(
       resolveContractTypeId(jwt)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 
   def templateRecordType(
-      id: domain.ContractTypeId.Template.RequiredPkg
+      id: domain.ContractTypeId.Template.RequiredPkgId
   ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.Template.RequiredPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
   ): ET[domain.LfType] =
-    templateId_(id, jwt).flatMap {
-      case it: domain.ContractTypeId.Template.Resolved =>
-        either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
+    templateId_(id, jwt).map(_.latestPkgId).flatMap {
+      case it: domain.ContractTypeId.Template.ResolvedPkgId =>
+        either(resolveKeyType(it: ContractTypeId.Template.ResolvedPkgId).liftErr(JsonError))
       case other =>
         either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
     }

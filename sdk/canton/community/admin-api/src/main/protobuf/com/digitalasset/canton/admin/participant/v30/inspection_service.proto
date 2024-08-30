@@ -31,10 +31,8 @@ service InspectionService {
   rpc OpenCommitment(OpenCommitment.Request) returns (stream OpenCommitment.Response);
   // TODO(#9557) R2
   rpc InspectCommitmentContracts(InspectCommitmentContracts.Request) returns (stream InspectCommitmentContracts.Response);
-  // TODO(#18452) R5
   // Look up the ACS commitments computed and sent by a participant
   rpc LookupSentAcsCommitments(LookupSentAcsCommitments.Request) returns (LookupSentAcsCommitments.Response);
-  // TODO(#18452) R5
   // List the counter-participants and their ACS commitments together with the match status
   // TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
   rpc LookupReceivedAcsCommitments(LookupReceivedAcsCommitments.Request) returns (LookupReceivedAcsCommitments.Response);
@@ -219,6 +217,7 @@ message ReceivedAcsCommitmentPerDomain {
 }
 
 enum ReceivedCommitmentState {
+  // unspecified can happen if we have received a commitment outside any outstanding window, but have not yet stored it in our buffering queue
   RECEIVED_COMMITMENT_STATE_UNSPECIFIED = 0;
   RECEIVED_COMMITMENT_STATE_MATCH = 1;
   RECEIVED_COMMITMENT_STATE_MISMATCH = 2;
@@ -252,8 +251,7 @@ enum SentCommitmentState {
   SENT_COMMITMENT_STATE_UNSPECIFIED = 0;
   SENT_COMMITMENT_STATE_MATCH = 1;
   SENT_COMMITMENT_STATE_MISMATCH = 2;
-  // commitment was not compared yet with the counter-participant's commitments, because, e.g., the counter-participant
-  // commitment has not been received yet
+  // commitment was not compared yet with the counter-participant's commitments, because, the counter-participant commitment has not been received yet, or because we have computed a commitment but not yet marked the period as outstanding
   SENT_COMMITMENT_STATE_NOT_COMPARED = 3;
 }
 

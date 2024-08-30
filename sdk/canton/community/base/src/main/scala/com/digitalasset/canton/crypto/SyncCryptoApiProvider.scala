@@ -432,15 +432,14 @@ class DomainSyncCryptoClient(
     ips.snapshotAvailable(timestamp)
 
   override def awaitTimestamp(
-      timestamp: CantonTimestamp,
-      waitForEffectiveTime: Boolean,
+      timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[Future[Unit]] =
-    ips.awaitTimestamp(timestamp, waitForEffectiveTime)
+    ips.awaitTimestamp(timestamp)
 
-  override def awaitTimestampUS(timestamp: CantonTimestamp, waitForEffectiveTime: Boolean)(implicit
+  override def awaitTimestampUS(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Option[FutureUnlessShutdown[Unit]] =
-    ips.awaitTimestampUS(timestamp, waitForEffectiveTime)
+    ips.awaitTimestampUS(timestamp)
 
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
@@ -603,7 +602,7 @@ class DomainSnapshotSyncCryptoApi(
 
   private def verifyGroupSignatures(
       hash: Hash,
-      members: NonEmpty[Seq[Member]],
+      members: Seq[Member],
       threshold: PositiveInt,
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],

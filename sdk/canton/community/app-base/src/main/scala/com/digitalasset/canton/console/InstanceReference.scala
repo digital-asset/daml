@@ -73,6 +73,8 @@ trait InstanceReference
     with FeatureFlagFilter
     with PrettyPrinting {
 
+  def adminToken: Option[String]
+
   @inline final override def uid: UniqueIdentifier = id.uid
 
   val name: String
@@ -144,8 +146,6 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
   val name: String
   val consoleEnvironment: ConsoleEnvironment
   private[console] val nodes: Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]
-
-  def adminToken: Option[String]
 
   @Help.Summary("Database related operations")
   @Help.Group("Database")
@@ -377,7 +377,7 @@ trait RemoteInstanceReference extends InstanceReference {
       name,
       grpcCommand,
       config.clientAdminApi,
-      None,
+      adminToken,
     )
 }
 
@@ -575,14 +575,13 @@ abstract class ParticipantReference(
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
-                  .flatMap(_.item.packageIds)
+                  .flatMap(_.item.packages)
                   .toSet
 
                 // Vetted packages from the participant's authorized store
                 val onParticipantAuthorizedStore = topology.vetted_packages
                   .list(filterStore = "Authorized", filterParticipant = id.filterString)
-                  .filter(_.item.domainId.forall(_ == item.domainId))
-                  .flatMap(_.item.packageIds)
+                  .flatMap(_.item.packages)
                   .toSet
 
                 val ret = onParticipantAuthorizedStore == onDomain
@@ -639,6 +638,8 @@ object ParticipantReference {
 class RemoteParticipantReference(environment: ConsoleEnvironment, override val name: String)
     extends ParticipantReference(environment, name)
     with RemoteInstanceReference {
+
+  def adminToken: Option[String] = config.token
 
   @Help.Summary("Return remote participant config")
   def config: RemoteParticipantConfig =
@@ -1227,6 +1228,8 @@ class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: St
     extends SequencerReference(environment, name)
     with RemoteInstanceReference {
 
+  def adminToken: Option[String] = config.token
+
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
 
@@ -1347,6 +1350,8 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
 class RemoteMediatorReference(val environment: ConsoleEnvironment, val name: String)
     extends MediatorReference(environment, name)
     with RemoteInstanceReference {
+
+  def adminToken: Option[String] = config.token
 
   @Help.Summary("Returns the remote mediator configuration")
   def config: RemoteMediatorConfig =

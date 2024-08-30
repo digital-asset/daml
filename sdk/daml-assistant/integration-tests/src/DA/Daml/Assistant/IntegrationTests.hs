@@ -87,6 +87,7 @@ withDamlServiceIn path command args act = withDevNull $ \devNull -> do
 data DamlStartResource = DamlStartResource
     { projDir :: FilePath
     , tmpDir :: FilePath
+    , packageRef :: String
     , alice :: String
     , aliceHeaders :: RequestHeaders
     , startStdin :: Handle
@@ -101,10 +102,11 @@ damlStart tmpDir disableUpgradeValidation = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
+    let packageName = "assistant-integration-tests"
     writeFileUTF8 (projDir </> "daml.yaml") $
         unlines $
             [ "sdk-version: " <> sdkVersion
-            , "name: assistant-integration-tests"
+            , "name: " <> packageName
             , "version: \"1.0\""
             , "source: daml"
             , "dependencies:"
@@ -166,6 +168,7 @@ damlStart tmpDir disableUpgradeValidation = do
         DamlStartResource
             { projDir = projDir
             , tmpDir = tmpDir
+            , packageRef = "#" <> packageName
             , sandboxPort = ledger ports
             , jsonApiPort = jsonApiPort
             , startStdin = startStdin
@@ -254,7 +257,7 @@ damlStartTests getDamlStart =
         let subtest :: forall t. String -> IO t -> IO t
             subtest m p = step m >> p
         subtest "sandbox and json-api come up" $ do
-            DamlStartResource {jsonApiPort, alice, aliceHeaders} <- getDamlStart
+            DamlStartResource {jsonApiPort, alice, aliceHeaders, packageRef} <- getDamlStart
             manager <- newManager defaultManagerSettings
             initialRequest <-
                 parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
@@ -266,7 +269,7 @@ damlStartTests getDamlStart =
                             RequestBodyLBS $
                             Aeson.encode $
                             Aeson.object
-                                [ "templateId" Aeson..= Aeson.String "Main:T"
+                                [ "templateId" Aeson..= (packageRef ++ ":Main:T")
                                 , "payload" Aeson..= [alice]
                                 ]
                         }
@@ -283,7 +286,7 @@ damlStartTests getDamlStart =
             callCommandSilentIn projDir $ unwords
                 ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
         subtest "Run init-script" $ do
-            DamlStartResource {jsonApiPort, aliceHeaders} <- getDamlStart
+            DamlStartResource {jsonApiPort, aliceHeaders, packageRef} <- getDamlStart
             initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
             let queryRequest = initialRequest
                     { method = "POST"
@@ -291,7 +294,7 @@ damlStartTests getDamlStart =
                     , requestBody =
                         RequestBodyLBS $
                         Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                        Aeson.object ["templateIds" Aeson..= [packageRef ++ ":Main:T"]]
                     }
             manager <- newManager defaultManagerSettings
             queryResponse <- httpLbs queryRequest manager
@@ -331,7 +334,7 @@ damlStartTestsWithoutValidation :: SdkVersioned => IO DamlStartResource -> TestT
 damlStartTestsWithoutValidation getDamlStart =
     -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
     testCase "daml start without upgrade validation - hot reload" $ do
-        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
+        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders, packageRef} <- getDamlStart
         stdoutReadChan <- atomically $ dupTChan stdoutChan
         writeFileUTF8 (projDir </> "daml/Main.daml") $
             unlines
@@ -361,7 +364,7 @@ damlStartTestsWithoutValidation getDamlStart =
                     , requestBody =
                         RequestBodyLBS $
                         Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                        Aeson.object ["templateIds" Aeson..= [packageRef ++ ":Main:T"]]
                     }
         let queryRequestS =
                 initialRequest
@@ -370,7 +373,7 @@ damlStartTestsWithoutValidation getDamlStart =
                     , requestBody =
                         RequestBodyLBS $
                         Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                        Aeson.object ["templateIds" Aeson..= [packageRef ++ ":Main:S"]]
                     }
         queryResponseT <- httpLbs queryRequestT manager
         queryResponseS <- httpLbs queryRequestS manager

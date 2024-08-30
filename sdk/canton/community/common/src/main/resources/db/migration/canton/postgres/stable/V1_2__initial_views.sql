@@ -363,7 +363,8 @@ create or replace view debug.par_outstanding_acs_commitments as
     debug.resolve_common_static_string(domain_id) as domain_id,
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
-    debug.canton_timestamp(to_inclusive) as to_inclusive
+    debug.canton_timestamp(to_inclusive) as to_inclusive,
+    matching_state
   from par_outstanding_acs_commitments;
 
 create or replace view debug.par_last_computed_acs_commitments as

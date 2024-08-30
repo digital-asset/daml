@@ -40,7 +40,7 @@ import scalaz.syntax.traverse.*
 import scalaz.std.list.*
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
-import com.digitalasset.canton.http.domain.ContractTypeId.OptionalPkg
+import com.digitalasset.canton.http.domain.ContractTypeId.RequiredPkg
 import com.digitalasset.canton.http.domain.ResolvedQuery.Unsupported
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FlowUtil.allowOnlyFirstInput
@@ -64,7 +64,7 @@ object WebSocketService extends NoTracing {
 
   final case class StreamPredicate[+Positive](
       resolvedQuery: domain.ResolvedQuery,
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
       fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive],
   )
 
@@ -238,7 +238,7 @@ object WebSocketService extends NoTracing {
   final case class ResolvedSearchForeverRequest(
       resolvedQuery: ResolvedQuery,
       queriesWithPos: NonEmpty[List[(ResolvedSearchForeverQuery, Int)]],
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
   )
 
   final case class ResolvedSearchForeverQuery(
@@ -282,13 +282,13 @@ object WebSocketService extends NoTracing {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[(Set[domain.ContractTypeId.Resolved], Set[domain.ContractTypeId.OptionalPkg])] =
+        ): Future[(Set[domain.ContractTypeRef.Resolved], Set[domain.ContractTypeId.RequiredPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x => resolveContractTypeId(jwt)(x).map(_.toOption.flatten.toLeft(x)))
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
+                  Either[domain.ContractTypeRef.Resolved, domain.ContractTypeId.RequiredPkg]
                 ]
               )
             )
@@ -300,7 +300,7 @@ object WebSocketService extends NoTracing {
           Unsupported \/ (
               ResolvedSearchForeverQuery,
               Int,
-              Set[domain.ContractTypeId.OptionalPkg],
+              Set[domain.ContractTypeId.RequiredPkg],
           )
         ] = for {
           partitionedResolved <- resolveIds(sfq)
@@ -323,7 +323,7 @@ object WebSocketService extends NoTracing {
                 (
                     ResolvedSearchForeverQuery,
                     Int,
-                    Set[domain.ContractTypeId.OptionalPkg],
+                    Set[domain.ContractTypeId.RequiredPkg],
                 )
               ],
             ) =
@@ -380,7 +380,7 @@ object WebSocketService extends NoTracing {
         }
 
         def fn(
-            q: Map[domain.ContractTypeId.Resolved, NonEmptyList[(Int, Int)]]
+            q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[(Int, Int)]]
         )(
             a: domain.ActiveContract.ResolvedCtTyId[LfV],
             o: Option[domain.Offset],
@@ -395,10 +395,10 @@ object WebSocketService extends NoTracing {
             rsfq: ResolvedSearchForeverQuery,
             pos: Int,
             ix: Int,
-        ): NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmptyList[
+        ): NonEmpty[Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[
           (Int, Int)
         ]]] =
-          rsfq.resolvedQuery.resolved.map(_ -> NonEmptyList(ix -> pos)).toMap
+          rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds).map(_ -> NonEmptyList(ix -> pos)).toMap
 
         val q = {
           import scalaz.syntax.foldable1.*
@@ -467,8 +467,8 @@ object WebSocketService extends NoTracing {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmpty[Set[V]]]],
-      unresolved: Set[domain.ContractTypeId.OptionalPkg],
+      q: NonEmpty[Map[domain.ContractTypeRef.Resolved, NonEmpty[Set[V]]]],
+      unresolved: Set[domain.ContractTypeId.RequiredPkg],
   )
 
   implicit def EnrichedContractKeyWithStreamQuery(implicit
@@ -543,7 +543,7 @@ object WebSocketService extends NoTracing {
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]]
+            .toSet[Either[(domain.ContractTypeRef.Resolved, LfV), RequiredPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey
@@ -567,7 +567,7 @@ object WebSocketService extends NoTracing {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
       def fn(
-          q: Map[domain.ContractTypeId.Resolved, NonEmpty[Set[LfV]]]
+          q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmpty[Set[LfV]]]
       ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
         (a, _) =>
           a.key match {
@@ -581,7 +581,7 @@ object WebSocketService extends NoTracing {
         StreamPredicate[Positive](
           resolvedRequest.resolvedQuery,
           resolvedRequest.unresolved,
-          fn(resolvedRequest.q),
+          fn(resolvedRequest.q.flatMap { case (k, v) => k.allPkgIds.map(_ -> v) }.forgetNE.toMap),
         )
       )
     }
@@ -647,6 +647,7 @@ class WebSocketService(
     extends NamedLogging
     with NoTracing {
 
+  import ContractsService.buildTransactionFilter
   import WebSocketService.*
   import com.daml.scalautil.Statement.discard
   import util.ErrorOps.*
@@ -783,8 +784,7 @@ class WebSocketService(
       contractsService
         .liveAcsAsInsertDeleteStepSource(
           jwt,
-          parties,
-          predicate.resolvedQuery.resolved.toList,
+          buildTransactionFilter(parties, predicate.resolvedQuery),
         )
         .via(
           convertFilterContracts(
@@ -838,8 +838,7 @@ class WebSocketService(
         contractsService
           .insertDeleteStepSource(
             jwt,
-            parties,
-            resolvedQuery.resolved.toList,
+            buildTransactionFilter(parties, resolvedQuery),
             liveStartingOffset,
             Terminates.Never,
           )
@@ -856,7 +855,7 @@ class WebSocketService(
 
     def processResolved(
         resolvedQuery: ResolvedQuery,
-        unresolved: Set[OptionalPkg],
+        unresolved: Set[RequiredPkg],
         fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
       acsPred
@@ -887,8 +886,7 @@ class WebSocketService(
                 contractsService
                   .insertDeleteStepSource(
                     jwt,
-                    parties,
-                    resolvedQuery.resolved.toList,
+                    buildTransactionFilter(parties, resolvedQuery),
                     liveStartingOffset,
                     Terminates.Never,
                   )
@@ -1003,7 +1001,7 @@ class WebSocketService(
               .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract
-              .fromLedgerApi(resolvedQuery, ce)
+              .fromLedgerApi(domain.ActiveContract.ExtractAs(resolvedQuery), ce)
               .liftErr(ServerError.fromMsg)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)
@@ -1021,7 +1019,7 @@ class WebSocketService(
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.ContractTypeId.OptionalPkg]
+      unresolved: Set[domain.ContractTypeId.RequiredPkg]
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {

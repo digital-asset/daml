@@ -167,12 +167,10 @@ class JsCommandService(
 
 final case class JsSubmitAndWaitForTransactionTreeResponse(
     transaction_tree: JsTransactionTree,
-    completion_offset: String,
 )
 
 final case class JsSubmitAndWaitForTransactionResponse(
     transaction: JsTransaction,
-    completion_offset: String,
 )
 
 final case class JsSubmitAndWaitForUpdateIdResponse(

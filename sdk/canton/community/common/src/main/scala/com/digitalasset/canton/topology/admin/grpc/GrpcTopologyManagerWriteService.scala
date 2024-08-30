@@ -178,11 +178,10 @@ class GrpcTopologyManagerWriteService(
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
 
+      targetManager <- targetManagerET(request.store)
+
       extendedTransactions <- signedTxs.parTraverse(tx =>
-        signingKeys
-          .parTraverse(key => crypto.privateCrypto.sign(tx.hash.hash, key))
-          .leftMap(TopologyManagerError.InternalError.TopologySigningError(_): CantonError)
-          .map(tx.addSignatures)
+        targetManager.extendSignature(tx, signingKeys).leftWiden[CantonError]
       )
     } yield extendedTransactions
 

@@ -100,8 +100,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
           .map(transactionResponse =>
             SubmitAndWaitForTransactionResponse
               .of(
-                transactionResponse.transaction,
-                transactionResponse.transaction.map(_.offset).getOrElse(""),
+                transactionResponse.transaction
               )
           )
       }
@@ -119,10 +118,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
         )
         transactionServices
           .getTransactionTreeById(txRequest)
-          .map(resp =>
-            SubmitAndWaitForTransactionTreeResponse
-              .of(resp.transaction, resp.transaction.map(_.offset).getOrElse(""))
-          )
+          .map(resp => SubmitAndWaitForTransactionTreeResponse.of(resp.transaction))
       }
     }
 

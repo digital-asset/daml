@@ -87,7 +87,7 @@ private[index] class IndexServiceImpl(
 
   private val directEc = DirectExecutionContext(noTracingLogger)
 
-  // An Pekko stream buffer is added at the end of all streaming queries,
+  // A Pekko stream buffer is added at the end of all streaming queries,
   // allowing to absorb temporary downstream backpressure.
   // (e.g. when the client is temporarily slower than upstream delivery throughput)
   private val LedgerApiStreamsBufferSize = 128
@@ -185,17 +185,12 @@ private[index] class IndexServiceImpl(
         idleStreamOffsetCheckpointTimeout,
   ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
     if (cond) {
-      // tick source so that we create a checkpoint for empty streams
-      val tick = Source
-        .tick(
-          idleStreamOffsetCheckpointTimeout.underlying,
-          idleStreamOffsetCheckpointTimeout.underlying,
-          Timeout: Carrier[T],
-        )
-        .map((Offset.beforeBegin, _))
-
+      // keepAlive flow so that we create a checkpoint for idle streams
       Flow[(Offset, Carrier[T])]
-        .mergePreferred(tick, preferred = false, eagerComplete = true)
+        .keepAlive(
+          idleStreamOffsetCheckpointTimeout.underlying,
+          () => (Offset.beforeBegin, Timeout), // the offset for timeout is ignored
+        )
         .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
     } else
       Flow[(Offset, Carrier[T])].collect { case (off, Element(elem)) =>

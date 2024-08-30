@@ -149,7 +149,16 @@ object SequencerClientFactory {
                 sequencerTransportsMap.forgetNE,
                 sequencerConnections.sequencerTrustThreshold,
                 _.getTrafficStateForMember(
-                  GetTrafficStateForMemberRequest(member, ts, domainParameters.protocolVersion)
+                  // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
+                  // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
+                  // would return a state with the previous extra traffic value, because traffic purchases only become
+                  // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
+                  // if it gets disconnected just after reading one.
+                  GetTrafficStateForMemberRequest(
+                    member,
+                    ts.immediateSuccessor,
+                    domainParameters.protocolVersion,
+                  )
                 ).map(_.trafficState),
                 identity,
               )

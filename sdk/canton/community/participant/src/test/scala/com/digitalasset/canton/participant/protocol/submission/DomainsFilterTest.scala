@@ -3,15 +3,17 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.DomainsFilterTest.*
 import com.digitalasset.canton.protocol.{LfTransactionVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,8 +24,11 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
   "DomainsFilter (simple create)" should {
     import SimpleTopology.*
 
+    val ledgerTime = CantonTimestamp.now()
+
     val filter = DomainsFilterForTx(
       Transactions.Create.tx(fixtureTransactionVersion),
+      ledgerTime,
       testedProtocolVersion,
     )
     val correctPackages = Transactions.Create.correctPackages
@@ -52,9 +57,41 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       usableDomains shouldBe empty
     }
 
-    "reject domains when packages are missing" in {
+    "reject domains when packages are not valid at the requested ledger time" in {
+      def runWithModifiedVettedPackage(
+          validFrom: Option[CantonTimestamp] = None,
+          validUntil: Option[CantonTimestamp] = None,
+      ) = {
+        val packageNotValid = defaultPackageId
+        val packagesWithModifedValidityPeriod = correctPackages.map(vp =>
+          if (vp.packageId == packageNotValid)
+            vp.copy(validFrom = validFrom, validUntil = validUntil)
+          else vp
+        )
+        val (unusableDomains, usableDomains) =
+          filter
+            .split(loggerFactory, correctTopology, packagesWithModifedValidityPeriod)
+            .futureValue
+        usableDomains shouldBe empty
+
+        unusableDomains shouldBe List(
+          UsableDomain.UnknownPackage(
+            DefaultTestIdentities.domainId,
+            List(
+              unknownPackageFor(submitterParticipantId, packageNotValid),
+              unknownPackageFor(observerParticipantId, packageNotValid),
+            ),
+          )
+        )
+      }
+
+      runWithModifiedVettedPackage(validFrom = Some(ledgerTime.plusMillis(1L)))
+      runWithModifiedVettedPackage(validUntil = Some(ledgerTime.minusMillis(1L)))
+    }
+
+    "reject domains when packages are not missing" in {
       val missingPackage = defaultPackageId
-      val packages = correctPackages.filterNot(_ == missingPackage)
+      val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
       val (unusableDomains, usableDomains) =
         filter.split(loggerFactory, correctTopology, packages).futureValue
@@ -78,7 +115,11 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       // LanguageVersion.VDev needs pv=dev so we use pv=6
       val currentDomainPV = ProtocolVersion.v32
       val filter =
-        DomainsFilterForTx(Transactions.Create.tx(TransactionVersion.VDev), currentDomainPV)
+        DomainsFilterForTx(
+          Transactions.Create.tx(TransactionVersion.VDev),
+          ledgerTime,
+          currentDomainPV,
+        )
 
       val (unusableDomains, usableDomains) =
         filter
@@ -103,7 +144,8 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
     import SimpleTopology.*
     val exerciseByInterface = Transactions.ExerciseByInterface(fixtureTransactionVersion)
 
-    val filter = DomainsFilterForTx(exerciseByInterface.tx, testedProtocolVersion)
+    val ledgerTime = CantonTimestamp.now()
+    val filter = DomainsFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
     val correctPackages = ExerciseByInterface.correctPackages
 
     "keep domains that satisfy all the constraints" in {
@@ -122,7 +164,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       )
 
       forAll(testInstances) { missingPackages =>
-        val packages = correctPackages.filterNot(missingPackages.contains)
+        val packages = correctPackages.filterNot(vp => missingPackages.contains(vp.packageId))
 
         def unknownPackageFor(
             participantId: ParticipantId
@@ -152,12 +194,13 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
 private[submission] object DomainsFilterTest {
   final case class DomainsFilterForTx(
       tx: LfVersionedTransaction,
+      ledgerTime: CantonTimestamp,
       domainProtocolVersion: ProtocolVersion,
   ) {
     def split(
         loggerFactory: NamedLoggerFactory,
         topology: Map[LfPartyId, List[ParticipantId]],
-        packages: Seq[LfPackageId] = Seq(),
+        packages: Seq[VettedPackage] = Seq(),
     )(implicit
         ec: ExecutionContext,
         tc: TraceContext,
@@ -172,6 +215,7 @@ private[submission] object DomainsFilterTest {
 
       DomainsFilter(
         submittedTransaction = tx,
+        ledgerTime = ledgerTime,
         domains = domains,
         loggerFactory = loggerFactory,
       ).split

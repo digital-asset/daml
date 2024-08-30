@@ -10,26 +10,27 @@ import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError,
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.ErrorValidations
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator.PackageMap
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Util.dependenciesInTopologicalOrder
-import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator.PackageMap
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
-import com.digitalasset.canton.util.EitherTUtil
 import scalaz.std.either.*
 import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 object PackageUpgradeValidator {
   type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
 }
 
+// TODO(i16362): Should have unit tests on canton-side for this code as per discussion in https://github.com/DACH-NY/canton/pull/21040#discussion_r1734646573
+// https://github.com/DACH-NY/canton/issues/16362
 class PackageUpgradeValidator(
     getPackageMap: LoggingContextWithTrace => PackageMap,
     getLfArchive: LoggingContextWithTrace => Ref.PackageId => Future[Option[Archive]],
@@ -54,7 +55,8 @@ class PackageUpgradeValidator(
       case Nil => EitherT.pure[Future, DamlError](packageMap)
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades = LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
+        val supportsUpgrades =
+          LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
         for {
           _ <- EitherTUtil.ifThenET(supportsUpgrades)(
             // This check will look for the closest neighbors of pkgId for the package versioning ordering and
@@ -88,9 +90,6 @@ class PackageUpgradeValidator(
           )
           EitherT.rightT[Future, DamlError](())
         } else {
-          logger.info(
-            s"Bad version of package $uploadedPackageId as it has been previously uploaded $existingPackageId"
-          )
           EitherT.leftT[Future, Unit](
             Validation.UpgradeVersion
               .Error(

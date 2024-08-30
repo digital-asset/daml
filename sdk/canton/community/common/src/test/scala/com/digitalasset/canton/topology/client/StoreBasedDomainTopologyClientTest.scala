@@ -45,7 +45,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
     lazy val party1participant1 = mkAdd(
       PartyToParticipant.tryCreate(
         party1,
-        None,
         PositiveInt.one,
         Seq(HostingParticipant(participant1, Confirmation)),
         groupAddressing = false,
@@ -54,7 +53,6 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
     lazy val party2participant1_2 = mkAdd(
       PartyToParticipant.tryCreate(
         party2,
-        None,
         PositiveInt.one,
         Seq(
           HostingParticipant(participant1, Submission),
@@ -122,7 +120,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         val fixture = new Fixture()
         import fixture.*
         val tc = client
-        val wt = tc.awaitTimestamp(ts2, true)
+        val wt = tc.awaitTimestamp(ts2)
         wt match {
           case Some(fut) =>
             advance(ts1)
@@ -138,7 +136,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         import fixture.*
         val tc = client
         advance(ts1)
-        val wt = tc.awaitTimestamp(ts1, waitForEffectiveTime = true)
+        val wt = tc.awaitTimestamp(ts1)
         wt shouldBe None
       }
 

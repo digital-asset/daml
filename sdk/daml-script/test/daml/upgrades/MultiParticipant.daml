@@ -51,7 +51,8 @@ bothParticipantsV2 : Test
 bothParticipantsV2 = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
-  a `submit` createCmd V1.SharedTemplate with party = a, ob = b
+  cid <- a `submit` createCmd V1.SharedTemplate with party = a, ob = b
+  a `submit` exerciseCmd cid Archive
   pure ()
 
 submitV1OtherV2 : Test

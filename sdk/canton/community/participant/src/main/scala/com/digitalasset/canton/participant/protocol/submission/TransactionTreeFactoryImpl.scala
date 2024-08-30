@@ -162,6 +162,7 @@ class TransactionTreeFactoryImpl(
               domainId = domainId,
               snapshot = topologySnapshot,
               requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
+              metadata.ledgerTime,
             )
             .leftMap(_.transformInto[UnknownPackageError])
         else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())

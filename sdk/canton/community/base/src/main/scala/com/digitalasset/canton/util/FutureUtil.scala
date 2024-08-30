@@ -84,8 +84,8 @@ object FutureUtil {
 
   /** [[doNotAwait]] but for FUS
     */
-  def doNotAwaitUnlessShutdown(
-      future: FutureUnlessShutdown[?],
+  def doNotAwaitUnlessShutdown[A](
+      future: FutureUnlessShutdown[A],
       failureMessage: => String,
       onFailure: Throwable => Unit = _ => (),
       level: => Level = Level.ERROR,

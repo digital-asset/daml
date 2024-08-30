@@ -32,7 +32,6 @@ class TopologyTransactionsToEventsTest
 
     val mapping = PartyToParticipant.tryCreate(
       partyId,
-      None,
       PositiveInt.one,
       participants.map(HostingParticipant(_, ParticipantPermission.Submission)),
       groupAddressing = false,

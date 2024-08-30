@@ -13,6 +13,7 @@ import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
+  CommitmentPeriodState,
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
@@ -48,10 +49,11 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   ): Future[Unit] =
     incrementCounterAndErrF()
 
-  override def markSafe(
+  override def markPeriod(
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): Future[Unit] =
     incrementCounterAndErrF()
 
@@ -91,14 +93,17 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   override def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId],
-  )(implicit traceContext: TraceContext): Future[Iterable[(CommitmentPeriod, ParticipantId)]] =
+      counterParticipants: Seq[ParticipantId],
+      includeMatchedPeriods: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
     Future.successful(Iterable.empty)
 
   override def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId],
+      counterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
   ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentType)]] =
@@ -107,7 +112,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   override def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Option[ParticipantId],
+      counterParticipants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]] =
     Future.successful(Iterable.empty)
 

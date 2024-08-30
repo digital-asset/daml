@@ -25,10 +25,10 @@ object IdentifierConverters {
     )
   }
 
-  def lfIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lf.data.Ref.Identifier = {
+  def lfIdentifier(a: http.domain.ContractTypeId.RequiredPkgId): lf.data.Ref.Identifier = {
     import lf.data.Ref
     Ref.Identifier(
-      Ref.PackageId.assertFromString(a.packageId),
+      a.packageId,
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString(a.moduleName),
         Ref.DottedName.assertFromString(a.entityName),
