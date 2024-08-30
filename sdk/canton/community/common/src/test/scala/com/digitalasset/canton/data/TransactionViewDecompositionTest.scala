@@ -23,6 +23,7 @@ import com.digitalasset.canton.{
   LfPartyId,
   LfValue,
   NeedsNewLfContractIds,
+  ProtocolVersionChecksAnyWordSpec,
 }
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -31,7 +32,8 @@ class TransactionViewDecompositionTest
     with BaseTest
     with HasExecutionContext
     with ComparesLfTransactions
-    with NeedsNewLfContractIds {
+    with NeedsNewLfContractIds
+    with ProtocolVersionChecksAnyWordSpec {
 
   lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory(
     testedProtocolVersion
@@ -46,7 +48,7 @@ class TransactionViewDecompositionTest
 
         val examples =
           if (testedProtocolVersion >= ProtocolVersion.v7)
-            exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingV6
+            exampleTransactionFactory.standardHappyCases :+ exampleTransactionFactory.MultipleRootsAndSimpleViewNestingForTransactionDecompositionV3
           else exampleTransactionFactory.standardHappyCases
 
         examples foreach { example =>
@@ -72,7 +74,7 @@ class TransactionViewDecompositionTest
   "A view decomposition" when {
     import ExampleTransactionFactory.*
     "a view has the same informees and thresholds as its parent" can {
-      "not be constructed" in {
+      "not be constructed" onlyRunWithOrLowerThan ProtocolVersion.v5 in {
 
         val node = createNode(unsuffixedId(0))
         val informees =
@@ -88,7 +90,7 @@ class TransactionViewDecompositionTest
             LfNodeId(0),
             Seq.empty,
             RollbackContext.empty,
-          )
+          )(testedProtocolVersion)
 
         an[IllegalArgumentException] should be thrownBy
           NewView(
@@ -98,7 +100,7 @@ class TransactionViewDecompositionTest
             LfNodeId(0),
             Seq(child),
             RollbackContext.empty,
-          )
+          )(testedProtocolVersion)
       }
     }
 
@@ -107,13 +109,15 @@ class TransactionViewDecompositionTest
         val flatTransactionSize = 10000
 
         val decomposition = timeouts.default.await("Decomposing test transaction")(
-          TransactionViewDecompositionFactory.V2.fromTransaction(
-            ConfirmationPolicy.Signatory,
-            mock[TopologySnapshot],
-            wftWithCreateNodes(flatTransactionSize),
-            RollbackContext.empty,
-            None,
-          )
+          TransactionViewDecompositionFactory
+            .V2(testedProtocolVersion)
+            .fromTransaction(
+              ConfirmationPolicy.Signatory,
+              mock[TopologySnapshot],
+              wftWithCreateNodes(flatTransactionSize),
+              RollbackContext.empty,
+              None,
+            )
         )
 
         decomposition.size shouldBe flatTransactionSize
@@ -158,7 +162,8 @@ class TransactionViewDecompositionTest
 
       "does not re-used rollback contexts" in {
 
-        val decomposition = TransactionViewDecompositionFactory.V2
+        val decomposition = TransactionViewDecompositionFactory
+          .V2(testedProtocolVersion)
           .fromTransaction(
             ConfirmationPolicy.Signatory,
             defaultTopologySnapshot,
@@ -193,7 +198,7 @@ class TransactionViewDecompositionTest
           LfNodeId(0),
           children,
           RollbackContext.empty,
-        )
+        )(testedProtocolVersion)
       }
 
       "deal with empty transactions" in {
