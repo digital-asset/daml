@@ -5,8 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.sequencer.admin.v30;
 
-import "google/protobuf/wrappers.proto";
-
 service SequencerBftAdministrationService {
   rpc AddPeerEndpoint(AddPeerEndpointRequest) returns (AddPeerEndpointResponse);
   rpc RemovePeerEndpoint(RemovePeerEndpointRequest) returns (RemovePeerEndpointResponse);
@@ -45,7 +43,7 @@ enum PeerEndpointHealthStatus {
 
 message PeerEndpointHealth {
   PeerEndpointHealthStatus status = 1;
-  google.protobuf.StringValue description = 2;
+  optional string description = 2;
 }
 
 message PeerEndpointStatus {

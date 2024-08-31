@@ -9,7 +9,6 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing_parameters.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message Enums {
@@ -92,7 +91,7 @@ message IdentifierDelegation {
 
 // mapping a member (participant, mediator, sequencer) to a key
 // authorization: whoever controls the member uid
-// UNIQUE(member, domain)
+// UNIQUE(member)
 message OwnerToKeyMapping {
   // the sequencing process member
   string member = 1;
@@ -149,7 +148,7 @@ message ParticipantDomainPermission {
   // optional earliest time when participant can log in (again)
   // used to temporarily disable participants
   // In microseconds of UTC time since Unix epoch
-  google.protobuf.Int64Value login_after = 5;
+  optional int64 login_after = 5;
 }
 
 // the optional hosting limits for a party on a given domain
@@ -164,7 +163,7 @@ message PartyHostingLimits {
 
 // list of packages supported by this participant
 // authorization: whoever controls the participant uid
-// UNIQUE(participant, domain)
+// UNIQUE(participant)
 message VettedPackages {
   message VettedPackage {
     // the hash of the vetted package
@@ -200,7 +199,7 @@ message VettedPackages {
 //       enough participants to reach "threshold" during confirmation. The disassociating participant
 //       must lower the threshold by one, if otherwise the number of hosting participants would go
 //       below the threshold.
-// UNIQUE(party, domain)
+// UNIQUE(party)
 message PartyToParticipant {
   message HostingParticipant {
     // the target participant that the party should be mapped to

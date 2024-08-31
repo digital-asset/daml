@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -45,7 +46,6 @@ import com.digitalasset.canton.participant.protocol.validation.RecipientsValidat
 import com.digitalasset.canton.participant.store
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
@@ -53,7 +53,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SubmissionTopologyHelper}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
@@ -943,13 +943,8 @@ abstract class ProtocolProcessor[
         }
         .getOrElse((None, None))
 
-      _ <- EitherT.right(
-        FutureUnlessShutdown.outcomeF(
-          unlessCleanReplay(rc)(
-            ephemeral.recordOrderPublisher.schedulePublication(sc, rc, ts, eventO)
-          )
-        )
-      )
+      eventToPublishO = if (!isCleanReplay(rc)) eventO else None
+
       pendingSubmissionDataO = submissionIdO.flatMap(submissionId =>
         // This removal does not interleave with `schedulePendingSubmissionRemoval`
         // as the sequencer respects the max sequencing time of the request.
@@ -964,7 +959,7 @@ abstract class ProtocolProcessor[
       )
       _ <- EitherT.right[steps.RequestError] {
         requestDataHandle.complete(None)
-        invalidRequest(rc, sc, ts)
+        invalidRequest(rc, sc, ts, eventToPublishO)
       }
     } yield ()
 
@@ -1077,7 +1072,7 @@ abstract class ProtocolProcessor[
           val responses = EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             Seq.empty[(ConfirmationResponse, Recipients)]
           )
-          val timeoutEvent = Either.right(Option.empty[TimestampedEvent])
+          val timeoutEvent = Either.right(Option.empty[Traced[Update]])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             (pendingData, responses, () => timeoutEvent)
           )
@@ -1229,7 +1224,7 @@ abstract class ProtocolProcessor[
         _ = requestDataHandle.complete(None)
 
         _ <- EitherT.right[steps.RequestError](
-          FutureUnlessShutdown.outcomeF(terminateRequest(rc, sc, ts, ts))
+          FutureUnlessShutdown.outcomeF(terminateRequest(rc, sc, ts, ts, None))
         )
       } yield ()
     }
@@ -1289,11 +1284,13 @@ abstract class ProtocolProcessor[
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, steps.ResultError, EitherT[FutureUnlessShutdown, steps.ResultError, Unit]] = {
-    ephemeral.recordOrderPublisher.tick(sc, resultTs)
-
     val snapshotTs = requestId.unwrap
 
     for {
+      _ <- EitherT.right(
+        ephemeral.recordOrderPublisher.tick(sc, resultTs, eventO = None)
+      )
+
       snapshot <- EitherT.right(
         crypto.ips.awaitSnapshotSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
@@ -1567,29 +1564,11 @@ abstract class ProtocolProcessor[
       )
 
       _ <- ifThenET(!cleanReplay) {
+        logger.info(
+          show"Finalizing ${steps.requestKind.unquoted} request=${requestId.unwrap} with event ${eventO
+              .map(_.value)}."
+        )
         for {
-          _unit <- {
-            logger.info(
-              show"Finalizing ${steps.requestKind.unquoted} request=${requestId.unwrap} with event $eventO."
-            )
-
-            // Schedule publication of the event with the associated causality update.
-            // Note that both fields are optional.
-            // Some events (such as rejection events) are not associated with causality updates.
-            // Additionally, we may process a causality update without an associated event (this happens on transfer-in)
-            EitherT.right[steps.ResultError](
-              FutureUnlessShutdown.outcomeF(
-                ephemeral.recordOrderPublisher
-                  .schedulePublication(
-                    requestSequencerCounter,
-                    requestCounter,
-                    requestId.unwrap,
-                    eventO,
-                  )
-              )
-            )
-          }
-
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
           _ = ephemeral.recordOrderPublisher.scheduleAcsChangePublication(
             requestSequencerCounter,
@@ -1606,6 +1585,7 @@ abstract class ProtocolProcessor[
                 requestSequencerCounter,
                 requestTimestamp,
                 commitTime,
+                eventO,
               )
             )
           )
@@ -1749,7 +1729,7 @@ abstract class ProtocolProcessor[
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       decisionTime: CantonTimestamp,
-      timeoutEvent: => Either[steps.ResultError, Option[TimestampedEvent]],
+      timeoutEvent: => Either[steps.ResultError, Option[Traced[Update]]],
   )(
       result: TimeoutResult
   )(implicit
@@ -1763,18 +1743,15 @@ abstract class ProtocolProcessor[
       def publishEvent(): EitherT[Future, steps.ResultError, Unit] =
         for {
           maybeEvent <- EitherT.fromEither[Future](timeoutEvent)
-          _ <- EitherT.right(
-            ephemeral.recordOrderPublisher
-              .schedulePublication(
-                sequencerCounter,
-                requestCounter,
-                requestId.unwrap,
-                maybeEvent,
-              )
-          )
           requestTimestamp = requestId.unwrap
           _unit <- EitherT.right[steps.ResultError](
-            terminateRequest(requestCounter, sequencerCounter, requestTimestamp, decisionTime)
+            terminateRequest(
+              requestCounter,
+              sequencerCounter,
+              requestTimestamp,
+              decisionTime,
+              maybeEvent,
+            )
           )
         } yield ()
 

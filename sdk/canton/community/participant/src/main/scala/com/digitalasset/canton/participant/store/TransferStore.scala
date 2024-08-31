@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
+import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT, EitherTUtil, MonadUtil, OptionUtil}
@@ -52,7 +52,7 @@ trait TransferStore extends TransferLookup {
     * added with [[addTransfer]].
     *
     * @param transferOutResult The transfer-out result to add
-    * @return [[TransferStore$.UnknownTransferId]] if the transfer has not previously been added with [[addTransfer]].
+    * @return [[TransferStore$.UnknownReassignmentId]] if the transfer has not previously been added with [[addTransfer]].
     *         [[TransferStore$.TransferOutResultAlreadyExists]] if a different transfer-out result for the same
     *         transfer request has been added before, including as part of [[addTransfer]].
     */
@@ -64,7 +64,7 @@ trait TransferStore extends TransferLookup {
     *
     * The same offset can be added any number of times.
     */
-  def addTransfersOffsets(offsets: Map[TransferId, TransferGlobalOffset])(implicit
+  def addTransfersOffsets(offsets: Map[ReassignmentId, TransferGlobalOffset])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit]
 
@@ -74,7 +74,7 @@ trait TransferStore extends TransferLookup {
     * The same [[com.digitalasset.canton.participant.GlobalOffset]] can be added any number of times.
     */
   def addTransfersOffsets(
-      events: Seq[(TransferId, TransferGlobalOffset)]
+      events: Seq[(ReassignmentId, TransferGlobalOffset)]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -90,14 +90,16 @@ trait TransferStore extends TransferLookup {
     *
     * @param timeOfCompletion Provides the request counter and activeness time of the committed transfer-in request.
     */
-  def completeTransfer(transferId: TransferId, timeOfCompletion: TimeOfChange)(implicit
+  def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, Nothing, TransferStoreError, Unit]
 
   /** Removes the transfer from the store,
     * when the transfer-out request is rejected or the transfer is pruned.
     */
-  def deleteTransfer(transferId: TransferId)(implicit traceContext: TraceContext): Future[Unit]
+  def deleteTransfer(reassignmentId: ReassignmentId)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
 
   /** Removes all completions of transfers that have been triggered by requests with at least the given counter.
     * This method must not be called concurrently with [[completeTransfer]], but may be called concurrently with
@@ -133,7 +135,7 @@ object TransferStore {
       updates
         .collect {
           case (transferAccepted: Update.ReassignmentAccepted, offset)
-              if transferAccepted.reassignmentInfo.isTransferringParticipant =>
+              if transferAccepted.reassignmentInfo.isReassigningParticipant =>
             (transferAccepted, offset)
         }
         .groupBy { case (event, _) => event.reassignmentInfo.targetDomain }
@@ -156,7 +158,7 @@ object TransferStore {
                 case _: Reassignment.Assign => TransferInGlobalOffset(globalOffset)
                 case _: Reassignment.Unassign => TransferOutGlobalOffset(globalOffset)
               }
-              TransferId(
+              ReassignmentId(
                 reassignmentEvent.reassignmentInfo.sourceDomain,
                 reassignmentEvent.reassignmentInfo.unassignId,
               ) -> transferOffset
@@ -185,25 +187,25 @@ object TransferStore {
     * Returns an error in case of inconsistent offsets.
     */
   def mergeTransferOffsets(
-      events: Seq[(TransferId, TransferGlobalOffset)]
-  ): Either[ConflictingGlobalOffsets, Map[TransferId, TransferGlobalOffset]] = {
-    type Acc = Map[TransferId, TransferGlobalOffset]
-    val zero: Acc = Map.empty[TransferId, TransferGlobalOffset]
+      events: Seq[(ReassignmentId, TransferGlobalOffset)]
+  ): Either[ConflictingGlobalOffsets, Map[ReassignmentId, TransferGlobalOffset]] = {
+    type Acc = Map[ReassignmentId, TransferGlobalOffset]
+    val zero: Acc = Map.empty[ReassignmentId, TransferGlobalOffset]
 
     MonadUtil.foldLeftM[Either[
       ConflictingGlobalOffsets,
       *,
-    ], Acc, (TransferId, TransferGlobalOffset)](
+    ], Acc, (ReassignmentId, TransferGlobalOffset)](
       zero,
       events,
-    ) { case (acc, (transferId, offset)) =>
-      val newOffsetE = acc.get(transferId) match {
+    ) { case (acc, (reassignmentId, offset)) =>
+      val newOffsetE = acc.get(reassignmentId) match {
         case Some(value) =>
-          value.merge(offset).leftMap(ConflictingGlobalOffsets(transferId, _))
+          value.merge(offset).leftMap(ConflictingGlobalOffsets(reassignmentId, _))
         case None => Right(offset)
       }
 
-      newOffsetE.map(newOffset => acc + (transferId -> newOffset))
+      newOffsetE.map(newOffset => acc + (reassignmentId -> newOffset))
     }
   }
 
@@ -212,52 +214,55 @@ object TransferStore {
   }
   sealed trait TransferLookupError extends TransferStoreError {
     def cause: String
-    def transferId: TransferId
-    def message: String = s"Cannot lookup for transfer `$transferId`: $cause"
+    def reassignmentId: ReassignmentId
+    def message: String = s"Cannot lookup for transfer `$reassignmentId`: $cause"
   }
 
-  final case class UnknownTransferId(transferId: TransferId) extends TransferLookupError {
-    override def cause: String = "unknown transfer id"
+  final case class UnknownReassignmentId(reassignmentId: ReassignmentId)
+      extends TransferLookupError {
+    override def cause: String = "unknown reassignment id"
   }
 
-  final case class TransferCompleted(transferId: TransferId, timeOfCompletion: TimeOfChange)
+  final case class TransferCompleted(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)
       extends TransferLookupError {
     override def cause: String = "transfer already completed"
   }
 
   final case class TransferDataAlreadyExists(old: TransferData, `new`: TransferData)
       extends TransferStoreError {
-    def transferId: TransferId = old.transferId
+    def reassignmentId: ReassignmentId = old.reassignmentId
 
     override def message: String =
-      s"Transfer data for transfer `$transferId` already exists and differs from the new one"
+      s"Transfer data for transfer `$reassignmentId` already exists and differs from the new one"
   }
 
   final case class TransferOutResultAlreadyExists(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       old: DeliveredTransferOutResult,
       `new`: DeliveredTransferOutResult,
   ) extends TransferStoreError {
     override def message: String =
-      s"Transfer-out result for transfer `$transferId` already exists and differs from the new one"
+      s"Transfer-out result for transfer `$reassignmentId` already exists and differs from the new one"
   }
 
   final case class TransferGlobalOffsetsMerge(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       error: String,
   ) extends TransferStoreError {
     override def message: String =
-      s"Unable to merge global offsets for transfer `$transferId`: $error"
+      s"Unable to merge global offsets for transfer `$reassignmentId`: $error"
   }
 
-  final case class ConflictingGlobalOffsets(transferId: TransferId, error: String)
+  final case class ConflictingGlobalOffsets(reassignmentId: ReassignmentId, error: String)
       extends TransferStoreError {
-    override def message: String = s"Conflicting global offsets for $transferId: $error"
+    override def message: String = s"Conflicting global offsets for $reassignmentId: $error"
   }
 
-  final case class TransferAlreadyCompleted(transferId: TransferId, newCompletion: TimeOfChange)
-      extends TransferStoreError {
-    override def message: String = s"Transfer `$transferId` is already completed"
+  final case class TransferAlreadyCompleted(
+      reassignmentId: ReassignmentId,
+      newCompletion: TimeOfChange,
+  ) extends TransferStoreError {
+    override def message: String = s"Transfer `$reassignmentId` is already completed"
   }
 
   /** The data for a transfer and possible when the transfer was completed. */
@@ -291,7 +296,7 @@ object TransferStore {
               )
 
             Checked.continueWithResult(
-              TransferAlreadyCompleted(transferData.transferId, otherToC),
+              TransferAlreadyCompleted(transferData.reassignmentId, otherToC),
               Some(thisToC),
             )
           }(Checked.result)
@@ -308,7 +313,7 @@ object TransferStore {
           val old = transferData.transferOutResult.getOrElse(
             throw new IllegalStateException("Transfer-out result should not be empty")
           )
-          TransferOutResultAlreadyExists(transferData.transferId, old, transferOutResult)
+          TransferOutResultAlreadyExists(transferData.reassignmentId, old, transferOutResult)
         }
         .map(TransferEntry(_, timeOfCompletion))
 
@@ -318,7 +323,7 @@ object TransferStore {
 
       val newGlobalOffsetE = transferData.transferGlobalOffset
         .fold[Either[TransferGlobalOffsetsMerge, TransferGlobalOffset]](Right(offset))(
-          _.merge(offset).leftMap(TransferGlobalOffsetsMerge(transferData.transferId, _))
+          _.merge(offset).leftMap(TransferGlobalOffsetsMerge(transferData.reassignmentId, _))
         )
 
       newGlobalOffsetE.map(newGlobalOffset =>
@@ -339,10 +344,11 @@ trait TransferLookup {
   import TransferStore.*
 
   /** Looks up the given in-flight transfer and returns the data associated with the transfer.
-    * @return [[scala.Left$]]([[TransferStore.UnknownTransferId]]) if the transfer is unknown;
+    *
+    * @return [[scala.Left$]]([[TransferStore.UnknownReassignmentId]]) if the transfer is unknown;
     *         [[scala.Left$]]([[TransferStore.TransferCompleted]]) if the transfer has already been completed.
     */
-  def lookup(transferId: TransferId)(implicit
+  def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferLookupError, TransferData]
 
@@ -401,11 +407,11 @@ trait TransferLookup {
 
   /** Find utility to look for the earliest incomplete transfer w.r.t. the ledger end.
     * If an incomplete transfer exists, the method returns the global offset of the incomplete transfer for either the
-    * transfer-out or the transfer-in, whichever of these is not null, the transfer id and the target domain id.
+    * transfer-out or the transfer-in, whichever of these is not null, the reassignment id and the target domain id.
     * It returns None if there is no incomplete transfer (either because all transfers are complete or are in-flight,
     * or because there are no transfers), or the transfer table is empty.
     */
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]]
+  ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]]
 }

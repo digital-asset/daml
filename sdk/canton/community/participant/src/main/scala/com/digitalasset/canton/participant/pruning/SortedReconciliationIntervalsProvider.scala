@@ -70,7 +70,7 @@ class SortedReconciliationIntervalsProvider(
           }
       }
 
-  /** Succeeds if the given timestamp `ts` represents a reconciliation interval tick,
+  /** Succeeds if the given timestamp `ts` represents a reconciliation interval tick
     * otherwise throws an InvalidParameterException.
     */
   private def checkIsTick(

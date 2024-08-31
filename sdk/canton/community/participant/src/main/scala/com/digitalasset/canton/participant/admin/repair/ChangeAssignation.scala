@@ -8,17 +8,23 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
-import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.{
+  DomainIndex,
+  Reassignment,
+  ReassignmentInfo,
+  RequestIndex,
+  Update,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changed
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.daml.lf.data.Bytes
@@ -32,12 +38,13 @@ private final class ChangeAssignation(
     skipInactive: Boolean,
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiProvider,
+    repairIndexer: FutureQueue[Traced[Update]],
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
   private val sourceDomainId = SourceDomainId(repairSource.domain.id)
   private val targetDomainId = TargetDomainId(repairTarget.domain.id)
-  private val transferId = TransferId(sourceDomainId, repairSource.timestamp)
+  private val reassignmentId = ReassignmentId(sourceDomainId, repairSource.timestamp)
 
   /** Change the domain assignation for contracts from [[repairSource]] to [[repairTarget]]
     */
@@ -67,7 +74,7 @@ private final class ChangeAssignation(
       transactionId = randomTransactionId(syncCrypto)
       _ <- persistContracts(transactionId, contracts)
       _ <- persistTransferOutAndIn(contracts).toEitherT
-      _ <- insertTransferEventsInLog(transactionId, contracts)
+      _ <- EitherT.right(insertTransferEventsInLog(contracts))
     } yield ()
 
   private def changingContractsAtSource(
@@ -276,36 +283,25 @@ private final class ChangeAssignation(
   }
 
   private def insertTransferEventsInLog(
-      transactionId: TransactionId,
-      changedContracts: List[ChangeAssignation.Data[Changed]],
+      changedContracts: List[ChangeAssignation.Data[Changed]]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
-
-    val contracts = changedContracts.map(_.payload.contract)
-
-    val insertTransferOutEvents =
-      for {
-        hostedParties <- EitherT.right(hostedParties(repairSource, contracts, participantId))
-        transferOutEvents = changedContracts.map(transferOut(hostedParties))
-        _ <- insertMany(repairSource, transferOutEvents)
-      } yield ()
-
-    val insertTransferInEvents =
-      for {
-        hostedParties <- EitherT.right(hostedParties(repairTarget, contracts, participantId))
-        transferInEvents = changedContracts.map(transferIn(transactionId, hostedParties))
-        _ <- insertMany(repairTarget, transferInEvents)
-      } yield ()
-
-    insertTransferOutEvents.flatMap(_ => insertTransferInEvents)
-
-  }
+  ): Future[Unit] =
+    for {
+      hostedSourceParties <- hostedParties(repairSource, changedContracts, participantId)
+      hostedTargetParties <- hostedParties(repairTarget, changedContracts, participantId)
+      _ <- MonadUtil.sequentialTraverse_(
+        Iterator(
+          transferOut(hostedSourceParties),
+          transferIn(hostedTargetParties),
+        ).flatMap(changedContracts.map)
+      )(repairIndexer.offer)
+    } yield ()
 
   private def hostedParties(
       repair: RepairRequest,
-      contracts: List[SerializableContract],
+      changedContracts: List[ChangeAssignation.Data[Changed]],
       participantId: ParticipantId,
   )(implicit
       executionContext: ExecutionContext,
@@ -313,77 +309,88 @@ private final class ChangeAssignation(
   ): Future[Set[LfPartyId]] =
     hostsParties(
       repair.domain.topologySnapshot,
-      contracts
-        .flatMap(_.metadata.stakeholders)
+      changedContracts
+        .flatMap(_.payload.contract.metadata.stakeholders)
         .toSet,
       participantId,
     )
 
-  private def insertMany(repair: RepairRequest, events: List[TimestampedEvent])(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
-    EitherT(
-      repair.domain.persistentState.eventLog.insertsUnlessEventIdClash(events).map(_.sequence)
-    )
-      .map(_.discard)
-      .leftMap { event =>
-        show"Unable to insert event with event ID ${event.eventId.showValue} already present at offset ${event.localOffset}"
-      }
-
-  private def transferOut(hostedParties: Set[LfPartyId])(
-      contract: ChangeAssignation.Data[Changed]
-  )(implicit traceContext: TraceContext): TimestampedEvent =
-    TimestampedEvent(
-      event = LedgerSyncEvent.TransferredOut(
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+  private def transferOut(hostedParties: Set[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
+    Traced(
+      Update.ReassignmentAccepted(
         optCompletionInfo = None,
-        submitter = None,
-        contractId = contract.payload.contract.contractId,
-        templateId = Option(contract.payload.contract.contractInstance.unversioned.template),
-        packageName = contract.payload.contract.contractInstance.unversioned.packageName,
-        contractStakeholders = contract.payload.contract.metadata.stakeholders,
-        transferId = transferId,
-        targetDomain = targetDomainId,
-        transferInExclusivity = None,
         workflowId = None,
-        isTransferringParticipant = false,
-        hostedStakeholders =
-          hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
-        transferCounter = contract.payload.transferCounter,
-      ),
-      localOffset = contract.sourceTimeOfChange.asLocalOffset,
-      requestSequencerCounter = None,
-    )
-
-  private def transferIn(transactionId: TransactionId, hostedParties: Set[LfPartyId])(
-      contract: ChangeAssignation.Data[Changed]
-  )(implicit traceContext: TraceContext) =
-    TimestampedEvent(
-      event = LedgerSyncEvent.TransferredIn(
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        optCompletionInfo = None,
-        submitter = None,
-        recordTime = repairTarget.timestamp.toLf,
-        ledgerCreateTime = contract.payload.contract.ledgerCreateTime.toLf,
-        createNode = contract.payload.contract.toLf,
-        creatingTransactionId = transactionId.tryAsLedgerTransactionId,
-        contractMetadata = Bytes.fromByteString(
-          contract.payload.contract.metadata
-            .toByteString(repairTarget.domain.parameters.protocolVersion)
+        recordTime = reassignmentId.transferOutTimestamp.underlying,
+        reassignmentInfo = ReassignmentInfo(
+          sourceDomain = reassignmentId.sourceDomain,
+          targetDomain = targetDomainId,
+          submitter = None,
+          reassignmentCounter = contract.payload.transferCounter.v,
+          hostedStakeholders =
+            hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
+          unassignId = reassignmentId.transferOutTimestamp,
+          isReassigningParticipant = false,
         ),
-        transferId = transferId,
-        targetDomain = targetDomainId,
-        workflowId = None,
-        isTransferringParticipant = false,
-        hostedStakeholders =
-          hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
-        transferCounter = contract.payload.transferCounter,
-      ),
-      localOffset = contract.targetTimeOfChange.asLocalOffset,
-      requestSequencerCounter = None,
+        reassignment = Reassignment.Unassign(
+          contractId = contract.payload.contract.contractId,
+          templateId = contract.payload.contract.contractInstance.unversioned.template,
+          packageName = contract.payload.contract.contractInstance.unversioned.packageName,
+          stakeholders = contract.payload.contract.metadata.stakeholders.toList,
+          assignmentExclusivity = None,
+        ),
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = contract.sourceTimeOfChange.rc,
+              sequencerCounter = None,
+              timestamp = contract.sourceTimeOfChange.timestamp,
+            )
+          )
+        ),
+      )
     )
 
+  private def transferIn(hostedParties: Set[LfPartyId])(implicit
+      traceContext: TraceContext
+  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
+    Traced(
+      Update.ReassignmentAccepted(
+        optCompletionInfo = None,
+        workflowId = None,
+        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        recordTime = repairTarget.timestamp.toLf,
+        reassignmentInfo = ReassignmentInfo(
+          sourceDomain = reassignmentId.sourceDomain,
+          targetDomain = targetDomainId,
+          submitter = None,
+          reassignmentCounter = contract.payload.transferCounter.v,
+          hostedStakeholders =
+            hostedParties.intersect(contract.payload.contract.metadata.stakeholders).toList,
+          unassignId = reassignmentId.transferOutTimestamp,
+          isReassigningParticipant = false,
+        ),
+        reassignment = Reassignment.Assign(
+          ledgerEffectiveTime = contract.payload.contract.ledgerCreateTime.toLf,
+          createNode = contract.payload.contract.toLf,
+          contractMetadata = Bytes.fromByteString(
+            contract.payload.contract.metadata
+              .toByteString(repairTarget.domain.parameters.protocolVersion)
+          ),
+        ),
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = contract.targetTimeOfChange.rc,
+              sequencerCounter = None,
+              timestamp = contract.targetTimeOfChange.timestamp,
+            )
+          )
+        ),
+      )
+    )
 }
 
 // TODO(i14540): this needs to be called by RepairService to commit the changes
@@ -412,6 +419,7 @@ private[repair] object ChangeAssignation {
       skipInactive: Boolean,
       participantId: ParticipantId,
       syncCrypto: SyncCryptoApiProvider,
+      repairIndexer: FutureQueue[Traced[Update]],
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
@@ -424,6 +432,7 @@ private[repair] object ChangeAssignation {
       skipInactive,
       participantId,
       syncCrypto,
+      repairIndexer,
       loggerFactory,
     ).run()
 

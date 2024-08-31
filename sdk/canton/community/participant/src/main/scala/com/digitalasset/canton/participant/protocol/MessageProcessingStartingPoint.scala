@@ -7,14 +7,11 @@ import cats.syntax.either.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints.InvalidStartingPointsException
-import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.google.common.annotations.VisibleForTesting
 
 /** Summarizes the counters and timestamps where request processing
   *
-  * @param cleanRequestPrehead The request offset corresponding to the prehead of the clean request if any.
   * @param nextRequestCounter The request counter for the next request to be replayed or processed.
   * @param nextSequencerCounter The sequencer counter for the next event to be replayed or processed.
   * @param prenextTimestamp A strict lower bound on the timestamp for the `nextSequencerCounter`.
@@ -28,13 +25,11 @@ import com.google.common.annotations.VisibleForTesting
   *                         and a lower request counter than `nextRequestCounter`.
   */
 final case class MessageProcessingStartingPoint(
-    cleanRequestPrehead: Option[RequestOffset],
     nextRequestCounter: RequestCounter,
     nextSequencerCounter: SequencerCounter,
     prenextTimestamp: CantonTimestamp,
 ) extends PrettyPrinting {
   override def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
-    paramIfDefined("last clean offset", _.cleanRequestPrehead),
     param("next request counter", _.nextRequestCounter),
     param("next sequencer counter", _.nextSequencerCounter),
     param("prenext timestamp", _.prenextTimestamp),
@@ -47,7 +42,6 @@ final case class MessageProcessingStartingPoint(
 object MessageProcessingStartingPoint {
   def default: MessageProcessingStartingPoint =
     MessageProcessingStartingPoint(
-      None,
       RequestCounter.Genesis,
       SequencerCounter.Genesis,
       CantonTimestamp.MinValue,
@@ -98,20 +92,11 @@ object MessageCleanReplayStartingPoint {
   *                                       It refers to the first request that is not known to be clean.
   *                                       The [[MessageProcessingStartingPoint.prenextTimestamp]] be the timestamp of a sequenced event
   *                                       or [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
-  * @param lastPublishedRequestOffset       The last local offset that was published to the
-  *                                       [[com.digitalasset.canton.participant.store.MultiDomainEventLog]]
-  * @param rewoundSequencerCounterPrehead The point to which the sequencer counter prehead needs to be reset as part of the recovery clean-up.
-  *                                       This is the minimum of the following:
-  *                                       * The last event before the [[processing]] event
-  *                                       * The clean sequencer counter prehead at the beginning of crash recovery.
   * @throws ProcessingStartingPoints.InvalidStartingPointsException if `cleanReplay` is after (in any component) `processing`
   */
 final case class ProcessingStartingPoints private (
     cleanReplay: MessageCleanReplayStartingPoint,
     processing: MessageProcessingStartingPoint,
-    // TODO(#15089) Check whether this should be LocalOffset
-    lastPublishedRequestOffset: Option[RequestOffset],
-    rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
 ) extends PrettyPrinting {
 
   if (cleanReplay.prenextTimestamp > processing.prenextTimestamp)
@@ -127,28 +112,9 @@ final case class ProcessingStartingPoints private (
       s"Clean replay next sequencer counter ${cleanReplay.nextSequencerCounter} is after processing next sequencer counter ${processing.nextSequencerCounter}"
     )
 
-  /** No events should have been published at or after the point where processing starts again
-    * because [[com.digitalasset.canton.participant.protocol.AbstractMessageProcessor.terminateRequest]]
-    * ticks the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]] only after
-    * the clean request prehead has advanced in the [[RequestJournal]]. So this method normally returns `true`.
-    *
-    * Some tests reset the clean request prehead and thus violate this invariant.
-    * In such a case, this method returns `false.`
-    */
-  def processingAfterPublished: Boolean =
-    (lastPublishedRequestOffset, processing.cleanRequestPrehead) match {
-      case (Some(lastPublishedRequestOffset), Some(processingCleanRequestPrehead)) =>
-        processingCleanRequestPrehead >= lastPublishedRequestOffset
-      case (Some(_lastPublishedLocalOffset), None) => false
-      case (None, Some(_lastProcessed)) => true
-      case (None, None) => true
-    }
-
   override def pretty: Pretty[ProcessingStartingPoints] = prettyOfClass(
     param("clean replay", _.cleanReplay),
     param("processing", _.processing),
-    paramIfDefined("last published request offset", _.lastPublishedRequestOffset),
-    param("rewound sequencer counter prehead", _.rewoundSequencerCounterPrehead),
   )
 }
 
@@ -158,29 +124,21 @@ object ProcessingStartingPoints {
   def tryCreate(
       cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      lastPublishedRequestOffset: Option[RequestOffset],
-      rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): ProcessingStartingPoints =
     new ProcessingStartingPoints(
       cleanReplay,
       processing,
-      lastPublishedRequestOffset,
-      rewoundSequencerCounterPrehead,
     )
 
   def create(
       cleanReplay: MessageCleanReplayStartingPoint,
       processing: MessageProcessingStartingPoint,
-      lastPublishedRequestOffset: Option[RequestOffset],
-      rewoundSequencerCounterPrehead: Option[SequencerCounterCursorPrehead],
   ): Either[String, ProcessingStartingPoints] =
     Either
       .catchOnly[InvalidStartingPointsException](
         tryCreate(
           cleanReplay,
           processing,
-          lastPublishedRequestOffset,
-          rewoundSequencerCounterPrehead,
         )
       )
       .leftMap(_.message)
@@ -190,7 +148,5 @@ object ProcessingStartingPoints {
     new ProcessingStartingPoints(
       cleanReplay = MessageCleanReplayStartingPoint.default,
       processing = MessageProcessingStartingPoint.default,
-      lastPublishedRequestOffset = None,
-      rewoundSequencerCounterPrehead = None,
     )
 }

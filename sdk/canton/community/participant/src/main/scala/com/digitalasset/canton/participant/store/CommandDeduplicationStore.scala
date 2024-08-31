@@ -67,7 +67,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
   /** Prunes all command deduplication entries whose [[CommandDeduplicationData.latestDefiniteAnswer]] offset
     * is less or equal to `upToInclusive`.
     *
-    * @param prunedPublicationTime The publication time of the given offset in the [[MultiDomainEventLog]].
+    * @param prunedPublicationTime The publication time of the given offset
     */
   def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -183,7 +183,7 @@ object CommandDeduplicationData {
   }
 }
 
-/** @param offset A completion offset in the [[MultiDomainEventLog]]
+/** @param offset A completion offset
   * @param publicationTime The publication time associated with the `offset`
   * @param traceContext The trace context that created the completion offset.
   */

@@ -63,13 +63,22 @@ class TopologyManagerSigningKeyDetectionTest
 
       // uid1a has an identifier delegation, therefore it should be used
       detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None)
+        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key4.fingerprint))
 
       // uid1b has NO identifier delegation, therefore the root certificate should be used
       detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1b, None)
+        .getValidSigningKeysForTransaction(ts(1), dtc_uid1b, None, returnAllValidKeys = false)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key1.fingerprint))
+
+      // test geting all valid keys
+      detector
+        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = true)
+        .futureValueUS
+        .value should contain theSameElementsAs Seq(
+        SigningKeys.key1,
+        SigningKeys.key4,
+      ).map(_.fingerprint)
     }
 
     "prefer keys furthest from the root certificate" in {
@@ -78,8 +87,18 @@ class TopologyManagerSigningKeyDetectionTest
       detector.store.bootstrap(mkStored(ts(0), ns1k1_k1, ns1k2_k1, ns1k3_k2)).futureValue
 
       detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None)
+        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key3.fingerprint))
+
+      // test getting all valid keys
+      detector
+        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = true)
+        .futureValueUS
+        .value should contain theSameElementsAs Seq(
+        SigningKeys.key1,
+        SigningKeys.key2,
+        SigningKeys.key3,
+      ).map(_.fingerprint)
 
       // now let's break the chain by removing the NSD for key2.
       // this prevents key3 from being authorized for new signatures.
@@ -99,7 +118,7 @@ class TopologyManagerSigningKeyDetectionTest
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         detector
-          .getValidSigningKeysForTransaction(ts(2), dtc_uid1a, None)
+          .getValidSigningKeysForTransaction(ts(2), dtc_uid1a, None, returnAllValidKeys = false)
           .futureValueUS shouldBe Right(
           Seq(SigningKeys.key1.fingerprint)
         ),
@@ -137,7 +156,7 @@ class TopologyManagerSigningKeyDetectionTest
         .futureValueUS
 
       detector
-        .getValidSigningKeysForTransaction(ts(1), otk, None)
+        .getValidSigningKeysForTransaction(ts(1), otk, None, returnAllValidKeys = false)
         .futureValueUS
         .value should contain theSameElementsAs Seq(
         SigningKeys.key2, // the furthest key available for NS1
@@ -145,6 +164,18 @@ class TopologyManagerSigningKeyDetectionTest
         SigningKeys.key4, // all new signing keys must also sign
         // since we removed key8 from the private key store, it cannot be used to sign something, so it is not suggested
       ).map(_.fingerprint)
+
+      detector
+        .getValidSigningKeysForTransaction(ts(1), otk, None, returnAllValidKeys = true)
+        .futureValueUS
+        .value should contain theSameElementsAs Seq(
+        SigningKeys.key1, // the root certificate key for NS1
+        SigningKeys.key2, // the key authorized for NS1 by an additional NSD
+        SigningKeys.key9, // the root certificate key for NS9
+        SigningKeys.key4, // all new signing keys must also sign
+        // since we removed key8 from the private key store, it cannot be used to sign something, so it is not suggested
+      ).map(_.fingerprint)
+
     }
 
   }

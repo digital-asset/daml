@@ -131,22 +131,22 @@ class TransferCoordination(
   private[transfer] def transferIn(
       targetDomain: TargetDomainId,
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, TransferInProcessingSteps.SubmissionResult] = {
-    logger.debug(s"Triggering automatic transfer-in of transfer `$transferId`")
+    logger.debug(s"Triggering automatic transfer-in of transfer `$reassignmentId`")
 
     for {
       inSubmission <- EitherT.fromEither[Future](
         inSubmissionById(targetDomain.unwrap).toRight(
-          UnknownDomain(targetDomain.unwrap, "When transferring in")
+          UnknownDomain(targetDomain.unwrap, "When submitting assignment")
         )
       )
       submissionResult <- inSubmission
         .submitTransferIn(
           submitterMetadata,
-          transferId,
+          reassignmentId,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
@@ -224,7 +224,7 @@ class TransferCoordination(
       )
       _ <- transferStore
         .addTransfer(transferData)
-        .leftMap[TransferProcessorError](TransferStoreFailed(transferData.transferId, _))
+        .leftMap[TransferProcessorError](TransferStoreFailed(transferData.reassignmentId, _))
     } yield ()
 
   /** Adds the transfer-out result to the transfer stored on the given domain. */
@@ -238,16 +238,19 @@ class TransferCoordination(
       transferStore <- EitherT.fromEither[FutureUnlessShutdown](transferStoreFor(domain))
       _ <- transferStore
         .addTransferOutResult(transferOutResult)
-        .leftMap[TransferProcessorError](TransferStoreFailed(transferOutResult.transferId, _))
+        .leftMap[TransferProcessorError](TransferStoreFailed(transferOutResult.reassignmentId, _))
     } yield ()
 
-  /** Removes the given [[com.digitalasset.canton.protocol.TransferId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.TransferStore]]. */
-  private[transfer] def deleteTransfer(targetDomain: TargetDomainId, transferId: TransferId)(
-      implicit traceContext: TraceContext
+  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.TransferStore]]. */
+  private[transfer] def deleteTransfer(
+      targetDomain: TargetDomainId,
+      reassignmentId: ReassignmentId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, Unit] =
     for {
       transferStore <- EitherT.fromEither[Future](transferStoreFor(targetDomain))
-      _ <- EitherT.right[TransferProcessorError](transferStore.deleteTransfer(transferId))
+      _ <- EitherT.right[TransferProcessorError](transferStore.deleteTransfer(reassignmentId))
     } yield ()
 }
 
@@ -303,7 +306,7 @@ trait TransferSubmissionHandle {
 
   def submitTransferIn(
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[

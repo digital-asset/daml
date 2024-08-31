@@ -70,18 +70,18 @@ final case class TransferOutMediatorMessage(
     )
   }
 
-  def toProtoV30: v30.TransferOutMediatorMessage =
-    v30.TransferOutMediatorMessage(
+  def toProtoV30: v30.UnassignmentMediatorMessage =
+    v30.UnassignmentMediatorMessage(
       tree = Some(tree.toProtoV30),
       submittingParticipantSignature = Some(submittingParticipantSignature.toProtoV30),
     )
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
-    v30.EnvelopeContent.SomeEnvelopeContent.TransferOutMediatorMessage(toProtoV30)
+    v30.EnvelopeContent.SomeEnvelopeContent.UnassignmentMediatorMessage(toProtoV30)
 
   override def rootHash: RootHash = tree.rootHash
 
-  override def viewType: ViewType = ViewType.TransferOutViewType
+  override def viewType: ViewType = ViewType.UnassignmentViewType
 
   override def pretty: Pretty[TransferOutMediatorMessage] = prettyOfClass(unnamedParam(_.tree))
 
@@ -99,7 +99,7 @@ object TransferOutMediatorMessage
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
-      v30.TransferOutMediatorMessage
+      v30.UnassignmentMediatorMessage
     )(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
@@ -107,9 +107,9 @@ object TransferOutMediatorMessage
   )
 
   def fromProtoV30(context: (HashOps, SourceProtocolVersion))(
-      transferOutMediatorMessageP: v30.TransferOutMediatorMessage
+      transferOutMediatorMessageP: v30.UnassignmentMediatorMessage
   ): ParsingResult[TransferOutMediatorMessage] = {
-    val v30.TransferOutMediatorMessage(treePO, submittingParticipantSignaturePO) =
+    val v30.UnassignmentMediatorMessage(treePO, submittingParticipantSignaturePO) =
       transferOutMediatorMessageP
     for {
       tree <- ProtoConverter

@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[participant] object AutomaticTransferIn {
   def perform(
-      id: TransferId,
+      id: ReassignmentId,
       targetDomain: TargetDomainId,
       staticDomainParameters: StaticDomainParameters,
       transferCoordination: TransferCoordination,

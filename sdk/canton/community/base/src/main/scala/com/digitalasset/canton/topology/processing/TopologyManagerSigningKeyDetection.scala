@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
+import cats.instances.order.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
@@ -11,10 +12,10 @@ import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.Namespace
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.NamespaceDelegation
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.{Namespace, TopologyManagerError, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -35,6 +36,9 @@ import scala.concurrent.ExecutionContext
   * required to construct a valid certificate chain from the root certificate of namespace ns
   * to the target key k. The same mechanism holds true in case the authorization requires a root delegation,
   * with the additional restriction that only root delegations are taken into account.
+  *
+  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take the last one.
+  * While this decision is arbitrary (because there is no other criteria easily available), it is deterministic.
   *
   * Example:
   *
@@ -57,6 +61,10 @@ import scala.concurrent.ExecutionContext
   * For <strong>UIDs</strong>: select any identifier delegation that is well authorized. Since an identifier delegation
   * is issued for s specific UID, the chainLength property is not so relevant, because the target key of an identifier
   * delegation is supposed to be a different key than the root certificate key anyway.
+  *
+  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take the last one.
+  * While this decision is arbitrary (because there is no other criteria easily available), it is deterministic.
+  *
   * If there is no identifier delegation, follow the rules for namespaces for the UID's namespace.
   */
 class TopologyManagerSigningKeyDetection(
@@ -67,7 +75,11 @@ class TopologyManagerSigningKeyDetection(
     extends TransactionAuthorizationCache
     with NamedLogging {
 
-  private def filterKnownKeysForNamespace(namespace: Namespace, requireRoot: Boolean)(implicit
+  private def filterKnownKeysForNamespace(
+      namespace: Namespace,
+      requireRoot: Boolean,
+      returnAllValidKeys: Boolean,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
     tryGetAuthorizationCheckForNamespace(namespace)
@@ -85,88 +97,118 @@ class TopologyManagerSigningKeyDetection(
           .parFilterA { case (fingerprint, _) =>
             crypto.cryptoPrivateStore.existsSigningKey(fingerprint)
           }
-          .map(
-            _.toList
-              .maxByOption { case (_, level) => level }
-              .map { case (fingerprint, _) =>
-                fingerprint
-              }
-              .toList
-          )
+          .map { usableKeys =>
+            val selectedKeys =
+              if (returnAllValidKeys) usableKeys
+              else
+                // find the highest level, and within the level the lexicographically highest fingerprint
+                usableKeys.maxByOption { case (fingerprint, level) => (level, fingerprint) }.toList
+
+            selectedKeys.map { case (fingerprint, _) => fingerprint }
+          }
       }
 
+  private def filterKnownKeysForUID(uid: UniqueIdentifier, returnAllValidKeys: Boolean)(implicit
+      traceContext: TraceContext
+  ) = {
+    // namespaceCheck to verify that the IDDs are still fully authorized by their respective signing keys
+    val namespaceCheck = tryGetAuthorizationCheckForNamespace(uid.namespace)
+
+    tryGetIdentifierDelegationsForUid(uid).toSeq
+      .parTraverseFilter { idd =>
+        val isIddAuthorized = namespaceCheck.existsAuthorizedKeyIn(
+          idd.signingKeys,
+          requireRoot = false,
+        )
+        if (isIddAuthorized) {
+          crypto.cryptoPrivateStore
+            .existsSigningKey(idd.mapping.target.fingerprint)
+            .map(Option.when(_)(idd.mapping.target.fingerprint))
+        } else {
+          // if the IDD is not authorized, it's not a valid candidate for signing
+          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
+            None: Option[Fingerprint]
+          )
+        }
+      }
+      .map { usableKeys =>
+        if (returnAllValidKeys) usableKeys
+        // pick the lexicographically highest key
+        else usableKeys.maxOption.toList
+      }
+  }
+
+  /** @param asOfExclusive the timestamp used to query topology state
+    * @param toSign the topology transaction to sign
+    * @param inStore the latest fully authorized topology transaction with the same unique key as `toSign`
+    * @param returnAllValidKeys if true, returns all keys that can be used to sign.
+    *                           if false, only returns the most specific keys per namespace/uid.
+    * @return fingerprints of keys the node can use to sign the topology transaction `toSign`
+    */
   def getValidSigningKeysForTransaction(
-      asOf: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       toSign: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
+      returnAllValidKeys: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
-    for {
-      _ <- EitherT.right(populateCaches(asOf, toSign, inStore)).mapK(FutureUnlessShutdown.outcomeK)
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Seq[Fingerprint]] = {
+    val result = for {
+      _ <- EitherT
+        .right(populateCaches(asOfExclusive, toSign, inStore))
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       referencedAuth = toSign.mapping.requiredAuth(inStore).referenced
 
       knownNsKeys = referencedAuth.namespaces.toSeq
         .parFlatTraverse(namespace =>
-          filterKnownKeysForNamespace(namespace, requireRoot = false)
+          filterKnownKeysForNamespace(namespace, requireRoot = false, returnAllValidKeys)
             .map { keys =>
-              if (keys.nonEmpty) logger.info(s"Keys for $namespace: $keys")
+              if (keys.nonEmpty) logger.debug(s"Keys for $namespace: $keys")
               keys
             }
         )
 
       knownRootNsKeys = referencedAuth.namespacesWithRoot.toSeq
         .parFlatTraverse(namespace =>
-          filterKnownKeysForNamespace(namespace, requireRoot = true)
+          filterKnownKeysForNamespace(namespace, requireRoot = true, returnAllValidKeys)
             .map { keys =>
-              if (keys.nonEmpty) logger.info(s"Keys for root $namespace: $keys")
+              if (keys.nonEmpty) logger.debug(s"Keys for root $namespace: $keys")
               keys
             }
         )
 
       knownUidKeys = referencedAuth.uids.toSeq.parFlatTraverse { uid =>
-        val namespaceCheck = tryGetAuthorizationCheckForNamespace(uid.namespace)
-        tryGetIdentifierDelegationsForUid(uid).toSeq
-          .parTraverseFilter { idd =>
-            val isIddAuthorized = namespaceCheck.existsAuthorizedKeyIn(
-              idd.signingKeys,
-              requireRoot = false,
-            )
-            if (isIddAuthorized) {
-              crypto.cryptoPrivateStore
-                .existsSigningKey(idd.mapping.target.fingerprint)
-                .map(Option.when(_)(idd.mapping.target.fingerprint))
-            } else
-              EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-                None: Option[Fingerprint]
-              )
-          }
-          // take the first IDD available
-          .map(_.headOption)
-          .flatMap(knownIddKey =>
-            if (knownIddKey.isEmpty) {
-              // if we don't know of any keys delegated to by IDDs,
-              // we try to find keys that could sign on behalf of the uid's namespace
-              filterKnownKeysForNamespace(uid.namespace, requireRoot = false).map { keys =>
-                if (keys.nonEmpty) logger.info(s"Keys for $uid's namespace: $keys")
-                keys
+        filterKnownKeysForUID(uid, returnAllValidKeys)
+          .flatMap { knownIddKeys =>
+            if (knownIddKeys.nonEmpty) logger.debug(s"Keys for $uid: $knownIddKeys")
+
+            if (knownIddKeys.isEmpty || returnAllValidKeys) {
+              // if we don't know of any keys delegated to by IDDs or we should return all valid keys,
+              // we try to find keys that could sign on behalf of the uid's namespace.
+              filterKnownKeysForNamespace(
+                uid.namespace,
+                requireRoot = false,
+                returnAllValidKeys,
+              ).map { namespaceKeys =>
+                if (namespaceKeys.nonEmpty)
+                  logger.debug(s"Keys for $uid's namespace: $namespaceKeys")
+                // it's correct to join the two collections of keys here, because either
+                // * knownIddKeys is empty, then it doesn't change the result
+                // * knownIddKeys is non-empty, but we need to return all keys
+                knownIddKeys ++ namespaceKeys
               }
             } else {
-              logger.info(s"Keys for $uid: $knownIddKey")
-              EitherT
-                .rightT[FutureUnlessShutdown, CryptoPrivateStoreError][Seq[Fingerprint]](
-                  knownIddKey.toList
-                )
+              EitherT.pure[FutureUnlessShutdown, CryptoPrivateStoreError](knownIddKeys)
             }
-          )
+          }
       }
       knownExtraKeys = referencedAuth.extraKeys.toSeq
         .parFilterA { key =>
           crypto.cryptoPrivateStore.existsSigningKey(key)
         }
         .map { keys =>
-          if (keys.nonEmpty) logger.info(s"Keys for extra keys: $keys")
+          if (keys.nonEmpty) logger.debug(s"Keys for extra keys: $keys")
           keys
         }
 
@@ -186,5 +228,11 @@ class TopologyManagerSigningKeyDetection(
         selfSigned,
       ).combineAll
     } yield allKnownKeysEligibleForSigning
+
+    result.leftMap(err =>
+      TopologyManagerError.InvalidSignatureError
+        .KeyStoreFailure(err): TopologyManagerError
+    )
+  }
 
 }

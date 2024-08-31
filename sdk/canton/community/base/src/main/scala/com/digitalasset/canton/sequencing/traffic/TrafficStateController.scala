@@ -21,8 +21,8 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencingSubmissionCost,
   TrafficState,
 }
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -42,6 +42,7 @@ class TrafficStateController(
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
     metrics: TrafficConsumptionMetrics,
+    domainId: DomainId,
 ) extends NamedLogging {
   private val currentTrafficPurchased =
     new AtomicReference[Option[TrafficPurchased]](initialTrafficState.toTrafficPurchased(member))
@@ -53,7 +54,8 @@ class TrafficStateController(
   )
 
   private implicit val memberMetricsContext: MetricsContext = MetricsContext(
-    "member" -> member.toString
+    "member" -> member.toString,
+    "domain" -> domainId.toString,
   )
 
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
@@ -94,6 +96,11 @@ class TrafficStateController(
         )
         Some(other)
     }
+    newState.foreach(state =>
+      metrics
+        .extraTrafficPurchased(memberMetricsContext)
+        .updateValue(state.extraTrafficPurchased.value)
+    )
     logger.debug(s"Updating traffic purchased entry $newState")
   }
 

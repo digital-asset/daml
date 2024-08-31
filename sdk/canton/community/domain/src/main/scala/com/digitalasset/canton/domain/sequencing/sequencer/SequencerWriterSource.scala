@@ -313,7 +313,6 @@ class SendEventGenerator(
     ): Future[Validated[NonEmpty[Seq[Member]], Set[SequencerMemberId]]] =
       for {
         // TODO(#12363) Support group addresses in the DB Sequencer
-        // TODO(#18394) Implement batch db check for member registration and id retrieval
         validatedSeq <- recipients.toSeq
           .parTraverse(validateRecipient)
         validated = validatedSeq.traverse(_.leftMap(NonEmpty(Seq, _)))

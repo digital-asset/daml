@@ -33,12 +33,12 @@ import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
   LfContractId,
+  ReassignmentId,
   RequestId,
   SerializableContract,
   SourceDomainId,
   TargetDomainId,
   TransactionId,
-  TransferId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
@@ -92,7 +92,7 @@ trait TransferStoreTest {
         .await("make transfer data")(mkTransferData(transfer20, mediator1))
 
     def transferDataFor(
-        transferId: TransferId,
+        reassignmentId: ReassignmentId,
         contract: SerializableContract,
         transferOutGlobalOffset: Option[GlobalOffset] = None,
     ): TransferData =
@@ -100,7 +100,7 @@ trait TransferStoreTest {
         .NonNegativeFiniteDuration(10.seconds)
         .await("make transfer data")(
           mkTransferData(
-            transferId,
+            reassignmentId,
             mediator1,
             contract = contract,
             transferOutGlobalOffset = transferOutGlobalOffset,
@@ -128,7 +128,7 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
           lookup10 <- store.lookup(transfer11).value
         } yield assert(
-          lookup10 == Left(UnknownTransferId(transfer11)),
+          lookup10 == Left(UnknownReassignmentId(transfer11)),
           "lookup finds the stored data",
         )
       }
@@ -159,15 +159,15 @@ trait TransferStoreTest {
 
         for {
           transfer1 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
             mediator1,
           )
           transfer2 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(200L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(200L)),
             mediator1,
           )
           transfer3 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(300L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(300L)),
             mediator1,
           )
           _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("add1 failed")
@@ -182,11 +182,11 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
         for {
           transfer1 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
             mediator1,
           )
           transfer2 <- mkTransferData(
-            TransferId(sourceDomain2, CantonTimestamp.ofEpochMilli(200L)),
+            ReassignmentId(sourceDomain2, CantonTimestamp.ofEpochMilli(200L)),
             mediator2,
           )
           _ <- valueOrFail(store.addTransfer(transfer1).failOnShutdown)("add1 failed")
@@ -216,25 +216,25 @@ trait TransferStoreTest {
         for {
           // Correct timestamp
           transfer1 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
             mediator1,
             LfPartyId.assertFromString("party1"),
           )
           // Correct submitter
           transfer2 <- mkTransferData(
-            TransferId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
+            ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
             mediator1,
             LfPartyId.assertFromString("party2"),
           )
           // Correct domain
           transfer3 <- mkTransferData(
-            TransferId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
+            ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
             mediator2,
             LfPartyId.assertFromString("party2"),
           )
           // Correct transfer
           transfer4 <- mkTransferData(
-            TransferId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
+            ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
             mediator2,
             LfPartyId.assertFromString("party2"),
           )
@@ -259,22 +259,22 @@ trait TransferStoreTest {
 
       def populate(store: TransferStore): Future[List[TransferData]] = for {
         transfer1 <- mkTransferData(
-          TransferId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
+          ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
           mediator1,
           LfPartyId.assertFromString("party1"),
         )
         transfer2 <- mkTransferData(
-          TransferId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
+          ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
           mediator1,
           LfPartyId.assertFromString("party2"),
         )
         transfer3 <- mkTransferData(
-          TransferId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
+          ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
           mediator2,
           LfPartyId.assertFromString("party2"),
         )
         transfer4 <- mkTransferData(
-          TransferId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
+          ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
           mediator2,
           LfPartyId.assertFromString("party2"),
         )
@@ -304,7 +304,7 @@ trait TransferStoreTest {
           List(transfer1, transfer2, transfer3, transfer4) = transfers: @unchecked
           lookup <- store.findAfter(
             requestAfter =
-              Some(transfer2.transferId.transferOutTimestamp -> transfer2.sourceDomain),
+              Some(transfer2.reassignmentId.transferOutTimestamp -> transfer2.sourceDomain),
             10,
           )
         } yield {
@@ -336,7 +336,7 @@ trait TransferStoreTest {
           List(transfer1, transfer2, transfer3, transfer4) = transfers: @unchecked
           checked <- store
             .completeTransfer(
-              transfer2.transferId,
+              transfer2.reassignmentId,
               TimeOfChange(RequestCounter(3), CantonTimestamp.Epoch.plusSeconds(3)),
             )
             .value
@@ -351,7 +351,7 @@ trait TransferStoreTest {
 
     "add transfer-out/in global offsets" should {
 
-      val transferId = transferData.transferId
+      val reassignmentId = transferData.reassignmentId
 
       val transferOutOffset = TransferOutGlobalOffset(10L)
       val transferInOffset = TransferInGlobalOffset(15L)
@@ -368,7 +368,7 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
 
         val data = (1L until 13).flatMap { i =>
-          val tid = transferId.copy(transferOutTimestamp = CantonTimestamp.ofEpochSecond(i))
+          val tid = reassignmentId.copy(transferOutTimestamp = CantonTimestamp.ofEpochSecond(i))
           val transferData = transferDataFor(tid, contract)
 
           val mod = 4
@@ -393,20 +393,20 @@ trait TransferStoreTest {
           })("add transfers")
 
           offsets = data.map { case (offset, transferData) =>
-            transferData.transferId -> offset
+            transferData.reassignmentId -> offset
           }
 
           _ <- store.addTransfersOffsets(offsets).valueOrFailShutdown("adding offsets")
 
-          result <- valueOrFail(offsets.toList.parTraverse { case (transferId, _) =>
-            store.lookup(transferId)
+          result <- valueOrFail(offsets.toList.parTraverse { case (reassignmentId, _) =>
+            store.lookup(reassignmentId)
           })("query transfers")
         } yield {
           result.lengthCompare(offsets) shouldBe 0
 
           forEvery(result.zip(offsets)) {
-            case (retrievedTransferData, (transferId, expectedOffset)) =>
-              withClue(s"got unexpected data for transfer $transferId") {
+            case (retrievedTransferData, (reassignmentId, expectedOffset)) =>
+              withClue(s"got unexpected data for transfer $reassignmentId") {
                 expectedOffset match {
                   case TransferOutGlobalOffset(out) =>
                     retrievedTransferData.transferOutGlobalOffset shouldBe Some(out)
@@ -429,36 +429,40 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferOutOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferOutOffset))
             .valueOrFailShutdown(
               "add transfer-out offset 1"
             )
 
-          lookupOnlyTransferOut1 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookupOnlyTransferOut1 <- valueOrFail(store.lookup(reassignmentId))(
+            "lookup transfer data"
+          )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferOutOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferOutOffset))
             .valueOrFailShutdown(
               "add transfer-out offset 2"
             )
 
-          lookupOnlyTransferOut2 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookupOnlyTransferOut2 <- valueOrFail(store.lookup(reassignmentId))(
+            "lookup transfer data"
+          )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
             .valueOrFailShutdown(
               "add transfer-in offset 1"
             )
 
-          lookup1 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookup1 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
             .valueOrFailShutdown(
               "add transfer-in offset 2"
             )
 
-          lookup2 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookup2 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
 
         } yield {
           lookupOnlyTransferOut1 shouldBe transferDataOnlyOut
@@ -476,14 +480,14 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferOutOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferOutOffset))
             .valueOrFailShutdown(
               "add transfer-out offset"
             )
 
           failedAdd <- store
             .addTransfersOffsets(
-              Map(transferId -> TransferInGlobalOffset(transferOutOffset.offset))
+              Map(reassignmentId -> TransferInGlobalOffset(transferOutOffset.offset))
             )
             .value
             .failOnShutdown
@@ -497,14 +501,14 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
             .valueOrFailShutdown(
               "add transfer-in offset"
             )
 
           failedAdd <- store
             .addTransfersOffsets(
-              Map(transferId -> TransferOutGlobalOffset(transferInOffset.offset))
+              Map(reassignmentId -> TransferOutGlobalOffset(transferInOffset.offset))
             )
             .value
             .failOnShutdown
@@ -518,27 +522,27 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferOutOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferOutOffset))
             .valueOrFailShutdown(
               "add transfer-out offset 1"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
             .valueOrFailShutdown(
               "add transfer-out offset 2"
             )
 
-          lookup1 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookup1 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
 
           successfulAddOutOffset <- store
-            .addTransfersOffsets(Map(transferId -> transferOutOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferOutOffset))
             .value
             .failOnShutdown
           failedAddOutOffset <- store
             .addTransfersOffsets(
               Map(
-                transferId -> TransferOutGlobalOffset(
+                reassignmentId -> TransferOutGlobalOffset(
                   GlobalOffset.tryFromLong(transferOutOffset.offset.toLong - 1)
                 )
               )
@@ -547,13 +551,13 @@ trait TransferStoreTest {
             .failOnShutdown
 
           successfulAddInOffset <- store
-            .addTransfersOffsets(Map(transferId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
             .value
             .failOnShutdown
           failedAddInOffset <- store
             .addTransfersOffsets(
               Map(
-                transferId -> TransferInGlobalOffset(
+                reassignmentId -> TransferInGlobalOffset(
                   GlobalOffset.tryFromLong(transferInOffset.offset.toLong - 1)
                 )
               )
@@ -561,7 +565,7 @@ trait TransferStoreTest {
             .value
             .failOnShutdown
 
-          lookup2 <- valueOrFail(store.lookup(transferId))("lookup transfer data")
+          lookup2 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
 
         } yield {
           successfulAddOutOffset.value shouldBe ()
@@ -587,7 +591,7 @@ trait TransferStoreTest {
 
       "list incomplete transfers (transfer-out done)" in {
         val store = mk(targetDomain)
-        val transferId = transferData.transferId
+        val reassignmentId = transferData.reassignmentId
 
         val transferOutOffset = 10L
         val transferInOffset = 20L
@@ -597,7 +601,7 @@ trait TransferStoreTest {
           lookupNoOffset <- store.findIncomplete(None, Long.MaxValue, None, limit)
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferOutGlobalOffset(transferOutOffset)))
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
@@ -610,7 +614,7 @@ trait TransferStoreTest {
           lookupAtTransferOut <- store.findIncomplete(None, transferOutOffset, None, limit)
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferInGlobalOffset(transferInOffset)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
@@ -654,7 +658,7 @@ trait TransferStoreTest {
 
       "list incomplete transfers (transfer-in done)" in {
         val store = mk(targetDomain)
-        val transferId = transferData.transferId
+        val reassignmentId = transferData.reassignmentId
 
         val transferInOffset = 10L
         val transferOutOffset = 20L
@@ -665,7 +669,7 @@ trait TransferStoreTest {
 
           _ <-
             store
-              .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+              .addTransfersOffsets(Map(reassignmentId -> TransferInGlobalOffset(transferInOffset)))
               .valueOrFailShutdown(
                 "add transfer-in offset failed"
               )
@@ -679,7 +683,9 @@ trait TransferStoreTest {
 
           _ <-
             store
-              .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+              .addTransfersOffsets(
+                Map(reassignmentId -> TransferOutGlobalOffset(transferOutOffset))
+              )
               .valueOrFailShutdown(
                 "add transfer-out offset failed"
               )
@@ -730,11 +736,11 @@ trait TransferStoreTest {
 
         val contracts = Seq(aliceContract, bobContract, aliceContract, bobContract)
         val transfersData = contracts.zipWithIndex.map { case (contract, idx) =>
-          val transferId =
-            TransferId(sourceDomain1, CantonTimestamp.Epoch.plusSeconds(idx.toLong))
+          val reassignmentId =
+            ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusSeconds(idx.toLong))
 
           transferDataFor(
-            transferId,
+            reassignmentId,
             contract,
             transferOutGlobalOffset = Some(transferOutOffset),
           )
@@ -798,7 +804,7 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
           _ <- store
             .addTransfersOffsets(
-              Map(transferData.transferId -> TransferOutGlobalOffset(offset))
+              Map(transferData.reassignmentId -> TransferOutGlobalOffset(offset))
             )
             .valueOrFailShutdown("add out offset")
 
@@ -816,7 +822,7 @@ trait TransferStoreTest {
 
       "find incomplete transfers (transfer-out done)" in {
         val store = mk(targetDomain)
-        val transferId = transferData.transferId
+        val reassignmentId = transferData.reassignmentId
 
         val transferOutOffset = 10L
         val transferInOffset = 20L
@@ -824,14 +830,14 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferOutGlobalOffset(transferOutOffset)))
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
           lookupAfterTransferOut <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferInGlobalOffset(transferInOffset)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
@@ -847,7 +853,7 @@ trait TransferStoreTest {
 
       "find incomplete transfers (transfer-in done)" in {
         val store = mk(targetDomain)
-        val transferId = transferData.transferId
+        val reassignmentId = transferData.reassignmentId
 
         val transferOutOffset = 10L
         val transferInOffset = 20L
@@ -856,14 +862,14 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferInGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferInGlobalOffset(transferInOffset)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
           lookupAfterTransferIn <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(transferId -> TransferOutGlobalOffset(transferOutOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> TransferOutGlobalOffset(transferOutOffset)))
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
@@ -879,8 +885,8 @@ trait TransferStoreTest {
 
       "returns None when transfer store is empty or each transfer is either complete or has no offset information" in {
         val store = mk(targetDomain)
-        val transferId1 = transferData.transferId
-        val transferId3 = transferData3.transferId
+        val reassignmentId1 = transferData.reassignmentId
+        val reassignmentId3 = transferData3.reassignmentId
 
         val transferOutOffset1 = 10L
         val transferInOffset1 = 20L
@@ -896,13 +902,15 @@ trait TransferStoreTest {
           lookupAllInFlight <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(transferId1 -> TransferInGlobalOffset(transferInOffset1)))
+            .addTransfersOffsets(Map(reassignmentId1 -> TransferInGlobalOffset(transferInOffset1)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId1 -> TransferOutGlobalOffset(transferOutOffset1)))
+            .addTransfersOffsets(
+              Map(reassignmentId1 -> TransferOutGlobalOffset(transferOutOffset1))
+            )
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
@@ -910,13 +918,15 @@ trait TransferStoreTest {
           lookupInFlightOrComplete <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(transferId3 -> TransferInGlobalOffset(transferInOffset3)))
+            .addTransfersOffsets(Map(reassignmentId3 -> TransferInGlobalOffset(transferInOffset3)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId3 -> TransferOutGlobalOffset(transferOutOffset3)))
+            .addTransfersOffsets(
+              Map(reassignmentId3 -> TransferOutGlobalOffset(transferOutOffset3))
+            )
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
@@ -932,9 +942,9 @@ trait TransferStoreTest {
 
       "works in complex scenario" in {
         val store = mk(targetDomain)
-        val transferId1 = transferData.transferId
-        val transferId2 = transferData2.transferId
-        val transferId3 = transferData3.transferId
+        val reassignmentId1 = transferData.reassignmentId
+        val reassignmentId2 = transferData2.reassignmentId
+        val reassignmentId3 = transferData3.reassignmentId
 
         val transferOutOffset1 = 10L
         val transferInOffset1 = 20L
@@ -951,31 +961,35 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData3).failOnShutdown)("add failed")
 
           _ <- store
-            .addTransfersOffsets(Map(transferId1 -> TransferInGlobalOffset(transferInOffset1)))
+            .addTransfersOffsets(Map(reassignmentId1 -> TransferInGlobalOffset(transferInOffset1)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId1 -> TransferOutGlobalOffset(transferOutOffset1)))
+            .addTransfersOffsets(
+              Map(reassignmentId1 -> TransferOutGlobalOffset(transferOutOffset1))
+            )
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId2 -> TransferInGlobalOffset(transferOutOffset2)))
+            .addTransfersOffsets(Map(reassignmentId2 -> TransferInGlobalOffset(transferOutOffset2)))
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId3 -> TransferInGlobalOffset(transferInOffset3)))
+            .addTransfersOffsets(Map(reassignmentId3 -> TransferInGlobalOffset(transferInOffset3)))
             .valueOrFailShutdown(
               "add transfer-in offset failed"
             )
 
           _ <- store
-            .addTransfersOffsets(Map(transferId3 -> TransferOutGlobalOffset(transferOutOffset3)))
+            .addTransfersOffsets(
+              Map(reassignmentId3 -> TransferOutGlobalOffset(transferOutOffset3))
+            )
             .valueOrFailShutdown(
               "add transfer-out offset failed"
             )
@@ -1067,7 +1081,7 @@ trait TransferStoreTest {
         val store = mk(targetDomain)
         for {
           missing <- store.addTransferOutResult(transferOutResult).failOnShutdown.value
-        } yield missing shouldBe Left(UnknownTransferId(transfer10))
+        } yield missing shouldBe Left(UnknownReassignmentId(transfer10))
       }
 
       "add the result" in {
@@ -1218,7 +1232,7 @@ trait TransferStoreTest {
           )
           _ <- store.deleteTransfer(transfer10)
           lookup <- store.lookup(transfer10).value
-        } yield lookup shouldBe Left(UnknownTransferId(transfer10))
+        } yield lookup shouldBe Left(UnknownReassignmentId(transfer10))
       }
 
       "purge completed transfers" in {
@@ -1233,7 +1247,7 @@ trait TransferStoreTest {
         } yield succeed
       }
 
-      "ignore unknown transfer IDs" in {
+      "ignore unknown reassignment IDs" in {
         val store = mk(targetDomain)
         for {
           () <- store.deleteTransfer(transfer10)
@@ -1255,8 +1269,8 @@ trait TransferStoreTest {
       val store1 = mk(TargetDomainId(sourceDomain1.unwrap))
       for {
         _ <- valueOrFail(storeTarget.addTransfer(transferData).failOnShutdown)("add failed")
-        found <- store1.lookup(transferData.transferId).value
-      } yield found shouldBe Left(UnknownTransferId(transferData.transferId))
+        found <- store1.lookup(transferData.reassignmentId).value
+      } yield found shouldBe Left(UnknownReassignmentId(transferData.reassignmentId))
     }
 
     "deleteCompletionsSince" should {
@@ -1326,9 +1340,9 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   val targetDomain = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
 
-  val transfer10 = TransferId(sourceDomain1, CantonTimestamp.Epoch)
-  val transfer11 = TransferId(sourceDomain1, CantonTimestamp.ofEpochMilli(1))
-  val transfer20 = TransferId(sourceDomain2, CantonTimestamp.Epoch)
+  val transfer10 = ReassignmentId(sourceDomain1, CantonTimestamp.Epoch)
+  val transfer11 = ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(1))
+  val transfer20 = ReassignmentId(sourceDomain2, CantonTimestamp.Epoch)
 
   val loggerFactoryNotUsed = NamedLoggerFactory.unnamedKey("test", "NotUsed-TransferStoreTest")
   val ec: ExecutionContext = DirectExecutionContext(
@@ -1376,7 +1390,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
   }
 
   def mkTransferDataForDomain(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: TargetDomainId,
@@ -1391,7 +1405,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       Set.empty,
       creatingTransactionId,
       contract,
-      transferId.sourceDomain,
+      reassignmentId.sourceDomain,
       SourceProtocolVersion(BaseTest.testedProtocolVersion),
       sourceMediator,
       targetDomainId,
@@ -1414,7 +1428,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
     Future.successful(
       TransferData(
         sourceProtocolVersion = SourceProtocolVersion(BaseTest.testedProtocolVersion),
-        transferOutTimestamp = transferId.transferOutTimestamp,
+        transferOutTimestamp = reassignmentId.transferOutTimestamp,
         transferOutRequestCounter = RequestCounter(0),
         transferOutRequest = fullTransferOutViewTree,
         transferOutDecisionTime = CantonTimestamp.ofEpochSecond(10),
@@ -1427,7 +1441,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
   }
 
   private def mkTransferData(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       creatingTransactionId: TransactionId = transactionId1,
@@ -1435,7 +1449,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       transferOutGlobalOffset: Option[GlobalOffset] = None,
   ): Future[TransferData] =
     mkTransferDataForDomain(
-      transferId,
+      reassignmentId,
       sourceMediator,
       submitter,
       targetDomain,
@@ -1452,7 +1466,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
         transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
       val result = ConfirmationResultMessage.create(
         mediatorMessage.domainId,
-        ViewType.TransferOutViewType,
+        ViewType.UnassignmentViewType,
         requestId,
         mediatorMessage.rootHash,
         Verdict.Approve(BaseTest.testedProtocolVersion),

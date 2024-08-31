@@ -17,7 +17,7 @@ final case class UsedAndCreated(
   def activenessSet: ActivenessSet =
     ActivenessSet(
       contracts = contracts.activenessCheck,
-      transferIds = Set.empty,
+      reassignmentIds = Set.empty,
     )
 }
 

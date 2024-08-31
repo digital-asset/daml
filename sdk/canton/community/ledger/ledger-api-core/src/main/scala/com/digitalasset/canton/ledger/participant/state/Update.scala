@@ -211,7 +211,7 @@ object Update {
   ) extends Update {
     // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
     assert(completionInfoO.forall(_.messageUuid.isEmpty))
-    // assert(domainIndex.exists(_.requestIndex.isDefined))
+    assert(domainIndex.exists(_.requestIndex.isDefined))
 
     override def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
@@ -286,7 +286,7 @@ object Update {
   ) extends Update {
     // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
     assert(optCompletionInfo.forall(_.messageUuid.isEmpty))
-    // assert(domainIndex.exists(_.requestIndex.isDefined))
+    assert(domainIndex.exists(_.requestIndex.isDefined))
 
     override def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
@@ -350,14 +350,14 @@ object Update {
       persisted: Promise[Unit] = Promise(),
   ) extends Update {
     // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
-    /* assert(
+    assert(
       // rejection from sequencer should have the request sequencer counter
       (completionInfo.messageUuid.isEmpty && domainIndex.exists(
         _.requestIndex.exists(_.sequencerCounter.isDefined)
       ))
       // rejection from participant (timout, unsequenced) should have the messageUuid, and no domainIndex
         || (completionInfo.messageUuid.isDefined && domainIndex.isEmpty)
-    ) */
+    )
 
     override def pretty: Pretty[CommandRejected] =
       prettyOfClass(

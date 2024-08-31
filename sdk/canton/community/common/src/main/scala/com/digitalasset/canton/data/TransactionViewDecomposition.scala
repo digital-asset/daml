@@ -42,14 +42,6 @@ object TransactionViewDecomposition {
       override val rbContext: RollbackContext,
   ) extends TransactionViewDecomposition {
 
-    childViews.foreach { sv =>
-      require(
-        sv.viewConfirmationParameters != viewConfirmationParameters,
-        s"Children must have different informees or quorums than parent. " +
-          s"Found informees ${viewConfirmationParameters.informees} and quorums ${viewConfirmationParameters.quorums}",
-      )
-    }
-
     override def lfNode: LfActionNode = rootNode
 
     /** All nodes of this view, i.e. core nodes and subviews, in execution order */

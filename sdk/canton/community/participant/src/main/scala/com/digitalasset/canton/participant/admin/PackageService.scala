@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
@@ -34,6 +33,7 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
   PackageMetadataView,
 }
+import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.time.Clock
@@ -481,22 +481,4 @@ object PackageService {
       case Left(e) =>
         Left(PackageServiceErrors.InternalError.Unhandled(e))
     })
-}
-
-trait PackageServiceFactory {
-  def create(
-      createAndInitialize: () => FutureUnlessShutdown[PackageService]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Eval[PackageService]]
-}
-
-object PackageServiceFactory extends PackageServiceFactory {
-  override def create(
-      createAndInitialize: () => FutureUnlessShutdown[PackageService]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Eval[PackageService]] = createAndInitialize().map(Eval.now)
 }

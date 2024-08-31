@@ -34,15 +34,18 @@ import com.digitalasset.canton.networking.grpc.{
   CantonMutableHandlerRegistry,
   StaticGrpcServices,
 }
+import com.digitalasset.canton.participant.ParticipantNodeBootstrap.ParticipantServices
+import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
-import com.digitalasset.canton.participant.admin.{PackageDependencyResolver, *}
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.{
+  LedgerApiIndexer,
+  LedgerApiIndexerConfig,
   StartableStoppableLedgerApiDependentServices,
   StartableStoppableLedgerApiServer,
 }
@@ -58,16 +61,20 @@ import com.digitalasset.canton.participant.scheduler.{
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
-import com.digitalasset.canton.participant.sync.*
+import com.digitalasset.canton.participant.sync.{CantonSyncService, *}
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantPackageVettingValidation,
+  PackageOps,
+  PackageOpsImpl,
   ParticipantTopologyDispatcher,
-  ParticipantTopologyManagerOps,
+  ParticipantTopologyValidation,
+  PartyOps,
 }
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.resource.*
+import com.digitalasset.canton.scheduler.Schedulers
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
@@ -105,18 +112,12 @@ class ParticipantNodeBootstrap(
     ],
     engine: Engine,
     cantonSyncServiceFactory: CantonSyncService.Factory[CantonSyncService],
-    setStartableStoppableLedgerApiAndCantonServices: (
-        StartableStoppableLedgerApiServer,
-        StartableStoppableLedgerApiDependentServices,
-    ) => Unit,
     resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
     replicationServiceFactory: Storage => ServerServiceDefinition,
     createSchedulers: ParticipantSchedulersParameters => Future[SchedulersWithParticipantPruning] =
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
-    private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
-    packageServiceFactory: PackageServiceFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
-    setInitialized: () => Unit,
+    setInitialized: ParticipantServices => Unit,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -199,10 +200,10 @@ class ParticipantNodeBootstrap(
 
     val _ = packageDependencyResolver.putIfAbsent(resolver)
 
-    def contractStorePerDomain(): Map[DomainId, (ActiveContractStore, ContractStore)] =
+    def acsInspectionPerDomain(): Map[DomainId, AcsInspection] =
       cantonSyncService.get
         .map(_.syncDomainPersistentStateManager.getAll.map { case (domainId, state) =>
-          domainId -> (state.activeContractStore, state.contractStore)
+          domainId -> state.acsInspection
         })
         .getOrElse(Map.empty)
 
@@ -215,22 +216,35 @@ class ParticipantNodeBootstrap(
       bootstrapStageCallback.timeouts,
       futureSupervisor,
       bootstrapStageCallback.loggerFactory,
-    ) with ParticipantPackageVettingValidation {
+    ) with ParticipantTopologyValidation {
 
-      override def validatePackages(
+      override def validatePackageVetting(
           currentlyVettedPackages: Set[LfPackageId],
           nextPackageIds: Set[LfPackageId],
           forceFlags: ForceFlags,
       )(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-        validate(
+        validatePackageVetting(
           currentlyVettedPackages,
           nextPackageIds,
           resolver,
-          contractStores = () => contractStorePerDomain(),
+          acsInspections = () => acsInspectionPerDomain(),
           forceFlags,
         )
+
+      override def checkCannotDisablePartyWithActiveContracts(
+          partyId: PartyId,
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkCannotDisablePartyWithActiveContracts(
+          partyId,
+          forceFlags,
+          () => acsInspectionPerDomain(),
+        )
+
     }
     topologyManager
   }
@@ -256,20 +270,18 @@ class ParticipantNodeBootstrap(
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNode]]] = {
 
-      val participantOps = new ParticipantTopologyManagerOps(topologyManager, loggerFactory)
+      val partyOps = new PartyOps(topologyManager, loggerFactory)
       createParticipantServices(
         participantId,
         crypto,
         adminServerRegistry,
         storage,
-        persistentStateFactory,
-        packageServiceFactory,
         engine,
-        participantOps,
+        partyOps,
         topologyManager,
         tryGetPackageDependencyResolver(),
-      ).map { case (sync, topologyDispatcher) =>
-        if (cantonSyncService.putIfAbsent(sync).nonEmpty) {
+      ).map { participantServices =>
+        if (cantonSyncService.putIfAbsent(participantServices.cantonSyncService).nonEmpty) {
           sys.error("should not happen")
         }
         val node = new ParticipantNode(
@@ -280,9 +292,9 @@ class ParticipantNodeBootstrap(
           storage,
           clock,
           crypto.pureCrypto,
-          topologyDispatcher,
+          participantServices.participantTopologyDispatcher,
           ips,
-          sync,
+          participantServices.cantonSyncService,
           adminToken,
           recordSequencerInteractions,
           replaySequencerConfig,
@@ -290,10 +302,8 @@ class ParticipantNodeBootstrap(
           healthService.dependencies.map(_.toComponentStatus),
         )
         addCloseable(node)
+        setInitialized(participantServices)
         Some(new RunningNode(bootstrapStageCallback, node))
-      }.map { node =>
-        setInitialized()
-        node
       }
     }
 
@@ -328,19 +338,14 @@ class ParticipantNodeBootstrap(
         crypto: Crypto,
         adminServerRegistry: CantonMutableHandlerRegistry,
         storage: Storage,
-        persistentStateFactory: ParticipantNodePersistentStateFactory,
-        packageServiceFactory: PackageServiceFactory,
         engine: Engine,
-        topologyManager: ParticipantTopologyManagerOps,
+        partyOps: PartyOps,
         authorizedTopologyManager: AuthorizedTopologyManager,
         packageDependencyResolver: PackageDependencyResolver,
     )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
       FutureUnlessShutdown,
       String,
-      (
-          CantonSyncService,
-          ParticipantTopologyDispatcher,
-      ),
+      ParticipantServices,
     ] = {
 
       val syncCrypto = new SyncCryptoApiProvider(
@@ -380,6 +385,28 @@ class ParticipantNodeBootstrap(
           )
           .mapK(FutureUnlessShutdown.outcomeK)
 
+        persistentStateContainer = new LifeCycleContainer[ParticipantNodePersistentState](
+          stateName = "persistent-state",
+          create = () =>
+            ParticipantNodePersistentState.create(
+              storage,
+              config.storage,
+              exitOnFatalFailures = parameters.exitOnFatalFailures,
+              config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
+              parameterConfig.batchingConfig,
+              ReleaseProtocolVersion.latest,
+              arguments.metrics,
+              participantId.toLf,
+              config.ledgerApi,
+              parameterConfig.processingTimeouts,
+              futureSupervisor,
+              loggerFactory,
+            ),
+          loggerFactory = loggerFactory,
+        )
+        _ <- EitherT.right(persistentStateContainer.initializeNext())
+        persistentState = persistentStateContainer.asEval
+
         syncDomainPersistentStateManager = new SyncDomainPersistentStateManager(
           participantId,
           domainAliasManager,
@@ -389,6 +416,7 @@ class ParticipantNodeBootstrap(
           crypto,
           clock,
           tryGetPackageDependencyResolver(),
+          persistentState.map(_.ledgerApiStore),
           futureSupervisor,
           loggerFactory,
         )
@@ -406,39 +434,16 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        persistentState <- EitherT.right(
-          persistentStateFactory.create(
-            syncDomainPersistentStateManager,
-            storage,
-            config.storage,
-            exitOnFatalFailures = parameters.exitOnFatalFailures,
-            clock,
-            config.init.ledgerApi.maxDeduplicationDuration.toInternal.some,
-            parameterConfig.batchingConfig,
-            ReleaseProtocolVersion.latest,
-            arguments.metrics,
-            participantId.toLf,
-            config.ledgerApi,
-            indexedStringStore,
-            parameterConfig.processingTimeouts,
-            futureSupervisor,
-            loggerFactory,
-          )
-        )
-
         commandDeduplicator = new CommandDeduplicatorImpl(
           persistentState.map(_.commandDeduplicationStore),
           clock,
-          persistentState.flatMap(mdel =>
-            Eval.always(mdel.multiDomainEventLog.publicationTimeLowerBound)
-          ),
+          persistentState.map(_.ledgerApiStore.ledgerEndCache.publicationTime),
           loggerFactory,
         )
 
         inFlightSubmissionTracker = new InFlightSubmissionTracker(
           persistentState.map(_.inFlightSubmissionStore),
           commandDeduplicator,
-          persistentState.map(_.multiDomainEventLog),
           timeouts,
           loggerFactory,
         )
@@ -457,9 +462,50 @@ class ParticipantNodeBootstrap(
             Set.empty[LfPackageId]
           }
 
+        commandProgressTracker =
+          if (parameters.commandProgressTracking.enabled)
+            new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
+          else CommandProgressTracker.NoOp
+
+        ledgerApiIndexerContainer = new LifeCycleContainer[LedgerApiIndexer](
+          stateName = "indexer",
+          create = () =>
+            FutureUnlessShutdown.outcomeF(
+              LedgerApiIndexer.initialize(
+                metrics = arguments.metrics.ledgerApiServer,
+                clock = clock,
+                commandProgressTracker = commandProgressTracker,
+                ledgerApiStore = persistentState.map(_.ledgerApiStore),
+                ledgerApiIndexerConfig = LedgerApiIndexerConfig(
+                  storageConfig = config.storage,
+                  processingTimeout = parameterConfig.processingTimeouts,
+                  serverConfig = config.ledgerApi,
+                  indexerConfig = config.parameters.ledgerApiServer.indexer,
+                  indexerHaConfig = ledgerApiServerFactory.createHaConfig(config),
+                  ledgerParticipantId = participantId.toLf,
+                  excludedPackageIds = excludedPackageIds,
+                ),
+                reassignmentOffsetPersistence =
+                  TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
+                postProcessor = inFlightSubmissionTracker.processPublications(_)(_),
+                loggerFactory = loggerFactory,
+              )
+            ),
+          loggerFactory = loggerFactory,
+        )
+        _ <- EitherT.right {
+          // only initialize indexer if storage is available
+          if (storage.isActive) {
+            ledgerApiIndexerContainer.initializeNext()
+          } else {
+            logger.info("Ledger API Indexer is not initialized due to inactive storage")
+            FutureUnlessShutdown.unit
+          }
+        }
+
         ephemeralState = ParticipantNodeEphemeralState(
           participantId,
-          persistentState,
+          ledgerApiIndexerContainer.asEval,
           inFlightSubmissionTracker,
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -468,25 +514,26 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        packageService <- EitherT.right(
-          packageServiceFactory.create(
-            createAndInitialize = () =>
-              PackageService.createAndInitialize(
-                clock = clock,
-                engine = engine,
-                packageDependencyResolver = packageDependencyResolver,
-                enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
-                futureSupervisor = futureSupervisor,
-                hashOps = syncCrypto.pureCrypto,
-                loggerFactory = loggerFactory,
-                metrics = arguments.metrics,
-                exitOnFatalFailures = parameters.exitOnFatalFailures,
-                packageMetadataViewConfig = config.parameters.packageMetadataView,
-                packageOps = createPackageOps(syncDomainPersistentStateManager),
-                timeouts = parameterConfig.processingTimeouts,
-              )
-          )
+        packageServiceContainer = new LifeCycleContainer[PackageService](
+          stateName = "package-service",
+          create = () =>
+            PackageService.createAndInitialize(
+              clock = clock,
+              engine = engine,
+              packageDependencyResolver = packageDependencyResolver,
+              enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+              futureSupervisor = futureSupervisor,
+              hashOps = syncCrypto.pureCrypto,
+              loggerFactory = loggerFactory,
+              metrics = arguments.metrics,
+              exitOnFatalFailures = parameters.exitOnFatalFailures,
+              packageMetadataViewConfig = config.parameters.packageMetadataView,
+              packageOps = createPackageOps(syncDomainPersistentStateManager),
+              timeouts = parameterConfig.processingTimeouts,
+            ),
+          loggerFactory = loggerFactory,
         )
+        _ <- EitherT.right(packageServiceContainer.initializeNext())
 
         sequencerInfoLoader = new SequencerInfoLoader(
           parameterConfig.processingTimeouts,
@@ -564,7 +611,7 @@ class ParticipantNodeBootstrap(
               createSchedulers(
                 ParticipantSchedulersParameters(
                   isActive,
-                  persistentState.map(_.multiDomainEventLog),
+                  persistentState,
                   storage,
                   adminToken,
                   parameterConfig.stores,
@@ -583,12 +630,13 @@ class ParticipantNodeBootstrap(
           persistentState,
           ephemeralState,
           syncDomainPersistentStateManager,
-          packageService,
-          topologyManager,
+          packageServiceContainer.asEval,
+          partyOps,
           topologyDispatcher,
           partyNotifier,
           syncCrypto,
           engine,
+          commandProgressTracker,
           syncDomainEphemeralStateFactory,
           storage,
           clock,
@@ -602,6 +650,7 @@ class ParticipantNodeBootstrap(
           arguments.futureSupervisor,
           loggerFactory,
           arguments.testingConfig,
+          ledgerApiIndexerContainer,
         )
 
         _ = {
@@ -619,14 +668,13 @@ class ParticipantNodeBootstrap(
             participantId = participantId.toLf,
             sync = sync,
             participantNodePersistentState = persistentState,
+            ledgerApiIndexer = ledgerApiIndexerContainer.asEval,
             arguments.config,
             arguments.parameterConfig,
             arguments.metrics.ledgerApiServer,
             arguments.metrics.httpApiServer,
             tracerProvider,
             adminToken,
-            excludedPackageIds,
-            TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
           )
 
       } yield {
@@ -634,7 +682,7 @@ class ParticipantNodeBootstrap(
           new StartableStoppableLedgerApiDependentServices(
             config,
             parameterConfig,
-            packageService,
+            packageServiceContainer.asEval,
             sync,
             participantId,
             clock,
@@ -644,11 +692,6 @@ class ParticipantNodeBootstrap(
             loggerFactory,
             tracerProvider,
           )
-
-        setStartableStoppableLedgerApiAndCantonServices(
-          ledgerApiServer.startableStoppableLedgerApi,
-          ledgerApiDependentServices,
-        )
 
         adminServerRegistry
           .addServiceU(
@@ -743,7 +786,7 @@ class ParticipantNodeBootstrap(
         addCloseable(inFlightSubmissionTracker)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
-        packageService.map(addCloseable).discard
+        addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
         addCloseable(indexedStringStore)
         addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
@@ -755,7 +798,16 @@ class ParticipantNodeBootstrap(
         addCloseable(packageDependencyResolver)
 
         // return values
-        (sync, topologyDispatcher)
+        ParticipantServices(
+          persistentStateContainer = persistentStateContainer,
+          packageServiceContainer = packageServiceContainer,
+          ledgerApiIndexerContainer = ledgerApiIndexerContainer,
+          cantonSyncService = sync,
+          schedulers = schedulers,
+          startableStoppableLedgerApiServer = ledgerApiServer.startableStoppableLedgerApi,
+          startableStoppableLedgerApiDependentServices = ledgerApiDependentServices,
+          participantTopologyDispatcher = topologyDispatcher,
+        )
       }
     }
   }
@@ -866,6 +918,17 @@ object ParticipantNodeBootstrap {
     ): Either[String, B]
   }
 
+  final case class ParticipantServices(
+      persistentStateContainer: LifeCycleContainer[ParticipantNodePersistentState],
+      packageServiceContainer: LifeCycleContainer[PackageService],
+      ledgerApiIndexerContainer: LifeCycleContainer[LedgerApiIndexer],
+      cantonSyncService: CantonSyncService,
+      schedulers: Schedulers,
+      startableStoppableLedgerApiServer: StartableStoppableLedgerApiServer,
+      startableStoppableLedgerApiDependentServices: StartableStoppableLedgerApiDependentServices,
+      participantTopologyDispatcher: ParticipantTopologyDispatcher,
+  )
+
   object CommunityParticipantFactory
       extends Factory[CommunityParticipantConfig, ParticipantNodeBootstrap] {
 
@@ -958,13 +1021,10 @@ object ParticipantNodeBootstrap {
         arguments,
         createEngine(arguments),
         CantonSyncService.DefaultFactory,
-        (_ledgerApi, _ledgerApiDependentServices) => (),
         createResourceService(arguments),
         createReplicationServiceFactory(arguments),
-        persistentStateFactory = ParticipantNodePersistentStateFactory,
-        packageServiceFactory = PackageServiceFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
-        setInitialized = () => (),
+        setInitialized = _ => (),
       )
   }
 }

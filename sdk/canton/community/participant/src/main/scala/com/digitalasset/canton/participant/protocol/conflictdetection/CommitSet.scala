@@ -11,10 +11,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlar
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
+  ReassignmentId,
   RequestId,
   SerializableContract,
   TargetDomainId,
-  TransferId,
 }
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, TransferCounter}
@@ -30,7 +30,7 @@ import com.digitalasset.canton.{LfPartyId, TransferCounter}
   * @param creations The contracts to be created.
   * @param transferOuts The contracts to be transferred out, along with their target domains and stakeholders.
   *                     Must not contain contracts in [[archivals]].
-  * @param transferIns The contracts to be transferred in, along with their transfer IDs.
+  * @param transferIns The contracts to be transferred in, along with their reassignment IDs.
   * @throws java.lang.IllegalArgumentException if `transferOuts` overlap with `archivals`
   *                                            or `creations` overlaps with `transferIns`.
   */
@@ -76,12 +76,12 @@ object CommitSet {
     )
   }
   final case class TransferInCommit(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       contractMetadata: ContractMetadata,
       transferCounter: TransferCounter,
   ) extends PrettyPrinting {
     override def pretty: Pretty[TransferInCommit] = prettyOfClass(
-      param("transferId", _.transferId),
+      param("reassignmentId", _.reassignmentId),
       param("contractMetadata", _.contractMetadata),
       param("transferCounter", _.transferCounter),
     )

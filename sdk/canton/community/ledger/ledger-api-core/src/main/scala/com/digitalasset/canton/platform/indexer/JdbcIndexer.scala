@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
@@ -40,7 +39,6 @@ object JdbcIndexer {
       participantDataSourceConfig: ParticipantDataSourceConfig,
       config: IndexerConfig,
       excludedPackageIds: Set[Ref.PackageId],
-      readService: state.ReadService,
       metrics: LedgerApiServerMetrics,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
@@ -77,7 +75,7 @@ object JdbcIndexer {
       val (ingestionParallelism, indexerDbDispatcherOverride) =
         if (factory == H2StorageBackendFactory) 1 -> indexSericeDbDispatcher
         else config.ingestionParallelism.unwrap -> None
-      val indexer = ParallelIndexerFactory(
+      ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism.unwrap,
         batchingParallelism = config.batchingParallelism.unwrap,
         dbConfig = dbConfig.createDbConfig(participantDataSourceConfig),
@@ -134,14 +132,12 @@ object JdbcIndexer {
           loggerFactory = loggerFactory,
         ).apply,
         mat = materializer,
-        readService = readService,
+        executionContext = executionContext,
         initializeInMemoryState = inMemoryState.initializeTo,
         loggerFactory = loggerFactory,
         indexerDbDispatcherOverride = indexerDbDispatcherOverride,
         clock = clock,
       )
-
-      indexer
     }
   }
 }

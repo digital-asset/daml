@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
-import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
 import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -31,12 +32,10 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def domainId: IndexedDomain
   def protocolVersion: ProtocolVersion
   def enableAdditionalConsistencyChecks: Boolean
-  def eventLog: SingleDimensionEventLog[DomainEventLogId]
   def contractStore: ContractStore
   def transferStore: TransferStore
   def activeContractStore: ActiveContractStore
   def sequencedEventStore: SequencedEventStore
-  def sequencerCounterTrackerStore: SequencerCounterTrackerStore
   def sendTrackerStore: SendTrackerStore
   def requestJournalStore: RequestJournalStore
   def acsCommitmentStore: AcsCommitmentStore
@@ -47,6 +46,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def topologyStore: TopologyStore[DomainStore]
   def topologyManager: DomainTopologyManager
   def domainOutboxQueue: DomainOutboxQueue
+  def acsInspection: AcsInspection
 }
 
 object SyncDomainPersistentState {
@@ -61,6 +61,7 @@ object SyncDomainPersistentState {
       parameters: ParticipantNodeParameters,
       indexedStringStore: IndexedStringStore,
       packageDependencyResolver: PackageDependencyResolver,
+      ledgerApiStore: Eval[LedgerApiStore],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
@@ -77,6 +78,7 @@ object SyncDomainPersistentState {
           indexedStringStore,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           packageDependencyResolver,
+          ledgerApiStore,
           domainLoggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
@@ -92,6 +94,7 @@ object SyncDomainPersistentState {
           parameters,
           indexedStringStore,
           packageDependencyResolver,
+          ledgerApiStore,
           domainLoggerFactory,
           futureSupervisor,
         )

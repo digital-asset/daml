@@ -94,11 +94,11 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   @VisibleForTesting
   private[store] override def pruneInternal(
-      beforeAndIncluding: CantonTimestamp
+      beforeInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val before = requestTable.size
     val after = requestTable
-      .filterInPlace((_, result) => result.requestTimestamp.isAfter(beforeAndIncluding))
+      .filterInPlace((_, result) => result.requestTimestamp.isAfter(beforeInclusive))
       .size
     logger.info(s"Pruned ${before - after} contracts from the request journal")
     Future.unit
@@ -129,6 +129,18 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
       .toSeq
       .sortBy(_.rc)
   }
+
+  override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): Future[Option[RequestCounter]] =
+    Future.successful {
+      requestTable.values.foldLeft(Option.empty[RequestCounter]) {
+        (maxSoFar, queryResult: RequestData) =>
+          if (queryResult.requestTimestamp > requestTimestamp) maxSoFar
+          else if (maxSoFar.forall(_ < queryResult.rc)) Some(queryResult.rc)
+          else maxSoFar
+      }
+    }
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
 

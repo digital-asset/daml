@@ -13,6 +13,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
+import scala.concurrent.Future
+
 /** Components that need to keep a running snapshot of ACS.
   */
 trait AcsChangeListener {
@@ -22,8 +24,11 @@ trait AcsChangeListener {
     *
     * @param toc time of the change
     * @param acsChange active contract set change descriptor
+    * @param waitFor processing won't start until this Future completes
     */
-  def publish(toc: RecordTime, acsChange: AcsChange)(implicit traceContext: TraceContext): Unit
+  def publish(toc: RecordTime, acsChange: AcsChange, waitFor: Future[Unit])(implicit
+      traceContext: TraceContext
+  ): Unit
 
 }
 

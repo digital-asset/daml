@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
   AcsChange,
@@ -56,11 +57,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.memory.{
-  InMemoryIndexedStringStore,
-  InMemorySequencerCounterTrackerStore,
-}
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.{PositiveSeconds, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -374,7 +371,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       )
 
     changes.foreach { case (ts, rc, acsChange) =>
-      acsCommitmentProcessor.publish(RecordTime(ts, rc.v), acsChange)
+      acsCommitmentProcessor.publish(RecordTime(ts, rc.v), acsChange, Future.unit)
     }
     (acsCommitmentProcessor, store, sequencerClient)
   }
@@ -510,7 +507,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, TransferOutCommit],
       transferIns = Map[LfContractId, TransferInCommit](
         coid(1, 0) -> TransferInCommit(
-          TransferId(SourceDomainId(domainId), ts(4).forgetRefinement),
+          ReassignmentId(SourceDomainId(domainId), ts(4).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           tc2,
         )
@@ -572,7 +569,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, TransferOutCommit],
       transferIns = Map[LfContractId, TransferInCommit](
         coid(2, 0) -> TransferInCommit(
-          TransferId(SourceDomainId(domainId), ts(8).forgetRefinement),
+          ReassignmentId(SourceDomainId(domainId), ts(8).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           tc2,
         )
@@ -1376,24 +1373,21 @@ class AcsCommitmentProcessorTest
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(acsCommitmentStore.noOutstandingCommitments(any[CantonTimestamp])(any[TraceContext]))
         .thenReturn(Future.successful(None))
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       for {
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(0), CantonTimestamp.Epoch, CantonTimestamp.Epoch, None)
         )
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(0), CantonTimestamp.Epoch)
-        )
-        _ <- requestJournalStore.advancePreheadCleanTo(
-          CursorPrehead(RequestCounter(0), CantonTimestamp.Epoch)
-        )
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          Some(CursorPrehead(RequestCounter(0), CantonTimestamp.Epoch)),
-          Some(CursorPrehead(SequencerCounter(0), CantonTimestamp.Epoch)),
+          DomainIndex.of(
+            RequestIndex(
+              counter = RequestCounter(0L),
+              sequencerCounter = Some(SequencerCounter(0L)),
+              timestamp = CantonTimestamp.Epoch,
+            )
+          ),
           constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1417,8 +1411,7 @@ class AcsCommitmentProcessorTest
       for {
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          None,
-          None,
+          DomainIndex.empty,
           constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1457,8 +1450,6 @@ class AcsCommitmentProcessorTest
         constantSortedReconciliationIntervalsProvider(reconciliationInterval)
 
       val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       val ts0 = CantonTimestamp.Epoch
@@ -1468,30 +1459,30 @@ class AcsCommitmentProcessorTest
       val ts4 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 5)
       for {
         _ <- requestJournalStore.insert(RequestData.clean(RequestCounter(0), ts0, ts0))
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(0), ts0)
-        )
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(1), ts1, ts3.plusMillis(1))
         ) // RC1 commits after RC3
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(1), ts1)
-        )
         _ <- requestJournalStore.insert(RequestData.clean(RequestCounter(2), ts2, ts2))
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(2), ts2)
-        )
         _ <- requestJournalStore.insert(
           RequestData(RequestCounter(3), RequestState.Pending, ts3, None)
         )
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(3), ts3)
-        )
-        _ <- requestJournalStore.advancePreheadCleanTo(CursorPrehead(RequestCounter(2), ts2))
         res1 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          Some(CursorPrehead(RequestCounter(2), ts2)),
-          Some(CursorPrehead(SequencerCounter(3), ts3)),
+          DomainIndex(
+            Some(
+              RequestIndex(
+                counter = RequestCounter(2L),
+                sequencerCounter = None,
+                timestamp = ts2,
+              )
+            ),
+            Some(
+              SequencerIndex(
+                counter = SequencerCounter(3L),
+                timestamp = ts3,
+              )
+            ),
+          ),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1504,13 +1495,23 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore
           .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
           .valueOrFail("advance RC 3 to clean")
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(4), ts4)
-        )
         res2 <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          Some(CursorPrehead(RequestCounter(2), ts2)),
-          Some(CursorPrehead(SequencerCounter(4), ts4)),
+          DomainIndex(
+            Some(
+              RequestIndex(
+                counter = RequestCounter(3L),
+                sequencerCounter = None,
+                timestamp = ts3,
+              )
+            ),
+            Some(
+              SequencerIndex(
+                counter = SequencerCounter(4L),
+                timestamp = ts4,
+              )
+            ),
+          ),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1533,8 +1534,6 @@ class AcsCommitmentProcessorTest
       val requestTsDelta = 20.seconds
 
       val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(acsCommitmentStore.noOutstandingCommitments(any[CantonTimestamp])(any[TraceContext]))
         .thenAnswer { (ts: CantonTimestamp, _: TraceContext) =>
@@ -1552,26 +1551,27 @@ class AcsCommitmentProcessorTest
       val ts3 = CantonTimestamp.Epoch.plusMillis(requestTsDelta.toMillis * 3)
       for {
         _ <- requestJournalStore.insert(RequestData.clean(RequestCounter(0), ts0, ts0))
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(0), ts0)
-        )
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
         )
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(2), tsCleanRequest)
-        )
         _ <- requestJournalStore.insert(RequestData(RequestCounter(3), RequestState.Pending, ts3))
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(4), ts3)
-        )
-        _ <- requestJournalStore.advancePreheadCleanTo(
-          CursorPrehead(RequestCounter(2), tsCleanRequest)
-        )
         res <- AcsCommitmentProcessor.safeToPrune(
           requestJournalStore,
-          Some(CursorPrehead(RequestCounter(2), tsCleanRequest)),
-          Some(CursorPrehead(SequencerCounter(4), ts3)),
+          DomainIndex(
+            Some(
+              RequestIndex(
+                counter = RequestCounter(2L),
+                sequencerCounter = None,
+                timestamp = tsCleanRequest,
+              )
+            ),
+            Some(
+              SequencerIndex(
+                counter = SequencerCounter(4L),
+                timestamp = ts3,
+              )
+            ),
+          ),
           sortedReconciliationIntervalsProvider,
           acsCommitmentStore,
           inFlightSubmissionStore,
@@ -1579,53 +1579,6 @@ class AcsCommitmentProcessorTest
           checkForOutstandingCommitments = true,
         )
       } yield assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res)
-    }
-
-    "prevent pruning of dirty sequencer counters" in {
-      val reconciliationInterval = PositiveSeconds.tryOfSeconds(1)
-      val requestTsDelta = 20.seconds
-
-      val sortedReconciliationIntervalsProvider =
-        constantSortedReconciliationIntervalsProvider(reconciliationInterval)
-
-      val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
-      val acsCommitmentStore = mock[AcsCommitmentStore]
-      when(acsCommitmentStore.noOutstandingCommitments(any[CantonTimestamp])(any[TraceContext]))
-        .thenAnswer { (ts: CantonTimestamp, _: TraceContext) =>
-          Future.successful(
-            Some(ts.min(CantonTimestamp.Epoch.plusSeconds(JDuration.ofDays(200).getSeconds)))
-          )
-        }
-      val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
-
-      // Clean sequencer counter is behind clean request counter
-      val ts1 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis)
-      val tsCleanRequest = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 2)
-      for {
-        _ <- requestJournalStore.insert(
-          RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
-        )
-        _ <- requestJournalStore.advancePreheadCleanTo(
-          CursorPrehead(RequestCounter(2), tsCleanRequest)
-        )
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(0), ts1)
-        )
-        res <- AcsCommitmentProcessor.safeToPrune(
-          requestJournalStore,
-          Some(CursorPrehead(RequestCounter(2), tsCleanRequest)),
-          Some(CursorPrehead(SequencerCounter(0), ts1)),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
-      } yield {
-        assertInIntervalBefore(ts1, reconciliationInterval)(res)
-      }
     }
 
     "prevent pruning of events corresponding to in-flight requests" in {
@@ -1638,8 +1591,6 @@ class AcsCommitmentProcessorTest
       val submissionId = LedgerSubmissionId.assertFromString("submission-id").some
 
       val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
-      val sequencerCounterTrackerStore =
-        new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(acsCommitmentStore.noOutstandingCommitments(any[CantonTimestamp])(any[TraceContext]))
         .thenAnswer { (ts: CantonTimestamp, _: TraceContext) =>
@@ -1682,12 +1633,6 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(3), tsCleanRequest2, tsCleanRequest2)
         )
-        _ <- requestJournalStore.advancePreheadCleanTo(
-          CursorPrehead(RequestCounter(3), tsCleanRequest2)
-        )
-        _ <- sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(
-          CursorPrehead(SequencerCounter(1), tsCleanRequest2)
-        )
         () <- inFlightSubmissionStore
           .register(submission1)
           .valueOrFailShutdown("register message ID 1")
@@ -1698,40 +1643,37 @@ class AcsCommitmentProcessorTest
           submission2.submissionDomain,
           Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
         )
-        res1 <- AcsCommitmentProcessor.safeToPrune(
-          requestJournalStore,
-          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
-          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+        testeeSafeToPrune = () =>
+          AcsCommitmentProcessor.safeToPrune(
+            requestJournalStore,
+            DomainIndex(
+              Some(
+                RequestIndex(
+                  counter = RequestCounter(3L),
+                  sequencerCounter = None,
+                  timestamp = tsCleanRequest2,
+                )
+              ),
+              Some(
+                SequencerIndex(
+                  counter = SequencerCounter(1L),
+                  timestamp = tsCleanRequest2,
+                )
+              ),
+            ),
+            sortedReconciliationIntervalsProvider,
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+        res1 <- testeeSafeToPrune()
         // Now remove the timed-out submission 1 and compute the pruning point again
         () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId))
-        res2 <- AcsCommitmentProcessor.safeToPrune(
-          requestJournalStore,
-          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
-          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+        res2 <- testeeSafeToPrune()
         // Now remove the clean request and compute the pruning point again
         () <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId))
-        res3 <- AcsCommitmentProcessor.safeToPrune(
-          requestJournalStore,
-          Some(CursorPrehead(RequestCounter(3), tsCleanRequest2)),
-          Some(CursorPrehead(SequencerCounter(1), tsCleanRequest2)),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+        res3 <- testeeSafeToPrune()
       } yield {
         assertInIntervalBefore(submission1.associatedTimestamp, reconciliationInterval)(res1)
         assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res2)
@@ -1855,7 +1797,7 @@ class AcsCommitmentProcessorTest
         ),
         transferIns = Map[LfContractId, TransferInCommit](
           cid3.leftSide -> CommitSet.TransferInCommit(
-            TransferId(SourceDomainId(domainId), CantonTimestamp.Epoch),
+            ReassignmentId(SourceDomainId(domainId), CantonTimestamp.Epoch),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             tc1,
           )
@@ -2187,7 +2129,7 @@ class AcsCommitmentProcessorTest
               _ = changes
                 .filter(a => a._1 < testSequences.head)
                 .foreach { case (ts, tb, change) =>
-                  processor.publish(RecordTime(ts, tb.v), change)
+                  processor.publish(RecordTime(ts, tb.v), change, Future.unit)
                 }
               _ <- processor.flush()
               _ <- testSequence(
@@ -2265,7 +2207,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 < testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
           _ <- processor.flush()
           _ <- testSequence(
@@ -2336,7 +2278,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 < testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
           _ <- processor.flush()
           _ <- testSequence(
@@ -2509,7 +2451,7 @@ class AcsCommitmentProcessorTest
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
               }
               for {
                 _ <- processor.flush()
@@ -2625,7 +2567,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
           _ <- processor.flush()
           _ <- testSequence(
@@ -2719,7 +2661,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
           _ <- processor.flush()
 
@@ -2804,7 +2746,7 @@ class AcsCommitmentProcessorTest
           _ = changes
             .filter(a => a._1 <= testSequences.head)
             .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
 
             }
           _ <- processor.flush()
@@ -2871,7 +2813,7 @@ class AcsCommitmentProcessorTest
             changes
               .filter(a => a._1 < testSequences.head)
               .foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
 
               }
           )
@@ -3035,7 +2977,7 @@ class AcsCommitmentProcessorTest
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
               }
               for {
                 _ <- processor.flush()
@@ -3199,7 +3141,7 @@ class AcsCommitmentProcessorTest
           _ = loggerFactory.assertLogs(
             {
               changes.foreach { case (ts, tb, change) =>
-                processor.publish(RecordTime(ts, tb.v), change)
+                processor.publish(RecordTime(ts, tb.v), change, Future.unit)
               }
               processor.flush()
             },
@@ -3379,7 +3321,7 @@ class AcsCommitmentProcessorTest
               .onShutdown(fail())
 
             _ = changes.foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
+              processor.publish(RecordTime(ts, tb.v), change, Future.unit)
             }
             _ <- processor.flush()
 
@@ -3474,7 +3416,7 @@ class AcsCommitmentProcessorTest
     ): Future[Unit] = {
       lazy val fut = {
         changes.foreach { case (ts, tb, change) =>
-          processor.publish(RecordTime(ts, tb.v), change)
+          processor.publish(RecordTime(ts, tb.v), change, Future.unit)
         }
         processor.flush()
       }

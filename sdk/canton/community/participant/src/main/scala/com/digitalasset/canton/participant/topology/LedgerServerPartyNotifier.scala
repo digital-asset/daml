@@ -11,9 +11,10 @@ import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, S
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
+import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.{Clock, PositiveFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.*
@@ -299,8 +300,8 @@ class LedgerServerPartyNotifier(
     metadata.participantId match {
       case Some(participantId) =>
         logger.debug(show"Pushing ${metadata.partyId} on $participantId to ledger server")
-        eventPublisher.publish(
-          LedgerSyncEvent.PartyAddedToParticipant(
+        eventPublisher.publishEventDelayableByRepairOperation(
+          Update.PartyAddedToParticipant(
             metadata.partyId.toLf,
             metadata.displayName.map(_.unwrap).getOrElse(""),
             participantId.toLf,

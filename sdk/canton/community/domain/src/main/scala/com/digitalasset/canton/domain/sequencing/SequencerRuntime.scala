@@ -376,7 +376,6 @@ class SequencerRuntime(
         case _ => Seq.empty
       }
 
-      // TODO(#18394): Batch the member registrations?
       // TODO(#18401): Change F to FUS in registerMemberInternal
       val f = possibleNewMembers
         .parTraverse_ { member =>

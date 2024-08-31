@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
@@ -21,7 +22,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.protocol.{RequestId, StaticDomainParameters}
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -46,23 +47,20 @@ abstract class AbstractMessageProcessor(
       requestSequencerCounter: SequencerCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
+      eventO: Option[Traced[Update]],
   )(implicit traceContext: TraceContext): Future[Unit] =
     for {
-      cleanCursorF <- ephemeral.requestJournal.terminate(
+      _ <- ephemeral.requestJournal.terminate(
         requestCounter,
         requestTimestamp,
         commitTime,
       )
-    } yield {
-      val tickedF = cleanCursorF.map { _ =>
-        // Tick the record order publisher only after the clean request prehead has reached the request
-        // so that the record order publisher always lags behind the clean request head.
-        // Note that the record order publisher may advance beyond the clean request prehead
-        // due to other events (e.g., time proofs) after the clean request prehead becoming clean.
-        ephemeral.recordOrderPublisher.tick(requestSequencerCounter, requestTimestamp)
-      }
-      FutureUtil.doNotAwait(tickedF, s"clean cursor future for request $requestCounter")
-    }
+      _ <- ephemeral.recordOrderPublisher.tick(
+        requestSequencerCounter,
+        requestTimestamp,
+        eventO,
+      )
+    } yield ()
 
   /** A clean replay replays a request whose request counter is below the clean head in the request journal.
     * Since the replayed request is clean, its effects are not persisted.
@@ -149,7 +147,9 @@ abstract class AbstractMessageProcessor(
           )
           performUnlessClosingF(functionFullName) {
 
-            decisionTimeF.flatMap(terminateRequest(requestCounter, sequencerCounter, timestamp, _))
+            decisionTimeF.flatMap(
+              terminateRequest(requestCounter, sequencerCounter, timestamp, _, None)
+            )
 
           }.onShutdown {
             logger.info(s"Ignoring timeout of bad request $requestCounter due to shutdown")
@@ -209,6 +209,7 @@ abstract class AbstractMessageProcessor(
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
+      eventO: Option[Traced[Update]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // Let the request immediately timeout (upon the next message) rather than explicitly adding an empty commit set
     // because we don't have a sequencer counter to associate the commit set with.
@@ -218,7 +219,7 @@ abstract class AbstractMessageProcessor(
       sequencerCounter,
       timestamp,
       Future.successful(decisionTime),
-      terminateRequest(requestCounter, sequencerCounter, timestamp, decisionTime),
+      terminateRequest(requestCounter, sequencerCounter, timestamp, decisionTime, eventO),
     )
   }
 }

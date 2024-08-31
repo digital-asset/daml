@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
+import cats.Eval
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
@@ -19,6 +20,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.domain.{DomainAliasResolution, DomainRegistryError}
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -53,6 +55,7 @@ class SyncDomainPersistentStateManager(
     crypto: Crypto,
     clock: Clock,
     packageDependencyResolver: PackageDependencyResolver,
+    ledgerApiStore: Eval[LedgerApiStore],
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -207,6 +210,7 @@ class SyncDomainPersistentStateManager(
       parameters,
       indexedStringStore,
       packageDependencyResolver,
+      ledgerApiStore,
       loggerFactory,
       futureSupervisor,
     )

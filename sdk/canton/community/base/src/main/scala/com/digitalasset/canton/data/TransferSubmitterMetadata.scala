@@ -23,8 +23,8 @@ final case class TransferSubmitterMetadata(
     workflowId: Option[LfWorkflowId],
 ) extends PrettyPrinting {
 
-  def toProtoV30: v30.TransferSubmitterMetadata =
-    v30.TransferSubmitterMetadata(
+  def toProtoV30: v30.ReassignmentSubmitterMetadata =
+    v30.ReassignmentSubmitterMetadata(
       submitter = submitter,
       submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
       commandId = commandId,
@@ -45,9 +45,9 @@ final case class TransferSubmitterMetadata(
 
 object TransferSubmitterMetadata {
   def fromProtoV30(
-      transferSubmitterMetadataP: v30.TransferSubmitterMetadata
+      transferSubmitterMetadataP: v30.ReassignmentSubmitterMetadata
   ): ParsingResult[TransferSubmitterMetadata] = {
-    val v30.TransferSubmitterMetadata(
+    val v30.ReassignmentSubmitterMetadata(
       submitterP,
       submittingParticipantP,
       commandIdP,

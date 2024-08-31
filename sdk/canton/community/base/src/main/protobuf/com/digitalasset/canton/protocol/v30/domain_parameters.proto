@@ -48,7 +48,7 @@ message DynamicDomainParameters {
 
   google.protobuf.Duration confirmation_response_timeout = 1;
   google.protobuf.Duration mediator_reaction_timeout = 2;
-  google.protobuf.Duration transfer_exclusivity_timeout = 3;
+  google.protobuf.Duration assignment_exclusivity_timeout = 3;
   google.protobuf.Duration topology_change_delay = 4;
   google.protobuf.Duration ledger_time_record_time_tolerance = 5;
   google.protobuf.Duration reconciliation_interval = 6;

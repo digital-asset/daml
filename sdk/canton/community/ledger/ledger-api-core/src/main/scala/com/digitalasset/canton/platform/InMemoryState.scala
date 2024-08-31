@@ -25,7 +25,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Wrapper and life-cycle manager for the in-memory Ledger API state. */
-private[platform] class InMemoryState(
+class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
     val offsetCheckpointCache: OffsetCheckpointCache,

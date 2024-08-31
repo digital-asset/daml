@@ -117,7 +117,7 @@ class TransferInValidationTest
               inRequest,
               None,
               cryptoSnapshot,
-              transferringParticipant = false,
+              isReassigningParticipant = false,
             )
         )("validation of transfer in request failed")
       } yield {
@@ -125,14 +125,14 @@ class TransferInValidationTest
       }
     }
 
-    val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
+    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
     val transferOutRequest = TransferOutRequest(
       submitterInfo(party1),
       Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
       Set.empty,
       ExampleTransactionFactory.transactionId(0),
       contract,
-      transferId.sourceDomain,
+      reassignmentId.sourceDomain,
       SourceProtocolVersion(testedProtocolVersion),
       sourceMediator,
       targetDomain,
@@ -171,7 +171,7 @@ class TransferInValidationTest
               inRequest,
               Some(transferData),
               cryptoSnapshot,
-              transferringParticipant = false,
+              isReassigningParticipant = false,
             )
         )("validation of transfer in request failed")
       } yield {
@@ -200,7 +200,7 @@ class TransferInValidationTest
           inRequest,
           Some(transferData),
           cryptoSnapshot,
-          transferringParticipant = false,
+          isReassigningParticipant = false,
         )
         .value
 
@@ -233,13 +233,13 @@ class TransferInValidationTest
               inRequestWithWrongCounter,
               Some(transferData),
               cryptoSnapshot,
-              transferringParticipant = true,
+              isReassigningParticipant = true,
             )
             .value
       } yield {
         result shouldBe Left(
           InconsistentTransferCounter(
-            transferId,
+            reassignmentId,
             inRequestWithWrongCounter.transferCounter,
             transferData.transferCounter,
           )
@@ -258,7 +258,7 @@ class TransferInValidationTest
               inRequest,
               Some(transferDataSourceDomainPVCNTestNet),
               cryptoSnapshot,
-              transferringParticipant = true,
+              isReassigningParticipant = true,
             )
             .value
       } yield {

@@ -85,7 +85,7 @@ private[routing] class ContractsTransfer(
       _outApprove <- EitherT.cond[Future](
         outStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The transfer out for ${outResult.transferId} failed with status $outStatus",
+        s"The transfer out for ${outResult.reassignmentId} failed with status $outStatus",
       )
 
       _unit <- EitherT
@@ -94,7 +94,7 @@ private[routing] class ContractsTransfer(
       inResult <- targetSyncDomain
         .submitTransferIn(
           submitterMetadata,
-          outResult.transferId,
+          outResult.reassignmentId,
         )
         .leftMap[String](err => s"Transfer in failed with error $err")
         .flatMap { s =>
@@ -105,7 +105,7 @@ private[routing] class ContractsTransfer(
       _inApprove <- EitherT.cond[Future](
         inStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The transfer in for ${outResult.transferId} failed with verdict $inStatus",
+        s"The transfer in for ${outResult.reassignmentId} failed with verdict $inStatus",
       )
     } yield ()
 

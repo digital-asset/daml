@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.store
 
-import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -12,9 +11,10 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
-import com.digitalasset.canton.lifecycle.{AsyncCloseable, CloseContext, Lifecycle}
+import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
@@ -45,7 +45,7 @@ class SyncDomainEphemeralState(
     participantId: ParticipantId,
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     persistentState: SyncDomainPersistentState,
-    multiDomainEventLog: Eval[MultiDomainEventLog],
+    val ledgerApiIndexer: LedgerApiIndexer,
     val startingPoints: ProcessingStartingPoints,
     createTimeTracker: () => DomainTimeTracker,
     metrics: SyncDomainMetrics,
@@ -55,7 +55,7 @@ class SyncDomainEphemeralState(
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     clock: Clock,
-)(implicit executionContext: ExecutionContext, closeContext: CloseContext)
+)(implicit executionContext: ExecutionContext)
     extends SyncDomainEphemeralStateLookup
     with NamedLogging
     with CloseableHealthComponent
@@ -118,13 +118,19 @@ class SyncDomainEphemeralState(
     )
   }
 
+  val timelyRejectNotifier: TimelyRejectNotifier = TimelyRejectNotifier(
+    participantNodeEphemeralState,
+    persistentState.domainId.item,
+    Some(startingPoints.processing.prenextTimestamp),
+    loggerFactory,
+  )
+
   val recordOrderPublisher: RecordOrderPublisher =
     new RecordOrderPublisher(
       persistentState.domainId.item,
       startingPoints.processing.nextSequencerCounter,
       startingPoints.processing.prenextTimestamp,
-      persistentState.eventLog,
-      multiDomainEventLog,
+      ledgerApiIndexer,
       participantNodeEphemeralState.inFlightSubmissionTracker,
       metrics.recordOrderPublisher,
       exitOnFatalFailures = exitOnFatalFailures,
@@ -133,6 +139,7 @@ class SyncDomainEphemeralState(
       futureSupervisor,
       persistentState.activeContractStore,
       clock,
+      timelyRejectNotifier.notifyAsync,
     )
 
   val phase37Synchronizer =
@@ -143,7 +150,7 @@ class SyncDomainEphemeralState(
     )
 
   val observedTimestampTracker = new WatermarkTracker[CantonTimestamp](
-    startingPoints.rewoundSequencerCounterPrehead.fold(CantonTimestamp.MinValue)(_.timestamp),
+    startingPoints.processing.prenextTimestamp,
     loggerFactory,
     futureSupervisor,
   )
@@ -165,29 +172,15 @@ class SyncDomainEphemeralState(
     resolveUnhealthy()
 
   lazy val inFlightSubmissionTrackerDomainState: InFlightSubmissionTrackerDomainState =
-    InFlightSubmissionTrackerDomainState.fromSyncDomainState(persistentState, this)
+    InFlightSubmissionTrackerDomainState.fromSyncDomainState(this)
 
-  val timelyRejectNotifier: TimelyRejectNotifier = TimelyRejectNotifier(
-    participantNodeEphemeralState,
-    persistentState.domainId.item,
-    startingPoints.rewoundSequencerCounterPrehead.map(_.timestamp),
-    loggerFactory,
-  )
-
-  override def onClosed(): Unit = {
-    import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
+  override def onClosed(): Unit =
     Lifecycle.close(
       requestTracker,
       recordOrderPublisher,
       submissionTracker,
       phase37Synchronizer,
-      AsyncCloseable(
-        "request-journal-flush",
-        requestJournal.flush(),
-        timeouts.shutdownProcessing,
-      ),
     )(logger)
-  }
 
 }
 

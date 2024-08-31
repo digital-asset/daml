@@ -8,8 +8,9 @@ import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
+import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.memory.InMemoryPartyMetadataStore
@@ -37,7 +38,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
   private final class Fixture {
     private val store = new InMemoryPartyMetadataStore()
     private val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
-    private val observedEvents = ListBuffer[LedgerSyncEvent]()
+    private val observedEvents = ListBuffer[Update]()
     private val eventPublisher = mock[ParticipantEventPublisher]
 
     val notifier: LedgerServerPartyNotifier =
@@ -93,11 +94,11 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         )
       )
 
-    when(eventPublisher.publish(any[LedgerSyncEvent])(anyTraceContext)).thenAnswer {
-      (event: LedgerSyncEvent) =>
-        observedEvents += event
+    when(eventPublisher.publishEventDelayableByRepairOperation(any[Update])(anyTraceContext))
+      .thenAnswer { (update: Update) =>
+        observedEvents += update
         FutureUnlessShutdown.unit
-    }
+      }
 
     def expectLastObserved(
         expectedPartyId: PartyId,
@@ -105,14 +106,14 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         expectedParticipantId: String,
     ): Assertion = {
       observedEvents should not be empty
-      inside(observedEvents.last) { case event: LedgerSyncEvent.PartyAddedToParticipant =>
+      inside(observedEvents.last) { case event: Update.PartyAddedToParticipant =>
         event.party shouldBe expectedPartyId.toLf
         event.displayName shouldBe expectedDisplayName
         event.participantId shouldBe LedgerParticipantId.assertFromString(expectedParticipantId)
       }
     }
 
-    def observed: List[LedgerSyncEvent] = observedEvents.toList
+    def observed: List[Update] = observedEvents.toList
 
   }
 

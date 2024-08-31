@@ -18,7 +18,11 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.topology.TopologyComponentFactory
+import com.digitalasset.canton.participant.topology.{
+  PackageOps,
+  PackageOpsImpl,
+  TopologyComponentFactory,
+}
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot

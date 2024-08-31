@@ -25,6 +25,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -55,10 +56,6 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRef
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.CursorPrehead.{
-  RequestCounterCursorPrehead,
-  SequencerCounterCursorPrehead,
-}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -422,14 +419,14 @@ class AcsCommitmentProcessor(
       else cur
     }.discard
 
-  override def publish(toc: RecordTime, acsChange: AcsChange)(implicit
+  override def publish(toc: RecordTime, acsChange: AcsChange, waitFor: Future[Unit])(implicit
       traceContext: TraceContext
   ): Unit = {
     @tailrec
     def go(): Unit =
       timestampsWithPotentialTopologyChanges.get().headOption match {
         // no upcoming topology change queued
-        case None => publishTick(toc, acsChange)
+        case None => publishTick(toc, acsChange, waitFor)
         // pre-insert topology change queued
         case Some(traced @ Traced(effectiveTime)) if effectiveTime.value <= toc.timestamp =>
           // remove the tick from our update
@@ -443,12 +440,13 @@ class AcsCommitmentProcessor(
             publishTick(
               RecordTime(timestamp = effectiveTime, tieBreaker = 0),
               AcsChange.empty,
+              waitFor,
             )(traced.traceContext)
           }
           // now, iterate (there might have been several effective time updates)
           go()
         case Some(_) =>
-          publishTick(toc, acsChange)
+          publishTick(toc, acsChange, waitFor)
       }
     go()
   }
@@ -497,7 +495,7 @@ class AcsCommitmentProcessor(
     *        (b) *** default *** whose catch-up interval boundary commitments do not match or who haven't sent a
     *        catch-up interval boundary commitment yet
     */
-  private def publishTick(toc: RecordTime, acsChange: AcsChange)(implicit
+  private def publishTick(toc: RecordTime, acsChange: AcsChange, waitFor: Future[Unit])(implicit
       traceContext: TraceContext
   ): Unit = {
     if (!lastPublished.forall(_ < toc))
@@ -729,6 +727,11 @@ class AcsCommitmentProcessor(
     val fut = publishQueue
       .executeUS(
         for {
+          // Shutdown should not wait for all waitFor Futures to finish, so we are not using the performUnlessClosingF, which tracks these futures.
+          _ <- FutureUnlessShutdown.outcomeF(
+            // Shutdown should not be blocked by waiting for waitFor.
+            if (isClosing) Future.unit else waitFor
+          )
           acsSnapshot <- performUnlessClosingF(functionFullName)(runningCommitments)
           reconciliationIntervals <- getReconciliationIntervals(toc.timestamp)
           periodEndO = reconciliationIntervals
@@ -2007,8 +2010,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   /** The latest commitment tick before or at the given time at which it is safe to prune. */
   def safeToPrune(
       requestJournalStore: RequestJournalStore,
-      requestCounterCursorPrehead: Option[RequestCounterCursorPrehead],
-      sequencerCounterCursorPrehead: Option[SequencerCounterCursorPrehead],
+      domainIndex: DomainIndex,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
@@ -2020,11 +2022,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   ): Future[Option[CantonTimestampSecond]] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val cleanReplayF = SyncDomainEphemeralStateFactory
-      .crashRecoveryPruningBoundInclusive(
-        requestCounterCursorPrehead,
-        sequencerCounterCursorPrehead,
-        requestJournalStore,
-      )
+      .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndex)
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)

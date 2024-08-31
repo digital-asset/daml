@@ -782,6 +782,7 @@ object TopologyAdminCommands {
         transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
         signedBy: Seq[Fingerprint],
+        forceFlags: ForceFlags,
     ) extends BaseWriteCommand[SignTransactionsRequest, SignTransactionsResponse, Seq[
           GenericSignedTopologyTransaction
         ]] {
@@ -791,6 +792,7 @@ object TopologyAdminCommands {
             transactions.map(_.toProtoV30),
             signedBy.map(_.toProtoPrimitive),
             store,
+            forceFlags.toProtoV30,
           )
         )
 

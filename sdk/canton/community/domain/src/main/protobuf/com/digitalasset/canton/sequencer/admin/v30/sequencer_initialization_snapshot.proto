@@ -8,7 +8,6 @@ package com.digitalasset.canton.sequencer.admin.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
-import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message SequencerSnapshot {
@@ -49,7 +48,7 @@ message SequencerSnapshot {
 message SequencerMemberStatus {
   string member = 1;
   int64 registered_at = 2; // in microseconds of UTC time since Unix epoch
-  google.protobuf.Int64Value last_acknowledged = 3; // in microseconds of UTC time since Unix epoch
+  optional int64 last_acknowledged = 3; // in microseconds of UTC time since Unix epoch
   bool enabled = 4;
 }
 

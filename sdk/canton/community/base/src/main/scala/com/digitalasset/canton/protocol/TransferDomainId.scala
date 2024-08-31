@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import cats.kernel.Order
 import com.digitalasset.canton.data.ViewType
-import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
+import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.TransferDomainId.TransferDomainIdCast
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -45,7 +45,7 @@ object TransferDomainId {
 final case class SourceDomainId(id: DomainId) extends TransferDomainId {
   override def unwrap: DomainId = id
 
-  override def toViewType: TransferOutViewType = TransferOutViewType
+  override def toViewType: UnassignmentViewType = UnassignmentViewType
 }
 
 object SourceDomainId {
@@ -67,7 +67,7 @@ object SourceDomainId {
 final case class TargetDomainId(id: DomainId) extends TransferDomainId {
   override def unwrap: DomainId = id
 
-  override def toViewType: TransferInViewType = TransferInViewType
+  override def toViewType: AssignmentViewType = AssignmentViewType
 
 }
 

@@ -4,32 +4,23 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.OptionT
-import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  Counter,
-  PeanoQueue,
-  SynchronizedPeanoTreeQueue,
-}
+import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.CursorPrehead.RequestCounterCursorPrehead
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, HasFlushFuture, NoCopy}
-import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
+import com.digitalasset.canton.util.{ErrorUtil, NoCopy}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** The request journal records the committed [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState!]]
   * associated with particular requests.
@@ -39,28 +30,9 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   * The only exception to the writing rule is the [[com.digitalasset.canton.participant.store.RequestJournalStore.prune]] method,
   * which may be user-triggered, though the call's pre-conditions must be respected.
   *
-  * The request journal uses two strategies to persistently organize states:
-  *
-  * <ul>
-  *   <li>For every request, which is identified by a participant-local request counter,
-  *     the request journal records the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState]]
-  *     associated with the request counter.</li>
-  *   <li>For [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestStateWithCursor]] states,
-  *     a cursor tracks the head request for that state.</li>
-  * </ul>
-  *
-  * The <strong>head request</strong> for a state value is a
-  * [[com.digitalasset.canton.RequestCounter]]
-  * defined as follows:
-  *
-  * <ul>
-  *   <li>Normally, the least request (ordering by request counter)
-  *     which has not yet reached or progressed past that state value.
-  *     However, the actual head may lag behind arbitrarily because the head is not updated atomically with the request states.</li>
-  *   <li>In the edge case where no such request exists in the journal,
-  *     the head points to the first request counter that has not been added to the journal.</li>
-  * </ul>
-  * The <strong>prehead request</strong> is the request before the head request, or [[scala.None$]] if there is no such request.
+  * For every request, which is identified by a participant-local request counter,
+  * the request journal records the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState]]
+  * associated with the request counter.
   *
   * The request journal also stores the timestamp associated with the request.
   * The assumption is made that every request is associated with only one timestamp.
@@ -72,20 +44,13 @@ class RequestJournal(
     override protected val loggerFactory: NamedLoggerFactory,
     initRc: RequestCounter,
     futureSupervisor: FutureSupervisor,
-)(implicit ec: ExecutionContext, closeContext: CloseContext)
+)(implicit ec: ExecutionContext)
     extends RequestJournalReader
-    with NamedLogging
-    with HasFlushFuture {
+    with NamedLogging {
   import RequestJournal.*
 
   private val pending: ConcurrentSkipListSet[RequestCounter] =
     new ConcurrentSkipListSet[RequestCounter]()
-
-  /* The request journal implementation is interested only in the front of the PeanoQueues, not its head.
-   * To avoid memory leaks, we therefore drain the queues whenever we insert a RequestCounter. */
-
-  private val cleanCursor: PeanoQueue[RequestCounter, CursorInfo] =
-    new SynchronizedPeanoTreeQueue[RequestCounterDiscriminator, CursorInfo](initRc)
 
   override def query(
       rc: RequestCounter
@@ -138,11 +103,6 @@ class RequestJournal(
         s"The request $rc is already pending.",
       )
 
-      _ = ErrorUtil.requireArgument(
-        !cleanCursor.alreadyInserted(rc),
-        s"The request $rc is already clean.",
-      )
-
       _ = logger.debug(withRc(rc, s"Inserting request into journal at $requestTimestamp..."))
       data = RequestData(rc, RequestState.Pending, requestTimestamp)
       _ <- store.insert(data)
@@ -183,14 +143,8 @@ class RequestJournal(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Future[Unit]] =
-    advanceTo(rc, requestTimestamp, Clean, Some(commitTime)).map(
-      _.getOrElse( // Should not happen because Clean has a cursor
-        ErrorUtil.internalError(
-          new NoSuchElementException(s"Cursor future for request state $Clean")
-        )
-      )
-    )
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    advanceTo(rc, requestTimestamp, Clean, Some(commitTime))
 
   private[this] def advanceTo(
       rc: RequestCounter,
@@ -199,15 +153,8 @@ class RequestJournal(
       commitTime: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[Future[Unit]]] = {
+  ): Future[Unit] = {
     logger.debug(withRc(rc, s"Transitioning to state $newState"))
-
-    def drainCursorsAndStoreNewCleanPrehead(): Future[Unit] =
-      newState
-        .visitCursor { case RequestState.Clean =>
-          Some(drainClean)
-        }
-        .getOrElse(Future.unit)
 
     def handleError(err: RequestJournalStoreError): Nothing = err match {
       case UnknownRequestCounter(requestCounter) =>
@@ -236,27 +183,6 @@ class RequestJournal(
         )
     }
 
-    def updateCursors(): Option[Future[Unit]] = {
-      logger.debug(withRc(rc, s"Transited to state $newState"))
-      if (newState.hasCursor) {
-        // Synchronously add the new entry to the cursor queue, if there is a cursor queue
-        val info =
-          CursorInfo(requestTimestamp, new SupervisedPromise[Unit]("cursor-info", futureSupervisor))
-        newState.visitCursor { case Clean =>
-          Some(cleanCursor.insert(rc, info))
-        }.discard
-
-        // Asynchronously drain the cursors and update the clean head
-        addToFlushAndLogError(s"Update cursors for request $rc")(
-          drainCursorsAndStoreNewCleanPrehead()
-        )
-
-        Some(info.signal.future)
-      } else {
-        None
-      }
-    }
-
     store
       .replace(rc, requestTimestamp, newState, commitTime)
       .fold(
@@ -264,17 +190,10 @@ class RequestJournal(
         { _ =>
           if (newState == Clean) decrementNumDirtyRequests()
           pending.remove(rc)
-          updateCursors()
+          logger.debug(withRc(rc, s"Transitioned to state $newState"))
         },
       )
   }
-
-  /** When the returned future completes, pending updates and deletions that have been initiated before the call
-    * will be performed such that they are visible to subsequent queries.
-    * Prevents accidental deletion of subsequent reinsertion due to pending deletes.
-    */
-  @VisibleForTesting
-  def flush(): Future[Unit] = doFlush()
 
   /** Counts requests whose timestamps lie between the given timestamps (inclusive).
     *
@@ -288,44 +207,6 @@ class RequestJournal(
     store.size(start, end)
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
-
-  private def drainClean(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    for {
-      newPrehead <- Future(drain(cleanCursor))
-      _ <- newPrehead.fold(Future.unit) { case (prehead, completionPromise) =>
-        store.advancePreheadCleanTo(prehead).map { _ =>
-          completionPromise.success(())
-        }
-      }
-    } yield ()
-
-  /** Drains elements from the given [[PeanoQueue]] until no more elements can be polled.
-    * The promises in the drained elements are fulfilled
-    * to indicate that the head cursor reached the corresponding request.
-    *
-    * @return The new prehead request counter if there is a new one
-    *         and a promise on which all cursor futures are waiting that get completed during the draining.
-    *         This promise must be completed after the prehead has been persisted.
-    */
-  private def drain(
-      pq: PeanoQueue[RequestCounter, CursorInfo]
-  )(implicit traceContext: TraceContext): Option[(RequestCounterCursorPrehead, Promise[Unit])] = {
-    val completionPromise = new SupervisedPromise[Unit]("drain", futureSupervisor)
-
-    @tailrec def drain(
-        currentPrehead: Option[RequestCounterCursorPrehead]
-    ): Option[RequestCounterCursorPrehead] =
-      pq.poll() match {
-        case None => currentPrehead
-        case Some((requestCounter, CursorInfo(requestTimestamp, promise))) =>
-          promise.completeWith(completionPromise.future)
-          drain(Some(CursorPrehead(requestCounter, requestTimestamp)))
-      }
-
-    drain(None).map(_ -> completionPromise)
-  }
 }
 
 object RequestJournal {
@@ -452,8 +333,6 @@ object RequestJournal {
     ): RequestData =
       new RequestData(requestCounter, Clean, requestTimestamp, Some(commitTime), repairContext)
   }
-
-  private final case class CursorInfo(timestamp: CantonTimestamp, signal: Promise[Unit])
 }
 
 trait RequestJournalReader {

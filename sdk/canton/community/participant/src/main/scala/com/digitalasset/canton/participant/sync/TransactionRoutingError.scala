@@ -407,7 +407,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       ) {
     final case class Failed(reason: String)
         extends TransactionErrorImpl(
-          cause = "Automatically transferring contracts to a common domain failed."
+          cause = "Automatically reassigning contracts to a common domain failed."
         )
         with TransactionRoutingError
   }

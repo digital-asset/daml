@@ -331,6 +331,53 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
   }
 
+  it should "detect monotonicity violation of record times for one domain in completions table" in {
+    val updates = Vector(
+      dtoCreate(
+        offset(1),
+        1L,
+        hashCid("#1"),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time5,
+      ),
+      dtoCreate(
+        offset(2),
+        2L,
+        hashCid("#2"),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = time1,
+      ),
+      dtoCompletion(
+        offset(3),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time7,
+      ),
+      dtoCreate(
+        offset(4),
+        3L,
+        hashCid("#4"),
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = time3,
+      ),
+      dtoCreate(
+        offset(5),
+        4L,
+        hashCid("#5"),
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time6,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one domain: offsets Offset(Bytes(000000000000000003)),Offset(Bytes(000000000000000005))"
+    )
+  }
+
   it should "not detect monotonicity violation of record times for one domain in completions table, if it is a timely-reject" in {
     val updates = Vector(
       dtoCreate(
@@ -433,6 +480,35 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
       "occurrence of duplicate offset found for lapi_command_completions: for offset Offset(Bytes(000000000000000002)) 2 rows found"
+    )
+  }
+
+  it should "detect same completion entries for different offsets" in {
+    val updates = Vector(
+      dtoCompletion(
+        offset(1)
+      ),
+      dtoCompletion(
+        offset(2),
+        commandId = "commandid",
+        submissionId = Some("submissionid"),
+        transactionId = Some(transactionIdFromOffset(offset(2))),
+      ),
+      dtoCompletion(
+        offset(3),
+        commandId = "commandid",
+        submissionId = Some("submissionid"),
+        transactionId = Some(transactionIdFromOffset(offset(2))),
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
+    failure.getMessage should include(
+      "duplicate entries found in lapi_command_completions at offsets (first 10 shown) List(Offset(Bytes(000000000000000002)), Offset(Bytes(000000000000000003)))"
     )
   }
 

@@ -24,6 +24,12 @@ trait PruningProcessor extends AutoCloseable {
   def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
       traceContext: TraceContext
   ): EitherT[Future, LedgerPruningError, Option[GlobalOffset]]
+
+  /** Providing the next Offset for iterative pruning: computed by the current pruning Offset increased by the max pruning batch size.
+    */
+  def locatePruningOffsetForOneIteration(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, LedgerPruningError, GlobalOffset]
 }
 
 object NoOpPruningProcessor extends PruningProcessor {
@@ -35,6 +41,11 @@ object NoOpPruningProcessor extends PruningProcessor {
   override def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
       traceContext: TraceContext
   ): EitherT[Future, LedgerPruningError, Option[GlobalOffset]] =
+    NoOpPruningProcessor.pruningNotSupportedET
+
+  override def locatePruningOffsetForOneIteration(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, LedgerPruningError, GlobalOffset] =
     NoOpPruningProcessor.pruningNotSupportedET
 
   override def close(): Unit = ()

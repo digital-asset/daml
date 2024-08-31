@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.store.TransferStore.{
 import com.digitalasset.canton.participant.store.memory.TransferCache.PendingTransferCompletion
 import com.digitalasset.canton.participant.store.{TransferLookup, TransferStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
+import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.google.common.annotations.VisibleForTesting
@@ -38,8 +38,9 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
     with NamedLogging {
 
   @VisibleForTesting
-  private[memory] val pendingCompletions: concurrent.Map[TransferId, PendingTransferCompletion] =
-    new TrieMap[TransferId, PendingTransferCompletion]
+  private[memory] val pendingCompletions
+      : concurrent.Map[ReassignmentId, PendingTransferCompletion] =
+    new TrieMap[ReassignmentId, PendingTransferCompletion]
 
   /** Completes the given transfer with the given `timeOfCompletion`.
     * Completion appears atomic to transfer lookups that go through the cache.
@@ -47,24 +48,25 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
     * @return The future completes when this completion or a completion of the same transfer by an earlier request
     *         has been written to the underlying [[store.TransferStore]].
     */
-  def completeTransfer(transferId: TransferId, timeOfCompletion: TimeOfChange)(implicit
+  def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, Nothing, TransferStoreError, Unit] = CheckedT {
     logger.trace(
-      s"Request ${timeOfCompletion.rc}: Marking transfer $transferId as completed in cache"
+      s"Request ${timeOfCompletion.rc}: Marking transfer $reassignmentId as completed in cache"
     )
     pendingCompletions.putIfAbsent(
-      transferId,
+      reassignmentId,
       PendingTransferCompletion(timeOfCompletion)(),
     ) match {
       case None =>
-        transferStore.completeTransfer(transferId, timeOfCompletion).value.map { result =>
-          logger.trace(s"Request ${timeOfCompletion.rc}: Marked transfer $transferId as completed")
+        transferStore.completeTransfer(reassignmentId, timeOfCompletion).value.map { result =>
+          logger
+            .trace(s"Request ${timeOfCompletion.rc}: Marked transfer $reassignmentId as completed")
           val pendingTransferCompletion = pendingCompletions
-            .remove(transferId)
+            .remove(reassignmentId)
             .getOrElse(
               throw new IllegalStateException(
-                s"Unable to find transfer `$transferId` in pending completions"
+                s"Unable to find transfer `$reassignmentId` in pending completions"
               )
             )
           pendingTransferCompletion.completion.success(result)
@@ -87,7 +89,7 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
               _ <- result
               _ <-
                 if (previousTimeOfCompletion == timeOfCompletion) Checked.result(())
-                else Checked.continue(TransferAlreadyCompleted(transferId, timeOfCompletion))
+                else Checked.continue(TransferAlreadyCompleted(reassignmentId, timeOfCompletion))
             } yield ()
           }
         } else {
@@ -102,18 +104,18 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
             _ = logger.trace(
               s"Request ${timeOfCompletion.rc}: Overwriting the transfer completion of the later request ${previousTimeOfCompletion.rc}"
             )
-            result <- transferStore.completeTransfer(transferId, timeOfCompletion).value
+            result <- transferStore.completeTransfer(reassignmentId, timeOfCompletion).value
           } yield result
         }
     }
   }
 
-  override def lookup(transferId: TransferId)(implicit
+  override def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferStore.TransferLookupError, TransferData] =
-    pendingCompletions.get(transferId).fold(transferStore.lookup(transferId)) {
+    pendingCompletions.get(reassignmentId).fold(transferStore.lookup(reassignmentId)) {
       case PendingTransferCompletion(timeOfCompletion) =>
-        EitherT.leftT(TransferCompleted(transferId, timeOfCompletion))
+        EitherT.leftT(TransferCompleted(reassignmentId, timeOfCompletion))
     }
 
   override def find(
@@ -124,13 +126,13 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
   )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
     transferStore
       .find(filterSource, filterRequestTimestamp, filterSubmitter, limit)
-      .map(_.filter(transferData => !pendingCompletions.contains(transferData.transferId)))
+      .map(_.filter(transferData => !pendingCompletions.contains(transferData.reassignmentId)))
 
   override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
       implicit traceContext: TraceContext
   ): Future[Seq[TransferData]] = transferStore
     .findAfter(requestAfter, limit)
-    .map(_.filter(transferData => !pendingCompletions.contains(transferData.transferId)))
+    .map(_.filter(transferData => !pendingCompletions.contains(transferData.reassignmentId)))
 
   /** Transfer-out/in global offsets will be updated upon publication in the multi-domain event log, when
     * the global offset is assigned to the event.
@@ -148,7 +150,7 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
 
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] =
+  ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
     transferStore.findEarliestIncomplete()
 }
 

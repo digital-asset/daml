@@ -19,6 +19,7 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerParticipantId, config}
@@ -26,7 +27,7 @@ import com.digitalasset.canton.{LedgerParticipantId, config}
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerApiStore(
+class LedgerApiStore(
     val ledgerApiDbSupport: DbSupport,
     val ledgerApiStorage: LedgerApiStorage,
     val ledgerEndCache: MutableLedgerEndCache,
@@ -62,10 +63,10 @@ final class LedgerApiStore(
       integrityStorageBackend.onlyForTestingVerifyIntegrity(failForEmptyDB)
     )
 
-  def onlyForTestingMoveLedgerAndBackToScratch()(implicit
+  def onlyForTestingMoveLedgerEndBackToScratch()(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    executeSql(DatabaseMetrics.ForTesting("onlyForTestingMoveLedgerAndBackToScratch"))(
+    executeSql(DatabaseMetrics.ForTesting("onlyForTestingMoveLedgerEndBackToScratch"))(
       integrityStorageBackend.onlyForTestingMoveLedgerEndBackToScratch()
     )
 
@@ -128,13 +129,20 @@ final class LedgerApiStore(
       )
     )
 
-  def lastDomainOffsetBeforerOrAtPublicationTime(
+  def lastDomainOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Option[DomainOffset]] =
     executeSql(metrics.index.db.lastDomainOffsetBeforeOrAtPublicationTime)(
-      eventStorageBackend.lastDomainOffsetBeforerOrAtPublicationTime(
+      eventStorageBackend.lastDomainOffsetBeforeOrAtPublicationTime(
         beforeOrAtPublicationTimeInclusive.underlying
       )
+    )
+
+  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(implicit
+      traceContext: TraceContext
+  ): Future[Set[LfContractId]] =
+    executeSql(metrics.index.db.archivals)(
+      eventStorageBackend.archivals(fromExclusive, toInclusive)
     )
 
   private[api] def initializeInMemoryState(implicit
