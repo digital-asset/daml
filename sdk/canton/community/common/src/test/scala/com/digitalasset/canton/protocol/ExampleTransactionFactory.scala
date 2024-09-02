@@ -445,7 +445,7 @@ class ExampleTransactionFactory(
           rootNodeId,
           tailNodes,
           rootRbContext,
-        )
+        )(protocolVersion)
 
         if (protocolVersion >= ProtocolVersion.v7)
           result.withSubmittingAdminPartyQuorum(submittingAdminPartyO, confirmationPolicy)
@@ -1351,7 +1351,8 @@ class ExampleTransactionFactory(
     * 1. View1
     * 1.2 View10
     */
-  case object MultipleRootsAndSimpleViewNestingV6 extends ExampleTransaction {
+  case object MultipleRootsAndSimpleViewNestingForTransactionDecompositionV3
+      extends ExampleTransaction {
     require(protocolVersion >= ProtocolVersion.v7)
 
     override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
@@ -1560,7 +1561,7 @@ class ExampleTransactionFactory(
           v1Informees,
           v1Quorums,
         )
-      )
+      )(protocolVersion)
 
       Seq(v0, v1)
     }

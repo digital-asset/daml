@@ -39,11 +39,12 @@ trait TransactionViewDecompositionFactory {
 object TransactionViewDecompositionFactory {
 
   def apply(protocolVersion: ProtocolVersion): TransactionViewDecompositionFactory =
-    if (protocolVersion >= ProtocolVersion.v6) V3
-    else if (protocolVersion >= ProtocolVersion.v5) V2
-    else V1
+    if (protocolVersion >= ProtocolVersion.v6) V3(protocolVersion)
+    else if (protocolVersion >= ProtocolVersion.v5) V2(protocolVersion)
+    else V1(protocolVersion)
 
-  private[data] object V1 extends TransactionViewDecompositionFactory {
+  private[data] final case class V1(protocolVersion: ProtocolVersion)
+      extends TransactionViewDecompositionFactory {
 
     override def fromTransaction(
         confirmationPolicy: ConfirmationPolicy,
@@ -70,7 +71,7 @@ object TransactionViewDecompositionFactory {
                   rootNodeId,
                   tailNodes,
                   rbContext,
-                )
+                )(protocolVersion)
               )
             }
       }
@@ -229,15 +230,16 @@ object TransactionViewDecompositionFactory {
 
   }
 
-  private[data] object V2 extends NewTransactionViewDecompositionFactoryImpl {
+  private[data] final case class V2(protocolVersion: ProtocolVersion)
+      extends NewTransactionViewDecompositionFactoryImpl {
 
-    private final case class ActionNodeInfoV2(
+    private case class ActionNodeInfoV2(
         viewConfirmationParameters: ViewConfirmationParameters,
         children: Seq[LfNodeId],
         seed: Option[LfHash],
     )
 
-    private final case class BuilderV2(
+    private case class BuilderV2(
         nodesM: Map[LfNodeId, LfNode],
         actionNodeInfoM: Map[LfNodeId, ActionNodeInfoV2],
     ) extends Builder[ActionNodeInfoV2](nodesM, actionNodeInfoM) {
@@ -260,7 +262,7 @@ object TransactionViewDecompositionFactory {
           nodeId,
           childState.views.toList,
           state.rollbackContext,
-        )
+        )(protocolVersion)
 
         state.withNewView(newView, childState.rollbackContext)
       }
@@ -358,9 +360,10 @@ object TransactionViewDecompositionFactory {
 
   }
 
-  private[data] object V3 extends NewTransactionViewDecompositionFactoryImpl {
+  private[data] final case class V3(protocolVersion: ProtocolVersion)
+      extends NewTransactionViewDecompositionFactoryImpl {
 
-    private final case class ActionNodeInfoV3(
+    private case class ActionNodeInfoV3(
         informees: Map[LfPartyId, (Set[ParticipantId], TrustLevel)],
         quorum: Quorum,
         children: Seq[LfNodeId],
@@ -371,7 +374,7 @@ object TransactionViewDecompositionFactory {
       }.toSet
     }
 
-    private final case class BuilderV3(
+    private case class BuilderV3(
         nodesM: Map[LfNodeId, LfNode],
         actionNodeInfoM: Map[LfNodeId, ActionNodeInfoV3],
     ) extends Builder[ActionNodeInfoV3](nodesM, actionNodeInfoM) {
@@ -423,7 +426,7 @@ object TransactionViewDecompositionFactory {
           nodeId,
           childState.views.toList,
           state.rollbackContext,
-        )
+        )(protocolVersion)
 
         state.withNewView(newView, childState.rollbackContext)
       }
