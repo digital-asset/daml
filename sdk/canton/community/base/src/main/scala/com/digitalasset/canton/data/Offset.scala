@@ -43,6 +43,7 @@ object Offset {
   val beforeBegin: Offset = new Offset(Bytes.Empty)
   private val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
   private val versionUpstreamOffsetsAsLong: Byte = 0
+  val firstOffset: Offset = Offset.fromLong(1)
 
   def fromByteString(bytes: ByteString) = new Offset(Bytes.fromByteString(bytes))
 

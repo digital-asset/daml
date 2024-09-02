@@ -25,7 +25,7 @@ class SequencedEventTest extends BaseTestWordSpec {
         SignedProtocolMessage.from(
           ConfirmationResultMessage.create(
             domainId,
-            ViewType.TransferOutViewType,
+            ViewType.UnassignmentViewType,
             RequestId(CantonTimestamp.now()),
             TestHash.dummyRootHash,
             Verdict.Approve(testedProtocolVersion),

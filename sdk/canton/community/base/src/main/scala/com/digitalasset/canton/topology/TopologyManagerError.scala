@@ -816,5 +816,28 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           )
           with TopologyManagerError
     }
+
+    @Explanation(
+      """This error indicates that a dangerous PartyToParticipant mapping deletion was rejected.
+        |If the command is run and there are active contracts where the party is a stakeholder, these contracts
+        |will become will never get pruned, resulting in storage that cannot be reclaimed.
+        | """
+    )
+    @Resolution("Set the ForceFlag.PackageVettingRevocation if you really know what you are doing.")
+    object DisablePartyWithActiveContractsRequiresForce
+        extends ErrorCode(
+          id = "TOPOLOGY_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(partyId: PartyId, domainId: DomainId)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Disable party $partyId failed because there are active contracts on domain $domainId, on which the party is a stakeholder. " +
+                s"It may also have other contracts on other domains. " +
+                s"Set the ForceFlag.DisablePartyWithActiveContracts if you really know what you are doing."
+          )
+          with TopologyManagerError
+    }
   }
 }

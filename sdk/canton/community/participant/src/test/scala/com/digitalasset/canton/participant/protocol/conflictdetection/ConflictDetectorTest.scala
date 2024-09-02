@@ -37,7 +37,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 import com.digitalasset.canton.participant.store.TransferStore.{
   TransferAlreadyCompleted,
   TransferCompleted,
-  UnknownTransferId,
+  UnknownReassignmentId,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.{
@@ -46,7 +46,7 @@ import com.digitalasset.canton.participant.store.memory.{
   TransferCacheTest,
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId, TransferId}
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId, ReassignmentId}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -77,8 +77,8 @@ class ConflictDetectorTest
   private val coid21: LfContractId = ExampleTransactionFactory.suffixedId(2, 1)
   private val coid22: LfContractId = ExampleTransactionFactory.suffixedId(2, 2)
 
-  private val transfer1 = TransferId(sourceDomain1, Epoch)
-  private val transfer2 = TransferId(sourceDomain2, Epoch)
+  private val transfer1 = ReassignmentId(sourceDomain1, Epoch)
+  private val transfer2 = ReassignmentId(sourceDomain2, Epoch)
 
   private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
   private val transferCounter1 = initialTransferCounter + 1
@@ -815,7 +815,7 @@ class ConflictDetectorTest
         _ <- checkContractState(acs, coid01, None)(s"contract $coid01 remains non-existent")
 
         _ <- checkInvalidCommitSet(cd, RequestCounter(3), ofEpochMilli(3))(
-          mkActivenessSet(tfIn = Set(coid01), transferIds = Set(transfer1, transfer2)),
+          mkActivenessSet(tfIn = Set(coid01), reassignmentIds = Set(transfer1, transfer2)),
           mkCommitSet(tfIn = Map(coid00 -> transfer1, coid01 -> transfer2)),
         )("Transferred-in contract not locked.")
 
@@ -1145,8 +1145,8 @@ class ConflictDetectorTest
         ts = ofEpochMilli(1)
         actSet = mkActivenessSet(
           tfIn = Set(coid00, coid01, coid10),
-          transferIds = Set(transfer1),
-        ) // omit transfer2 to mimick a non-transferring participant
+          reassignmentIds = Set(transfer1),
+        ) // omit transfer2 to mimick a non-reassigning participant
         tfIn <- prefetchAndCheck(cd, RequestCounter(0), actSet)
         _ = tfIn shouldBe mkActivenessResult()
         _ = Seq(coid00, coid01, coid10).foreach { coid =>
@@ -1175,7 +1175,7 @@ class ConflictDetectorTest
         )
         assert(fetch10.isEmpty, s"Contract $coid10 remains unknown.")
         assert(lookup1 == Left(TransferCompleted(transfer1, toc)), s"$transfer1 completed")
-        assert(lookup2.exists(_.transferId == transfer2), s"$transfer2 has not been completed")
+        assert(lookup2.exists(_.reassignmentId == transfer2), s"$transfer2 has not been completed")
       }
     }
 
@@ -1188,13 +1188,13 @@ class ConflictDetectorTest
         )
         transferCache <- mkTransferCache(loggerFactory)(
           transfer1 -> mediator1
-        ) // Omit transfer2 to mimic a non-transferring participant
+        ) // Omit transfer2 to mimic a non-reassigning participant
         cd = mkCd(acs, transferCache)
         ts = ofEpochMilli(1)
         toc1 = TimeOfChange(RequestCounter(1), ts)
         actSet = mkActivenessSet(
           tfIn = Set(coid00, coid01),
-          transferIds = Set(transfer1),
+          reassignmentIds = Set(transfer1),
           prior = Set(coid00, coid01),
         )
         commitSet = mkCommitSet(tfIn = Map(coid00 -> transfer1, coid01 -> transfer2))
@@ -1228,7 +1228,7 @@ class ConflictDetectorTest
           s"Contract $coid01 is transferred in.",
         )
         assert(lookup1 == Left(TransferCompleted(transfer1, toc1)), s"$transfer1 completed")
-        assert(lookup2 == Left(UnknownTransferId(transfer2)), s"$transfer2 does not exist")
+        assert(lookup2 == Left(UnknownReassignmentId(transfer2)), s"$transfer2 does not exist")
       }
     }
 
@@ -1284,7 +1284,7 @@ class ConflictDetectorTest
           deact = Set(coid00, coid01),
           create = Set(coid10),
           tfIn = Set(coid20),
-          transferIds = Set(transfer2),
+          reassignmentIds = Set(transfer2),
           useOnly = Set(coid11),
           prior = Set(coid01, coid00, coid11),
         )
@@ -1351,7 +1351,7 @@ class ConflictDetectorTest
         activenessSet = mkActivenessSet(
           create = Set(coid00),
           tfIn = Set(coid01),
-          transferIds = Set(transfer1),
+          reassignmentIds = Set(transfer1),
         )
         commitSet = mkCommitSet(create = Set(coid01), tfIn = Map(coid00 -> transfer1))
         _ <- singleCRwithTR(
@@ -1386,7 +1386,7 @@ class ConflictDetectorTest
         cd = mkCd(acs, transferCache)
         activenessSet = mkActivenessSet(
           tfIn = Set(coid10, coid11),
-          transferIds = Set(transfer1, transfer2),
+          reassignmentIds = Set(transfer1, transfer2),
           create = Set(coid20),
         )
         commitSet = mkCommitSet(
@@ -1481,8 +1481,8 @@ class ConflictDetectorTest
           transfer2 -> mediator2,
         )
         cd = mkCd(acs, transferCache)
-        actSet1 = mkActivenessSet(tfIn = Set(coid00), transferIds = Set(transfer1))
-        actSet2 = mkActivenessSet(tfIn = Set(coid00), transferIds = Set(transfer2))
+        actSet1 = mkActivenessSet(tfIn = Set(coid00), reassignmentIds = Set(transfer1))
+        actSet2 = mkActivenessSet(tfIn = Set(coid00), reassignmentIds = Set(transfer2))
         commitSet1 = mkCommitSet(tfIn = Map(coid00 -> transfer1))
         commitSet2 = mkCommitSet(tfIn = Map(coid00 -> transfer2))
         _ <- singleCRwithTR(
@@ -1524,7 +1524,7 @@ class ConflictDetectorTest
         actSet2 = mkActivenessSet(
           tfIn = Set(coid10),
           deact = Set(coid00, coid01),
-          transferIds = Set(transfer2),
+          reassignmentIds = Set(transfer2),
         )
         commitSet2 = mkCommitSet(
           tfIn = Map(coid10 -> transfer2),
@@ -1559,12 +1559,12 @@ class ConflictDetectorTest
         actRes1 <- prefetchAndCheck(
           cd,
           RequestCounter(0),
-          mkActivenessSet(tfIn = Set(coid00), transferIds = Set(transfer1)),
+          mkActivenessSet(tfIn = Set(coid00), reassignmentIds = Set(transfer1)),
         )
         actRes2 <- prefetchAndCheck(
           cd,
           RequestCounter(1),
-          mkActivenessSet(tfIn = Set(coid00), transferIds = Set(transfer2)),
+          mkActivenessSet(tfIn = Set(coid00), reassignmentIds = Set(transfer2)),
         )
       } yield {
         assert(actRes1 == mkActivenessResult())
@@ -1583,13 +1583,13 @@ class ConflictDetectorTest
         actSet1 = mkActivenessSet(
           tfIn = Set(coid00),
           create = Set(coid01),
-          transferIds = Set(transfer1),
+          reassignmentIds = Set(transfer1),
         )
         actRes1 <- prefetchAndCheck(cd, RequestCounter(0), actSet1)
         actSet2 = mkActivenessSet(
           tfIn = Set(coid01),
           create = Set(coid00),
-          transferIds = Set(transfer2),
+          reassignmentIds = Set(transfer2),
         )
         actRes2 <- prefetchAndCheck(cd, RequestCounter(1), actSet2)
       } yield {
@@ -1604,13 +1604,13 @@ class ConflictDetectorTest
       for {
         transferCache <- mkTransferCache(loggerFactory, hookedStore)(transfer1 -> mediator1)
         cd = mkCd(transferCache = transferCache)
-        actSet = mkActivenessSet(tfIn = Set(coid00), transferIds = Set(transfer1))
+        actSet = mkActivenessSet(tfIn = Set(coid00), reassignmentIds = Set(transfer1))
         _actRes <- prefetchAndCheck(cd, RequestCounter(0), actSet)
         commitSet = mkCommitSet(tfIn = Map(coid00 -> transfer1))
         toc = TimeOfChange(RequestCounter(0), ofEpochMilli(1))
         toc2 = TimeOfChange(RequestCounter(2), ofEpochMilli(3))
         promise = Promise[Either[NonEmptyChain[RequestTracker.RequestTrackerStoreError], Unit]]()
-        _ = hookedStore.preComplete { (_transferId, _toc) =>
+        _ = hookedStore.preComplete { (_reassignmentId, _toc) =>
           // This runs after committing the request, but before the transfer store is updated
           val actSetOut = mkActivenessSet(deact = Set(coid00))
           val commitSetOut = mkCommitSet(tfOut = Map(coid00 -> (domain1 -> transferCounter1)))

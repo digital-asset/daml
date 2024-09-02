@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
-import com.digitalasset.canton.protocol.{LfContractId, TransferId}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.DomainId
 
@@ -32,10 +32,10 @@ object TransferOutProcessorError {
       s"Cannot transfer-out contract `$contractId`: submitter `$submittingParty` is not a stakeholder"
   }
 
-  final case class UnexpectedDomain(transferId: TransferId, receivedOn: DomainId)
+  final case class UnexpectedDomain(reassignmentId: ReassignmentId, receivedOn: DomainId)
       extends TransferOutProcessorError {
     override def message: String =
-      s"Cannot transfer-out `$transferId`: received transfer on $receivedOn"
+      s"Cannot transfer-out `$reassignmentId`: received transfer on $receivedOn"
   }
 
   final case class TargetDomainIsSourceDomain(domain: DomainId, contractId: LfContractId)
@@ -59,11 +59,11 @@ object TransferOutProcessorError {
     override def message: String = "Transfer counter overflow"
   }
   final case class InvalidResult(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       result: DeliveredTransferOutResult.InvalidTransferOutResult,
   ) extends TransferOutProcessorError {
     override def message: String =
-      s"Cannot transfer-out `$transferId`: invalid result"
+      s"Cannot transfer-out `$reassignmentId`: invalid result"
   }
 
   final case class AutomaticTransferInError(message: String) extends TransferOutProcessorError

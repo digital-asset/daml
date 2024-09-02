@@ -1066,7 +1066,7 @@ private[backend] trait StorageBackendTestsEvents
         s"test $index lastDomainOffsetBeforerOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
       ) {
         executeSql(
-          backend.event.lastDomainOffsetBeforerOrAtPublicationTime(
+          backend.event.lastDomainOffsetBeforeOrAtPublicationTime(
             beforeOrAtPublicationTimeInclusive = beforeOrAtPublicationTimeInclusive
           )
         ) shouldBe expectation

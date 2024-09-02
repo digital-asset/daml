@@ -48,8 +48,8 @@ abstract class GenTransferViewTree[
   def toByteString(version: ProtocolVersion): ByteString = toProtoVersioned(version).toByteString
 
   // If you add new versions, take `version` into account in `toProtoVersioned` above
-  def toProtoV30: v30.TransferViewTree =
-    v30.TransferViewTree(
+  def toProtoV30: v30.ReassignmentViewTree =
+    v30.ReassignmentViewTree(
       commonData = commonData.tryUnwrap.toByteString,
       participantData = Some(MerkleTree.toBlindableNodeV30(participantData)),
     )
@@ -81,8 +81,8 @@ object GenTransferViewTree {
       deserializeView: ByteString => ParsingResult[MerkleTree[View]],
   )(
       createTree: (CommonData, MerkleTree[View]) => Tree
-  )(treeP: v30.TransferViewTree): ParsingResult[Tree] = {
-    val v30.TransferViewTree(commonDataP, viewP) = treeP
+  )(treeP: v30.ReassignmentViewTree): ParsingResult[Tree] = {
+    val v30.ReassignmentViewTree(commonDataP, viewP) = treeP
     for {
       commonData <- deserializeCommonData(commonDataP)
         .leftMap(error => OtherError(s"transferCommonData: $error"))

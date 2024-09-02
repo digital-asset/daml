@@ -658,7 +658,7 @@ class SequencerNodeBootstrap(
             None,
             loggerFactory,
             futureSupervisor,
-            sequencer.firstSequencerCounterServeableForSequencer, // TODO(#17076): Review this value
+            sequencer.firstSequencerCounterServeableForSequencer, // TODO(#18401): Review this value
           )
           timeTracker = DomainTimeTracker(
             config.timeTracker,

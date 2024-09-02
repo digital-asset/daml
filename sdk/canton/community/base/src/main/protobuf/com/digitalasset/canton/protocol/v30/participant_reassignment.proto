@@ -11,16 +11,16 @@ import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "com/digitalasset/canton/time/v30/time_proof.proto";
 import "scalapb/scalapb.proto";
 
-// Messages sent by a participant as part of the transfer protocol
+// Messages sent by a participant as part of the reassignment protocol
 
-message TransferId {
+message ReassignmentId {
   string source_domain = 1;
   int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
 }
 
-// Messages sent by a participant as part of the transfer protocol
+// Messages sent by a participant as part of the reassignment protocol
 
-message TransferOutCommonData {
+message UnassignmentCommonData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
@@ -29,31 +29,31 @@ message TransferOutCommonData {
   repeated string admin_parties = 4;
   string uuid = 5;
   int32 source_mediator_group = 6;
-  TransferSubmitterMetadata submitter_metadata = 7;
+  ReassignmentSubmitterMetadata submitter_metadata = 7;
 }
 
-message TransferViewTree {
+message ReassignmentViewTree {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   bytes common_data = 1;
   BlindableNode participant_data = 2;
 }
 
-message TransferInMediatorMessage {
+message AssignmentMediatorMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
-  TransferViewTree tree = 1;
+  ReassignmentViewTree tree = 1;
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
 }
 
-message TransferOutMediatorMessage {
+message UnassignmentMediatorMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  TransferViewTree tree = 1;
+  ReassignmentViewTree tree = 1;
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
 }
 
-message TransferInCommonData {
+message AssignmentCommonData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
@@ -61,10 +61,10 @@ message TransferInCommonData {
   repeated string stakeholders = 3;
   string uuid = 4;
   int32 target_mediator_group = 6;
-  TransferSubmitterMetadata submitter_metadata = 7;
+  ReassignmentSubmitterMetadata submitter_metadata = 7;
 }
 
-message TransferSubmitterMetadata {
+message ReassignmentSubmitterMetadata {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   string submitter = 1;
@@ -75,26 +75,26 @@ message TransferSubmitterMetadata {
   string workflow_id = 6; // optional
 }
 
-message TransferOutView {
+message UnassignmentView {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string target_domain = 3;
   com.digitalasset.canton.time.v30.TimeProof target_time_proof = 4;
   int32 target_protocol_version = 5;
-  int64 transfer_counter = 11;
+  int64 reassignment_counter = 11;
   bytes creating_transaction_id = 12;
   com.digitalasset.canton.protocol.v30.SerializableContract contract = 13;
 }
 
-message TransferInView {
+message AssignmentView {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   v30.SerializableContract contract = 3;
   // Serialized SignedContent[SequencedEvent]
-  bytes transfer_out_result_event = 4;
+  bytes unassignment_result_event = 4;
   bytes creating_transaction_id = 5;
   int32 source_protocol_version = 6;
-  int64 transfer_counter = 12;
+  int64 reassignment_counter = 12;
 }

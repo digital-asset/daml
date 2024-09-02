@@ -34,8 +34,8 @@ object ViewType {
 
   def fromProtoEnum: v30.ViewType => ParsingResult[ViewType] = {
     case v30.ViewType.VIEW_TYPE_TRANSACTION => Right(TransactionViewType)
-    case v30.ViewType.VIEW_TYPE_TRANSFER_OUT => Right(TransferOutViewType)
-    case v30.ViewType.VIEW_TYPE_TRANSFER_IN => Right(TransferInViewType)
+    case v30.ViewType.VIEW_TYPE_UNASSIGNMENT => Right(UnassignmentViewType)
+    case v30.ViewType.VIEW_TYPE_ASSIGNMENT => Right(AssignmentViewType)
     case v30.ViewType.VIEW_TYPE_UNSPECIFIED => Left(FieldNotSet("view_type"))
     case v30.ViewType.Unrecognized(value) =>
       Left(ValueConversionError("view_type", s"Unrecognized value $value"))
@@ -58,15 +58,15 @@ object ViewType {
     override type ViewSubmitterMetadata = TransferSubmitterMetadata
   }
 
-  case object TransferOutViewType extends TransferViewType {
+  case object UnassignmentViewType extends TransferViewType {
     override type View = FullTransferOutTree
-    override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_TRANSFER_OUT
+    override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_UNASSIGNMENT
   }
-  type TransferOutViewType = TransferOutViewType.type
+  type UnassignmentViewType = UnassignmentViewType.type
 
-  case object TransferInViewType extends TransferViewType {
+  case object AssignmentViewType extends TransferViewType {
     override type View = FullTransferInTree
-    override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_TRANSFER_IN
+    override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_ASSIGNMENT
   }
-  type TransferInViewType = TransferInViewType.type
+  type AssignmentViewType = AssignmentViewType.type
 }

@@ -363,7 +363,7 @@ trait EventStorageBackend {
       afterOrAtPublicationTimeInclusive: Timestamp
   )(connection: Connection): Option[DomainOffset]
 
-  def lastDomainOffsetBeforerOrAtPublicationTime(
+  def lastDomainOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: Timestamp
   )(connection: Connection): Option[DomainOffset]
 

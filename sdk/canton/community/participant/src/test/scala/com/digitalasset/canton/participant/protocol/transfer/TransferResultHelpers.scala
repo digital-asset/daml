@@ -35,7 +35,7 @@ object TransferResultHelpers {
     val result =
       ConfirmationResultMessage.create(
         sourceDomain.id,
-        ViewType.TransferOutViewType,
+        ViewType.UnassignmentViewType,
         RequestId(CantonTimestamp.Epoch),
         TestHash.dummyRootHash,
         Verdict.Approve(protocolVersion),
@@ -81,7 +81,7 @@ object TransferResultHelpers {
   def transferInResult(targetDomain: TargetDomainId): ConfirmationResultMessage =
     ConfirmationResultMessage.create(
       targetDomain.id,
-      ViewType.TransferInViewType,
+      ViewType.AssignmentViewType,
       RequestId(CantonTimestamp.Epoch),
       TestHash.dummyRootHash,
       Verdict.Approve(BaseTest.testedProtocolVersion),

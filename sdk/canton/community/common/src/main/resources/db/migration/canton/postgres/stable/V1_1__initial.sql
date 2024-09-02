@@ -374,7 +374,7 @@ create index idx_par_event_log_associated_domain on par_event_log (log_id, assoc
     and associated_domain is not null;
 
 create table par_transfers (
-  -- transfer id
+  -- reassignment id
   target_domain varchar(300) collate "C" not null,
   origin_domain varchar(300) collate "C" not null,
 

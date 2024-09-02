@@ -164,6 +164,9 @@ message SignTransactionsRequest {
 
   // Target store
   string store = 3;
+
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_flags = 4;
 }
 
 message SignTransactionsResponse {
@@ -183,4 +186,11 @@ enum ForceFlag {
   FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
   /** Required when vetting a package with unvetted dependencies */
   FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES = 5;
+  /** Required when disabling a party with active contracts */
+  FORCE_FLAG_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS = 6;
+  /**
+   * Required when using a key that is not suitable to sign a topology transaction.
+   * Using this force flag likely causes the transaction to be rejected at a later stage of the processing.
+   */
+  FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
 }

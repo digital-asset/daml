@@ -7,7 +7,6 @@ package com.digitalasset.canton.time.admin.v30;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
 
 service DomainTimeService {
   // fetch the domain time which has been received within a supplied freshness bound defined by the local clock
@@ -18,7 +17,7 @@ service DomainTimeService {
 
 message FetchTimeRequest {
   // optional - must be specified for participants but can be defaulted for domain entities as they only have one possible domain
-  google.protobuf.StringValue domain_id = 1;
+  optional string domain_id = 1;
   google.protobuf.Duration freshness_bound = 2;
 }
 
@@ -28,7 +27,7 @@ message FetchTimeResponse {
 
 message AwaitTimeRequest {
   // optional - must be specified for participants but can be defaulted for domain entities as they only have one possible domain
-  google.protobuf.StringValue domain_id = 1;
+  optional string domain_id = 1;
   // the domain time to wait for
   google.protobuf.Timestamp timestamp = 2;
 }

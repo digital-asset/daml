@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   NoTransferSubmissionPermission,
   TransferProcessorError,
 }
-import com.digitalasset.canton.protocol.{LfContractId, TransferId}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
@@ -34,7 +34,7 @@ private[protocol] object CanSubmitTransfer {
       .mapK(FutureUnlessShutdown.outcomeK)
 
   def transferIn(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       topologySnapshot: TopologySnapshot,
       submitter: LfPartyId,
       participantId: ParticipantId,
@@ -42,7 +42,7 @@ private[protocol] object CanSubmitTransfer {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, TransferProcessorError, Unit] =
-    check(s"transfer-in `$transferId`", topologySnapshot, submitter, participantId)
+    check(s"transfer-in `$reassignmentId`", topologySnapshot, submitter, participantId)
 
   private def check(
       kind: => String,

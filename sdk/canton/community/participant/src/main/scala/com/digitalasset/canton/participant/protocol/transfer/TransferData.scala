@@ -8,11 +8,11 @@ import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.TransferData.TransferGlobalOffset
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{
+  ReassignmentId,
   SerializableContract,
   SourceDomainId,
   TargetDomainId,
   TransactionId,
-  TransferId,
 }
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.util.OptionUtil
@@ -44,7 +44,8 @@ final case class TransferData(
 
   def sourceDomain: SourceDomainId = transferOutRequest.sourceDomain
 
-  def transferId: TransferId = TransferId(transferOutRequest.sourceDomain, transferOutTimestamp)
+  def reassignmentId: ReassignmentId =
+    ReassignmentId(transferOutRequest.sourceDomain, transferOutTimestamp)
 
   def sourceMediator: MediatorGroupRecipient = transferOutRequest.mediator
 

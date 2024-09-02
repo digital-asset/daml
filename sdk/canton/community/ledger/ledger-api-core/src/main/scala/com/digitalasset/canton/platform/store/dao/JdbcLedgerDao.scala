@@ -501,7 +501,15 @@ private class JdbcLedgerDao(
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
                 domainId = DomainId.tryFromString("invalid::deadbeef"),
-                domainIndex = None,
+                domainIndex = Some(
+                  DomainIndex.of(
+                    RequestIndex(
+                      RequestCounter(1),
+                      Some(SequencerCounter(1)),
+                      CantonTimestamp.ofEpochMicro(recordTime.micros),
+                    )
+                  )
+                ),
               )
             )
           ),

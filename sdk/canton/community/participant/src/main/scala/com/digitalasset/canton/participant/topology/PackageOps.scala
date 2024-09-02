@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.admin
+package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
@@ -17,8 +17,8 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageVettingSynchronization
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot

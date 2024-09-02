@@ -9,11 +9,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{
-  DeserializationError,
-  HasCryptographicEvidence,
-  ProtoConverter,
-}
+import com.digitalasset.canton.serialization.{DeserializationError, HasCryptographicEvidence}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
@@ -183,53 +179,40 @@ object RequestId {
 }
 
 /** A transfer is identified by the source domain and the sequencer timestamp on the transfer-out request. */
-final case class TransferId(sourceDomain: SourceDomainId, transferOutTimestamp: CantonTimestamp)
+final case class ReassignmentId(sourceDomain: SourceDomainId, transferOutTimestamp: CantonTimestamp)
     extends PrettyPrinting {
-  def toProtoV30: v30.TransferId =
-    v30.TransferId(
+  def toProtoV30: v30.ReassignmentId =
+    v30.ReassignmentId(
       sourceDomain = sourceDomain.toProtoPrimitive,
       timestamp = transferOutTimestamp.toProtoPrimitive,
     )
 
-  def toAdminProto: com.digitalasset.canton.admin.participant.v30.TransferId =
-    com.digitalasset.canton.admin.participant.v30.TransferId(
+  def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
+    com.digitalasset.canton.admin.participant.v30.ReassignmentId(
       sourceDomain = sourceDomain.toProtoPrimitive,
       timestamp = Some(transferOutTimestamp.toProtoTimestamp),
     )
 
-  override def pretty: Pretty[TransferId] = prettyOfClass(
+  override def pretty: Pretty[ReassignmentId] = prettyOfClass(
     param("ts", _.transferOutTimestamp),
     param("source", _.sourceDomain),
   )
 }
 
-object TransferId {
-  implicit val transferIdGetResult: GetResult[TransferId] = GetResult { r =>
-    TransferId(
+object ReassignmentId {
+  implicit val reassignmentIdGetResult: GetResult[ReassignmentId] = GetResult { r =>
+    ReassignmentId(
       SourceDomainId(GetResult[DomainId].apply(r)),
       GetResult[CantonTimestamp].apply(r),
     )
   }
 
-  def fromProtoV30(transferIdP: v30.TransferId): ParsingResult[TransferId] =
-    transferIdP match {
-      case v30.TransferId(originDomainP, requestTimestampP) =>
+  def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
+    reassignmentIdP match {
+      case v30.ReassignmentId(originDomainP, requestTimestampP) =>
         for {
-          sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "TransferId.origin_domain")
+          sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "ReassignmentId.origin_domain")
           requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
-        } yield TransferId(SourceDomainId(sourceDomain), requestTimestamp)
-    }
-
-  def fromAdminProto30(
-      transferIdP: com.digitalasset.canton.admin.participant.v30.TransferId
-  ): ParsingResult[TransferId] =
-    transferIdP match {
-      case com.digitalasset.canton.admin.participant.v30.TransferId(sourceDomainP, requestTsP) =>
-        for {
-          sourceDomain <- DomainId.fromProtoPrimitive(sourceDomainP, "TransferId.source_domain")
-          requestTimestamp <- ProtoConverter
-            .required("TransferId.timestamp", requestTsP)
-            .flatMap(CantonTimestamp.fromProtoTimestamp)
-        } yield TransferId(SourceDomainId(sourceDomain), requestTimestamp)
+        } yield ReassignmentId(SourceDomainId(sourceDomain), requestTimestamp)
     }
 }

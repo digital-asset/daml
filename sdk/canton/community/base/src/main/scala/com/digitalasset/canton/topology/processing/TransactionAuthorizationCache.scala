@@ -57,13 +57,13 @@ trait TransactionAuthorizationCache {
   }
 
   final def populateCaches(
-      asOf: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
-  )(implicit traceContext: TraceContext) = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val requiredKeys = AuthorizationKeys.required(toProcess, inStore)
-    val loadNsdF = loadNamespaceCaches(asOf, requiredKeys.namespaces)
-    val loadIddF = loadIdentifierDelegationCaches(asOf, requiredKeys.uids)
+    val loadNsdF = loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
+    val loadIddF = loadIdentifierDelegationCaches(asOfExclusive, requiredKeys.uids)
     loadNsdF.flatMap(_ => loadIddF)
   }
 
@@ -105,7 +105,7 @@ trait TransactionAuthorizationCache {
     )
 
   protected def loadNamespaceCaches(
-      effectiveTime: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       namespaces: Set[Namespace],
   )(implicit traceContext: TraceContext): Future[Unit] = {
 
@@ -114,7 +114,7 @@ trait TransactionAuthorizationCache {
 
     for {
       storedDecentralizedNamespace <- store.findPositiveTransactions(
-        effectiveTime,
+        asOfExclusive,
         asOfInclusive = false,
         isProposal = false,
         types = Seq(DecentralizedNamespaceDefinition.code),
@@ -134,7 +134,7 @@ trait TransactionAuthorizationCache {
       namespacesToLoad = namespaces ++ decentralizedNamespaceOwners -- namespaceCache.keys
 
       storedNamespaceDelegations <- store.findPositiveTransactions(
-        effectiveTime,
+        asOfExclusive,
         asOfInclusive = false,
         isProposal = false,
         types = Seq(NamespaceDelegation.code),
@@ -213,7 +213,7 @@ trait TransactionAuthorizationCache {
   }
 
   protected def loadIdentifierDelegationCaches(
-      effectiveTime: CantonTimestamp,
+      asOfExclusive: CantonTimestamp,
       uids: Set[UniqueIdentifier],
   )(implicit
       traceContext: TraceContext
@@ -222,7 +222,7 @@ trait TransactionAuthorizationCache {
     for {
       stored <- store
         .findPositiveTransactions(
-          effectiveTime,
+          asOfExclusive,
           asOfInclusive = false,
           isProposal = false,
           types = Seq(IdentifierDelegation.code),

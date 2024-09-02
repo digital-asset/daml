@@ -625,22 +625,6 @@ class ParticipantPruningAdministrationGroup(
       case "" => None
       case offset => Some(ParticipantOffset(ParticipantOffset.Value.Absolute(offset)))
     }
-
-  @Help.Summary("Identify the participant ledger offset to prune up to.", FeatureFlag.Preview)
-  @Help.Description(
-    """Return the participant ledger offset that corresponds to pruning "n" number of transactions
-      |from the beginning of the ledger. Errors if the ledger holds less than "n" transactions. Specifying "n" of 1
-      |returns the offset of the first transaction (if the ledger is non-empty).
-    """
-  )
-  def locate_offset(n: Long): ParticipantOffset =
-    check(FeatureFlag.Preview) {
-      val rawOffset = consoleEnvironment.run(
-        adminCommand(ParticipantAdminCommands.Inspection.LookupOffsetByIndex(n))
-      )
-      ParticipantOffset(ParticipantOffset.Value.Absolute(rawOffset))
-    }
-
 }
 
 class LocalCommitmentsAdministrationGroup(

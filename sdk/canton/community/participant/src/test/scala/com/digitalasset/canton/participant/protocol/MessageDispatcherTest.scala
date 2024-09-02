@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
@@ -59,7 +60,7 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactory}
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
@@ -200,6 +201,14 @@ trait MessageDispatcherTest {
       val requestCounterAllocator =
         new RequestCounterAllocatorImpl(initRc, cleanReplaySequencerCounter, loggerFactory)
       val recordOrderPublisher = mock[RecordOrderPublisher]
+      when(
+        recordOrderPublisher.tick(
+          any[SequencerCounter],
+          any[CantonTimestamp],
+          any[Option[Traced[Update]]],
+        )(any[TraceContext])
+      )
+        .thenAnswer(Future.unit)
 
       val badRootHashMessagesRequestProcessor = mock[BadRootHashMessagesRequestProcessor]
       when(
@@ -462,7 +471,7 @@ trait MessageDispatcherTest {
         sc: SequencerCounter,
         ts: CantonTimestamp,
     ): Assertion = {
-      verify(sut.recordOrderPublisher).tick(isEq(sc), isEq(ts))(anyTraceContext)
+      verify(sut.recordOrderPublisher).tick(isEq(sc), isEq(ts), isEq(None))(anyTraceContext)
       succeed
     }
 

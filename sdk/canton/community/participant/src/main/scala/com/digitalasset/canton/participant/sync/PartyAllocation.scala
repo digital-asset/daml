@@ -18,10 +18,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.PartyNotificationConfig
 import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
-import com.digitalasset.canton.participant.topology.{
-  LedgerServerPartyNotifier,
-  ParticipantTopologyManagerOps,
-}
+import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
@@ -39,7 +36,7 @@ import scala.util.chaining.*
 private[sync] class PartyAllocation(
     participantId: ParticipantId,
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
-    topologyManagerOps: ParticipantTopologyManagerOps,
+    partyOps: PartyOps,
     partyNotifier: LedgerServerPartyNotifier,
     parameters: ParticipantNodeParameters,
     isActive: () => Boolean,
@@ -66,7 +63,7 @@ private[sync] class PartyAllocation(
       rawSubmissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
     def reject(reason: String, result: SubmissionResult): SubmissionResult = {
-      publishReject(reason, rawSubmissionId, displayName, result)
+      publishReject(reason, rawSubmissionId, displayName)
       result
     }
 
@@ -113,7 +110,7 @@ private[sync] class PartyAllocation(
             reject(err, SubmissionResult.Acknowledged)
           }
           .toEitherT[Future]
-        _ <- topologyManagerOps
+        _ <- partyOps
           .allocateParty(partyId, participantId, protocolVersion)
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
@@ -172,14 +169,13 @@ private[sync] class PartyAllocation(
       reason: String,
       rawSubmissionId: LedgerSubmissionId,
       displayName: Option[String],
-      result: SubmissionResult,
   )(implicit
       traceContext: TraceContext
   ): Unit =
     FutureUtil.doNotAwait(
       participantNodeEphemeralState.participantEventPublisher
-        .publish(
-          LedgerSyncEvent.PartyAllocationRejected(
+        .publishEventDelayableByRepairOperation(
+          Update.PartyAllocationRejected(
             rawSubmissionId,
             participantId.toLf,
             recordTime =

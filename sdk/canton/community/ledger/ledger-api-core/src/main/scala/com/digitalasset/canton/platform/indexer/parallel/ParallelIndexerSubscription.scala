@@ -29,11 +29,12 @@ import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, L
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueue, PekkoSourceQueueToFutureQueue}
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink}
-import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.stream.{KillSwitches, Materializer, OverflowStrategy}
 
 import java.sql.Connection
 import java.util.concurrent.atomic.AtomicReference
@@ -77,18 +78,15 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       dbDispatcher: DbDispatcher,
       materializer: Materializer,
       initialized: InitializeParallelIngestion.Initialized,
+      commit: Commit,
       clock: Clock,
       repairMode: Boolean,
-  )(implicit traceContext: TraceContext): Handle = {
+  )(implicit
+      traceContext: TraceContext
+  ): (Handle, Future[Done] => FutureQueue[(Long, Traced[Update])]) = {
     import MetricsContext.Implicits.empty
     val aggregatedLedgerEndForRepair: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])] =
-      new AtomicReference(
-        (
-          // this necessarily will be overridden as successfull repair has at least a CommitRepair Update, which carries the LedgerEnd forward
-          LedgerEnd.beforeBegin,
-          Map.empty,
-        )
-      )
+      new AtomicReference(DefaultAggregatedLedgerEndForRepair)
     val storeLedgerEndF = storeLedgerEnd(
       parameterStorageBackend.updateLedgerEnd,
       dbDispatcher,
@@ -101,8 +99,13 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       metrics,
       logger,
     )
-    val (killSwitch, completionFuture) = initialized.readServiceSource
-      .buffered(metrics.parallelIndexer.inputBufferLength, maxInputBufferSize)
+
+    val ((sourceQueue, uniqueKillSwitch), completionFuture) = Source
+      .queue[(Long, Traced[Update])](
+        bufferSize = maxInputBufferSize,
+        overflowStrategy = OverflowStrategy.backpressure,
+        maxConcurrentOffers = 1, // This queue is fed by the RecoveringQueue which is sequential
+      )
       .takeWhile(
         // The queue is only consumed until the first CommitRepair:
         //   - in case Repair Mode, it is invalid to use this queue after committed,
@@ -112,6 +115,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         // the stream also must hold the CommitRepair event itself
         inclusive = true,
       )
+      .map { case (longOffset, update) => Offset.fromLong(longOffset) -> update }
       .via(
         BatchingParallelIngestionPipe(
           submissionBatchSize = submissionBatchSize,
@@ -135,8 +139,8 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             )
           ),
           seqMapperZero = seqMapperZero(
-            initialized.initialEventSeqId,
-            initialized.initialStringInterningId,
+            initialized.initialLastEventSeqId,
+            initialized.initialLastStringInterningId,
             initialized.initialLastPublicationTime,
           ),
           seqMapper = seqMapper(
@@ -170,26 +174,23 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
           ),
           maxTailerBatchSize = maxTailerBatchSize,
           ingestTail =
-            if (repairMode)
-              aggregateLedgerEndForRepair[DB_BATCH](
-                aggregatedLedgerEndForRepair
-              )
-            else
+            if (repairMode) { (batchOfBatches: Vector[Batch[DB_BATCH]]) =>
+              aggregateLedgerEndForRepair[DB_BATCH](aggregatedLedgerEndForRepair)(batchOfBatches)
+              Future.successful(batchOfBatches)
+            } else
               ingestTail[DB_BATCH](
                 storeLedgerEndF,
                 logger,
               ),
         )
       )
-// TODO(i18695): FIXME on big bang rollout
-//        .async
-//        .mapAsync(postProcessingParallelism)(
-//          Future.successful
-//          postProcess(
-//            postProcessor,
-//            logger,
-//          )
-//        )
+      .async
+      .mapAsync(postProcessingParallelism)(
+        postProcess(
+          postProcessor,
+          logger,
+        )
+      )
       .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
       .via(
         if (repairMode) {
@@ -235,14 +236,25 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         }
       )
       .map { updates =>
+        updates.lastOption.foreach { case (offset, _) =>
+          commit(offset.toLong)
+        }
         updates.foreach { case (_, Traced(update)) =>
           discard(update.persisted.trySuccess(()))
         }
       }
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      .viaMat(KillSwitches.single)(Keep.both)
       .toMat(Sink.ignore)(Keep.both)
       .run()(materializer)
-    Handle(completionFuture.map(_ => ())(materializer.executionContext), killSwitch)
+    (
+      Handle(completionFuture.map(_ => ())(materializer.executionContext), uniqueKillSwitch),
+      sourceDone =>
+        new PekkoSourceQueueToFutureQueue(
+          sourceQueue = sourceQueue,
+          sourceDone = sourceDone,
+          loggerFactory = loggerFactory,
+        ),
+    )
   }
 }
 
@@ -269,6 +281,13 @@ object ParallelIndexerSubscription {
       batchSize: Int,
       offsetsUpdates: Vector[(Offset, Traced[Update])],
   )
+
+  val DefaultAggregatedLedgerEndForRepair: (LedgerEnd, Map[DomainId, DomainIndex]) =
+    (
+      // this necessarily will be overridden as successfull repair has at least a CommitRepair Update, which carries the LedgerEnd forward
+      LedgerEnd.beforeBegin,
+      Map.empty,
+    )
 
   def inputMapper(
       metrics: LedgerApiServerMetrics,
@@ -310,7 +329,6 @@ object ParallelIndexerSubscription {
     )
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def seqMapperZero(
       initialSeqId: Long,
       initialStringInterningId: Int,
@@ -548,18 +566,20 @@ object ParallelIndexerSubscription {
 
   def aggregateLedgerEndForRepair[DB_BATCH](
       aggregatedLedgerEnd: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])]
-  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = { batchOfBatches =>
-    batchOfBatches.lastOption.foreach(lastBatch =>
-      discard(aggregatedLedgerEnd.updateAndGet { case (_, oldDomainIndexes) =>
-        // this will also have at the end the offset bump for the CommitRepair Update as well, we accept this for sake of simplicity
-        val newLedgerEnd = ledgerEndFrom(lastBatch)
-        val newDomainIndexes =
-          ledgerEndDomainIndexFrom(oldDomainIndexes.toVector)
-        (newLedgerEnd, newDomainIndexes)
-      })
-    )
-    Future.successful(batchOfBatches)
-  }
+  ): Vector[Batch[DB_BATCH]] => Unit =
+    batchOfBatches =>
+      batchOfBatches.lastOption.foreach(lastBatch =>
+        discard(aggregatedLedgerEnd.updateAndGet { case (_, oldDomainIndexes) =>
+          // this will also have at the end the offset bump for the CommitRepair Update as well, we accept this for sake of simplicity
+          val newLedgerEnd = ledgerEndFrom(lastBatch)
+          val domainIndexesForBatchOfBatches = batchOfBatches
+            .flatMap(_.offsetsUpdates)
+            .flatMap(_._2.value.domainIndexOpt)
+          val newDomainIndexes =
+            ledgerEndDomainIndexFrom(oldDomainIndexes.toVector ++ domainIndexesForBatchOfBatches)
+          (newLedgerEnd, newDomainIndexes)
+        })
+      )
 
   def postProcess[DB_BATCH](
       processor: (Vector[PostPublishData], TraceContext) => Future[Unit],

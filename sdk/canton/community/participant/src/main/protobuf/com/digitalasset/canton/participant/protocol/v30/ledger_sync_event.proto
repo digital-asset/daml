@@ -5,9 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.participant.protocol.v30;
 
+import "com/digitalasset/canton/protocol/v30/participant_reassignment.proto";
 import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
-import "com/digitalasset/canton/protocol/v30/participant_transfer.proto";
-import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 // LedgerSyncEvent is a canton type alias for the daml-on-x com.daml.ledger.participant.state.v2.Update
@@ -19,8 +18,8 @@ message LedgerSyncEvent {
     TransactionAccepted transaction_accepted = 2;
     CommandRejected command_rejected = 3;
     PartyAllocationRejected party_allocation_rejected = 4;
-    TransferredOut transferred_out = 5;
-    TransferredIn transferred_in = 6;
+    Unassigned transferred_out = 5;
+    Assigned transferred_in = 6;
     ContractsAdded contracts_added = 7;
     ContractsPurged contracts_purged = 8;
     PartiesAddedToParticipant parties_added = 9;
@@ -67,7 +66,7 @@ message CompletionInfo {
 
 message TransactionMeta {
   int64 ledger_time = 1; // in microseconds of UTC time since Unix epoch
-  google.protobuf.StringValue workflow_id = 2;
+  optional string workflow_id = 2;
   int64 submission_time = 3; // in microseconds of UTC time since Unix epoch
   bytes submission_seed = 4;
   repeated string used_packages = 5;
@@ -100,8 +99,8 @@ message Parties {
 
 enum CommandKind {
   COMMAND_KIND_TRANSACTION_UNSPECIFIED = 0;
-  COMMAND_KIND_TRANSFER_OUT = 1;
-  COMMAND_KIND_TRANSFER_IN = 2;
+  COMMAND_KIND_UNASSIGN = 1;
+  COMMAND_KIND_ASSIGN = 2;
 }
 
 message CommandRejected {
@@ -116,7 +115,7 @@ message CommandRejected {
   string domain_id = 5;
 }
 
-message TransferredOut {
+message Unassigned {
   string update_id = 1;
   CompletionInfo completion_info = 2; // optional
   string submitter = 3; // optional
@@ -125,16 +124,16 @@ message TransferredOut {
   repeated string contract_stakeholders = 6;
   string source_domain = 7;
   string target_domain = 8;
-  google.protobuf.Int64Value transfer_in_exclusivity = 9; // in microseconds of UTC time since Unix epoch
+  optional int64 assignment_exclusivity = 9; // in microseconds of UTC time since Unix epoch
   string workflow_id = 10; // optional
   string template_id = 11; // optional
-  bool is_transferring_participant = 12;
+  bool is_reassigning_participant = 12;
   repeated string hosted_stakeholders = 13;
-  int64 transfer_counter = 14;
+  int64 reassignment_counter = 14;
   string package_name = 15;
 }
 
-message TransferredIn {
+message Assigned {
   string update_id = 1;
   CompletionInfo completion_info = 2; // optional
   string submitter = 3; // optional
@@ -143,12 +142,12 @@ message TransferredIn {
   bytes create_node = 6;
   string creating_transaction_id = 7;
   bytes contract_metadata = 8;
-  com.digitalasset.canton.protocol.v30.TransferId transfer_out_id = 9;
+  com.digitalasset.canton.protocol.v30.ReassignmentId reassignment_id = 9;
   string target_domain = 10;
   string workflow_id = 11; // optional
-  bool is_transferring_participant = 12;
+  bool is_reassigning_participant = 12;
   repeated string hosted_stakeholders = 13;
-  int64 transfer_counter = 14;
+  int64 reassignment_counter = 14;
 }
 
 message ContractsAdded {

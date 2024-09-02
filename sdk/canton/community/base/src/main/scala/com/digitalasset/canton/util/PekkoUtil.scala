@@ -1023,24 +1023,16 @@ object PekkoUtil extends HasLoggerName {
       fromExclusive: Long,
   )
 
+  /** RecoveringFutureQueue governs the life cycle of a FutureQueue, which is created asynchronously,
+    * can be initialized and started again after a failure and operates on elements that
+    * define a monotonically increasing index.
+    * As part of the recovery process, the implementation keeps track of already offered elements,
+    * and based on the provided fromExclusive index, replays the missing elements.
+    * The FutureQueue needs to make sure with help of the Commit, that up to the INDEX, the elements are fully
+    * processed. This needs to be done as soon as possible, because this allows to "forget" about the offered elements
+    * in the RecoveringFutureQueue implementation.
+    */
   trait RecoveringFutureQueue[T] extends FutureQueue[T] {
-
-    /** Explicit registration allows lazy construction.
-      * Only one consumer can be registered.
-      *
-      * RecoveringFutureQueue governs the life cycle of a FutureQueue, which is created asynchronously,
-      * can be initialized and started again after a failure and operates on elements that
-      * define a monotonically increasing index.
-      * As part of the recovery process, the implementation keeps track of already offered elements,
-      * and based on the provided fromExclusive index, replays the missing elements.
-      * The FutureQueue needs to make sure with help of the Commit, that up to the INDEX, the elements are fully
-      * processed. This needs to be done as soon as possible, because this allows to "forget" about the offered elements
-      * in the RecoveringFutureQueue implementation.
-      */
-    def registerConsumerFactory(
-        consumer: Commit => Future[FutureQueueConsumer[T]]
-    ): Unit
-
     def firstSuccessfulConsumerInitialization: Future[Unit]
 
     def uncommittedQueueSnapshot: Vector[(Long, T)]
@@ -1075,6 +1067,7 @@ object PekkoUtil extends HasLoggerName {
       retryAttemptErrorThreshold: Int,
       uncommittedWarnTreshold: Int,
       recoveringQueueMetrics: RecoveringQueueMetrics,
+      consumerFactory: Commit => Future[FutureQueueConsumer[T]],
   ) extends RecoveringFutureQueue[T] {
     assert(maxBlockedOffer > 0)
     assert(retryAttemptWarnThreshold > 0)
@@ -1084,8 +1077,6 @@ object PekkoUtil extends HasLoggerName {
     private val logger = loggerFactory.getLogger(this.getClass)
     private implicit val directEC: ExecutionContext = DirectExecutionContext(logger)
 
-    private var consumerFactory: Option[Commit => Future[FutureQueueConsumer[T]]] =
-      None
     private var consumer: Option[FutureQueuePullProxy[T]] = None
 
     private val recoveringQueue: RecoveringQueue[T] = new RecoveringQueue(
@@ -1107,21 +1098,6 @@ object PekkoUtil extends HasLoggerName {
 
     def firstSuccessfulConsumerInitialization: Future[Unit] =
       firstSuccessfulConsumerInitializationPromise.future
-
-    override def registerConsumerFactory(
-        consumerFactory: Commit => Future[FutureQueueConsumer[T]]
-    ): Unit = blockingSynchronized {
-      if (donePromise.isCompleted)
-        throw new IllegalStateException("Cannot register consumer: already shut down")
-      if (shuttingDown)
-        throw new IllegalStateException("Cannot register consumer: shutdown in progress")
-      if (this.consumerFactory.nonEmpty)
-        throw new IllegalStateException("Consumer factory already defined")
-
-      logger.info("Consumer factory registered")
-      this.consumerFactory = Some(consumerFactory)
-      initializeConsumer()
-    }
 
     override def offer(elem: T): Future[Done] = blockingSynchronized {
       if (shuttingDown) {
@@ -1149,12 +1125,8 @@ object PekkoUtil extends HasLoggerName {
             logger.info("Consumer shutdown initiated")
             c.shutdown()
 
-          case None if consumerFactory.isDefined =>
-            logger.debug("Consumer initialization is in progress, delaying shutdown...")
-
           case None =>
-            logger.info("Terminated (no consumer factory set)")
-            discard(donePromise.trySuccess(Done))
+            logger.debug("Consumer initialization is in progress, delaying shutdown...")
         }
       }
     }
@@ -1163,10 +1135,8 @@ object PekkoUtil extends HasLoggerName {
 
     private def initializeConsumer(): Unit = blockingSynchronized {
       logger.info("Initializing consumer...")
-      consumerFactory.foreach(
-        _(recoveringQueue.commit)
-          .onComplete(consumerInitialized(_, 1))(directEC)
-      )
+      consumerFactory(recoveringQueue.commit)
+        .onComplete(consumerInitialized(_, 1))(directEC)
     }
 
     private def consumerInitialized(
@@ -1220,8 +1190,8 @@ object PekkoUtil extends HasLoggerName {
             else if (attempt > retryAttemptWarnThreshold) logger.warn(logMessage, failure)
             else logger.info(logMessage, failure)
             Threading.sleep(waitMillis)
-            consumerFactory.foreach(
-              _(recoveringQueue.commit).onComplete(consumerInitialized(_, attempt + 1))(directEC)
+            consumerFactory(recoveringQueue.commit).onComplete(consumerInitialized(_, attempt + 1))(
+              directEC
             )
           }
       }
@@ -1249,6 +1219,8 @@ object PekkoUtil extends HasLoggerName {
 
     private def blockingSynchronized[U](u: => U): U =
       blocking(synchronized(u))
+
+    initializeConsumer()
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))

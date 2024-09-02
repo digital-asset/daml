@@ -59,9 +59,10 @@ trait HaCoordinator {
 final case class HaConfig(
     mainLockAcquireRetryTimeout: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofMillis(500),
+    mainLockAcquireMaxRetries: NonNegativeLong = NonNegativeLong.tryCreate(10),
     workerLockAcquireRetryTimeout: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofMillis(500),
-    workerLockAcquireMaxRetries: NonNegativeLong = NonNegativeLong.tryCreate(1000),
+    workerLockAcquireMaxRetries: NonNegativeLong = NonNegativeLong.tryCreate(10),
     mainLockCheckerPeriod: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(1000),
     mainLockCheckerJdbcNetworkTimeout: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofMillis(10000),
@@ -137,6 +138,7 @@ object HaCoordinator {
             _ = logger.info("Waiting to be elected as leader")
             _ <- retry(
               waitMillisBetweenRetries = haConfig.mainLockAcquireRetryTimeout.duration.toMillis,
+              maxAmountOfRetries = haConfig.mainLockAcquireMaxRetries.unwrap,
               retryable = _.isInstanceOf[CannotAcquireLockException],
             )(acquireMainLock(mainConnection))
             _ = logger.info("Elected as leader: starting initialization")

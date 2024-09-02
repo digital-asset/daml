@@ -8,11 +8,11 @@ import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestampSecond
+import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
-import com.digitalasset.canton.store.SequencerCounterTrackerStore
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[participant] class JournalGarbageCollector(
     requestJournalStore: RequestJournalStore,
-    sequencerCounterTrackerStore: SequencerCounterTrackerStore,
+    domainIndexF: TraceContext => Future[DomainIndex],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
@@ -50,13 +50,11 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingF(functionFullName) {
       for {
-        requestCounterCursorPrehead <- requestJournalStore.preheadClean
-        sequencerCounterCursorPrehead <- sequencerCounterTrackerStore.preheadSequencerCounter
+        domainIndex <- domainIndexF(implicitly)
         safeToPruneTsO <-
           AcsCommitmentProcessor.safeToPrune(
             requestJournalStore,
-            requestCounterCursorPrehead,
-            sequencerCounterCursorPrehead,
+            domainIndex,
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,

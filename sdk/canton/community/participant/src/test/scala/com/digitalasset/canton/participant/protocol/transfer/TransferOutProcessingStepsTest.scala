@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, TestHash}
-import com.digitalasset.canton.data.ViewType.TransferOutViewType
+import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullTransferOutTree,
@@ -18,6 +18,7 @@ import com.digitalasset.canton.data.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
@@ -38,7 +39,6 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
-  MultiDomainEventLog,
   ParticipantNodeEphemeralState,
   SyncDomainEphemeralState,
 }
@@ -135,7 +135,7 @@ final class TransferOutProcessingStepsTest
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-  private lazy val multiDomainEventLog = mock[MultiDomainEventLog]
+  private lazy val ledgerApiIndexer = mock[LedgerApiIndexer]
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private lazy val persistentState =
@@ -149,6 +149,7 @@ final class TransferOutProcessingStepsTest
       indexedStringStore = indexedStringStore,
       exitOnFatalFailures = true,
       packageDependencyResolver = mock[PackageDependencyResolver],
+      Eval.now(mock[LedgerApiStore]),
       loggerFactory,
       timeouts,
       futureSupervisor,
@@ -159,7 +160,7 @@ final class TransferOutProcessingStepsTest
       submittingParticipant,
       mock[ParticipantNodeEphemeralState],
       persistentState,
-      Eval.now(multiDomainEventLog),
+      ledgerApiIndexer,
       ProcessingStartingPoints.default,
       () => mock[DomainTimeTracker],
       ParticipantTestMetrics.domain,
@@ -290,7 +291,7 @@ final class TransferOutProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    transferringParticipant = true,
+    isReassigningParticipant = true,
     Seq.empty,
     sourceMediator,
     cryptoSnapshot,
@@ -443,7 +444,7 @@ final class TransferOutProcessingStepsTest
       result.left.value shouldBe a[PackageIdUnknownOrUnvetted]
     }
 
-    "fail if the package for the contract being transferred is unvetted on one non-transferring participant connected to the target domain" in {
+    "fail if the package for the contract being transferred is unvetted on one non-reassigning participant connected to the target domain" in {
 
       val sourceDomainTopology =
         createTestingIdentityFactory(
@@ -786,12 +787,12 @@ final class TransferOutProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
+      val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = TestHash.dummyRootHash
       val transferResult =
         ConfirmationResultMessage.create(
           sourceDomain.id,
-          TransferOutViewType,
+          UnassignmentViewType,
           RequestId(CantonTimestamp.Epoch),
           rootHash,
           Verdict.Approve(testedProtocolVersion),
@@ -846,9 +847,9 @@ final class TransferOutProcessingStepsTest
           TransferCounter.Genesis,
           templateId = templateId,
           packageName = packageName,
-          transferringParticipant = false,
+          isReassigningParticipant = false,
           submitterMetadata = submitterMetadata(submitter),
-          transferId,
+          reassignmentId,
           targetDomain,
           Set(party1),
           Set(party1),
@@ -885,9 +886,9 @@ final class TransferOutProcessingStepsTest
   def encryptTransferOutTree(
       tree: FullTransferOutTree,
       sessionKeyStore: SessionKeyStore,
-  ): Future[EncryptedViewMessage[TransferOutViewType]] =
+  ): Future[EncryptedViewMessage[UnassignmentViewType]] =
     EncryptedViewMessageFactory
-      .create(TransferOutViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)(
+      .create(UnassignmentViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)(
         implicitly[TraceContext],
         executorService,
       )
@@ -900,7 +901,7 @@ final class TransferOutProcessingStepsTest
       request.rootHash,
       sourceDomain.unwrap,
       testedProtocolVersion,
-      TransferOutViewType,
+      UnassignmentViewType,
       testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,
     )

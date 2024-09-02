@@ -352,7 +352,7 @@ create index idx_par_linearized_event_log_publication_time on par_linearized_eve
 create index idx_par_event_log_associated_domain on par_event_log (log_id, associated_domain, ts);
 
 create table par_transfers (
-    -- transfer id
+    -- reassignment id
     target_domain varchar(300) not null,
     origin_domain varchar(300) not null,
 

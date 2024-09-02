@@ -11,10 +11,11 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
-import com.digitalasset.canton.data.ViewType.TransferInViewType
+import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.{
@@ -37,7 +38,6 @@ import com.digitalasset.canton.participant.protocol.{EngineController, Processin
 import com.digitalasset.canton.participant.store.TransferStoreTest.{contract, transactionId1}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
-  MultiDomainEventLog,
   ParticipantNodeEphemeralState,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
@@ -127,7 +127,7 @@ class TransferInProcessingStepsTest
 
   private def statefulDependencies
       : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
-    val multiDomainEventLog = mock[MultiDomainEventLog]
+    val ledgerApiIndexer = mock[LedgerApiIndexer]
     val persistentState =
       new InMemorySyncDomainPersistentState(
         participant,
@@ -138,6 +138,7 @@ class TransferInProcessingStepsTest
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         packageDependencyResolver = mock[PackageDependencyResolver],
+        ledgerApiStore = Eval.now(mock[LedgerApiStore]),
         loggerFactory = loggerFactory,
         exitOnFatalFailures = true,
         timeouts = timeouts,
@@ -150,7 +151,7 @@ class TransferInProcessingStepsTest
         participant,
         mock[ParticipantNodeEphemeralState],
         persistentState,
-        Eval.now(multiDomainEventLog),
+        ledgerApiIndexer,
         ProcessingStartingPoints.default,
         () => mock[DomainTimeTracker],
         ParticipantTestMetrics.domain,
@@ -178,7 +179,7 @@ class TransferInProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    transferringParticipant = false,
+    isReassigningParticipant = false,
     Seq.empty,
     targetMediator,
     cryptoSnapshot,
@@ -200,12 +201,17 @@ class TransferInProcessingStepsTest
         )
       } yield ()
 
-    val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
+    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
     val transferDataF =
-      TransferStoreTest.mkTransferDataForDomain(transferId, sourceMediator, party1, targetDomain)
+      TransferStoreTest.mkTransferDataForDomain(
+        reassignmentId,
+        sourceMediator,
+        party1,
+        targetDomain,
+      )
     val submissionParam = SubmissionParam(
       submitterInfo(party1),
-      transferId,
+      reassignmentId,
     )
     val transferOutResult =
       TransferResultHelpers.transferOutResult(
@@ -239,7 +245,7 @@ class TransferInProcessingStepsTest
         Set.empty,
         TransferStoreTest.transactionId1,
         TransferStoreTest.contract,
-        transferId.sourceDomain,
+        reassignmentId.sourceDomain,
         SourceProtocolVersion(testedProtocolVersion),
         sourceMediator,
         targetDomain,
@@ -262,7 +268,7 @@ class TransferInProcessingStepsTest
           )
         TransferData(
           SourceProtocolVersion(testedProtocolVersion),
-          transferId.transferOutTimestamp,
+          reassignmentId.transferOutTimestamp,
           RequestCounter(0),
           fullTransferOutTree,
           CantonTimestamp.ofEpochSecond(10),
@@ -316,7 +322,7 @@ class TransferInProcessingStepsTest
     "fail when submitting party is not a stakeholder" in {
       val submissionParam2 = SubmissionParam(
         submitterInfo(party2),
-        transferId,
+        reassignmentId,
       )
 
       for {
@@ -370,11 +376,11 @@ class TransferInProcessingStepsTest
     "fail when submitting party not hosted on the participant" in {
       val submissionParam2 = SubmissionParam(
         submitterInfo(party2),
-        transferId,
+        reassignmentId,
       )
       for {
         transferData2 <- TransferStoreTest.mkTransferDataForDomain(
-          transferId,
+          reassignmentId,
           sourceMediator,
           party2,
           targetDomain,
@@ -605,7 +611,7 @@ class TransferInProcessingStepsTest
           contractInstance = ExampleTransactionFactory.contractInstance(),
           metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
         )
-      val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
+      val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = mock[RootHash]
       when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
       val pendingRequestData = TransferInProcessingSteps.PendingTransferIn(
@@ -617,8 +623,8 @@ class TransferInProcessingStepsTest
         initialTransferCounter,
         submitterInfo(submitter),
         transactionId1,
-        isTransferringParticipant = false,
-        transferId,
+        isReassigningParticipant = false,
+        reassignmentId,
         contract.metadata.stakeholders,
         MediatorGroupRecipient(MediatorGroupIndex.one),
         locallyRejectedF = FutureUnlessShutdown.pure(false),
@@ -716,8 +722,8 @@ class TransferInProcessingStepsTest
   private def encryptFullTransferInTree(
       tree: FullTransferInTree,
       sessionKeyStore: SessionKeyStore,
-  ): Future[EncryptedViewMessage[TransferInViewType]] =
+  ): Future[EncryptedViewMessage[AssignmentViewType]] =
     EncryptedViewMessageFactory
-      .create(TransferInViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
+      .create(AssignmentViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
       .valueOrFailShutdown("cannot encrypt transfer-in request")
 }

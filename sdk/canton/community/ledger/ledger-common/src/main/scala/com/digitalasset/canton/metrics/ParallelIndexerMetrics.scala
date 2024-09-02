@@ -124,4 +124,38 @@ class ParallelIndexerMetrics(
   // The throttled update of post processing end parameter
   val postProcessingEndIngestion =
     new DatabaseMetrics(prefix :+ "post_processing_end_ingestion", openTelemetryMetricsFactory)
+
+  val indexerQueueBlocked = openTelemetryMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "indexer_queue_blocked",
+      summary = "The amount of blocked enqueue operations for the indexer queue.",
+      description =
+        """Indexer queue exerts backpressure by blocking asynchronous enqueue operations.
+        |This meter measures the amount of such blocked operations, signalling backpressure
+        |materializing from downstream.""",
+      qualification = MetricQualification.Debug,
+    )
+  )
+
+  val indexerQueueBuffered = openTelemetryMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "indexer_queue_buffered",
+      summary = "The size of the buffer before the indexer.",
+      description =
+        """This buffer is located before the indexer, increasing amount signals backpressure mounting.""",
+      qualification = MetricQualification.Debug,
+    )
+  )
+
+  val indexerQueueUncommitted = openTelemetryMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "indexer_queue_uncommitted",
+      summary = "The amount of entries which are uncommitted for the indexer.",
+      description =
+        """Uncommitted entries contain all blocked, buffered and submitted, but not yet committed entries.
+        |This amount signals the momentum of stream processing, and has a theoretical maximum defined by all
+        |the queue perameters.""".stripMargin,
+      qualification = MetricQualification.Debug,
+    )
+  )
 }

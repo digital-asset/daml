@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -39,7 +40,6 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainEphemeralStateLookup,
   TransferLookup,
 }
-import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -52,7 +52,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -273,12 +273,12 @@ class TestProcessingSteps(
       rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
       error: TransactionError,
-  )(implicit traceContext: TraceContext): (Option[TimestampedEvent], Option[PendingSubmissionId]) =
+  )(implicit traceContext: TraceContext): (Option[Traced[Update]], Option[PendingSubmissionId]) =
     (None, None)
 
   override def createRejectionEvent(rejectionArgs: Unit)(implicit
       traceContext: TraceContext
-  ): Either[TestProcessingError, Option[TimestampedEvent]] =
+  ): Either[TestProcessingError, Option[Traced[Update]]] =
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(

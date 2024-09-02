@@ -22,6 +22,7 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
 
+// TODO(i18695): Remove
 final case class TimestampedEvent(
     event: LedgerSyncEvent,
     localOffset: LocalOffset,
@@ -81,7 +82,7 @@ object TimestampedEvent {
       TimestampedEvent(event, localOffset, requestSequencerCounter, eventId)(traceContext)
     }
 
-  /** The size of the event for the metric in the [[com.digitalasset.canton.participant.store.MultiDomainEventLog]]. */
+  /** The size of the event for the metric in the MultiDomainEventLog. */
   def eventSize(event: LedgerSyncEvent): Int = event match {
     case event: LedgerSyncEvent.TransactionAccepted => event.transaction.roots.length
     case _ => 1

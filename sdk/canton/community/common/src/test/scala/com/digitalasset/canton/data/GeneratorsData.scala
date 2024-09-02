@@ -337,8 +337,8 @@ final class GeneratorsData(
   implicit val viewTypeArb: Arbitrary[ViewType] = Arbitrary(
     Gen.oneOf[ViewType](
       ViewType.TransactionViewType,
-      ViewType.TransferInViewType,
-      ViewType.TransferOutViewType,
+      ViewType.AssignmentViewType,
+      ViewType.UnassignmentViewType,
     )
   )
 
@@ -519,7 +519,7 @@ final class GeneratorsData(
 
       result = ConfirmationResultMessage.create(
         sourceDomain.id,
-        ViewType.TransferOutViewType,
+        ViewType.UnassignmentViewType,
         requestId,
         rootHash,
         verdict,

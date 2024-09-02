@@ -10,6 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -37,13 +38,12 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainEphemeralStateLookup,
   TransferLookup,
 }
-import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -410,7 +410,7 @@ trait ProcessingSteps[
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[TimestampedEvent], Option[PendingSubmissionId])
+  ): (Option[Traced[Update]], Option[PendingSubmissionId])
 
   /** Phase 3, step 2 (rejected submission, e.g. chosen mediator is inactive, invalid recipients)
     *
@@ -479,7 +479,7 @@ trait ProcessingSteps[
     */
   def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[ResultError, Option[TimestampedEvent]]
+  ): Either[ResultError, Option[Traced[Update]]]
 
   // Phase 7: Result processing
 
@@ -514,7 +514,7 @@ trait ProcessingSteps[
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[Future[CommitSet]],
       contractsToBeStored: Seq[WithTransactionId[SerializableContract]],
-      maybeEvent: Option[TimestampedEvent],
+      maybeEvent: Option[Traced[Update]],
   )
 
   /** Phase 7, step 4:

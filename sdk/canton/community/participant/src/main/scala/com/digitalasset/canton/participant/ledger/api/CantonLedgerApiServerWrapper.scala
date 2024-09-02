@@ -12,7 +12,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
@@ -24,12 +24,9 @@ import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.apiserver.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
-import com.digitalasset.canton.platform.indexer.IndexerConfig
-import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
-import com.digitalasset.canton.{LedgerParticipantId, LfPackageId}
+import com.digitalasset.canton.{LedgerParticipantId, config}
 import com.digitalasset.daml.lf.engine.Engine
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -41,16 +38,13 @@ import scala.util.{Failure, Success}
 object CantonLedgerApiServerWrapper extends NoTracing {
   final case class IndexerLockIds(mainLockId: Int, workerLockId: Int)
 
-  /** Config for ledger API server and indexer
+  /** Config for ledger API server
     *
     * @param serverConfig          ledger API server configuration
     * @param jsonApiConfig         JSON API configuration
-    * @param indexerConfig         indexer configuration
-    * @param indexerHaConfig       configuration for indexer HA
     * @param participantId         unique participant id used e.g. for a unique ledger API server index db name
     * @param engine                daml engine shared with Canton for performance reasons
     * @param syncService           canton sync service implementing both read and write services
-    * @param storageConfig         canton storage config so that indexer can share the participant db
     * @param cantonParameterConfig configurations meant to be overridden primarily in tests (applying to all participants)
     * @param testingTimeService    an optional service during testing for advancing time, participant-specific
     * @param adminToken            canton admin token for ledger api auth
@@ -62,12 +56,9 @@ object CantonLedgerApiServerWrapper extends NoTracing {
   final case class Config(
       serverConfig: LedgerApiServerConfig,
       jsonApiConfig: Option[JsonApiConfig],
-      indexerConfig: IndexerConfig,
-      indexerHaConfig: HaConfig,
       participantId: LedgerParticipantId,
       engine: Engine,
       syncService: CantonSyncService,
-      storageConfig: StorageConfig,
       cantonParameterConfig: ParticipantNodeParameters,
       testingTimeService: Option[TimeServiceBackend],
       adminToken: CantonAdminToken,
@@ -77,7 +68,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       metrics: LedgerApiServerMetrics,
       jsonApiMetrics: HttpApiMetrics,
       meteringReportKey: MeteringReportKey,
-      maxDeduplicationDuration: NonNegativeFiniteDuration,
+      maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       clock: Clock,
   ) extends NamedLogging {
     override def logger: TracedLogger = super.logger
@@ -96,9 +87,8 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       parameters: ParticipantNodeParameters,
       startLedgerApiServer: Boolean,
       futureSupervisor: FutureSupervisor,
-      excludedPackageIds: Set[LfPackageId],
       ledgerApiStore: Eval[LedgerApiStore],
-      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
+      ledgerApiIndexer: Eval[LedgerApiIndexer],
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
@@ -112,9 +102,8 @@ object CantonLedgerApiServerWrapper extends NoTracing {
         futureSupervisor = futureSupervisor,
         parameters = parameters,
         commandProgressTracker = config.syncService.commandProgressTracker,
-        excludedPackageIds = excludedPackageIds,
         ledgerApiStore = ledgerApiStore,
-        reassignmentOffsetPersistence = reassignmentOffsetPersistence,
+        ledgerApiIndexer = ledgerApiIndexer,
       )
     val startFUS = for {
       _ <-

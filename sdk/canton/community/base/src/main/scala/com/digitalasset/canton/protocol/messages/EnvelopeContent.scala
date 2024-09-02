@@ -67,11 +67,11 @@ object EnvelopeContent
           InformeeMessage.fromProtoV30(context)(messageP)
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessage.fromProto(messageP)
-        case Content.TransferOutMediatorMessage(messageP) =>
+        case Content.UnassignmentMediatorMessage(messageP) =>
           TransferOutMediatorMessage.fromProtoV30(
             (hashOps, SourceProtocolVersion(expectedProtocolVersion))
           )(messageP)
-        case Content.TransferInMediatorMessage(messageP) =>
+        case Content.AssignmentMediatorMessage(messageP) =>
           TransferInMediatorMessage.fromProtoV30(
             (hashOps, TargetProtocolVersion(expectedProtocolVersion))
           )(messageP)

@@ -9,9 +9,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{
   LfContractId,
+  ReassignmentId,
   SerializableContract,
   TransactionId,
-  TransferId,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -196,13 +196,13 @@ final case class ContractAssigned(
     srcDomain: DomainId,
     targetDomain: DomainId,
     reassignmentCounterTarget: TransferCounter,
-    transferringTxId: Option[TransferId],
+    reassignmentId: Option[ReassignmentId],
 ) extends ContractActive {
   override def pretty: Pretty[ContractAssigned] = prettyOfClass(
     param("source domain", _.srcDomain),
     param("target domain", _.targetDomain),
     param("reassignment counter on target", _.reassignmentCounterTarget),
-    paramIfDefined("transferring tx id", _.transferringTxId),
+    paramIfDefined("reassignment id", _.reassignmentId),
   )
 }
 
@@ -210,13 +210,13 @@ final case class ContractUnassigned(
     srcDomain: DomainId,
     targetDomain: DomainId,
     reassignmentCounterSrc: TransferCounter,
-    transferringTxId: Option[TransferId],
+    reassignmentId: Option[ReassignmentId],
 ) extends ContractInactive {
   override def pretty: Pretty[ContractUnassigned] = prettyOfClass(
     param("source domain", _.srcDomain),
     param("target domain", _.targetDomain),
     param("reassignment counter on source domain", _.reassignmentCounterSrc),
-    paramIfDefined("transferring tx id", _.transferringTxId),
+    paramIfDefined("reassignment id", _.reassignmentId),
   )
 }
 

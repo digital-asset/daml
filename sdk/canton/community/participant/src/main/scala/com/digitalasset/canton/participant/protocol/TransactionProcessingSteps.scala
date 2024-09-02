@@ -28,7 +28,6 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.ParsedRequest
@@ -88,7 +87,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil}
 import com.digitalasset.canton.{
@@ -1094,21 +1093,26 @@ class TransactionProcessingSteps(
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[TimestampedEvent], Option[PendingSubmissionId]) = {
-    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(error.rpcStatus())
-
+  ): (Option[Traced[Update]], Option[PendingSubmissionId]) = {
+    val rejection = Update.CommandRejected.FinalReason(error.rpcStatus())
     completionInfoFromSubmitterMetadataO(submitterMetadata, freshOwnTimelyTx).map {
       completionInfo =>
-        TimestampedEvent(
-          LedgerSyncEvent.CommandRejected(
+        Traced(
+          Update.CommandRejected(
             ts.toLf,
             completionInfo,
             rejection,
-            requestType,
             domainId,
-          ),
-          RequestOffset(ts, rc),
-          Some(sc),
+            Some(
+              DomainIndex.of(
+                RequestIndex(
+                  counter = rc,
+                  sequencerCounter = Some(sc),
+                  timestamp = ts,
+                )
+              )
+            ),
+          )
         )
     } -> None // Transaction processing doesn't use pending submissions
   }
@@ -1122,7 +1126,7 @@ class TransactionProcessingSteps(
 
   override def createRejectionEvent(rejectionArgs: TransactionProcessingSteps.RejectionArgs)(
       implicit traceContext: TraceContext
-  ): Either[TransactionProcessorError, Option[TimestampedEvent]] = {
+  ): Either[TransactionProcessorError, Option[Traced[Update]]] = {
 
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
@@ -1142,18 +1146,28 @@ class TransactionProcessingSteps(
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
-    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason())
+    val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
 
-    val tseO = completionInfoO.map(info =>
-      TimestampedEvent(
-        LedgerSyncEvent
-          .CommandRejected(requestTime.toLf, info, rejection, requestType, domainId),
-        RequestOffset(requestTime, requestCounter),
-        Some(requestSequencerCounter),
+    val updateO = completionInfoO.map(info =>
+      Traced(
+        Update.CommandRejected(
+          requestTime.toLf,
+          info,
+          rejection,
+          domainId,
+          Some(
+            DomainIndex.of(
+              RequestIndex(
+                counter = requestCounter,
+                sequencerCounter = Some(requestSequencerCounter),
+                timestamp = requestTime,
+              )
+            )
+          ),
+        )
       )
     )
-
-    Right(tseO)
+    Right(updateO)
   }
 
   @VisibleForTesting
@@ -1289,40 +1303,42 @@ class TransactionProcessingSteps(
             contractId -> DriverContractMetadata(salt).toLfBytes(protocolVersion)
         }.toMap
 
-      acceptedEvent = LedgerSyncEvent.TransactionAccepted(
-        completionInfoO = completionInfoO,
-        transactionMeta = TransactionMeta(
-          ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
-          workflowId = workflowIdO.map(_.unwrap),
-          submissionTime = lfTx.metadata.submissionTime.toLf,
-          // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
-          // transactions and it leaks the structure of the omitted parts of the transaction.
-          submissionSeed = LedgerSyncEvent.noOpSeed,
-          optUsedPackages = None,
-          optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
-          optByKeyNodes = None, // optByKeyNodes is unused by the indexer
-        ),
-        transaction = LfCommittedTransaction(lfTx.unwrap),
-        transactionId = lfTxId,
-        recordTime = requestTime.toLf,
-        divulgedContracts = witnessedAndDivulged.map { case (divulgedCid, divulgedContract) =>
-          DivulgedContract(divulgedCid, divulgedContract.contractInstance)
-        }.toList,
-        blindingInfoO = None,
-        hostedWitnesses = hostedWitnesses.toList,
-        contractMetadata = contractMetadata,
-        domainId = domainId,
-      )
-
-      timestampedEvent = TimestampedEvent(
-        acceptedEvent,
-        RequestOffset(requestTime, requestCounter),
-        Some(requestSequencerCounter),
+      acceptedEvent = Traced(
+        Update.TransactionAccepted(
+          completionInfoO = completionInfoO,
+          transactionMeta = TransactionMeta(
+            ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
+            workflowId = workflowIdO.map(_.unwrap),
+            submissionTime = lfTx.metadata.submissionTime.toLf,
+            // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
+            // transactions and it leaks the structure of the omitted parts of the transaction.
+            submissionSeed = LedgerSyncEvent.noOpSeed,
+            optUsedPackages = None,
+            optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
+            optByKeyNodes = None, // optByKeyNodes is unused by the indexer
+          ),
+          transaction = LfCommittedTransaction(lfTx.unwrap),
+          transactionId = lfTxId,
+          recordTime = requestTime.toLf,
+          blindingInfoO = None,
+          hostedWitnesses = hostedWitnesses.toList,
+          contractMetadata = contractMetadata,
+          domainId = domainId,
+          domainIndex = Some(
+            DomainIndex.of(
+              RequestIndex(
+                counter = requestCounter,
+                sequencerCounter = Some(requestSequencerCounter),
+                timestamp = requestTime,
+              )
+            )
+          ),
+        )
       )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
       contractsToBeStored,
-      Some(timestampedEvent),
+      Some(acceptedEvent),
     )
   }
 

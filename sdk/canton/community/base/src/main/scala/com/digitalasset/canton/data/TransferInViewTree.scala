@@ -94,7 +94,7 @@ object TransferInViewTree
   override val name: String = "TransferInViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.TransferViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -112,7 +112,7 @@ object TransferInViewTree
     )
 
   def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
-      transferInViewTreeP: v30.TransferViewTree
+      transferInViewTreeP: v30.ReassignmentViewTree
   ): ParsingResult[TransferInViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
     for {
@@ -163,8 +163,8 @@ final case class TransferInCommonData private (
       : RepresentativeProtocolVersion[TransferInCommonData.type] =
     TransferInCommonData.protocolVersionRepresentativeFor(targetProtocolVersion.v)
 
-  protected def toProtoV30: v30.TransferInCommonData =
-    v30.TransferInCommonData(
+  protected def toProtoV30: v30.AssignmentCommonData =
+    v30.AssignmentCommonData(
       salt = Some(salt.toProtoV30),
       targetDomain = targetDomain.toProtoPrimitive,
       targetMediatorGroup = targetMediatorGroup.group.value,
@@ -199,7 +199,7 @@ object TransferInCommonData
   override val name: String = "TransferInCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.TransferInCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -224,12 +224,12 @@ object TransferInCommonData
 
   private[this] def fromProtoV30(
       context: (HashOps, TargetProtocolVersion),
-      transferInCommonDataP: v30.TransferInCommonData,
+      transferInCommonDataP: v30.AssignmentCommonData,
   )(
       bytes: ByteString
   ): ParsingResult[TransferInCommonData] = {
     val (hashOps, targetProtocolVersion) = context
-    val v30.TransferInCommonData(
+    val v30.AssignmentCommonData(
       saltP,
       targetDomainP,
       stakeholdersP,
@@ -293,14 +293,14 @@ final case class TransferInView private (
 
   def hashPurpose: HashPurpose = HashPurpose.TransferInView
 
-  protected def toProtoV30: v30.TransferInView =
-    v30.TransferInView(
+  protected def toProtoV30: v30.AssignmentView =
+    v30.AssignmentView(
       salt = Some(salt.toProtoV30),
       contract = Some(contract.toProtoV30),
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
-      transferOutResultEvent = transferOutResultEvent.result.toByteString,
+      unassignmentResultEvent = transferOutResultEvent.result.toByteString,
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
-      transferCounter = transferCounter.toProtoPrimitive,
+      reassignmentCounter = transferCounter.toProtoPrimitive,
     )
 
   override def pretty: Pretty[TransferInView] = prettyOfClass(
@@ -321,7 +321,7 @@ object TransferInView
   override val name: String = "TransferInView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.TransferInView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -348,10 +348,10 @@ object TransferInView
     )
     .leftMap(_.getMessage)
 
-  private[this] def fromProtoV30(hashOps: HashOps, transferInViewP: v30.TransferInView)(
+  private[this] def fromProtoV30(hashOps: HashOps, transferInViewP: v30.AssignmentView)(
       bytes: ByteString
   ): ParsingResult[TransferInView] = {
-    val v30.TransferInView(
+    val v30.AssignmentView(
       saltP,
       contractP,
       transferOutResultEventP,
@@ -469,7 +469,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   override def rootHash: RootHash = tree.rootHash
 
-  override def isTransferringParticipant(participantId: ParticipantId): Boolean =
+  override def isReassigningParticipant(participantId: ParticipantId): Boolean =
     transferOutResultEvent.unwrap.informees.contains(participantId.adminParty.toLf)
 
   override def pretty: Pretty[FullTransferInTree] = prettyOfClass(unnamedParam(_.tree))

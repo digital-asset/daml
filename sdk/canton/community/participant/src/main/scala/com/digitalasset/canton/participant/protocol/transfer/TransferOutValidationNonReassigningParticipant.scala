@@ -23,12 +23,12 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-private[transfer] sealed abstract case class TransferOutValidationNonTransferringParticipant(
+private[transfer] sealed abstract case class TransferOutValidationNonReassigningParticipant(
     request: FullTransferOutTree,
     sourceTopology: TopologySnapshot,
 ) {
 
-  private def stakeholdersHaveTransferringParticipant(implicit
+  private def stakeholdersHaveReassigningParticipant(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
@@ -38,16 +38,16 @@ private[transfer] sealed abstract case class TransferOutValidationNonTransferrin
           partyWithParticipants =>
             partyWithParticipants.toList
               .traverse_ { case (stakeholder, partyInfo) =>
-                val hasTransferringParticipant =
+                val hasReassigningParticipant =
                   partyInfo.participants.exists { case (participant, attributes) =>
                     attributes.permission.canConfirm && request.adminParties.contains(
                       participant.adminParty.toLf
                     )
                   }
                 Validated.condNec(
-                  hasTransferringParticipant,
+                  hasReassigningParticipant,
                   (),
-                  s"Stakeholder $stakeholder has no transferring participant.",
+                  s"Stakeholder $stakeholder has no reassigning participant.",
                 )
 
               }
@@ -88,9 +88,9 @@ private[transfer] sealed abstract case class TransferOutValidationNonTransferrin
 
 }
 
-object TransferOutValidationNonTransferringParticipant {
+object TransferOutValidationNonReassigningParticipant {
 
-  /* Checks that can be done by a non-transferring participant
+  /* Checks that can be done by a non-reassigning participant
    * - every stakeholder is hosted on a participant with an admin party
    * - the admin parties are hosted only on their participants
    */
@@ -102,13 +102,13 @@ object TransferOutValidationNonTransferringParticipant {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    val validation = new TransferOutValidationNonTransferringParticipant(
+    val validation = new TransferOutValidationNonReassigningParticipant(
       request,
       sourceTopology,
     ) {}
     for {
       _ <- validation.adminPartiesCanConfirm(logger)
-      _ <- validation.stakeholdersHaveTransferringParticipant
+      _ <- validation.stakeholdersHaveReassigningParticipant
     } yield ()
   }
 

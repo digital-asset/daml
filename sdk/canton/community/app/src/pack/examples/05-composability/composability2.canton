@@ -120,7 +120,7 @@ val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
 participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.toLf)
 
 // Painter transfers the paint offer to the IOU domain
-val paintOfferTransferId = participant3.ledger_api.commands.submit_unassign(
+val paintOfferReassignmentId = participant3.ledger_api.commands.submit_unassign(
   Painter,                      // Initiator of the transfer
   paintOffer.id.toLf,           // Contract to be transferred
   paintId,                      // Source domain
@@ -131,7 +131,7 @@ val paintOfferTransferId = participant3.ledger_api.commands.submit_unassign(
 // architecture-handbook-entry-begin: transfer-in
 participant3.ledger_api.commands.submit_assign(
   Painter,
-  paintOfferTransferId,
+  paintOfferReassignmentId,
   paintId,
   iouId
 )

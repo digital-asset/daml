@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -11,15 +12,11 @@ import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
-import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.topology.ParticipantPackageVettingValidation
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
+import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
+import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.TargetDomainId
-import com.digitalasset.canton.store.memory.{
-  InMemorySendTrackerStore,
-  InMemorySequencedEventStore,
-  InMemorySequencerCounterTrackerStore,
-}
+import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -29,6 +26,7 @@ import com.digitalasset.canton.topology.{
   DomainTopologyManager,
   ForceFlags,
   ParticipantId,
+  PartyId,
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,6 +44,7 @@ class InMemorySyncDomainPersistentState(
     indexedStringStore: IndexedStringStore,
     exitOnFatalFailures: Boolean,
     packageDependencyResolver: PackageDependencyResolver,
+    ledgerApiStore: Eval[LedgerApiStore],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -54,7 +53,6 @@ class InMemorySyncDomainPersistentState(
 
   override val pureCryptoApi: CryptoPureApi = crypto.pureCrypto
 
-  val eventLog = new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), loggerFactory)
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore =
     new InMemoryActiveContractStore(indexedStringStore, protocolVersion, loggerFactory)
@@ -64,8 +62,6 @@ class InMemorySyncDomainPersistentState(
   val acsCommitmentStore =
     new InMemoryAcsCommitmentStore(loggerFactory)
   val parameterStore = new InMemoryDomainParameterStore()
-  val sequencerCounterTrackerStore =
-    new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
   val sendTrackerStore = new InMemorySendTrackerStore()
   val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)
 
@@ -88,25 +84,39 @@ class InMemorySyncDomainPersistentState(
     timeouts,
     futureSupervisor,
     loggerFactory,
-  ) with ParticipantPackageVettingValidation {
+  ) with ParticipantTopologyValidation {
 
-    override def validatePackages(
+    override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-      validate(
+      validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        contractStores = () => Map(domainId.domainId -> (activeContractStore, contractStore)),
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
         forceFlags,
+      )
+    override def checkCannotDisablePartyWithActiveContracts(
+        partyId: PartyId,
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkCannotDisablePartyWithActiveContracts(
+        partyId,
+        forceFlags,
+        acsInspections = () => Map(domainId.domainId -> acsInspection),
       )
   }
 
   override def isMemory: Boolean = true
 
   override def close(): Unit = ()
+
+  override def acsInspection: AcsInspection =
+    new AcsInspection(domainId.domainId, activeContractStore, contractStore, ledgerApiStore)
 }

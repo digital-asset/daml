@@ -26,6 +26,13 @@ final case class IndexerConfig(
     maxOutputBatchedBufferSize: Int = DefaultMaxOutputBatchedBufferSize,
     maxTailerBatchSize: Int = DefaultMaxTailerBatchSize,
     postProcessingParallelism: Int = DefaultPostProcessingParallelism,
+    queueMaxBlockedOffer: Int = DefaultQueueMaxBlockedOffer,
+    queueBufferSize: Int = DefaultQueueBufferSize,
+    queueUncommittedWarnThreshold: Int = DefaultQueueUncommittedWarnThreshold,
+    queueRecoveryRetryMinWaitMillis: Int = DefaultQueueRecoveryRetryMinWaitMillis,
+    queueRecoveryRetryMaxWaitMillis: Int = DefaultQueueRecoveryRetryMaxWaitMillis,
+    queueRecoveryRetryAttemptWarnThreshold: Int = DefaultQueueRecoveryRetryAttemptWarnThreshold,
+    queueRecoveryRetryAttemptErrorThreshold: Int = DefaultQueueRecoveryRetryAttemptErrorThreshold,
 )
 
 object IndexerConfig {
@@ -65,4 +72,11 @@ object IndexerConfig {
   val DefaultMaxOutputBatchedBufferSize: Int = 16
   val DefaultMaxTailerBatchSize: Int = 10
   val DefaultPostProcessingParallelism: Int = 8
+  val DefaultQueueMaxBlockedOffer: Int = 1000
+  val DefaultQueueBufferSize: Int = 50
+  val DefaultQueueUncommittedWarnThreshold: Int = 5000
+  val DefaultQueueRecoveryRetryMinWaitMillis: Int = 50
+  val DefaultQueueRecoveryRetryMaxWaitMillis: Int = 5000
+  val DefaultQueueRecoveryRetryAttemptWarnThreshold: Int = 50
+  val DefaultQueueRecoveryRetryAttemptErrorThreshold: Int = 100
 }

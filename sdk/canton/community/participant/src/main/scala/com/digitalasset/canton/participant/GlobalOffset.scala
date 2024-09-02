@@ -45,6 +45,7 @@ object GlobalOffset {
     pp >> v.map(_.unwrap.unwrap)
 
   val MaxValue: GlobalOffset = GlobalOffset(PositiveLong.MaxValue)
+  val FirstOffset = tryFromLong(Offset.firstOffset.toLong)
 
   def tryFromLong(i: Long): GlobalOffset =
     fromLong(i).valueOr(err => throw new IllegalArgumentException(err))
