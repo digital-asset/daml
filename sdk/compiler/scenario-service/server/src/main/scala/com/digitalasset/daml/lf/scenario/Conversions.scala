@@ -115,10 +115,6 @@ final class Conversions(
           case SError.SErrorDamlException(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
-              case RejectedAuthorityRequest(_, _) =>
-                sys.error(
-                  "Unexpected RejectedAuthorityRequest: choice authority not supported by scenarios."
-                )
               case UnhandledException(_, value) =>
                 builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>

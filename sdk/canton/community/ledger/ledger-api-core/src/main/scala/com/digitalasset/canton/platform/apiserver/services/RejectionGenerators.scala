@@ -70,8 +70,7 @@ object RejectionGenerators {
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
       err match {
-        case LfInterpretationError.RejectedAuthorityRequest(_, _) => ??? // TODO(i12291): #15882
-        case LfInterpretationError.ContractNotFound(cid) =>
+       case LfInterpretationError.ContractNotFound(cid) =>
           ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
         case LfInterpretationError.ContractKeyNotFound(key) =>

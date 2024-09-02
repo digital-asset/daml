@@ -401,23 +401,6 @@ class DAMLe(
             case Left(abort) => Future.successful(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
-        case ResultNeedAuthority(holding, requesting, resume) =>
-          authorityResolver
-            .resolve(
-              AuthorityResolver
-                .AuthorityRequest(holding, requesting, domainId)
-            )
-            .flatMap {
-              case AuthorityResolver.AuthorityResponse.Authorized =>
-                handleResultInternal(contracts, resume(true))
-              case AuthorityResolver.AuthorityResponse.MissingAuthorisation(parties) =>
-                val receivedAuthorityFor = parties -- requesting
-                logger.debug(
-                  show"Authorisation failed. Missing authority: [$parties]. Received authority: [$receivedAuthorityFor]"
-                )
-                handleResultInternal(contracts, resume(false))
-            }
-
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
           val unusedTxVersion = TransactionVersion.StableVersions.max
           val metadata = ContractMetadata.tryCreate(

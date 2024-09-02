@@ -304,8 +304,6 @@ class IdeLedgerClient(
   private def fromInterpretationError(err: interpretation.Error): SubmitError = {
     import interpretation.Error._
     err match {
-      // TODO[SW]: This error isn't yet fully implemented, so remains unknown. Convert to a `dev` error once the feature is supported in IDELedger.
-      case e: RejectedAuthorityRequest => SubmitError.UnknownError(e.toString)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
           NonEmpty(Seq, cid),
