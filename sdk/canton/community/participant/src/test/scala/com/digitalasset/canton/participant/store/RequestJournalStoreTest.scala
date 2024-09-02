@@ -9,14 +9,13 @@ import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
-import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStoreTest}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpecLike
 
 import scala.concurrent.Future
 
-trait RequestJournalStoreTest extends CursorPreheadStoreTest {
+trait RequestJournalStoreTest {
   this: AsyncWordSpecLike with BaseTest with HasCloseContext =>
 
   def requestJournalStore(mk: () => RequestJournalStore): Unit = {
@@ -227,82 +226,33 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         _ <- store.insert(RequestData.clean(rc + 1, CantonTimestamp.ofEpochSecond(2), commitTime))
         _ <- store.insert(RequestData.clean(rc + 2, CantonTimestamp.ofEpochSecond(3), commitTime))
         _ <- store.insert(RequestData(rc + 4, Pending, CantonTimestamp.ofEpochSecond(5)))
-        _ <- store.advancePreheadCleanTo(CursorPrehead(rc + 2L, CantonTimestamp.ofEpochSecond(3)))
       } yield ()
 
     "prune when given a sensible timestamp" in {
       val store = mk()
       for {
         _ <- setupPruning(store)
-        _ <- store.prune(CantonTimestamp.ofEpochSecond(2), bypassAllSanityChecks = false)
+        _ <- store.prune(CantonTimestamp.ofEpochSecond(2))
         queryInit <- store.query(rc).value
         queryInserted <- store.query(rc + 1).value
       } yield {
         queryInit shouldBe None
         queryInserted shouldBe None
       }
-    }
-
-    "fail to prune without a clean cursor" in {
-      val store = mk()
-      for {
-        _ <- store.insert(RequestData.initial(rc, ts))
-        _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          store.prune(ts, bypassAllSanityChecks = false),
-          _.getMessage shouldBe "Attempted to prune a journal with no clean timestamps",
-        )
-      } yield succeed
-    }
-
-    "fail to prune at a timestamp no earlier than the one associated to the clean cursor" in {
-      val store = mk()
-      for {
-        _ <- setupPruning(store)
-        _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          store.prune(CantonTimestamp.ofEpochSecond(3), bypassAllSanityChecks = false),
-          _.getMessage shouldBe "Attempted to prune at timestamp 1970-01-01T00:00:03Z which is not earlier than 1970-01-01T00:00:03Z associated with the clean head",
-        )
-      } yield succeed
-    }
-
-    "prune succeeds when bypassAllSanityChecks is set even when timestamp not earlier than the one associated to the clean cursor" in {
-      val store = mk()
-      val ts = CantonTimestamp.ofEpochSecond(3)
-      for {
-        _ <- setupPruning(store)
-        _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          store.prune(ts, bypassAllSanityChecks = false),
-          _.getMessage should include(ts.toString),
-        )
-        _ <- store.prune(ts, bypassAllSanityChecks = true)
-        queryInit <- store.query(rc).value
-        queryInserted <- store.query(rc + 1).value
-      } yield {
-        queryInit shouldBe None
-        queryInserted shouldBe None
-      }
-    }
-
-    "clean prehead" should {
-      behave like (cursorPreheadStore(() => mk().cleanPreheadStore, RequestCounter.apply))
     }
 
     "deleteSince" should {
       "remove all requests from the given counter on" in {
         val store = mk()
-        val cursorHead = CursorPrehead(RequestCounter(1), tsWithSecs(2))
         for {
           _ <- setupRequests(store)
-          _ <- store.advancePreheadCleanTo(cursorHead)
           _ <- store.deleteSince(RequestCounter(2))
           result0 <- valueOrFail(store.query(RequestCounter(0)))("Request 0 is retained")
           result2 <- store.query(RequestCounter(2)).value
-          clean <- store.preheadClean
           _ <- store.insert(RequestData(RequestCounter(2), Pending, tsWithSecs(10)))
         } yield {
           result0 shouldBe RequestData(rc, Pending, tsWithSecs(1))
           result2 shouldBe None
-          clean shouldBe Some(cursorHead)
         }
       }
 
@@ -312,10 +262,8 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
           _ <- store.insert(RequestData(RequestCounter(-3), Pending, tsWithSecs(-1)))
           _ <- store.deleteSince(RequestCounter(-5))
           result <- store.query(RequestCounter(-3)).value
-          clean <- store.preheadClean
         } yield {
           result shouldBe None
-          clean shouldBe None
         }
       }
 
@@ -389,5 +337,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         totalDirtyRequests shouldBe 1
       }
     }
+
+    // TODO(i18695): Add unit tests for lastRequestCounterWithRequestTimestampBeforeOrAt
   }
 }

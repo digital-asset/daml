@@ -7,13 +7,13 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 
-// Definitions shared by at least 2 out of mediator.proto, participant_transaction.proto and participant_transfer.proto
+// Definitions shared by at least 2 out of mediator.proto, participant_transaction.proto and participant_reassignment.proto
 
 enum ViewType {
   VIEW_TYPE_UNSPECIFIED = 0;
   VIEW_TYPE_TRANSACTION = 1;
-  VIEW_TYPE_TRANSFER_OUT = 2;
-  VIEW_TYPE_TRANSFER_IN = 3;
+  VIEW_TYPE_UNASSIGNMENT = 2;
+  VIEW_TYPE_ASSIGNMENT = 3;
 }
 
 message DriverContractMetadata {

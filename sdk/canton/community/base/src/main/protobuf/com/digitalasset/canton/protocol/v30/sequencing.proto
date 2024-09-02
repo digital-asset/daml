@@ -9,7 +9,6 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
-import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
 import "scalapb/scalapb.proto";
 
@@ -19,7 +18,7 @@ message PossiblyIgnoredSequencedEvent {
   int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.v30.TraceContext trace_context = 3;
   bool is_ignored = 4;
-  google.protobuf.BytesValue underlying = 5; // Serialized SignedContent[SequencedEvent]. Optional if is_ignored == true, required otherwise
+  optional bytes underlying = 5; // Serialized SignedContent[SequencedEvent]. Optional if is_ignored == true, required otherwise
 }
 
 // Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit
@@ -51,7 +50,7 @@ message ServiceAgreement {
 message Handshake {
   message Request {
     repeated string client_protocol_versions = 1;
-    google.protobuf.StringValue minimum_protocol_version = 2;
+    optional string minimum_protocol_version = 2;
   }
 
   message Response {
@@ -137,7 +136,7 @@ message SequencedEvent {
 
   // The message_id of the request.
   // Optional, but will be defined iff the request sender is the subscriber.
-  google.protobuf.StringValue message_id = 4;
+  optional string message_id = 4;
 
   // The payload of the event.
   // Optional, defined iff deliver_error_reason is undefined.
@@ -149,7 +148,7 @@ message SequencedEvent {
   // Optional timestamp of the topology snapshot used for processing the underlying request
   // (e.g., validation, signing, resolving group addresses).
   // If undefined, timestamp is used instead.
-  google.protobuf.Int64Value topology_timestamp = 7;
+  optional int64 topology_timestamp = 7;
 
   // Traffic receipt with information about the traffic state after the cost for this event has been consumed
   // Optional - only set on deliver receipt sent back to the sender of the event when traffic control is enabled
@@ -194,7 +193,7 @@ message SubmissionRequest {
   // (3) the sequencer must have signing keys registered in the topology snapshot.
   // If defined and invalid, the request is rejected.
   // If undefined or invalid, the topology snapshot at sequencing time will be used instead.
-  google.protobuf.Int64Value topology_timestamp = 6;
+  optional int64 topology_timestamp = 6;
 
   // Optional rule used to aggregate requests.
   v30.AggregationRule aggregation_rule = 7;

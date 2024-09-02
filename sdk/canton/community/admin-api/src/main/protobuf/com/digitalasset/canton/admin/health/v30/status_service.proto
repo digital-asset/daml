@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.health.v30;
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/wrappers.proto";
 
 service StatusService {
   // Streams back a zip file as byte chunks, containing a health dump of the full canton process (including other nodes)
@@ -38,7 +37,7 @@ message ComponentStatus {
     StatusData fatal = 5;
   }
   message StatusData {
-    google.protobuf.StringValue description = 1;
+    optional string description = 1;
   }
 }
 
@@ -67,7 +66,7 @@ message Status {
 message HealthDumpRequest {
   // Size of the byte chunks to stream back.
   // Defaults to 2MB (half of the default gRPC max message size)
-  google.protobuf.UInt32Value chunk_size = 1;
+  optional uint32 chunk_size = 1;
 }
 
 message HealthDumpResponse {

@@ -72,5 +72,5 @@ final case class ReassignmentInfo(
     reassignmentCounter: Long,
     hostedStakeholders: List[Ref.Party],
     unassignId: CantonTimestamp,
-    isTransferringParticipant: Boolean,
+    isReassigningParticipant: Boolean,
 )

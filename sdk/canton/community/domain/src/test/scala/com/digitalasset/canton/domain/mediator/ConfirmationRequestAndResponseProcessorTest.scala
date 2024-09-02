@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.ViewType.{TransactionViewType, TransferInViewType}
+import com.digitalasset.canton.data.ViewType.{AssignmentViewType, TransactionViewType}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ConsortiumVotingState
 import com.digitalasset.canton.domain.mediator.store.{
@@ -565,7 +565,7 @@ class ConfirmationRequestAndResponseProcessorTest
           domainSyncCryptoApi.pureCrypto.digest(TestHash.testHashPurpose, ByteString.EMPTY)
         )
       val correctViewType = informeeMessage.viewType
-      val wrongViewType = TransferInViewType
+      val wrongViewType = AssignmentViewType
       require(correctViewType != wrongViewType)
       val correctRootHashMessage =
         RootHashMessage(

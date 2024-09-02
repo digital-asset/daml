@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.store.memory.TransferCacheTest.HookTr
 import com.digitalasset.canton.participant.store.{TransferStore, TransferStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
+import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, RequestCounter}
@@ -50,8 +50,8 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       () <- store.deleteTransfer(transfer10)
       deleted <- cache.lookup(transfer10).value
     } yield {
-      lookup11 shouldBe Left(UnknownTransferId(transfer11))
-      deleted shouldBe Left(UnknownTransferId(transfer10))
+      lookup11 shouldBe Left(UnknownReassignmentId(transfer11))
+      deleted shouldBe Left(UnknownReassignmentId(transfer10))
     }
   }
 
@@ -63,8 +63,8 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       for {
         transferData <- transferDataF
         _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
-        _ = store.preComplete { (transferId, _) =>
-          assert(transferId == transfer10)
+        _ = store.preComplete { (reassignmentId, _) =>
+          assert(reassignmentId == transfer10)
           CheckedT(
             cache.lookup(transfer10).value.map {
               case Left(TransferCompleted(`transfer10`, `toc`)) => Checked.result(())
@@ -87,7 +87,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       for {
         missing <- cache.completeTransfer(transfer10, toc).value
       } yield {
-        assert(missing == Checked.continue(UnknownTransferId(transfer10)))
+        assert(missing == Checked.continue(UnknownReassignmentId(transfer10)))
       }
     }
 
@@ -103,8 +103,8 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       for {
         transferData <- transferDataF
         _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
-        _ = store.preComplete { (transferId, _) =>
-          assert(transferId == transfer10)
+        _ = store.preComplete { (reassignmentId, _) =>
+          assert(reassignmentId == transfer10)
           promise.completeWith(cache.completeTransfer(transfer10, toc2).value)
           CheckedT.resultT(())
         }
@@ -135,8 +135,8 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
         transferData <- transferDataF
         _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
         _ <- valueOrFail(store.completeTransfer(transfer10, toc2))("first completion failed")
-        _ = store.preComplete { (transferId, _) =>
-          assert(transferId == transfer10)
+        _ = store.preComplete { (reassignmentId, _) =>
+          assert(reassignmentId == transfer10)
           promise.completeWith(cache.completeTransfer(transfer10, toc).value)
           CheckedT.resultT(())
         }
@@ -158,8 +158,8 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
       for {
         transferData <- transferDataF
         _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
-        _ = store.preComplete { (transferId, _) =>
-          assert(transferId == transfer10)
+        _ = store.preComplete { (reassignmentId, _) =>
+          assert(reassignmentId == transfer10)
           val f = for {
             _ <- valueOrFail(cache.completeTransfer(transfer10, toc))(
               "second completion should be idempotent"
@@ -248,12 +248,12 @@ object TransferCacheTest {
       extends TransferStore {
 
     private[this] val preCompleteHook: AtomicReference[
-      (TransferId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit]
+      (ReassignmentId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit]
     ] =
       new AtomicReference(HookTransferStore.preCompleteNoHook)
 
     def preComplete(
-        hook: (TransferId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit]
+        hook: (ReassignmentId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit]
     ): Unit =
       preCompleteHook.set(hook)
 
@@ -267,24 +267,26 @@ object TransferCacheTest {
     ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
       baseStore.addTransferOutResult(transferOutResult)
 
-    override def addTransfersOffsets(offsets: Map[TransferId, TransferData.TransferGlobalOffset])(
-        implicit traceContext: TraceContext
+    override def addTransfersOffsets(
+        offsets: Map[ReassignmentId, TransferData.TransferGlobalOffset]
+    )(implicit
+        traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
       baseStore.addTransfersOffsets(offsets)
 
-    override def completeTransfer(transferId: TransferId, timeOfCompletion: TimeOfChange)(implicit
-        traceContext: TraceContext
+    override def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
+        implicit traceContext: TraceContext
     ): CheckedT[Future, Nothing, TransferStoreError, Unit] = {
       val hook = preCompleteHook.getAndSet(HookTransferStore.preCompleteNoHook)
-      hook(transferId, timeOfCompletion).flatMap[Nothing, TransferStoreError, Unit](_ =>
-        baseStore.completeTransfer(transferId, timeOfCompletion)
+      hook(reassignmentId, timeOfCompletion).flatMap[Nothing, TransferStoreError, Unit](_ =>
+        baseStore.completeTransfer(reassignmentId, timeOfCompletion)
       )
     }
 
-    override def deleteTransfer(transferId: TransferId)(implicit
+    override def deleteTransfer(reassignmentId: ReassignmentId)(implicit
         traceContext: TraceContext
     ): Future[Unit] =
-      baseStore.deleteTransfer(transferId)
+      baseStore.deleteTransfer(reassignmentId)
 
     override def deleteCompletionsSince(criterionInclusive: RequestCounter)(implicit
         traceContext: TraceContext
@@ -313,19 +315,19 @@ object TransferCacheTest {
 
     override def findEarliestIncomplete()(implicit
         traceContext: TraceContext
-    ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] =
+    ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
       baseStore.findEarliestIncomplete()
 
-    override def lookup(transferId: TransferId)(implicit
+    override def lookup(reassignmentId: ReassignmentId)(implicit
         traceContext: TraceContext
     ): EitherT[Future, TransferLookupError, TransferData] =
-      baseStore.lookup(transferId)
+      baseStore.lookup(reassignmentId)
   }
 
   object HookTransferStore {
     val preCompleteNoHook
-        : (TransferId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit] =
-      (_: TransferId, _: TimeOfChange) => CheckedT(Future.successful(Checked.result(())))
+        : (ReassignmentId, TimeOfChange) => CheckedT[Future, Nothing, TransferStoreError, Unit] =
+      (_: ReassignmentId, _: TimeOfChange) => CheckedT(Future.successful(Checked.result(())))
   }
 
   class PromiseHook[A](promise: Promise[A]) extends Promise[A] {

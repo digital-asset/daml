@@ -7,7 +7,7 @@ package com.digitalasset.canton.admin.participant.v30;
 
 import "google/protobuf/timestamp.proto";
 
-message TransferId {
+message ReassignmentId {
   string source_domain = 1;
   google.protobuf.Timestamp timestamp = 2;
 }

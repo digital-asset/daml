@@ -26,7 +26,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
-import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   ContractStakeholdersAndTransferCounter,
@@ -70,8 +69,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
-import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, TrafficState}
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
@@ -109,7 +107,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class SyncDomain(
     val domainId: DomainId,
-    domainHandle: DomainHandle,
+    val domainHandle: DomainHandle,
     participantId: ParticipantId,
     engine: Engine,
     authorityResolver: AuthorityResolver,
@@ -244,7 +242,7 @@ class SyncDomain(
 
   private val journalGarbageCollector = new JournalGarbageCollector(
     persistent.requestJournalStore,
-    persistent.sequencerCounterTrackerStore,
+    tc => ephemeral.ledgerApiIndexer.ledgerApiStore.value.domainIndex(domainId)(tc),
     sortedReconciliationIntervalsProvider,
     persistent.acsCommitmentStore,
     persistent.activeContractStore,
@@ -489,10 +487,7 @@ class SyncDomain(
       // once the first event is dispatched.
       // however, this is bad for transfer processing as we need to be able to access the topology state
       // across domains and this requires that the clients are separately initialised on the participants
-      val resubscriptionTs =
-        ephemeral.startingPoints.rewoundSequencerCounterPrehead.fold(CantonTimestamp.MinValue)(
-          _.timestamp
-        )
+      val resubscriptionTs = ephemeral.startingPoints.processing.prenextTimestamp
       logger.debug(s"Initialising topology client at clean head=$resubscriptionTs")
       // startup with the resubscription-ts
       topologyClient.updateHead(
@@ -522,7 +517,6 @@ class SyncDomain(
 
     val startingPoints = ephemeral.startingPoints
     val cleanHeadRc = startingPoints.processing.nextRequestCounter
-    val cleanPreHeadO = startingPoints.processing.cleanRequestPrehead
     val cleanHeadPrets = startingPoints.processing.prenextTimestamp
 
     for {
@@ -543,23 +537,7 @@ class SyncDomain(
         )
       )
 
-      // Phase 2: recover events that have been published to the single-dimension event log, but were not published at
-      // the multi-domain event log before the crash
-      pending <- cleanPreHeadO.fold(
-        EitherT.pure[Future, SyncDomainInitializationError](Seq[PendingPublish]())
-      ) { lastProcessedOffset =>
-        EitherT.right(
-          participantNodePersistentState.value.multiDomainEventLog
-            .fetchUnpublished(
-              id = persistent.eventLog.id,
-              upToInclusiveO = Some(lastProcessedOffset),
-            )
-        )
-      }
-
-      _unit = ephemeral.recordOrderPublisher.scheduleRecoveries(pending)
-
-      // Phase 3: Initialize the repair processor
+      // Phase 2: Initialize the repair processor
       repairs <- EitherT.right[SyncDomainInitializationError](
         persistent.requestJournalStore.repairRequests(
           ephemeral.startingPoints.cleanReplay.nextRequestCounter
@@ -570,7 +548,7 @@ class SyncDomain(
       )
       _ = repairProcessor.setRemainingRepairRequests(repairs)
 
-      // Phase 4: publish ACS changes from some suitable point up to clean head timestamp to the commitment processor.
+      // Phase 3: publish ACS changes from some suitable point up to clean head timestamp to the commitment processor.
       // The "suitable point" must ensure that the [[com.digitalasset.canton.participant.store.AcsSnapshotStore]]
       // receives any partially-applied changes; choosing the timestamp returned by the store is sufficient and optimal
       // in terms of performance, but any earlier timestamp is also correct
@@ -589,7 +567,11 @@ class SyncDomain(
           )
         } else EitherT.pure[Future, SyncDomainInitializationError](Seq.empty)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acsCommitmentProcessor.publish(toc, change)
+        acsCommitmentProcessor.publish(
+          toc,
+          change,
+          Future.unit, // corresponding publications already happened
+        )
       }
     } yield ()
   }
@@ -610,11 +592,14 @@ class SyncDomain(
         .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))(initializationTraceContext)
         .fold(_ => SequencerCounter.Genesis, _.counter + 1)
 
-    val sequencerCounterPreheadTsO =
-      ephemeral.startingPoints.rewoundSequencerCounterPrehead.map(_.timestamp)
+    val sequencerCounterPreheadTs =
+      ephemeral.startingPoints.processing.prenextTimestamp
+    // note: we need the optional prehead here, since it changes the behavior inside (subscribing from Some(CantonTimestamp.MinValue) would result in timeouts at requesting topology snapshot ... has not completed after...)
+    val sequencerCounterPreheadTsO = Option.when(
+      sequencerCounterPreheadTs != CantonTimestamp.MinValue
+    )(sequencerCounterPreheadTs)
     val subscriptionPriorTs = {
       val cleanReplayTs = ephemeral.startingPoints.cleanReplay.prenextTimestamp
-      val sequencerCounterPreheadTs = sequencerCounterPreheadTsO.getOrElse(CantonTimestamp.MinValue)
       Ordering[CantonTimestamp].min(cleanReplayTs, sequencerCounterPreheadTs)
     }
 
@@ -689,24 +674,19 @@ class SyncDomain(
               messageDispatcher.handleAll(Traced(openEvents)(traceContext))
             }
         }
-      eventHandler = monitor(messageHandler)
-
-      cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
-        persistent.sequencerCounterTrackerStore,
-        ephemeral.timelyRejectNotifier.notifyAsync,
-        loggerFactory,
-      )
-      trackingHandler = cleanSequencerCounterTracker(eventHandler)
       _ <- EitherT
         .right[SyncDomainInitializationError](
           sequencerClient.subscribeAfter(
             subscriptionPriorTs,
             sequencerCounterPreheadTsO,
-            trackingHandler,
+            monitor(messageHandler),
             ephemeral.timeTracker,
-            PeriodicAcknowledgements.fetchCleanCounterFromStore(
-              persistent.sequencerCounterTrackerStore
-            ),
+            tc =>
+              FutureUnlessShutdown.outcomeF(
+                participantNodePersistentState.value.ledgerApiStore
+                  .domainIndex(domainId)(tc)
+                  .map(_.sequencerIndex.map(_.timestamp))
+              ),
           )(initializationTraceContext)
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -750,11 +730,11 @@ class SyncDomain(
         // this up. It may be helpful to use the `RateLimiter`
         eithers <- MonadUtil
           .sequentialTraverse(pendingTransfers) { data =>
-            logger.debug(s"Complete ${data.transferId} after startup")
+            logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
               performUnlessClosingEitherU[TransferProcessorError, Unit](functionFullName)(
                 AutomaticTransferIn.perform(
-                  data.transferId,
+                  data.reassignmentId,
                   TargetDomainId(domainId),
                   staticDomainParameters,
                   transferCoordination,
@@ -764,18 +744,22 @@ class SyncDomain(
                   data.transferOutRequest.targetTimeProof.timestamp,
                 )
               )
-            eitherF.value.map(_.left.map(err => data.transferId -> err))
+            eitherF.value.map(_.left.map(err => data.reassignmentId -> err))
           }
 
       } yield {
         // Log any errors, then discard the errors and continue to complete pending transfers
         eithers.foreach {
-          case Left((transferId, error)) =>
-            logger.debug(s"Failed to complete pending transfer $transferId. The error was $error.")
+          case Left((reassignmentId, error)) =>
+            logger.debug(
+              s"Failed to complete pending transfer $reassignmentId. The error was $error."
+            )
           case Right(()) => ()
         }
 
-        pendingTransfers.lastOption.map(t => t.transferId.transferOutTimestamp -> t.sourceDomain)
+        pendingTransfers.lastOption.map(t =>
+          t.reassignmentId.transferOutTimestamp -> t.sourceDomain
+        )
       }
 
       resF.map {
@@ -876,7 +860,7 @@ class SyncDomain(
 
   override def submitTransferIn(
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
@@ -888,7 +872,7 @@ class SyncDomain(
       functionFullName,
       DomainNotReady(domainId, "The domain is shutting down."),
     ) {
-      logger.debug(s"Submitting transfer-in of `$transferId` to `$domainId`")
+      logger.debug(s"Submitting transfer-in of `$reassignmentId` to `$domainId`")
 
       if (!ready)
         DomainNotReady(domainId, "Cannot submit transfer-out before recovery").discard
@@ -896,7 +880,7 @@ class SyncDomain(
       transferInProcessor
         .submit(
           TransferInProcessingSteps
-            .SubmissionParam(submitterMetadata, transferId)
+            .SubmissionParam(submitterMetadata, reassignmentId)
         )
         .onShutdown(Left(DomainNotReady(domainId, "The domain is shutting down")))
     }

@@ -20,7 +20,7 @@ import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-private[transfer] sealed abstract case class TransferOutValidationTransferringParticipant(
+private[transfer] sealed abstract case class TransferOutValidationReassigningParticipant(
     request: FullTransferOutTree,
     expectedStakeholders: Set[LfPartyId],
     sourceProtocolVersion: SourceProtocolVersion,
@@ -72,7 +72,7 @@ private[transfer] sealed abstract case class TransferOutValidationTransferringPa
     )
 }
 
-private[transfer] object TransferOutValidationTransferringParticipant {
+private[transfer] object TransferOutValidationReassigningParticipant {
 
   def apply(
       request: FullTransferOutTree,
@@ -87,7 +87,7 @@ private[transfer] object TransferOutValidationTransferringParticipant {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    val validation = new TransferOutValidationTransferringParticipant(
+    val validation = new TransferOutValidationReassigningParticipant(
       request,
       expectedStakeholders,
       sourceProtocolVersion,

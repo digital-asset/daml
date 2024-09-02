@@ -1406,6 +1406,7 @@ class SequencerClientTest
         futureSupervisor,
         timeouts,
         TrafficConsumptionMetrics.noop,
+        domainId,
       )
       val sendTracker =
         new SendTracker(
@@ -1493,6 +1494,7 @@ class SequencerClientTest
         futureSupervisor,
         timeouts,
         TrafficConsumptionMetrics.noop,
+        domainId,
       )
       val sendTracker =
         new SendTracker(

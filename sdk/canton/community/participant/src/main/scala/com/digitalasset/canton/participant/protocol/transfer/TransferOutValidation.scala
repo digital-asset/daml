@@ -49,7 +49,7 @@ private[transfer] final case class TransferOutValidation(
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     targetTopology match {
       case Some(targetTopology) =>
-        TransferOutValidationTransferringParticipant(
+        TransferOutValidationReassigningParticipant(
           request,
           expectedStakeholders,
           expectedTemplateId,
@@ -60,7 +60,7 @@ private[transfer] final case class TransferOutValidation(
           logger,
         )
       case None =>
-        TransferOutValidationNonTransferringParticipant(request, sourceTopology, logger)
+        TransferOutValidationNonReassigningParticipant(request, sourceTopology, logger)
     }
 
   private def checkTemplateId()(implicit

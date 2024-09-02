@@ -14,7 +14,6 @@ import com.digitalasset.canton.admin.participant.v30.{
   GetIntervalsBehindForCounterParticipants,
   InspectCommitmentContracts,
   LookupContractDomain,
-  LookupOffsetByIndex,
   LookupOffsetByTime,
   LookupReceivedAcsCommitments,
   LookupSentAcsCommitments,
@@ -38,10 +37,9 @@ import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
+import io.grpc.Status
 import io.grpc.stub.StreamObserver
-import io.grpc.{Status, StatusRuntimeException}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcInspectionService(
@@ -94,30 +92,6 @@ class GrpcInspectionService(
         case Left(err) =>
           Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
       }
-    }
-  }
-
-  @nowarn("msg=usage being removed as part of fusing MultiDomainEventLog and Ledger API Indexer")
-  override def lookupOffsetByIndex(
-      request: LookupOffsetByIndex.Request
-  ): Future[LookupOffsetByIndex.Response] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    if (request.index <= 0) {
-      Future.failed(
-        new IllegalArgumentException(s"""Index needs to be positive and not ${request.index}""")
-      )
-    } else {
-      syncStateInspection
-        .locateOffset(request.index)
-        .map(
-          _.fold(
-            err =>
-              throw new StatusRuntimeException(
-                Status.OUT_OF_RANGE.withDescription(s"""Failed to locate offset: $err""")
-              ),
-            ledgerOffset => LookupOffsetByIndex.Response(ledgerOffset.getAbsolute),
-          )
-        )
     }
   }
 

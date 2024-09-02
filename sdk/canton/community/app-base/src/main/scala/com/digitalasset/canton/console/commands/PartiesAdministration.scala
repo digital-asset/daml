@@ -324,12 +324,12 @@ class ParticipantPartiesAdministrationGroup(
   }
 
   @Help.Summary("Disable party on participant")
-  // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
-  def disable(name: String /*, force: Boolean = false*/ ): Unit =
+  def disable(name: String, force: ForceFlags = ForceFlags.none): Unit =
     reference.topology.party_to_participant_mappings
       .propose_delta(
         PartyId(reference.id.member.uid.tryChangeId(name)),
         removes = List(this.participantId),
+        force = force,
       )
       .discard
 

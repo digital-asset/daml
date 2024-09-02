@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.either.*
+import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
@@ -24,10 +24,8 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
-import com.digitalasset.canton.{LedgerParticipantId, LfPackageId}
 import com.digitalasset.daml.lf.engine.Engine
 import org.apache.pekko.actor.ActorSystem
 
@@ -40,22 +38,42 @@ class CantonLedgerApiServerFactory(
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
+  def createHaConfig(config: LocalParticipantConfig)(implicit
+      traceContext: TraceContext
+  ): HaConfig =
+    config.storage match {
+      case _: H2DbConfig =>
+        // For H2 the non-unique indexer lock ids are sufficient.
+        logger.debug("Not allocating indexer lock IDs on H2 config")
+        HaConfig()
+
+      case dbConfig: DbConfig =>
+        allocateIndexerLockIds(dbConfig).fold(
+          err => throw new IllegalStateException(s"Failed to allocated lock IDs for indexer: $err"),
+          _.fold(HaConfig()) { case IndexerLockIds(mainLockId, workerLockId) =>
+            HaConfig(indexerLockId = mainLockId, indexerWorkerLockId = workerLockId)
+          },
+        )
+
+      case _ =>
+        logger.debug("Not allocating indexer lock IDs on non-DB config")
+        HaConfig()
+    }
+
   def create(
       name: InstanceName,
       participantId: LedgerParticipantId,
       sync: CantonSyncService,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
+      ledgerApiIndexer: Eval[LedgerApiIndexer],
       config: LocalParticipantConfig,
       parameters: ParticipantNodeParameters,
       metrics: LedgerApiServerMetrics,
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
-      excludedPackageIds: Set[LfPackageId],
-      reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
-      traceContext: TraceContext,
       actorSystem: ActorSystem,
   ): EitherT[FutureUnlessShutdown, String, CantonLedgerApiServerWrapper.LedgerApiServerState] = {
 
@@ -70,29 +88,6 @@ class CantonLedgerApiServerFactory(
     }
 
     for {
-      // For participants with append-only schema enabled, we allocate lock IDs for the indexer
-      indexerLockIds <-
-        config.storage match {
-          case _: H2DbConfig =>
-            // For H2 the non-unique indexer lock ids are sufficient.
-            logger.debug("Not allocating indexer lock IDs on H2 config")
-            EitherT.rightT[FutureUnlessShutdown, String](None)
-          case dbConfig: DbConfig =>
-            allocateIndexerLockIds(dbConfig)
-              .leftMap { err =>
-                s"Failed to allocated lock IDs for indexer: $err"
-              }
-              .toEitherT[FutureUnlessShutdown]
-          case _ =>
-            logger.debug("Not allocating indexer lock IDs on non-DB config")
-            EitherT.rightT[FutureUnlessShutdown, String](None)
-        }
-
-      indexerHaConfig = indexerLockIds.fold(HaConfig()) {
-        case IndexerLockIds(mainLockId, workerLockId) =>
-          HaConfig(indexerLockId = mainLockId, indexerWorkerLockId = workerLockId)
-      }
-
       ledgerApiServer <- CantonLedgerApiServerWrapper
         .initialize(
           CantonLedgerApiServerWrapper.Config(
@@ -105,12 +100,9 @@ class CantonLedgerApiServerFactory(
                   )
               )
             ),
-            indexerConfig = parameters.ledgerApiServerParameters.indexer,
-            indexerHaConfig = indexerHaConfig,
             participantId = participantId,
             engine = engine,
             syncService = sync,
-            storageConfig = config.storage,
             cantonParameterConfig = parameters,
             testingTimeService = ledgerTestingTimeService,
             adminToken = adminToken,
@@ -133,9 +125,8 @@ class CantonLedgerApiServerFactory(
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
           parameters = parameters,
-          excludedPackageIds = excludedPackageIds,
           ledgerApiStore = participantNodePersistentState.map(_.ledgerApiStore),
-          reassignmentOffsetPersistence = reassignmentOffsetPersistence,
+          ledgerApiIndexer = ledgerApiIndexer,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message

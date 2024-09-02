@@ -421,7 +421,7 @@ final case class DynamicDomainParameters private (
   def toProtoV30: v30.DynamicDomainParameters = v30.DynamicDomainParameters(
     confirmationResponseTimeout = Some(confirmationResponseTimeout.toProtoPrimitive),
     mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
-    transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
+    assignmentExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
     topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
     ledgerTimeRecordTimeTolerance = Some(ledgerTimeRecordTimeTolerance.toProtoPrimitive),
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),

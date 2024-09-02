@@ -5,11 +5,8 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
-import com.digitalasset.canton.participant.store
-import com.digitalasset.canton.participant.store.MultiDomainEventLog
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -19,11 +16,7 @@ import scala.concurrent.Future
 class NoCommandDeduplicator extends CommandDeduplicator {
 
   override def processPublications(
-      publications: Seq[store.MultiDomainEventLog.OnPublish.Publication]
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.unit
-
-  override def processPublications(
-      publications: Vector[PostPublishData]
+      publications: Seq[PostPublishData]
   )(implicit traceContext: TraceContext): Future[Unit] = Future.unit
 
   /** Always returns an offset and never flags a duplication. */
@@ -37,7 +30,7 @@ class NoCommandDeduplicator extends CommandDeduplicator {
       case offset: DeduplicationPeriod.DeduplicationOffset =>
         EitherT(Future.successful(Either.right(offset)))
       case _: DeduplicationPeriod.DeduplicationDuration =>
-        val offset = UpstreamOffsetConvert.fromGlobalOffset(MultiDomainEventLog.ledgerFirstOffset)
+        val offset = Offset.firstOffset
         EitherT(Future.successful(Either.right(DeduplicationPeriod.DeduplicationOffset(offset))))
     }
 }

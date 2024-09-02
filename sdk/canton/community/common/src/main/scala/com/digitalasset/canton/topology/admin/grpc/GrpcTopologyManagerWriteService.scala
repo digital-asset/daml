@@ -160,28 +160,30 @@ class GrpcTopologyManagerWriteService(
     }
 
   override def signTransactions(
-      request: v30.SignTransactionsRequest
+      requestP: v30.SignTransactionsRequest
   ): Future[v30.SignTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res = for {
-      signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
-        request.transactions
+    val requestE = for {
+      signedTxs <-
+        requestP.transactions
           .traverse(tx =>
             SignedTopologyTransaction.fromProtoV30(ProtocolVersionValidation.NoValidation, tx)
           )
-          .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
-      )
       signingKeys <-
-        EitherT
-          .fromEither[FutureUnlessShutdown](
-            request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
-          )
-          .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+        requestP.signedBy.traverse(Fingerprint.fromProtoPrimitive)
+      forceFlags <- ForceFlags.fromProtoV30(requestP.forceFlags)
+    } yield (signedTxs, signingKeys, forceFlags)
 
-      targetManager <- targetManagerET(request.store)
+    val res = for {
+      request <- EitherT
+        .fromEither[FutureUnlessShutdown](requestE)
+        .leftMap(ProtoDeserializationFailure.Wrap(_))
+      (signedTxs, signingKeys, forceFlags) = request
+
+      targetManager <- targetManagerET(requestP.store)
 
       extendedTransactions <- signedTxs.parTraverse(tx =>
-        targetManager.extendSignature(tx, signingKeys).leftWiden[CantonError]
+        targetManager.extendSignature(tx, signingKeys, forceFlags).leftWiden[CantonError]
       )
     } yield extendedTransactions
 

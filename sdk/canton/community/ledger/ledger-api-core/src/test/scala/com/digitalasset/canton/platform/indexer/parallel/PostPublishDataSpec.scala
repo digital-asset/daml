@@ -181,38 +181,6 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
     ).getMessage shouldBe "If no messageUuid, then sequencer counter in request index should be present"
   }
 
-  it should "fail to populate post PostPublishData for TransactionAccepted without domain index" in {
-    intercept[IllegalStateException](
-      PostPublishData.from(
-        update = Traced(
-          TransactionAccepted(
-            completionInfoO = Some(
-              CompletionInfo(
-                actAs = List(party),
-                applicationId = applicationId,
-                commandId = commandId,
-                optDeduplicationPeriod = None,
-                submissionId = submissionId,
-                messageUuid = None,
-              )
-            ),
-            transactionMeta = transactionMeta,
-            transaction = CommittedTransaction(TransactionBuilder.Empty),
-            transactionId = transactionId,
-            recordTime = cantonTime2.underlying,
-            blindingInfoO = None,
-            hostedWitnesses = Nil,
-            contractMetadata = Map.empty,
-            domainId = domainId,
-            domainIndex = None,
-          )
-        )(TraceContext.empty),
-        offset = offset,
-        publicationTime = cantonTime1,
-      )
-    ).getMessage shouldBe "If no messageUuid, then sequencer counter in request index should be present"
-  }
-
   it should "populate post PostPublishData correctly for CommandRejected for sequenced" in {
     PostPublishData.from(
       update = Traced(

@@ -15,6 +15,7 @@ import com.digitalasset.canton.error.{CantonError, ParentCantonError}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.SyncStateInspectionError
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.domain.{
   DomainAliasManager,
@@ -22,7 +23,6 @@ import com.digitalasset.canton.participant.domain.{
   DomainRegistryError,
   DomainRegistryHelpers,
 }
-import com.digitalasset.canton.participant.store.ActiveContractStore.AcsError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   MigrationErrors,
@@ -49,7 +49,6 @@ class SyncDomainMigration(
       Unit,
     ],
     sequencerInfoLoader: SequencerInfoLoader,
-    connectedDomainsLookup: ConnectedDomainsLookup,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -140,13 +139,7 @@ class SyncDomainMigration(
     FutureUnlessShutdown,
     SyncServiceError,
     SequencerInfoLoader.SequencerAggregatedInfo,
-  ] = {
-    def mustBeOffline(alias: DomainAlias, domainId: DomainId) = EitherT.cond[FutureUnlessShutdown](
-      !connectedDomainsLookup.isConnected(domainId),
-      (),
-      SyncServiceError.SyncServiceDomainMustBeOffline.Error(alias): SyncServiceError,
-    )
-
+  ] =
     for {
       targetDomainInfo <- performUnlessClosingEitherU(functionFullName)(
         sequencerInfoLoader
@@ -179,16 +172,6 @@ class SyncDomainMigration(
           )
       )
 
-      sourceDomainId <- EitherT.fromEither[FutureUnlessShutdown](
-        aliasManager
-          .domainIdForAlias(source)
-          .toRight(
-            SyncServiceError.SyncServiceUnknownDomain.Error(source): SyncServiceError
-          )
-      )
-      _ <- mustBeOffline(source, sourceDomainId)
-      _ <- mustBeOffline(target.domain, targetDomainInfo.domainId)
-
       hasInFlightSubmissions <- performUnlessClosingEitherU(functionFullName)(
         inspection
           .hasInFlightSubmissions(source)
@@ -217,7 +200,6 @@ class SyncDomainMigration(
             )
             .leftWiden[SyncServiceError]
     } yield targetDomainInfo
-  }
 
   /** Performs the domain migration.
     * Assumes that [[isDomainMigrationPossible]] was called before to check preconditions.
@@ -336,7 +318,7 @@ class SyncDomainMigration(
       _ = logger.info(
         s"Found ${acs.size} contracts in the ACS of $sourceAlias that need to be migrated"
       )
-      // move contracts from one domain to the other domain using repair service in batches of 1000
+      // move contracts from one domain to the other domain using repair service in batches of batchSize
       _ <- performUnlessClosingEitherU(functionFullName)(
         repair.changeAssignation(
           acs.keys.toSeq,
@@ -432,7 +414,7 @@ object SyncDomainMigrationError extends MigrationErrors() {
         )
         with SyncDomainMigrationError
 
-    final case class FailedReadingAcs(source: DomainAlias, err: AcsError)(implicit
+    final case class FailedReadingAcs(source: DomainAlias, err: SyncStateInspectionError)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = show"Failed reading the ACS"

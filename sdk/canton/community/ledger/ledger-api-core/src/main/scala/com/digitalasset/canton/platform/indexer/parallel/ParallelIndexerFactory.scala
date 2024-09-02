@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.executors.InstrumentedExecutors
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.canton.ledger.participant.state.ReadService
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.ResourceOwnerOps
@@ -26,13 +26,14 @@ import com.digitalasset.canton.platform.store.backend.{
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueueConsumer}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.pekko.Done
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 
 import java.util.{Timer, concurrent}
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object ParallelIndexerFactory {
@@ -49,7 +50,7 @@ object ParallelIndexerFactory {
       parallelIndexerSubscription: ParallelIndexerSubscription[?],
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
-      readService: ReadService,
+      executionContext: ExecutionContext,
       initializeInMemoryState: LedgerEnd => Future[Unit],
       loggerFactory: NamedLoggerFactory,
       indexerDbDispatcherOverride: Option[DbDispatcher],
@@ -125,67 +126,107 @@ object ParallelIndexerFactory {
           )
         } else
           ResourceOwner.successful(NoopHaCoordinator)
-    } yield toIndexer { implicit resourceContext =>
-      implicit val ec: ExecutionContext = resourceContext.executionContext
-      haCoordinator.protectedExecution { connectionInitializer =>
-        val indexingHandleF = initializeHandle(
-          for {
-            dbDispatcher <- indexerDbDispatcherOverride
-              .map(ResourceOwner.successful)
-              .getOrElse(
-                DbDispatcher
-                  .owner(
-                    // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-                    // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-                    dataSource = dataSourceStorageBackend.createDataSource(
-                      dataSourceConfig = dbConfig.dataSourceConfig,
-                      connectionInitHook = Some(connectionInitializer.initialize),
+    } yield { (repairMode: Boolean) => (commit: Commit) =>
+      implicit val ec: ExecutionContext = executionContext
+      implicit val rc: ResourceContext = ResourceContext(ec)
+      val futureQueueConsumerFactoryPromise =
+        Promise[Future[Done] => FutureQueueConsumer[Traced[Update]]]()
+      val haProtectedExecutionHandle = haCoordinator
+        .protectedExecution { connectionInitializer =>
+          val indexingHandleF = initializeHandle(
+            for {
+              dbDispatcher <- indexerDbDispatcherOverride
+                .map(ResourceOwner.successful)
+                .getOrElse(
+                  DbDispatcher
+                    .owner(
+                      // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+                      // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+                      dataSource = dataSourceStorageBackend.createDataSource(
+                        dataSourceConfig = dbConfig.dataSourceConfig,
+                        connectionInitHook = Some(connectionInitializer.initialize),
+                        loggerFactory = loggerFactory,
+                      ),
+                      serverRole = ServerRole.Indexer,
+                      connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
+                      connectionTimeout = dbConfig.connectionPool.connectionTimeout,
+                      metrics = metrics,
                       loggerFactory = loggerFactory,
-                    ),
-                    serverRole = ServerRole.Indexer,
-                    connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
-                    connectionTimeout = dbConfig.connectionPool.connectionTimeout,
-                    metrics = metrics,
-                    loggerFactory = loggerFactory,
-                  )
-                  .afterReleased(logger.debug("Indexing DbDispatcher released"))
+                    )
+                    .afterReleased(logger.debug("Indexing DbDispatcher released"))
+                )
+              _ <- meteringAggregator(dbDispatcher)
+                .afterReleased(logger.debug("Metering Aggregator released"))
+            } yield dbDispatcher
+          ) { dbDispatcher =>
+            for {
+              initialized <- initializeParallelIngestion(
+                dbDispatcher = dbDispatcher,
+                initializeInMemoryState = initializeInMemoryState,
               )
-            _ <- meteringAggregator(dbDispatcher)
-              .afterReleased(logger.debug("Metering Aggregator released"))
-          } yield dbDispatcher
-        ) { dbDispatcher =>
-          initializeParallelIngestion(
-            dbDispatcher = dbDispatcher,
-            initializeInMemoryState = initializeInMemoryState,
-            readService = readService,
-          ).map(initialized =>
-            parallelIndexerSubscription(
-              inputMapperExecutor = inputMapperExecutor,
-              batcherExecutor = batcherExecutor,
-              dbDispatcher = dbDispatcher,
-              materializer = mat,
-              initialized = initialized,
-              clock = clock,
-              repairMode = false, // TODO(i18695): wire in the big bang PR
-            )
-          )
-        }
-        indexingHandleF.onComplete {
-          case Success(indexingHandle) =>
-            logger.info("Indexer initialized, indexing started.")
-            indexingHandle.completed.onComplete {
-              case Success(_) =>
-                logger.info("Indexing finished.")
-
-              case Failure(failure) =>
-                logger.info(s"Indexing finished with failure: ${failure.getMessage}")
+              (handle, futureQueueForCompletion) = parallelIndexerSubscription(
+                inputMapperExecutor = inputMapperExecutor,
+                batcherExecutor = batcherExecutor,
+                dbDispatcher = dbDispatcher,
+                materializer = mat,
+                initialized = initialized,
+                commit = commit,
+                clock = clock,
+                repairMode = repairMode,
+              )
+            } yield {
+              futureQueueConsumerFactoryPromise.success(completion =>
+                FutureQueueConsumer(
+                  futureQueue = futureQueueForCompletion(completion),
+                  fromExclusive = initialized.initialLastOffset.toLong,
+                )
+              )
+              handle
             }
+          }
+          indexingHandleF.onComplete {
+            case Success(indexingHandle) =>
+              logger.info("Indexer initialized, indexing started.")
+              // in this case futureQueueConsumerPromise is already completed successfully (see above)
+              indexingHandle.completed.onComplete {
+                case Success(_) =>
+                  logger.info("Indexing finished.")
+
+                case Failure(failure) =>
+                  logger.info(s"Indexing finished with failure: ${failure.getMessage}")
+              }
+
+            case Failure(failure) =>
+              logger.info(s"Indexer initialization failed: ${failure.getMessage}")
+            // in this case we entered the protected execution, but failed initialization,
+            // futureQueueConsumerPromise cannot be set from here to failure, since the HA protected surroundings
+            // need to be torn down first
+          }
+          indexingHandleF
+        }
+
+      haProtectedExecutionHandle.completed
+        .onComplete {
+          case Success(_) =>
+            // here the indexing finished successfully and everything torn down successfully too
+            // here we attempt to complete futureQueueConsumerPromise since if it is not completed yet,
+            // it would be a programming error
+            futureQueueConsumerFactoryPromise.tryFailure(
+              new IllegalStateException(
+                "Programming error: at this point the futureQueueConsumer should be already completed."
+              )
+            )
 
           case Failure(failure) =>
-            logger.info(s"Indexer initialization failed: ${failure.getMessage}")
+            // in either case of failures we try to complete the futureQueueConsumerPromise,
+            // but in the case indexing failed/aborted we already should have it completed,
+            // so this should succeed if failure arises during HA initialization or indexer initialization.
+            futureQueueConsumerFactoryPromise.tryFailure(failure)
         }
-        indexingHandleF
-      }
+      // so that the resulting FutureQueue in the FutureQueueConsumer has a completion future, which completes after not only indexing, but after indexing resources and HA protected execution are both torn down
+      futureQueueConsumerFactoryPromise.future.map(
+        _(haProtectedExecutionHandle.completed.map(_ => Done))
+      )
     }
   }
 
@@ -223,19 +264,4 @@ object ParallelIndexerFactory {
     killSwitchPromise.future
       .map(Handle(completed, _))
   }
-
-  def toIndexer(subscription: ResourceContext => Handle): Indexer =
-    new Indexer {
-      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] =
-        Resource {
-          Future {
-            subscription(context)
-          }
-        } { handle =>
-          handle.killSwitch.shutdown()
-          handle.completed.recover { case NonFatal(_) =>
-            ()
-          }
-        }.map(_.completed)
-    }
 }

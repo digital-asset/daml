@@ -5,9 +5,10 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
 import com.digitalasset.canton.metrics.IndexedUpdatesMetrics
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -107,7 +108,8 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       hostedWitnesses = Nil,
       Map.empty,
       domainId = DomainId.tryFromString("da::default"),
-      domainIndex = None,
+      domainIndex =
+        Some(DomainIndex.of(RequestIndex(RequestCounter(10), None, CantonTimestamp.now()))),
     )
 
     "extract transaction metering" in {

@@ -9,12 +9,18 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
-import com.digitalasset.canton.data.ViewType.TransferInViewType
+import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.data.*
-import com.digitalasset.canton.ledger.participant.state.CompletionInfo
+import com.digitalasset.canton.ledger.participant.state.{
+  CompletionInfo,
+  DomainIndex,
+  Reassignment,
+  ReassignmentInfo,
+  RequestIndex,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -36,7 +42,6 @@ import com.digitalasset.canton.participant.protocol.{
 }
 import com.digitalasset.canton.participant.store.ActiveContractStore.Archived
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
@@ -45,7 +50,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -74,7 +79,7 @@ private[transfer] class TransferInProcessingSteps(
     extends TransferProcessingSteps[
       SubmissionParam,
       SubmissionResult,
-      TransferInViewType,
+      AssignmentViewType,
       PendingTransferIn,
     ]
     with NamedLogging {
@@ -84,7 +89,7 @@ private[transfer] class TransferInProcessingSteps(
   override def requestKind: String = "TransferIn"
 
   override def submissionDescription(param: SubmissionParam): String =
-    s"Submitter ${param.submitterMetadata.submitter}, transferId ${param.transferId}"
+    s"Submitter ${param.submitterMetadata.submitter}, reassignmentId ${param.reassignmentId}"
 
   override type SubmissionResultArgs = PendingTransferSubmission
 
@@ -117,7 +122,7 @@ private[transfer] class TransferInProcessingSteps(
 
     val SubmissionParam(
       submitterMetadata,
-      transferId,
+      reassignmentId,
     ) = submissionParam
     val topologySnapshot = recentSnapshot.ipsSnapshot
     val pureCrypto = recentSnapshot.pureCrypto
@@ -132,7 +137,7 @@ private[transfer] class TransferInProcessingSteps(
             Either.cond(
               participants.nonEmpty,
               participants,
-              NoParticipantForReceivingParty(transferId, party),
+              NoParticipantForReceivingParty(reassignmentId, party),
             )
           }
           .map(_.toSet.flatten)
@@ -141,27 +146,27 @@ private[transfer] class TransferInProcessingSteps(
 
     for {
       transferData <- ephemeralState.transferLookup
-        .lookup(transferId)
-        .leftMap(err => NoTransferData(transferId, err))
+        .lookup(reassignmentId)
+        .leftMap(err => NoTransferData(reassignmentId, err))
         .mapK(FutureUnlessShutdown.outcomeK)
       transferOutResult <- EitherT.fromEither[FutureUnlessShutdown](
-        transferData.transferOutResult.toRight(TransferOutIncomplete(transferId, participantId))
+        transferData.transferOutResult.toRight(TransferOutIncomplete(reassignmentId, participantId))
       )
 
       targetDomain = transferData.targetDomain
       _ = if (targetDomain != domainId)
         throw new IllegalStateException(
-          s"Transfer-in $transferId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
+          s"Transfer-in $reassignmentId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
         )
 
       stakeholders = transferData.transferOutRequest.stakeholders
       _ <- condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
-        SubmittingPartyMustBeStakeholderIn(transferId, submitter, stakeholders),
+        SubmittingPartyMustBeStakeholderIn(reassignmentId, submitter, stakeholders),
       )
 
       _ <- CanSubmitTransfer
-        .transferIn(transferId, topologySnapshot, submitter, participantId)
+        .transferIn(reassignmentId, topologySnapshot, submitter, participantId)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       transferInUuid = seedGenerator.generateUuid()
@@ -199,7 +204,7 @@ private[transfer] class TransferInProcessingSteps(
           .toRight(NoStakeholders.logAndCreate(transferData.contract.contractId, logger))
       )
       viewMessage <- EncryptedViewMessageFactory
-        .create(TransferInViewType)(
+        .create(AssignmentViewType)(
           fullTree,
           recentSnapshot,
           ephemeralState.sessionKeyStoreLookup,
@@ -212,7 +217,7 @@ private[transfer] class TransferInProcessingSteps(
           rootHash,
           domainId.unwrap,
           targetProtocolVersion.v,
-          ViewType.TransferInViewType,
+          ViewType.AssignmentViewType,
           recentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
         )
@@ -243,7 +248,7 @@ private[transfer] class TransferInProcessingSteps(
   ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
-      Some(submissionParam.transferId),
+      Some(submissionParam.reassignmentId),
       submissionParam.submitterLf,
       submissionId,
     )
@@ -258,7 +263,7 @@ private[transfer] class TransferInProcessingSteps(
       snapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
   )(
-      envelope: OpenEnvelope[EncryptedViewMessage[TransferInViewType]]
+      envelope: OpenEnvelope[EncryptedViewMessage[AssignmentViewType]]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
@@ -295,16 +300,16 @@ private[transfer] class TransferInProcessingSteps(
       )
       val activenessSet = ActivenessSet(
         contracts = contractCheck,
-        transferIds =
-          if (parsedRequest.transferringParticipant)
-            Set(parsedRequest.fullViewTree.transferOutResultEvent.transferId)
+        reassignmentIds =
+          if (parsedRequest.isReassigningParticipant)
+            Set(parsedRequest.fullViewTree.transferOutResultEvent.reassignmentId)
           else Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedDomain(
-          parsedRequest.fullViewTree.transferOutResultEvent.transferId,
+          parsedRequest.fullViewTree.transferOutResultEvent.reassignmentId,
           targetDomain = parsedRequest.fullViewTree.domainId,
           receivedOn = domainId.unwrap,
         )
@@ -332,7 +337,7 @@ private[transfer] class TransferInProcessingSteps(
       _,
       _,
       _,
-      transferringParticipant,
+      isReassigningParticipant,
       _,
       mediator,
       targetCrypto,
@@ -340,7 +345,7 @@ private[transfer] class TransferInProcessingSteps(
     ) = parsedRequest
 
     val requestId = RequestId(ts)
-    val transferId = fullViewTree.transferOutResultEvent.transferId
+    val reassignmentId = fullViewTree.transferOutResultEvent.reassignmentId
 
     // We perform the stakeholders check asynchronously so that we can complete the pending request
     // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
@@ -364,7 +369,7 @@ private[transfer] class TransferInProcessingSteps(
 
       transferDataO <- EitherT
         .right[TransferProcessorError](
-          transferLookup.lookup(transferId).toOption.value
+          transferLookup.lookup(reassignmentId).toOption.value
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       validationResultO <- transferInValidation
@@ -373,7 +378,7 @@ private[transfer] class TransferInProcessingSteps(
           fullViewTree,
           transferDataO,
           targetCrypto,
-          transferringParticipant,
+          isReassigningParticipant,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -390,7 +395,7 @@ private[transfer] class TransferInProcessingSteps(
               validationResultO,
             )
           )
-          .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
+          .leftMap(e => FailedToCreateResponse(reassignmentId, e): TransferProcessorError)
       } yield {
         transferResponses.map(_ -> Recipients.cc(mediator))
       }
@@ -419,8 +424,8 @@ private[transfer] class TransferInProcessingSteps(
         fullViewTree.transferCounter,
         fullViewTree.submitterMetadata,
         fullViewTree.creatingTransactionId,
-        transferringParticipant,
-        transferId,
+        isReassigningParticipant,
+        reassignmentId,
         hostedStks.toSet,
         mediator,
         locallyRejectedF,
@@ -534,8 +539,8 @@ private[transfer] class TransferInProcessingSteps(
       transferCounter,
       submitterMetadata,
       creatingTransactionId,
-      transferringParticipant,
-      transferId,
+      isReassigningParticipant,
+      reassignmentId,
       hostedStakeholders,
       _,
       _locallyRejectedF,
@@ -560,7 +565,7 @@ private[transfer] class TransferInProcessingSteps(
           transferIns = Map(
             contract.contractId ->
               CommitSet.TransferInCommit(
-                transferId,
+                reassignmentId,
                 contract.metadata,
                 transferCounter,
               )
@@ -570,28 +575,22 @@ private[transfer] class TransferInProcessingSteps(
         val contractsToBeStored = Seq(WithTransactionId(contract, creatingTransactionId))
 
         for {
-          event <- createTransferredIn(
+          update <- createReassignmentAccepted(
             contract,
-            creatingTransactionId,
             requestId.unwrap,
             submitterMetadata,
-            transferId,
+            reassignmentId,
             rootHash,
-            isTransferringParticipant = transferringParticipant,
+            isReassigningParticipant = isReassigningParticipant,
             transferCounter,
             hostedStakeholders.toList,
-          )
-          timestampEvent = Some(
-            TimestampedEvent(
-              event,
-              RequestOffset(requestId.unwrap, requestCounter),
-              Some(requestSequencerCounter),
-            )
+            requestCounter,
+            requestSequencerCounter,
           )
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetO,
           contractsToBeStored,
-          timestampEvent,
+          Some(Traced(update)),
         )
 
       case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
@@ -600,17 +599,18 @@ private[transfer] class TransferInProcessingSteps(
     }
   }.mapK(FutureUnlessShutdown.outcomeK)
 
-  private[transfer] def createTransferredIn(
+  private[transfer] def createReassignmentAccepted(
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
       recordTime: CantonTimestamp,
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       rootHash: RootHash,
-      isTransferringParticipant: Boolean,
+      isReassigningParticipant: Boolean,
       transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
-  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredIn] = {
+      requestCounter: RequestCounter,
+      requestSequencerCounter: SequencerCounter,
+  ): EitherT[Future, TransferProcessorError, Update] = {
     val targetDomain = domainId
     val contractInst = contract.contractInstance.unversioned
     val createNode: LfNodeCreate =
@@ -633,16 +633,9 @@ private[transfer] class TransferInProcessingSteps(
     for {
       updateId <- EitherT.fromEither[Future](
         rootHash.asLedgerTransactionId.leftMap[TransferProcessorError](
-          FieldConversionError(transferId, "Transaction id (root hash)", _)
+          FieldConversionError(reassignmentId, "Transaction id (root hash)", _)
         )
       )
-
-      ledgerCreatingTransactionId <- EitherT.fromEither[Future](
-        creatingTransactionId.asLedgerTransactionId.leftMap[TransferProcessorError](
-          FieldConversionError(transferId, "Transaction id (creating transaction)", _)
-        )
-      )
-
       completionInfo =
         Option.when(participantId == submitterMetadata.submittingParticipant)(
           CompletionInfo(
@@ -654,21 +647,34 @@ private[transfer] class TransferInProcessingSteps(
             messageUuid = None,
           )
         )
-    } yield LedgerSyncEvent.TransferredIn(
-      updateId = updateId,
+    } yield Update.ReassignmentAccepted(
       optCompletionInfo = completionInfo,
-      submitter = Option(submitterMetadata.submitter),
-      recordTime = recordTime.toLf,
-      ledgerCreateTime = contract.ledgerCreateTime.toLf,
-      createNode = createNode,
-      creatingTransactionId = ledgerCreatingTransactionId,
-      contractMetadata = driverContractMetadata,
-      transferId = transferId,
-      targetDomain = targetDomain,
       workflowId = submitterMetadata.workflowId,
-      isTransferringParticipant = isTransferringParticipant,
-      hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter,
+      updateId = updateId,
+      recordTime = recordTime.toLf,
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = reassignmentId.sourceDomain,
+        targetDomain = targetDomain,
+        submitter = Option(submitterMetadata.submitter),
+        reassignmentCounter = transferCounter.unwrap,
+        hostedStakeholders = hostedStakeholders,
+        unassignId = reassignmentId.transferOutTimestamp,
+        isReassigningParticipant = isReassigningParticipant,
+      ),
+      reassignment = Reassignment.Assign(
+        ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
+        createNode = createNode,
+        contractMetadata = driverContractMetadata,
+      ),
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            counter = requestCounter,
+            sequencerCounter = Some(requestSequencerCounter),
+            timestamp = recordTime,
+          )
+        )
+      ),
     )
   }
 }
@@ -677,7 +683,7 @@ object TransferInProcessingSteps {
 
   final case class SubmissionParam(
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
   ) {
     val submitterLf: LfPartyId = submitterMetadata.submitter
   }
@@ -693,8 +699,8 @@ object TransferInProcessingSteps {
       transferCounter: TransferCounter,
       submitterMetadata: TransferSubmitterMetadata,
       creatingTransactionId: TransactionId,
-      isTransferringParticipant: Boolean,
-      transferId: TransferId,
+      isReassigningParticipant: Boolean,
+      reassignmentId: ReassignmentId,
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorGroupRecipient,
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],

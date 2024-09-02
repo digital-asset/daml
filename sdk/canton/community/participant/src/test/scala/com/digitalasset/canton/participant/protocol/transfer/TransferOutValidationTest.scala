@@ -59,7 +59,7 @@ class TransferOutValidationTest
 
   val contractId = ExampleTransactionFactory.suffixedId(10, 0)
 
-  val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
+  val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
   val uuid = new UUID(3L, 4L)
   private val pureCrypto = new SymbolicPureCrypto
   private val seedGenerator = new SeedGenerator(pureCrypto)
@@ -159,7 +159,7 @@ class TransferOutValidationTest
       Set(participant.adminParty.toLf),
       ExampleTransactionFactory.transactionId(0),
       contract,
-      transferId.sourceDomain,
+      reassignmentId.sourceDomain,
       sourceProtocolVersion,
       sourceMediator,
       targetDomain,

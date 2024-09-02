@@ -36,6 +36,7 @@ class HaCoordinatorSpec
   private val timer = new Timer(true)
 
   private val mainLockAcquireRetryTimeout = NonNegativeFiniteDuration.ofMillis(20)
+  private val mainLockAcquireMaxRetries = 1000000L
   private val workerLockAcquireRetryTimeout = NonNegativeFiniteDuration.ofMillis(20)
   private val mainLockCheckerPeriod = NonNegativeFiniteDuration.ofMillis(20)
   private val timeoutTolerance = NonNegativeFiniteDuration.ofSeconds(
@@ -904,6 +905,7 @@ class HaCoordinatorSpec
         timer = timer,
         haConfig = HaConfig(
           mainLockAcquireRetryTimeout = mainLockAcquireRetryTimeout,
+          mainLockAcquireMaxRetries = NonNegativeLong.tryCreate(mainLockAcquireMaxRetries),
           workerLockAcquireRetryTimeout = workerLockAcquireRetryTimeout,
           workerLockAcquireMaxRetries = workerLockAcquireMaxRetries,
           mainLockCheckerPeriod = mainLockCheckerPeriod,

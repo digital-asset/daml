@@ -65,13 +65,13 @@ private[protocol] trait ConflictDetectionHelpers {
       store: TransferStore =
         new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
   )(
-      entries: (TransferId, MediatorGroupRecipient)*
+      entries: (ReassignmentId, MediatorGroupRecipient)*
   )(implicit traceContext: TraceContext): Future[TransferCache] =
     Future
-      .traverse(entries) { case (transferId, sourceMediator) =>
+      .traverse(entries) { case (reassignmentId, sourceMediator) =>
         for {
           transfer <- TransferStoreTest.mkTransferDataForDomain(
-            transferId,
+            reassignmentId,
             sourceMediator,
             targetDomainId = TransferStoreTest.targetDomain,
           )
@@ -126,7 +126,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       create: Set[LfContractId] = Set.empty,
       tfIn: Set[LfContractId] = Set.empty,
       prior: Set[LfContractId] = Set.empty,
-      transferIds: Set[TransferId] = Set.empty,
+      reassignmentIds: Set[ReassignmentId] = Set.empty,
   ): ActivenessSet = {
     val contracts = ActivenessCheck.tryCreate(
       checkFresh = create,
@@ -137,7 +137,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
     )
     ActivenessSet(
       contracts = contracts,
-      transferIds = transferIds,
+      reassignmentIds = reassignmentIds,
     )
   }
 
@@ -165,7 +165,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       notFree: Map[LfContractId, ActiveContractStore.Status] = Map.empty,
       notActive: Map[LfContractId, ActiveContractStore.Status] = Map.empty,
       prior: Map[LfContractId, Option[ActiveContractStore.Status]] = Map.empty,
-      inactiveTransfers: Set[TransferId] = Set.empty,
+      inactiveTransfers: Set[ReassignmentId] = Set.empty,
   ): ActivenessResult = {
     val contracts = ActivenessCheckResult(
       alreadyLocked = locked,
@@ -185,7 +185,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
       tfOut: Map[LfContractId, (DomainId, TransferCounter)] = Map.empty,
-      tfIn: Map[LfContractId, TransferId] = Map.empty,
+      tfIn: Map[LfContractId, ReassignmentId] = Map.empty,
   ): CommitSet =
     CommitSet(
       archivals = arch

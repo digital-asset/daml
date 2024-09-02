@@ -92,7 +92,6 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    // TODO(#18394): Implement batch db write for BS sequencer writes, align with DBS batching
     MonadUtil
       .sequentialTraverse_(orderedOutcomes) {
         case _: SubmissionOutcome.Discard.type =>

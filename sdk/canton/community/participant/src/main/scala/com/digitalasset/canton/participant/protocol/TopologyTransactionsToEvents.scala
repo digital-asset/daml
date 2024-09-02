@@ -11,6 +11,7 @@ import com.digitalasset.canton.topology.store.SignedTopologyTransactions.Positiv
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 
+// TODO(i18695): Remove
 // TODO(#15087) Design proper events and change implementation
 /*
   This is for the PoC only. It does not take into account the domainId nor

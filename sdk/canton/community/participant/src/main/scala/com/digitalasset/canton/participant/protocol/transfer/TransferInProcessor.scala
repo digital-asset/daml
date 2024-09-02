@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.data.ViewType.TransferInViewType
+import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -44,7 +44,7 @@ class TransferInProcessor(
     extends ProtocolProcessor[
       TransferInProcessingSteps.SubmissionParam,
       TransferInProcessingSteps.SubmissionResult,
-      TransferInViewType,
+      AssignmentViewType,
       TransferProcessorError,
     ](
       new TransferInProcessingSteps(

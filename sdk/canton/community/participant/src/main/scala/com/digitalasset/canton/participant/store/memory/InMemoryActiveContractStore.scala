@@ -264,7 +264,7 @@ class InMemoryActiveContractStore(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
-    logger.trace(s"Transferring-in contracts: $transferIns")
+    logger.trace(s"Assigning contracts: $transferIns")
 
     for {
       preparedTransfers <- prepareTransfers(transferIns)
@@ -280,7 +280,7 @@ class InMemoryActiveContractStore(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
-    logger.trace(s"Transferring-out contracts: $transferOuts")
+    logger.trace(s"Unassigning contracts: $transferOuts")
 
     for {
       preparedTransfers <- prepareTransfers(transferOuts)

@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -107,7 +107,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
       timeoutHandler: MessageId => Future[Unit],
-      trafficStateController: Option[TrafficStateController],
+      val trafficStateController: Option[TrafficStateController],
   )(implicit executionContext: ExecutionContext)
       extends SendTracker(
         initialPendingSends,
@@ -155,6 +155,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       futureSupervisor,
       timeouts,
       new TrafficConsumptionMetrics(MetricName("test"), metricsFactory(histogramInventory)),
+      domainId,
     )
     val tracker =
       new MySendTracker(
@@ -218,8 +219,24 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
             )
           )
         )
+        _ = tracker.trafficStateController.value.updateBalance(
+          NonNegativeLong.tryCreate(20),
+          PositiveInt.one,
+          CantonTimestamp.MaxValue,
+        )
       } yield {
+        assertLongValue("test.extra-traffic-purchased", 20L)
+        assertInContext(
+          "test.extra-traffic-purchased",
+          "member",
+          DefaultTestIdentities.participant1.toString,
+        )
         assertLongValue("test.event-delivered-cost", 1L)
+        assertInContext(
+          "test.event-delivered-cost",
+          "domain",
+          domainId.toString,
+        )
         assertInContext(
           "test.event-delivered-cost",
           "member",
@@ -232,6 +249,11 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
           "test.extra-traffic-consumed",
           "member",
           DefaultTestIdentities.participant1.toString,
+        )
+        assertInContext(
+          "test.extra-traffic-consumed",
+          "domain",
+          domainId.toString,
         )
         // But not the event agnostic metrics
         assertNotInContext("test.extra-traffic-consumed", "test")

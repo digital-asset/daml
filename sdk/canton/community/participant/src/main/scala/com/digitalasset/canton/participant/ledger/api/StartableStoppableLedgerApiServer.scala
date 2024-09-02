@@ -12,12 +12,13 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.auth.CantonAdminTokenAuthService
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
@@ -35,10 +36,7 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.metrics.{
-  TimedReadService,
-  TimedWriteService,
-}
+import com.digitalasset.canton.ledger.participant.state.metrics.TimedWriteService
 import com.digitalasset.canton.ledger.participant.state.{InternalStateService, WriteService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -50,7 +48,6 @@ import com.digitalasset.canton.networking.grpc.{
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
-import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
@@ -61,17 +58,10 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManageme
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner
-import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
-import com.digitalasset.canton.platform.indexer.{
-  IndexerConfig,
-  IndexerServiceOwner,
-  IndexerStartupMode,
-}
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
@@ -95,9 +85,8 @@ class StartableStoppableLedgerApiServer(
     futureSupervisor: FutureSupervisor,
     parameters: ParticipantNodeParameters,
     commandProgressTracker: CommandProgressTracker,
-    excludedPackageIds: Set[LfPackageId],
     ledgerApiStore: Eval[LedgerApiStore],
-    reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
+    ledgerApiIndexer: Eval[LedgerApiIndexer],
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -133,7 +122,7 @@ class StartableStoppableLedgerApiServer(
     execQueue.execute(
       performUnlessClosingF(functionFullName) {
         ledgerApiResource.get match {
-          case Some(_ledgerApiAlreadyStarted) =>
+          case Some(_) =>
             logger.info(
               "Attempt to start ledger API server, but ledger API server already started. Ignoring."
             )
@@ -144,7 +133,7 @@ class StartableStoppableLedgerApiServer(
                 ResourceContext(executionContext)
               )
             FutureUtil.logOnFailure(
-              ledgerApiServerResource.asFuture.map { _unit =>
+              ledgerApiServerResource.asFuture.map { _ =>
                 ledgerApiResource.set(Some(ledgerApiServerResource))
               },
               "Failed to start ledger API server",
@@ -164,7 +153,7 @@ class StartableStoppableLedgerApiServer(
         case Some(ledgerApiServerToStop) =>
           config.syncService.unregisterInternalStateService()
           FutureUtil.logOnFailure(
-            ledgerApiServerToStop.release().map { _unit =>
+            ledgerApiServerToStop.release().map { _ =>
               logger.debug("Successfully stopped ledger API server")
               ledgerApiResource.set(None)
             },
@@ -191,14 +180,6 @@ class StartableStoppableLedgerApiServer(
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
 
-    val startupMode: IndexerStartupMode = config.storageConfig match {
-      // ledger api server needs an H2 db to run in memory
-      case _: MemoryStorageConfig => IndexerStartupMode.MigrateAndStart
-      case _ => IndexerStartupMode.JustStart
-    }
-    val numIndexer = config.indexerConfig.ingestionParallelism.unwrap
-    logger.info(s"Creating indexer storage, num-indexer: $numIndexer")
-
     val indexServiceConfig = config.serverConfig.indexService
 
     val authService = new CantonAdminTokenAuthService(
@@ -219,46 +200,10 @@ class StartableStoppableLedgerApiServer(
         ApiInfoServiceGrpc.bindService(this, executionContext)
     }
     val dbSupport = ledgerApiStore.value.ledgerApiDbSupport
+    val inMemoryState = ledgerApiIndexer.value.inMemoryState
+    val timedWriteService = new TimedWriteService(config.syncService, config.metrics)
 
     for {
-      (inMemoryState, inMemoryStateUpdaterFlow) <-
-        LedgerApiServer.createInMemoryStateAndUpdater(
-          commandProgressTracker,
-          indexServiceConfig,
-          config.serverConfig.commandService.maxCommandsInFlight,
-          config.metrics,
-          executionContext,
-          tracer,
-          loggerFactory,
-        )(ledgerApiStore.value.ledgerEndCache, ledgerApiStore.value.stringInterningView)
-      timedWriteService = new TimedWriteService(config.syncService, config.metrics)
-      timedReadService = new TimedReadService(config.syncService, config.metrics)
-      indexerHealth <- new IndexerServiceOwner(
-        config.participantId,
-        DbSupport.ParticipantDataSourceConfig(ledgerApiStore.value.ledgerApiStorage.jdbcUrl),
-        timedReadService,
-        config.indexerConfig,
-        config.metrics,
-        inMemoryState,
-        inMemoryStateUpdaterFlow,
-        executionContext,
-        tracer,
-        loggerFactory,
-        startupMode = startupMode,
-        dataSourceProperties = DbSupport.DataSourceProperties(
-          connectionPool = IndexerConfig
-            .createConnectionPoolConfig(
-              ingestionParallelism = config.indexerConfig.ingestionParallelism.unwrap,
-              connectionTimeout = config.serverConfig.databaseConnectionTimeout.underlying,
-            ),
-          postgres = config.serverConfig.postgresDataSource,
-        ),
-        highAvailability = config.indexerHaConfig,
-        indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
-        excludedPackageIds,
-        config.clock,
-        reassignmentOffsetPersistence,
-      )
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
         ContractLoader.create(
@@ -352,9 +297,9 @@ class StartableStoppableLedgerApiServer(
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
         writeService = timedWriteService,
         healthChecks = new HealthChecks(
-          "read" -> timedReadService,
+          // TODO(i21015): Possible issues with health check reporting: disconnected sequencer can be reported as healthy; possibly reporting protocol processing/CantonSyncService general health needed
           "write" -> (() => config.syncService.currentWriteHealth()),
-          "indexer" -> indexerHealth,
+          "indexer" -> ledgerApiIndexer.value.indexerHealth,
         ),
         metrics = config.metrics,
         timeServiceBackend = config.testingTimeService,

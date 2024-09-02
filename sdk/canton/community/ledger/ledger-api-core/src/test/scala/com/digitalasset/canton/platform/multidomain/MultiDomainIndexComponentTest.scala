@@ -3,8 +3,15 @@
 
 package com.digitalasset.canton.platform.multidomain
 
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
+import com.digitalasset.canton.ledger.participant.state.{
+  DomainIndex,
+  Reassignment,
+  ReassignmentInfo,
+  RequestIndex,
+  Update,
+}
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
@@ -31,14 +38,14 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
         observers = Set.empty,
       )
     val updateId = Ref.TransactionId.assertFromString("UpdateId")
-
+    val recordTime = Time.Timestamp.now()
     ingestUpdates(
       Traced(
         Update.ReassignmentAccepted(
           optCompletionInfo = None,
           workflowId = None,
           updateId = updateId,
-          recordTime = Time.Timestamp.now(),
+          recordTime = recordTime,
           reassignmentInfo = ReassignmentInfo(
             sourceDomain = SourceDomainId(domain1),
             targetDomain = TargetDomainId(domain2),
@@ -46,14 +53,22 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
             reassignmentCounter = 15L,
             hostedStakeholders = List(party),
             unassignId = CantonTimestamp.now(),
-            isTransferringParticipant = true,
+            isReassigningParticipant = true,
           ),
           reassignment = Reassignment.Assign(
             ledgerEffectiveTime = Time.Timestamp.now(),
             createNode = createNode,
             contractMetadata = Bytes.Empty,
           ),
-          domainIndex = None,
+          domainIndex = Some(
+            DomainIndex.of(
+              RequestIndex(
+                counter = RequestCounter(0),
+                sequencerCounter = None,
+                timestamp = CantonTimestamp(recordTime),
+              )
+            )
+          ),
         )
       )
     )

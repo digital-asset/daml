@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.CloseableTest
-import com.digitalasset.canton.config.DefaultPorts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DefaultPorts, TestingConfigInternal}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.{MetricsFactoryType, ScopedInMemoryMetricsFactory}
@@ -72,6 +72,7 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
       initialConfig: E#Config = envDef.generateConfig,
       configTransform: E#Config => E#Config = identity,
       runPlugins: EnvironmentSetupPlugin[E, TCE] => Boolean = _ => true,
+      testConfigTransform: TestingConfigInternal => TestingConfigInternal = identity,
   ): TCE = {
     val testConfig = initialConfig
     // note: beforeEnvironmentCreate may well have side-effects (e.g. starting databases or docker containers)
@@ -91,22 +92,24 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
       envDef.environmentFactory.create(
         finalConfig,
         loggerFactory,
-        envDef.testingConfig.copy(
-          metricsFactoryType =
-            /* If metrics reporters were configured for the test then it's an externally observed test
-             * therefore actual metrics have to be reported.
-             * The in memory metrics are used when no reporters are configured and the metrics are
-             * observed directly in the test scenarios.
-             *
-             * In this case, you can grab the metrics from the [[MetricsRegistry.generateMetricsFactory]] method,
-             * which is accessible using env.environment.metricsRegistry
-             *
-             * */
-            if (finalConfig.monitoring.metrics.reporters.isEmpty)
-              MetricsFactoryType.InMemory(scopedMetricsFactory)
-            else MetricsFactoryType.External,
-          initializeGlobalOpenTelemetry = false,
-          sequencerTransportSeed = Some(1L),
+        testConfigTransform(
+          envDef.testingConfig.copy(
+            metricsFactoryType =
+              /* If metrics reporters were configured for the test then it's an externally observed test
+               * therefore actual metrics have to be reported.
+               * The in memory metrics are used when no reporters are configured and the metrics are
+               * observed directly in the test scenarios.
+               *
+               * In this case, you can grab the metrics from the [[MetricsRegistry.generateMetricsFactory]] method,
+               * which is accessible using env.environment.metricsRegistry
+               *
+               * */
+              if (finalConfig.monitoring.metrics.reporters.isEmpty)
+                MetricsFactoryType.InMemory(scopedMetricsFactory)
+              else MetricsFactoryType.External,
+            initializeGlobalOpenTelemetry = false,
+            sequencerTransportSeed = Some(1L),
+          )
         ),
       )
 

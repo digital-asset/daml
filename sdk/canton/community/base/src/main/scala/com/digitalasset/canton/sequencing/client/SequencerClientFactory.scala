@@ -185,6 +185,7 @@ object SequencerClientFactory {
             futureSupervisor,
             processingTimeout,
             metrics.trafficConsumption,
+            domainId,
           )
           sendTracker = new SendTracker(
             initialPendingSends,

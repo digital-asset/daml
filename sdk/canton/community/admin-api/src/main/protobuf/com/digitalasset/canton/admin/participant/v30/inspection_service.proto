@@ -23,8 +23,6 @@ service InspectionService {
   // Look up the ledger offset corresponding to the timestamp, specifically the largest offset such that no later
   // offset corresponds to a later timestamp than the specified one.
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
-  // Look up the ledger offset by an index, e.g. 1 returns the first offset, 2 the second, etc.
-  rpc LookupOffsetByIndex(LookupOffsetByIndex.Request) returns (LookupOffsetByIndex.Response);
   // Request metadata about shared contracts used in commitment computation at a specific time
   // Subject to the data still being available on the participant
   // TODO(#9557) R2
@@ -83,19 +81,6 @@ message LookupOffsetByTime {
 
   message Response {
     // the absolute offset as a string corresponding to the specified timestamp.
-    // empty string if no such offset exists.
-    string offset = 1;
-  }
-}
-
-message LookupOffsetByIndex {
-  message Request {
-    // the index to look up the offset for, needs to be 1 or larger
-    int64 index = 1;
-  }
-
-  message Response {
-    // the absolute offset as a string corresponding to the specified index.
     // empty string if no such offset exists.
     string offset = 1;
   }

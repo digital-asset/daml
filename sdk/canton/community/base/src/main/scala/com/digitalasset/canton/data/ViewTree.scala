@@ -44,7 +44,7 @@ trait ViewTree extends PrettyPrinting {
 trait TransferViewTree extends ViewTree {
   def submitterMetadata: TransferSubmitterMetadata
 
-  def isTransferringParticipant(participantId: ParticipantId): Boolean
+  def isReassigningParticipant(participantId: ParticipantId): Boolean
 
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.

@@ -8,12 +8,18 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps}
-import com.digitalasset.canton.data.ViewType.TransferOutViewType
+import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.*
-import com.digitalasset.canton.ledger.participant.state.CompletionInfo
+import com.digitalasset.canton.ledger.participant.state.{
+  CompletionInfo,
+  DomainIndex,
+  Reassignment,
+  ReassignmentInfo,
+  RequestIndex,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
@@ -40,7 +46,6 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   TransferredAway,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
@@ -50,7 +55,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -77,7 +82,7 @@ class TransferOutProcessingSteps(
     extends TransferProcessingSteps[
       SubmissionParam,
       SubmissionResult,
-      TransferOutViewType,
+      UnassignmentViewType,
       PendingTransferOut,
     ]
     with NamedLogging {
@@ -194,7 +199,7 @@ class TransferOutProcessingSteps(
         .leftMap(TransferSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       viewMessage <- EncryptedViewMessageFactory
-        .create(TransferOutViewType)(
+        .create(UnassignmentViewType)(
           fullTree,
           sourceRecentSnapshot,
           ephemeralState.sessionKeyStoreLookup,
@@ -213,7 +218,7 @@ class TransferOutProcessingSteps(
           rootHash,
           domainId.unwrap,
           sourceDomainProtocolVersion.v,
-          ViewType.TransferOutViewType,
+          ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
         )
@@ -254,8 +259,8 @@ class TransferOutProcessingSteps(
       pendingSubmission: SubmissionResultArgs,
   ): SubmissionResult = {
     val requestId = RequestId(deliver.timestamp)
-    val transferId = TransferId(domainId, requestId.unwrap)
-    SubmissionResult(transferId, pendingSubmission.transferCompletion.future)
+    val reassignmentId = ReassignmentId(domainId, requestId.unwrap)
+    SubmissionResult(reassignmentId, pendingSubmission.transferCompletion.future)
   }
 
   private[this] def getStoredContract(
@@ -273,7 +278,7 @@ class TransferOutProcessingSteps(
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
   )(
-      envelope: OpenEnvelope[EncryptedViewMessage[TransferOutViewType]]
+      envelope: OpenEnvelope[EncryptedViewMessage[UnassignmentViewType]]
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
@@ -311,13 +316,13 @@ class TransferOutProcessingSteps(
       )
       val activenessSet = ActivenessSet(
         contracts = contractsCheck,
-        transferIds = Set.empty,
+        reassignmentIds = Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedDomain(
-          TransferId(parsedRequest.fullViewTree.sourceDomain, parsedRequest.requestTimestamp),
+          ReassignmentId(parsedRequest.fullViewTree.sourceDomain, parsedRequest.requestTimestamp),
           domainId.unwrap,
         )
       )
@@ -346,7 +351,7 @@ class TransferOutProcessingSteps(
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(
-      transferringParticipant: Boolean,
+      isReassigningParticipant: Boolean,
       domainId: TargetDomainId,
       timestamp: CantonTimestamp,
   )(implicit
@@ -354,7 +359,7 @@ class TransferOutProcessingSteps(
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Option[TopologySnapshot]] =
     Option
-      .when(transferringParticipant) {
+      .when(isReassigningParticipant) {
         transferCoordination
           .awaitTimestampAndGetCryptoSnapshot(
             domainId.unwrap,
@@ -393,7 +398,7 @@ class TransferOutProcessingSteps(
     ) =
       parsedRequestType
 
-    val transferId: TransferId = TransferId(fullTree.sourceDomain, ts)
+    val reassignmentId: ReassignmentId = ReassignmentId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
     for {
       // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
@@ -406,10 +411,10 @@ class TransferOutProcessingSteps(
 
       WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
 
-      transferringParticipant = fullTree.adminParties.contains(participantId.adminParty.toLf)
+      isReassigningParticipant = fullTree.adminParties.contains(participantId.adminParty.toLf)
 
       targetTopology <- getTopologySnapshotAtTimestamp(
-        transferringParticipant,
+        isReassigningParticipant,
         fullTree.targetDomain,
         fullTree.targetTimeProof.timestamp,
       )
@@ -456,7 +461,7 @@ class TransferOutProcessingSteps(
         transferOutResult = None,
         transferGlobalOffset = None,
       )
-      _ <- ifThenET(transferringParticipant) {
+      _ <- ifThenET(isReassigningParticipant) {
         transferCoordination.addTransferOutRequest(transferData)
       }
       confirmingStakeholders <- EitherT.right(
@@ -469,7 +474,7 @@ class TransferOutProcessingSteps(
       )
       responseOpt = createTransferOutResponse(
         requestId,
-        transferringParticipant,
+        isReassigningParticipant,
         activenessResult,
         contract.contractId,
         fullTree.transferCounter,
@@ -491,9 +496,9 @@ class TransferOutProcessingSteps(
         fullTree.transferCounter,
         contract.rawContractInstance.contractInstance.unversioned.template,
         contract.rawContractInstance.contractInstance.unversioned.packageName,
-        transferringParticipant,
+        isReassigningParticipant,
         fullTree.submitterMetadata,
-        transferId,
+        reassignmentId,
         fullTree.targetDomain,
         fullTree.stakeholders,
         hostedStks.toSet,
@@ -556,9 +561,9 @@ class TransferOutProcessingSteps(
       transferCounter,
       templateId,
       packageName,
-      transferringParticipant,
+      isReassigningParticipant,
       submitterMetadata,
-      transferId,
+      reassignmentId,
       targetDomain,
       stakeholders,
       hostedStakeholders,
@@ -575,7 +580,7 @@ class TransferOutProcessingSteps(
     def rejected(
         reason: TransactionRejection
     ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
-      _ <- ifThenET(transferringParticipant)(deleteTransfer(targetDomain, requestId))
+      _ <- ifThenET(isReassigningParticipant)(deleteTransfer(targetDomain, requestId))
 
       eventO <- EitherT.fromEither[Future](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -594,10 +599,10 @@ class TransferOutProcessingSteps(
         )
         val commitSetFO = Some(Future.successful(commitSet))
         for {
-          _ <- ifThenET(transferringParticipant) {
+          _ <- ifThenET(isReassigningParticipant) {
             EitherT
               .fromEither[FutureUnlessShutdown](DeliveredTransferOutResult.create(event))
-              .leftMap(err => TransferOutProcessorError.InvalidResult(transferId, err))
+              .leftMap(err => TransferOutProcessorError.InvalidResult(reassignmentId, err))
               .flatMap(deliveredResult =>
                 transferCoordination.addTransferOutResult(targetDomain, deliveredResult)
               )
@@ -605,34 +610,30 @@ class TransferOutProcessingSteps(
 
           notInitiator = pendingSubmissionData.isEmpty
           _ <-
-            if (notInitiator && transferringParticipant)
+            if (notInitiator && isReassigningParticipant)
               triggerTransferInWhenExclusivityTimeoutExceeded(pendingRequestData)
             else EitherT.pure[FutureUnlessShutdown, TransferProcessorError](())
 
-          transferOutEvent <- createTransferredOut(
+          reassignmentAccepted <- createReassignmentAccepted(
             contractId,
             templateId,
             packageName,
             stakeholders,
             submitterMetadata,
-            transferId,
+            reassignmentId,
             targetDomain,
             rootHash,
             transferInExclusivity,
-            isTransferringParticipant = transferringParticipant,
+            isReassigningParticipant = isReassigningParticipant,
             transferCounter,
             hostedStakeholders.toList,
+            requestCounter,
+            requestSequencerCounter,
           ).mapK(FutureUnlessShutdown.outcomeK)
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetFO,
           Seq.empty,
-          Some(
-            TimestampedEvent(
-              transferOutEvent,
-              RequestOffset(requestId.unwrap, requestCounter),
-              Some(requestSequencerCounter),
-            )
-          ),
+          Some(Traced(reassignmentAccepted)),
         )
 
       case reasons: Verdict.ParticipantReject =>
@@ -642,24 +643,26 @@ class TransferOutProcessingSteps(
     }
   }
 
-  private def createTransferredOut(
+  private def createReassignmentAccepted(
       contractId: LfContractId,
       templateId: LfTemplateId,
       packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       targetDomain: TargetDomainId,
       rootHash: RootHash,
       transferInExclusivity: Option[CantonTimestamp],
-      isTransferringParticipant: Boolean,
+      isReassigningParticipant: Boolean,
       transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
-  ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredOut] =
+      requestCounter: RequestCounter,
+      requestSequencerCounter: SequencerCounter,
+  ): EitherT[Future, TransferProcessorError, Update.ReassignmentAccepted] =
     for {
       updateId <- EitherT
         .fromEither[Future](rootHash.asLedgerTransactionId)
-        .leftMap[TransferProcessorError](FieldConversionError(transferId, "Transaction Id", _))
+        .leftMap[TransferProcessorError](FieldConversionError(reassignmentId, "Transaction Id", _))
 
       completionInfo =
         Option.when(participantId == submitterMetadata.submittingParticipant)(
@@ -672,21 +675,36 @@ class TransferOutProcessingSteps(
             messageUuid = None,
           )
         )
-    } yield LedgerSyncEvent.TransferredOut(
-      updateId = updateId,
+    } yield Update.ReassignmentAccepted(
       optCompletionInfo = completionInfo,
-      submitter = Option(submitterMetadata.submitter),
-      contractId = contractId,
-      templateId = Some(templateId),
-      packageName = packageName,
-      contractStakeholders = contractStakeholders,
-      transferId = transferId,
-      targetDomain = targetDomain,
-      transferInExclusivity = transferInExclusivity.map(_.toLf),
       workflowId = submitterMetadata.workflowId,
-      isTransferringParticipant = isTransferringParticipant,
-      hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter,
+      updateId = updateId,
+      recordTime = reassignmentId.transferOutTimestamp.underlying,
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = reassignmentId.sourceDomain,
+        targetDomain = targetDomain,
+        submitter = Option(submitterMetadata.submitter),
+        reassignmentCounter = transferCounter.unwrap,
+        hostedStakeholders = hostedStakeholders,
+        unassignId = reassignmentId.transferOutTimestamp,
+        isReassigningParticipant = isReassigningParticipant,
+      ),
+      reassignment = Reassignment.Unassign(
+        contractId = contractId,
+        templateId = templateId,
+        packageName = packageName,
+        stakeholders = contractStakeholders.toList,
+        assignmentExclusivity = transferInExclusivity.map(_.toLf),
+      ),
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            counter = requestCounter,
+            sequencerCounter = Some(requestSequencerCounter),
+            timestamp = reassignmentId.transferOutTimestamp,
+          )
+        )
+      ),
     )
 
   private[this] def triggerTransferInWhenExclusivityTimeoutExceeded(
@@ -699,7 +717,7 @@ class TransferOutProcessingSteps(
     val t0 = pendingRequestData.targetTimeProof.timestamp
 
     AutomaticTransferIn.perform(
-      pendingRequestData.transferId,
+      pendingRequestData.reassignmentId,
       targetDomain,
       staticDomainParameters,
       transferCoordination,
@@ -713,13 +731,13 @@ class TransferOutProcessingSteps(
   private[this] def deleteTransfer(targetDomain: TargetDomainId, transferOutRequestId: RequestId)(
       implicit traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, Unit] = {
-    val transferId = TransferId(domainId, transferOutRequestId.unwrap)
-    transferCoordination.deleteTransfer(targetDomain, transferId)
+    val reassignmentId = ReassignmentId(domainId, transferOutRequestId.unwrap)
+    transferCoordination.deleteTransfer(targetDomain, reassignmentId)
   }
 
   private[this] def createTransferOutResponse(
       requestId: RequestId,
-      transferringParticipant: Boolean,
+      isReassigningParticipant: Boolean,
       activenessResult: ActivenessResult,
       contractId: LfContractId,
       declaredTransferCounter: TransferCounter,
@@ -734,10 +752,10 @@ class TransferOutProcessingSteps(
       declaredTransferCounter > TransferCounter.Genesis &&
         activenessResult.isSuccessful &&
         activenessResult.contracts.priorStates == expectedPriorTransferCounter
-    // send a response only if the participant is a transferring participant or the activeness check has failed
-    if (transferringParticipant || !successful) {
+    // send a response only if the participant is a reassigning participant or the activeness check has failed
+    if (isReassigningParticipant || !successful) {
       val adminPartySet =
-        if (transferringParticipant) Set(participantId.adminParty.toLf) else Set.empty[LfPartyId]
+        if (isReassigningParticipant) Set(participantId.adminParty.toLf) else Set.empty[LfPartyId]
       val confirmingParties = confirmingStakeholders union adminPartySet
       val localVerdict =
         if (successful) LocalApprove(sourceDomainProtocolVersion.v)
@@ -774,7 +792,7 @@ object TransferOutProcessingSteps {
   }
 
   final case class SubmissionResult(
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       transferOutCompletionF: Future[com.google.rpc.status.Status],
   )
 
@@ -787,9 +805,9 @@ object TransferOutProcessingSteps {
       transferCounter: TransferCounter,
       templateId: LfTemplateId,
       packageName: LfPackageName,
-      transferringParticipant: Boolean,
+      isReassigningParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,
-      transferId: TransferId,
+      reassignmentId: ReassignmentId,
       targetDomain: TargetDomainId,
       stakeholders: Set[LfPartyId],
       hostedStakeholders: Set[LfPartyId],

@@ -174,14 +174,14 @@ class DefaultMessageDispatcher(
       // Signal to the topology processor that all messages up to timestamp `ts` have arrived
       // Publish the empty ACS change only afterwards as this may trigger an ACS commitment computation which accesses the topology state.
       _unit <- runAsyncResult(topologyProcessor(sc, SequencedTime(ts), None, Traced(List.empty)))
-    } yield {
-      // Make sure that the tick is not lost
-      requestTracker.tick(sc, ts)
-      if (triggerAcsChangePublication)
-        recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
-
-      recordOrderPublisher.tick(sc, ts)
-    }
+      _ = {
+        // Make sure that the tick is not lost
+        requestTracker.tick(sc, ts)
+        if (triggerAcsChangePublication)
+          recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
+      }
+      _ <- FutureUnlessShutdown.outcomeF(recordOrderPublisher.tick(sc, ts, eventO = None))
+    } yield ()
 
   @VisibleForTesting
   override def flush(): Future[Unit] = Future.unit

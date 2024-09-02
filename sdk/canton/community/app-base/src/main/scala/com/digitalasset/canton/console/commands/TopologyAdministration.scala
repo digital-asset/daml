@@ -279,9 +279,12 @@ class TopologyAdministrationGroup(
         transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
         signedBy: Seq[Fingerprint] = Seq.empty,
+        forceFlags: ForceFlags = ForceFlags.none,
     ): Seq[GenericSignedTopologyTransaction] =
       consoleEnvironment.run {
-        adminCommand(TopologyAdminCommands.Write.SignTransactions(transactions, store, signedBy))
+        adminCommand(
+          TopologyAdminCommands.Write.SignTransactions(transactions, store, signedBy, forceFlags)
+        )
       }
 
     def authorize[M <: TopologyMapping: ClassTag](
@@ -716,6 +719,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        forceFlags: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] =
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
@@ -725,7 +729,7 @@ class TopologyAdministrationGroup(
           serial = serial,
           change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
-          forceChanges = ForceFlags.none,
+          forceChanges = forceFlags,
         )
       )
 
@@ -864,7 +868,7 @@ class TopologyAdministrationGroup(
           identifier = uid,
           target = targetKey,
         ),
-        signedBy = Seq(instance.id.fingerprint),
+        signedBy = Seq.empty,
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
@@ -952,7 +956,7 @@ class TopologyAdministrationGroup(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member = instance.id.member,
-        signedBy: Option[Fingerprint] = None,
+        signedBy: Seq[Fingerprint] = Seq.empty,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -990,7 +994,7 @@ class TopologyAdministrationGroup(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member = instance.id.member,
-        signedBy: Option[Fingerprint] = None,
+        signedBy: Seq[Fingerprint] = Seq.empty,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1045,7 +1049,7 @@ class TopologyAdministrationGroup(
         newKey.fingerprint,
         newKey.purpose,
         member,
-        signedBy = None,
+        signedBy = Seq.empty,
         add = true,
         nodeInstance = nodeInstance,
         synchronize = synchronize,
@@ -1066,7 +1070,7 @@ class TopologyAdministrationGroup(
         currentKey.fingerprint,
         currentKey.purpose,
         member,
-        signedBy = None,
+        signedBy = Seq.empty,
         add = false,
         nodeInstance = nodeInstance,
         synchronize = synchronize,
@@ -1077,7 +1081,7 @@ class TopologyAdministrationGroup(
         key: Fingerprint,
         purpose: KeyPurpose,
         keyOwner: Member,
-        signedBy: Option[Fingerprint] = None,
+        signedBy: Seq[Fingerprint],
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1172,7 +1176,7 @@ class TopologyAdministrationGroup(
         proposedMapping: OwnerToKeyMapping,
         serial: RequireTypes.PositiveNumeric[Int],
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
-        signedBy: Option[Fingerprint] = None,
+        signedBy: Seq[Fingerprint] = Seq.empty,
         store: String = AuthorizedStore.filterName,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1184,7 +1188,7 @@ class TopologyAdministrationGroup(
       synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommands.Write.Propose(
           mapping = proposedMapping,
-          signedBy = signedBy.toList,
+          signedBy = signedBy,
           store = store,
           change = ops,
           serial = Some(serial),
@@ -1295,6 +1299,7 @@ class TopologyAdministrationGroup(
              - "<domain-id>": The topology transaction will be directly submitted to the specified domain without
                               storing it locally first. This also means it will _not_ be synchronized to other domains
                               automatically.
+      force: must be set when disabling a party with active contracts
       """)
     def propose_delta(
         party: PartyId,
@@ -1306,6 +1311,7 @@ class TopologyAdministrationGroup(
         ),
         mustFullyAuthorize: Boolean = false,
         store: String = AuthorizedStore.filterName,
+        force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
       val currentO = findCurrent(party, store)
@@ -1355,6 +1361,7 @@ class TopologyAdministrationGroup(
           groupAddressing = groupAddressing,
           mustFullyAuthorize = mustFullyAuthorize,
           store = store,
+          forceFlags = force,
         )
       } else {
         // we would remove the last participant, therefore we issue a REMOVE
@@ -1370,6 +1377,7 @@ class TopologyAdministrationGroup(
           groupAddressing = groupAddressing,
           mustFullyAuthorize = mustFullyAuthorize,
           store = store,
+          forceFlags = force,
         )
 
       }
@@ -1416,6 +1424,7 @@ class TopologyAdministrationGroup(
         groupAddressing: Boolean = false,
         mustFullyAuthorize: Boolean = false,
         store: String = AuthorizedStore.filterName,
+        forceFlags: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
       val command = TopologyAdminCommands.Write.Propose(
         mapping = PartyToParticipant.create(
@@ -1429,7 +1438,7 @@ class TopologyAdministrationGroup(
         change = operation,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
-        forceChanges = ForceFlags.none,
+        forceChanges = forceFlags,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -1643,7 +1652,7 @@ class TopologyAdministrationGroup(
           participantId,
           domainId,
         ),
-        signedBy = Seq(instance.id.fingerprint),
+        signedBy = Seq.empty,
         store = store.getOrElse(domainId.filterString),
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
@@ -2352,7 +2361,7 @@ class TopologyAdministrationGroup(
 
       val command = TopologyAdminCommands.Write.Propose(
         mapping = mediatorStateResult.item,
-        signedBy = mediatorStateResult.context.signedBy,
+        signedBy = Seq.empty,
         serial = Some(mediatorStateResult.context.serial.increment),
         change = TopologyChangeOp.Remove,
         mustFullyAuthorize = mustFullyAuthorize,

@@ -1022,22 +1022,6 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
-    final case class LookupOffsetByIndex(index: Long)
-        extends Base[v30.LookupOffsetByIndex.Request, v30.LookupOffsetByIndex.Response, String] {
-      override def createRequest() = Right(v30.LookupOffsetByIndex.Request(index))
-
-      override def submitRequest(
-          service: InspectionServiceStub,
-          request: v30.LookupOffsetByIndex.Request,
-      ): Future[v30.LookupOffsetByIndex.Response] =
-        service.lookupOffsetByIndex(request)
-
-      override def handleResponse(
-          response: v30.LookupOffsetByIndex.Response
-      ): Either[String, String] =
-        Right(response.offset)
-    }
-
     // TODO(#9557) R2 The code below should be sufficient
     final case class OpenCommitment(
         observer: StreamObserver[v30.OpenCommitment.Response],

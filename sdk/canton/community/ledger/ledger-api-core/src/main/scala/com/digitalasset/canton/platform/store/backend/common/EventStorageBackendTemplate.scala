@@ -1588,7 +1588,7 @@ abstract class EventStorageBackendTemplate(
         _.offset <= ledgerEndCache()._1
       ) // if first offset is beyond the ledger-end then we have no such
 
-  def lastDomainOffsetBeforerOrAtPublicationTime(
+  def lastDomainOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: Timestamp
   )(connection: Connection): Option[DomainOffset] = {
     val ledgerEndPublicationTime = ledgerEndCache.publicationTime.underlying

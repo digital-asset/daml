@@ -276,9 +276,9 @@ trait ActiveContractStore
   ): Future[Int]
 
   /** Deletes all activeness changes from requests whose request counter is at least the given one.
-    * This method must not be called concurrently with creating, archiving, or transferring contracts.
+    * This method must not be called concurrently with creating, archiving, or reassigning contracts.
     *
-    * Therefore, this method need not be linearizable w.r.t. creating, archiving, or transferring contracts.
+    * Therefore, this method need not be linearizable w.r.t. creating, archiving, or reassigning contracts.
     * For example, if a request `rc1` creates a contract `c` and another request `rc2` archives it
     * while [[deleteSince]] is running for some `rc <= rc1, rc2`, then there are no guarantees
     * which of the effects of `rc1` and `rc2` remain. For example, `c` could end up being inexistent, active, or
@@ -525,7 +525,7 @@ object ActiveContractStore {
   }
 
   /** Error cases returned by the operations on the [[ActiveContractStore!]] */
-  trait AcsError extends AcsBaseError
+  sealed trait AcsError extends AcsBaseError
 
   final case class UnableToFindIndex(id: DomainId) extends AcsError
 
