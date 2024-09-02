@@ -294,7 +294,12 @@ function getLanguageServerArgs(
 
   // We'll say multi-ide is introduced in 2.9.0. The command existed
   // in 2.8, but it was unfinished, so we shouldn't allow it to be used.
-  if (sdkVersion && sdkVersion != "0.0.0" && semver.lt(sdkVersion, "2.9.0")) {
+  if (
+    multiIDESupport &&
+    sdkVersion &&
+    sdkVersion != "0.0.0" &&
+    semver.lt(sdkVersion, "2.9.0")
+  ) {
     multiIDESupport = false;
     window.showWarningMessage(
       `Selected Daml SDK version (${sdkVersion}) does not support Multi-IDE.\nMulti-IDE is disabled for this project.`,
