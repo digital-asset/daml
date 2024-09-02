@@ -1035,59 +1035,36 @@ private[lf] object SBuiltinFun {
         )
         val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
         machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
-        val authorizersWhenExplicit =
-          extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
-        machine.enforceChoiceAuthorizersLimit(
-          authorizersWhenExplicit,
-          coid,
-          templateId,
-          choiceId,
-          chosenValue,
-        )
-        def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
-          machine.ptx
-            .beginExercises(
-              packageName = pkgName,
-              templateId = templateId,
-              targetId = coid,
-              contract = contract,
-              interfaceId = interfaceId,
-              choiceId = choiceId,
-              optLocation = machine.getLastLocation,
-              consuming = consuming,
-              actingParties = controllers,
-              choiceObservers = obsrs,
-              choiceAuthorizers = choiceAuthorizers,
-              byKey = byKey,
-              chosenValue = chosenValue,
-              version = exerciseVersion,
-            ) match {
-            case Right(ptx) =>
-              machine.ptx = ptx
-              Control.Value(SUnit)
-            case Left(err) =>
-              Control.Error(convTxError(err))
+        val choiceAuthorizers =
+          if (explicitChoiceAuthority)
+            Some(extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4)))
+          else {
+            require(args.get(4) == SValue.SValue.EmptyList)
+            None
           }
-        }
 
-        if (explicitChoiceAuthority) {
-          val authorizers = authorizersWhenExplicit
-          val signatories = contract.signatories
-          val holding = controllers.union(signatories)
-          val requesting = authorizers.diff(holding)
-
-          if (requesting.isEmpty) {
-            // *no* additional authority is required; (so there is no need to ask ledger)
-            // (although the authority might be being restricted)
-            doExe(Some(authorizers))
-          } else {
-            Control.Error(
-              IE.RejectedAuthorityRequest(holding = holding, requesting = requesting)
-            )
-          }
-        } else {
-          // use default authorizers
-          doExe(None)
+        machine.ptx
+          .beginExercises(
+            packageName = pkgName,
+            templateId = templateId,
+            targetId = coid,
+            contract = contract,
+            interfaceId = interfaceId,
+            choiceId = choiceId,
+            optLocation = machine.getLastLocation,
+            consuming = consuming,
+            actingParties = controllers,
+            choiceObservers = obsrs,
+            choiceAuthorizers = choiceAuthorizers,
+            byKey = byKey,
+            chosenValue = chosenValue,
+            version = exerciseVersion,
+          ) match {
+          case Right(ptx) =>
+            machine.ptx = ptx
+            Control.Value(SUnit)
+          case Left(err) =>
+            Control.Error(convTxError(err))
         }
       }
     }
