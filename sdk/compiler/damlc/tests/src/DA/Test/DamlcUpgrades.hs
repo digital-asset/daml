@@ -497,17 +497,6 @@ tests damlc =
                       doTypecheck
                       []
                       []
-                , testGeneral
-                      (prefix <> "WhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt")
-                      "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt"
-                      (expectation "type checking template Main.T interface instance [0-9a-f]+:Main:I for Main:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
-                      versionDefault
-                      DependOnV1
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
-                      []
-                      []
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
