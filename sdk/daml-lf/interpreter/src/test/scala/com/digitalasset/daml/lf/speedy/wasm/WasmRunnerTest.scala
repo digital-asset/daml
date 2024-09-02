@@ -125,8 +125,10 @@ class WasmRunnerTest
     val submissionTime = Time.Timestamp.now()
     val hashRoot0 = crypto.Hash.assertFromString("deadbeef" * 8)
     val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(Some(hashRoot0)))
-    val submitters = Set.empty[Ref.Party] // FIXME:
-    val stakeholders = Set.empty[Ref.Party] // FIXME:
+    val bob = Ref.Party.assertFromString("bob")
+    val submitters = Set(bob)
+    val readAs = Set.empty[Ref.Party]
+    val stakeholders = submitters ++ readAs
     val pkgName = Ref.PackageName.assertFromString("package-1")
     val modName = Ref.ModuleName.assertFromString("create_contract")
     // TODO: following should be built using the (disassembled output of?) wasm code
@@ -177,10 +179,10 @@ class WasmRunnerTest
     )
     val wasm = new WasmRunner(
       submitters = submitters,
-      readAs = stakeholders,
+      readAs = readAs,
       seeding = initialSeeding,
       submissionTime = submissionTime,
-      authorizationChecker = NoopAuthorizationChecker,
+      authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
       activeContractStore = WasmRunnerTestLib.acs(),
@@ -225,7 +227,7 @@ class WasmRunnerTest
               "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:create_contract:SimpleTemplate.new"
             )
             fields.length shouldBe 2
-            fields(0) shouldBe (None, ValueParty(Ref.Party.assertFromString("bob")))
+            fields(0) shouldBe (None, ValueParty(bob))
             fields(1) shouldBe (None, ValueInt64(42L))
             inside(getLocalContractStore(wasm).get(contractId)) { case Some(contractInfo) =>
               contractInfo.templateId shouldBe templateId
@@ -257,9 +259,11 @@ class WasmRunnerTest
     val contractId = ContractId.assertFromString(
       "0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac"
     )
-    val actingParties = Set.empty[Ref.Party] // FIXME:
-    val submitters = Set.empty[Ref.Party] // FIXME:
-    val stakeholders = Set.empty[Ref.Party] // FIXME:
+    val bob = Ref.Party.assertFromString("bob")
+    val actingParties = Set(bob)
+    val submitters = Set(bob)
+    val readAs = Set.empty[Ref.Party]
+    val stakeholders = submitters ++ readAs
     val pkgName = Ref.PackageName.assertFromString("package-1")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
@@ -268,7 +272,6 @@ class WasmRunnerTest
       "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:fetch_contract:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
-    val bob = "bob"
     val count = 42L
     val argV = ValueRecord(
       None,
@@ -323,10 +326,10 @@ class WasmRunnerTest
     )
     val wasm = new WasmRunner(
       submitters = submitters,
-      readAs = stakeholders,
+      readAs = readAs,
       seeding = initialSeeding,
       submissionTime = submissionTime,
-      authorizationChecker = NoopAuthorizationChecker,
+      authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
@@ -396,8 +399,10 @@ class WasmRunnerTest
     val contractId = ContractId.assertFromString(
       "0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac"
     )
-    val submitters = Set.empty[Ref.Party] // FIXME:
-    val stakeholders = Set.empty[Ref.Party] // FIXME:
+    val bob = Ref.Party.assertFromString("bob")
+    val submitters = Set(bob)
+    val readAs = Set.empty[Ref.Party]
+    val stakeholders = submitters ++ readAs
     val pkgName = Ref.PackageName.assertFromString("package-1")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
@@ -406,7 +411,6 @@ class WasmRunnerTest
       "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:fetch_contract:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
-    val bob = "bob"
     val count = 42L
     val argV = ValueRecord(
       None,
@@ -474,7 +478,7 @@ class WasmRunnerTest
       readAs = stakeholders,
       seeding = initialSeeding,
       submissionTime = submissionTime,
-      authorizationChecker = NoopAuthorizationChecker,
+      authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
@@ -535,8 +539,10 @@ class WasmRunnerTest
     val contractId = ContractId.assertFromString(
       "0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac"
     )
-    val submitters = Set.empty[Ref.Party] // FIXME:
-    val stakeholders = Set.empty[Ref.Party] // FIXME:
+    val bob = Ref.Party.assertFromString("bob")
+    val submitters = Set(bob)
+    val readAs = Set.empty[Ref.Party]
+    val stakeholders = submitters ++ readAs
     val pkgName = Ref.PackageName.assertFromString("package-1")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
@@ -545,7 +551,6 @@ class WasmRunnerTest
       "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:exercise_choice:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
-    val bob = "bob"
     val count = 42L
     val argV = ValueRecord(
       None,
@@ -613,7 +618,7 @@ class WasmRunnerTest
       readAs = stakeholders,
       seeding = initialSeeding,
       submissionTime = submissionTime,
-      authorizationChecker = NoopAuthorizationChecker,
+      authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
@@ -661,9 +666,9 @@ class WasmRunnerTest
                 false,
                 `txVersion`,
               ) =>
-            actingParties shouldBe empty
-            stakeholders shouldBe empty
-            signatories shouldBe empty
+            actingParties shouldBe Set(bob)
+            stakeholders shouldBe Set(bob)
+            signatories shouldBe Set(bob)
             choiceObservers shouldBe empty
             children shouldBe ImmArray(node1)
             choiceId shouldBe Ref.ChoiceName.assertFromString("SimpleTemplate_increment")

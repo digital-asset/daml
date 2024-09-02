@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+use ledger::Template;
+
 #[path = "lf/value.rs"]
 mod lf;
 
 mod ledger {
     use protobuf::Message;
+    use std::collections::HashMap;
 
     pub mod internal {
         #[repr(C, packed)]
@@ -24,6 +28,21 @@ mod ledger {
 
             #[allow(non_snake_case)]
             pub fn exerciseChoice<'a>(templateTyCon: &'a ByteString, contractId: &'a ByteString, choiceName: &'a ByteString, choiceArg: &'a ByteString, consuming: &'a ByteString) -> &'a ByteString;
+        }
+
+        #[no_mangle]
+        pub fn alloc(len: usize) -> *mut u8 {
+            let mut buf = Vec::with_capacity(len);
+            let ptr = buf.as_mut_ptr();
+            std::mem::forget(buf);
+
+            return ptr;
+        }
+
+        #[no_mangle]
+        pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
+            let data = Vec::from_raw_parts(ptr, size, size);
+            std::mem::drop(data);
         }
     }
 
@@ -90,23 +109,34 @@ mod ledger {
       }
     }
 
+    #[allow(unused, non_snake_case)]
+    pub trait Choice {
+        fn exercise(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
+
+        fn controllers(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
+    }
+
     #[allow(unused)]
     pub trait Template<T> {
         fn new(arg: crate::lf::Value) -> T;
 
         #[allow(non_snake_case)]
-        fn getTemplateId(&self) -> crate::lf::Identifier;
+        fn templateId() -> crate::lf::Identifier;
 
+        fn choices() -> HashMap<String, Box<dyn Choice>>;
+
+        // TODO: this method should be part of a rust/protobuf DSL?
         #[allow(non_snake_case)]
         fn toLfValue(&self) -> crate::lf::Value;
 
         // pub fn precond(arg: crate::lf::Value) -> bool;
 
-        // pub fn signatories(arg: crate::lf::Value) -> [crate::lf::Party];
+        // pub fn signatories(arg: crate::lf::Value) -> Vec<crate::lf::Party>;
 
-        // pub fn observers(arg: crate::lf::Value) -> [crate::lf::Party];
+        // pub fn observers(arg: crate::lf::Value) -> Vec<crate::lf::Party>;
     }
 
+    // TODO: all utils functions should be part of a rust/protobuf DSL?
     pub mod utils {
         use protobuf::Message;
 
@@ -125,19 +155,138 @@ mod ledger {
     }
 }
 
-#[no_mangle]
-pub fn alloc(len: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(len);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf);
+#[allow(unused, non_snake_case, non_camel_case_types)]
+struct SimpleTemplate_increment;
 
-    return ptr;
+#[allow(non_snake_case)]
+impl ledger::Choice for SimpleTemplate_increment {
+    fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        use ledger::Template;
+
+        assert!(choiceArg.has_unit());
+
+        let contract = SimpleTemplate::new(contractArg);
+
+        let updatedContract = SimpleTemplate {
+            owner: contract.owner,
+            count: contract.count + 1,
+        };
+
+        return ledger::createContract(SimpleTemplate::templateId(), updatedContract.toLfValue());
+    }
+
+    fn controllers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        assert!(choiceArg.has_unit());
+
+        let owner = ledger::utils::get_field(contractArg, 0);
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+
+        list.elements = vec![owner];
+        result.set_list(list);
+
+        return result;
+    }
 }
 
-#[no_mangle]
-pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
-    let data = Vec::from_raw_parts(ptr, size, size);
-    std::mem::drop(data);
+impl SimpleTemplate_increment {
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_increment_choice_exercise(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().exercise(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_increment_choice_controllers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().controllers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+}
+
+#[allow(unused, non_snake_case, non_camel_case_types)]
+struct SimpleTemplate_decrement;
+
+#[allow(non_snake_case)]
+impl ledger::Choice for SimpleTemplate_decrement {
+    fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        assert!(choiceArg.has_unit());
+
+        let contract = SimpleTemplate::new(contractArg);
+
+        let updatedContract = SimpleTemplate {
+            owner: contract.owner,
+            count: contract.count - 1,
+        };
+
+        return ledger::createContract(SimpleTemplate::templateId(), updatedContract.toLfValue());
+    }
+
+    fn controllers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        assert!(choiceArg.has_unit());
+
+        let owner = ledger::utils::get_field(contractArg, 0);
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+
+        list.elements = vec![owner];
+        result.set_list(list);
+
+        return result;
+    }
+}
+
+impl SimpleTemplate_decrement {
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_decrement_choice_exercise(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().exercise(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_decrement_choice_controllers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().controllers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
 }
 
 #[allow(non_snake_case, unused)]
@@ -159,7 +308,7 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
     }
 
     #[allow(non_snake_case)]
-    fn getTemplateId(&self) -> lf::Identifier {
+    fn templateId() -> lf::Identifier {
         let mut templateId = lf::Identifier::new();
 
         templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
@@ -169,6 +318,16 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
         return templateId;
     }
 
+    fn choices() -> HashMap<String, Box<dyn ledger::Choice>> {
+        let mut result = HashMap::new();
+
+        result.insert(String::from("SimpleTemplate_increment"), Box::new(SimpleTemplate_increment) as Box<dyn ledger::Choice>);
+        result.insert(String::from("SimpleTemplate_decrement"), Box::new(SimpleTemplate_decrement) as Box<dyn ledger::Choice>);
+
+        return result;
+    }
+
+    // TODO: this should be part of a rust/protobuf DSL?
     #[allow(non_snake_case)]
     fn toLfValue(&self) -> lf::Value {
         use protobuf::MessageField;
@@ -196,75 +355,6 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
 
         return arg;
     }
-}
-
-// TODO: implement choice macro for generating low level choice function wrappers
-
-#[no_mangle]
-#[allow(non_snake_case)]
-// TODO: add choice macro annotation?
-pub fn SimpleTemplate_increment(contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
-    use ledger::Template;
-
-    assert!(choiceArg.has_unit());
-
-    let contract = SimpleTemplate::new(contractArg);
-
-    let updatedContract = SimpleTemplate {
-        owner: contract.owner,
-        count: contract.count + 1,
-    };
-
-    return ledger::createContract(SimpleTemplate::getTemplateId(&updatedContract), SimpleTemplate::toLfValue(&updatedContract));
-}
-// TODO: following low level choice wrapper function should be generated by choice macro
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe fn SimpleTemplate_increment_choice(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
-    use protobuf::Message;
-
-    let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
-    let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
-    let result = SimpleTemplate_increment(contractArg, choiceArg);
-    let resultBytes = result.write_to_bytes().unwrap();
-    let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
-
-    std::mem::forget(resultBytes);
-
-    return Box::into_raw(boxedResult);
-}
-
-#[allow(non_snake_case)]
-// TODO: add choice macro annotation?
-pub fn SimpleTemplate_decrement(contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
-    use ledger::Template;
-
-    assert!(choiceArg.has_unit());
-
-    let contract = SimpleTemplate::new(contractArg);
-
-    let updatedContract = SimpleTemplate {
-        owner: contract.owner,
-        count: contract.count - 1,
-    };
-
-    return ledger::createContract(SimpleTemplate::getTemplateId(&updatedContract), SimpleTemplate::toLfValue(&updatedContract));
-}
-// TODO: following low level choice wrapper function should be generated by choice macro
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe fn SimpleTemplate_decrement_choice(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
-    use protobuf::Message;
-
-    let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
-    let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
-    let result = SimpleTemplate_decrement(contractArg, choiceArg);
-    let resultBytes = result.write_to_bytes().unwrap();
-    let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
-
-    std::mem::forget(resultBytes);
-
-    return Box::into_raw(boxedResult);
 }
 
 #[no_mangle]
@@ -295,19 +385,14 @@ pub fn main() {
     contractArgRec.fields = contractArgRecFields;
     contractArg.set_record(contractArgRec);
 
-    let contractInst = SimpleTemplate::new(contractArg);
-
-    let templateId = SimpleTemplate::getTemplateId(&contractInst);
-
     let mut contractId = lf::Value::new();
-    let choiceName = "SimpleTemplate_increment";
     let mut choiceArg = lf::Value::new();
 
     contractId.set_contract_id(hex::decode("0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac").unwrap());
 
     choiceArg.set_unit(choiceArg.unit().clone());
 
-    let mut newContractId = ledger::exerciseChoice(templateId, contractId.clone(), choiceName, choiceArg, true);
+    let mut newContractId = ledger::exerciseChoice(SimpleTemplate::templateId(), contractId.clone(), "SimpleTemplate_increment", choiceArg, true);
 
-    ledger::logInfo(&format!("result of exercising choice {} on contract ID {} is {}", choiceName, hex::encode(contractId.take_contract_id()), hex::encode(newContractId.take_contract_id())));
+    ledger::logInfo(&format!("result of exercising choice {} on contract ID {} is {}", "SimpleTemplate_increment", hex::encode(contractId.take_contract_id()), hex::encode(newContractId.take_contract_id())));
 }

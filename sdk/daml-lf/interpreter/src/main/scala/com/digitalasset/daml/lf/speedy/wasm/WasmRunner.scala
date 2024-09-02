@@ -160,6 +160,9 @@ final class WasmRunner(
         // TODO: manage contract not being locally known (e.g. global contract not fetched)
         ???
     }
+    // TODO: ideally, we should spawn and use a new WasmInstance here for exercise/choice evaluation isolation?
+    val controllers =
+      wasmChoiceControllersFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)
 
     val startPtx = ptx
       .beginExercises(
@@ -171,7 +174,7 @@ final class WasmRunner(
         choiceId = choiceName,
         optLocation = None,
         consuming = consuming,
-        actingParties = Set.empty[Party],
+        actingParties = controllers,
         choiceObservers = Set.empty[Party],
         choiceAuthorizers = None,
         byKey = false,
@@ -185,7 +188,7 @@ final class WasmRunner(
 
     try {
       // TODO: ideally, we should spawn and use a new WasmInstance here for exercise/choice evaluation isolation?
-      val result = wasmChoiceFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)
+      val result = wasmChoiceExerciseFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)
 
       val endPtx = ptx.endExercises(txVer => toSValue(result).toNormalizedValue(txVer))
 
@@ -344,11 +347,44 @@ object WasmRunner {
     )
   }
 
+  private def wasmChoiceExerciseFunction(
+      choiceName: String,
+      txVersion: TransactionVersion,
+  )(contractArg: LfValue, choiceArg: LfValue)(implicit instance: WasmInstance): LfValue = {
+    wasmChoiceFunction(s"${choiceName}_choice_exercise", txVersion)(contractArg, choiceArg)
+  }
+
+  private def wasmChoiceControllersFunction(
+      choiceName: String,
+      txVersion: TransactionVersion,
+  )(contractArg: LfValue, choiceArg: LfValue)(implicit instance: WasmInstance): Set[Party] = {
+    wasmChoiceFunction(s"${choiceName}_choice_controllers", txVersion)(
+      contractArg,
+      choiceArg,
+    ) match {
+      case LfValue.ValueList(values) =>
+        values
+          .map {
+            case LfValue.ValueParty(party) =>
+              party
+            case _ =>
+              // TODO: manage fall through case
+              ???
+          }
+          .iterator
+          .toSet
+
+      case _ =>
+        // TODO: manage fall through case
+        ???
+    }
+  }
+
   private def wasmChoiceFunction(
       choiceName: String,
       txVersion: TransactionVersion,
   )(contractArg: LfValue, choiceArg: LfValue)(implicit instance: WasmInstance): LfValue = {
-    val choice = instance.export(s"${choiceName}_choice")
+    val choice = instance.export(choiceName)
     val contractArgPtr = copyByteString(
       LfValueCoder.encodeValue(txVersion, contractArg).toOption.get
     )
