@@ -274,6 +274,16 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
             "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
             "//test-common:upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
+
+            # Test for dependency upgrades
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-dep-v1.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-dep-v2.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-v1.dar",
+            "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-v2.dar",
+            "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-dep-v1.dar",
+            "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-dep-v2.dar",
+            "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v1.dar",
+            "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v2.dar",
         ],
         flaky = False,
         scala_deps = [
