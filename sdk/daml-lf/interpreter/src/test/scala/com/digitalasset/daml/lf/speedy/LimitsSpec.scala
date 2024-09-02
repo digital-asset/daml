@@ -37,7 +37,11 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       observers: List Party
     };
 
-    record @serializable NoOpArg = { controllers: List Party, observers: List Party };
+    record @serializable NoOpArg = {
+      controllers: List Party,
+      observers: List Party,
+      authorizers: List Party
+    };
 
     val fetches: List (ContractId Mod:T) -> Update (List Mod:T) =
       \(cids: List (ContractId Mod:T)) ->
@@ -57,7 +61,8 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       observers Mod:T {observers} this;
       choice @nonConsuming NoOp (self) (arg: Mod:NoOpArg): Unit,
         controllers Mod:NoOpArg {controllers} arg,
-        observers Mod:NoOpArg {observers} arg
+        observers Mod:NoOpArg {observers} arg,
+        authorizers Mod:NoOpArg {authorizers} arg
         to
           upure @Unit ();
      };
@@ -176,7 +181,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
       val e =
         e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
-       exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }"""
+       exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party, authorizers = controllers }"""
 
       forEvery(testCases) { (i, succeed) =>
         val (signatories, observers) = committers.splitAt(i)
@@ -293,7 +298,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
       val e =
         e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
-       exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }"""
+       exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party, authorizers = controllers}"""
 
       forEvery(testCases) { (i, succeed) =>
         val (observers, signatories) = committers.splitAt(i)
@@ -337,7 +342,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
              signatories = signatories,
              observers = Nil @Party
            }
-        in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }
+        in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party, authorizers = signatories }
      """
 
       forEvery(testCases) { (i, succeed) =>
@@ -381,8 +386,6 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    // TODO: https://github.com/digital-asset/daml/issues/15882
-    // -- Add a similar test for "too many choice authorizers"
     "refuse to exercise a choice with too many observers" in {
       val limits = interpretation.Limits.Lenient.copy(choiceObservers = limit)
       val committers = (0 to 99).view.map(i => Ref.Party.assertFromString(s"Party$i")).toSet
@@ -393,7 +396,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
              signatories = signatories,
              observers = Nil @Party
            }
-        in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = observers}
+        in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = observers, authorizers = controllers}
      """
 
       forEvery(testCases) { (i, succeed) =>
@@ -431,6 +434,59 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
               templateId shouldBe T
               choiceName shouldBe "NoOp"
               parties shouldBe observers
+              reportedlimit shouldBe limit
+              false
+          }
+      }
+    }
+
+    "refuse to exercise a choice with too many authorizers" in {
+      val limits = interpretation.Limits.Lenient.copy(choiceAuthorizers = limit)
+      val committers = (0 to 99).view.map(i => Ref.Party.assertFromString(s"Party$i")).toSet
+      val e =
+        e"""\(signatories: List Party) (authorizers: List Party) ->
+        ubind
+           cid: ContractId Mod:T <- create @Mod:T Mod:T {
+             signatories = signatories,
+             observers = Nil @Party
+           }
+        in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = signatories, observers = Nil @Party, authorizers = authorizers}
+     """
+
+      forEvery(testCases) { (i, succeed) =>
+        val (authorizers, signatories) = committers.splitAt(i)
+        val result = eval(
+          limits,
+          Map.empty,
+          committers,
+          e,
+          asSParties(signatories),
+          asSParties(authorizers),
+        )
+        if (succeed)
+          result shouldBe a[Right[_, _]]
+        else
+          inside(result) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Dev(
+                      _,
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ChoiceAuthorizers(
+                          _,
+                          templateId,
+                          choiceName,
+                          _,
+                          parties,
+                          reportedlimit,
+                        )
+                      ),
+                    )
+                  )
+                ) =>
+              templateId shouldBe T
+              choiceName shouldBe "NoOp"
+              parties shouldBe authorizers
               reportedlimit shouldBe limit
               false
           }
