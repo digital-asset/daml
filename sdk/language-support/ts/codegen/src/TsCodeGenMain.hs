@@ -108,7 +108,7 @@ mergePackageMap ps = fst <$> foldM merge mempty ps
                   Either T.Text (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion))
     merge (pkgs, usedUnitIds) (pkgId, pkg, isMain) = do
         let pkgIsUtil = isUtilityPackage pkg
-            supportsUpgrades = not pkgIsUtil && packageLfVersion pkg `supports` featurePackageUpgrades
+            supportsUpgrades = pkgSupportsUpgrades pkg
             pkgRef =
               case packageMetadata pkg of
                 Just (PackageMetadata {..}) | supportsUpgrades ->
@@ -152,14 +152,6 @@ main = do
                          pkgUnitId = maybe (unPackageId pkgId) unitIdToText $ packageUnitId pkg
                      T.putStrLn $ "Generating " <> pkgDesc
                      daml2js Daml2jsParams{..}
-
-isUtilityPackage :: Package -> Bool
-isUtilityPackage pkg =
-  all (\mod ->
-    null (moduleTemplates mod)
-      && null (moduleInterfaces mod)
-      && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
-  ) $ packageModules pkg
 
 data PackageReference
     = PkgNameVer (PackageName, PackageVersion)

@@ -196,6 +196,11 @@ object UpgradeError {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
+
+  final case class ForbiddenNewInstance(tpl: Ref.DottedName, iface: Ref.TypeConName) extends Error {
+    override def message: String =
+      s"Implementation of interface $iface by template $tpl appears in this package, but does not appear in package that is being upgraded."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -604,7 +609,7 @@ case class TypecheckUpgrades(
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, _new) <- checkDeleted(
+      (existingTemplates, newTemplates) <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
@@ -613,15 +618,13 @@ case class TypecheckUpgrades(
       (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
       _ <- checkContinuedIfaces(ifaceExisting)
 
-      (_instanceExisting, _instanceNew) <-
-        checkDeleted(
-          module.map(flattenInstances(_)),
-          (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) =>
-            {
-              val (tpl, impl) = tplImpl
-              UpgradeError.MissingImplementation(tpl, impl)
-            },
-        )
+      (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew(
+        module.map(flattenInstances)
+      )
+      _ <- checkDeletedInstances(instanceDel)
+      _ <- checkAddedInstances(instanceNew.view.filterKeys { case (tyCon, _) =>
+        !newTemplates.contains(tyCon)
+      }.toMap)
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
@@ -642,6 +645,22 @@ case class TypecheckUpgrades(
       },
     ).map(_ => ())
   }
+
+  private def checkDeletedInstances(
+      deletedInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    deletedInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))
+      case None => Success(())
+    }
+
+  private def checkAddedInstances(
+      newInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    newInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.ForbiddenNewInstance(tpl, iface))
+      case None => Success(())
+    }
 
   private def checkTemplate(
       templateAndName: (Ref.DottedName, Upgrading[Ast.Template])
