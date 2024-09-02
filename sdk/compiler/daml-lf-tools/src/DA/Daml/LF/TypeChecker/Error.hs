@@ -15,6 +15,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    PackageUpgradeOrigin(..),
     ) where
 
 import Control.Applicative
@@ -39,6 +40,12 @@ data Context
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
   | ContextDefInterface !Module !DefInterface !InterfacePart
+  | ContextDefUpgrading
+      { cduPkgName :: !PackageName -- Name of package being checked for upgrade validity
+      , cduPkgVersion :: !(Upgrading RawPackageVersion) -- Prior (upgradee) and current (upgrader) version of dep package
+      , cduSubContext :: !Context -- Context within the package of the error
+      , cduIsDependency :: !Bool -- Is the package a dependency package or is it the main package?
+      }
 
 data TemplatePart
   = TPWhole
@@ -203,12 +210,15 @@ data UnwarnableError
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
   | EForbiddenNewImplementation !TypeConName !TypeConName
+  | EUpgradeDependenciesFormACycle ![(PackageId, PackageMetadata)]
   deriving (Show)
 
 data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
+  | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
+  | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   deriving (Show)
 
 instance Pretty WarnableError where
@@ -234,6 +244,18 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
+    WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
+      "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
+      "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
+
+data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
+  deriving (Eq, Ord, Show)
+
+instance Pretty PackageUpgradeOrigin where
+  pPrint = \case
+    UpgradingPackage -> "upgrading package"
+    UpgradedPackage -> "upgraded package"
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
@@ -253,6 +275,7 @@ contextLocation = \case
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
   ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
+  ContextDefUpgrading {} -> Nothing
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
@@ -301,6 +324,13 @@ instance Show Context where
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
     ContextDefInterface m i p ->
       "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
+      let prettyPkgName =
+            if cduIsDependency
+            then "dependency " <> T.unpack (unPackageName cduPkgName)
+            else T.unpack (unPackageName cduPkgName)
+      in
+      "upgrading " <> prettyPkgName <> " " <> show (_present cduPkgVersion) <> ", " <> show cduSubContext
 
 instance Show TemplatePart where
   show = \case
@@ -363,11 +393,7 @@ instance Pretty Error where
     EUnwarnableError err -> pPrint err
     EWarnableError err -> pPrint err
     EWarningToError warning -> pPrint warning
-    EContext ctx err ->
-      vcat
-      [ "error type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
+    EContext ctx err -> prettyWithContext ctx (Right err)
 
 instance Pretty UnwarnableError where
   pPrint = \case
@@ -646,6 +672,14 @@ instance Pretty UnwarnableError where
     EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
     EForbiddenNewImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in this package, but does not appear in package that is being upgraded."
+    EUpgradeDependenciesFormACycle deps ->
+      vcat
+        [ "Dependencies from the `upgrades:` field and dependencies defined on the current package form a cycle:"
+        , nest 2 $ vcat $ map pprintDep deps
+        ]
+      where
+      pprintDep (pkgId, meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
@@ -655,24 +689,42 @@ instance Pretty UpgradedRecordOrigin where
     InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 
-instance Pretty Context where
-  pPrint = \case
+prettyWithContext :: Context -> Either Warning Error -> Doc a
+prettyWithContext ctx warningOrErr =
+  let header prettyCtx =
+        vcat
+        [ case warningOrErr of
+            Right _ -> "error type checking " <> prettyCtx <> ":"
+            Left _ -> "warning while type checking " <> prettyCtx <> ":"
+        , nest 2 (either pretty pretty warningOrErr)
+        ]
+  in
+  case ctx of
     ContextNone ->
-      string "<none>"
+      header $ string "<none>"
     ContextDefModule m ->
-      hsep [ "module" , pretty (moduleName m) ]
+      header $ hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->
-      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
+      header $ hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
-      hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
+      header $ hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->
-      hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
+      header $ hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
-      hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+      header $ hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
-      hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
+      header $ hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
     ContextDefInterface m i p ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+      header $ hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
+      let prettyPkgName = if cduIsDependency then hsep ["dependency", pretty cduPkgName] else pretty cduPkgName
+          upgradeOrDowngrade = if _present cduPkgVersion > _past cduPkgVersion then "upgrade" else "downgrade"
+      in
+      vcat
+      [ hsep [ "error while validating that", prettyPkgName, "version", string (show (_present cduPkgVersion)), "is a valid", upgradeOrDowngrade, "of version", string (show (_past cduPkgVersion)) ]
+      , nest 2 $
+        prettyWithContext cduSubContext warningOrErr
+      ]
 
 class ToDiagnostic a where
   toDiagnostic :: a -> Diagnostic
@@ -723,11 +775,7 @@ warningLocation = \case
 
 instance Pretty Warning where
   pPrint = \case
-    WContext ctx err ->
-      vcat
-      [ "warning while type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
     WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."

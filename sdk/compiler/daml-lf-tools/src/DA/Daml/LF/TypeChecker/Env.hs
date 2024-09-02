@@ -179,7 +179,14 @@ warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma ->
 warnWithContextF = diagnosticWithContextF
 
 withContextF :: MonadGammaF gamma m => Setter' gamma Gamma -> Context -> m b -> m b
-withContextF setter ctx = local (set (setter . locCtx) ctx)
+withContextF setter newCtx = local (over (setter . locCtx) setCtx)
+  where
+    setCtx :: Context -> Context
+    setCtx oldCtx =
+      case (oldCtx, newCtx) of
+        (ContextDefUpgrading {}, ContextDefUpgrading {}) -> newCtx
+        (ContextDefUpgrading { cduPkgName, cduPkgVersion, cduIsDependency }, _) -> ContextDefUpgrading cduPkgName cduPkgVersion newCtx cduIsDependency
+        (_, _) -> newCtx
 
 instance SomeErrorOrWarning UnwarnableError where
   diagnosticWithContextF = throwWithContextF

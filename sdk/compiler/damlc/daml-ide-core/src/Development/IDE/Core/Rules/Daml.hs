@@ -291,10 +291,11 @@ getExternalPackages file = do
         map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
 
 -- Generates and type checks the DALF for a module.
-generateDalfRule :: Options -> Rules ()
+generateDalfRule :: SdkVersioned => Options -> Rules ()
 generateDalfRule opts =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
+        mbDalfDependencies <- runMaybeT (getDalfDependencies [file])
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
@@ -305,7 +306,7 @@ generateDalfRule opts =
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let lfDiags = LF.checkModule world lfVersion dalf
-                    upgradeDiags = Upgrade.checkModule world dalf lfVersion (optUpgradeInfo opts) upgradedPackage
+                    upgradeDiags = Upgrade.checkModule world dalf (foldMap Map.elems mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
                 in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -537,11 +538,18 @@ extractUpgradedPackageRule opts = do
       Nothing -> pure Nothing
       Just path -> use ExtractUpgradedPackageFile (toNormalizedFilePath' path)
   define $ \ExtractUpgradedPackageFile file -> do
-    ExtractedDar{edMain} <- liftIO $ extractDar (fromNormalizedFilePath file)
-    let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-    case Archive.decodeArchive Archive.DecodeAsMain bs of
-      Left _ -> pure ([ideErrorPretty file ("Could not decode file as a DAR." :: T.Text)], Nothing)
-      Right (pid, package) -> pure ([], Just (pid, package))
+    ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    let bsMain = BSL.toStrict $ ZipArchive.fromEntry edMain
+    let bsDeps = BSL.toStrict . ZipArchive.fromEntry <$> edDalfs
+    let mainAndDeps :: Either Archive.ArchiveError ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+        mainAndDeps = do
+           main <- Archive.decodeArchive Archive.DecodeAsMain bsMain
+           deps <- Archive.decodeArchive Archive.DecodeAsDependency `traverse` bsDeps
+           pure (main, deps)
+    let myThing = case mainAndDeps of
+          Left _ -> ([ideErrorPretty file ("Could not decode file as a DAR." :: T.Text)], Nothing)
+          Right mainAndDeps -> ([], Just mainAndDeps)
+    pure myThing
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
