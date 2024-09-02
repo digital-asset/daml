@@ -672,6 +672,30 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
 
+    "Fails when a package embeds a previous version of itself it is not a valid upgrade of" in {
+      for {
+        uploadResult <- uploadPackage(
+          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar"
+        )
+      } yield {
+        // We expect the optional error to be defined. We do not check the error message because the machinery for
+        // reading the logs in this class is tailored towards package pairs. But the test below, which is identical to
+        // this one except the upgrade is valid, proves that it fails for the expected reason.
+        assert(uploadResult._2.isDefined)
+      }
+    }
+
+    "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
+      for {
+        uploadResult <- uploadPackage(
+          "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"
+        )
+      } yield {
+        // We expect the optional error to be empty.
+        assert(uploadResult._2.isEmpty)
+      }
+    }
+
     "Succeeds even when non-serializable types are incompatible" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
