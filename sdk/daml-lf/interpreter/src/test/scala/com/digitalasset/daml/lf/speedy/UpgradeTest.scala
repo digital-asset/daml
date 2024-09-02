@@ -176,7 +176,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     SpeedyTestLib
       .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
-      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+      .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
         (v, uvs)
       }
@@ -209,7 +209,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     SpeedyTestLib
       .runCollectRequests(machine)
-      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+      .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
         (v, uvs)
       }

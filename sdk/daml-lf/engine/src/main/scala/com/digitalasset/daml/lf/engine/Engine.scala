@@ -454,24 +454,6 @@ class Engine(val config: EngineConfig) {
 
         case SResultQuestion(question) =>
           question match {
-            case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
-              ResultNeedAuthority(
-                holding,
-                requesting,
-                { granted: Boolean =>
-                  if (granted) {
-                    callback()
-                    interpretLoop(machine, time)
-                  } else {
-                    ResultError(
-                      Error.Interpretation.DamlException(
-                        interpretation.Error
-                          .RejectedAuthorityRequest(holding = holding, requesting = requesting)
-                      )
-                    )
-                  }
-                },
-              )
 
             case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
               // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)

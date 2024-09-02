@@ -5,19 +5,16 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.interpretation.Error.FailedAuthorization
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
-  CreateMissingAuthorization,
-  NoAuthorizers,
-}
+import com.digitalasset.daml.lf.ledger.FailedAuthorization._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SEApp
 import com.digitalasset.daml.lf.speedy.SValue.{SList, SParty}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.transaction.{NodeId, SubmittedTransaction}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
@@ -27,7 +24,6 @@ class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Inside {
-  import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
@@ -71,24 +67,22 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
    }
   """)
 
-  type Success = (SubmittedTransaction, List[AuthRequest])
-
-  val alice = Party.assertFromString("Alice")
-  val bob = Party.assertFromString("Bob")
-  val charlie = Party.assertFromString("Charlie")
+  val alice = Ref.Party.assertFromString("Alice")
+  val bob = Ref.Party.assertFromString("Bob")
+  val charlie = Ref.Party.assertFromString("Charlie")
 
   // In all these tests; alice is the template signatory; bob is the choice controller
-  val theSig: Party = alice
-  val theCon: Party = bob
+  val theSig: Ref.Party = alice
+  val theCon: Ref.Party = bob
 
-  def makeSetPartyValue(set: Set[Party]): SValue = {
+  def makeSetPartyValue(set: Set[Ref.Party]): SValue = {
     SList(FrontStack(set.toList.map(SParty(_)): _*))
   }
 
   def runExample(
-      theAut: Set[Party], // The set of parties lists in the explicit choice authority decl.
-      theGoal: Party, // The signatory of the created Goal template.
-  ): Either[SError, Success] = {
+      theAut: Set[Ref.Party], // The set of parties lists in the explicit choice authority decl.
+      theGoal: Ref.Party, // The signatory of the created Goal template.
+  ): Either[SError, SubmittedTransaction] = {
     import SpeedyTestLib.loggingContext
     val committers = Set(theSig, theCon)
     val example = SEApp(
@@ -103,55 +97,25 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib
       .buildTransactionCollectRequests(machine)
-      .map { case (x, ars, _) => (x, ars) } // ignoring any UpgradeVerificationRequest
+      .map { case (x, _) => x } // ignoring any UpgradeVerificationRequest
   }
 
   "Happy" - {
 
     "restrict authority: {A,B}-->A (need A)" in {
-      val res = runExample(theAut = Set(alice), theGoal = alice)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(alice), theGoal = alice) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->B (need B)" in {
-      val res = runExample(theAut = Set(bob), theGoal = bob)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(bob), theGoal = bob) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->{A,B} (need A)" in {
-      val res = runExample(theAut = Set(alice, bob), theGoal = alice)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
+      runExample(theAut = Set(alice, bob), theGoal = alice) shouldBe a[Right[_, _]]
     }
 
     "restrict authority: {A,B}-->{A,B} (need B)" in {
-      val res = runExample(theAut = Set(alice, bob), theGoal = bob)
-      inside(res) { case Right((_, ars)) =>
-        ars shouldBe List()
-      }
-    }
-
-    "change/gain authority {A,B}-->{C} (need C)" in {
-      inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
-    }
-
-    "change/gain authority {A,B}-->{A,C} (need A)" in {
-      inside(runExample(theAut = Set(alice, charlie), theGoal = alice)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
-    }
-
-    "change/gain authority {A,B}-->{B,C} (need B)" in {
-      inside(runExample(theAut = Set(bob, charlie), theGoal = bob)) { case Right((_, ars)) =>
-        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
-      }
+      runExample(theAut = Set(alice, bob), theGoal = bob) shouldBe a[Right[_, _]]
     }
 
   }
@@ -200,15 +164,24 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "change/gain authority {A,B}-->{C} (need A)" in {
-      inside(runExample(theAut = Set(charlie), theGoal = alice)) { case Left(err) =>
-        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-          inside(why) { case cma: CreateMissingAuthorization =>
-            cma.authorizingParties shouldBe Set(charlie)
-            cma.requiredParties shouldBe Set(alice)
-          }
-        }
-      }
+    "try to gain authority {A,B} --> {C}" in {
+      runExample(theAut = Set(charlie), theGoal = alice) shouldBe Left(
+        SError.SErrorDamlException(
+          FailedAuthorization(
+            NodeId(1),
+            ExerciseMissingAuthorization(
+              templateId = Ref.Identifier(
+                defaultParserParameters.defaultPackageId,
+                Ref.QualifiedName.assertFromString("M:T"),
+              ),
+              choiceId = Ref.Name.assertFromString("ChoiceWithExplicitAuthority"),
+              optLocation = None,
+              authorizingParties = Set(alice, bob),
+              requiredParties = Set(bob, charlie),
+            ),
+          )
+        )
+      )
     }
   }
 }

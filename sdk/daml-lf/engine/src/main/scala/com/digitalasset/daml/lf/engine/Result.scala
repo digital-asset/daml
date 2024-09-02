@@ -28,8 +28,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
-    case ResultNeedAuthority(holding, requesting, resume) =>
-      ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
   }
@@ -44,8 +42,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
-    case ResultNeedAuthority(holding, requesting, resume) =>
-      ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
   }
@@ -54,7 +50,6 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
-      grantNeedAuthority: Boolean = false,
       grantUpgradeVerification: Option[String] = Some("not validated!"),
   ): Either[Error, A] = {
     @tailrec
@@ -66,7 +61,6 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
-        case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
         case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
           go(resume(grantUpgradeVerification))
       }
@@ -151,16 +145,6 @@ final case class ResultNeedKey[A](
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
-/** TODO: https://github.com/digital-asset/daml/issues/15882
-  *   add ScalaDoc explaining the impact of the answers and the responsibilities of the caller.
-  *   (Similarly as for the other subclasses of Result.)
-  */
-final case class ResultNeedAuthority[A](
-    holding: Set[Party],
-    requesting: Set[Party],
-    resume: Boolean => Result[A],
-) extends Result[A]
-
 /** After computing the immutable contact data associated with a contract, (for a specific template
   * type, which may be an upgrade/downgrade of the type at which the contract was created), the
   * engine will call `ResultNeedUpgradeVerification` to allow the ledger to validate that the
@@ -231,17 +215,6 @@ object Result {
                 packageId,
                 pkg =>
                   resume(pkg).flatMap(x =>
-                    Result
-                      .sequence(results_)
-                      .map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
-            case ResultNeedAuthority(holding, requesting, resume) =>
-              ResultNeedAuthority(
-                holding,
-                requesting,
-                bool =>
-                  resume(bool).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)

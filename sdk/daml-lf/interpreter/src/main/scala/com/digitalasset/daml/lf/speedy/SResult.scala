@@ -56,13 +56,6 @@ object Question {
         callback: Option[ContractId] => Boolean,
     ) extends Update
 
-    final case class NeedAuthority(
-        holding: Set[Party],
-        requesting: Set[Party],
-        // Callback only when the request is granted
-        callback: () => Unit,
-    ) extends Update
-
     final case class NeedPackageId(
         module: ModuleName,
         pid0: PackageId,

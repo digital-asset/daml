@@ -49,7 +49,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SValue] = {
     runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right((v, _, _)) => Right(v)
+      case Right((v, _)) => Right(v)
     }
   }
 
@@ -63,16 +63,11 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     buildTransactionCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((tx, _, _)) =>
+      case Right((tx, _)) =>
         Right(tx)
       case Left(err) =>
         Left(err)
     }
-
-  case class AuthRequest(
-      holding: Set[Party],
-      requesting: Set[Party],
-  )
 
   case class UpgradeVerificationRequest(
       coid: ContractId,
@@ -91,15 +86,15 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[
     SError.SError,
-    (SubmittedTransaction, List[AuthRequest], List[UpgradeVerificationRequest]),
+    (SubmittedTransaction, List[UpgradeVerificationRequest]),
   ] =
     runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((_, authRequests, upgradeVerificationrequests)) =>
+      case Right((_, upgradeVerificationrequests)) =>
         machine.finish.map(_.tx) match {
           case Left(err) =>
             Left(err)
           case Right(tx) =>
-            Right((tx, authRequests, upgradeVerificationrequests))
+            Right((tx, upgradeVerificationrequests))
         }
       case Left(err) =>
         Left(err)
@@ -113,15 +108,11 @@ private[speedy] object SpeedyTestLib {
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, (SValue, List[AuthRequest], List[UpgradeVerificationRequest])] = {
+  ): Either[SError.SError, (SValue, List[UpgradeVerificationRequest])] = {
 
-    var authRequests: List[AuthRequest] = List.empty
     var upgradeVerificationRequests: List[UpgradeVerificationRequest] = List.empty
 
     def onQuestion(question: Question.Update): Unit = question match {
-      case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
-        authRequests = AuthRequest(holding, requesting) :: authRequests
-        callback()
       case Question.Update.NeedTime(callback) =>
         getTime.lift(()) match {
           case Some(value) =>
@@ -166,7 +157,7 @@ private[speedy] object SpeedyTestLib {
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)
-      case Right(fv) => Right((fv, authRequests.reverse, upgradeVerificationRequests.reverse))
+      case Right(fv) => Right((fv, upgradeVerificationRequests.reverse))
     }
   }
 
