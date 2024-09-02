@@ -1036,9 +1036,17 @@ private[lf] object SBuiltinFun {
         val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
         machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
         val choiceAuthorizers =
-          if (explicitChoiceAuthority)
-            Some(extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4)))
-          else {
+          if (explicitChoiceAuthority) {
+            val authorizers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+            machine.enforceChoiceAuthorizersLimit(
+              authorizers,
+              coid,
+              templateId,
+              choiceId,
+              chosenValue,
+            )
+            Some(authorizers)
+          } else {
             require(args.get(4) == SValue.SValue.EmptyList)
             None
           }
