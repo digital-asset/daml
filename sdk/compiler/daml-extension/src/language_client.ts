@@ -129,6 +129,8 @@ export class DamlLanguageClient {
 
   async forceStop() {
     this.stopKeepAliveWatchdog();
+    // Regular IDE didn't correctly respond to `stop`, so we used SIGTERM
+    // Multi-IDE needs to shutdown subprocesses, so needs to use `stop`
     if (this.isMultiIde) await this.languageClient.stop();
     else (<any>this.languageClient)._serverProcess.kill("SIGTERM");
   }

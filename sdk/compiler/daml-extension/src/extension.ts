@@ -145,7 +145,7 @@ function parseIdeManifest(path: string): IdeManifest | null {
   }
 }
 
-async function fileExists(path: string) {
+function fileExists(path: string): Promise<boolean> {
   return new Promise(r => fs.access(path, fs.constants.F_OK, e => r(!e)));
 }
 
@@ -156,6 +156,36 @@ async function showRecommendedDirenvPage() {
   );
 }
 
+async function tryGenerateIdeManifest(
+  rootPath: string,
+  envrcExistsWithoutExt: boolean,
+): Promise<boolean> {
+  const generateIdeManifestCommand =
+    rootPath + '/gradlew run --args="--project-dir ' + rootPath + '"';
+  try {
+    await util.promisify(child_process.exec)(generateIdeManifestCommand, {
+      cwd: rootPath,
+    });
+    return true;
+  } catch (e) {
+    outputChannel.appendLine("Gradle setup failure: " + e);
+    vscode.window
+      .showInformationMessage(
+        "Daml is starting without gradle environment." +
+          (envrcExistsWithoutExt
+            ? " You may be missing a direnv extension."
+            : ""),
+        "See Output",
+        ...(envrcExistsWithoutExt ? ["Install direnv"] : []),
+      )
+      .then((resp: string | undefined) => {
+        if (resp == "See Output") outputChannel.show();
+        if (resp == "Install direnv") showRecommendedDirenvPage();
+      });
+  }
+  return false;
+}
+
 async function startLanguageServers(context: ExtensionContext) {
   const config = vscode.workspace.getConfiguration("daml");
   const consent = await getTelemetryConsent(config, context);
@@ -164,11 +194,10 @@ async function startLanguageServers(context: ExtensionContext) {
   const multiIDESupport = config.get("multiPackageIdeSupport");
   const gradleSupport = config.get("multiPackageIdeGradleSupport");
 
-  var isGradleProject = false;
   const gradlewExists = await fileExists(rootPath + "/gradlew");
   // Of the 3 direnv extensions I found, mkhl.direnv is most popular and only one that populates environment variables for other extensions
   // As such, it is the one we recommend.
-  const envrcExistsWithoutExt =
+  const envrcExistsWithoutExt: boolean =
     (await fileExists(rootPath + "/.envrc")) &&
     vscode.extensions.getExtension("mkhl.direnv") == null;
 
@@ -202,30 +231,12 @@ async function startLanguageServers(context: ExtensionContext) {
     }
   }
 
+  var isGradleProject = false;
   if (multiIDESupport && gradleSupport && gradlewExists) {
-    const generateIdeManifestCommand =
-      rootPath + '/gradlew run --args="--project-dir ' + rootPath + '"';
-    try {
-      await util.promisify(child_process.exec)(generateIdeManifestCommand, {
-        cwd: rootPath,
-      });
-      isGradleProject = true;
-    } catch (e) {
-      outputChannel.appendLine("Gradle setup failure: " + e);
-      vscode.window
-        .showInformationMessage(
-          "Daml is starting without gradle environment." +
-            (envrcExistsWithoutExt
-              ? " You may be missing a direnv extension."
-              : ""),
-          "See Output",
-          ...(envrcExistsWithoutExt ? ["Install direnv"] : []),
-        )
-        .then((resp: string | undefined) => {
-          if (resp == "See Output") outputChannel.show();
-          if (resp == "Install direnv") showRecommendedDirenvPage();
-        });
-    }
+    isGradleProject = await tryGenerateIdeManifest(
+      rootPath,
+      envrcExistsWithoutExt,
+    );
   }
 
   if (isGradleProject) {
