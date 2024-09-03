@@ -1,6 +1,6 @@
 use ledger::Template;
 
-#[path = "lf/value.rs"]
+#[path = "protobuf/value.rs"]
 mod lf;
 
 mod ledger {
