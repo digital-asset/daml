@@ -46,6 +46,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
+    // Not upgradeable (LF <= 1.15)
     implicit def parserParameters: ParserParameters[this.type] =
       ParserParameters(defaultPackageId = pkgId0, languageVersion = LanguageVersion.v1_15)
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
@@ -76,6 +77,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId1 = Ref.PackageId.assertFromString("-pkg1-")
   private lazy val pkg1 = {
+    // Same as pkg0 but upgradeable (LF >= 1.17)
     implicit def pkgId: Ref.PackageId = pkgId1
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
     module M {
@@ -83,8 +85,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories M:mkList (M:T {sig} this) (None @Party);
-        observers M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
@@ -92,13 +94,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
-
-      val mkList: Party -> Option Party -> List Party =
-        \(sig: Party) -> \(optSig: Option Party) ->
-          case optSig of
-            None -> Cons @Party [sig] Nil @Party
-          | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
-
     }
     """
   }
@@ -114,8 +109,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
@@ -137,8 +132,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg0-':M:mkList (M:T {sig} this) (M:T {optSig} this);
+        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
@@ -161,8 +156,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        signatories '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
+        observers '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
