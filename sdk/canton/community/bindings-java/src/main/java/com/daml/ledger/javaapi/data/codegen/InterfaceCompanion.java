@@ -54,7 +54,7 @@ public abstract class InterfaceCompanion<I, Id, View>
     this.fromJson = fromJson;
   }
 
-  // TODO(raphael-speyer-da): remove this overload, once codegen no longer uses it.
+  // TODO(i21140): remove this overload, once codegen no longer uses it.
   private InterfaceCompanion(
       String templateClassName,
       Identifier templateId,

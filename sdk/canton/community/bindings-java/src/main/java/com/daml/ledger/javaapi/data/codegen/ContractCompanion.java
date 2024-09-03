@@ -120,7 +120,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
       this.newContract = newContract;
     }
 
-    // TODO(raphael-speyer-da): remove this overload, once codegen no longer uses it.
+    // TODO(i21140): remove this overload, once codegen no longer uses it.
     public WithoutKey(
         String templateClassName,
         Identifier templateId,
@@ -192,7 +192,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
       this.keyFromValue = keyFromValue;
     }
 
-    // TODO(raphael-speyer-da): remove this overload, once codegen no longer uses it.
+    // TODO(i21140): remove this overload, once codegen no longer uses it.
     public WithKey(
         String templateClassName,
         Identifier templateId,
