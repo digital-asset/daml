@@ -1,10 +1,12 @@
+use ledger::Template;
+
 #[path = "lf/value.rs"]
 mod lf;
 
 mod ledger {
     use protobuf::Message;
 
-    mod internal {
+    pub mod internal {
         #[repr(C, packed)]
         #[allow(non_snake_case)]
         pub struct ByteString {
@@ -18,6 +20,21 @@ mod ledger {
 
             #[allow(non_snake_case)]
             pub fn createContract<'a>(templateTyCon: &'a ByteString, arg: &'a ByteString) -> &'a ByteString;
+        }
+
+        #[no_mangle]
+        pub fn alloc(len: usize) -> *mut u8 {
+            let mut buf = Vec::with_capacity(len);
+            let ptr = buf.as_mut_ptr();
+            std::mem::forget(buf);
+
+            return ptr;
+        }
+
+        #[no_mangle]
+        pub unsafe fn dealloc(ptr: *mut u8, size: usize) {
+            let data = Vec::from_raw_parts(ptr, size, size);
+            std::mem::drop(data);
         }
     }
 
@@ -46,11 +63,31 @@ mod ledger {
     pub trait Template<T> {
         fn new(arg: crate::lf::Value) -> T;
 
-        // pub fn precond(arg: crate::lf::Value) -> bool;
+        fn precond(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
 
-        // pub fn signatories(arg: crate::lf::Value) -> [crate::lf::Party];
+            result.set_bool(true);
 
-        // pub fn observers(arg: crate::lf::Value) -> [crate::lf::Party];
+            return result;
+        }
+
+        fn signatories(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
+            let empty = crate::lf::value::List::new();
+
+            result.set_list(empty);
+
+            return result;
+        }
+
+        fn observers(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
+            let empty = crate::lf::value::List::new();
+
+            result.set_list(empty);
+
+            return result;
+        }
     }
 
     pub mod utils {
@@ -71,15 +108,6 @@ mod ledger {
     }
 }
 
-#[no_mangle]
-pub fn alloc(len: usize) -> *mut u8 {
-    let mut buf = Vec::with_capacity(len);
-    let ptr = buf.as_mut_ptr();
-    std::mem::forget(buf);
-
-    return ptr;
-}
-
 #[allow(non_snake_case, unused)]
 struct SimpleTemplate {
     owner: String,
@@ -96,6 +124,64 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
           owner: owner,
           count: count,
       };
+    }
+
+    #[allow(unused)]
+    fn signatories(arg: lf::Value) -> lf::Value {
+         let mut obs = lf::Value::new();
+         let mut result = lf::Value::new();
+         let mut list = lf::value::List::new();
+
+         obs.set_party(String::from("bob"));
+         list.elements = vec![obs];
+         result.set_list(list);
+
+         return result;
+    }
+}
+
+#[allow(non_snake_case, unused)]
+impl SimpleTemplate {
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_precond(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::precond(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_signatories(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::signatories(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_observers(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::observers(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
     }
 }
 

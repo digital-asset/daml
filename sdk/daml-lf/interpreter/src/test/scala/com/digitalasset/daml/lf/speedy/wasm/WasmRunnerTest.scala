@@ -540,6 +540,8 @@ class WasmRunnerTest
       "0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac"
     )
     val bob = Ref.Party.assertFromString("bob")
+    val alice = Ref.Party.assertFromString("alice")
+//    val charlie = Ref.Party.assertFromString("charlie")
     val submitters = Set(bob)
     val readAs = Set.empty[Ref.Party]
     val stakeholders = submitters ++ readAs
@@ -659,7 +661,7 @@ class WasmRunnerTest
                 stakeholders,
                 signatories,
                 choiceObservers,
-                None,
+                Some(choiceAuthorizers),
                 children,
                 Some(exerciseResult),
                 None,
@@ -669,7 +671,8 @@ class WasmRunnerTest
             actingParties shouldBe Set(bob)
             stakeholders shouldBe Set(bob)
             signatories shouldBe Set(bob)
-            choiceObservers shouldBe empty
+            choiceObservers shouldBe Set(alice)
+            choiceAuthorizers shouldBe Set(bob)
             children shouldBe ImmArray(node1)
             choiceId shouldBe Ref.ChoiceName.assertFromString("SimpleTemplate_increment")
             tx.consumedContracts shouldBe Set(contractId)

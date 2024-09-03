@@ -13,13 +13,15 @@ trait WasmRunnerHostFunctions {
 
   def logInfo(msg: String): Unit
 
-  def createContract(templateCons: Ref.TypeConRef, args: LfValue): LfValue.ContractId
+  def createContract(templateCons: Ref.TypeConRef, args: LfValue)(implicit
+      instance: WasmInstance
+  ): LfValue.ContractId
 
   def fetchContractArg(
       templateId: Ref.TypeConRef,
       contractId: LfValue.ContractId,
       timeout: Duration,
-  ): LfValue
+  )(implicit instance: WasmInstance): LfValue
 
   def exerciseChoice(
       templateId: Ref.TypeConRef,

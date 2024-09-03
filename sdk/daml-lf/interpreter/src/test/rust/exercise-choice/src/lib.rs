@@ -114,6 +114,10 @@ mod ledger {
         fn exercise(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
 
         fn controllers(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
+
+        fn observers(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
+
+        fn authorizers(&self, contractArg: crate::lf::Value, choiceArg: crate::lf::Value) -> crate::lf::Value;
     }
 
     #[allow(unused)]
@@ -123,17 +127,39 @@ mod ledger {
         #[allow(non_snake_case)]
         fn templateId() -> crate::lf::Identifier;
 
-        fn choices() -> HashMap<String, Box<dyn Choice>>;
+        fn choices() -> HashMap<String, Box<dyn Choice>> {
+            return HashMap::new();
+        }
 
         // TODO: this method should be part of a rust/protobuf DSL?
         #[allow(non_snake_case)]
         fn toLfValue(&self) -> crate::lf::Value;
 
-        // pub fn precond(arg: crate::lf::Value) -> bool;
+        fn precond(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
 
-        // pub fn signatories(arg: crate::lf::Value) -> Vec<crate::lf::Party>;
+            result.set_bool(true);
 
-        // pub fn observers(arg: crate::lf::Value) -> Vec<crate::lf::Party>;
+            return result;
+        }
+
+        fn signatories(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
+            let empty = crate::lf::value::List::new();
+
+            result.set_list(empty);
+
+            return result;
+        }
+
+        fn observers(arg: crate::lf::Value) -> crate::lf::Value {
+            let mut result = crate::lf::Value::new();
+            let empty = crate::lf::value::List::new();
+
+            result.set_list(empty);
+
+            return result;
+        }
     }
 
     // TODO: all utils functions should be part of a rust/protobuf DSL?
@@ -187,6 +213,42 @@ impl ledger::Choice for SimpleTemplate_increment {
 
         return result;
     }
+
+    #[allow(unused)]
+    fn observers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        assert!(choiceArg.has_unit());
+
+        let mut obs = lf::Value::new();
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+
+        obs.set_party(String::from("alice"));
+        list.elements = vec![obs];
+        result.set_list(list);
+
+        return result;
+    }
+
+    #[allow(unused)]
+    fn authorizers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        use protobuf::MessageField;
+
+        assert!(choiceArg.has_unit());
+
+        let mut obs = lf::Value::new();
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+        let mut optList = lf::Value::new();
+        let mut opt = lf::value::Optional::new();
+
+        obs.set_party(String::from("bob"));
+        list.elements = vec![obs];
+        optList.set_list(list);
+        opt.value = MessageField::some(optList);
+        result.set_optional(opt);
+
+        return result;
+    }
 }
 
 impl SimpleTemplate_increment {
@@ -214,6 +276,38 @@ impl SimpleTemplate_increment {
         let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
         let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
         let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().controllers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_increment_choice_observers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().observers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_increment_choice_authorizers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().authorizers(contractArg, choiceArg);
         let resultBytes = result.write_to_bytes().unwrap();
         let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
 
@@ -253,6 +347,42 @@ impl ledger::Choice for SimpleTemplate_decrement {
 
         return result;
     }
+
+    #[allow(unused)]
+    fn observers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        assert!(choiceArg.has_unit());
+
+        let mut obs = lf::Value::new();
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+
+        obs.set_party(String::from("alice"));
+        list.elements = vec![obs];
+        result.set_list(list);
+
+        return result;
+    }
+
+    #[allow(unused)]
+    fn authorizers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        use protobuf::MessageField;
+
+        assert!(choiceArg.has_unit());
+
+        let mut obs = lf::Value::new();
+        let mut result = lf::Value::new();
+        let mut list = lf::value::List::new();
+        let mut optList = lf::Value::new();
+        let mut opt = lf::value::Optional::new();
+
+        obs.set_party(String::from("bob"));
+        list.elements = vec![obs];
+        optList.set_list(list);
+        opt.value = MessageField::some(optList);
+        result.set_optional(opt);
+
+        return result;
+    }
 }
 
 impl SimpleTemplate_decrement {
@@ -280,6 +410,38 @@ impl SimpleTemplate_decrement {
         let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
         let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
         let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().controllers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_decrement_choice_observers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().observers(contractArg, choiceArg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_decrement_choice_authorizers(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let contractArg = ledger::utils::to_Value((*contractArgPtr).ptr, (*contractArgPtr).size);
+        let choiceArg = ledger::utils::to_Value((*choiceArgPtr).ptr, (*choiceArgPtr).size);
+        let result = SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().authorizers(contractArg, choiceArg);
         let resultBytes = result.write_to_bytes().unwrap();
         let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
 
@@ -327,6 +489,20 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
         return result;
     }
 
+    #[allow(unused)]
+    fn signatories(arg: lf::Value) -> lf::Value {
+         let mut bob = lf::Value::new();
+         let mut charlie = lf::Value::new();
+         let mut result = lf::Value::new();
+         let mut list = lf::value::List::new();
+
+         bob.set_party(String::from("bob"));
+         list.elements = vec![bob];
+         result.set_list(list);
+
+         return result;
+    }
+
     // TODO: this should be part of a rust/protobuf DSL?
     #[allow(non_snake_case)]
     fn toLfValue(&self) -> lf::Value {
@@ -354,6 +530,51 @@ impl ledger::Template<SimpleTemplate> for SimpleTemplate {
         arg.set_record(argRec);
 
         return arg;
+    }
+}
+
+#[allow(non_snake_case, unused)]
+impl SimpleTemplate {
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_precond(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::precond(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_signatories(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::signatories(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    pub unsafe fn SimpleTemplate_observers(argPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let arg = ledger::utils::to_Value((*argPtr).ptr, (*argPtr).size);
+        let result = SimpleTemplate::observers(arg);
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
     }
 }
 
