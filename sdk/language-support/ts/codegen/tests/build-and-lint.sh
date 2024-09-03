@@ -69,8 +69,8 @@ PATH=$PATH:$GRPCURL
 # yarn.lock includes local paths and hashes for daml.js; remove them
 # before grepping
 hide_changing_paths() {
-    sed -Ee 's!^("@daml.js/)([0-9a-f]+)@file:daml2js/\2":!\1...": # elided for diff!' \
-        -e 's!( +"@daml.js/)[0-9a-f]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
+    sed -Ee 's!^("@daml.js/)([0-9a-zA-Z\.-]+)@file:daml2js/\2":!\1...": # elided for diff!' \
+        -e 's!( +"@daml.js/)[0-9a-zA-Z\.-]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
 }
 
 # Build, lint, test.
