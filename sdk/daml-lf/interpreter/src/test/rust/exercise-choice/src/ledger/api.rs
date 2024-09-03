@@ -1,4 +1,5 @@
 use protobuf::Message;
+use protobuf::MessageField;
 use std::collections::HashMap;
 
 use crate::ledger::internal;
@@ -70,13 +71,35 @@ pub fn exerciseChoice(templateTyCon: lf::Identifier, contractId: lf::Value, choi
 
 #[allow(unused, non_snake_case)]
 pub trait Choice {
-    fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value;
+    fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value; // lf::value::ContractId
 
-    fn controllers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value;
+    fn controllers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        let mut result = lf::Value::new();
+        let empty = lf::value::List::new();
 
-    fn observers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value;
+        result.set_list(empty);
 
-    fn authorizers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value;
+        return result; // lf::value::List<lf::value::Party>
+    }
+
+    fn observers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        let mut result = lf::Value::new();
+        let empty = lf::value::List::new();
+
+        result.set_list(empty);
+
+        return result; // lf::value::List<lf::value::Party>
+    }
+
+    fn authorizers(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
+        let mut result = lf::Value::new();
+        let mut opt = lf::value::Optional::new();
+
+        opt.value = MessageField::none();
+        result.set_optional(opt);
+
+        return result; // lf::value::Optional<lf::value::List<lf::value::Party>>
+    }
 }
 
 #[allow(unused)]
@@ -99,7 +122,7 @@ pub trait Template<T> {
 
         result.set_bool(true);
 
-        return result;
+        return result; // lf::value::Boolean
     }
 
     fn signatories(arg: lf::Value) -> lf::Value {
@@ -108,7 +131,7 @@ pub trait Template<T> {
 
         result.set_list(empty);
 
-        return result;
+        return result; // lf::value::List<lf::value::Party>
     }
 
     fn observers(arg: lf::Value) -> lf::Value {
@@ -117,6 +140,6 @@ pub trait Template<T> {
 
         result.set_list(empty);
 
-        return result;
+        return result; // lf::value::List<lf::value::Party>
     }
 }
