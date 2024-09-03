@@ -68,7 +68,7 @@ object AcsTxStreamsTest {
   ) =
     probeFOS2PlusContinuation(
       AcsTxStreams.acsFollowingAndBoundary(
-        _: lav2.participant_offset.ParticipantOffset => Source[Transaction, NotUsed],
+        _: String => Source[Transaction, NotUsed],
         logger,
       )
     ).run()

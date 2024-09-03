@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SubmissionTrackingData,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.PendingTransferIn
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.PendingTransferOut
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
   SyncDomainEphemeralState,
@@ -109,7 +109,7 @@ trait ProcessingSteps[
   /** The type of errors that can occur during result processing */
   type ResultError <: WrapsProcessorError
 
-  /** The type of the request (transaction, transfer-out, transfer-in) */
+  /** The type of the request (transaction, unassignment, transfer-in) */
   type RequestType <: ProcessingSteps.RequestType
   val requestType: RequestType
 
@@ -532,7 +532,7 @@ trait ProcessingSteps[
 }
 
 object ProcessingSteps {
-  def getTransferInExclusivity(
+  def getAssignmentExclusivity(
       topologySnapshot: TopologySnapshot,
       ts: CantonTimestamp,
   )(implicit
@@ -542,9 +542,9 @@ object ProcessingSteps {
     for {
       domainParameters <- EitherT(topologySnapshot.findDynamicDomainParameters())
 
-      transferInExclusivity <- EitherT
-        .fromEither[Future](domainParameters.transferExclusivityLimitFor(ts))
-    } yield transferInExclusivity
+      assignmentExclusivity <- EitherT
+        .fromEither[Future](domainParameters.assignmentExclusivityLimitFor(ts))
+    } yield assignmentExclusivity
 
   def getDecisionTime(
       topologySnapshot: TopologySnapshot,
@@ -575,13 +575,13 @@ object ProcessingSteps {
 
     sealed trait Transfer extends Values
 
-    case object TransferOut extends Transfer {
-      override type PendingRequestData = PendingTransferOut
+    case object Unassignment extends Transfer {
+      override type PendingRequestData = PendingUnassignment
 
-      override def pretty: Pretty[TransferOut] = prettyOfObject[TransferOut]
+      override def pretty: Pretty[Unassignment] = prettyOfObject[Unassignment]
     }
 
-    type TransferOut = TransferOut.type
+    type Unassignment = Unassignment.type
 
     case object TransferIn extends Transfer {
       override type PendingRequestData = PendingTransferIn

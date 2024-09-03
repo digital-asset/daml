@@ -27,11 +27,11 @@ object ApiOffset {
 
   def assertFromString(s: String): Offset = tryFromString(s).fold(throw _, identity)
 
-  def toApiString(offset: Offset): Ref.LedgerString =
+  def toApiString(offset: Offset): Ref.HexString =
     offset.toHexString
 
   implicit class ApiOffsetConverter(val offset: Offset) {
-    def toApiString: Ref.LedgerString = ApiOffset.toApiString(offset)
+    def toApiString: Ref.HexString = ApiOffset.toApiString(offset)
   }
 
 }

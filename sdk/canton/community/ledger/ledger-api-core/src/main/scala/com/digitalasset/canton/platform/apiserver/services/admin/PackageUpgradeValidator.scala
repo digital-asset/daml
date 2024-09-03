@@ -63,7 +63,7 @@ class PackageUpgradeValidator(
             // will load them from the DB and decode them. If one were to upload many packages that upgrade each
             // other, we will end up decoding the same package many times. Some of these cases could be sped up
             // by a cache depending on the order in which the packages are uploaded.
-            validatePackageUpgrade((pkgId, pkg), packageMap, upgradingPackagesMap)
+            validatePackageUpgrade((pkgId, pkg), packageMap)
           )
           res <- go(packageMap + ((pkgId, (pkg.metadata.name, pkg.metadata.version))), rest)
         } yield res
@@ -74,7 +74,6 @@ class PackageUpgradeValidator(
   private def validatePackageUpgrade(
       uploadedPackage: (Ref.PackageId, Ast.Package),
       packageMap: PackageMap,
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] = {
@@ -107,7 +106,6 @@ class PackageUpgradeValidator(
             maximalVersionedDar(
               uploadedPackageAst,
               packageMap,
-              upgradingPackagesMap,
             )
           )
           _ <- typecheckUpgrades(
@@ -117,7 +115,7 @@ class PackageUpgradeValidator(
             optMaximalDar,
           )
           optMinimalDar <- EitherT.right[DamlError](
-            minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
+            minimalVersionedDar(uploadedPackageAst, packageMap)
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MinimalDarCheck,
@@ -130,26 +128,17 @@ class PackageUpgradeValidator(
     }
   }
 
-  /** Looks up [[pkgId]], first in the [[upgradingPackagesMap]] and then in the package store.
-    */
-  private def lookupDar(
-      pkgId: Ref.PackageId,
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
-  )(implicit
+  private def lookupDar(pkgId: Ref.PackageId)(implicit
       loggingContextWithTrace: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] =
-    upgradingPackagesMap.get(pkgId) match {
-      case Some(pkg) => Future.successful(Some((pkgId, pkg)))
-      case None =>
-        for {
-          optArchive <- getLfArchive(loggingContextWithTrace)(pkgId)
-          optPackage <- Future.fromTry {
-            optArchive
-              .traverse(Decode.decodeArchive(_))
-              .handleError(Validation.handleLfArchiveError)
-          }
-        } yield optPackage
-    }
+    for {
+      optArchive <- getLfArchive(loggingContextWithTrace)(pkgId)
+      optPackage <- Future.fromTry {
+        optArchive
+          .traverse(Decode.decodeArchive(_))
+          .handleError(Validation.handleLfArchiveError)
+      }
+    } yield optPackage
 
   private def existingVersionedPackageId(
       pkg: Ast.Package,
@@ -163,7 +152,6 @@ class PackageUpgradeValidator(
   private def minimalVersionedDar(
       pkg: Ast.Package,
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
@@ -175,21 +163,13 @@ class PackageUpgradeValidator(
       }
       .filter { case (_, version) => pkgVersion < version }
       .minByOption { case (_, version) => version }
-      .traverse { case (pId, _) =>
-        lookupDar(pId, upgradingPackagesMap).map(
-          _.getOrElse {
-            val errorMessage = s"failed to look up dar of package $pId present in package map"
-            logger.error(errorMessage)
-            throw new IllegalStateException(errorMessage)
-          }
-        )
-      }
+      .traverse { case (pId, _) => lookupDar(pId) }
+      .map(_.flatten)
   }
 
   private def maximalVersionedDar(
       pkg: Ast.Package,
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
@@ -201,15 +181,8 @@ class PackageUpgradeValidator(
       }
       .filter { case (_, version) => pkgVersion > version }
       .maxByOption { case (_, version) => version }
-      .traverse { case (pId, _) =>
-        lookupDar(pId, upgradingPackagesMap)(loggingContext).map(
-          _.getOrElse {
-            val errorMessage = s"failed to look up dar of package $pId present in package map"
-            logger.error(errorMessage)
-            throw new IllegalStateException(errorMessage)
-          }
-        )
-      }
+      .traverse { case (pId, _) => lookupDar(pId) }
+      .map(_.flatten)
   }
 
   private def strictTypecheckUpgrades(

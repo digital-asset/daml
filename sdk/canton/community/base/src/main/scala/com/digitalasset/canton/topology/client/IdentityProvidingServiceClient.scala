@@ -25,10 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
-  AuthorityOfResponse,
-  PartyInfo,
-}
+import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -246,13 +243,6 @@ trait PartyTopologySnapshotClient {
       traceContext: TraceContext
   ): Future[Map[LfPartyId, PositiveInt]]
 
-  /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
-    * with threshold one
-    */
-  def authorityOf(parties: Set[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): Future[AuthorityOfResponse]
-
   /** Returns true if there is at least one participant that satisfies the predicate */
   def isHostedByAtLeastOneParticipantF(
       parties: Set[LfPartyId],
@@ -308,13 +298,6 @@ trait PartyTopologySnapshotClient {
 }
 
 object PartyTopologySnapshotClient {
-  final case class AuthorityOfDelegation(expected: Set[LfPartyId], threshold: PositiveInt)
-
-  def nonConsortiumPartyDelegation(partyId: LfPartyId): AuthorityOfDelegation =
-    AuthorityOfDelegation(Set(partyId), PositiveInt.one)
-
-  final case class AuthorityOfResponse(response: Map[LfPartyId, AuthorityOfDelegation])
-
   final case class PartyInfo(
       groupAddressing: Boolean,
       threshold: PositiveInt, // > 1 for consortium parties

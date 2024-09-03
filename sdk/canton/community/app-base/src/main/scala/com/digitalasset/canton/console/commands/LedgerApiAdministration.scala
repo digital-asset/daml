@@ -14,7 +14,6 @@ import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
@@ -807,10 +806,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             LedgerApiCommands.StateService.LedgerEnd()
           )
         })
-
-      @Help.Summary("Read the current ledger end offset in ParticipantOffset", FeatureFlag.Testing)
-      def endOffset(): ParticipantOffset =
-        ParticipantOffset.defaultInstance.withAbsolute(end())
 
       @Help.Summary("Read the current connected domains for a party", FeatureFlag.Testing)
       def connected_domains(partyId: PartyId): GetConnectedDomainsResponse =

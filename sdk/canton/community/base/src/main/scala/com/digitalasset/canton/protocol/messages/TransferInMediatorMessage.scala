@@ -7,7 +7,7 @@ import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{
-  TransferInViewTree,
+  AssignmentViewTree,
   ViewConfirmationParameters,
   ViewPosition,
   ViewType,
@@ -35,7 +35,7 @@ import java.util.UUID
   * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
   */
 final case class TransferInMediatorMessage(
-    tree: TransferInViewTree,
+    tree: AssignmentViewTree,
     override val submittingParticipantSignature: Signature,
 ) extends MediatorConfirmationRequest {
 
@@ -113,7 +113,7 @@ object TransferInMediatorMessage
     for {
       tree <- ProtoConverter
         .required("TransferInMediatorMessage.tree", treePO)
-        .flatMap(TransferInViewTree.fromProtoV30(context))
+        .flatMap(AssignmentViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
         OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),

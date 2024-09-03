@@ -18,7 +18,6 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.api.v2.package_service
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
@@ -101,32 +100,30 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       client: DamlLedgerClient
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => { implicit lc =>
-      {
-        val endSource: Source[String, NotUsed] = terminates match {
-          case Terminates.AtParticipantEnd =>
-            Source.future(client.stateService.getLedgerEnd()).map(_.offset)
-          case Terminates.Never => Source.single("")
-          case Terminates.AtAbsolute(off) => Source.single(off)
-        }
-        endSource.flatMapConcat { end =>
-          if (skipRequest(offset, end))
-            Source.empty[Transaction]
-          else {
-            log(GetUpdatesLog) {
-              client.updateService
-                .getUpdatesSource(
-                  begin = offset.getAbsolute,
-                  filter = filter,
-                  verbose = true,
-                  end = end,
-                  token = bearer(jwt),
-                )
-                .collect { response =>
-                  response.update match {
-                    case Update.Transaction(t) => t
-                  }
+      val endSource: Source[String, NotUsed] = terminates match {
+        case Terminates.AtParticipantEnd =>
+          Source.future(client.stateService.getLedgerEnd()).map(_.offset)
+        case Terminates.Never => Source.single("")
+        case Terminates.AtAbsolute(off) => Source.single(off)
+      }
+      endSource.flatMapConcat { end =>
+        if (skipRequest(offset, end))
+          Source.empty[Transaction]
+        else {
+          log(GetUpdatesLog) {
+            client.updateService
+              .getUpdatesSource(
+                begin = offset,
+                filter = filter,
+                verbose = true,
+                end = end,
+                token = bearer(jwt),
+              )
+              .collect { response =>
+                response.update match {
+                  case Update.Transaction(t) => t
                 }
-            }
+              }
           }
         }
       }
@@ -135,19 +132,17 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   def getByContractId(
       client: DamlLedgerClient
   )(implicit ec: EC, traceContext: TraceContext): GetContractByContractId = {
-    (jwt, contractId, requestingParties) =>
-      { implicit lc =>
-        logFuture(GetContractByContractIdLog) {
-          client.eventQueryService.getEventsByContractId(
-            contractId = contractId.unwrap,
-            requestingParties = requestingParties.view.map(_.unwrap).toSeq,
-            token = bearer(jwt),
-          )
-        }
-          .requireHandling { case Code.PERMISSION_DENIED =>
-            PermissionDenied
-          }
+    (jwt, contractId, requestingParties) => implicit lc =>
+      logFuture(GetContractByContractIdLog) {
+        client.eventQueryService.getEventsByContractId(
+          contractId = contractId.unwrap,
+          requestingParties = requestingParties.view.map(_.unwrap).toSeq,
+          token = bearer(jwt),
+        )
       }
+        .requireHandling { case Code.PERMISSION_DENIED =>
+          PermissionDenied
+        }
   }
 
   //  TODO(#16065)
@@ -169,12 +164,11 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   //      }
   //  }
 
-  private def skipRequest(start: ParticipantOffset, end: String): Boolean =
-    (start.value, end) match {
+  private def skipRequest(start: String, end: String): Boolean =
+    (start, end) match {
       case (_, "") => false
-      case (ParticipantOffset.Value.Absolute(s), _) =>
-        s >= end
-      case _ => false
+      case ("", _) => false
+      case _ => start >= end
     }
 
   // TODO(#13303): Replace all occurrences of EC for logging purposes in this file
@@ -335,7 +329,7 @@ object LedgerClientJwt {
     (
         Jwt,
         TransactionFilter,
-        ParticipantOffset,
+        String,
         Terminates,
     ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
 
@@ -488,9 +482,8 @@ object LedgerClientJwt {
 //    case object GetContractByContractKeyLog
 //        extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractKey")
 
-    private[LedgerClientJwt] def logMessage(startTime: Long, requestLog: RequestLog): String = {
+    private[LedgerClientJwt] def logMessage(startTime: Long, requestLog: RequestLog): String =
       s"Ledger client request ${requestLog.className} ${requestLog.requestName} executed, elapsed time: " +
         s"${(System.nanoTime() - startTime) / 1000000L} ms"
-    }
   }
 }

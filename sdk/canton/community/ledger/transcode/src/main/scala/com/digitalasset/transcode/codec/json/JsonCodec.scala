@@ -3,9 +3,9 @@
 
 package com.digitalasset.transcode.codec.json
 
-import com.digitalasset.transcode.Codec
 import com.digitalasset.transcode.schema.DynamicValue.*
 import com.digitalasset.transcode.schema.*
+import com.digitalasset.transcode.{Codec, MissingFieldException, UnexpectedFieldsException}
 import ujson.*
 
 import java.time.*
@@ -38,7 +38,23 @@ class JsonCodec(
 
     override def toDynamicValue(v: Value): DynamicValue = {
       val valueMap = v.obj.value
-      DynamicValue.Record(fields map { case (name, c) => c.toDynamicValue(valueMap(name)) })
+      val unexpectedFields = valueMap.keySet.toSet -- fields.map(_._1)
+      val unexpectedValues =
+        valueMap
+          .filter { case (k, v) => unexpectedFields.contains(k) && v != ujson.Null }
+      if (!unexpectedValues.isEmpty) {
+        throw new UnexpectedFieldsException(unexpectedFields)
+      }
+      DynamicValue.Record(fields map { case (name, c) =>
+        if (c.isOptional()) {
+          c.toDynamicValue(valueMap.getOrElse(name, ujson.Null))
+        } else {
+          valueMap.get(name) match {
+            case Some(value) => c.toDynamicValue(value)
+            case None => throw new MissingFieldException(name)
+          }
+        }
+      })
     }
 
     override def fromDynamicValue(dv: DynamicValue): Value =
@@ -91,10 +107,13 @@ class JsonCodec(
 
   override def optional(elem: Type): Type = new OptionalProcessor(elem)
   private class OptionalProcessor(elem: Type) extends Type {
+    override def isOptional(): Boolean = true
+
     def toDynamicValue(v: Value): DynamicValue = elem match {
       case _: OptionalProcessor => toDynamicValueNested(v)
       case _ => toDynamicValueSimple(v)
     }
+
     def fromDynamicValue(dv: DynamicValue): Value = elem match {
       case _: OptionalProcessor => fromDynamicValueNested(dv)
       case _ => fromDynamicValueSimple(dv)

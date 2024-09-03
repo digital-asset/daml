@@ -71,7 +71,7 @@ private[routing] class ContractsTransfer(
         .cond[Future](sourceSyncDomain.ready, (), "The source domain is not ready for submissions")
 
       outResult <- sourceSyncDomain
-        .submitTransferOut(
+        .submitUnassignment(
           submitterMetadata,
           contractId,
           targetDomain,
@@ -81,11 +81,11 @@ private[routing] class ContractsTransfer(
         .semiflatMap(Predef.identity)
         .leftMap(_.toString)
         .onShutdown(Left("Application is shutting down"))
-      outStatus <- EitherT.right[String](outResult.transferOutCompletionF)
-      _outApprove <- EitherT.cond[Future](
-        outStatus.code == com.google.rpc.Code.OK_VALUE,
+      unassignmentStatus <- EitherT.right[String](outResult.unassignmentCompletionF)
+      _unassignmentApprove <- EitherT.cond[Future](
+        unassignmentStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The transfer out for ${outResult.reassignmentId} failed with status $outStatus",
+        s"The transfer out for ${outResult.reassignmentId} failed with status $unassignmentStatus",
       )
 
       _unit <- EitherT

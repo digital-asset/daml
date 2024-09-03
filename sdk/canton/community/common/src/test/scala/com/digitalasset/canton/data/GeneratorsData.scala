@@ -17,7 +17,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResultMessage,
-  DeliveredTransferOutResult,
+  DeliveredUnassignmentResult,
   SignedProtocolMessage,
   Verdict,
 }
@@ -452,7 +452,7 @@ final class GeneratorsData(
       )
     )
 
-  implicit val transferInCommonDataArb: Arbitrary[TransferInCommonData] = Arbitrary(
+  implicit val transferInCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
@@ -466,7 +466,7 @@ final class GeneratorsData(
 
       hashOps = TestHash // Not used for serialization
 
-    } yield TransferInCommonData
+    } yield AssignmentCommonData
       .create(hashOps)(
         salt,
         targetDomain,
@@ -478,7 +478,7 @@ final class GeneratorsData(
       )
   )
 
-  implicit val transferOutCommonData: Arbitrary[TransferOutCommonData] = Arbitrary(
+  implicit val unassignmentCommonData: Arbitrary[UnassignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
@@ -493,7 +493,7 @@ final class GeneratorsData(
 
       hashOps = TestHash // Not used for serialization
 
-    } yield TransferOutCommonData
+    } yield UnassignmentCommonData
       .create(hashOps)(
         salt,
         sourceDomain,
@@ -506,10 +506,10 @@ final class GeneratorsData(
       )
   )
 
-  private def deliveryTransferOutResultGen(
+  private def deliveryUnassignmentResultGen(
       contract: SerializableContract,
       sourceProtocolVersion: SourceProtocolVersion,
-  ): Gen[DeliveredTransferOutResult] =
+  ): Gen[DeliveredUnassignmentResult] =
     for {
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
       requestId <- Arbitrary.arbitrary[RequestId]
@@ -532,7 +532,7 @@ final class GeneratorsData(
           result,
           protocolVersion,
           GeneratorsCrypto.sign(
-            "TransferOutResult-mediator",
+            "UnassignmentResult-mediator",
             TestHash.testHashPurpose,
           ),
         )
@@ -542,40 +542,40 @@ final class GeneratorsData(
       batch = Batch.of(protocolVersion, signedResult -> recipients)
       deliver <- deliverGen(sourceDomain.unwrap, batch, protocolVersion)
 
-      transferOutTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
-    } yield DeliveredTransferOutResult {
+      unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
+    } yield DeliveredUnassignmentResult {
       SignedContent(
         deliver,
-        sign("TransferOutResult-sequencer", TestHash.testHashPurpose),
-        Some(transferOutTimestamp),
+        sign("UnassignmentResult-sequencer", TestHash.testHashPurpose),
+        Some(unassignmentTs),
         protocolVersion,
       )
     }
 
-  implicit val transferInViewArb: Arbitrary[TransferInView] = Arbitrary(
+  implicit val transferInViewArb: Arbitrary[AssignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
-      transferOutResultEvent <- deliveryTransferOutResultGen(contract, sourceProtocolVersion)
-      transferCounter <- transferCounterGen
+      unassignmentResultEvent <- deliveryUnassignmentResultGen(contract, sourceProtocolVersion)
+      reassignmentCounter <- reassignmentCounterGen
 
       hashOps = TestHash // Not used for serialization
 
-    } yield TransferInView
+    } yield AssignmentView
       .create(hashOps)(
         salt,
         contract,
         creatingTransactionId,
-        transferOutResultEvent,
+        unassignmentResultEvent,
         sourceProtocolVersion,
         targetProtocolVersion,
-        transferCounter,
+        reassignmentCounter,
       )
       .value
   )
 
-  implicit val transferOutViewArb: Arbitrary[TransferOutView] = Arbitrary(
+  implicit val unassignmentViewArb: Arbitrary[UnassignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
 
@@ -584,11 +584,11 @@ final class GeneratorsData(
 
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
       timeProof <- timeProofArb(protocolVersion).arbitrary
-      transferCounter <- transferCounterGen
+      reassignmentCounter <- reassignmentCounterGen
 
       hashOps = TestHash // Not used for serialization
 
-    } yield TransferOutView
+    } yield UnassignmentView
       .create(hashOps)(
         salt,
         contract,
@@ -597,16 +597,16 @@ final class GeneratorsData(
         timeProof,
         sourceProtocolVersion,
         targetProtocolVersion,
-        transferCounter,
+        reassignmentCounter,
       )
   )
 
-  implicit val transferInViewTreeArb: Arbitrary[TransferInViewTree] = Arbitrary(
+  implicit val transferInViewTreeArb: Arbitrary[AssignmentViewTree] = Arbitrary(
     for {
       commonData <- transferInCommonDataArb.arbitrary
       transferInView <- transferInViewArb.arbitrary
       hash = TestHash
-    } yield TransferInViewTree(
+    } yield AssignmentViewTree(
       commonData,
       transferInView.blindFully,
       TargetProtocolVersion(protocolVersion),
@@ -614,14 +614,14 @@ final class GeneratorsData(
     )
   )
 
-  implicit val transferOutViewTreeArb: Arbitrary[TransferOutViewTree] = Arbitrary(
+  implicit val unassignmentViewTreeArb: Arbitrary[UnassignmentViewTree] = Arbitrary(
     for {
-      commonData <- transferOutCommonData.arbitrary
-      transferOutView <- transferOutViewArb.arbitrary
+      commonData <- unassignmentCommonData.arbitrary
+      unassignmentView <- unassignmentViewArb.arbitrary
       hash = TestHash
-    } yield TransferOutViewTree(
+    } yield UnassignmentViewTree(
       commonData,
-      transferOutView.blindFully,
+      unassignmentView.blindFully,
       SourceProtocolVersion(protocolVersion),
       hash,
     )

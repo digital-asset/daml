@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.client
 
 import cats.syntax.functorFilter.*
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -16,11 +15,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
 }
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
-  AuthorityOfDelegation,
-  AuthorityOfResponse,
-  PartyInfo,
-}
+import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
@@ -390,41 +385,6 @@ class StoreBasedTopologySnapshot(
       filterParticipant: String,
   )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
     store.inspectKnownParties(timestamp, filterParty, filterParticipant)
-
-  /** Returns authority-of delegations for consortium parties or self/1 for non consortium parties */
-  override def authorityOf(
-      parties: Set[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[AuthorityOfResponse] = findTransactions(
-    types = Seq(TopologyMapping.Code.AuthorityOf),
-    filterUid = None,
-    filterNamespace = None,
-  ).map { transactions =>
-    val consortiumDelegations =
-      transactions
-        .collectOfMapping[AuthorityOf]
-        .result
-        .groupBy(_.mapping.partyId)
-        .collect {
-          case (partyId, seq) if parties.contains(partyId.toLf) =>
-            val authorityOf = collectLatestMapping(
-              TopologyMapping.Code.AuthorityOf,
-              seq.sortBy(_.validFrom),
-            )
-              .getOrElse(
-                throw new IllegalStateException("Group-by would not have produced empty seq")
-              )
-            partyId.toLf -> AuthorityOfDelegation(
-              authorityOf.parties.map(_.toLf).toSet,
-              authorityOf.threshold,
-            )
-        }
-    // If not all parties are consortium parties, fall back to the behavior of the PartyTopologySnapshotClient super trait
-    // to produce a mapping to self with threshold one (without checking whether the party exists on the domain).
-    val nonConsortiumPartyDelegations = (parties -- consortiumDelegations.keys)
-      .map(partyId => partyId -> PartyTopologySnapshotClient.nonConsortiumPartyDelegation(partyId))
-      .toMap
-    AuthorityOfResponse(consortiumDelegations ++ nonConsortiumPartyDelegations)
-  }
 
   /** Returns a list of owner's keys (at most limit) */
   override def inspectKeys(

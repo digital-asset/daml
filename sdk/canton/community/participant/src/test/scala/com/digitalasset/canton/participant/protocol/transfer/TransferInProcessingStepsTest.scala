@@ -89,7 +89,7 @@ class TransferInProcessingStepsTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
@@ -189,14 +189,14 @@ class TransferInProcessingStepsTest
   "prepare submission" should {
     def setUpOrFail(
         transferData: TransferData,
-        transferOutResult: DeliveredTransferOutResult,
+        unassignmentResult: DeliveredUnassignmentResult,
         persistentState: SyncDomainPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
         _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
           "add transfer data failed"
         )
-        _ <- valueOrFail(persistentState.transferStore.addTransferOutResult(transferOutResult))(
+        _ <- valueOrFail(persistentState.transferStore.addUnassignmentResult(unassignmentResult))(
           "add transfer out result failed"
         )
       } yield ()
@@ -213,8 +213,8 @@ class TransferInProcessingStepsTest
       submitterInfo(party1),
       reassignmentId,
     )
-    val transferOutResult =
-      TransferResultHelpers.transferOutResult(
+    val unassignmentResult =
+      TransferResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         participant,
@@ -225,7 +225,7 @@ class TransferInProcessingStepsTest
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         _preparedSubmission <-
           transferInProcessingSteps
             .createSubmission(
@@ -239,7 +239,7 @@ class TransferInProcessingStepsTest
     }
 
     "fail when a receiving party has no participant on the domain" in {
-      val transferOutRequest = TransferOutRequest(
+      val unassignmentRequest = UnassignmentRequest(
         submitterInfo(party1),
         Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
         Set.empty,
@@ -254,13 +254,13 @@ class TransferInProcessingStepsTest
           timestamp = CantonTimestamp.Epoch,
           targetDomain = targetDomain,
         ),
-        initialTransferCounter,
+        initialReassignmentCounter,
       )
       val uuid = new UUID(1L, 2L)
       val seed = seedGenerator.generateSaltSeed()
       val transferData2 = {
-        val fullTransferOutTree = transferOutRequest
-          .toFullTransferOutTree(
+        val fullUnassignmentTree = unassignmentRequest
+          .toFullUnassignmentTree(
             crypto.pureCrypto,
             crypto.pureCrypto,
             seed,
@@ -268,9 +268,9 @@ class TransferInProcessingStepsTest
           )
         TransferData(
           SourceProtocolVersion(testedProtocolVersion),
-          reassignmentId.transferOutTimestamp,
+          reassignmentId.unassignmentTs,
           RequestCounter(0),
-          fullTransferOutTree,
+          fullUnassignmentTree,
           CantonTimestamp.ofEpochSecond(10),
           contract,
           transactionId1,
@@ -281,7 +281,7 @@ class TransferInProcessingStepsTest
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData2, transferOutResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam,
@@ -297,7 +297,7 @@ class TransferInProcessingStepsTest
       }
     }
 
-    "fail when transfer-out processing is not yet complete" in {
+    "fail when unassignment processing is not yet complete" in {
       for {
         transferData <- transferDataF
         deps <- statefulDependencies
@@ -314,7 +314,7 @@ class TransferInProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case TransferOutIncomplete(_, _) =>
+        preparedSubmission should matchPattern { case UnassignmentIncomplete(_, _) =>
         }
       }
     }
@@ -329,7 +329,7 @@ class TransferInProcessingStepsTest
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam2,
@@ -359,7 +359,7 @@ class TransferInProcessingStepsTest
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, transferOutResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam,
@@ -387,7 +387,7 @@ class TransferInProcessingStepsTest
         )
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData2, transferOutResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           transferInProcessingSteps.createSubmission(
             submissionParam2,
@@ -410,8 +410,8 @@ class TransferInProcessingStepsTest
       contractInstance = ExampleTransactionFactory.contractInstance(),
     )
 
-    val transferOutResult =
-      TransferResultHelpers.transferOutResult(
+    val unassignmentResult =
+      TransferResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -424,7 +424,7 @@ class TransferInProcessingStepsTest
         transactionId1,
         targetDomain,
         targetMediator,
-        transferOutResult,
+        unassignmentResult,
       )
 
     "succeed without errors" in {
@@ -466,7 +466,7 @@ class TransferInProcessingStepsTest
         transactionId1,
         TargetDomainId(anotherDomain),
         anotherMediator,
-        transferOutResult,
+        unassignmentResult,
       )
       val error =
         transferInProcessingSteps.computeActivenessSet(mkParsedRequest(inTree2)).left.value
@@ -522,8 +522,8 @@ class TransferInProcessingStepsTest
         contractInstance = ExampleTransactionFactory.contractInstance(),
         metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None),
       )
-    val transferOutResult =
-      TransferResultHelpers.transferOutResult(
+    val unassignmentResult =
+      TransferResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -532,7 +532,7 @@ class TransferInProcessingStepsTest
     "fail when wrong stakeholders given" in {
       for {
         deps <- statefulDependencies
-        (persistentState, ephemeralState) = deps
+        (_persistentState, ephemeralState) = deps
 
         // party2 is incorrectly registered as a stakeholder
         fullTransferInTree2 = makeFullTransferInTree(
@@ -542,7 +542,7 @@ class TransferInProcessingStepsTest
           transactionId1,
           targetDomain,
           targetMediator,
-          transferOutResult,
+          unassignmentResult,
         )
 
         transferLookup = ephemeralState.transferCache
@@ -580,7 +580,7 @@ class TransferInProcessingStepsTest
           transactionId1,
           targetDomain,
           targetMediator,
-          transferOutResult,
+          unassignmentResult,
         )
 
         _result <- valueOrFail(
@@ -620,7 +620,7 @@ class TransferInProcessingStepsTest
         SequencerCounter(1),
         rootHash,
         contract,
-        initialTransferCounter,
+        initialReassignmentCounter,
         submitterInfo(submitter),
         transactionId1,
         isReassigningParticipant = false,
@@ -695,7 +695,7 @@ class TransferInProcessingStepsTest
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorGroupRecipient,
-      transferOutResult: DeliveredTransferOutResult,
+      unassignmentResult: DeliveredUnassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
   ): FullTransferInTree = {
     val seed = seedGenerator.generateSaltSeed()
@@ -707,11 +707,11 @@ class TransferInProcessingStepsTest
         submitterInfo(submitter),
         stakeholders,
         contract,
-        initialTransferCounter,
+        initialReassignmentCounter,
         creatingTransactionId,
         targetDomain,
         targetMediator,
-        transferOutResult,
+        unassignmentResult,
         uuid,
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),

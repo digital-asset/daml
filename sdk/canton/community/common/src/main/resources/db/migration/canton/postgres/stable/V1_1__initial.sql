@@ -195,13 +195,13 @@ create table common_topology_dispatching (
   watermark_ts bigint not null
 );
 
--- change type: activation [create, transfer-in], deactivation [archive, transfer-out]
+-- change type: activation [create, transfer-in], deactivation [archive, unassign]
 -- `deactivation` comes before `activation` so that comparisons `(timestamp, change) <= (bound, 'deactivation')`
 -- select only deactivations if the timestamp matches the bound.
 create type change_type as enum ('deactivation', 'activation');
 
 -- The specific operation type that introduced a contract change.
-create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'transfer-out');
+create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'unassign');
 
 -- Maintains the status of contracts
 create table par_active_contracts (

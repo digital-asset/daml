@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.store.TransferStore.*
 import com.digitalasset.canton.participant.store.memory.TransferCacheTest.HookTransferStore
 import com.digitalasset.canton.participant.store.{TransferStore, TransferStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -262,10 +262,10 @@ object TransferCacheTest {
     ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
       baseStore.addTransfer(transferData)
 
-    override def addTransferOutResult(transferOutResult: DeliveredTransferOutResult)(implicit
+    override def addUnassignmentResult(unassignmentResult: DeliveredUnassignmentResult)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] =
-      baseStore.addTransferOutResult(transferOutResult)
+      baseStore.addUnassignmentResult(unassignmentResult)
 
     override def addTransfersOffsets(
         offsets: Map[ReassignmentId, TransferData.TransferGlobalOffset]

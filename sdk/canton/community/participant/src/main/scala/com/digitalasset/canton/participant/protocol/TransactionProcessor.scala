@@ -217,7 +217,7 @@ object TransactionProcessor {
     @Explanation(
       """This error occurs if a transaction was submitted referring to a contract that
         |is not known on the domain. This can occur in case of race conditions between a transaction and
-        |an archival or transfer-out."""
+        |an archival or unassignment."""
     )
     @Resolution(
       """Check domain for submission and/or re-submit the transaction."""

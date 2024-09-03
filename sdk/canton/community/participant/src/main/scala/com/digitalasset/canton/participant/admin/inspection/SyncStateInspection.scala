@@ -7,7 +7,6 @@ import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -42,7 +41,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DomainAlias, LfPartyId, RequestCounter, TransferCounter}
+import com.digitalasset.canton.{DomainAlias, LfPartyId, ReassignmentCounter, RequestCounter}
 
 import java.io.OutputStream
 import java.time.Instant
@@ -106,7 +105,7 @@ final class SyncStateInspection(
   }
 
   /** Returns the potentially large ACS of a given domain
-    * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract transfer counter
+    * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract reassignment counter
     */
   def findAcs(
       domainAlias: DomainAlias
@@ -114,7 +113,7 @@ final class SyncStateInspection(
       traceContext: TraceContext
   ): EitherT[Future, SyncStateInspectionError, Map[
     LfContractId,
-    (CantonTimestamp, TransferCounter),
+    (CantonTimestamp, ReassignmentCounter),
   ]] =
     for {
       state <- EitherT.fromEither[Future](
@@ -124,7 +123,7 @@ final class SyncStateInspection(
       )
 
       snapshotO <- EitherT.right(state.acsInspection.getCurrentSnapshot().map(_.map(_.snapshot)))
-    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounter)])(
+    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, ReassignmentCounter)])(
       _.toMap
     )
 
@@ -191,9 +190,9 @@ final class SyncStateInspection(
               parties,
               timestamp,
               skipCleanTimestampCheck = skipCleanTimestampCheck,
-            ) { case (contract, transferCounter) =>
+            ) { case (contract, reassignmentCounter) =>
               val activeContract =
-                ActiveContract.create(domainIdForExport, contract, transferCounter)(
+                ActiveContract.create(domainIdForExport, contract, reassignmentCounter)(
                   protocolVersion
                 )
 
@@ -547,16 +546,15 @@ final class SyncStateInspection(
 
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[ParticipantOffset]] =
+  )(implicit traceContext: TraceContext): Future[Option[String]] =
     participantNodePersistentState.value.ledgerApiStore
       .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
         _.map(_.offset.toHexString)
-          .map(UpstreamOffsetConvert.toParticipantOffset)
       )
 
   def lookupPublicationTime(
-      ledgerOffset: ParticipantOffset
+      ledgerOffset: String
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     offset <- EitherT.fromEither[Future](
       UpstreamOffsetConvert.toLedgerSyncOffset(ledgerOffset)

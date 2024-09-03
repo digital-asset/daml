@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.EitherUtil.condUnitE
-import com.digitalasset.canton.{LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.google.common.annotations.VisibleForTesting
@@ -41,7 +41,7 @@ private[transfer] class TransferInValidation(
       transferInRequest: FullTransferInTree,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
-    val reassignmentId = transferInRequest.transferOutResultEvent.reassignmentId
+    val reassignmentId = transferInRequest.unassignmentResultEvent.reassignmentId
 
     val declaredContractStakeholders = transferInRequest.contract.metadata.stakeholders
     val declaredViewStakeholders = transferInRequest.stakeholders
@@ -96,9 +96,9 @@ private[transfer] class TransferInValidation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, Option[TransferInValidationResult]] = {
-    val txOutResultEvent = transferInRequest.transferOutResultEvent.result
+    val txOutResultEvent = transferInRequest.unassignmentResultEvent.result
 
-    val reassignmentId = transferInRequest.transferOutResultEvent.reassignmentId
+    val reassignmentId = transferInRequest.unassignmentResultEvent.reassignmentId
 
     def checkSubmitterIsStakeholder: Either[TransferProcessorError, Unit] =
       condUnitE(
@@ -114,19 +114,19 @@ private[transfer] class TransferInValidation(
 
     transferDataO match {
       case Some(transferData) =>
-        val sourceDomain = transferData.transferOutRequest.sourceDomain
-        val transferOutTimestamp = transferData.transferOutTimestamp
+        val sourceDomain = transferData.unassignmentRequest.sourceDomain
+        val unassignmentTs = transferData.unassignmentTs
         for {
           _ready <- {
             logger.info(
-              s"Waiting for topology state at $transferOutTimestamp on transfer-out domain $sourceDomain ..."
+              s"Waiting for topology state at $unassignmentTs on unassignment domain $sourceDomain ..."
             )
             EitherT(
               transferCoordination
-                .awaitTransferOutTimestamp(
+                .awaitUnassignmentTimestamp(
                   sourceDomain,
                   staticDomainParameters,
-                  transferOutTimestamp,
+                  unassignmentTs,
                 )
                 .sequence
             )
@@ -135,31 +135,31 @@ private[transfer] class TransferInValidation(
           sourceCrypto <- transferCoordination.cryptoSnapshot(
             sourceDomain.unwrap,
             staticDomainParameters,
-            transferOutTimestamp,
+            unassignmentTs,
           )
           // TODO(i12926): Check the signatures of the mediator and the sequencer
 
           _ <- condUnitET[Future](
-            txOutResultEvent.content.timestamp <= transferData.transferOutDecisionTime,
+            txOutResultEvent.content.timestamp <= transferData.unassignmentDecisionTime,
             ResultTimestampExceedsDecisionTime(
               reassignmentId,
               timestamp = txOutResultEvent.content.timestamp,
-              decisionTime = transferData.transferOutDecisionTime,
+              decisionTime = transferData.unassignmentDecisionTime,
             ),
           )
 
-          // TODO(i12926): Validate the shipped transfer-out result w.r.t. stakeholders
-          // TODO(i12926): Validate that the transfer-out result received matches the transfer-out result in transferData
+          // TODO(i12926): Validate the shipped unassignment result w.r.t. stakeholders
+          // TODO(i12926): Validate that the unassignment result received matches the unassignment result in transferData
 
           _ <- condUnitET[Future](
             transferInRequest.contract == transferData.contract,
             ContractDataMismatch(reassignmentId),
           )
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
-          transferOutSubmitter = transferData.transferOutRequest.submitter
-          targetTimeProof = transferData.transferOutRequest.targetTimeProof.timestamp
+          unassignmentSubmitter = transferData.unassignmentRequest.submitter
+          targetTimeProof = transferData.unassignmentRequest.targetTimeProof.timestamp
 
-          // TODO(i12926): Check that transferData.transferOutRequest.targetTimeProof.timestamp is in the past
+          // TODO(i12926): Check that transferData.unassignmentRequest.targetTimeProof.timestamp is in the past
           cryptoSnapshot <- transferCoordination
             .cryptoSnapshot(
               transferData.targetDomain.unwrap,
@@ -168,7 +168,7 @@ private[transfer] class TransferInValidation(
             )
 
           exclusivityLimit <- ProcessingSteps
-            .getTransferInExclusivity(
+            .getAssignmentExclusivity(
               cryptoSnapshot.ipsSnapshot,
               targetTimeProof,
             )
@@ -176,7 +176,7 @@ private[transfer] class TransferInValidation(
 
           _ <- condUnitET[Future](
             tsIn >= exclusivityLimit
-              || transferOutSubmitter == transferInRequest.submitter,
+              || unassignmentSubmitter == transferInRequest.submitter,
             NonInitiatorSubmitsBeforeExclusivityTimeout(
               reassignmentId,
               transferInRequest.submitter,
@@ -204,13 +204,13 @@ private[transfer] class TransferInValidation(
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
           _ <- EitherT.cond[Future](
-            // transfer counter is the same in transfer-out and transfer-in requests
-            transferInRequest.transferCounter == transferData.transferCounter,
+            // reassignment counter is the same in unassignment and transfer-in requests
+            transferInRequest.reassignmentCounter == transferData.reassignmentCounter,
             (),
-            InconsistentTransferCounter(
+            InconsistentReassignmentCounter(
               reassignmentId,
-              transferInRequest.transferCounter,
-              transferData.transferCounter,
+              transferInRequest.reassignmentCounter,
+              transferData.reassignmentCounter,
             ): TransferProcessorError,
           )
 
@@ -256,10 +256,12 @@ object TransferInValidation {
       s"Cannot find transfer data for transfer `$reassignmentId`: ${lookupError.cause}"
   }
 
-  final case class TransferOutIncomplete(reassignmentId: ReassignmentId, participant: ParticipantId)
-      extends TransferInValidationError {
+  final case class UnassignmentIncomplete(
+      reassignmentId: ReassignmentId,
+      participant: ParticipantId,
+  ) extends TransferInValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId` because transfer-out is incomplete"
+      s"Cannot transfer-in `$reassignmentId` because unassignment is incomplete"
   }
 
   final case class NoParticipantForReceivingParty(reassignmentId: ReassignmentId, party: LfPartyId)
@@ -310,13 +312,13 @@ object TransferInValidation {
       s"Cannot transfer-in `$reassignmentId`: creating transaction id mismatch"
   }
 
-  final case class InconsistentTransferCounter(
+  final case class InconsistentReassignmentCounter(
       reassignmentId: ReassignmentId,
-      declaredTransferCounter: TransferCounter,
-      expectedTransferCounter: TransferCounter,
+      declaredReassignmentCounter: ReassignmentCounter,
+      expectedReassignmentCounter: ReassignmentCounter,
   ) extends TransferInValidationError {
     override def message: String =
-      s"Cannot transfer-in $reassignmentId: Transfer counter $declaredTransferCounter in transfer-in does not match $expectedTransferCounter from the transfer-out"
+      s"Cannot transfer-in $reassignmentId: reassignment counter $declaredReassignmentCounter in transfer-in does not match $expectedReassignmentCounter from the unassignment"
   }
 
   final case class TransferSigningError(

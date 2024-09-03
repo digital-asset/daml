@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import com.digitalasset.canton.topology.ParticipantId
 
-private[transfer] final case class TransferOutRequestValidated(
-    request: TransferOutRequest,
+private[transfer] final case class UnassignmentRequestValidated(
+    request: UnassignmentRequest,
     recipients: Set[ParticipantId],
 )

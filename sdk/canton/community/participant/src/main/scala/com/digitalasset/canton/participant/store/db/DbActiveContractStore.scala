@@ -48,7 +48,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, IterableUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
 import slick.jdbc.canton.SQLActionBuilder
@@ -100,8 +100,8 @@ class DbActiveContractStore(
   /*
   Consider the scenario where a contract is created on domain D1, then transferred to D2, then to D3 and is finally archived.
   We will have the corresponding entries in the ActiveContractStore:
-  - On D1, remoteDomain will initially be None and then Some(D2) (after the transfer-out)
-  - On D2, remoteDomain will initially be Some(D1) and then Some(D3) (after the transfer-out)
+  - On D1, remoteDomain will initially be None and then Some(D2) (after the unassignment)
+  - On D2, remoteDomain will initially be Some(D1) and then Some(D3) (after the unassignment)
   - On D3, remoteDomain will initially be Some(D2) and then None (after the archival).
    */
   private case class StoredActiveContract(
@@ -113,22 +113,22 @@ class DbActiveContractStore(
         traceContext: TraceContext,
     ): Future[ContractState] = {
       val statusF = activenessChange match {
-        case Create(transferCounter) => Future.successful(Active(transferCounter))
+        case Create(reassignmentCounter) => Future.successful(Active(reassignmentCounter))
         case Archive => Future.successful(Archived)
-        case Add(transferCounter) => Future.successful(Active(transferCounter))
+        case Add(reassignmentCounter) => Future.successful(Active(reassignmentCounter))
         case Purge => Future.successful(Purged)
-        case in: TransferIn => Future.successful(Active(in.transferCounter))
-        case out: TransferOut =>
+        case in: TransferIn => Future.successful(Active(in.reassignmentCounter))
+        case out: Unassignment =>
           domainIdFromIdx(out.remoteDomainIdx).map(id =>
-            TransferredAway(TargetDomainId(id), out.transferCounter)
+            ReassignedAway(TargetDomainId(id), out.reassignmentCounter)
           )
       }
 
       statusF.map(ContractState(_, toc.rc, toc.timestamp))
     }
 
-    def toTransferCounterAtChangeInfo: TransferCounterAtChangeInfo =
-      TransferCounterAtChangeInfo(toc, activenessChange.transferCounterO)
+    def toReassignmentCounterAtChangeInfo: ReassignmentCounterAtChangeInfo =
+      ReassignmentCounterAtChangeInfo(toc, activenessChange.reassignmentCounterO)
   }
 
   private implicit val getResultStoredActiveContract: GetResult[StoredActiveContract] =
@@ -141,7 +141,7 @@ class DbActiveContractStore(
     }
 
   override def markContractsCreatedOrAdded(
-      contracts: Seq[(LfContractId, TransferCounter, TimeOfChange)],
+      contracts: Seq[(LfContractId, ReassignmentCounter, TimeOfChange)],
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -215,8 +215,8 @@ class DbActiveContractStore(
   }
 
   private def transferContracts(
-      transfers: Seq[(LfContractId, TransferDomainId, TransferCounter, TimeOfChange)],
-      builder: (TransferCounter, Int) => TransferChangeDetail,
+      transfers: Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
+      builder: (ReassignmentCounter, Int) => TransferChangeDetail,
       change: ChangeType,
       operationName: LengthLimitedString,
   )(implicit
@@ -231,11 +231,11 @@ class DbActiveContractStore(
 
       preparedTransfersE = MonadUtil.sequentialTraverse(
         transfers
-      ) { case (cid, remoteDomain, transferCounter, toc) =>
+      ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
         domainIndices
           .get(remoteDomain.unwrap)
           .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
-          .map(idx => ((cid, toc), builder(transferCounter, idx.index)))
+          .map(idx => ((cid, toc), builder(reassignmentCounter, idx.index)))
       }
 
       preparedTransfers <- CheckedT.fromChecked(Checked.fromEither(preparedTransfersE)): CheckedT[
@@ -256,7 +256,7 @@ class DbActiveContractStore(
   }
 
   override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounter, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
@@ -267,15 +267,15 @@ class DbActiveContractStore(
       ActivenessChangeDetail.transferIn,
     )
 
-  override def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounter, TimeOfChange)]
+  override def unassignContracts(
+      unassignments: Seq[(LfContractId, TargetDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = transferContracts(
-    transferOuts,
-    TransferOut.apply,
+    unassignments,
+    Unassignment.apply,
     ChangeType.Deactivation,
-    ActivenessChangeDetail.transferOut,
+    ActivenessChangeDetail.unassignment,
   )
 
   override def fetchStates(
@@ -378,7 +378,7 @@ class DbActiveContractStore(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]] = {
+  ): Future[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] = {
     logger.debug(s"Obtaining ACS snapshot at $timestamp")
     storage
       .query(
@@ -386,15 +386,15 @@ class DbActiveContractStore(
         functionFullName,
       )
       .map { snapshot =>
-        SortedMap.from(snapshot.map { case (cid, ts, transferCounter) =>
-          cid -> (ts, transferCounter)
+        SortedMap.from(snapshot.map { case (cid, ts, reassignmentCounter) =>
+          cid -> (ts, reassignmentCounter)
         })
       }
   }
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounter)]] = {
+  ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] = {
     logger.debug(s"Obtaining ACS snapshot at $rc")
     storage
       .query(
@@ -402,8 +402,8 @@ class DbActiveContractStore(
         functionFullName,
       )
       .map { snapshot =>
-        SortedMap.from(snapshot.map { case (cid, rc, transferCounter) =>
-          cid -> (rc, transferCounter)
+        SortedMap.from(snapshot.map { case (cid, rc, reassignmentCounter) =>
+          cid -> (rc, reassignmentCounter)
         })
       }
   }
@@ -420,14 +420,14 @@ class DbActiveContractStore(
         )
         .map(_.view.map { case (cid, ts, _) => cid -> ts }.toMap)
 
-  override def bulkContractsTransferCounterSnapshot(
+  override def bulkContractsReassignmentCounterSnapshot(
       contractIds: Set[LfContractId],
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounter]] = {
+  ): Future[Map[LfContractId, ReassignmentCounter]] = {
     logger.debug(
-      s"Looking up transfer counters for contracts $contractIds up to but not including $requestCounter"
+      s"Looking up reassignment counters for contracts $contractIds up to but not including $requestCounter"
     )
     if (requestCounter == RequestCounter.MinValue)
       ErrorUtil.internalError(
@@ -445,8 +445,8 @@ class DbActiveContractStore(
               functionFullName,
             )
             .map { snapshot =>
-              Map.from(snapshot.map { case (cid, _, transferCounter) =>
-                cid -> transferCounter
+              Map.from(snapshot.map { case (cid, _, reassignmentCounter) =>
+                cid -> reassignmentCounter
               })
             }
       } yield {
@@ -455,7 +455,7 @@ class DbActiveContractStore(
           .foreach(cid =>
             ErrorUtil.internalError(
               new IllegalStateException(
-                s"Archived non-transient contract $cid should have been active in the ACS and have a transfer counter defined"
+                s"Archived non-transient contract $cid should have been active in the ACS and have a reassignment counter defined"
               )
             )
           )
@@ -467,7 +467,7 @@ class DbActiveContractStore(
   private[this] def snapshotQuery[T](
       p: SnapshotQueryParameter[T],
       contractIds: Option[Set[LfContractId]],
-  ): DbAction.ReadOnly[Seq[(LfContractId, T, TransferCounter)]] = {
+  ): DbAction.ReadOnly[Seq[(LfContractId, T, ReassignmentCounter)]] = {
     import DbStorage.Implicits.BuilderChain.*
 
     val idsO = contractIds.map { ids =>
@@ -492,7 +492,7 @@ class DbActiveContractStore(
               or (AC.ts = AC2.ts and AC.request_counter = AC2.request_counter and AC2.change = ${ChangeType.Deactivation})))
            and AC.#${p.attribute} <= ${p.bound} and domain_id = $domainId""" ++
           idsO.fold(sql"")(ids => sql" and AC.contract_id in " ++ ids) ++ ordering)
-          .as[(LfContractId, T, TransferCounter)]
+          .as[(LfContractId, T, ReassignmentCounter)]
       case _: DbStorage.Profile.Postgres =>
         (sql"""
           select distinct(contract_id), AC3.#${p.attribute}, AC3.transfer_counter from par_active_contracts AC1
@@ -502,7 +502,7 @@ class DbActiveContractStore(
             .limit(1)}) as AC3 on true
           where AC1.domain_id = $domainId and AC3.change = CAST(${ChangeType.Activation} as change_type)""" ++
           idsO.fold(sql"")(ids => sql" and AC1.contract_id in " ++ ids) ++ ordering)
-          .as[(LfContractId, T, TransferCounter)]
+          .as[(LfContractId, T, ReassignmentCounter)]
       case _: DbStorage.Profile.Oracle =>
         (sql"""select distinct(contract_id), AC3.#${p.attribute}, AC3.transfer_counter from par_active_contracts AC1, lateral
           (select #${p.attribute}, change, transfer_counter from par_active_contracts AC2 where domain_id = $domainId
@@ -511,7 +511,7 @@ class DbActiveContractStore(
              fetch first 1 row only) AC3
           where AC1.domain_id = $domainId and AC3.change = 'activation'""" ++
           idsO.fold(sql"")(ids => sql" and AC1.contract_id in " ++ ids) ++ ordering)
-          .as[(LfContractId, T, TransferCounter)]
+          .as[(LfContractId, T, ReassignmentCounter)]
     }
   }
 
@@ -619,24 +619,24 @@ class DbActiveContractStore(
         }
     } yield nrPruned).onShutdown(0)
 
-  /* Computes the maximum transfer counter for each contract in the `res` vector.
-     The computation for max_transferCounter(`rc`, `cid`) reuses the result of max_transferCounter(`rc-1`, `cid`).
+  /* Computes the maximum reassignment counter for each contract in the `res` vector.
+     The computation for max_reassignmentCounter(`rc`, `cid`) reuses the result of max_reassignmentCounter(`rc-1`, `cid`).
 
        Assumption: the input `res` is already sorted by request counter.
    */
   /*
-       TODO(i12904): Here we compute the maximum of the previous transfer counters;
-        instead, we could retrieve the transfer counter of the latest activation
+       TODO(i12904): Here we compute the maximum of the previous reassignment counters;
+        instead, we could retrieve the reassignment counter of the latest activation
    */
-  private def transferCounterForArchivals(
+  private def reassignmentCounterForArchivals(
       res: Iterable[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
-  ): Map[(RequestCounter, LfContractId), Option[TransferCounter]] =
+  ): Map[(RequestCounter, LfContractId), Option[ReassignmentCounter]] =
     res
       .groupBy { case (_, cid, _) => cid }
       .flatMap { case (cid, changes) =>
         val sortedChangesByRc = changes.collect {
           case (TimeOfChange(rc, _), _, change)
-              if change.name != ActivenessChangeDetail.transferOut =>
+              if change.name != ActivenessChangeDetail.unassignment =>
             ((rc, cid), change)
         }.toList
 
@@ -644,19 +644,19 @@ class DbActiveContractStore(
           case None => List.empty
           case Some(changes) =>
             val ((rc, cid), op) = changes.head1
-            val initial = ((rc, cid), (op.transferCounterO, op))
+            val initial = ((rc, cid), (op.reassignmentCounterO, op))
 
             changes.tail1.scanLeft(initial) {
               case (
-                    ((_, _), (accTransferCounter, _)),
+                    ((_, _), (accReassignmentCounter, _)),
                     ((crtRc, cid), change),
                   ) =>
                 (
                   (crtRc, cid),
                   (
-                    Ordering[Option[TransferCounter]].max(
-                      accTransferCounter,
-                      change.transferCounterO,
+                    Ordering[Option[ReassignmentCounter]].max(
+                      accReassignmentCounter,
+                      change.reassignmentCounterO,
                     ),
                     change,
                   ),
@@ -665,8 +665,8 @@ class DbActiveContractStore(
         }
       }
       .collect {
-        case ((rc, cid), (transferCounter, Archive)) => ((rc, cid), transferCounter)
-        case ((rc, cid), (transferCounter, Purge)) => ((rc, cid), transferCounter)
+        case ((rc, cid), (reassignmentCounter, Archive)) => ((rc, cid), reassignmentCounter)
+        case ((rc, cid), (reassignmentCounter, Purge)) => ((rc, cid), reassignmentCounter)
       }
 
   def deleteSince(criterion: RequestCounter)(implicit traceContext: TraceContext): Future[Unit] = {
@@ -702,40 +702,42 @@ class DbActiveContractStore(
         changeQuery,
         operationName = "ACS: get changes between",
       )
-      // retrieves the transfer counters for archived contracts that were activated between (`fromExclusive`, `toInclusive`]
-      maxTransferCountersPerCidUpToRc = transferCounterForArchivals(retrievedChangesBetween)
+      // retrieves the reassignment counters for archived contracts that were activated between (`fromExclusive`, `toInclusive`]
+      maxReassignmentCountersPerCidUpToRc = reassignmentCounterForArchivals(retrievedChangesBetween)
 
       /*
          If there are contracts archived between (`fromExclusive`, `toInclusive`] that have a
-         transfer counter None in maxTransferCountersPerCidUpToRc, and the protocol version
-         supports transfer counters, then we need to retrieve the transfer counters of these
+         reassignment counter None in maxReassignmentCountersPerCidUpToRc, and the protocol version
+         supports reassignment counters, then we need to retrieve the reassignment counters of these
          archived contracts from activations taking place at time <= toInclusive.
        */
-      // retrieves the transfer counters for archived contracts that were activated at time <= `fromExclusive`
-      maxTransferCountersPerRemainingCidUpToRc <- {
-        val archivalsWithoutTransferCounters = maxTransferCountersPerCidUpToRc.filter(_._2.isEmpty)
+      // retrieves the reassignment counters for archived contracts that were activated at time <= `fromExclusive`
+      maxReassignmentCountersPerRemainingCidUpToRc <- {
+        val archivalsWithoutReassignmentCounters =
+          maxReassignmentCountersPerCidUpToRc.filter(_._2.isEmpty)
 
         NonEmpty
-          .from(archivalsWithoutTransferCounters.map { case ((_, contractId), _) =>
+          .from(archivalsWithoutReassignmentCounters.map { case ((_, contractId), _) =>
             contractId
           }.toSeq)
           .fold(
-            Future.successful(Map.empty[(RequestCounter, LfContractId), Option[TransferCounter]])
+            Future
+              .successful(Map.empty[(RequestCounter, LfContractId), Option[ReassignmentCounter]])
           ) { cids =>
             val maximumRc =
-              archivalsWithoutTransferCounters
+              archivalsWithoutReassignmentCounters
                 .map { case ((rc, _), _) => rc.unwrap }
                 .maxOption
                 .getOrElse(RequestCounter.Genesis.unwrap)
-            val archivalCidsWithoutTransferCountersQueries = DbStorage
+            val archivalCidsWithoutReassignmentCountersQueries = DbStorage
               .toInClauses_("contract_id", cids, maxContractIdSqlInListSize)(
                 absCoidSetParameter
               )
               // Note that the sql query does not filter entries with ts <= toExclusive.timestamp,
               // but it also includes the entries between (`fromExclusive`, `toInclusive`].
               // This is an implementation choice purely to reuse code: we pass the query result into the
-              // function `transferCounterForArchivals` and obtain the transfer counters for (rc, cid) pairs.
-              // One could have a more restrictive query and compute the transfer counters in some other way.
+              // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (rc, cid) pairs.
+              // One could have a more restrictive query and compute the reassignment counters in some other way.
               .map { inClause =>
                 (sql"""select ts, request_counter, contract_id, operation, transfer_counter, remote_domain_idx
                    from par_active_contracts where domain_id = $domainId
@@ -744,37 +746,39 @@ class DbActiveContractStore(
                    and """ ++ inClause ++ sql""" order by ts asc, request_counter asc""")
                   .as[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
               }
-            val resultArchivalTransferCounters = storage
+            val resultArchivalReassignmentCounters = storage
               .sequentialQueryAndCombine(
-                archivalCidsWithoutTransferCountersQueries,
-                "ACS: get data to compute the transfer counters for archived contracts",
+                archivalCidsWithoutReassignmentCountersQueries,
+                "ACS: get data to compute the reassignment counters for archived contracts",
               )
 
-            resultArchivalTransferCounters.map(transferCounterForArchivals)
+            resultArchivalReassignmentCounters.map(reassignmentCounterForArchivals)
           }
       }
 
-      res <- combineTransferCounters(
-        maxTransferCountersPerRemainingCidUpToRc = maxTransferCountersPerRemainingCidUpToRc,
-        maxTransferCountersPerCidUpToRc = maxTransferCountersPerCidUpToRc,
+      res <- combineReassignmentCounters(
+        maxReassignmentCountersPerRemainingCidUpToRc = maxReassignmentCountersPerRemainingCidUpToRc,
+        maxReassignmentCountersPerCidUpToRc = maxReassignmentCountersPerCidUpToRc,
         retrievedChangesBetween = retrievedChangesBetween,
       )
 
     } yield res
   }
 
-  private def combineTransferCounters(
-      maxTransferCountersPerRemainingCidUpToRc: Map[
+  private def combineReassignmentCounters(
+      maxReassignmentCountersPerRemainingCidUpToRc: Map[
         (RequestCounter, LfContractId),
-        Option[TransferCounter],
+        Option[ReassignmentCounter],
       ],
-      maxTransferCountersPerCidUpToRc: Map[(RequestCounter, LfContractId), Option[TransferCounter]],
+      maxReassignmentCountersPerCidUpToRc: Map[(RequestCounter, LfContractId), Option[
+        ReassignmentCounter
+      ]],
       retrievedChangesBetween: Seq[(TimeOfChange, LfContractId, ActivenessChangeDetail)],
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] = {
-    // filter None entries from maxTransferCountersPerCidUpToRc, as the transfer counters for
-    // those contracts are now in remainingMaxTransferCountersPerCidUpToRc
-    val definedMaxTransferCountersPerCidUpToRc = maxTransferCountersPerCidUpToRc.collect {
-      case (key, Some(transferCounter)) => (key, transferCounter)
+    // filter None entries from maxReassignmentCountersPerCidUpToRc, as the reassignment counters for
+    // those contracts are now in remainingMaxReassignmentCountersPerCidUpToRc
+    val definedMaxReassignmentCountersPerCidUpToRc = maxReassignmentCountersPerCidUpToRc.collect {
+      case (key, Some(reassignmentCounter)) => (key, reassignmentCounter)
     }
 
     type AccType = (LfContractId, StateChangeType)
@@ -792,24 +796,24 @@ class DbActiveContractStore(
 
                 case in: TransferIn =>
                   Right((acts :+ (cid, in.toStateChangeType), deacts))
-                case out: TransferOut =>
+                case out: Unassignment =>
                   Right((acts, deacts :+ (cid, out.toStateChangeType)))
 
                 case add: Add =>
                   Right((acts :+ (cid, add.toStateChangeType), deacts))
 
                 case Archive | Purge =>
-                  val transferCounterE = definedMaxTransferCountersPerCidUpToRc
+                  val reassignmentCounterE = definedMaxReassignmentCountersPerCidUpToRc
                     .get((toc.rc, cid))
                     .orElse(
-                      maxTransferCountersPerRemainingCidUpToRc.get((toc.rc, cid)).flatten
+                      maxReassignmentCountersPerRemainingCidUpToRc.get((toc.rc, cid)).flatten
                     )
-                    .toRight(s"Unable to find transfer counter for $cid at $toc")
+                    .toRight(s"Unable to find reassignment counter for $cid at $toc")
 
-                  transferCounterE.map { transferCounter =>
+                  reassignmentCounterE.map { reassignmentCounter =>
                     val newChange = (
                       cid,
-                      StateChangeType(ContractChange.Archived, transferCounter),
+                      StateChangeType(ContractChange.Archived, reassignmentCounter),
                     )
 
                     (acts, deacts :+ newChange)
@@ -839,7 +843,7 @@ class DbActiveContractStore(
     if (enableAdditionalConsistencyChecks) {
       transfers.parTraverse_ { case ((contractId, toc), transfer) =>
         for {
-          _ <- checkTransferCountersShouldIncrease(contractId, toc, transfer)
+          _ <- checkReassignmentCountersShouldIncrease(contractId, toc, transfer)
           _ <- checkActivationsDeactivationConsistency(contractId, toc)
         } yield ()
       }
@@ -880,7 +884,7 @@ class DbActiveContractStore(
     })
   }
 
-  private def checkTransferCountersShouldIncrease(
+  private def checkReassignmentCountersShouldIncrease(
       contractId: LfContractId,
       toc: TimeOfChange,
       transfer: TransferChangeDetail,
@@ -894,7 +898,7 @@ class DbActiveContractStore(
     // instead of gap-freedom and we do not mention earliest/latest in the error messages either.
     //
     // By checking both "latest" before / "earliest" after, we cover the case that an out-of-order write of
-    // an earlier change has a higher transfer counter that the current time of change: the "earliest" after
+    // an earlier change has a higher reassignment counter that the current time of change: the "earliest" after
     // check will then fail on the earlier time of change.
     for {
       latestBeforeO <- storage.query(
@@ -907,17 +911,17 @@ class DbActiveContractStore(
       )
     } yield {
       for {
-        _ <- ActiveContractStore.checkTransferCounterAgainstLatestBefore(
+        _ <- ActiveContractStore.checkReassignmentCounterAgainstLatestBefore(
           contractId,
           toc,
-          transfer.transferCounter,
-          latestBeforeO.map(_.toTransferCounterAtChangeInfo),
+          transfer.reassignmentCounter,
+          latestBeforeO.map(_.toReassignmentCounterAtChangeInfo),
         )
-        _ <- ActiveContractStore.checkTransferCounterAgainstEarliestAfter(
+        _ <- ActiveContractStore.checkReassignmentCounterAgainstEarliestAfter(
           contractId,
           toc,
-          transfer.transferCounter,
-          earliestAfterO.map(_.toTransferCounterAtChangeInfo),
+          transfer.reassignmentCounter,
+          earliestAfterO.map(_.toReassignmentCounterAtChangeInfo),
           transfer.toTransferType,
         )
       } yield ()

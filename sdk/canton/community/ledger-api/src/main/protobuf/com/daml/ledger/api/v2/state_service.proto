@@ -59,7 +59,7 @@ message GetActiveContractsResponse {
   // The client should start consuming the transactions endpoint with this offset.
   // On a participant that is not aware of any events in the ledger the offset returned could be the empty string.
   // The empty string signifies that the offset returned is before the first transaction.
-  // The format of this field is described in ``participant_offset.proto``.
+  // The details of the offset field are described in ``offset_checkpoint.proto``.
   string offset = 1;
 
   // The workflow ID used in command submission which corresponds to the contract_entry. Only set if

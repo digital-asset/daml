@@ -28,7 +28,7 @@ import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.domain.{DomainHandle, DomainRegistryError}
 import com.digitalasset.canton.participant.event.{
   AcsChange,
-  ContractStakeholdersAndTransferCounter,
+  ContractStakeholdersAndReassignmentCounter,
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
@@ -62,10 +62,7 @@ import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.platform.apiserver.execution.{
-  AuthorityResolver,
-  CommandProgressTracker,
-}
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
@@ -76,7 +73,6 @@ import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.AuthorityOfResponse
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -110,7 +106,6 @@ class SyncDomain(
     val domainHandle: DomainHandle,
     participantId: ParticipantId,
     engine: Engine,
-    authorityResolver: AuthorityResolver,
     parameters: ParticipantNodeParameters,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     private[sync] val persistent: SyncDomainPersistentState,
@@ -171,7 +166,6 @@ class SyncDomain(
   private val damle =
     new DAMLe(
       pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      authorityResolver,
       Some(domainId),
       engine,
       parameters.engine.validationPhaseLogging,
@@ -198,7 +192,7 @@ class SyncDomain(
     testingConfig = testingConfig,
   )
 
-  private val transferOutProcessor: TransferOutProcessor = new TransferOutProcessor(
+  private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
     SourceDomainId(domainId),
     participantId,
     damle,
@@ -334,7 +328,7 @@ class SyncDomain(
       participantId,
       ephemeral.requestTracker,
       transactionProcessor,
-      transferOutProcessor,
+      unassignmentProcessor,
       transferInProcessor,
       topologyProcessor,
       trafficProcessor,
@@ -366,11 +360,6 @@ class SyncDomain(
           "Participant's sequencer client should have a traffic state controller"
         )
       }
-
-  def authorityOfInSnapshotApproximation(requestingAuthority: Set[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): Future[AuthorityOfResponse] =
-    topologyClient.currentSnapshotApproximation.authorityOf(requestingAuthority)
 
   private def initialize(implicit
       traceContext: TraceContext
@@ -408,18 +397,18 @@ class SyncDomain(
         AcsChange(
           activations = storedActivatedContracts
             .map(c =>
-              c.contractId -> ContractStakeholdersAndTransferCounter(
+              c.contractId -> ContractStakeholdersAndReassignmentCounter(
                 c.contract.metadata.stakeholders,
-                change.activations(c.contractId).transferCounter,
+                change.activations(c.contractId).reassignmentCounter,
               )
             )
             .toMap,
           deactivations = storedDeactivatedContracts
             .map(c =>
               c.contractId ->
-                ContractStakeholdersAndTransferCounter(
+                ContractStakeholdersAndReassignmentCounter(
                   c.contract.metadata.stakeholders,
-                  change.deactivations(c.contractId).transferCounter,
+                  change.deactivations(c.contractId).reassignmentCounter,
                 )
             )
             .toMap,
@@ -453,15 +442,15 @@ class SyncDomain(
         contractIdChanges <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive)
         changes <- contractIdChanges.parTraverse { case (toc, change) =>
-          val changeWithAdjustedTransferCountersForUnassignments = ActiveContractIdsChange(
+          val changeWithAdjustedReassignmentCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {
-              case StateChangeType(ContractChange.TransferredOut, transferCounter) =>
-                StateChangeType(ContractChange.TransferredOut, transferCounter - 1)
+              case StateChangeType(ContractChange.TransferredOut, reassignmentCounter) =>
+                StateChangeType(ContractChange.TransferredOut, reassignmentCounter - 1)
               case change => change
             },
           )
-          lookupChangeMetadata(changeWithAdjustedTransferCountersForUnassignments).map(ch =>
+          lookupChangeMetadata(changeWithAdjustedReassignmentCountersForUnassignments).map(ch =>
             (RecordTime.fromTimeOfChange(toc), ch)
           )
         }
@@ -739,9 +728,9 @@ class SyncDomain(
                   staticDomainParameters,
                   transferCoordination,
                   data.contract.metadata.stakeholders,
-                  data.transferOutRequest.submitterMetadata,
+                  data.unassignmentRequest.submitterMetadata,
                   participantId,
-                  data.transferOutRequest.targetTimeProof.timestamp,
+                  data.unassignmentRequest.targetTimeProof.timestamp,
                 )
               )
             eitherF.value.map(_.left.map(err => data.reassignmentId -> err))
@@ -757,9 +746,7 @@ class SyncDomain(
           case Right(()) => ()
         }
 
-        pendingTransfers.lastOption.map(t =>
-          t.reassignmentId.transferOutTimestamp -> t.sourceDomain
-        )
+        pendingTransfers.lastOption.map(t => t.reassignmentId.unassignmentTs -> t.sourceDomain)
       }
 
       resF.map {
@@ -827,7 +814,7 @@ class SyncDomain(
         .onShutdown(Left(SubmissionDuringShutdown.Rejection()))
     }
 
-  override def submitTransferOut(
+  override def submitUnassignment(
       submitterMetadata: TransferSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: TargetDomainId,
@@ -835,19 +822,19 @@ class SyncDomain(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
-    TransferOutProcessingSteps.SubmissionResult
+    UnassignmentProcessingSteps.SubmissionResult
   ]] =
     performUnlessClosingEitherT[
       TransferProcessorError,
-      FutureUnlessShutdown[TransferOutProcessingSteps.SubmissionResult],
+      FutureUnlessShutdown[UnassignmentProcessingSteps.SubmissionResult],
     ](functionFullName, DomainNotReady(domainId, "The domain is shutting down.")) {
-      logger.debug(s"Submitting transfer-out of `$contractId` from `$domainId` to `$targetDomain`")
+      logger.debug(s"Submitting unassignment of `$contractId` from `$domainId` to `$targetDomain`")
 
       if (!ready)
-        DomainNotReady(domainId, "Cannot submit transfer-out before recovery").discard
-      transferOutProcessor
+        DomainNotReady(domainId, "Cannot submit unassignment before recovery").discard
+      unassignmentProcessor
         .submit(
-          TransferOutProcessingSteps
+          UnassignmentProcessingSteps
             .SubmissionParam(
               submitterMetadata,
               contractId,
@@ -875,7 +862,7 @@ class SyncDomain(
       logger.debug(s"Submitting transfer-in of `$reassignmentId` to `$domainId`")
 
       if (!ready)
-        DomainNotReady(domainId, "Cannot submit transfer-out before recovery").discard
+        DomainNotReady(domainId, "Cannot submit unassignment before recovery").discard
 
       transferInProcessor
         .submit(
@@ -906,7 +893,7 @@ class SyncDomain(
           journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,
-          transferOutProcessor,
+          unassignmentProcessor,
           transferInProcessor,
           badRootHashMessagesRequestProcessor,
           topologyProcessor,
@@ -973,7 +960,6 @@ object SyncDomain {
         domainHandle: DomainHandle,
         participantId: ParticipantId,
         engine: Engine,
-        authorityResolver: AuthorityResolver,
         parameters: ParticipantNodeParameters,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncDomainPersistentState,
@@ -1000,7 +986,6 @@ object SyncDomain {
         domainHandle: DomainHandle,
         participantId: ParticipantId,
         engine: Engine,
-        authorityResolver: AuthorityResolver,
         parameters: ParticipantNodeParameters,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncDomainPersistentState,
@@ -1024,7 +1009,6 @@ object SyncDomain {
         domainHandle,
         participantId,
         engine,
-        authorityResolver,
         parameters,
         participantNodePersistentState,
         persistentState,

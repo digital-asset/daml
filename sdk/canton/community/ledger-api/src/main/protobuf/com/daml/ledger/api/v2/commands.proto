@@ -147,7 +147,7 @@ message Commands {
     google.protobuf.Duration deduplication_duration = 5;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
-    // Must be a valid LedgerString (as described in ``participant_offset.proto``).
+    // Must be a valid hexadecimal string.
     string deduplication_offset = 6;
   }
 

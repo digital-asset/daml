@@ -17,6 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import JsPackageCodecs.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
@@ -26,6 +27,7 @@ import scala.annotation.nowarn
 class JsPackageService(
     packageClient: PackageClient,
     packageManagementClient: PackageManagementClient,
+    val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext, materializer: Materializer)
     extends Endpoints {
 
@@ -72,12 +74,10 @@ class JsPackageService(
 
   private def upload(caller: CallerContext) = {
     (tracedInput: TracedInput[Source[util.ByteString, Any]]) =>
-      {
-        implicit val traceContext = tracedInput.traceContext
-        val inputStream = tracedInput.in.runWith(StreamConverters.asInputStream())(materializer)
-        val bs = protobuf.ByteString.readFrom(inputStream)
-        packageManagementClient.uploadDarFile(bs, caller.jwt.map(_.token))
-      }
+      implicit val traceContext = tracedInput.traceContext
+      val inputStream = tracedInput.in.runWith(StreamConverters.asInputStream())(materializer)
+      val bs = protobuf.ByteString.readFrom(inputStream)
+      packageManagementClient.uploadDarFile(bs, caller.jwt.map(_.token))
   }
 
   private def getPackage(caller: CallerContext) = { (tracedInput: TracedInput[String]) =>

@@ -37,7 +37,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   AcsChangeListener,
-  ContractStakeholdersAndTransferCounter,
+  ContractStakeholdersAndReassignmentCounter,
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.CommitmentMetrics
@@ -66,7 +66,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -1620,45 +1620,45 @@ object AcsCommitmentProcessor extends HasLoggerName {
     ): Unit = {
       /*
       The concatenate function is guaranteed to be safe when contract IDs always have the same length.
-      Otherwise, a longer contract ID without a transfer counter might collide with a
-      shorter contract ID with a transfer counter.
+      Otherwise, a longer contract ID without a reassignment counter might collide with a
+      shorter contract ID with a reassignment counter.
       In the current implementation collisions cannot happen, because either all contracts in a commitment
-      have a transfer counter or none, depending on the protocol version.
+      have a reassignment counter or none, depending on the protocol version.
        */
       def concatenate(
           contractId: LfContractId,
-          transferCounter: TransferCounter,
+          reassignmentCounter: ReassignmentCounter,
       ): Array[Byte] =
         (
           contractId.encodeDeterministically
-            concat TransferCounter.encodeDeterministically(transferCounter)
+            concat ReassignmentCounter.encodeDeterministically(reassignmentCounter)
         ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
         lock.synchronized {
           this.rt = rt
-          change.activations.foreach { case (cid, stakeholdersAndTransferCounter) =>
+          change.activations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
             val sortedStakeholders =
-              SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
+              SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
             val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-            h.add(concatenate(cid, stakeholdersAndTransferCounter.transferCounter))
+            h.add(concatenate(cid, stakeholdersAndReassignmentCounter.reassignmentCounter))
             loggingContext.debug(
-              s"Adding to commitment activation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
+              s"Adding to commitment activation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
             )
             deltaB += sortedStakeholders -> h
           }
-          change.deactivations.foreach { case (cid, stakeholdersAndTransferCounter) =>
+          change.deactivations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
             val sortedStakeholders =
-              SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
+              SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
             val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
             h.remove(
               concatenate(
                 cid,
-                stakeholdersAndTransferCounter.transferCounter,
+                stakeholdersAndReassignmentCounter.reassignmentCounter,
               )
             )
             loggingContext.debug(
-              s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
+              s"Removing from commitment deactivation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
             )
             deltaB += sortedStakeholders -> h
           }
@@ -2066,7 +2066,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
 
     def lookupChangeMetadata(
-        activations: Map[LfContractId, TransferCounter]
+        activations: Map[LfContractId, ReassignmentCounter]
     ): Future[AcsChange] =
       for {
         // TODO(i9270) extract magic numbers
@@ -2079,7 +2079,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
           activations = storedActivatedContracts
             .map(c =>
               c.contractId ->
-                ContractStakeholdersAndTransferCounter(
+                ContractStakeholdersAndReassignmentCounter(
                   c.contract.metadata.stakeholders,
                   activations(c.contractId),
                 )
@@ -2094,10 +2094,10 @@ object AcsCommitmentProcessor extends HasLoggerName {
         activeContracts <- activeContractStore.snapshot(toInclusive)(
           namedLoggingContext.traceContext
         )
-        activations = activeContracts.map { case (cid, (_toc, transferCounter)) =>
+        activations = activeContracts.map { case (cid, (_toc, reassignmentCounter)) =>
           (
             cid,
-            transferCounter,
+            reassignmentCounter,
           )
         }
         change <- lookupChangeMetadata(activations)

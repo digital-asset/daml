@@ -8,6 +8,7 @@ import com.digitalasset.daml.lf.data.Ref
 
 package index {
 
+  import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
   import com.digitalasset.daml.lf.data.Time.Timestamp
 
   /** Information provided by the submitter of changes submitted to the ledger.
@@ -57,7 +58,7 @@ package index {
     */
   final case class TransactionMeta(
       transactionId: TransactionId,
-      offset: ParticipantOffset.Absolute,
+      offset: ParticipantOffset,
       ledgerEffectiveTime: Timestamp,
       recordTime: Timestamp,
       workflowId: WorkflowId,

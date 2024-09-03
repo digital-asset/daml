@@ -334,7 +334,7 @@ final class GrpcParticipantRepairService(
                           RepairContract(
                             c.contract,
                             Set.empty,
-                            c.transferCounter,
+                            c.reassignmentCounter,
                           )
                         ),
                         ignoreAlreadyAdded = true,

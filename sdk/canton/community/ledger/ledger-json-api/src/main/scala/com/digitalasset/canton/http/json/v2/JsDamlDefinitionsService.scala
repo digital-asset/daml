@@ -4,19 +4,17 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
-  TypeSig,
-  AllTemplatesResponse,
-  TemplateDefinition,
-}
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{AllTemplatesResponse, TemplateDefinition, TypeSig}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import sttp.tapir.generic.auto.*
 import sttp.tapir.path
 
 import scala.concurrent.Future
 
 class JsDamlDefinitionsService(
-    damlDefinitionsView: DamlDefinitionsView
+    damlDefinitionsView: DamlDefinitionsView,
+    val loggerFactory: NamedLoggerFactory,
 ) extends Endpoints {
   private val definitions = baseEndpoint.in("definitions")
   private val packageDefinitions = definitions.in("packages")

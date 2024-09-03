@@ -11,8 +11,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.NoTransferData
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.AutomaticTransferInError
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.AutomaticTransferInError
 import com.digitalasset.canton.participant.store.TransferStore.TransferCompleted
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
@@ -31,7 +31,7 @@ private[participant] object AutomaticTransferIn {
       staticDomainParameters: StaticDomainParameters,
       transferCoordination: TransferCoordination,
       stakeholders: Set[LfPartyId],
-      transferOutSubmitterMetadata: TransferSubmitterMetadata,
+      unassignmentSubmitterMetadata: TransferSubmitterMetadata,
       participantId: ParticipantId,
       t0: CantonTimestamp,
   )(implicit
@@ -69,9 +69,9 @@ private[participant] object AutomaticTransferIn {
             TransferSubmitterMetadata(
               inParty,
               participantId,
-              transferOutSubmitterMetadata.commandId,
+              unassignmentSubmitterMetadata.commandId,
               submissionId = None,
-              transferOutSubmitterMetadata.applicationId,
+              unassignmentSubmitterMetadata.applicationId,
               workflowId = None,
             ),
             id,
@@ -111,7 +111,7 @@ private[participant] object AutomaticTransferIn {
         exclusivityLimit <- EitherT
           .fromEither[Future](
             targetDomainParameters
-              .transferExclusivityLimitFor(t0)
+              .assignmentExclusivityLimitFor(t0)
               .leftMap(TransferParametersError(targetDomain.unwrap, _))
           )
           .leftWiden[TransferProcessorError]

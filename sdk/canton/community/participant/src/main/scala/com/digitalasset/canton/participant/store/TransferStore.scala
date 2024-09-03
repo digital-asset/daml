@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransfer
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -34,7 +34,7 @@ trait TransferStore extends TransferLookup {
   /** Adds the transfer to the store.
     *
     * Calls to this method are idempotent, independent of the order.
-    * Differences in [[protocol.transfer.TransferData!.transferOutResult]] between two calls are ignored
+    * Differences in [[protocol.transfer.TransferData!.unassignmentResult]] between two calls are ignored
     * if the field is [[scala.None$]] in one of the calls. If applicable, the field content is merged.
     *
     * @throws java.lang.IllegalArgumentException if the transfer's target domain is not
@@ -48,15 +48,15 @@ trait TransferStore extends TransferLookup {
     * provided that the transfer data has previously been stored.
     *
     * The same [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] can be added any number of times.
-    * This includes transfer-out results that are in the [[protocol.transfer.TransferData!.transferOutResult]]
+    * This includes unassignment results that are in the [[protocol.transfer.TransferData!.unassignmentResult]]
     * added with [[addTransfer]].
     *
-    * @param transferOutResult The transfer-out result to add
+    * @param unassignmentResult The unassignment result to add
     * @return [[TransferStore$.UnknownReassignmentId]] if the transfer has not previously been added with [[addTransfer]].
-    *         [[TransferStore$.TransferOutResultAlreadyExists]] if a different transfer-out result for the same
+    *         [[TransferStore$.UnassignmentResultAlreadyExists]] if a different unassignment result for the same
     *         transfer request has been added before, including as part of [[addTransfer]].
     */
-  def addTransferOutResult(transferOutResult: DeliveredTransferOutResult)(implicit
+  def addUnassignmentResult(unassignmentResult: DeliveredUnassignmentResult)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit]
 
@@ -95,7 +95,7 @@ trait TransferStore extends TransferLookup {
   ): CheckedT[Future, Nothing, TransferStoreError, Unit]
 
   /** Removes the transfer from the store,
-    * when the transfer-out request is rejected or the transfer is pruned.
+    * when the unassignment request is rejected or the transfer is pruned.
     */
   def deleteTransfer(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
@@ -103,7 +103,7 @@ trait TransferStore extends TransferLookup {
 
   /** Removes all completions of transfers that have been triggered by requests with at least the given counter.
     * This method must not be called concurrently with [[completeTransfer]], but may be called concurrently with
-    * [[addTransfer]] and [[addTransferOutResult]].
+    * [[addTransfer]] and [[addUnassignmentResult]].
     *
     * Therefore, this method need not be linearizable w.r.t. [[completeTransfer]].
     * For example, if two requests `rc1` complete two transfers while [[deleteCompletionsSince]] is running for
@@ -155,8 +155,8 @@ object TransferStore {
             offsets = eventsForDomain.map { case (reassignmentEvent, offset) =>
               val globalOffset = GlobalOffset.tryFromLong(offset.toLong)
               val transferOffset = reassignmentEvent.reassignment match {
-                case _: Reassignment.Assign => TransferInGlobalOffset(globalOffset)
-                case _: Reassignment.Unassign => TransferOutGlobalOffset(globalOffset)
+                case _: Reassignment.Assign => AssignmentGlobalOffset(globalOffset)
+                case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)
               }
               ReassignmentId(
                 reassignmentEvent.reassignmentInfo.sourceDomain,
@@ -236,13 +236,13 @@ object TransferStore {
       s"Transfer data for transfer `$reassignmentId` already exists and differs from the new one"
   }
 
-  final case class TransferOutResultAlreadyExists(
+  final case class UnassignmentResultAlreadyExists(
       reassignmentId: ReassignmentId,
-      old: DeliveredTransferOutResult,
-      `new`: DeliveredTransferOutResult,
+      old: DeliveredUnassignmentResult,
+      `new`: DeliveredUnassignmentResult,
   ) extends TransferStoreError {
     override def message: String =
-      s"Transfer-out result for transfer `$reassignmentId` already exists and differs from the new one"
+      s"Unassignment result for transfer `$reassignmentId` already exists and differs from the new one"
   }
 
   final case class TransferGlobalOffsetsMerge(
@@ -304,20 +304,20 @@ object TransferStore {
         if ((mergedData eq transferData) && (mergedToc eq timeOfCompletion)) this
         else TransferEntry(mergedData, mergedToc)
 
-    private[store] def addTransferOutResult(
-        transferOutResult: DeliveredTransferOutResult
-    ): Either[TransferOutResultAlreadyExists, TransferEntry] =
+    private[store] def addUnassignmentResult(
+        unassignmentResult: DeliveredUnassignmentResult
+    ): Either[UnassignmentResultAlreadyExists, TransferEntry] =
       transferData
-        .addTransferOutResult(transferOutResult)
+        .addUnassignmentResult(unassignmentResult)
         .toRight {
-          val old = transferData.transferOutResult.getOrElse(
-            throw new IllegalStateException("Transfer-out result should not be empty")
+          val old = transferData.unassignmentResult.getOrElse(
+            throw new IllegalStateException("unassignment result should not be empty")
           )
-          TransferOutResultAlreadyExists(transferData.reassignmentId, old, transferOutResult)
+          UnassignmentResultAlreadyExists(transferData.reassignmentId, old, unassignmentResult)
         }
         .map(TransferEntry(_, timeOfCompletion))
 
-    private[store] def addTransferOutGlobalOffset(
+    private[store] def addUnassignmentGlobalOffset(
         offset: TransferGlobalOffset
     ): Either[TransferGlobalOffsetsMerge, TransferEntry] = {
 
@@ -382,15 +382,15 @@ trait TransferLookup {
     *
     * A transfer `t` is considered as incomplete at offset `validAt` if only one of the two transfer events
     * was emitted on the multi-domain event log at `validAt`. That is, one of the following hold:
-    *   1. Only transfer-out was emitted
-    *       - `t.transferOutGlobalOffset` is smaller or equal to `validAt`
+    *   1. Only unassignment was emitted
+    *       - `t.unassignmentGlobalOffset` is smaller or equal to `validAt`
     *       - `t.transferInGlobalOffset` is null or greater than `validAt`
     *   2. Only transfer-in was emitted
     *       - `t.transferInGlobalOffset` is smaller or equal to `validAt`
-    *       - `t.transferOutGlobalOffset` is null or greater than `validAt`
+    *       - `t.unassignmentGlobalOffset` is null or greater than `validAt`
     *
     * In particular, for a transfer to be considered incomplete at `validAt`, then exactly one of the two offsets
-    * (transferOutGlobalOffset, transferInGlobalOffset) is not null and smaller or equal to `validAt`.
+    * (unassignmentGlobalOffset, transferInGlobalOffset) is not null and smaller or equal to `validAt`.
     *
     * @param sourceDomain if empty, select only transfers whose source domain matches the given one
     * @param validAt select only transfers that are successfully transferred-out
@@ -407,7 +407,7 @@ trait TransferLookup {
 
   /** Find utility to look for the earliest incomplete transfer w.r.t. the ledger end.
     * If an incomplete transfer exists, the method returns the global offset of the incomplete transfer for either the
-    * transfer-out or the transfer-in, whichever of these is not null, the reassignment id and the target domain id.
+    * unassignment or the transfer-in, whichever of these is not null, the reassignment id and the target domain id.
     * It returns None if there is no incomplete transfer (either because all transfers are complete or are in-flight,
     * or because there are no transfers), or the transfer table is empty.
     */

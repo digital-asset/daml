@@ -30,7 +30,7 @@ select
     when $1 = 7 then 'PartyHostingLimits'
     when $1 = 8 then 'VettedPackages'
     when $1 = 9 then 'PartyToParticipant'
-    when $1 = 10 then 'AuthorityOf'
+    -- 10 was AuthorityOf
     when $1 = 11 then 'DomainParameters'
     when $1 = 12 then 'MediatorDomainState'
     when $1 = 13 then 'SequencerDomainState'

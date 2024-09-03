@@ -40,7 +40,7 @@ private[transfer] object TransferKnownAndVetted {
         targetTopology.referenceTime,
       )
       .leftMap(unknownPackage =>
-        TransferOutProcessorError.PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
+        UnassignmentProcessorError.PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
       )
       .leftWiden[TransferProcessorError]
 

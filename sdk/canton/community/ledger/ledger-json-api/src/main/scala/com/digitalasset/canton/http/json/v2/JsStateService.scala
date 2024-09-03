@@ -106,7 +106,7 @@ class JsStateService(
 
   private def getActiveContractsStream(
       caller: CallerContext
-  ): Unit => Flow[state_service.GetActiveContractsRequest, JsGetActiveContractsResponse, NotUsed] =
+  ): TracedInput[Unit] => Flow[state_service.GetActiveContractsRequest, JsGetActiveContractsResponse, NotUsed] =
     _ => {
       Flow[state_service.GetActiveContractsRequest]
         .flatMapConcat { req =>
@@ -115,7 +115,9 @@ class JsStateService(
               req,
               stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
             )
-            .mapAsync(1)(r => protocolConverters.GetActiveContractsResponse.toJson(r)(caller.token()))
+            .mapAsync(1)(r =>
+              protocolConverters.GetActiveContractsResponse.toJson(r)(caller.token())
+            )
         }
     }
 }
@@ -213,19 +215,6 @@ object JsStateServiceCodecs {
 
   implicit val getLedgerEndRequestRW: Codec[state_service.GetLedgerEndRequest] = deriveCodec
 
-  implicit val participantOffsetRW
-      : Codec[com.daml.ledger.api.v2.participant_offset.ParticipantOffset] = deriveCodec
-  implicit val participantOffsetValueRW
-      : Codec[com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value] = deriveCodec
-  implicit val participantOffsetValueBoundaryRW
-      : Codec[com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Boundary] =
-    deriveCodec
-  implicit val participantOffsetParticipantBoundaryRW: Codec[
-    com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
-  ] = deriveCodec
-  implicit val participantOffsetValueAbsoluteRW
-      : Codec[com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute] =
-    deriveCodec
   implicit val getLedgerEndResponseRW: Codec[state_service.GetLedgerEndResponse] = deriveCodec
   implicit val getLatestPrunedOffsetsResponseRW
       : Codec[state_service.GetLatestPrunedOffsetsResponse] =

@@ -36,7 +36,7 @@ class UpdateServiceRequestValidatorTest
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     beginExclusive = "",
-    endInclusive = absoluteOffset,
+    endInclusive = offset,
     filter = Some(
       TransactionFilter(
         Map(
@@ -77,7 +77,7 @@ class UpdateServiceRequestValidatorTest
 
   private val txTreeReq = GetUpdatesRequest(
     beginExclusive = "",
-    endInclusive = absoluteOffset,
+    endInclusive = offset,
     filter = Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
     verbose = verbose,
   )
@@ -101,7 +101,7 @@ class UpdateServiceRequestValidatorTest
       "accept simple requests" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
           req.startExclusive shouldBe domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldBe Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldBe Some(offset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           hasExpectedFilters(req)
@@ -160,7 +160,7 @@ class UpdateServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Ledger String \"123@\"",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: cannot parse HexString 123@",
           metadata = Map.empty,
         )
       }
@@ -168,7 +168,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive((ledgerEnd.value.toInt + 1).toString),
+            txReq.withBeginExclusive((ledgerEnd.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -181,7 +181,7 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEndInclusive((ledgerEnd.value.toInt + 1).toString),
+            txReq.withEndInclusive((ledgerEnd.toInt + 1).toString),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
@@ -213,7 +213,7 @@ class UpdateServiceRequestValidatorTest
           )
         ) { case Right(req) =>
           req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldEqual Some(offset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -234,7 +234,7 @@ class UpdateServiceRequestValidatorTest
           )
         ) { case Right(req) =>
           req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldEqual Some(offset)
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -248,7 +248,7 @@ class UpdateServiceRequestValidatorTest
       "tolerate all fields filled out" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
           req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldEqual Some(offset)
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }
@@ -257,7 +257,7 @@ class UpdateServiceRequestValidatorTest
       "allow package-name scoped templates" in {
         inside(validator.validate(txReqWithPackageNameScoping, ledgerEnd)) { case Right(req) =>
           req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldEqual Some(offset)
           hasExpectedFilters(
             req,
             expectedTemplates =
@@ -270,7 +270,7 @@ class UpdateServiceRequestValidatorTest
       "still allow populated packageIds in templateIds (for backwards compatibility)" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
           req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
-          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
+          req.endInclusive shouldEqual Some(offset)
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }

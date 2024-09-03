@@ -15,46 +15,46 @@ class TransferDataTest extends AnyWordSpec with Matchers with EitherValues {
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
   "TransferData.TransferGlobalOffset" should {
-    val out1 = TransferOutGlobalOffset(1)
-    val out2 = TransferOutGlobalOffset(2)
+    val unassignment1 = UnassignmentGlobalOffset(1)
+    val unassignment2 = UnassignmentGlobalOffset(2)
 
-    val in1 = TransferInGlobalOffset(1)
-    val in2 = TransferInGlobalOffset(2)
+    val assignment1 = AssignmentGlobalOffset(1)
+    val assignment2 = AssignmentGlobalOffset(2)
 
-    val outIn12 = TransferGlobalOffsets.create(1, 2).value
-    val outIn21 = TransferGlobalOffsets.create(2, 1).value
+    val reassignment12 = ReassignmentGlobalOffsets.create(1, 2).value
+    val reassignment21 = ReassignmentGlobalOffsets.create(2, 1).value
 
-    "be mergeable (TransferOutGlobalOffset)" in {
-      out1.merge(out1).value shouldBe out1
-      out1.merge(out2) shouldBe Symbol("left") // 1 != 2
+    "be mergeable (UnassignmentGlobalOffset)" in {
+      unassignment1.merge(unassignment1).value shouldBe unassignment1
+      unassignment1.merge(unassignment2) shouldBe Symbol("left") // 1 != 2
 
-      out1.merge(in1) shouldBe Symbol("left") // 1 == 1
-      out1.merge(in2).value shouldBe outIn12
+      unassignment1.merge(assignment1) shouldBe Symbol("left") // 1 == 1
+      unassignment1.merge(assignment2).value shouldBe reassignment12
 
-      out1.merge(outIn12).value shouldBe outIn12
-      out1.merge(outIn21) shouldBe Symbol("left") // 1 != 2
+      unassignment1.merge(reassignment12).value shouldBe reassignment12
+      unassignment1.merge(reassignment21) shouldBe Symbol("left") // 1 != 2
     }
 
     "be mergeable (TransferInGlobalOffset)" in {
-      in1.merge(out1) shouldBe Symbol("left")
-      in1.merge(out2).value shouldBe outIn21
+      assignment1.merge(unassignment1) shouldBe Symbol("left")
+      assignment1.merge(unassignment2).value shouldBe reassignment21
 
-      in1.merge(in1).value shouldBe in1
-      in1.merge(in2) shouldBe Symbol("left")
+      assignment1.merge(assignment1).value shouldBe assignment1
+      assignment1.merge(assignment2) shouldBe Symbol("left")
 
-      in1.merge(outIn12) shouldBe Symbol("left")
-      in1.merge(outIn21).value shouldBe outIn21
+      assignment1.merge(reassignment12) shouldBe Symbol("left")
+      assignment1.merge(reassignment21).value shouldBe reassignment21
     }
 
     "be mergeable (TransferGlobalOffsets)" in {
-      outIn12.merge(out1).value shouldBe outIn12
-      outIn12.merge(out2) shouldBe Symbol("left")
+      reassignment12.merge(unassignment1).value shouldBe reassignment12
+      reassignment12.merge(unassignment2) shouldBe Symbol("left")
 
-      outIn12.merge(in1) shouldBe Symbol("left")
-      outIn12.merge(in2).value shouldBe outIn12
+      reassignment12.merge(assignment1) shouldBe Symbol("left")
+      reassignment12.merge(assignment2).value shouldBe reassignment12
 
-      outIn12.merge(outIn12).value shouldBe outIn12
-      outIn12.merge(outIn21) shouldBe Symbol("left")
+      reassignment12.merge(reassignment12).value shouldBe reassignment12
+      reassignment12.merge(reassignment21) shouldBe Symbol("left")
     }
   }
 }

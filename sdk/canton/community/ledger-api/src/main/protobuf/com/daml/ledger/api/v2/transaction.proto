@@ -48,7 +48,7 @@ message TransactionTree {
   // Required
   google.protobuf.Timestamp effective_at = 4;
 
-  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
+  // The absolute offset. The details of this field are described in ``offset_checkpoint.proto``.
   // Required
   string offset = 5;
 
@@ -113,7 +113,7 @@ message Transaction {
   // Required
   repeated Event events = 5;
 
-  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
+  // The absolute offset. The details of this field are described in ``offset_checkpoint.proto``.
   // Required
   string offset = 6;
 

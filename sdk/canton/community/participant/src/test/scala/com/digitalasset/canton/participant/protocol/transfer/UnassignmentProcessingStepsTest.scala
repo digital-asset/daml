@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature, T
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
-  FullTransferOutTree,
+  FullUnassignmentTree,
   TransferSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -29,13 +29,13 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessingSteps.PendingTransferOut
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   NoTransferSubmissionPermission,
   ParsedTransferRequest,
   TransferProcessorError,
 }
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -70,9 +70,9 @@ import com.digitalasset.canton.{
   LfPackageId,
   LfPackageName,
   LfPartyId,
+  ReassignmentCounter,
   RequestCounter,
   SequencerCounter,
-  TransferCounter,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -81,7 +81,7 @@ import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 @nowarn("msg=match may not be exhaustive")
-final class TransferOutProcessingStepsTest
+final class UnassignmentProcessingStepsTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutorService
@@ -114,17 +114,17 @@ final class TransferOutProcessingStepsTest
   )
 
   private lazy val templateId =
-    LfTemplateId.assertFromString("transferoutprocessingstepstestpackage:template:id")
+    LfTemplateId.assertFromString("unassignmentprocessingstepstestpackage:template:id")
   private lazy val packageName =
-    LfPackageName.assertFromString("transferoutprocessingstepstestpackagename")
+    LfPackageName.assertFromString("unassignmentprocessingstepstestpackagename")
 
-  private lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
       submitter,
       submittingParticipant,
-      LedgerCommandId.assertFromString("transfer-out-processing-steps-command-id"),
+      LedgerCommandId.assertFromString("unassignment-processing-steps-command-id"),
       submissionId = None,
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
@@ -236,7 +236,7 @@ final class TransferOutProcessingStepsTest
     createTransferCoordination()
 
   private def createOutProcessingSteps(transferCoordination: TransferCoordination = coordination) =
-    new TransferOutProcessingSteps(
+    new UnassignmentProcessingSteps(
       sourceDomain,
       submittingParticipant,
       damle,
@@ -247,7 +247,7 @@ final class TransferOutProcessingStepsTest
       loggerFactory,
     )(executorService)
 
-  private lazy val outProcessingSteps: TransferOutProcessingSteps = createOutProcessingSteps()
+  private lazy val outProcessingSteps: UnassignmentProcessingSteps = createOutProcessingSteps()
 
   private lazy val Seq(
     (participant1, admin1),
@@ -279,10 +279,10 @@ final class TransferOutProcessingStepsTest
   private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
 
   def mkParsedRequest(
-      view: FullTransferOutTree,
+      view: FullUnassignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
       signatureO: Option[Signature] = None,
-  ): ParsedTransferRequest[FullTransferOutTree] = ParsedTransferRequest(
+  ): ParsedTransferRequest[FullUnassignmentTree] = ParsedTransferRequest(
     RequestCounter(1),
     CantonTimestamp.Epoch,
     SequencerCounter(1),
@@ -298,7 +298,7 @@ final class TransferOutProcessingStepsTest
     cryptoSnapshot.ipsSnapshot.findDynamicDomainParameters().futureValue.value,
   )
 
-  "TransferOutRequest.validated" should {
+  "UnassignmentRequest.validated" should {
     val testingTopology = createTestingTopologySnapshot(
       Map(
         submittingParticipant -> Map(submitter -> Submission),
@@ -314,8 +314,8 @@ final class TransferOutProcessingStepsTest
         stakeholders: Set[LfPartyId],
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
-    ): Either[TransferProcessorError, TransferOutRequestValidated] =
-      TransferOutRequest
+    ): Either[TransferProcessorError, UnassignmentRequestValidated] =
+      UnassignmentRequest
         .validated(
           submittingParticipant,
           timeEvent,
@@ -330,7 +330,7 @@ final class TransferOutProcessingStepsTest
           TargetProtocolVersion(testedProtocolVersion),
           sourceTopologySnapshot,
           targetTopologySnapshot,
-          initialTransferCounter,
+          initialReassignmentCounter,
           logger,
         )
         .value
@@ -492,8 +492,8 @@ final class TransferOutProcessingStepsTest
           mkTxOutRes(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
         )
       result.value shouldEqual
-        TransferOutRequestValidated(
-          TransferOutRequest(
+        UnassignmentRequestValidated(
+          UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = Set(submitter, party1),
             adminParties = Set(adminSubmitter, admin1),
@@ -505,7 +505,7 @@ final class TransferOutProcessingStepsTest
             targetDomain = targetDomain,
             targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
             targetTimeProof = timeEvent,
-            transferCounter = initialTransferCounter,
+            reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2),
         )
@@ -545,8 +545,8 @@ final class TransferOutProcessingStepsTest
       val stakeholders = Set(submitter, party1)
       val result = mkTxOutRes(stakeholders, ipsSource, ipsTarget)
       result.value shouldEqual
-        TransferOutRequestValidated(
-          TransferOutRequest(
+        UnassignmentRequestValidated(
+          UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = stakeholders,
             adminParties = Set(adminSubmitter, admin3, admin4),
@@ -558,7 +558,7 @@ final class TransferOutProcessingStepsTest
             targetDomain = targetDomain,
             targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
             targetTimeProof = timeEvent,
-            transferCounter = initialTransferCounter,
+            reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2, participant3, participant4),
         )
@@ -567,8 +567,8 @@ final class TransferOutProcessingStepsTest
     "allow admin parties as stakeholders" in {
       val stakeholders = Set(submitter, adminSubmitter, admin1)
       mkTxOutRes(stakeholders, testingTopology, testingTopology) shouldBe Right(
-        TransferOutRequestValidated(
-          TransferOutRequest(
+        UnassignmentRequestValidated(
+          UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
             stakeholders = stakeholders,
             adminParties = Set(adminSubmitter, admin1),
@@ -580,7 +580,7 @@ final class TransferOutProcessingStepsTest
             targetDomain = targetDomain,
             targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
             targetTimeProof = timeEvent,
-            transferCounter = initialTransferCounter,
+            reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1),
         )
@@ -602,7 +602,7 @@ final class TransferOutProcessingStepsTest
       )
       val transactionId = ExampleTransactionFactory.transactionId(1)
       val submissionParam =
-        TransferOutProcessingSteps.SubmissionParam(
+        UnassignmentProcessingSteps.SubmissionParam(
           submitterMetadata = submitterMetadata(party1),
           contractId,
           targetDomain,
@@ -617,7 +617,7 @@ final class TransferOutProcessingStepsTest
         )
         _ <- persistentState.activeContractStore
           .markContractsCreated(
-            Seq(contractId -> initialTransferCounter),
+            Seq(contractId -> initialReassignmentCounter),
             TimeOfChange(RequestCounter(1), timeEvent.timestamp),
           )
           .value
@@ -640,7 +640,7 @@ final class TransferOutProcessingStepsTest
         contractInstance = ExampleTransactionFactory.contractInstance(),
       )
       val transactionId = ExampleTransactionFactory.transactionId(1)
-      val submissionParam = TransferOutProcessingSteps.SubmissionParam(
+      val submissionParam = UnassignmentProcessingSteps.SubmissionParam(
         submitterMetadata = submitterMetadata(party1),
         contractId,
         TargetDomainId(sourceDomain.unwrap),
@@ -668,7 +668,7 @@ final class TransferOutProcessingStepsTest
   }
 
   "receive request" should {
-    val outRequest = TransferOutRequest(
+    val outRequest = UnassignmentRequest(
       submitterMetadata = submitterMetadata(party1),
       Set(party1),
       Set(party1),
@@ -680,14 +680,14 @@ final class TransferOutProcessingStepsTest
       targetDomain,
       TargetProtocolVersion(testedProtocolVersion),
       timeEvent,
-      transferCounter = initialTransferCounter,
+      reassignmentCounter = initialReassignmentCounter,
     )
-    val outTree = makeFullTransferOutTree(outRequest)
+    val outTree = makeFullUnassignmentTree(outRequest)
 
     "succeed without errors" in {
       val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
-        encryptedOutRequest <- encryptTransferOutTree(outTree, sessionKeyStore)
+        encryptedOutRequest <- encryptUnassignmentTree(outTree, sessionKeyStore)
         envelopes =
           NonEmpty(
             Seq,
@@ -715,7 +715,7 @@ final class TransferOutProcessingStepsTest
   "construct pending data and response" should {
 
     def constructPendingDataAndResponseWith(
-        transferOutProcessingSteps: TransferOutProcessingSteps
+        unassignmentProcessingSteps: UnassignmentProcessingSteps
     ) = {
       val state = mkState
       val metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None)
@@ -725,7 +725,7 @@ final class TransferOutProcessingStepsTest
         metadata = metadata,
       )
       val transactionId = ExampleTransactionFactory.transactionId(1)
-      val outRequest = TransferOutRequest(
+      val outRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
         Set(party1),
         Set(submittingParticipant.adminParty.toLf),
@@ -737,9 +737,9 @@ final class TransferOutProcessingStepsTest
         targetDomain,
         TargetProtocolVersion(testedProtocolVersion),
         timeEvent,
-        transferCounter = initialTransferCounter,
+        reassignmentCounter = initialReassignmentCounter,
       )
-      val fullTransferOutTree = makeFullTransferOutTree(outRequest)
+      val fullUnassignmentTree = makeFullUnassignmentTree(outRequest)
 
       state.contractStore
         .storeCreatedContract(
@@ -749,9 +749,9 @@ final class TransferOutProcessingStepsTest
         )
         .futureValue
 
-      transferOutProcessingSteps
+      unassignmentProcessingSteps
         .constructPendingDataAndResponse(
-          mkParsedRequest(fullTransferOutTree, Recipients.cc(submittingParticipant)),
+          mkParsedRequest(fullUnassignmentTree, Recipients.cc(submittingParticipant)),
           state.transferCache,
           FutureUnlessShutdown.pure(mkActivenessResult()),
           engineController =
@@ -835,16 +835,16 @@ final class TransferOutProcessingStepsTest
           None,
           testedProtocolVersion,
         )
-        transferInExclusivity = domainParameters
-          .transferExclusivityLimitFor(timeEvent.timestamp)
+        assignmentExclusivity = domainParameters
+          .assignmentExclusivityLimitFor(timeEvent.timestamp)
           .value
-        pendingOut = PendingTransferOut(
+        pendingOut = PendingUnassignment(
           RequestId(CantonTimestamp.Epoch),
           RequestCounter(1),
           SequencerCounter(1),
           rootHash,
           contractId,
-          TransferCounter.Genesis,
+          ReassignmentCounter.Genesis,
           templateId = templateId,
           packageName = packageName,
           isReassigningParticipant = false,
@@ -854,7 +854,7 @@ final class TransferOutProcessingStepsTest
           Set(party1),
           Set(party1),
           timeEvent,
-          Some(transferInExclusivity),
+          Some(assignmentExclusivity),
           MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejectedF = FutureUnlessShutdown.pure(false),
           abortEngine = _ => (),
@@ -866,7 +866,7 @@ final class TransferOutProcessingStepsTest
               NoOpeningErrors(signedContent),
               transferResult.verdict,
               pendingOut,
-              state.pendingTransferOutSubmissions,
+              state.pendingUnassignmentSubmissions,
               crypto.pureCrypto,
             )
             .failOnShutdown
@@ -875,16 +875,16 @@ final class TransferOutProcessingStepsTest
     }
   }
 
-  def makeFullTransferOutTree(
-      request: TransferOutRequest,
+  def makeFullUnassignmentTree(
+      request: UnassignmentRequest,
       uuid: UUID = new UUID(6L, 7L),
-  ): FullTransferOutTree = {
+  ): FullUnassignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
-    request.toFullTransferOutTree(crypto.pureCrypto, crypto.pureCrypto, seed, uuid)
+    request.toFullUnassignmentTree(crypto.pureCrypto, crypto.pureCrypto, seed, uuid)
   }
 
-  def encryptTransferOutTree(
-      tree: FullTransferOutTree,
+  def encryptUnassignmentTree(
+      tree: FullUnassignmentTree,
       sessionKeyStore: SessionKeyStore,
   ): Future[EncryptedViewMessage[UnassignmentViewType]] =
     EncryptedViewMessageFactory
@@ -892,10 +892,10 @@ final class TransferOutProcessingStepsTest
         implicitly[TraceContext],
         executorService,
       )
-      .valueOrFailShutdown("failed to encrypt transfer-out request")
+      .valueOrFailShutdown("failed to encrypt unassignment request")
 
   def makeRootHashMessage(
-      request: FullTransferOutTree
+      request: FullUnassignmentTree
   ): RootHashMessage[SerializedRootHashMessagePayload] =
     RootHashMessage(
       request.rootHash,

@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.FullTransferOutTree
+import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.ParticipantId
@@ -20,8 +20,8 @@ import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-private[transfer] sealed abstract case class TransferOutValidationReassigningParticipant(
-    request: FullTransferOutTree,
+private[transfer] sealed abstract case class UnassignmentValidationReassigningParticipant(
+    request: FullUnassignmentTree,
     expectedStakeholders: Set[LfPartyId],
     sourceProtocolVersion: SourceProtocolVersion,
     sourceTopology: TopologySnapshot,
@@ -72,10 +72,10 @@ private[transfer] sealed abstract case class TransferOutValidationReassigningPar
     )
 }
 
-private[transfer] object TransferOutValidationReassigningParticipant {
+private[transfer] object UnassignmentValidationReassigningParticipant {
 
   def apply(
-      request: FullTransferOutTree,
+      request: FullUnassignmentTree,
       expectedStakeholders: Set[LfPartyId],
       expectedTemplateId: LfTemplateId,
       sourceProtocolVersion: SourceProtocolVersion,
@@ -87,7 +87,7 @@ private[transfer] object TransferOutValidationReassigningParticipant {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    val validation = new TransferOutValidationReassigningParticipant(
+    val validation = new UnassignmentValidationReassigningParticipant(
       request,
       expectedStakeholders,
       sourceProtocolVersion,

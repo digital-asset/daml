@@ -8,7 +8,11 @@ import com.google.protobuf
 import com.daml.ledger.api.v2.command_submission_service
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsTransaction, JsTransactionTree}
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  JsTransaction,
+  JsTransactionTree,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
@@ -84,11 +88,13 @@ class JsCommandService(
   ) => Future[
     Either[JsCantonError, JsSubmitAndWaitForUpdateIdResponse]
   ] = (req, body) => {
+    implicit val token = callerContext.token()
+    implicit val tc = req.traceContext
     for {
-      commands <- protocolConverters.Commands.fromJson(body)(callerContext.token())
+      commands <- protocolConverters.Commands.fromJson(body)
       submitAndWaitRequest =
         SubmitAndWaitRequest(commands = Some(commands))
-      result <- commandServiceClient(callerContext.token())(req.traceContext)
+      result <- commandServiceClient(callerContext.token())
         .submitAndWaitForUpdateId(submitAndWaitRequest)
         .map(protocolConverters.SubmitAndWaitUpdateIdResponse.toJson)(
           ExecutionContext.parasitic
@@ -103,14 +109,16 @@ class JsCommandService(
   ) => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionTreeResponse]
   ] = (req, body) => {
+    implicit val token = callerContext.token()
+    implicit val tc = req.traceContext
     for {
-      commands <- protocolConverters.Commands.fromJson(body)(callerContext.token())
+      commands <- protocolConverters.Commands.fromJson(body)
       submitAndWaitRequest =
         SubmitAndWaitRequest(commands = Some(commands))
-      result <- commandServiceClient(callerContext.token())(req.traceContext)
+      result <- commandServiceClient(callerContext.token())
         .submitAndWaitForTransactionTree(submitAndWaitRequest)
         .flatMap(r =>
-          protocolConverters.SubmitAndWaitTransactionTreeResponse.toJson(r)(callerContext.token())
+          protocolConverters.SubmitAndWaitTransactionTreeResponse.toJson(r)
         )
         .resultToRight
     } yield result
@@ -122,14 +130,16 @@ class JsCommandService(
   ) => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionResponse]
   ] = (req, body) => {
+    implicit val token = callerContext.token()
+    implicit val tc = req.traceContext
     for {
-      commands <- protocolConverters.Commands.fromJson(body)(callerContext.token())
+      commands <- protocolConverters.Commands.fromJson(body)
       submitAndWaitRequest =
         SubmitAndWaitRequest(commands = Some(commands))
       result <- commandServiceClient(callerContext.token())(req.traceContext)
         .submitAndWaitForTransaction(submitAndWaitRequest)
         .flatMap(r =>
-          protocolConverters.SubmitAndWaitTransactionResponse.toJson(r)(callerContext.token())
+          protocolConverters.SubmitAndWaitTransactionResponse.toJson(r)
         )
         .resultToRight
     } yield result
@@ -141,11 +151,13 @@ class JsCommandService(
   ) => Future[
     Either[JsCantonError, command_submission_service.SubmitResponse]
   ] = (req, body) => {
+    implicit val token = callerContext.token()
+    implicit val tc = req.traceContext
     for {
-      commands <- protocolConverters.Commands.fromJson(body)(callerContext.token())
+      commands <- protocolConverters.Commands.fromJson(body)
       submitRequest =
         command_submission_service.SubmitRequest(commands = Some(commands))
-      result <- commandSubmissionServiceClient(callerContext.token())(req.traceContext)
+      result <- commandSubmissionServiceClient(callerContext.token())
         .submit(submitRequest)
         .resultToRight
     } yield result
@@ -166,11 +178,11 @@ class JsCommandService(
 }
 
 final case class JsSubmitAndWaitForTransactionTreeResponse(
-    transaction_tree: JsTransactionTree,
+    transaction_tree: JsTransactionTree
 )
 
 final case class JsSubmitAndWaitForTransactionResponse(
-    transaction: JsTransaction,
+    transaction: JsTransaction
 )
 
 final case class JsSubmitAndWaitForUpdateIdResponse(

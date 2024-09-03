@@ -62,9 +62,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     updates.foreach(update => testServices.indexer.offer(update).futureValue)
     updates.last.value.persisted.future.futureValue
     Offset.fromHexString(
-      Ref.HexString.assertFromString(
-        testServices.index.currentLedgerEnd().futureValue.value
-      )
+      testServices.index.currentLedgerEnd().futureValue
     )
   }
 

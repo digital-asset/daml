@@ -56,9 +56,9 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   LfPartyId,
+  ReassignmentCounter,
   RequestCounter,
   SequencerCounter,
-  TransferCounter,
   checked,
 }
 import com.digitalasset.daml.lf.data.Bytes
@@ -149,8 +149,10 @@ private[transfer] class TransferInProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoTransferData(reassignmentId, err))
         .mapK(FutureUnlessShutdown.outcomeK)
-      transferOutResult <- EitherT.fromEither[FutureUnlessShutdown](
-        transferData.transferOutResult.toRight(TransferOutIncomplete(reassignmentId, participantId))
+      unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
+        transferData.unassignmentResult.toRight(
+          UnassignmentIncomplete(reassignmentId, participantId)
+        )
       )
 
       targetDomain = transferData.targetDomain
@@ -159,7 +161,7 @@ private[transfer] class TransferInProcessingSteps(
           s"Transfer-in $reassignmentId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
         )
 
-      stakeholders = transferData.transferOutRequest.stakeholders
+      stakeholders = transferData.unassignmentRequest.stakeholders
       _ <- condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
         SubmittingPartyMustBeStakeholderIn(reassignmentId, submitter, stakeholders),
@@ -179,11 +181,11 @@ private[transfer] class TransferInProcessingSteps(
           submitterMetadata,
           stakeholders,
           transferData.contract,
-          transferData.transferCounter,
+          transferData.reassignmentCounter,
           transferData.creatingTransactionId,
           targetDomain,
           mediator,
-          transferOutResult,
+          unassignmentResult,
           transferInUuid,
           transferData.sourceProtocolVersion,
           targetProtocolVersion,
@@ -302,14 +304,14 @@ private[transfer] class TransferInProcessingSteps(
         contracts = contractCheck,
         reassignmentIds =
           if (parsedRequest.isReassigningParticipant)
-            Set(parsedRequest.fullViewTree.transferOutResultEvent.reassignmentId)
+            Set(parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId)
           else Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedDomain(
-          parsedRequest.fullViewTree.transferOutResultEvent.reassignmentId,
+          parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId,
           targetDomain = parsedRequest.fullViewTree.domainId,
           receivedOn = domainId.unwrap,
         )
@@ -345,7 +347,7 @@ private[transfer] class TransferInProcessingSteps(
     ) = parsedRequest
 
     val requestId = RequestId(ts)
-    val reassignmentId = fullViewTree.transferOutResultEvent.reassignmentId
+    val reassignmentId = fullViewTree.unassignmentResultEvent.reassignmentId
 
     // We perform the stakeholders check asynchronously so that we can complete the pending request
     // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
@@ -421,7 +423,7 @@ private[transfer] class TransferInProcessingSteps(
         sc,
         fullViewTree.rootHash,
         fullViewTree.contract,
-        fullViewTree.transferCounter,
+        fullViewTree.reassignmentCounter,
         fullViewTree.submitterMetadata,
         fullViewTree.creatingTransactionId,
         isReassigningParticipant,
@@ -536,7 +538,7 @@ private[transfer] class TransferInProcessingSteps(
       requestSequencerCounter,
       rootHash,
       contract,
-      transferCounter,
+      reassignmentCounter,
       submitterMetadata,
       creatingTransactionId,
       isReassigningParticipant,
@@ -561,13 +563,13 @@ private[transfer] class TransferInProcessingSteps(
         val commitSet = CommitSet(
           archivals = Map.empty,
           creations = Map.empty,
-          transferOuts = Map.empty,
+          unassignments = Map.empty,
           transferIns = Map(
             contract.contractId ->
               CommitSet.TransferInCommit(
                 reassignmentId,
                 contract.metadata,
-                transferCounter,
+                reassignmentCounter,
               )
           ),
         )
@@ -582,7 +584,7 @@ private[transfer] class TransferInProcessingSteps(
             reassignmentId,
             rootHash,
             isReassigningParticipant = isReassigningParticipant,
-            transferCounter,
+            reassignmentCounter,
             hostedStakeholders.toList,
             requestCounter,
             requestSequencerCounter,
@@ -606,7 +608,7 @@ private[transfer] class TransferInProcessingSteps(
       reassignmentId: ReassignmentId,
       rootHash: RootHash,
       isReassigningParticipant: Boolean,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
@@ -656,9 +658,9 @@ private[transfer] class TransferInProcessingSteps(
         sourceDomain = reassignmentId.sourceDomain,
         targetDomain = targetDomain,
         submitter = Option(submitterMetadata.submitter),
-        reassignmentCounter = transferCounter.unwrap,
+        reassignmentCounter = reassignmentCounter.unwrap,
         hostedStakeholders = hostedStakeholders,
-        unassignId = reassignmentId.transferOutTimestamp,
+        unassignId = reassignmentId.unassignmentTs,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment = Reassignment.Assign(
@@ -696,7 +698,7 @@ object TransferInProcessingSteps {
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
       contract: SerializableContract,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
       submitterMetadata: TransferSubmitterMetadata,
       creatingTransactionId: TransactionId,
       isReassigningParticipant: Boolean,
@@ -717,11 +719,11 @@ object TransferInProcessingSteps {
       submitterMetadata: TransferSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorGroupRecipient,
-      transferOutResult: DeliveredTransferOutResult,
+      unassignmentResult: DeliveredUnassignmentResult,
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
@@ -729,7 +731,7 @@ object TransferInProcessingSteps {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
 
-    val commonData = TransferInCommonData
+    val commonData = AssignmentCommonData
       .create(pureCrypto)(
         commonDataSalt,
         targetDomain,
@@ -741,18 +743,18 @@ object TransferInProcessingSteps {
       )
 
     for {
-      view <- TransferInView
+      view <- AssignmentView
         .create(pureCrypto)(
           viewSalt,
           contract,
           creatingTransactionId,
-          transferOutResult,
+          unassignmentResult,
           sourceProtocolVersion,
           targetProtocolVersion,
-          transferCounter,
+          reassignmentCounter,
         )
         .leftMap(reason => InvalidTransferView(reason))
-      tree = TransferInViewTree(commonData, view, targetProtocolVersion, pureCrypto)
+      tree = AssignmentViewTree(commonData, view, targetProtocolVersion, pureCrypto)
     } yield FullTransferInTree(tree)
   }
 }

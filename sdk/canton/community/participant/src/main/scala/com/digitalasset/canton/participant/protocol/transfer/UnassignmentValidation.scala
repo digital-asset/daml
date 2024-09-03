@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.FullTransferOutTree
+import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
@@ -18,10 +18,10 @@ import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** Checks that need to be performed as part of phase 3 of the transfer-out request processing
+/** Checks that need to be performed as part of phase 3 of the unassignment request processing
   */
-private[transfer] final case class TransferOutValidation(
-    request: FullTransferOutTree,
+private[transfer] final case class UnassignmentValidation(
+    request: FullUnassignmentTree,
     expectedStakeholders: Set[LfPartyId],
     expectedTemplateId: LfTemplateId,
     sourceProtocolVersion: SourceProtocolVersion,
@@ -49,7 +49,7 @@ private[transfer] final case class TransferOutValidation(
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     targetTopology match {
       case Some(targetTopology) =>
-        TransferOutValidationReassigningParticipant(
+        UnassignmentValidationReassigningParticipant(
           request,
           expectedStakeholders,
           expectedTemplateId,
@@ -60,7 +60,7 @@ private[transfer] final case class TransferOutValidation(
           logger,
         )
       case None =>
-        TransferOutValidationNonReassigningParticipant(request, sourceTopology, logger)
+        UnassignmentValidationNonReassigningParticipant(request, sourceTopology, logger)
     }
 
   private def checkTemplateId()(implicit
@@ -76,10 +76,10 @@ private[transfer] final case class TransferOutValidation(
     )
 }
 
-private[transfer] object TransferOutValidation {
+private[transfer] object UnassignmentValidation {
 
   def apply(
-      request: FullTransferOutTree,
+      request: FullUnassignmentTree,
       expectedStakeholders: Set[LfPartyId],
       expectedTemplateId: LfTemplateId,
       sourceProtocolVersion: SourceProtocolVersion,
@@ -92,7 +92,7 @@ private[transfer] object TransferOutValidation {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
 
-    val validation = TransferOutValidation(
+    val validation = UnassignmentValidation(
       request,
       expectedStakeholders,
       expectedTemplateId,

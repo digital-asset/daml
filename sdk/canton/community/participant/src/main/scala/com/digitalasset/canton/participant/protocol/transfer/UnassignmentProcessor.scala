@@ -24,7 +24,7 @@ import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-class TransferOutProcessor(
+class UnassignmentProcessor(
     domainId: SourceDomainId,
     override val participantId: ParticipantId,
     damle: DAMLe,
@@ -42,12 +42,12 @@ class TransferOutProcessor(
     override val testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext)
     extends ProtocolProcessor[
-      TransferOutProcessingSteps.SubmissionParam,
-      TransferOutProcessingSteps.SubmissionResult,
+      UnassignmentProcessingSteps.SubmissionParam,
+      UnassignmentProcessingSteps.SubmissionResult,
       UnassignmentViewType,
       TransferProcessorError,
     ](
-      new TransferOutProcessingSteps(
+      new UnassignmentProcessingSteps(
         domainId,
         participantId,
         damle,
@@ -68,10 +68,10 @@ class TransferOutProcessor(
       futureSupervisor,
     ) {
   override protected def metricsContextForSubmissionParam(
-      submissionParam: TransferOutProcessingSteps.SubmissionParam
+      submissionParam: UnassignmentProcessingSteps.SubmissionParam
   ): MetricsContext =
     MetricsContext(
       "application-id" -> submissionParam.submitterMetadata.applicationId,
-      "type" -> "transfer-out",
+      "type" -> "unassignment",
     )
 }

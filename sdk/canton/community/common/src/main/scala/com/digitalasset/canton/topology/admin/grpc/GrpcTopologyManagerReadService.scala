@@ -20,19 +20,8 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrU
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v30.{
-  ExportTopologySnapshotRequest,
-  ExportTopologySnapshotResponse,
-  GenesisStateRequest,
-  GenesisStateResponse,
-  ListPartyHostingLimitsRequest,
-  ListPartyHostingLimitsResponse,
-  ListPartyToKeyMappingRequest,
-  ListPartyToKeyMappingResponse,
-  ListPurgeTopologyTransactionRequest,
-  ListPurgeTopologyTransactionResponse,
-  Store,
-}
+import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -44,34 +33,7 @@ import com.digitalasset.canton.topology.store.{
   TimeQuery,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.{
-  AuthorityOf,
-  DecentralizedNamespaceDefinition,
-  DomainParametersState,
-  DomainTrustCertificate,
-  IdentifierDelegation,
-  MediatorDomainState,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantDomainPermission,
-  PartyHostingLimits,
-  PartyToKeyMapping,
-  PartyToParticipant,
-  PurgeTopologyTransaction,
-  SequencerDomainState,
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-  TopologyMapping,
-  VettedPackages,
-}
-import com.digitalasset.canton.topology.{
-  DomainId,
-  Member,
-  ParticipantId,
-  TopologyManagerError,
-  UniqueIdentifier,
-  store,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
@@ -645,31 +607,6 @@ class GrpcTopologyManagerReadService(
         }
 
       adminProto.ListPartyToParticipantResponse(results = results)
-    }
-    CantonGrpcUtil.mapErrNewEUS(ret)
-  }
-
-  override def listAuthorityOf(
-      request: adminProto.ListAuthorityOfRequest
-  ): Future[adminProto.ListAuthorityOfResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val ret = for {
-      res <- collectFromStoresByFilterString(
-        request.baseQuery,
-        AuthorityOf.code,
-        request.filterParty,
-      )
-    } yield {
-      val results = res
-        .collect { case (result, x: AuthorityOf) => (result, x) }
-        .map { case (context, elem) =>
-          new adminProto.ListAuthorityOfResponse.Result(
-            context = Some(createBaseResult(context)),
-            item = Some(elem.toProto),
-          )
-        }
-
-      adminProto.ListAuthorityOfResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }

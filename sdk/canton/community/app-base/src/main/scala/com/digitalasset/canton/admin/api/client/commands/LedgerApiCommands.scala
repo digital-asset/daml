@@ -81,7 +81,6 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, Reassignment, UnassignedEvent}
 import com.daml.ledger.api.v2.reassignment_command.{
   AssignCommand,
@@ -416,22 +415,20 @@ object LedgerApiCommands {
 
     }
 
-    final case class Prune(pruneUpTo: ParticipantOffset)
+    final case class Prune(pruneUpTo: String)
         extends BaseCommand[PruneRequest, PruneResponse, Unit] {
 
       override def timeoutType: TimeoutType =
         DefaultUnboundedTimeout // pruning can take a very long time
 
       override def createRequest(): Either[String, PruneRequest] =
-        pruneUpTo.value.absolute
-          .toRight("The pruneUpTo ledger offset needs to be absolute")
-          .map(
-            PruneRequest(
-              _,
-              // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
-              pruneAllDivulgedContracts = true,
-            )
+        Right(
+          PruneRequest(
+            pruneUpTo,
+            // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
+            pruneAllDivulgedContracts = true,
           )
+        )
 
       override def submitRequest(
           service: ParticipantPruningServiceStub,
@@ -997,9 +994,7 @@ object LedgerApiCommands {
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
       def unassignId: String = reassignment.getUnassignedEvent.unassignId
-      def offset: ParticipantOffset = ParticipantOffset(
-        ParticipantOffset.Value.Absolute(reassignment.offset)
-      )
+      def offset: String = reassignment.offset
     }
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper = {

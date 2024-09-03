@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.store.TransferStore
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
@@ -56,10 +56,10 @@ class TransferCoordination(
 
   /** Returns a future that completes when a snapshot can be taken on the given domain for the given timestamp.
     *
-    * This is used when a transfer-in blocks for the identity state at the transfer-out. For more general uses,
+    * This is used when a transfer-in blocks for the identity state at the unassignment. For more general uses,
     * `awaitTimestamp` should be preferred as it triggers the progression of time on `domain` by requesting a tick.
     */
-  private[transfer] def awaitTransferOutTimestamp(
+  private[transfer] def awaitUnassignmentTimestamp(
       domain: SourceDomainId,
       staticDomainParameters: StaticDomainParameters,
       timestamp: CantonTimestamp,
@@ -68,7 +68,7 @@ class TransferCoordination(
   ): Either[UnknownDomain, Future[Unit]] =
     syncCryptoApi
       .forDomain(domain.unwrap, staticDomainParameters)
-      .toRight(UnknownDomain(domain.unwrap, "When transfer-in waits for transfer-out timestamp"))
+      .toRight(UnknownDomain(domain.unwrap, "When transfer-in waits for unassignment timestamp"))
       .map(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `domain`.
@@ -125,7 +125,7 @@ class TransferCoordination(
       _ <- EitherT.right(FutureUnlessShutdown.outcomeF(wait.getOrElse(onImmediate)))
     } yield ()
 
-  /** Submits a transfer-in. Used by the [[TransferOutProcessingSteps]] to automatically trigger the submission of a
+  /** Submits a transfer-in. Used by the [[UnassignmentProcessingSteps]] to automatically trigger the submission of a
     * transfer-in after the exclusivity timeout.
     */
   private[transfer] def transferIn(
@@ -213,7 +213,7 @@ class TransferCoordination(
     } yield (timeProof, targetCrypto)
 
   /** Stores the given transfer data on the target domain. */
-  private[transfer] def addTransferOutRequest(
+  private[transfer] def addUnassignmentRequest(
       transferData: TransferData
   )(implicit
       traceContext: TraceContext
@@ -227,18 +227,18 @@ class TransferCoordination(
         .leftMap[TransferProcessorError](TransferStoreFailed(transferData.reassignmentId, _))
     } yield ()
 
-  /** Adds the transfer-out result to the transfer stored on the given domain. */
-  private[transfer] def addTransferOutResult(
+  /** Adds the unassignment result to the transfer stored on the given domain. */
+  private[transfer] def addUnassignmentResult(
       domain: TargetDomainId,
-      transferOutResult: DeliveredTransferOutResult,
+      unassignmentResult: DeliveredUnassignmentResult,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     for {
       transferStore <- EitherT.fromEither[FutureUnlessShutdown](transferStoreFor(domain))
       _ <- transferStore
-        .addTransferOutResult(transferOutResult)
-        .leftMap[TransferProcessorError](TransferStoreFailed(transferOutResult.reassignmentId, _))
+        .addUnassignmentResult(unassignmentResult)
+        .leftMap[TransferProcessorError](TransferStoreFailed(unassignmentResult.reassignmentId, _))
     } yield ()
 
   /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.TransferStore]]. */
@@ -293,7 +293,7 @@ object TransferCoordination {
 trait TransferSubmissionHandle {
   def timeTracker: DomainTimeTracker
 
-  def submitTransferOut(
+  def submitUnassignment(
       submitterMetadata: TransferSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: TargetDomainId,
@@ -301,7 +301,7 @@ trait TransferSubmissionHandle {
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
-    TransferOutProcessingSteps.SubmissionResult
+    UnassignmentProcessingSteps.SubmissionResult
   ]]
 
   def submitTransferIn(

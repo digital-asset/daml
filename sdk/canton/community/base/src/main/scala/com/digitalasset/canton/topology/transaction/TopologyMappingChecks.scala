@@ -107,7 +107,6 @@ class ValidatingTopologyMappingChecks(
               pendingChangesLookup,
             )
           )
-      // TODO(#20752): check that the remove of a PTP doesn't leave an AuthorityOf hanging
 
       case (Code.OwnerToKeyMapping, None | Some(Code.OwnerToKeyMapping)) =>
         val checkReplace = toValidate
@@ -137,11 +136,6 @@ class ValidatingTopologyMappingChecks(
               pendingChangesLookup,
             )
           )
-
-      case (Code.AuthorityOf, None | Some(Code.AuthorityOf)) =>
-        toValidate
-          .select[TopologyChangeOp.Replace, AuthorityOf]
-          .map(checkAuthorityOf(effective, _, pendingChangesLookup))
 
       case (
             Code.DecentralizedNamespaceDefinition,
@@ -567,37 +561,6 @@ class ValidatingTopologyMappingChecks(
     } yield ()
   }
 
-  private def checkAuthorityOf(
-      effectiveTime: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, AuthorityOf],
-      pendingChangesLookup: PendingChangesLookup,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, TopologyTransactionRejection, Unit] = {
-    def checkPartiesAreKnown(): EitherT[Future, TopologyTransactionRejection, Unit] = {
-      val allPartiesToLoad = toValidate.mapping.partyId +: toValidate.mapping.parties
-      loadFromStore(
-        effectiveTime,
-        Set(Code.PartyToParticipant),
-        pendingChangesLookup,
-        filterUid = Some(allPartiesToLoad.map(_.uid)),
-      ).flatMap { partyMappings =>
-        val knownParties = partyMappings
-          .flatMap(_.selectMapping[PartyToParticipant])
-          .map(_.mapping.partyId)
-
-        val missingParties = allPartiesToLoad.toSet -- knownParties
-
-        EitherTUtil.condUnitET(
-          missingParties.isEmpty,
-          TopologyTransactionRejection.UnknownParties(missingParties.toSeq.sorted),
-        )
-      }
-    }
-
-    checkPartiesAreKnown()
-  }
-
   private def checkDecentralizedNamespaceDefinitionReplace(
       effective: EffectiveTime,
       toValidate: SignedTopologyTransaction[
@@ -626,7 +589,7 @@ class ValidatingTopologyMappingChecks(
         EitherTUtil.unit
       }
 
-    def checkNoClashWithNamespaceDelegations(effective: EffectiveTime)(implicit
+    def checkNoClashWithNamespaceDelegations()(implicit
         traceContext: TraceContext
     ): EitherT[Future, TopologyTransactionRejection, Unit] =
       loadFromStore(
@@ -642,9 +605,34 @@ class ValidatingTopologyMappingChecks(
         )
       }
 
+    def checkOwnersAreNormalNamespaces()(implicit
+        traceContext: TraceContext
+    ): EitherT[Future, TopologyTransactionRejection, Unit] =
+      loadFromStore(
+        effective,
+        Set(Code.NamespaceDelegation),
+        pendingChangesLookup,
+        filterUid = None,
+        filterNamespace = Some(toValidate.mapping.owners.toSeq),
+      ).flatMap { namespaceDelegations =>
+        val foundNSDs = namespaceDelegations
+          .filter(NamespaceDelegation.isRootCertificate)
+          .map(_.mapping.namespace)
+          .toSet
+        val missingNSDs = toValidate.mapping.owners -- foundNSDs
+
+        EitherTUtil.condUnitET(
+          missingNSDs.isEmpty,
+          InvalidTopologyMapping(
+            s"No root certificate found for ${missingNSDs.toSeq.sorted.mkString(", ")}"
+          ),
+        )
+      }
+
     for {
       _ <- checkDecentralizedNamespaceDerivedFromOwners()
-      _ <- checkNoClashWithNamespaceDelegations(effective)
+      _ <- checkNoClashWithNamespaceDelegations()
+      _ <- checkOwnersAreNormalNamespaces()
     } yield ()
   }
 

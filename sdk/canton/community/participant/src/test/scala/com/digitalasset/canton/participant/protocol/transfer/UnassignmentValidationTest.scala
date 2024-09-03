@@ -25,7 +25,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
 
-class TransferOutValidationTest
+// TODO(#21081) Check file names, test names and packages
+class UnassignmentValidationTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec {
@@ -45,7 +46,7 @@ class TransferOutValidationTest
 
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
 
-  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
@@ -66,10 +67,10 @@ class TransferOutValidationTest
   val seed = seedGenerator.generateSaltSeed()
 
   private val templateId =
-    LfTemplateId.assertFromString("transferoutvalidationtestpackage:template:id")
+    LfTemplateId.assertFromString("unassignmentvalidationtestpackage:template:id")
 
   val wrongTemplateId =
-    LfTemplateId.assertFromString("transferoutvalidatoionpackage:wrongtemplate:id")
+    LfTemplateId.assertFromString("unassignmentvalidatoionpackage:wrongtemplate:id")
 
   val contract = ExampleTransactionFactory.asSerializable(
     contractId,
@@ -103,11 +104,11 @@ class TransferOutValidationTest
 
   "transfer out validation" should {
     "succeed without errors" in {
-      val validation = mkTransferOutValidation(
+      val validation = mkUnassignmentValidation(
         stakeholders,
         sourcePV,
         templateId,
-        initialTransferCounter,
+        initialReassignmentCounter,
       )
       for {
         _ <- validation.valueOrFailShutdown("validation failed")
@@ -117,11 +118,11 @@ class TransferOutValidationTest
 
   "detect stakeholders mismatch" in {
     // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
-    val validation = mkTransferOutValidation(
+    val validation = mkUnassignmentValidation(
       stakeholders.union(Set(receiverParty2)),
       sourcePV,
       templateId,
-      initialTransferCounter,
+      initialReassignmentCounter,
     )
     for {
       res <- validation.leftOrFailShutdown("couldn't get left from transfer out validation")
@@ -138,7 +139,12 @@ class TransferOutValidationTest
   "detect template id mismatch" in {
     // template id does not match the one in the contract
     val validation =
-      mkTransferOutValidation(stakeholders, sourcePV, wrongTemplateId, initialTransferCounter).value
+      mkUnassignmentValidation(
+        stakeholders,
+        sourcePV,
+        wrongTemplateId,
+        initialReassignmentCounter,
+      ).value
     for {
       res <- validation.failOnShutdown
     } yield {
@@ -146,13 +152,13 @@ class TransferOutValidationTest
     }
   }
 
-  private def mkTransferOutValidation(
+  private def mkUnassignmentValidation(
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    val transferOutRequest = TransferOutRequest(
+    val unassignmentRequest = UnassignmentRequest(
       submitterInfo(submitterParty1),
       // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
       newStakeholders,
@@ -165,18 +171,18 @@ class TransferOutValidationTest
       targetDomain,
       targetPV,
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      transferCounter,
+      reassignmentCounter,
     )
-    val fullTransferOutTree = transferOutRequest
-      .toFullTransferOutTree(
+    val fullUnassignmentTree = unassignmentRequest
+      .toFullUnassignmentTree(
         pureCrypto,
         pureCrypto,
         seed,
         uuid,
       )
 
-    TransferOutValidation(
-      fullTransferOutTree,
+    UnassignmentValidation(
+      fullUnassignmentTree,
       stakeholders,
       expectedTemplateId,
       sourceProtocolVersion,

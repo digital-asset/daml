@@ -297,7 +297,7 @@ class ContractsService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]] = {
+  ): SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]] =
     domain.OkResponse(
       Source
         .future(allTemplateIds(lc)(jwt))
@@ -307,7 +307,6 @@ class ContractsService(
           )
         )
     )
-  }
 
   def search(
       jwt: Jwt,
@@ -426,14 +425,14 @@ class ContractsService(
       (getActiveContracts(jwt, txnFilter, true)(lc)
         via logTermination(logger, "ACS upstream"))
 
-    val transactionsSince: lav2.participant_offset.ParticipantOffset => Source[
+    val transactionsSince: String => Source[
       lav2.transaction.Transaction,
       NotUsed,
     ] =
       getCreatesAndArchivesSince(
         jwt,
         txnFilter,
-        _: lav2.participant_offset.ParticipantOffset,
+        _: String,
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")
 

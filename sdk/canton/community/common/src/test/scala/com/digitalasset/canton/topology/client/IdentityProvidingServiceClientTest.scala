@@ -67,16 +67,6 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
           }.toMap
         )
 
-      /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
-        * with threshold one
-        */
-      override def authorityOf(
-          parties: Set[LfPartyId]
-      )(implicit
-          traceContext: TraceContext
-      ): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
-        Future.successful(PartyTopologySnapshotClient.AuthorityOfResponse(Map.empty))
-
       override def partiesWithGroupAddressing(parties: Seq[LfPartyId])(implicit
           traceContext: TraceContext
       ): Future[Set[LfPartyId]] =

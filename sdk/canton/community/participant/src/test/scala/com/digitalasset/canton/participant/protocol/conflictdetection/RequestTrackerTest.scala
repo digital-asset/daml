@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter, TransferCounter}
+import com.digitalasset.canton.{BaseTest, ReassignmentCounter, RequestCounter, SequencerCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -31,9 +31,9 @@ private[conflictdetection] trait RequestTrackerTest {
   val coid10: LfContractId = ExampleTransactionFactory.suffixedId(1, 0)
   val coid11: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
 
-  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
-  private val active = Active(initialTransferCounter)
+  private val active = Active(initialReassignmentCounter)
 
   protected def requestTracker(
       genMk: (
@@ -295,16 +295,16 @@ private[conflictdetection] trait RequestTrackerTest {
           acs,
           tsCR0.addMicros(1),
           Map(
-            coid00 -> (tsCR0, initialTransferCounter),
-            coid01 -> (tsCR0, initialTransferCounter),
+            coid00 -> (tsCR0, initialReassignmentCounter),
+            coid01 -> (tsCR0, initialReassignmentCounter),
           ),
         )
         _ <- checkSnapshot(
           acs,
           tsCR1.addMicros(1),
           Map(
-            coid01 -> (tsCR0, initialTransferCounter),
-            coid10 -> (tsCR1, initialTransferCounter),
+            coid01 -> (tsCR0, initialReassignmentCounter),
+            coid10 -> (tsCR1, initialReassignmentCounter),
           ),
         )
       } yield succeed
@@ -1244,7 +1244,7 @@ private[conflictdetection] trait RequestTrackerTest {
   protected def checkSnapshot(
       acs: ActiveContractStore,
       ts: CantonTimestamp,
-      expected: Map[LfContractId, (CantonTimestamp, TransferCounter)],
+      expected: Map[LfContractId, (CantonTimestamp, ReassignmentCounter)],
   ): Future[Assertion] =
     acs
       .snapshot(ts)

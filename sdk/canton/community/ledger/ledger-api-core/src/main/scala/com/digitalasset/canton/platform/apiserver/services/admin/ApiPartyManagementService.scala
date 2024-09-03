@@ -29,12 +29,8 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderId,
-  ObjectMeta,
-  ParticipantOffset,
-  PartyDetails,
-}
+import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
+import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
@@ -238,7 +234,7 @@ private[apiserver] final class ApiPartyManagementService private (
       } { case (partyIdHintO, displayNameO, annotations, identityProviderId) =>
         (for {
           _ <- identityProviderExistsOrError(identityProviderId)
-          ledgerEndbeforeRequest <- transactionService.currentLedgerEnd().map(Some(_))
+          ledgerEndbeforeRequest <- transactionService.currentLedgerEnd()
           allocated <- synchronousResponse.submitAndWait(
             submissionId,
             (partyIdHintO, displayNameO),
@@ -672,7 +668,7 @@ private[apiserver] object ApiPartyManagementService {
       writeService.allocateParty(party, displayName, submissionId).toScalaUnwrapped
     }
 
-    override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
+    override def entries(offset: ParticipantOffset)(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[PartyEntry, ?] =
       partyManagementService.partyEntries(offset)

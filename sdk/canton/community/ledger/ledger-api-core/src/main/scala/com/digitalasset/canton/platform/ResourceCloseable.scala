@@ -10,6 +10,15 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.blocking
 
+/** This helper class serves as a bridge between FlagCloseable (canton's shutdown/resource manager trait) and
+  * Resource (daml's shutdown/resource management container).
+  * Recommended usage:
+  *   1 - The service class needs to be prepared with subclassing the ResourceCloseable.
+  *   2 - As the service instance is created, the ResourceOwnerFlagCloseableOps should be used to
+  *       instantiate a FlagCloseable with the ResourceOwner[ServiceClass].acquireFlagCloseable.
+  *   3 - The resulting ServiceClass instance can be used as FlagCloseable: as it is getting closed,
+  *       the wrapped Resource will be released.
+  */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 abstract class ResourceCloseable extends FlagCloseableAsync with NamedLogging {
   private var closeableResource: Option[AsyncCloseable] = None

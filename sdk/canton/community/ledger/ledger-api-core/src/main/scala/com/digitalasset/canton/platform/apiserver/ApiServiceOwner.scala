@@ -28,7 +28,6 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.{
-  AuthorityResolver,
   CommandProgressTracker,
   DynamicDomainParameterGetter,
 }
@@ -88,7 +87,6 @@ object ApiServiceOwner {
       otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
-      authorityResolver: AuthorityResolver,
       servicesExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
@@ -147,7 +145,6 @@ object ApiServiceOwner {
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
-        authorityResolver = authorityResolver,
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>

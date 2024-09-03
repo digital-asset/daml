@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
+import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.daml.lf.data.Ref
@@ -30,8 +30,8 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   case class PartialValidation(
       transactionFilter: TransactionFilter,
-      begin: domain.ParticipantOffset,
-      end: Option[domain.ParticipantOffset],
+      begin: ParticipantOffset,
+      end: Option[ParticipantOffset],
       knownParties: Set[Ref.Party],
   )
 
@@ -47,7 +47,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         .validate(req.endInclusive)
         .map(str =>
           if (str.isEmpty) None
-          else Some(Absolute(Ref.LedgerString.assertFromString(str)))
+          else Some(ParticipantOffset.fromString(str))
         )
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
@@ -59,18 +59,18 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   def validate(
       req: GetUpdatesRequest,
-      ledgerEnd: ParticipantOffset.Absolute,
+      ledgerEnd: ParticipantOffset,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionsRequest] =
     for {
       partial <- commonValidations(req)
-      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
         "End",
         partial.end,
         ledgerEnd,

@@ -101,7 +101,7 @@ sealed trait EnterpriseFeatureInCommunityIntegrationTest
     )
 
     val startOffset =
-      participant1.ledger_api.state.endOffset()
+      participant1.ledger_api.state.end()
     // Generate some data after the pruning point
     participant1.health.ping(participant1)
 

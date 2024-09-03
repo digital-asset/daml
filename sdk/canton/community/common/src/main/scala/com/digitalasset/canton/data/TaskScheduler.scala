@@ -14,6 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
+  HasCloseContext,
   Lifecycle,
   PromiseUnlessShutdown,
 }
@@ -59,7 +60,8 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     clock: Clock,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with HasCloseContext {
 
   /** Stores the timestamp up to which all tasks are known and can be performed,
     * unless they cannot be completed right now.
@@ -226,7 +228,11 @@ class TaskScheduler[Task <: TaskScheduler.TimedTask](
     lock.synchronized {
       if (latestPolledTimestamp.get >= timestamp) None
       else {
-        val barrier = TaskScheduler.TimeBarrier(timestamp, futureSupervisor)
+        val barrier = TaskScheduler.TimeBarrier(
+          timestamp,
+          futureSupervisor,
+          mkPromise("task-scheduler-time-barrier", futureSupervisor),
+        )
         barrierQueue.enqueue(barrier)
         Some(barrier.completion.futureUS)
       }
@@ -470,12 +476,10 @@ object TaskScheduler {
   private final case class TimeBarrier(
       override val timestamp: CantonTimestamp,
       futureSupervisor: FutureSupervisor,
+      private[TaskScheduler] val completion: PromiseUnlessShutdown[Unit],
   )(implicit val errorLoggingContext: ErrorLoggingContext)
       extends Scheduled {
     override val traceContext: TraceContext = errorLoggingContext.traceContext
-
-    private[TaskScheduler] val completion: PromiseUnlessShutdown[Unit] =
-      new PromiseUnlessShutdown[Unit]("task-scheduler-time-barrier", futureSupervisor)
   }
 
   trait TimedTask extends Scheduled with PrettyPrinting with AutoCloseable {

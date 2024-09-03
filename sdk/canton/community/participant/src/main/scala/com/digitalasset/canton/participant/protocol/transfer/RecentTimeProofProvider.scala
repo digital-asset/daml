@@ -66,7 +66,7 @@ private[transfer] class RecentTimeProofProvider(
           )
       )
 
-      exclusivityTimeout = parameters.transferExclusivityTimeout
+      exclusivityTimeout = parameters.assignmentExclusivityTimeout
       desiredTimeProofFreshness = calculateFreshness(exclusivityTimeout)
       timeProof <- EitherT.right(handle.timeTracker.fetchTimeProof(desiredTimeProofFreshness))
     } yield timeProof

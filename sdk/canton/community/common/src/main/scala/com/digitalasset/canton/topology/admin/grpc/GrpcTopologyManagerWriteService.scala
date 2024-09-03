@@ -141,8 +141,6 @@ class GrpcTopologyManagerWriteService(
         SequencerDomainState.fromProtoV30(mapping)
       case Mapping.PartyToParticipant(mapping) =>
         PartyToParticipant.fromProtoV30(mapping)
-      case Mapping.AuthorityOf(mapping) =>
-        AuthorityOf.fromProtoV30(mapping)
       case Mapping.DomainTrustCertificate(mapping) =>
         DomainTrustCertificate.fromProtoV30(mapping)
       case Mapping.OwnerToKeyMapping(mapping) =>

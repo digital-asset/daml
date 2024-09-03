@@ -5,7 +5,11 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{InterfaceFilter, TemplateFilter}
+import com.digitalasset.canton.ledger.api.domain.{
+  InterfaceFilter,
+  ParticipantOffset,
+  TemplateFilter,
+}
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -27,14 +31,13 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
     Ref.QualifiedName.assertFromString(s"$includedModule:$includedTemplate")
   protected val packageId = Ref.PackageId.assertFromString("packageId")
   protected val packageId2 = Ref.PackageId.assertFromString("packageId2")
-  protected val absoluteOffset = Ref.LedgerString.assertFromString("0042")
+  protected val offset = ParticipantOffset.fromString("0042")
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false
   protected val eventId = "eventId"
   protected val transactionId = "42"
-  protected val ledgerEnd =
-    domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
+  protected val ledgerEnd = ParticipantOffset.fromString("1000")
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)

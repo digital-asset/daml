@@ -3,12 +3,16 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value
-import com.daml.ledger.api.v2.value.Value
+import com.daml.ledger.api.v2.value.{Identifier, Value}
 import com.digitalasset.canton.caching.CaffeineCache
+import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.IdString
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, PackageRef}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import com.digitalasset.transcode.codec.json.JsonCodec
 import com.digitalasset.transcode.codec.proto.GrpcValueCodec
 import com.digitalasset.transcode.daml_lf.{Dictionary, SchemaEntity, SchemaProcessor}
@@ -31,6 +35,147 @@ class SchemaProcessors(
     None,
   )
 
+  def convertGrpcToJson(templateId: Ref.Identifier, proto: value.Value)(
+      token: Option[String]
+  ): Future[ujson.Value] =
+    prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(proto))
+
+  def contractArgFromJsonToProto(
+      template: value.Identifier,
+      jsonArgsValue: ujson.Value,
+  )(implicit
+      token: Option[String],
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Future[value.Value] =
+    findTemplate(template, token).flatMap(templateId =>
+      prepareToProto(templateId.packageId, token).map(
+        _.templates(templateId).convert(jsonArgsValue)
+      )
+    )
+
+  def choiceArgsFromJsonToProto(
+      template: value.Identifier,
+      choiceName: IdString.Name,
+      jsonArgsValue: ujson.Value,
+  )(implicit
+      token: Option[String],
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Future[value.Value] =
+    findTemplate(template, token).flatMap { templateId =>
+      prepareToProto(templateId.packageId, token).map(
+        _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
+      )
+    }
+
+  def contractArgFromProtoToJson(
+      templateId: Ref.Identifier,
+      protoArgs: value.Record,
+  )(token: Option[String]): Future[ujson.Value] =
+    convertGrpcToJson(templateId, value.Value(value.Value.Sum.Record(protoArgs)))(token)
+
+  def choiceArgsFromProtoToJson(
+      templateId: Ref.Identifier,
+      choiceName: IdString.Name,
+      protoArgs: value.Value,
+  )(implicit token: Option[String]) = prepareToJson(templateId.packageId, token).map(
+    _.choiceArguments((templateId, choiceName)).convert(protoArgs)
+  )
+
+  def keyArgFromProtoToJson(
+      templateId: Ref.Identifier,
+      protoArgs: value.Value,
+  )(token: Option[String]): Future[ujson.Value] =
+    prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(protoArgs))
+
+  def keyArgFromJsonToProto(
+      template: value.Identifier,
+      protoArgs: ujson.Value,
+  )(implicit
+      token: Option[String],
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Future[value.Value] =
+    findTemplate(template, token).flatMap(templateId =>
+      prepareToProto(templateId.packageId, token).map(_.templateKeys(templateId).convert(protoArgs))
+    )
+
+  def exerciseResultFromProtoToJson(
+      lfIdentifier: Ref.Identifier,
+      choiceName: IdString.Name,
+      v: value.Value,
+  )(implicit token: Option[String]) =
+    prepareToJson(lfIdentifier.packageId, token).map(
+      _.choiceArguments((lfIdentifier, choiceName)).convert(v)
+    )
+
+  def exerciseResultFromJsonToProto(
+      template: Identifier,
+      choiceName: IdString.Name,
+      value: ujson.Value,
+  )(implicit token: Option[String], contextualizedErrorLogger: ContextualizedErrorLogger): Future[Option[Value]] = value match {
+    case ujson.Null => Future(None)
+    case _ =>
+      findTemplate(template, token).flatMap(templateId =>
+        prepareToProto(templateId.packageId, token)
+          .map(_.choiceArguments((templateId, choiceName)).convert(value))
+          .map(Some(_))
+      )
+  }
+
+  private def reloadSignatures(
+      token: Option[String]
+  ): Future[Map[Ref.PackageId, Ast.PackageSignature]] =
+    fetchSignatures(token).map { signatures =>
+      cache.put(token.getOrElse(""), signatures)
+      signatures
+    }
+
+  private def findTemplate(
+      template: value.Identifier,
+      token: Option[String],
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Future[Ref.Identifier] =
+    PackageRef.fromString(template.packageId) match {
+      case Right(PackageRef.Name(name)) =>
+        loadTemplate(name, template, token).map(IdentifierConverters.lfIdentifier)
+      case Right(PackageRef.Id(_)) =>
+        Future(IdentifierConverters.lfIdentifier(template))
+      case Left(error) =>
+        Future.failed(invalidField("package reference", error))
+    }
+
+  private def loadTemplate(
+      packageName: String,
+      template: Identifier,
+      token: Option[String],
+  ): Future[value.Identifier] = {
+
+    def filterMatching(signatures: Map[PackageId, PackageSignature]) =
+      signatures.filter { case (_, signature) =>
+        signature.metadata.name == packageName
+      }.toSeq
+
+    val signatures: Map[PackageId, PackageSignature] =
+      cache.getIfPresent(token.getOrElse("")).getOrElse(Map.empty)
+    val matchingPackages = filterMatching(signatures)
+
+    val packagesMatchingName = if (matchingPackages.isEmpty) {
+      reloadSignatures(token).map(filterMatching(_))
+    } else {
+      Future(matchingPackages)
+    }
+
+    packagesMatchingName.map { packages =>
+      val topPackage: (PackageId, PackageSignature) = packages
+        .sortBy { case (_, signature) =>
+          signature.metadata.version
+        }
+        .reverse
+        .head
+      Identifier(topPackage._1, template.moduleName, template.entityName)
+    }
+  }
+
   private def ensurePackage(
       packageId: Ref.PackageId,
       token: Option[String],
@@ -39,18 +184,12 @@ class SchemaProcessors(
     val signatures = cache.getIfPresent(tokenKey)
     signatures.fold {
       // TODO(i20707) use the new Ledger API's package metadata view
-      fetchSignatures(token).map { fetched =>
-        cache.put(tokenKey, fetched)
-        fetched
-      }
+      reloadSignatures(token)
     } { signatures =>
       if (signatures.contains(packageId)) {
         Future(signatures)
       } else {
-        fetchSignatures(token).map { newSignatures =>
-          cache.put(tokenKey, newSignatures)
-          newSignatures
-        }
+        reloadSignatures(token)
       }
     }
   }
@@ -90,75 +229,10 @@ class SchemaProcessors(
         )
         .fold(error => throw new IllegalStateException(error), identity)
     }
-
-  def convertGrpcToJson(templateId: Ref.Identifier, proto: value.Value)(
-      token: Option[String]
-  ): Future[ujson.Value] =
-    prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(proto))
-
-  def contractArgFromJsonToProto(
-      templateId: Ref.Identifier,
-      jsonArgsValue: ujson.Value,
-  )(token: Option[String]): Future[value.Value] =
-    prepareToProto(templateId.packageId, token).map(_.templates(templateId).convert(jsonArgsValue))
-
-  def choiceArgsFromJsonToProto(
-      templateId: Ref.Identifier,
-      choiceName: IdString.Name,
-      jsonArgsValue: ujson.Value,
-  )(token: Option[String]): Future[value.Value] =
-    prepareToProto(templateId.packageId, token).map(
-      _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
-    )
-
-  def contractArgFromProtoToJson(
-      templateId: Ref.Identifier,
-      protoArgs: value.Record,
-  )(token: Option[String]): Future[ujson.Value] =
-    convertGrpcToJson(templateId, value.Value(value.Value.Sum.Record(protoArgs)))(token)
-
-  def choiceArgsFromProtoToJson(
-      templateId: Ref.Identifier,
-      choiceName: IdString.Name,
-      protoArgs: value.Value,
-  )(token: Option[String]) = prepareToJson(templateId.packageId, token).map(
-    _.choiceArguments((templateId, choiceName)).convert(protoArgs)
-  )
-
-  def keyArgFromProtoToJson(
-      templateId: Ref.Identifier,
-      protoArgs: value.Value,
-  )(token: Option[String]): Future[ujson.Value] =
-    prepareToJson(templateId.packageId, token).map(_.templates(templateId).convert(protoArgs))
-
-  def keyArgFromJsonToProto(
-      templateId: Ref.Identifier,
-      protoArgs: ujson.Value,
-  )(token: Option[String]): Future[value.Value] =
-    prepareToProto(templateId.packageId, token).map(_.templates(templateId).convert(protoArgs))
-
-  def exerciseResultFromProtoToJson(
-      lfIdentifier: Ref.Identifier,
-      choiceName: IdString.Name,
-      v: value.Value,
-  )(token: Option[String]) = prepareToJson(lfIdentifier.packageId, token).map(
-    _.choiceArguments((lfIdentifier, choiceName)).convert(v)
-  )
-
-  def exerciseResultFromJsonToProto(
-      lfIdentifier: Ref.Identifier,
-      choiceName: IdString.Name,
-      value: ujson.Value,
-  )(token: Option[String]): Future[Option[Value]] = value match {
-    case ujson.Null => Future(None)
-    case _ =>
-      prepareToProto(lfIdentifier.packageId, token)
-        .map(_.choiceArguments((lfIdentifier, choiceName)).convert(value))
-        .map(Some(_))
-  }
-
 }
 
 object SchemaProcessorsCache {
   val MaxCacheSize: Long = 100
+
+  final class M
 }
