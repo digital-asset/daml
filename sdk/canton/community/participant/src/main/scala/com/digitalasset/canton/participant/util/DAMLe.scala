@@ -398,12 +398,6 @@ class DAMLe(
             case Left(abort) => Future.successful(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
-        case ResultNeedAuthority(_, _, resume) =>
-          logger.debug(
-            "Authorisation failed. AuthorityOf is not supported"
-          )
-          handleResultInternal(contracts, resume(false))
-
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
           val unusedTxVersion = TransactionVersion.StableVersions.max
           val metadata = ContractMetadata.tryCreate(

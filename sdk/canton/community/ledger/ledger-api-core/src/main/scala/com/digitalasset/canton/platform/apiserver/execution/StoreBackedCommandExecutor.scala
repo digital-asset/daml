@@ -310,15 +310,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
               } else resume()
           }
 
-        case ResultNeedAuthority(holding @ _, requesting @ _, resume) =>
-          // ResultNeedAuthority needs to be removed in digital-asset/daml before we can remove it here
-          resolveStep(
-            Tracked.value(
-              metrics.execution.engineRunning,
-              trackSyncExecution(interpretationTimeNanos)(resume(false)),
-            )
-          )
-
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
           checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
             .flatMap { result =>
